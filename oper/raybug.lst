@@ -1,0 +1,405 @@
+    P R O G R A M   X E Z 4 5 C 		COBOL 50A(107000)	18-MAY-73  09:40		PAGE 1
+    RAYBUG.CBL    18-MAY-73  09:36
+
+    0001    IDENTIFICATION  DIVISION.                                         
+    0002    PROGRAM-ID.  XEZ45CF8
+    0003    AUTHOR.  DENNIS L. WARN.                                          
+    0004    INSTALLATION.  OXNARD DIGITAL.                                    
+    0005    DATE-WRITTEN.  03/19/73   REVISED   /  / .                        
+    0006    DATE-COMPILED. 18-MAY-73. 
+    0007    SECURITY.                                                         
+    0008    REMARKS.                                                          
+    0009        DGF8 CONVERTS A FROM/TO TAPE INTO                            
+    0010        A TRUE STRING TAPE.                                          
+    0011                                                                     
+    0012                                                                     
+    0013    ENVIRONMENT  DIVISION.                                            
+    0014    CONFIGURATION  SECTION.                                           
+    0015    SOURCE-COMPUTER. DECsystem-10. 
+    0016    OBJECT-COMPUTER. PDP-10.                                          
+    0017    INPUT-OUTPUT  SECTION.                                            
+    0018    FILE-CONTROL.                                                     
+    0019        SELECT CARD-IN                                               
+    0020            ASSIGN DSK,                                              
+    0021         RECORDING MODE IS ASCII.                                    
+    0022                                                                     
+    0023        SELECT TAPE-IN                                               
+    0024            ASSIGN DSK,                                              
+    0025         RECORDING MODE IS ASCII.                                    
+    0026                                                                     
+    0027        SELECT TAPE-OUT                                              
+    0028            ASSIGN DSK,                                              
+    0029         RECORDING MODE IS ASCII.                                    
+    0030                                                                     
+    0031                                                                     
+    0032                                                                     
+    0033    DATA  DIVISION.                                                   
+    0034    FILE  SECTION.                                                    
+    0035    FD   CARD-IN                                                      
+    0036            VALUE OF IDENTIFICATION IS "CARDINDAT"                   
+    0037        RECORD CONTAINS 80 CHARACTERS                                
+    0038        LABEL RECORD IS STANDARD                                     
+    0039        DATA RECORD IS CARDIN.                                       
+    0040    01   CARDIN.                                                      
+    0041        02  CARD-TAB                PICTURE X(11).                   
+    0042        02  FILLER                  PICTURE X(69).                   
+    0043                                                                     
+    0044    FD   TAPE-IN                                                      
+    0045            VALUE OF IDENTIFICATION IS "TAPEINDAT"                   
+    0046        RECORD CONTAINS 60 CHARACTERS                                
+    0047        BLOCK CONTAINS 50 RECORDS                                    
+    0048        LABEL RECORD IS STANDARD                                     
+    0049        DATA RECORD IS TAPEIN.                                       
+    0050    01   TAPEIN.                                                      
+    0051        02  TI-SIGNAL               PICTURE X(5).                    
+    0052        02  FILLER                  PICTURE X.                       
+    0053        02  TI-FROM                 PICTURE X(9).                    
+    0054        02  FILLER                  PICTURE X.                       
+    0055        02  TI-TO                   PICTURE X(9).                    
+    0056        02  FILLER                  PICTURE X(35).                       P R O G R A M   X E Z 4 5 C 		COBOL 50A(107000)	18-MAY-73  09:40		PAGE 1-1
+    RAYBUG.CBL    18-MAY-73  09:36
+
+    0057                                                                     
+    0058    FD   TAPE-OUT                                                     
+    0059            VALUE OF IDENTIFICATION IS "TAPEOTDAT"                   
+    0060        RECORD CONTAINS 60 CHARACTERS                                
+    0061        BLOCK CONTAINS 50 RECORDS                                    
+    0062        LABEL RECORD IS STANDARD                                     
+    0063        DATA RECORD IS TAPEOUT.                                      
+    0064    01   TAPEOUT                     PICTURE X(60).                   
+    0065                                                                     
+    0066    WORKING-STORAGE  SECTION.                                         
+    0067    77   A           COMPUTATIONAL   PICTURE 9(5).                    
+    0068    77   B           COMPUTATIONAL   PICTURE 9(5).                    
+    0069    77   C           COMPUTATIONAL   PICTURE 9(5).                    
+    0070    77   D           COMPUTATIONAL   PICTURE 9(5).                    
+    0071    77   E           COMPUTATIONAL   PICTURE 9(5).                    
+    0072    77   F1          COMPUTATIONAL   PICTURE 9(5).                    
+    0073    77   F2          COMPUTATIONAL   PICTURE 9(5).                    
+    0074    77   G1          COMPUTATIONAL   PICTURE 9(5).                    
+    0075    77   G2          COMPUTATIONAL   PICTURE 9(5).                    
+    0076    77   H           COMPUTATIONAL   PICTURE 9(5).                    
+    0077    77   I           COMPUTATIONAL   PICTURE 9(5).                    
+    0078    77   J           COMPUTATIONAL   PICTURE 9(5).                    
+    0079    77   K           COMPUTATIONAL   PICTURE 9(5).                    
+    0080    77   L           COMPUTATIONAL   PICTURE 9(5).                    
+    0081    77   M           COMPUTATIONAL   PICTURE 9(5).                    
+    0082    77   N           COMPUTATIONAL   PICTURE 9(5).                    
+    0083    01   MATRIX.                                                      
+    0084        02  MAT1        OCCURS 5.
+    0085            03  MAT2    OCCURS 300.
+    0086                04  MATF            PICTURE 9.
+    0087                04  MATP   COMPUTATIONAL PICTURE 9(5).
+    0088                                                                     
+    0089                                                                     
+    0090    01   DIMENSIONS.                                                  
+    0091        02  DIM         OCCURS 500.                                  
+    0092            03  KDIM.                                                
+    0093                04  KDIM13.                                          
+    0094                    05  KDIM12      PICTURE XX.                      
+    0095                    05  KDIM3       PICTURE X.                       
+    0096                04  KDIM46.                                          
+    0097                    05  KDIM45.                                      
+    0098                        06  KDIM4   PICTURE X.                       
+    0099                        06  FILLER  PICTURE X.                       
+    0100                    05  FILLER      PICTURE X.                       
+    0101            03  SDIM                        PICTURE 9(5).            
+    0102    01   SPLITTER.                                                    
+    0103        02  CONN-ID                 PICTURE XX.                      
+    0104        02  BLOCK-NO                PICTURE X.                       
+    0105        02  CONN-NO                 PICTURE XX.                      
+    0106        02  DASH-CON                PICTURE X.                       
+    0107        02  PIN-NO                  PICTURE XXX.                     
+    0108    01   MAKE-KEY.                                                    
+    0109        02  KCONN-ID                PICTURE XX.                      
+    0110        02  ABC                     PICTURE X.                       
+    0111        02  KBCP-NO                 PICTURE XXX.                     
+    0112    01   STRING-RECORD.                                                   P R O G R A M   X E Z 4 5 C 		COBOL 50A(107000)	18-MAY-73  09:40		PAGE 1-2
+    RAYBUG.CBL    18-MAY-73  09:36
+
+    0113        02  SR-NAME                 PICTURE X(7).                    
+    0114        02  SR-CODE                 PICTURE X.                       
+    0115        02  SR-OUTPUT               PICTURE X(7).                    
+    0116        02  SR-CONN                 PICTURE X(9).                    
+    0117        02  FILLER                  PICTURE X(36).                   
+    0118    01   INDEX-HOLD.                                                  
+    0119        02  INDEXH PICTURE 9(3) OCCURS 3 TIMES.
+    0120    01   RET-KEY.                                                     
+    0121        02  CONN-OD                 PICTURE XX.                      
+    0122        02  BLOCK-NU                PICTURE X.                       
+    0123    01   SIGNAL-NAME.                                                 
+    0124        02  SIG-ST                  PICTURE XX      VALUE 'ST'.      
+    0125        02  SIG-NO                  PICTURE 9(4).                    
+    0126                                                                     
+    0127                                                                     
+    0128                                                                     
+    0129                                                                     
+    0130                                                                     
+    0131    PROCEDURE  DIVISION.                                              
+    0132    INITIALIZE.                                                       
+    0133        OPEN INPUT CARD-IN TAPE-IN OUTPUT TAPE-OUT.                  
+    0134        MOVE 1 TO A B C D E F1 F2 G1 G2 H I J K L M N SIG-NO.        
+    0135        MOVE ZERO TO        DIMENSIONS MOVE SPACE TO STRING-RECORD.  
+    0136    ZERO-MAT.                                                         
+    0137        MOVE ZERO TO MATF (A, B) MATP (A, B).                        
+    0138        ADD 1 TO B.                                                  
+    0139        IF B IS NOT EQUAL TO  7501  GO TO ZERO-MAT.                  
+    0140        MOVE 1 TO B ADD 1 TO A.                                      
+    0141        IF A IS NOT EQUAL TO  3  GO TO ZERO-MAT.                     
+    0142    READ-CARD.                                                        
+    0143        READ CARD-IN AT END GO TO READ-TAPE.                         
+    0144        MOVE CARD-TAB TO DIM (A).                                    
+    0145        ADD 1 TO A GO TO READ-CARD.                                  
+    0146    READ-TAPE.                                                        
+    0147        READ TAPE-IN AT END MOVE 1 TO J GO TO OUTPUT-STRING.         
+    0148        MOVE TI-FROM TO SPLITTER MOVE CONN-ID TO KCONN-ID.           
+    0149        MOVE 1 TO E.                                                 
+    0150        DISPLAY       TAPEIN.                                        
+    0151    GET-DIM-LOOP.                                                     
+    0152        MOVE 'A' TO ABC MOVE PIN-NO TO KBCP-NO MOVE 1 TO B.          
+    0153        PERFORM GET-DIM THRU GET-DIM-EXIT.                           
+    0154        MOVE SDIM (B) TO C.                                          
+    0155        MOVE 'B' TO ABC MOVE BLOCK-NO TO KBCP-NO.                    
+    0156        PERFORM GET-DIM THRU GET-DIM-EXIT.                           
+    0157        ADD  SDIM (B) TO C.                                          
+    0158        MOVE 'C' TO ABC MOVE CONN-NO TO KBCP-NO.                     
+    0159        PERFORM GET-DIM THRU GET-DIM-EXIT.                           
+    0160        ADD SDIM (B) TO C.                                           
+    0161        IF E IS EQUAL TO 1 ADD 1 TO E MOVE C TO D                    
+    0162            MOVE TI-TO TO SPLITTER MOVE CONN-ID TO KCONN-ID          
+    0163            GO TO GET-DIM-LOOP.                                      
+    0164        MOVE C TO H PERFORM FIX-SUB THRU MOVE-SUB.                   
+    0165        MOVE D TO H PERFORM FIX-SUB.                                 
+    0166        MULTIPLY MATF (F1, F2) BY 4 GIVING E.                        
+    0167        ADD MATF (G1, G2) TO E.                                      
+    0168        DISPLAY       E D MAT2 (F1, F2) C MAT2 (G1, G2).                 P R O G R A M   X E Z 4 5 C 		COBOL 50A(107000)	18-MAY-73  09:40		PAGE 1-3
+    RAYBUG.CBL    18-MAY-73  09:36
+
+    0169        IF E =  0 GO TO SIT00.                                       
+    0170        IF E = 12 GO TO SIT30.                                       
+    0171        IF E = 13 GO TO SIT31.                                       
+    0172        IF E =  1 GO TO SIT01.                                       
+    0173        IF E =  2 GO TO SIT02.                                       
+    0174        IF E =  3 GO TO SIT03.                                       
+    0175        IF E =  4 GO TO SIT10.                                       
+    0176        IF E =  5 GO TO SIT11.                                       
+    0177        IF E =  6 GO TO SIT12.                                       
+    0178        IF E =  7 GO TO SIT13.                                       
+    0179        IF E =  8 GO TO SIT20.                                       
+    0180        IF E =  9 GO TO SIT21.                                       
+    0181        IF E = 10 GO TO SIT22.                                       
+    0182        IF E = 11 GO TO SIT23.                                       
+    0183        IF E = 14 GO TO SIT32.                                       
+    0184        IF E = 15 GO TO SIT33.                                       
+    0185        DISPLAY 'BAD SITUATION POINTER = ' E ', ' D ', ' C.          
+    0186        DISPLAY TAPEIN.                                              
+    0187        GO TO READ-TAPE.                                             
+    0188    SIT00.                                                            
+    0189        MOVE C TO H PERFORM FIX-SUB THRU MOVE-SUB.                   
+    0190        MOVE D TO H PERFORM FIX-SUB.                                 
+    0191        MOVE 1 TO MATF (F1, F2) MOVE 3 TO MATF (G1, G2).             
+    0192        MOVE C TO MATP (F1, F2) GO TO READ-TAPE.                     
+    0193    SIT01.                                                            
+    0194        MOVE C TO H PERFORM FIX-SUB THRU MOVE-SUB.                   
+    0195        MOVE D TO H PERFORM FIX-SUB.                                 
+    0196        MOVE 1 TO MATF (F1, F2) MOVE 2 TO MATF (G1, G2).             
+    0197        MOVE C TO MATP (F1, F2) GO TO READ-TAPE.                     
+    0198    SIT02.                                                            
+    0199        MOVE C TO H PERFORM FIX-SUB PERFORM FIND-END.                
+    0200        IF F1 = 0 GO TO READ-TAPE.                                   
+    0201        PERFORM MOVE-SUB MOVE D TO H PERFORM FIX-SUB.                
+    0202        MOVE 2 TO MATF (G1, G2) MOVE 3 TO MATF (F1, F2).             
+    0203        MOVE D TO MATP (G1, G2) GO TO READ-TAPE.                     
+    0204    SIT03.                                                            
+    0205        MOVE C TO H PERFORM FIX-SUB THRU MOVE-SUB.                   
+    0206        MOVE D TO H PERFORM FIX-SUB.                                 
+    0207        MOVE 2 TO MATF (G1, G2) MOVE 3 TO MATF (F1, F2).             
+    0208        MOVE D TO MATP (G1, G2) GO TO READ-TAPE.                     
+    0209    SIT10.                                                            
+    0210        MOVE C TO H PERFORM FIX-SUB THRU MOVE-SUB.                   
+    0211        MOVE D TO H PERFORM FIX-SUB.                                 
+    0212        MOVE 1 TO MATF (G1, G2) MOVE 2 TO MATF (F1, F2).             
+    0213        MOVE D TO MATP (G1, G2) GO TO READ-TAPE.                     
+    0214    SIT11.                                                            
+    0215        MOVE D TO H I PERFORM FIX-SUB THRU MOVE-SUB.                 
+    0216        MOVE MATP (G1, G2) TO H J PERFORM FIX-SUB.                   
+    0217        MOVE MATP (F1, F2) TO K.                                     
+    0218        PERFORM REVERSE-STRING.                                      
+    0219        MOVE C TO H PERFORM FIX-SUB THRU MOVE-SUB.                   
+    0220        MOVE D TO H PERFORM FIX-SUB.                                 
+    0221        MOVE 2 TO MATF (F1, F2) MATF (G1, G2).                       
+    0222        MOVE C TO MATF (F1, F2) GO TO READ-TAPE.                     
+    0223    SIT12.                                                            
+    0224        MOVE C TO H PERFORM FIX-SUB PERFORM FIND-END.                    P R O G R A M   X E Z 4 5 C 		COBOL 50A(107000)	18-MAY-73  09:40		PAGE 1-4
+    RAYBUG.CBL    18-MAY-73  09:36
+
+    0225        IF F1 = 0 GO TO READ-TAPE.                                   
+    0226        PERFORM MOVE-SUB MOVE D TO H PERFORM FIX-SUB.                
+    0227        MOVE 2 TO MATF (F1, F2) MATF (G1, G2).                       
+    0228        MOVE D TO MATP (G1, G TO READ-TAPE.                     
+    0229    SIT13.                                                            
+    0230        MOVE C TO H PERFORM FIX-SUB THRU MOVE-SUB.                   
+    0231        MOVE D TO H PERFORM FIX-SUB.                                 
+    0232        MOVE 2 TO MATF (F1, F2) MATF (G1, G2).                       
+    0233        MOVE D TO MATP (G1, G2) GO TO READ-TAPE.                     
+    0234    SIT20.                                                            
+    0235        MOVE D TO H PERFORM FIX-SUB PERFORM FIND-END.                
+    0236        IF F1 = 0 GO TO READ-TAPE.                                   
+    0237        PERFORM MOVE-SUB MOVE C TO H PERFORM FIX-SUB.                
+    0238        MOVE 2 TO MATF (G1, G2) MOVE 3 TO MATF (F1, F2).             
+    0239        MOVE C TO MATP (G1, G2) GO TO READ-TAPE.                     
+    0240    SIT21.                                                            
+    0241        MOVE D TO H PERFORM FIX-SUB PERFORM FIND-END.                
+    0242        IF F1 = 0 GO TO READ-TAPE.                                   
+    0243        PERFORM MOVE-SUB MOVE C TO H PERFORM FIX-SUB.                
+    0244        MOVE 2 TO MATF (G1, G2) MATF (F1, F2).                       
+    0245        MOVE C TO MATP (G1, G2) GO TO READ-TAPE.                     
+    0246    SIT22.                                                            
+    0247        MOVE C TO I MOVE 1 TO J PERFORM FIND-HEAD THRU HEAD-EXIT.    
+    0248        IF F1 = 0 GO TO READ-TAPE.                                   
+    0249        PERFORM MOVE-SUB.                                            
+    0250        MOVE D TO H PERFORM FIX-SUB PERFORM FIND-END.                
+    0251        IF F1 = 0 GO TO READ-TAPE.                                   
+    0252        MOVE 2 TO MATF (F1, F2) MATF (G1, G2).                       
+    0253        MOVE J TO MATP (F1, F2) GO TO READ-TAPE.                     
+    0254    SIT23.                                                            
+    0255        GO TO SIT22.                                                 
+    0256    SIT30.                                                            
+    0257        MOVE C TO H PERFORM FIX-SUB THRU MOVE-SUB.                   
+    0258        MOVE D TO H PERFORM FIX-SUB.                                 
+    0259        MOVE 2 TO MATF (F1, F2) MOVE 3 TO MATF (G1, G2).             
+    0260        MOVE C TO MATP (F1, F2) GO TO READ-TAPE.                     
+    0261    SIT31.                                                            
+    0262        MOVE C TO H PERFORM FIX-SUB THRU MOVE-SUB.                   
+    0263        MOVE D TO H PERFORM FIX-SUB.                                 
+    0264        MOVE 2 TO MATF (F1, F2) MATF (G1, G2).                       
+    0265        MOVE C TO MATP (F1, F2) GO TO READ-TAPE.                     
+    0266    SIT32.                                                            
+    0267        MOVE C TO I MOVE 1 TO J PERFORM FIND-HEAD THRU HEAD-EXIT.    
+    0268        IF F1 = 0 GO TO READ-TAPE.                                   
+    0269        PERFORM MOVE-SUB.                                            
+    0270        MOVE D TO H PERFORM FIX-SUB.                                 
+    0271        MOVE 2 TO MATF (F1, F2) MATF (G1, G2).                       
+    0272        MOVE J TO MATP (F1, F2) GO TO READ-TAPE.                     
+    0273    SIT33.                                                            
+    0274        MOVE C TO I MOVE 1 TO J PERFORM FIND-HEAD THRU HEAD-EXIT.    
+    0275        IF F1 = 0 GO TO READ-TAPE.                                   
+    0276        MOVE J TO C H I PERFORM FIX-SUB THRU MOVE-SUB.               
+    0277        MOVE MATP (G1, G2) TO H J PERFORM FIX-SUB.                   
+    0278        MOVE MATP (F1, F2) TO K.                                     
+    0279        PERFORM REVERSE-STRING PERFORM MOVE-SUB.                     
+    0280        MOVE D TO H PERFORM FIX-SUB.                                     P R O G R A M   X E Z 4 5 C 		COBOL 50A(107000)	18-MAY-73  09:40		PAGE 1-5
+    RAYBUG.CBL    18-MAY-73  09:36
+
+    0281        MOVE 2 TO MATF (F1, F2) MATF (G1, G2).                       
+    0282        MOVE C TO MATP (F1, F2) GO TO READ-TAPE.                     
+    0283    OUTPUT-STRING.                                                    
+    0284        MOVE J TO H PERFORM FIX-SUB.                                 
+    0285        IF F2 = 7501 GO TO EOJ.                                      
+    0286        IF MATF (F1, F2) NOT EQUAL TO 1                              
+    0287            ADD 1 TO J GO TO OUTPUT-STRING.                          
+    0288        MOVE 1 TO I K.                                               
+    0289        PERFORM RETRIEVE-CONN THRU RET-EXIT.                         
+    0290        MOVE SIGNAL-NAME TO SR-NAME MOVE '1' TO SR-CODE.             
+    0291        WRITE TAPEOUT FROM STRING-RECORD.                            
+    0292        ADD 1 TO J ADD 1 TO SIG-NO.                                  
+    0293    OUT-INPUT.                                                        
+    0294        MOVE MATP (F1, F2) TO H PERFORM FIX-SUB.                     
+    0295        MOVE 1 TO I K.                                               
+    0296        PERFORM RETRIEVE-CONN THRU RET-EXIT.                         
+    0297        MOVE '2' TO SR-CODE.                                         
+    0298        WRITE TAPEOUT FROM STRING-RECORD.                            
+    0299        IF MATF (F1, F2) IS EQUAL TO 3                               
+    0300            MOVE SPACE TO STRING-RECORD GO TO OUTPUT-STRING.         
+    0301        GO TO OUT-INPUT.                                             
+    0302                                                                     
+    0303    GET-DIM.                                                          
+    0304        IF KDIM (B) = 0 DISPLAY 'BAD KEY  '                          
+    0305            MAKE-KEY '  ' TI-SIGNAL '  ' SPLITTER                    
+    0306            MOVE 1 TO B GO TO GET-DIM-EXIT.                          
+    0307        IF KDIM (B) IS NOT EQUAL TO MAKE-KEY                         
+    0308            ADD 1 TO B GO TO GET-DIM.                                
+    0309    GET-DIM-EXIT.                                                     
+    0310        EXIT.                                                        
+    0311    FIND-END.                                                         
+    0312        IF MATF (F1, F2) = 2 MOVE MATP (F1, F2) TO H                 
+    0313            PERFORM FIX-SUB GO TO FIND-END.                          
+    0314        IF MATF (F1, F2) IS NOT EQUAL TO 3                           
+    0315            DISPLAY 'END NOT A 3 = ' MATF (F1, F2) ', ' F1 ', ' F2   
+    0316            MOVE ZERO TO F1.                                         
+    0317    FIX-SUB.                                                          
+    0318        IF H IS LESS THAN 7501                                       
+    0319            MOVE 1 TO F1 MOVE H TO F2.                               
+    0320        IF H IS GREATER THAN 7500 MOVE 2 TO F1                       
+    0321            SUBTRACT 7500 FROM H GIVING F2.                          
+    0322    MOVE-SUB.                                                         
+    0323        MOVE F1 TO G1 MOVE F2 TO G2.                                 
+    0324    REVERSE-STRING.                                                   
+    0325        IF MATF (G1, G2) = 1                                         
+    0326            MOVE 3 TO MATF (G1, G2) MOVE 0 TO MATP (G1, G2).         
+    0327        IF MATF (F1, F2) = 1 OR MATF (F1, F2) = 2                    
+    0328            MOVE I TO MATP (F1, F2) PERFORM MOVE-SUB                 
+    0329            MOVE J TO I MOVE K TO J H PERFORM FIX-SUB                
+    0330            IF MATF (F1, F2) = 3 NEXT SENTENCE                       
+    0331                ELSE MOVE MATP (F1, F2) TO K GO TO REVERSE-STRING.   
+    0332        MOVE I TO MATP (F1, F2) MOVE 1 TO MATF (F1, F2).             
+    0333    FIND-HEAD.                                                        
+    0334        MOVE J TO H PERFORM FIX-SUB.                                 
+    0335        IF F2 = 7501 DISPLAY 'COULD NOT FIND HEAD-OF-STRING'         
+    0336            DISPLAY TAPEIN MOVE 0 TO F1 GO TO HEAD-EXIT.                 P R O G R A M   X E Z 4 5 C 		COBOL 50A(107000)	18-MAY-73  09:40		PAGE 1-6
+    RAYBUG.CBL    18-MAY-73  09:36
+
+    0337        IF I = MATP (F1, F2) NEXT SENTENCE                           
+    0338            ELSE ADD 1 TO J GO TO FIND-HEAD.                         
+    0339        IF 1 = MATF (F1, F2) NEXT SENTENCE                           
+    0340            ELSE MOVE 1 TO J MOVE MATP (F1, F2) TO I                 
+    0341            GO TO FIND-HEAD.                                         
+    0342    HEAD-EXIT.                                                        
+    0343        EXIT.                                                        
+    0344                                                                     
+    0345    RETRIEVE-CONN.                                                    
+    0346        MOVE KDIM12 (I) TO CONN-OD MOVE 1 TO K.                      
+    0347        MOVE KDIM3 (I) TO BLOCK-NU ADD 1 TO I.                       
+    0348    RET-CONN.                                                         
+    0349        IF KDIM3 (I) = BLOCK-NU ADD 1 TO I GO TO RET-CONN.           
+    0350        SUBTRACT 1 FROM I GIVING INDEXH (K).                         
+    0351        ADD 1 TO K MOVE KDIM3 (I) TO BLOCK-NU.                       
+    0352        IF KDIM12 (I) = CONN-OD ADD 1 TO I GO TO RET-CONN.           
+    0353        MOVE INDEXH (1) TO K MOVE SDIM (K) TO L.                     
+    0354        MOVE INDEXH (2) TO K ADD SDIM (K) TO L.                      
+    0355        MOVE INDEXH (3) TO K ADD SDIM (K) TO L.                      
+    0356        IF H IS GREATER THAN L                                       
+    0357            IF A = I DISPLAY 'CAN NOT CONVERT ' H                    
+    0358                MOVE 0 TO I GO TO RET-EXIT                           
+    0359                ELSE GO TO RETRIEVE-CONN.                            
+    0360        MOVE INDEXH (2) TO K.                                        
+    0361    BLOCK-LOOP.                                                       
+    0362        IF H IS GREATER THAN SDIM (K) MOVE KDIM12 (K) TO CONN-ID     
+    0363            MOVE KDIM4 (K) TO BLOCK-NO SUBTRACT SDIM (K) FROM H      
+    0364            MOVE INDEXH (3) TO K GO TO CONN-LOOP                     
+    0365            ELSE SUBTRACT 1 FROM K GO TO BLOCK-LOOP.                 
+    0366    CONN-LOOP.                                                        
+    0367        IF H IS GREATER THAN SDIM (K) MOVE KDIM45 (K) TO CONN-NO     
+    0368            SUBTRACT SDIM (K) FROM H MOVE INDEXH (1) TO K            
+    0369            GO TO PIN-LOOP                                           
+    0370            ELSE SUBTRACT 1 FROM K GO TO CONN-LOOP.                  
+    0371    PIN-LOOP.                                                         
+    0372        IF H IS NOT EQUAL TO SDIM (K)                                
+    0373            SUBTRACT 1 FROM K GO TO PIN-LOOP.                        
+    0374        MOVE KDIM46 (K) TO PIN-NO MOVE '-' TO DASH-CON.              
+    0375        MOVE SPLITTER TO SR-CONN.                                    
+    0376    RET-EXIT.                                                         
+    0377        EXIT.                                                        
+    0378    EOJ.                                                              
+    0379        CLOSE CARD-IN TAPE-IN TAPE-OUT.                              
+    0380        STOP RUN.                                                        P R O G R A M   X E Z 4 5 C 		COBOL 50A(107000)	18-MAY-73  09:40		PAGE W-1
+    RAYBUG.CBL    18-MAY-73  09:36
+
+WARNINGS:
+
+    0222  MOST SIGNIFICANT DIGITS TRUNCATED ON MATF
+    0350  MOST SIGNIFICANT DIGITS TRUNCATED ON INDEXH
+
+
+NO FATAL ERRORS, 2 WARNINGS
+"A[&û
