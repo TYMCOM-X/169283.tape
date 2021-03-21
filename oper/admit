@@ -1,0 +1,227 @@
+C           CALCULATE CERAMIC VOLTAGE, CURRENT AND ADMITTANCE           ADM00110    
+C                                                                       ADM00120    
+      SUBROUTINE ADMIT                                                  ADM00130    
+C                                                                       ADM00140    
+      COMMON /CNTROL/ N(12),IE,IBC                                      ADM00180    
+      COMMON /CERFV / FVC,E,EC                                          ADM00170    
+      COMMON /CERAM / S333,G333,E333,NO,RHOCS,CLCS,ACS,LT,O,CSW         ADM00160    
+      COMMON /CC    / ACC,ALPHA,BETA,B,PHI,CCS,Z0,ZCC,C0,AKL,ZZ0,ZC0,ZB ADM00150    
+      COMMON /COMPOZ/ AC,ZC                                             ADM00190    
+      COMMON /EDIT  / SEC(24),T(20),PTYPE(2),MO,IDAY,IYR,IRUN,OUT(4)     ADM00200    
+      COMMON /FREQ  / FREQ,TWOPI                                        ADM00210    
+      COMMON /FV    / FV,ZT,ZH,BFVSW,FVSW                               ADM00220    
+      COMMON /POWER / POWER                                             ADM00230    
+      COMMON /SW    / LSW(20)                                           ADM00240    
+      COMMON /TOT   / ATOT,TSW                                          ADM00250    
+      COMMON /YC    / IC,YC                                             ADM00260    
+      COMMON /COM95 / ZIN,YIN,EIN,IIN                                   ADM00270    
+C                                                                       ADM00280    
+C     E      VOLTAGE INPUT TO CERAMIC STACK                             ADM00290    
+C     EIN    VOLTAGE INPUT TO TUNING NETWORK                            ADM00300    
+C     FL     FORCE AT LEFT (TAIL) END OF CERAMIC STACK                  ADM00310    
+C     FR     FORCE AT RIGHT (HEAD) END OF CERAMIC STACK                 ADM00320    
+C     IC     CURRENT INPUT TO CERAMIC STACK                             ADM00330    
+C     IIN    CURRENT INPUT TO TUNING NETWORK                            ADM00340    
+C     PC     POWER INPUT TO CERAMIC STACK                               ADM00350    
+C     PIN    POWER INPUT TO TUNING NETWORK                              ADM00360    
+C     VAC    VOLT-AMPERE INPUT TO CERAMIC STACK                         ADM00370    
+C     VAIN   VOLT-AMPERE INPUT TO TUNING NETWORK                        ADM00380    
+C     VL     VELOCITY AT LEFT (TAIL) END OF CERAMIC STACK               ADM00390    
+C     VR     VELOCITY AT RIGHT (HEAD) END OF CERAMIC STACK              ADM00400    
+C     YC     CERAMIC ADMITTANCE                                         ADM00410    
+C     YIN    TUNING NETWORK INPUT ADMITTANCE                            ADM00420    
+C     ZCERAM CERAMIC IMPEDANCE                                          ADM00430    
+C     ZIN    TUNING NETWORK INPUT IMPEDANCE                             ADM00440    
+C                                                                       ADM00450    
+      COMPLEX FV(2,11,12),ZT,ZH,ATOT(6,2),AC(2,2,12),ZC(2,2,12),ACC(2,3,ADM00460    
+     12),ALPHA(2,2,2),BETA(2,2),B(2,2,2),PHI,CCS,Z0,C0,AKL,ZZ0,ZCC(2,2),ADM00470    
+     2ZC0,POWER(2),Q(2,2),VCC0,IC,YC,FVC(2,33),E,EC,ZB(2,3),EIN,IIN,FL,VADM00480    
+     3L,FR,VR,ZCERAM,ZIN,YIN,S333,G333,E333,SP(2,2),SN1(2,2),SN2(2,2),STADM00490    
+     4E(2,2),SHE(2,2)                                                   ADM00500    
+C                                                                       ADM00510    
+      LOGICAL LSW                                                       ADM00520    
+C                                                                       ADM00530    
+C     STATEMENTS TO TRICK GE-635 COMPILER.                              ADM00540    
+      Q(1,1)=(0.,0.)                                                    ADM00550    
+      SP(1,1)=(0.,0.)                                                   ADM00560    
+C     SET UP SPECIAL MATRICES FOR TERMINATED PIECES.                    ADM00570    
+C                                                                       ADM00580    
+C     NUT 1                                                             ADM00590    
+      SN1(1,1)=(1.,0.)                                                  ADM00600    
+      SN1(1,2)=-AC(1,2,6)/AC(1,1,6)                                     ADM00610    
+      SN1(2,1)=(0.,0.)                                                  ADM00620    
+      SN1(2,2)=(1.,0.)                                                  ADM00630    
+C                                                                       ADM00640    
+C     NUT 2                                                             ADM00650    
+      SN2(1,1)=(1.,0.)                                                  ADM00660    
+      SN2(1,2)=AC(1,2,7)/AC(2,2,7)                                      ADM00670    
+      SN2(2,1)=(0.,0.)                                                  ADM00680    
+      SN2(2,2)=(1.,0.)                                                  ADM00690    
+C                                                                       ADM00700    
+C     TAIL EXTENSION                                                    ADM00710    
+      STE(1,1)=(1.,0.)                                                  ADM00720    
+      STE(1,2)=AC(1,2,8)/AC(2,2,8)                                      ADM00730    
+      STE(2,1)=(0.,0.)                                                  ADM00740    
+      STE(2,2)=(1.,0.)                                                  ADM00750    
+C                                                                       ADM00760    
+C     HEAD EXTENSION                                                    ADM00770    
+      SHE(1,1)=(1.,0.)                                                  ADM00780    
+      SHE(1,2)=-AC(1,2,9)/AC(1,1,9)                                     ADM00790    
+      SHE(2,1)=(0.,0.)                                                  ADM00800    
+      SHE(2,2)=(1.,0.)                                                  ADM00810    
+      N1=1                                                              ADM00820    
+      IF(IE.EQ.2)N1=3                                                   ADM00830    
+      N2=N1+1                                                           ADM00840    
+C                                                                       ADM00850    
+C***********************************************************************ADM00860    
+C*                                                                     *ADM00870    
+C*    FIND THE FORCE AND VELOCITY AT CERAMIC STACK RIGHT END.          *ADM00880    
+C*    SUBROUTINE CFV WILL USE OTHER FORCES AND VELOCITIES LATER.       *ADM00890    
+C*                                                                     *ADM00900    
+C***********************************************************************ADM00910    
+C                                                                       ADM00920    
+C     CROSS HEAD FACING.                                                ADM00930    
+      L=N(12)+1                                                         ADM00940    
+      CALL MPY(AC(1,1,12),2,2,FV(1,L,12),1,FV(1,1,12))                  ADM00950    
+C                                                                       ADM00960    
+C     CROSS TAIL MOUNT.                                                 ADM00970    
+      CALL INVERT(AC(1,1,11),Q(1,1))                                    ADM00980    
+      L=N(11)+1                                                         ADM00990    
+      CALL MPY(Q(1,1),2,2,FV(1,1,11),1,FV(1,L,11))                      ADM01000    
+C                                                                       ADM01010    
+C     VELOCITIES AT LEFT OF TAIL SECTION AND CAN PART.                  ADM01020    
+      FV(2,1,1)=FV(2,L,11)                                              ADM01030    
+      FV(2,1,10)=FV(2,L,11)                                             ADM01040    
+C                                                                       ADM01050    
+C     VELOCITIES AT RIGHT OF HEAD SECTION AND CAN PART.                 ADM01060    
+      L=N(2)+1                                                          ADM01070    
+      FV(2,L,2)=FV(2,1,12)                                              ADM01080    
+      L=N(10)+1                                                         ADM01090    
+      FV(2,LL,10)=FV(2,1,12)                                            ADM01100    
+C                                                                       ADM01110    
+C     FORCES ACROSS CAN PART.                                           ADM01120    
+      FV(1,1,10)=ZC(1,1,10)*FV(2,1,10)+ZC(1,2,10)*FV(2,LL,10)           ADM01130    
+      FV(1,LL,10)=ZC(2,1,10)*FV(2,1,10)+ZC(2,2,10)*FV(2,LL,10)          ADM01140    
+C                                                                       ADM01150    
+C     FORCE AT LEFT OF TAIL SECTION.                                    ADM01160    
+      L=N(11)+1                                                         ADM01170    
+      FV(1,1,1)=FV(1,L,11)-FV(1,1,10)                                   ADM01180    
+C                                                                       ADM01190    
+C     FORCE AT RIGHT OF HEAD SECTION.                                   ADM01200    
+      L=N(2)+1                                                          ADM01210    
+      FV(1,L,2)=FV(1,1,12)-FV(1,LL,10)                                  ADM01220    
+C                                                                       ADM01230    
+C     CROSS HEAD SECTION.                                               ADM01240    
+      CALL MPY(AC(1,1,2),2,2,FV(1,L,2),1,FV(1,1,2))                     ADM01250    
+C                                                                       ADM01260    
+C     CROSS TAIL SECTION.                                               ADM01270    
+      CALL INVERT(AC(1,1,1),Q(1,1))                                     ADM01280    
+      CALL MPY(AC(1,1,1),2,2,SN1,2,SP)                                  ADM01290    
+      CALL INVERT(SP,Q)                                                 ADM01300    
+      L=N(1)+1                                                          ADM01310    
+      CALL MPY(Q,2,2,FV(1,1,1),1,FV(1,L,1))                             ADM01320    
+C                                                                       ADM01330    
+C     VELOCITIES AT STRESS ROD ENDS.                                    ADM01340    
+      FV(2,1,3)=FV(2,L,1)                                               ADM01350    
+      LL=N(3)+1                                                         ADM01360    
+      FV(2,LL,3)=FV(2,1,2)                                              ADM01370    
+C                                                                       ADM01380    
+C     FORCES AT STRESS ROD ENDS.                                        ADM01390    
+      FV(1,1,3)=ZC(1,1,3)*FV(2,1,3)+ZC(1,2,3)*FV(2,LL,3)                ADM01400    
+      FV(1,LL,3)=ZC(2,1,3)*FV(2,1,3)+ZC(2,2,3)*FV(2,LL,3)               ADM01410    
+C                                                                       ADM01420    
+C     FORCE AND VELOCITY AT RIGHT OF NUT 1.                             ADM01430    
+      K=N(6)+1                                                          ADM01440    
+      FV(2,K,6)=FV(2,L,1)                                               ADM01450    
+      FV(1,K,6)=FV(2,K,6)*SN1(1,2)                                      ADM01460    
+C                                                                       ADM01470    
+C     FORCE AND VELOCITY AT LEFT OF NUT 1.                              ADM01480    
+      CALL MPY(AC(1,1,6),2,2,FV(1,K,6),1,FV(1,1,6))                     ADM01490    
+C                                                                       ADM01500    
+C     FORCE AND VELOCITY AT LEFT OF TAIL GROUP.                         ADM01510    
+      L=N(1)+1                                                          ADM01520    
+      FV(2,1,4)=FV(2,L,1)                                               ADM01530    
+      FV(1,1,4)=FV(1,L,1)+FV(1,K,6)-FV(1,1,3)                           ADM01540    
+C                                                                       ADM01550    
+C     CROSS TAIL GROUP.                                                 ADM01560    
+      L=N(4)+1                                                          ADM01570    
+      CALL INVERT(AC(1,1,4),Q(1,1))                                     ADM01580    
+      CALL MPY(Q,2,2,FV(1,1,4),1,FV(1,L,4))                             ADM01590    
+C                                                                       ADM01600    
+C     FORCE AND VELOCITY AT LEFT END OF TAIL EXTENSION.                 ADM01610    
+      FV(2,1,8)=FV(2,L,4)                                               ADM01620    
+      VL=FV(2,L,4)                                                      ADM01630    
+      FV(1,1,8)=FV(2,1,8)*STE(1,2)                                      ADM01640    
+      FL=FV(1,L,4)-FV(1,1,8)                                            ADM01650    
+C                                                                       ADM01660    
+C     FORCE AND VELOCITY AT LEFT END OF NUT 2.                          ADM01670    
+      FV(2,1,7)=FV(2,1,2)                                               ADM01680    
+      FV(1,1,7)=FV(2,1,7)*SN2(1,2)                                      ADM01690    
+C                                                                       ADM01700    
+C     FORCE AND VELOCITY AT RIGHT END OF HEAD GROUP.                    ADM01710    
+      LL=N(3)+1                                                         ADM01720    
+      L=N(5)+1                                                          ADM01730    
+      FV(2,L,5)=FV(2,1,2)                                               ADM01740    
+      FV(1,L,5)=FV(1,1,2)+FV(1,1,7)-FV(1,LL,3)                          ADM01750    
+C                                                                       ADM01760    
+C     CROSS HEAD GROUP                                                  ADM01770    
+      CALL MPY(AC(1,1,5),2,2,FV(1,L,5),1,FV(1,1,5))                     ADM01780    
+C                                                                       ADM01790    
+C     FORCE AND VELOCITY AT RIGHT END OF HEAD EXTENSION.                ADM01800    
+      VR=FV(2,1,5)                                                      ADM01810    
+      K=N(9)+1                                                          ADM01820    
+      FV(2,K,9)=FV(2,1,5)                                               ADM01830    
+      FV(1,K,9)=FV(2,K,9)*SHE(1,2)                                      ADM01840    
+      FR=FV(1,1,5)-FV(1,K,9)                                            ADM01850    
+C                                                                       ADM01860    
+C     FORCE AND VELOCITY AT LEFT OF HEAD EXTENSION.                     ADM01870    
+      CALL MPY(AC(1,1,9),2,2,FV(1,K,9),1,FV(1,1,9))                     ADM01880    
+      FVC(1,1)=FL                                                       ADM01890    
+      FVC(2,1)=VL                                                       ADM01900    
+      K=NO+1                                                            ADM01910    
+      FVC(1,K)=FR                                                       ADM01920    
+      FVC(2,K)=VR                                                       ADM01930    
+C                                                                       ADM01940    
+C***********************************************************************ADM01950    
+C*                                                                     *ADM01960    
+C*    COMPUTE CERAMIC VOLTAGE AND CURRENT INPUT.                       *ADM01970    
+C*                                                                     *ADM01980    
+C***********************************************************************ADM01990    
+C                                                                       ADM02000    
+      IC=ALPHA(IE,1,IE)*VL+ALPHA(IE,2,IE)*VR+BETA(IE,IE)*POWER(IE)      ADM02010    
+      E=ZC0*((VL-VR)+IC/PHI)                                            ADM02020    
+      PC=DOT(E,IC)                                                      ADM02030    
+      VAC=CABS(E*IC)                                                    ADM02040    
+      YC=IC/E                                                           ADM02050    
+      ZCERAM=E/IC                                                       ADM02060    
+C                                                                       ADM02070    
+C***********************************************************************ADM02080    
+C*                                                                     *ADM02090    
+C*    COMPUTE ELEMENT VOLTAGE AND CURRENT INPUT.                       *ADM02100    
+C*                                                                     *ADM02110    
+C***********************************************************************ADM02120    
+C                                                                       ADM02130    
+      CALL INVERT(B(1,1,IE),Q(1,1))                                     ADM02140    
+      EIN=Q(1,1)*E+Q(1,2)*IC                                            ADM02150    
+      IIN=Q(2,1)*E+Q(2,2)*IC                                            ADM02160    
+      PIN=DOT(EIN,IIN)                                                  ADM02170    
+      VAIN=CABS(EIN*IIN)                                                ADM02180    
+      YIN=IIN/EIN                                                       ADM02190    
+      ZIN=EIN/IIN                                                       ADM02200    
+      IF(LSW(5))WRITE(6,100)OUT(N1),OUT(N2),MO,IDAY,IYR,IRUN,FREQ,FL,FR,ADM02210    
+     1VL,VR,EIN,E,IIN,IC,ZIN,ZCERAM,YIN,YC,PIN,PC,VAIN,VAC              ADM02220    
+      RETURN                                                            ADM02230    
+C                                                                  ADM02240    
+  100 FORMAT (1H1///6X'TRANSDUCER ANALYSIS OUTPUT',2A6,8H CONTROL8XI2,1HADM02250    
+     1/,I2,1H/,I2,8X3HRUN,A6//45X'FREQUENCY =',F8.1//37X'CERAMIC STACK FADM02260    
+     2ORCES AND VELOCITIES'//20X'AT LEFT (TAIL) END',36X'AT RIGHT (HEAD)ADM02270    
+     3 END'/13X4HREAL,16X9HIMAGINARY,23X4HREAL,16X9HIMAGINARY/6X1P2E20.7ADM02280    
+     4,4X5HFORCE,3X2E20.7/6X2E20.7,4X8HVELOCITY,  2E20.7//45X'VOLTAGES AADM02290    
+     5ND CURRENTS'//19X'AT ELEMENT TERMINALS',32X'AT CERAMIC TERMINALS'/ADM02300    
+     613X4HREAL,16X9HIMAGINARY,23X4HREAL,16X9HIMAGINARY/6X2E20.7,4X7HVOLADM02310    
+     7TAGE,1X2E20.7/6X2E20.7,4X7HCURRENT,1X2E20.7/6X2E20.7,4X9HIMPEDANCEADM02320    
+     8,E19.7,E20.7/6X2E20.7,4X10HADMITTANCE,E18.7,E20.7/6XE20.7,24X5HPOWADM02330    
+     9ER,3XE20.7/6XE20.7,24X9HVOLT-AMPS,E19.7)                          ADM02340    
+C                                                                       ADM02350    
+      END                                                               ADM02360    
+   D Þ
