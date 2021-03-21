@@ -1,0 +1,270 @@
+MODULE BLACKJ(STACK)= BEGIN
+
+FORWARD PLAYER,DEALER;
+OWN CNUM[16],HCN[13];
+OWN NUMCR,S,RES,TOT,BET,HNM,SPLITFL,DBLFACTOR;
+OWN PTV,PHC,PUC,DTV,DHC,DUC,I,PHT,DHT,PNM,TOTCOUNT;
+BIND CASC= PLIT('A','2','3','4','5','6','7','8','9','10','J','Q','K');
+BIND CVAL= PLIT(1,2,3,4,5,6,7,8,9,10,10,10,10);
+
+MACHOP TTCALL =#51,
+       CALLI =#47;
+
+MACRO   INC= (REGISTER Q; TTCALL(4,Q);.Q)$,
+        INCW= (REGISTER Q; TTCALL(0,Q); .Q)$,
+        MSTIME= (REGISTER Q; CALLI(Q,#23);.Q)$,
+        OUTC(Z)= (REGISTER Q; Q_(Z); TTCALL(1,Q))$,
+        OUTSA(Z)= TTCALL(3,Z)$,
+        OUTCARD(Z)=OUTSA(CASC[Z])$,
+        OUTS(Z)= OUTSA(PLIT ASCIZ Z)$,
+        OUTSR(Z)= (OUTS(Z);CRLF)$,
+        OUTM(C,N)= DECR I FROM (N)-1 TO 0 DO OUTC(C)$,
+        CR= OUTC(#15)$, LF= OUTC(#12)$, NULL= OUTC(0)$,
+        CRLF= OUTS('?M?J?0?0')$,
+        TAB= OUTC(#11)$;
+
+ROUTINE OUTN(NUM,BASE,REQD)=
+    BEGIN OWN N,B,RD,T;
+        ROUTINE XN=
+            BEGIN LOCAL R;
+                IF .N EQL 0 THEN RETURN OUTM("0",.RD-.T);
+                R_.N MOD .B; N_.N/.B; T_.T+1; XN();
+                OUTC(.R+"0")
+            END;
+
+        IF .NUM LSS 0 THEN OUTC("-");
+        B_.BASE; RD_.REQD; T_0; N_ABS(.NUM); XN()
+     END;
+
+MACRO   OUTD(Z)= OUTN(Z,10,1)$,
+        OUTO(Z)= OUTN(Z,8,1)$,
+        OUTDR(Z,N)= OUTN(Z,10,N)$,
+        OUTOR(Z,N)= OUTN(Z,8,N)$;
+
+ROUTINE COUNT(X)=
+BEGIN OWN CC;
+CC_IF .X GEQ 1 AND .X LEQ 5 THEN 1 ELSE IF .X GEQ 6 AND .X LEQ 8 THEN 0 ELSE -1;
+TOTCOUNT_.TOTCOUNT+.CC;
+END;
+
+ROUTINE INNUM=
+BEGIN OWN NUM,D,FIR;
+        NUM_0; OUTS('BET??');
+        D_INC; IF .D EQL "N" THEN RETURN .D ELSE IF .D EQL "T" THEN
+        BEGIN INC; INC; RETURN 0 END ELSE IF .D EQL "C" THEN BEGIN
+        INC;INC;RETURN -1;END;
+        IF .D EQL #15 THEN BEGIN INC; OUTS('WHAT??') END;
+        IF .D GEQ "0" AND .D LEQ "9" THEN FIR_.D-"0";
+        WHILE .NUM EQL 0 DO
+        BEGIN
+                NUM_.FIR;
+                WHILE (D_INC) NEQ #15 DO
+                IF .D GEQ "0" AND .D LEQ "9" THEN
+                NUM_.NUM*10+(.D-"0");
+                INC;
+                IF .NUM GTR 0 THEN RETURN .NUM;
+                OUTS('WHAT??');
+        END
+END;
+
+ROUTINE RAND =
+BEGIN
+        S_.S^23+.S^14+.S^2+.S+1;
+        .(S<21,4>)
+END;
+
+ROUTINE CARDSUP(N,I)=
+BEGIN OWN X;
+        X_4-N; WHILE X_.X-1 GEQ 0 DO COUNT(.I);
+END;
+
+ROUTINE SHUFFLE =
+BEGIN OWN I;
+        TOTCOUNT_0;
+        DECR I FROM 12 TO 0 DO CARDSUP(CNUM[.I]_.HCN[.I],.I);
+        NUMCR_.HNM;OUTS('DECK IS SHUFFLED.  ');
+END;
+ROUTINE NEXTCR=
+BEGIN OWN V;
+        IF .NUMCR LSS 52 THEN NUMCR_.NUMCR+1 ELSE SHUFFLE();
+        WHILE .CNUM[V_RAND()] EQL 0 DO;
+        COUNT(.V);
+        CNUM[.V]_.CNUM[.V]-1;HCN[.V]_.HCN[.V]-1;HNM_.HNM+1;
+        RETURN .V;
+END;
+
+ROUTINE INITDL=
+BEGIN
+        OUTS('DEALERS UP CARD:  ');
+        OUTCARD(DUC_NEXTCR());CRLF;
+        OUTS('YOUR CARDS:  '); OUTCARD(PHC_NEXTCR()); OUTS('  ');
+        OUTCARD(PUC_NEXTCR()); OUTS('  ');
+        DHC_NEXTCR();
+        PTV_.CVAL[.PHC]+.CVAL[.PUC];
+        DTV_.CVAL[.DHC]+.CVAL[.DUC];
+        PHT_.PTV; IF .PHC EQL 0 OR .PUC EQL 0 THEN PTV_.PTV+10;
+        DHT_.DTV; IF .DHC EQL 0 OR .DUC EQL 0 THEN DTV_.DTV+10;
+END;
+
+ROUTINE PLAY(CARD)=
+BEGIN OWN PNC;
+                OUTCARD(PNC_NEXTCR());OUTS('  ');
+                PTV_.CVAL[.PNC]+.CVAL[.CARD];
+                PHT_.PTV; IF .PNC EQL 0 OR .CARD EQL 0 THEN PTV_.PTV+10;
+                IF .CARD NEQ 0 THEN PLAYER(0,10,0) ELSE CRLF;
+                IF .PTV GTR 21 THEN (OUTSR('YOU BUST');PTV_0;);
+END;
+
+ROUTINE SPLIT=
+BEGIN OWN FTV;
+        SPLITFL_1; CRLF;
+        OUTS('PLAY IS ON THE 1ST CARD:  ');OUTCARD(.PHC);OUTS('  ');
+        PLAY(.PHC); FTV_.PTV;
+        OUTS('PLAY IS ON THE 2ND CARD:  ');OUTCARD(.PHC);OUTS('  ');
+        PLAY(.PUC);
+        IF .PTV NEQ 0 OR .FTV NEQ 0 THEN BEGIN DEALER();
+                IF .DTV LEQ 21 THEN RES_SIGN(.FTV-.DTV)+SIGN(.PTV-.DTV)
+                ELSE BEGIN RES_ IF .PTV EQL 0 OR .FTV EQL 0 THEN 1 ELSE 2;
+                        OUTSR('DEALER BUSTS'); END;
+                CASE .RES+2 OF
+                SET
+                        (OUTSR('DEALER WINS BOTH')); !RES=-2!
+                        OUTSR('DEALER WINS 1; OTHER IS A PUSH.'); !RES=-1!
+                        OUTSR('HAND IS A PUSH.'); !RES=0!
+                        OUTSR('YOU WIN 1; OTHER IS A PUSH'); !RES=1!
+                        OUTSR('YOU WIN BOTH.'); !RES=2!
+                TES
+        END
+        ELSE RES_-2;
+END;
+
+ROUTINE PLAYER(DBLESOFT,DBLEHARD,SPLITL)=
+BEGIN OWN PNC,ANS;
+        PNM_2;
+        WHILE .PTV LEQ 21 DO
+          BEGIN
+                WHILE (ANS_INCW) NEQ "?C" AND .ANS NEQ "?N" &
+                AND .ANS NEQ "?S" AND .ANS NEQ "?D" DO;
+                IF .ANS EQL "?C" THEN BEGIN
+                  OUTCARD(PNC_NEXTCR());OUTS('  ');
+                  PTV_.PTV+.CVAL[.PNC];
+                  PNM_.PNM+1;PHT_.PHT+.CVAL[.PNC];
+                  IF .PNC EQL 0 AND .PTV LEQ 11 THEN PTV_.PTV+10;
+                  IF .PTV GTR 21 THEN PTV_.PHT;
+                END
+                ELSE IF .ANS EQL "?D" THEN
+                BEGIN
+                        IF .PNM EQL 2 AND .PTV LEQ 11 AND .PTV GEQ .DBLEHARD
+                        THEN BEGIN
+                                DBLFACTOR_.DBLFACTOR+1; PNC_NEXTCR();PNM_3;
+                                OUTCARD(.PNC);PTV_.PTV+.CVAL[.PNC];
+                                CRLF;
+                                IF .PNC EQL 0 AND .PTV LEQ 11 THEN
+                                PTV_.PTV+10;
+                                RETURN
+                        END
+                        ELSE BEGIN
+                        END
+                END
+                ELSE IF .ANS EQL "?S" THEN IF .SPLITL NEQ 0 AND &
+                        .PNM EQL 2 AND .PHC EQL .PUC THEN BEGIN
+                        SPLIT(); RETURN END
+                        ELSE BEGIN END
+                ELSE BEGIN CRLF; RETURN END
+          END;
+        CRLF;
+        RETURN
+END;
+
+ROUTINE DEALER=
+BEGIN OWN DNC;
+        OUTS('DEALERS CARDS: ');OUTCARD(.DUC);OUTS('  ');
+        OUTCARD(.DHC);OUTS('  ');
+        WHILE .DTV LSS 18 AND .DHT LSS 17 DO
+        BEGIN
+                OUTCARD(DNC_NEXTCR());OUTS('  ');
+                DTV_.DTV+.CVAL[.DNC];
+                DHT_.DHT+.CVAL[.DNC];
+                IF .DNC EQL 0 AND .DTV LEQ 11 THEN DTV_.DTV+10;
+                IF .DTV GTR 21 THEN DTV_.DHT;
+        END;
+        CRLF;
+END;
+
+ROUTINE HAND(BETA)=
+BEGIN
+        SPLITFL_0; DBLFACTOR_1;
+        DECR I FROM 12 TO 0 DO HCN[.I]_4;HNM_1;
+        INITDL();
+        IF .DTV EQL 21 THEN IF .PTV EQL 21 THEN
+        BEGIN
+         CRLF;  OUTS('DOUBLE BLACKJACK!!  THIS IS A PUSH.');CRLF;RES_0
+        END
+        ELSE BEGIN
+         CRLF;OUTS('DEALER HAS BLACKJACK. HOLE CARD:  ');
+                OUTCARD(.DHC);CRLF;RES_-1;
+        END
+      ELSE BEGIN
+        PLAYER(0,10,1);
+       IF .SPLITFL EQL 0 THEN BEGIN
+        IF .PTV EQL 21 AND .PNM EQL 2 THEN
+        BEGIN
+                OUTS('YOU HAVE BLACKJACK.  THE DEALERS HOLE CARD IS:  ');
+                OUTCARD(.DHC);CRLF;RES_2;
+        END
+        ELSE
+        IF .PTV LEQ 21 THEN
+        BEGIN
+                DEALER(); IF .DTV LEQ 21 THEN
+                SELECT SIGN(.DTV-.PTV) OF
+                        NSET
+                        1:BEGIN
+                                OUTS('DEALER WINS  '); OUTD(.DTV);
+                                OUTC("-");OUTD(.PTV);CRLF;RES_-1
+                        END;
+                        0:BEGIN
+                                OUTS('THE HAND IS A PUSH  ');OUTD(.DTV);
+                                OUTC("-");OUTD(.PTV);CRLF;RES_0
+                        END;
+                        -1:BEGIN
+                                OUTS('YOU WIN  '); OUTD(.PTV);
+                                OUTC("-");OUTD(.DTV);CRLF;RES_1
+                        END;
+                        TESN
+                ELSE
+                BEGIN
+                        OUTS('DEALER BUSTS. YOU WIN.');CRLF;RES_1
+                END
+        END
+        ELSE
+        BEGIN
+                OUTS('YOU BUST. DEALERS HOLE CARD IS:  ');
+                OUTCARD(.DHC); CRLF;RES_-1
+        END
+       END;
+      END;
+TOT_.TOT+.RES*.BETA*.DBLFACTOR;
+END;
+
+ROUTINE PRTOT=
+BEGIN
+        OUTS('YOUR TOTAL '); IF .TOT LSS 0 THEN OUTS('LOSS IS ')
+        ELSE OUTS('WINNINGS ARE '); OUTD(ABS(.TOT));OUTC(".");CRLF;
+        RETURN
+END;
+
+ROUTINE GAME=
+BEGIN OWN ANS;
+        WHILE (ANS_INNUM()) NEQ "N" DO
+        IF .ANS EQL 0 THEN PRTOT() ELSE IF .ANS EQL -1 THEN BEGIN
+            OUTS('COUNT IS ');OUTD(.TOTCOUNT);CRLF;END ELSE HAND(.ANS);
+        PRTOT();
+        OUTS('THANK YOU FOR AN ENJOYABLE GAME');
+        RETURN
+END;
+
+        DECR I FROM 12 TO 0 DO HCN[.I]_4;HNM_1;
+        SHUFFLE(); DECR I FROM 15 TO 13 DO CNUM[.I]_0;
+        S_314159261+MSTIME; NUMCR_0;TOT_0;CRLF;
+        GAME();
+END ELUDOM
