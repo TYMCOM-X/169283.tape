@@ -1,0 +1,170 @@
+      SUBROUTINE CNSTR
+C                  LINK CNSTR                                                 2
+C    -------------------------------------------------------------------      3
+C       CHANGE TO REAL IN OS/360                                              4
+      REAL   TITLE(70),CODE(80)                                               5
+C    -------------------------------------------------------------------      6
+C                  DIMENSION TO APPROPRIATE SIZE                              7
+C                  NOTE THAT A IS DIMENSIONED NMAX*(NMAX+1)                   8
+C                  C IS DIMENSIONED TO NVPR                                   9
+      DIMENSION A( 9870),B( 9870),D(140),NSLAV(140),NACT(140)
+     1,NS1(20),NS2(20),C(40),V(3)                                            11
+C    -------------------------------------------------------------------     12
+      COMMON IN,IOUT,NOUTP,IFPLT,NEXEC,NERR,NNT,NEQ,IFEQ(3),IFUNA,           13
+     1       IFUPD(3),NREC(4),NFN(4),NS(10),NSTAT(600),TITLE,CODE            14
+     1      ,IDMY(8),RDMY(34)                                                15
+C   ********************************************************************     16
+      COMMON/FILES/IDTFL,IPRCM,ITERM,NRECT
+      NMAX=140
+      NVPR=40                                                                18
+C                                                                            19
+C                  CONSTRAINT INPUT                                          20
+C                                                                            21
+      NFILE=NFN(4)                                                           22
+      REWIND NFILE                                                           23
+      IMAX=NVPR/4                                                            24
+      NRECW=0                                                                25
+      IND=0                                                                  26
+C                  READ INPUT DATA                                           27
+   20 ICT=0                                                                  28
+   40 CALL GETRL(V,3,3,NF,CODE,80,IN,IOUT)                                   29
+      IF(NF)47,47,44                                                         30
+   44 NOR=V(1)+0.1                                                           31
+      ICT=ICT+1                                                              32
+      IF(NSTAT(NOR)-2)45,46,45                                               33
+   45 IF(NSTAT(NOR))230,46,230                                               34
+   46 NS1(ICT)=NOR                                                           35
+      NS2(ICT)=V(2)+0.1                                                      36
+      C(ICT)=V(3)                                                            37
+      NSTAT(NOR)=2                                                           38
+      IF(ICT-IMAX)40,49,49                                                   39
+   47 IND=1                                                                  40
+      IF(NRECW)53,53,48                                                      41
+   48 IF(ICT)53,53,49                                                        42
+   49 NRECW=NRECW+1                                                          43
+C                  SCRATCH RECORDS                                           44
+      NR=NRECW                                                               45
+      WRITE(NFILE)(NS1(I),NS2(I),C(I),I=1,ICT)                               46
+      IF(IND)20,20,53                                                        47
+C                  ALL DATA READ AND WRITTEN                                 48
+C                  DETERMINE ORIGINAL COMPONENT NUMBER                       49
+   53 NNEQ=0                                                                 50
+      NRLS=0                                                                 51
+      IND=ICT                                                                52
+      NV=6*NNT                                                               53
+      DO 57 I=1,NV                                                           54
+      IF(NSTAT(I))54,55,54                                                   55
+   54 IF(NSTAT(I)-2)57,56,57                                                 56
+   55 NNEQ=NNEQ+1                                                            57
+      IF(NNEQ-NMAX)551,551,250                                               58
+  551 NACT(NNEQ)=I                                                           59
+      GO TO 57                                                               60
+   56 NRLS=NRLS+1                                                            61
+      IF(NRLS-NMAX)552,552,270                                               62
+  552 NSLAV(NRLS)=I                                                          63
+   57 CONTINUE                                                               64
+      IF(NERR)58,58,145                                                      65
+   58 CALL MFILL(A,NRLS,NRLS,NRLS,1.)                                       660
+      CALL MFILL(B,NRLS,NRLS,NNEQ,0.)                                        67
+C                  READ DATA FROM SCRATCH FILE, ASSEMBLE EQUATIONS           68
+      REWIND NFILE                                                           69
+      NCT=0                                                                  70
+      ICT=IMAX                                                               71
+   60 NCT=NCT+1                                                              72
+      IF(NCT-NRECW)65,62,64                                                  73
+   62 IF(IND)75,75,63                                                        74
+   63 ICT=IND                                                                75
+   65 READ(NFILE)(NS1(I),NS2(I),C(I),I=1,ICT)                                76
+      GO TO 66                                                               77
+   64 ICT=IND                                                                78
+C                  ASSEMBLE EQUATIONS                                        79
+   66 DO 70 I=1,ICT                                                          80
+      II1=1                                                                  81
+      II2=1                                                                  82
+      CALL NFND2(IR,NACT,NNEQ,NSLAV,NRLS,NSTAT,NS1(I),II1,II2)               83
+      II1=1                                                                  84
+      II2=1                                                                  85
+      CALL NFND2(IC,NACT,NNEQ,NSLAV,NRLS,NSTAT,NS2(I),II1,II2)               86
+      NOR=NS2(I)                                                             87
+      NV=NRLS*(IC-1)+IR                                                      88
+      IF(NSTAT(NOR)-2)68,67,70                                               89
+C                  CONSTRAINT MATRIX ELEMENT                                 90
+   67 A(NV)=-C(I)                                                            91
+      GO TO 70                                                               92
+   68 B(NV)=C(I)                                                             93
+   70 CONTINUE                                                               94
+      IF(ICT-IND)60,75,60                                                    95
+C                  COMPUTE T MATRIX                                          96
+   75 EPS=1.E-6                                                              97
+      CALL SIMQ1(B,A,NRLS,NNEQ,EPS,IER)                                      98
+C                  PUT T ON SCRATCH                                         100
+      NREC4=0                                                               101
+      CALL MRDWT(B,NRLS,NRLS,NNEQ,NFN(4),NREC4,NVPR,C,1)                    102
+C                  REDUCE MASS, DAMPING, AND STIFFNESS MATRICES             103
+      DO 140 II=1,3                                                         104
+      IF(IFUPD(II))140,140,130                                              105
+  130 NREC4=0                                                               106
+C                  GET EQUATIONS OF MOTION                                  107
+      CALL GPART(A,B,C,NSTAT,NACT,NNEQ,NSLAV,NRLS,NMAX,IFEQ(II),            108
+     1 NFN(II),NREC(II))                                                    109
+C                  PUT A11 ON THE A FILE                                    110
+      NST=NRLS*(NRLS+1)/2                                                   111
+      NV=NNEQ*(NNEQ+1)/2                                                    112
+      N1S=NST+1                                                             113
+      CALL VRDWT(A(N1S),NV,NFN(II),NVPR,C,1)                                114
+C                  PUT A12 BEHIND T                                         115
+      NREC4=1+(NNEQ*NRLS-1)/NVPR                                            116
+      CALL MRDWT(B,NMAX,NNEQ,NRLS,NFN(4),NREC4,NVPR,C,1)                    117
+C                  GET T                                                    118
+      NREC4=0                                                               119
+      CALL MRDWT(B,NMAX,NRLS,NNEQ,NFN(4),NREC4,NVPR,C,-1)                   120
+      CALL MSTOR(A,NMAX,NRLS,NRLS,5)                                        121
+      CALL MBTAB(A,NMAX,B,NMAX,D,NRLS,NNEQ)                                 122
+      CALL MSTOR(A,NMAX,NNEQ,NNEQ,2)                                        123
+      CALL FLADD(A,NV,NVPR,NFN(II),C)                                       124
+C                  GET A12                                                  125
+      NREC4=1+(NNEQ*NRLS-1)/NVPR                                            126
+      CALL MRDWT(A,NMAX,NNEQ,NRLS,NFN(4),NREC4,NVPR,C,-1)                   127
+      CALL MLTIP(A,NMAX,B,NMAX,D,NNEQ,NRLS,NNEQ)                            128
+      DO 135 I=1,NNEQ                                                       129
+      IST=I                                                                 130
+      DO 135 J=IST,NNEQ                                                     131
+      NA=NMAX*(J-1)+I                                                       132
+      NB=NMAX*(I-1)+J                                                       133
+      A(NA)=A(NA)+A(NB)                                                     134
+  135 A(NB)=A(NA)                                                           135
+      CALL MSTOR(A,NMAX,NNEQ,NNEQ,2)                                        136
+      CALL FLADD(A,NV,NVPR,NFN(II),C)                                       137
+      IFEQ(II)=NNEQ                                                         138
+      NREC(II)=1+(NV-1)/NVPR
+      REWIND NFILE
+      DO 137 I=1,NREC4
+  137 READ(NFILE)
+  140 CONTINUE                                                              139
+C                  FINISH UP                                                140
+  145 NV=6*NNT                                                              141
+      DO 180 I=1,NV                                                         142
+      IF(NSTAT(I)-1)160,150,160                                             143
+  150 NSTAT(I)=3                                                            144
+      GO TO 180                                                             145
+  160 IF(NSTAT(I)-2)180,170,180                                             146
+  170 NSTAT(I)=4                                                            147
+  180 CONTINUE                                                              148
+  210 IFUNA=0                                                               149
+      NEQ=NNEQ                                                              150
+  220 NEXEC=0                                                               151
+      RETURN
+  230 WRITE(IOUT,240)NOR                                                    153
+  240 FORMAT( 2X,'----- DISP COMP',I4,' HAS BEEN SPECIFIED -----')
+      NERR=1                                                                155
+      GO TO 210                                                             156
+  250 WRITE(IOUT,260)NMAX                                                   157
+  260 FORMAT( 2X,'----- MORE THAN',I4,' EQUATIONS IN MODEL -----')
+      NERR=1                                                                159
+      GO TO 210                                                             160
+  270 WRITE(IOUT,280)NMAX                                                   161
+  280 FORMAT( 2X,'----- MORE THAN',I4,' COMP TO BE CONSTRAINED -----')
+      NERR=1                                                                163
+      GO TO 210                                                             164
+      END                                                                   165
+ 
