@@ -1,0 +1,126 @@
+      SUBROUTINE COMPCC                                                 CCC00130    
+C                                                                       CCC00140    
+C     ACC = CERAMIC SECTION A-MATRIX.                                   CCC00150    
+C     BLC = LATERALLY                                                   CCC00160    
+C     BLC = DIELECTRIC IMPERMEABILITY OF CERAMIC.                       CCC00170    
+C     BMAT = TUNING NETWORK COMPOSITE B-MATRIX.                         CCC00180    
+C     C0 = CLAMPED CAPACITANCE OF SINGLE CERAMIC RING.                  CCC00190    
+C     CCS = LONGITUDINAL VELOCITY OF SOUND IN CERAMIC.                  CCC00200    
+C     CLCS = LENGTH OF SINGLE CERAMIC RING.                             CCC00210    
+C     G33 = PIEZOELECTRIC CONSTANT OF CERAMIC.                          CCC00220    
+C     E0 = DIELECTRIC PERMITTIVITY OF FREE SPACE.                       CCC00230    
+C     E33 = RELATIVE DIELECTRIC CONSTANT OF CERAMIC.                    CCC00240    
+C     FREQ = FREQUENCY                                                  CCC00250    
+C     K = INVERSE WAVELENGTH IN CERAMIC.                                CCC00260    
+C     K33 = LONGITUDINAL COUPLING FACTOR OF CERAMIC.                    CCC00270    
+C     OMEGA = ANGULAR FREQUENCY                                         CCC00280    
+C     PHI = ELECTROMECHANICAL TRANSFORMER TURNS RATIO.                  CCC00290    
+C     RHOCS = DENSITY OF CERAMIC.                                       CCC00300    
+C     S333 = CERAMIC ELASTIC COMPLIANCE AT CONSTANT CHARGE DENSITY.     CCC00310    
+C     ZB = SINGLE RING Z-MATRIX.                                        CCC00320    
+C     ZCC = CERAMIC STANT Z-MATRIX (WITHOUT TUNING).                    CCC00330    
+C                                                                       CCC00340    
+      COMMON /CC    / ACC,ALPHA,BETA,B,PHI,CCS,Z0,ZCC,C0,AKL,ZZ0,ZC0,ZB CCC00350    
+      COMMON /CERAM / S333,G333,E333,NO,RHOCS,CLCS,ACS,LT,Q,CSW         CCC00360    
+      COMMON /CNTROL/ N(12),IE,IBC                                      CCC00370    
+      COMMON /EDIT  / SEC(24),T(20),PTYPE(2),MO,IDAY,IYR,IRUN,OUT(4)     CCC00380    
+      COMMON /FREQ  / FREQ,TWOPI                                        CCC00390    
+      COMMON /SW    / LSW(20)                                           CCC00400    
+      COMMON /TUNE  / RTUNE(3),LTUNE(3),CTUNE(3),TURNS                  CCC00410    
+C                                                                       CCC00420    
+      LOGICAL LSW                                                       CCC00430    
+C                                                                       CCC00440    
+      COMPLEX S333,G333,E333,ACC(2,3,2),ALPHA(2,2,2),BETA(2,2),B(2,2,2),CCC00450    
+     1PHI,CCS,Z0,BLC,C0,AKL,ZZ0,K,KL,ZCC(2,2),CJ,RHOCA,SINKL,ZB(2,3),PHICCC00460    
+     2Z0,AB11,AB12,THETA,ZC0,ZCAP(2,2),NTHETA,SINH,COSH,ZWIG(2,3),ZWIG1,CCC00470    
+     3ZWIG2,PHIZC0,CCCS
+C                                                                       CCC00490    
+      OMEGA=FREQ*TWOPI                                                  CCC00500    
+      CJ=(0.,1.)                                                        CCC00510    
+      E0=8.854185E-12                                                   CCC00520    
+C**** CALCULATE CERAMIC AND SINGLE RING PROPERTIES.                     CCC00530    
+      CCCS=1./CSQRT(RHOCS*S333)
+        X=ABS(REAL(CCCS))
+        Y=ABS(AIMAG(CCCS))
+        CCS=CMPLX(X,Y)
+      BLC=G333*G333/S333 + 1./(E0*E333)                                 CCC00550    
+      C0=ACS/(CLCS*BLC)                                                 CCC00560    
+      PHI=G333*C0/S333                                                  CCC00570    
+      K=OMEGA/CCS                                                       CCC00580    
+      AKL=K*CLCS                                                        CCC00590    
+      RHOCA=CJ*RHOCS*CCS*ACS                                            CCC00600    
+      SINKL=CSIN(AKL)                                                   CCC00610    
+C**** CALCULATE SINGLE RING MATRIX.                                     CCC00620    
+      ZCC(1,1)=-RHOCA*CCOS(AKL)/SINKL                                   CCC00630    
+      ZCC(2,2)=-ZCC(1,1)                                                CCC00640    
+      ZCC(1,2)=RHOCA/SINKL                                              CCC00650    
+      ZCC(2,1)=-ZCC(1,2)                                                CCC00660    
+      Z0 = PHI/(CJ*OMEGA*C0)                                            CCC00670    
+      PHIZ0=PHI*Z0                                                      CCC00680    
+C**** ADD IN THE ELECTRO-MECHANICAL TRANSFORMER.                        CCC00690    
+      ZB(1,1)=ZCC(1,1) - PHIZ0                                          CCC00700    
+      ZB(2,2)=-ZB(1,1)                                                  CCC00710    
+      ZB(1,2)=ZCC(1,2) + PHIZ0                                          CCC00720    
+      ZB(2,1)=-ZB(1,2)                                                  CCC00730    
+      ZB(2,3)=PHI*ZB(1,2)                                               CCC00740    
+      ZB(1,3)=PHI + ZB(2,3)*(-ZB(1,1)/ZB(1,2))                          CCC00750    
+C**** COMPUTE TOTAL CERAMIC STACK MATRIX.                               CCC00760    
+      AB11=ZB(1,1)/ZB(2,1)                                              CCC00770    
+      AB12=ZB(1,2)-ZB(1,1)*ZB(2,2)/ZB(2,1)                              CCC00780    
+      THETA=CLOG(AB11 + CSQRT(AB11*AB11 - 1.))                          CCC00790    
+      ZZ0=-ZB(1,2)*((CEXP(THETA)-CEXP(-THETA))/2.)                      CCC00800    
+      ZC0=Z0/FLOAT(NO)                                                  CCC00810    
+      NTHETA=FLOAT(NO)*THETA                                            CCC00820    
+      SINH=(CEXP(NTHETA)-CEXP(-NTHETA))/2.                              CCC00830    
+      COSH=(CEXP(NTHETA)+CEXP(-NTHETA))/2.                              CCC00840    
+      PHIZC0=PHI*ZC0                                                    CCC00850    
+      ZCAP(1,1)=ZZ0*COSH/SINH + PHIZC0                                  CCC00860    
+      ZCAP(2,2)=-ZCAP(1,1)                                              CCC00870    
+      ZCAP(1,2)=-(ZZ0/SINH + PHIZC0)                                    CCC00880    
+      ZCAP(2,1)=-ZCAP(1,2)                                              CCC00890    
+      CALL BMAT                                                         CCC00900    
+C**** COMPUTE TOTAL STACK MATRIX (INCLUDING TUNING).                    CCC00910    
+      ALPHA(1,1,IE)=-B(2,1,IE)*PHIZC0/(B(2,1,IE)*ZC0 - PHI*B(1,1,IE))   CCC00920    
+      ALPHA(1,2,IE)=-ALPHA(1,1,IE)                                      CCC00930    
+      ALPHA(2,1,IE)=-B(2,2,IE)*PHIZC0/(B(2,2,IE)*ZC0-PHI*B(1,2,IE))     CCC00940    
+      ALPHA(2,2,IE)=-ALPHA(2,1,IE)                                      CCC00950    
+      BETA(1,IE)=PHI*(B(2,1,IE)*B(1,2,IE)-B(1,1,IE)*B(2,2,IE))/(B(2,1,IECCC00960    
+     1)*ZC0-PHI*B(1,1,IE))                                              CCC00970    
+      BETA(2,IE)=PHI*(B(1,1,IE)*B(2,2,IE)-B(2,1,IE)*B(1,2,IE))/(B(2,2,IECCC00980    
+     1)*ZC0-PHI*B(1,2,IE))                                              CCC00990    
+      ZWIG(1,1)=ZCAP(1,1) + ALPHA(IE,1,IE)*ZC0                          CCC01000    
+      ZWIG(1,2)=ZCAP(1,2) - ALPHA(IE,1,IE)*ZC0                          CCC01010    
+      ZWIG1=BETA(IE,IE)*ZC0                                             CCC01020    
+      ZWIG(1,3)=ZWIG1                                                   CCC01030    
+      ZWIG(2,1)=-ZWIG(1,2)                                              CCC01040    
+      ZWIG(2,2)=-ZWIG(1,1)                                              CCC01050    
+      ZWIG2=ZWIG1                                                       CCC01060    
+      ZWIG(2,3)=ZWIG2                                                   CCC01070    
+C**** TRANSFORM Z-MATRIZ TO AN A-MATRIX.                                CCC01080    
+      CALL TRAN(ZWIG,ACC(1,1,IE))                                       CCC01090    
+      ACC(1,3,IE)=ZWIG1-ZWIG(1,1)*ZWIG1/ZWIG(2,1)                       CCC01100    
+      ACC(2,3,IE)=-ZWIG1/ZWIG(2,1)                                      CCC01110    
+      IF(.NOT.LSW(2))RETURN                                             CCC01120    
+      N1=1                                                              CCC01130    
+      IF(IE.EQ.2)N1=3                                                   CCC01140    
+      N2=N1+1                                                           CCC01150    
+             WRITE(6,100)PTYPE(1),FREQ,MO,IDAY,IYR,IRUN,OUT(N1),OUT(N2), CCC01160    
+     1                                     CCS,K,C0,Z0,PHI,ZZ0,((ZB(I,J)CCC01170    
+     2,ZWIG(I,J),I=1,2),J=1,3),((B(I,J,IE),J=1,2),I=1,2)                CCC01180    
+      RETURN                                                            CCC01190    
+C                                                                       CCC01200    
+  100 FORMAT(1H15XA6,27H TRANSDUCER ANALYSIS OUTPUT7X2HF=F8.2,9X4HDATEI4CCC01210    
+     1,1H/I2,1H/I2,4X10HRUN NUMBER2XA6//6X20HCERAMIC SECTION DATA2A6,6H CCC01220    
+     2DRIVE                                      //15X4HREAL12X4HIMAG25XCCC01230    
+     54HREAL12X4HIMAG/6X2HCC2X1P2E16.7,9X1HK3X2E16.7/6X2HC02X2E16.7,9X2HCCC01240    
+     6Z02X2E16.7/6X4HPHI 2E16.7,9X4HZZ0 2E16.7//16X18HSINGLE RING MATRIXCCC01250    
+     728X24HCERAMIC COMPOSITE MATRIX/15X4HREAL12X4HIMAG25X4HREAL12X4HIMACCC01260    
+     8G/10X2E16.7,6X3HZ114X2E16.7/10X2E16.7,6X3HZ214X2E16.7/10X2E16.7,6XCCC01270    
+     93HZ124X2E16.7/10X2E16.7,6X3HZ224X2E16.7/10X2E16.7,6X2HZ15X2E16.7/1CCC01280    
+     10X2E16.7,6X2HZ25X2E16.7//40X13HTUNING MATRIX/15X4HREAL12X4HIMAG25XCCC01290    
+     24HREAL12X4HIMAG/6X4HB11 2E16.7,9X4HB12 2E16.7/6X4HB21 2E16.7,9X4HBCCC01300    
+     322 2E16.7//)                                                      CCC01310    
+C                                                                       CCC01320    
+      END                                                               CCC01330    
+  
+   
