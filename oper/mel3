@@ -1,0 +1,517 @@
+C                                                                       SOLN  10
+C     ..................................................................SOLN  20
+C                                                                       SOLN  30
+C        SAMPLE MAIN PROGRAM - SOLN                                     SOLN  40
+C                                                                       SOLN  50
+C        PURPOSE                                                        SOLN  60
+C           SOLUTION OF A SET OF SIMULTANEOUS EQUATIONS                 SOLN  70
+C                                                                       SOLN  80
+C        SUBROUTINES AND FUNCTION SUBPROGRAMS REQUIRED                  SOLN  90
+C           SIMQ                                                        SOLN 100
+C           MATIN                                                       SOLN 110
+C           MXOUT                                                       SOLN 120
+C           LOC                                                         SOLN 130
+C                                                                       SOLN 140
+C        METHOD                                                         SOLN 150
+C           A MATRIX OF SIMULTANEOUS EQUATIONS COEFFICIENTS AND A VECTORSOLN 160
+C           OF CONSTANTS ARE READ FROM THE STANDARD INPUT DEVICE. THE   SOLN 170
+C           SOLUTION IS OBTAINED AND LISTED ON THE STANDARD OUTPUT      SOLN 180
+C           DEVICE. THIS PROCEDURE IS REPEATED FOR OTHER SETS OF        SOLN 190
+C           EQUATIONS UNTIL A BLANK CARD IS ENCOUNTERED.                SOLN 200
+C                                                                       SOLN 210
+C     ..................................................................SOLN 220
+C                                                                       SOLN 230
+C        MATRIX IS DIMENSIONED FOR 10000 ELEMENTS. THEREFORE, NUMBER OF SOLN 240
+C        EQUATIONS TO BE SOLVED CANNOT EXCEED 100 UNLESS DIMENSION      SOLN 250
+C        STATEMENT IS CHANGED                                           SOLN 260
+C                                                                       SOLN 270
+      IMPLICIT INTEGER(R,W)
+      DIMENSION A(10000),B(100)                                         SOLN 280
+C                                                                       SOLN 290
+        OPEN(8,'MEL4',INPUT)
+      R=8
+      W=5
+   10 FORMAT(1H1,34HSOLUTION OF SIMULTANEOUS EQUATIONS)                 SOLN 300
+   11 FORMAT(1H0,44HDIMENSIONED AREA TOO SMALL FOR INPUT MATRIX ,I4)    SOLN 310
+   12 FORMAT(1H0,20HEXECUTION TERMINATED)                               SOLN 320
+   13 FORMAT(1H0,47HROW AND COLUMN DIMENSIONS NOT EQUAL FOR MATRIX ,I4) SOLN 330
+   14 FORMAT(1H0,42HINCORRECT NUMBER OF DATA CARDS FOR MATRIX ,I4)      SOLN 340
+   15 FORMAT(1H0,18HGO ON TO NEXT CASE)                                 SOLN 350
+   16 FORMAT(1H0,38HSTRUCTURE CODE IS NOT ZERO FOR MATRIX ,I4)          SOLN 360
+   17 FORMAT(1H1,17HORIGINAL B VECTOR,////)                             SOLN 370
+   18 FORMAT(1H1,15HSOLUTION VALUES,////)                               SOLN 380
+   19 FORMAT(1H0,18HMATRIX IS SINGULAR)                                 SOLN 390
+   20 FORMAT(7F10.0)                                                    SOLN 400
+   21 FORMAT(I3,10X,E16.6)                                              SOLN 410
+   22 FORMAT(1H0,11HEND OF CASE)                                        SOLN 420
+C                                                                       SOLN 430
+C     ..................................................................SOLN 440
+C                                                                       SOLN 450
+      WRITE (W,10)                                                      SOLN 460
+   25 CALL MATIN(ICOD,A,10000,N,M,MS,IER)                               SOLN 470
+      IF(N) 30,95,30                                                    SOLN 480
+   30 IF(IER-1) 45,35,40                                                SOLN 490
+   35 WRITE(W,11) ICOD                                                  SOLN 500
+      GO TO 90                                                          SOLN 510
+   40 WRITE(W,14) ICOD                                                  SOLN 520
+      GO TO 95                                                          SOLN 530
+   45 IF(N-M) 50,55,50                                                  SOLN 540
+   50 WRITE(W,13) ICOD                                                  SOLN 550
+      GO TO 90                                                          SOLN 560
+   55 IF(MS) 60,65,60                                                   SOLN 570
+   60 WRITE(W,16) ICOD                                                  SOLN 580
+      GO TO 90                                                          SOLN 590
+   65 CALL MXOUT(ICOD,A,N,M,MS,60,120,2)                                SOLN 600
+      READ(R,20)(B(I),I=1,N)                                            SOLN 610
+      WRITE(W,17)                                                       SOLN 620
+      DO 70 I=1,N                                                       SOLN 630
+   70 WRITE(W,21) I,B(I)                                                SOLN 640
+      CALL SIMQ(A,B,N,KS)                                               SOLN 650
+      IF(KS-1) 80,75,80                                                 SOLN 660
+   75 WRITE(W,19)                                                       SOLN 670
+      WRITE(W,15)                                                       SOLN 680
+      GO TO 25                                                          SOLN 690
+   80 WRITE(W,18)                                                       SOLN 700
+      DO 85 I=1,N                                                       SOLN 710
+   85 WRITE(W,21) I,B(I)                                                SOLN 720
+      WRITE(W,22)                                                       SOLN 730
+      GO TO 25                                                          SOLN 740
+   90 READ(R,20)(B(I),I=1,N)                                            SOLN 750
+      WRITE(W,15)                                                       SOLN 760
+      GO TO 25                                                          SOLN 770
+   95 WRITE(W,12)                                                       SOLN 780
+        CLOSE(8)
+      CALL EXIT
+      END                                                               SOLN 800
+C                                                                       SIMQ  10
+C     ..................................................................SIMQ  20
+C                                                                       SIMQ  30
+C        SUBROUTINE SIMQ                                                SIMQ  40
+C                                                                       SIMQ  50
+C        PURPOSE                                                        SIMQ  60
+C           OBTAIN SOLUTION OF A SET OF SIMULTANEOUS LINEAR EQUATIONS,  SIMQ  70
+C           AX=B                                                        SIMQ  80
+C                                                                       SIMQ  90
+C        USAGE                                                          SIMQ 100
+C           CALL SIMQ(A,B,N,KS)                                         SIMQ 110
+C                                                                       SIMQ 120
+C        DESCRIPTION OF PARAMETERS                                      SIMQ 130
+C               DESTROYED IN THE COMPUTATION.  THE SIZE OF MATRIX A IS  SIMQ 150
+C               N BY N.                                                 SIMQ 160
+C           B - VECTOR OF ORIGINAL CONSTANTS (LENGTH N). THESE ARE      SIMQ 170
+C               REPLACED BY FINAL SOLUTION VALUES, VECTOR X.            SIMQ 180
+C           N - NUMBER OF EQUATIONS AND VARIABLES. N MUST BE .GT. ONE.  SIMQ 190
+C           KS - OUTPUT DIGIT                                           SIMQ 200
+C                0 FOR A NORMAL SOLUTION                                SIMQ 210
+C                1 FOR A SINGULAR SET OF EQUATIONS                      SIMQ 220
+C                                                                       SIMQ 230
+C        REMARKS                                                        SIMQ 240
+C           MATRIX A MUST BE GENERAL.                                   SIMQ 250
+C           IF MATRIX IS SINGULAR , SOLUTION VALUES ARE MEANINGLESS.    SIMQ 260
+C           AN ALTERNATIVE SOLUTION MAY BE OBTAINED BY USING MATRIX     SIMQ 270
+C           INVERSION (MINV) AND MATRIX PRODUCT (GMPRD).                SIMQ 280
+C                                                                       SIMQ 290
+C        SUBROUTINES AND FUNCTION SUBPROGRAMS REQUIRED                  SIMQ 300
+C           NONE                                                        SIMQ 310
+C                                                                       SIMQ 320
+C        METHOD                                                         SIMQ 330
+C           METHOD OF SOLUTION IS BY ELIMINATION USING LARGEST PIVOTAL  SIMQ 340
+C           DIVISOR. EACH STAGE OF ELIMINATION CONSISTS OF INTERCHANGINGSIMQ 350
+C           ROWS WHEN NECESSARY TO AVOID DIVISION BY ZERO OR SMALL      SIMQ 360
+C           ELEMENTS.                                                   SIMQ 370
+C           THE FORWARD SOLUTION TO OBTAIN VARIABLE N IS DONE IN        SIMQ 380
+C           N STAGES. THE BACK SOLUTION FOR THE OTHER VARIABLES IS      SIMQ 390
+C           CALCULATED BY SUCCESSIVE SUBSTITUTIONS. FINAL SOLUTION      SIMQ 400
+C           VALUES ARE DEVELOPED IN VECTOR B, WITH VARIABLE 1 IN B(1),  SIMQ 410
+C           VARIABLE 2 IN B(2),........, VARIABLE N IN B(N).            SIMQ 420
+C           IF NO PIVOT CAN BE FOUND EXCEEDING A TOLERANCE OF 0.0,      SIMQ 430
+C           THE MATRIX IS CONSIDERED SINGULAR AND KS IS SET TO 1. THIS  SIMQ 440
+C           TOLERANCE CAN BE MODIFIED BY REPLACING THE FIRST STATEMENT. SIMQ 450
+C                                                                       SIMQ 460
+C     ..................................................................SIMQ 470
+C                                                                       SIMQ 480
+      SUBROUTINE SIMQ(A,B,N,KS)                                         SIMQ 490
+      IMPLICIT INTEGER(R,W)
+      DIMENSION A(1),B(1)                                               SIMQ 500
+C                                                                       SIMQ 510
+C        FORWARD SOLUTION                                               SIMQ 520
+C                                                                       SIMQ 530
+      R=8
+      W=5
+      TOL=0.0                                                           SIMQ 540
+      KS=0                                                              SIMQ 550
+      JJ=-N                                                             SIMQ 560
+      DO 65 J=1,N                                                       SIMQ 570
+      JY=J+1                                                            SIMQ 580
+      JJ=JJ+N+1                                                         SIMQ 590
+      BIGA=0                                                            SIMQ 600
+      IT=JJ-J                                                           SIMQ 610
+      DO 30 I=J,N                                                       SIMQ 620
+C                                                                       SIMQ 630
+C        SEARCH FOR MAXIMUM COEFFICIENT IN COLUMN                       SIMQ 640
+C                                                                       SIMQ 650
+      IJ=IT+I                                                           SIMQ 660
+      IF(ABS(BIGA)-ABS(A(IJ))) 20,30,30                                 SIMQ 670
+   20 BIGA=A(IJ)                                                        SIMQ 680
+      IMAX=I                                                            SIMQ 690
+   30 CONTINUE                                                          SIMQ 700
+C                                                                       SIMQ 710
+C        TEST FOR PIVOT LESS THAN TOLERANCE (SINGULAR MATRIX)           SIMQ 720
+C                                                                       SIMQ 730
+      IF(ABS(BIGA)-TOL) 35,35,40                                        SIMQ 740
+   35 KS=1                                                              SIMQ 750
+      RETURN                                                            SIMQ 760
+C                                                                       SIMQ 770
+C        INTERCHANGE ROWS IF NECESSARY                                  SIMQ 780
+C                                                                       SIMQ 790
+   40 I1=J+N*(J-2)                                                      SIMQ 800
+      IT=IMAX-J                                                         SIMQ 810
+      DO 50 K=J,N                                                       SIMQ 820
+      I1=I1+N                                                           SIMQ 830
+      I2=I1+IT                                                          SIMQ 840
+      SAVE=A(I1)                                                        SIMQ 850
+      A(I1)=A(I2)                                                       SIMQ 860
+      A(I2)=SAVE                                                        SIMQ 870
+C                                                                       SIMQ 880
+C        DIVIDE EQUATION BY LEADING COEFFICIENT                         SIMQ 890
+C                                                                       SIMQ 900
+   50 A(I1)=A(I1)/BIGA                                                  SIMQ 910
+      SAVE=B(IMAX)                                                      SIMQ 920
+      B(IMAX)=B(J)                                                      SIMQ 930
+      B(J)=SAVE/BIGA                                                    SIMQ 940
+C                                                                       SIMQ 950
+C        ELIMINATE NEXT VARIABLE                                        SIMQ 960
+C                                                                       SIMQ 970
+      IF(J-N) 55,70,55                                                  SIMQ 980
+   55 IQS=N*(J-1)                                                       SIMQ 990
+      DO 65 IX=JY,N                                                     SIMQ1000
+      IXJ=IQS+IX                                                        SIMQ1010
+      IT=J-IX                                                           SIMQ1020
+      DO 60 JX=JY,N                                                     SIMQ1030
+      IXJX=N*(JX-1)+IX                                                  SIMQ1040
+      JJX=IXJX+IT                                                       SIMQ1050
+   60 A(IXJX)=A(IXJX)-(A(IXJ)*A(JJX))                                   SIMQ1060
+   65 B(IX)=B(IX)-(B(J)*A(IXJ))                                         SIMQ1070
+C                                                                       SIMQ1080
+C        BACK SOLUTION                                                  SIMQ1090
+C                                                                       SIMQ1100
+   70 NY=N-1                                                            SIMQ1110
+      IT=N*N                                                            SIMQ1120
+      DO 80 J=1,NY                                                      SIMQ1130
+      IA=IT-J                                                           SIMQ1140
+      IB=N-J                                                            SIMQ1150
+      IC=N                                                              SIMQ1160
+      DO 80 K=1,J                                                       SIMQ1170
+      B(IB)=B(IB)-A(IA)*B(IC)                                           SIMQ1180
+      IA=IA-N                                                           SIMQ1190
+   80 IC=IC-1                                                           SIMQ1200
+      RETURN                                                            SIMQ1210
+      END                                                               SIMQ1220
+C                                                                       LOC   10
+C     ..................................................................LOC   20
+C                                                                       LOC   30
+C        SUBROUTINE LOC                                                 LOC   40
+C                                                                       LOC   50
+C        PURPOSE                                                        LOC   60
+C           COMPUTE A VECTOR SUBSCRIPT FOR AN ELEMENT IN A MATRIX OF    LOC   70
+C           SPECIFIED STORAGE MODE                                      LOC   80
+C                                                                       LOC   90
+C        USAGE                                                          LOC  100
+C           CALL LOC (I,J,IR,N,M,MS)                                    LOC  110
+C                                                                       LOC  120
+C        DESCRIPTION OF PARAMETERS                                      LOC  130
+C           I   - ROW NUMBER OF ELEMENT                                 LOC  140
+C           J   - COLUMN NUMBER  OF ELEMENT                             LOC  150
+C           IR  - RESULTANT VECTOR SUBSCRIPT                            LOC  160
+C           N   - NUMBER OF ROWS IN MATRIX                              LOC  170
+C           M   - NUMBER OF COLUMNS IN MATRIX                           LOC  180
+C           MS  - ONE DIGIT NUMBER FOR STORAGE MODE OF MATRIX           LOC  190
+C                  0 - GENERAL                                          LOC  200
+C                  1 - SYMMETRIC                                        LOC  210
+C                  2 - DIAGONAL                                         LOC  220                                                                    LOC  230
+C        REMARKS                                                        LOC  240
+C           NONE                                                        LOC  250
+C                                                                       LOC  260
+C        SUBROUTINES AND FUNCTION SUBPROGRAMS REQUIRED                  LOC  270
+C           NONE                                                        LOC  280
+C                                                                       LOC  290
+C        METHOD                                                         LOC  300
+C           MS=0   SUBSCRIPT IS COMPUTED FOR A MATRIX WITH N*M ELEMENTS LOC  310
+C                  IN STORAGE (GENERAL MATRIX)                          LOC  320
+C           MS=1   SUBSCRIPT IS COMPUTED FOR A MATRIX WITH N*(N+1)/2 IN LOC  330
+C                  STORAGE (UPPER TRIANGLE OF SYMMETRIC MATRIX). IF     LOC  340
+C                  ELEMENT IS IN LOWER TRIANGULAR PORTION, SUBSCRIPT IS LOC  350
+C                  CORRESPONDING ELEMENT IN UPPER TRIANGLE.             LOC  360
+C           MS=2   SUBSCRIPT IS COMPUTED FOR A MATRIX WITH N ELEMENTS   LOC  370
+C                  IN STORAGE (DIAGONAL ELEMENTS OF DIAGONAL MATRIX).   LOC  380
+C                  IF ELEMENT IS NOT ON DIAGONAL (AND THEREFORE NOT IN  LOC  390
+C                  STORAGE), IR IS SET TO ZERO.                         LOC  400
+C                                                                       LOC  410
+C     ..................................................................LOC  420
+C                                                                       LOC  430
+      SUBROUTINE LOC(I,J,IR,N,M,MS)                                     LOC  440
+      IMPLICIT INTEGER(R,W)
+C                                                                       LOC  450
+      R=8
+      W=5
+      IX=I                                                              LOC  460
+      JX=J                                                              LOC  470
+      IF(MS-1) 10,20,30                                                 LOC  480
+   10 IRX=N*(JX-1)+IX                                                   LOC  490
+      GO TO 36                                                          LOC  500
+   20 IF(IX-JX) 22,24,24                                                LOC  510
+   22 IRX=IX+(JX*JX-JX)/2                                               LOC  520
+      GO TO 36                                                          LOC  530
+   24 IRX=JX+(IX*IX-IX)/2                                               LOC  540
+      GO TO 36                                                          LOC  550
+   30 IRX=0                                                             LOC  560
+      IF(IX-JX) 36,32,36                                                LOC  570
+   32 IRX=IX                                                            LOC  580
+   36 IR=IRX                                                            LOC  590
+      RETURN                                                            LOC  600
+      END                                                               LOC  610
+C                                                                       MATI  10
+C     ..................................................................MATI  20
+C                                                                       MATI  30
+C        SUBROUTINE MATIN                                               MATI  40
+C                                                                       MATI  50
+C        PURPOSE                                                        MATI  60
+C           READS CONTROL CARD AND MATRIX DATA ELEMENTS FROM LOGICAL    MATI  70
+C           UNIT 5                                                      MATI  80
+C                                                                       MATI  90
+C        USAGE                                                          MATI 100
+C           CALL MATIN(ICODE,A,ISIZE,IROW,ICOL,IS,IER)                  MATI 110
+C                                                                       MATI 120
+C        DESCRIPTION OF PARAMETERS                                      MATI 130
+C           ICODE-UPON RETURN, ICODE WILL CONTAIN FOUR DIGIT            MATI 140
+C                 IDENTIFICATION CODE FROM MATRIX PARAMETER CARD        MATI 150
+C           A    -DATA AREA FOR INPUT MATRIX                            MATI 160
+C           ISIZE-NUMBER OF ELEMENTS DIMENSIONED BY USER FOR AREA A     MATI 170
+C           IROW -UPON RETURN, IROW WILL CONTAIN ROW DIMENSION FROM     MATI 180
+C                 MATRIX PARAMETER CARD                                 MATI 190
+C           ICOL -UPON RETURN, ICOL WILL CONTAIN COLUMN DIMENSION FROM  MATI 200
+C                 MATRIX PARAMETER CARD                                 MATI 210
+C           IS   -UPON RETURN, IS WILL CONTAIN STORAGE MODE CODE FROM   MATI 220
+C                 MATRIX PARAMETER CARD WHERE                           MATI 230
+C                 IS=0 GENERAL MATRIX                                   MATI 240
+C                 IS=1 SYMMETRIC MATRIX                                 MATI 250
+C                 IS=2 DIAGONAL MATRIX                                  MATI 260
+C           IER  -UPON RETURN, IER WILL CONTAIN AN ERROR CODE WHERE     MATI 270
+C                 IER=0   NO ERROR                                      MATI 280
+C                 IER=1   ISIZE IS LESS THAN NUMBER OF ELEMENTS IN      MATI 290
+C                         INPUT MATRIX                                  MATI 300
+C                 IER=2   INCORRECT NUMBER OF DATA CARDS                MATI 310
+C                                                                       MATI 320
+C        REMARKS                                                        MATI 330
+C           NONE                                                        MATI 340
+C                                                                       MATI 350
+C        SUBROUTINES AND FUNCTION SUBPROGRAMS REQUIRED                  MATI 360
+C           LOC                                                         MATI 370
+C                                                                       MATI 380
+C        METHOD                                                         MATI 390
+C           SUBROUTINE ASSUMES THAT INPUT MATRIX CONSISTS OF PARAMETER  MATI 400
+C           CARD FOLLOWED BY DATA CARDS                                 MATI 410
+C           PARAMETER CARD HAS THE FOLLOWING FORMAT                     MATI 420
+C             COL. 1- 2 BLANK                                           MATI 430
+C             COL. 3- 6 UP TO FOUR DIGIT IDENTIFICATION CODE            MATI 440
+C             COL. 7-10 NUMBER OF ROWS IN MATRIX                        MATI 450
+C             COL.11-14 NUMBER OF COLUMNS IN MATRIX                     MATI 460
+C             COL.15-16 STORAGE MODE OF MATRIX WHERE                    MATI 470
+C                 0 - GENERAL MATRIX                                    MATI 480
+C                 1 - SYMMETRIC MATRIX                                  MATI 490
+C                 2 - DIAGONAL MATRIX                                   MATI 500
+C           DATA CARDS ARE ASSUMED TO HAVE SEVEN FIELDS OF TEN COLUMNS  MATI 510
+C           EACH.  DECIMAL POINT MAY APPEAR ANYWHERE IN A FIELD.  IF NO MATI 520
+C           DECIMAL POINT IS INCLUDED, IT IS ASSUMED THAT THE DECIMAL   MATI 530
+C           POINT IS AT THE END OF THE 10 COLUMN FIELD. NUMBER IN EACH  MATI 540
+C           FIELD MAY BE PRECEDED BY BLANKS.  DATA ELEMENTS MUST BE     MATI 550
+C           PUNCHED BY ROW.  A ROW MAY CONTINUE FROM CARD TO CARD.      MATI 560
+C           HOWEVER EACH NEW ROW MUST START IN THE FIRST FIELD OF THE   MATI 570
+C           NEXT CARD.  ONLY THE UPPER TRIANGULAR PORTION OF A SYMMETRICMATI 580
+C           OR THE DIAGONAL ELEMENTS OF A DIAGONAL MATRIX ARE CONTAINED MATI 590
+C           ON DATA CARDS.  THE FIRST ELEMENT OF EACH NEW ROW WILL BE   MATI 600
+C           THE DIAGONAL ELEMENT FOR A MATRIX WITH  SYMMETRIC OR        MATI 610
+C           DIAGONAL STORAGE MODE. COLUMNS 71-80 OF DATA CARDS MAY BE   MATI 620
+C           USED FOR IDENTIFICATION, SEQUENCE NUMBERING, ETC..          MATI 630
+C           THE LAST DATA CARD FOR ANY MATRIX MUST BE FOLLOWED BY A CARDMATI 640
+C           WITH A 9 PUNCH IN COLUMN 1.                                 MATI 650
+C                                                                       MATI 660
+C.......................................................................MATI 670
+C                                                                       MATI 680
+      SUBROUTINE MATIN(ICODE,   A,ISIZE,IROW,ICOL,IS,IER)               MATI 690
+      IMPLICIT INTEGER(R,W)
+      DIMENSION A(1)                                                    MATI 700
+      DIMENSION CARD(8)                                                 MATI 710
+      W=5
+      R=8
+    1 FORMAT(7F10.0)                                                    MATI 720
+    2 FORMAT(I6,2I4,I2)                                                 MATI 730
+C                                                                       MATI 740
+      IDC=7                                                             MATI 750
+      IER=0                                                             MATI 760
+      READ( R,2)ICODE,IROW,ICOL,IS                                      MATI 770
+      IF(IROW)5,40,5
+    5 CALL LOC(IROW,ICOL,ICNT,IROW,ICOL,IS)
+      IF(ISIZE-ICNT)6,7,7                                               MATI 790
+    6 IER=1                                                             MATI 800
+    7 IF (ICNT)38,38,8                                                  MATI 810
+    8 ICOLT=ICOL                                                        MATI 820
+      IROCR=1                                                           MATI 830
+C                                                                       MATI 840
+C        COMPUTE NUMBER OF CARDS FOR THIS ROW                           MATI 850
+C                                                                       MATI 860
+   11 IRCDS=(ICOLT-1)/IDC+1                                             MATI 870
+      IF(IS-1)15,15,12                                                  MATI 880
+   12 IRCDS=1                                                           MATI 890
+C                                                                       MATI 900
+C        SET UP LOOP FOR NUMBER OF CARDS IN ROW                         MATI 910
+C                                                                       MATI 920
+   15 DO 31 K=1,IRCDS                                                   MATI 930
+      READ(R,1)(CARD(I),I=1,IDC)                                        MATI 940
+C                                                                       MATI 950
+C        SKIP THROUGH DATA CARDS IF INPUT AREA TOO SMALL                MATI 960
+C                                                                       MATI 970
+      IF(IER)16,16,31                                                   MATI 980
+   16 L=0                                                               MATI 990
+C                                                                       MATI1000
+C        COMPUTE COLUMN NUMBER FOR FIRST FIELD IN CURRENT CARD          MATI1010
+C                                                                       MATI1020
+      JS=(K-1)*IDC+ICOL-ICOLT+1                                         MATI1030
+      JE=JS+IDC-1                                                       MATI1040
+      IF(IS-1)19,19,17                                                  MATI1050
+   17 JE=JS                                                             MATI1060
+C                                                                       MATI1070
+C        SET UP LOOP FOR DATA ELEMENTS  WITHIN CARD                     MATI1080
+C                                                                       MATI1090
+   19 DO 30 J=JS,JE                                                     MATI1100
+      IF(J-ICOL)20,20,31                                                MATI1110
+   20 CALL LOC(IROCR ,J,IJ,IROW,ICOL,IS)                                MATI1120
+      L=L+1                                                             MATI1130
+   30 A(IJ)=CARD(L)                                                     MATI1140
+   31 CONTINUE                                                          MATI1150
+      IROCR=IROCR+1                                                     MATI1160
+      IF(IROW-IROCR) 38,35,35                                           MATI1170
+   35 IF(IS-1)37,36,36                                                  MATI1180
+   36 ICOLT=ICOLT-1                                                     MATI1190
+   37 GO TO 11                                                          MATI1200
+   38 READ(R,1) CARD(1)                                                 MATI1210
+      IF(CARD(1)-9.E9)39,40,39                                          MATI1220
+   39 IER=2                                                             MATI1230
+   40 RETURN                                                            MATI1240
+      END                                                               MATI1250
+C                                                                       MXOU  10
+C     ..................................................................MXOU  20
+C                                                                       MXOU  30
+C        SUBROUTINE MXOUT                                               MXOU  40
+C                                                                       MXOU  50
+C        PURPOSE                                                        MXOU  60
+C           PRODUCES AN OUTPUT LISTING OF ANY SIZED ARRAY ON            MXOU  70
+C           LOGICAL UNIT 6                                              MXOU  80
+C                                                                       MXOU  90
+C        USAGE                                                          MXOU 100
+C           CALL MXOUT(ICODE,A,N,M,MS,LINS,IPOS,ISP)                    MXOU 110
+C                                                                       MXOU 120
+C        DESCRIPTION OF PARAMETERS                                      MXOU 130
+C           ICODE- INPUT CODE NUMBER TO BE PRINTED ON EACH OUTPUT PAGE  MXOU 140
+C           A-NAME OF OUTPUT MATRIX                                     MXOU 150
+C           N-NUMBER OF ROWS IN A                                       MXOU 160
+C           M-NUMBER OF COLUMNS IN A                                    MXOU 170
+C           MS-STORAGE MODE OF A WHERE MS=                              MXOU 180
+C                  0-GENERAL                                            MXOU 190
+C                  1-SYMMETRIC                                          MXOU 200
+C                  2-DIAGONAL                                           MXOU 210
+C           LINS-NUMBER OF PRINT LINES ON THE PAGE (USUALLY 60)         MXOU 220
+C           IPOS-NUMBER OF PRINT POSITIONS ACROSS THE PAGE (USUALLY 132)MXOU 230
+C           ISP-LINE SPACING CODE, 1 FOR SINGLE SPACE, 2 FOR DOUBLE     MXOU 240
+C               SPACE                                                   MXOU 250
+C                                                                       MXOU 260
+C        REMARKS                                                        MXOU 270
+C           NONE                                                        MXOU 280
+C                                                                       MXOU 290
+C        SUBROUTINES AND FUNCTION SUBPROGRAMS REQUIRED                  MXOU 300
+C           LOC                                                         MXOU 310
+C                                                                       MXOU 320
+C        METHOD                                                         MXOU 330
+C           THIS SUBROUTINE CREATES A STANDARD OUTPUT LISTING OF ANY    MXOU 340
+C           SIZED ARRAY WITH ANY STORAGE MODE. EACH PAGE IS HEADED WITH MXOU 350
+C           THE CODE NUMBER,DIMENSIONS AND STORAGE MODE OF THE ARRAY.   MXOU 360
+C           EACH COLUMN AND ROW IS ALSO HEADED WITH ITS RESPECTIVE      MXOU 370
+C           NUMBER.                                                     MXOU 380
+C                                                                       MXOU 390
+C     ..................................................................MXOU 400
+C                                                                       MXOU 410
+      SUBROUTINE MXOUT (ICODE,A,N,M,MS,LINS,IPOS,ISP)                   MXOU 420
+      IMPLICIT INTEGER(R,W)
+      DIMENSION A(1),B(8)                                               MXOU 430
+      R=8
+      W=5
+    1 FORMAT(1H1,5X, 7HMATRIX ,I5,6X,I3,5H ROWS,6X,I3,8H COLUMNS,       MXOU 440
+     18X,13HSTORAGE MODE ,I1,8X,5HPAGE ,I2,/)                           MXOU 450
+    2 FORMAT(12X,8HCOLUMN  ,7(3X,I3,10X))                               MXOU 460
+    3 FORMAT(1H )                                                       MXOU 470
+    4 FORMAT(1H ,7X,4HROW ,I3,7(E16.6))                                 MXOU 480
+    5 FORMAT(1H0,7X,4HROW ,I3,7(E16.6))                                 MXOU 490
+C                                                                       MXOU 500
+      J=1                                                               MXOU 510
+C                                                                       MXOU 520
+C        WRITE HEADING                                                  MXOU 530
+C                                                                       MXOU 540
+      NEND=IPOS/16-1                                                    MXOU 550
+      LEND=(LINS/ISP)-2                                                 MXOU 560
+      IPAGE=1                                                           MXOU 570
+   10 LSTRT=1                                                           MXOU 580
+   20 WRITE(W,1)ICODE,N,M,MS,IPAGE                                      MXOU 590
+      JNT=J+NEND-1                                                      MXOU 600
+      IPAGE=IPAGE+1                                                     MXOU 610
+   31 IF(JNT-M)33,33,32                                                 MXOU 620
+   32 JNT=M                                                             MXOU 630
+   33 CONTINUE                                                          MXOU 640
+      WRITE(W,2)(JCUR,JCUR=J,JNT)                                       MXOU 650
+      IF(ISP-1) 35,35,40                                                MXOU 660
+   35 WRITE(W,3)                                                        MXOU 670
+   40 LTEND=LSTRT+LEND-1                                                MXOU 680
+      DO 80 L=LSTRT,LTEND                                               MXOU 690
+C                                                                       MXOU 700
+C        FORM OUTPUT ROW LINE                                           MXOU 710
+C                                                                       MXOU 720
+      DO 55 K=1,NEND                                                    MXOU 730
+      KK=K                                                              MXOU 740
+      JT = J+K-1                                                        MXOU 750
+      CALL LOC(L,JT,IJNT,N,M,MS)                                        MXOU 760
+      B(K)=0.0                                                          MXOU 770
+      IF(IJNT)50,50,45                                                  MXOU 780
+   45 B(K)=A(IJNT)                                                      MXOU 790
+   50 CONTINUE                                                          MXOU 800
+C                                                                       MXOU 810
+C        CHECK IF LAST COLUMN.  IF YES GO TO 60                         MXOU 820
+C                                                                       MXOU 830
+      IF(JT-M) 55,60,60                                                 MXOU 840
+   55 CONTINUE                                                          MXOU 850
+C                                                                       MXOU 860
+C        END OF LINE, NOW WRITE                                         MXOU 870
+C                                                                       MXOU 880
+   60 IF(ISP-1)65,65,70                                                 MXOU 890
+   65 WRITE(W,4)L,(B(JW),JW=1,KK)                                       MXOU 900
+      GO TO 75                                                          MXOU 910
+   70 WRITE(W,5)L,(B(JW),JW=1,KK)                                       MXOU 920
+C                                                                       MXOU 930
+C        IF END OF ROWS,GO CHECK COLUMNS                                MXOU 940
+C                                                                       MXOU 950
+   75 IF(N-L)85,85,80                                                   MXOU 960
+   80 CONTINUE                                                          MXOU 970
+C                                                                       MXOU 980
+C        END OF PAGE, NOW CHECK FOR MORE OUTPUT                         MXOU 990
+C                                                                       MXOU1000
+      LSTRT=LSTRT+LEND                                                  MXOU1010
+      GO TO 20                                                          MXOU1020
+C                                                                       MXOU1030
+C        END OF COLUMNS, THEN RETURN                                    MXOU1040
+C                                                                       MXOU1050
+   85 IF(JT-M)90,95,95                                                  MXOU1060
+   90 J=JT+1                                                            MXOU1070
+      GO TO 10                                                          MXOU1080
+   95 RETURN                                                            MXOU1090
+      CALL EXIT
+      END
+  
+   N@*
