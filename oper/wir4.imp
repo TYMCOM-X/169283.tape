@@ -1,0 +1,394 @@
+WIR4.IMP
+        WIRE WRAP IMPLEMENTATION SPECIFICATION--SECTION 4
+
+                COMMON STORAGE
+
+        THERE ARE A VARIETY OF COMMON BLOCKS USED TO MAINTAIN COMMON
+PARAMETERS AND DATA.  THESE ARE DESCRIBED IN THIS SECTION.
+
+
+        4.1     COMMON /FILES/
+
+        WHENEVER THE DATA BASE IS IN USE, THE DATA THEREIN HAS
+BEEN COPIED TO A SET OF REFERENCE FILES.  EACH FILE CONTAINS ONE
+TABLE FROM THE DATA BASE.  EACH FILE IS A RANDOM FILE, WITH A
+RECORD SIZE CORRESPONDING TO ONE ITEM-SIZE FOR THAT TABLE.  ANY
+POINTERS ("rbn") WHICH EXIST ARE THE "rbn" OF THE BLOCK POINTED
+AT.
+
+        THE REFERENCE FILES HAVE NAMES, CORRESPONDING TO ENTRIES
+IN THE COMMON BLOCK /files/.  EACH ENTRY CONSISTS OF A 7-WORD ARRAY,
+IN THE FORM:
+
+        VARIABLE        USAGE
+-------------------------------------------------------------------
+        :NUMBER         FILE NUMBER
+        :SIZE           RECORD SIZE (USED TO OPEN FILE)
+        :NREC           NUMBER OF RECORDS IN FILE
+        :OPEN           LOGICAL FLAG:  .TRUE. IF FILE IF OPEN
+        :NAME<3>        FILE NAME (USED TO OPEN FILE, HAS EXTENSION .TMP)
+                        (WORD 5 IS 0 FOR TERMINATION)
+--------------------------------------------------------------------
+
+        THE REFERENCE FILES ARE (IN ORDER):
+
+        FILE #  ENTRY NAME      CONTENTS
+--------------------------------------------------------------------
+        10      FXCHAN          X-CHANNEL TABLE
+        11      FYCHAN          Y-CHANNEL TABLE
+        12      FSOCKET         SOCKET TABLE
+        13      FPIN            PIN TABLE
+        14      FSIGNAL        *SIGNAL TABLE
+        15      FPLUGL          PLUG LIBRARY TABLE
+        16      FPLUGID         PLUG ID TABLE
+        17      FPLUGDE         PLUG DESCRIPTION TABLE
+        18      FTEMP1          SCRATCH FILE
+        19      FTEMP2          SCRATCH FILE
+        20      FTEMP3          SCRATCH FILE
+-------------------------------------------------------------------
+
+* * *   NOTE THAT THE SIGNAL TABLE IS OF SPECIAL FORM.  THE TABLE 
+CONSISTS OF A HASHED TABLE, CONNECTED TO THREADED LISTS.  A GIVEN 
+SIGNAL, CONSISTING OF TWO WORDS IN A5 FORMAT, HAS THE TWO WORDS
+EXCLUSIVELY-ORED TOGETHER, AND THE MODULO WITH CONSTANT NHASH IS
+USED TO GET THE INDEX IN THE HASH TABLE.  THE LIST STARTING AT THAT
+BLOCK IS THEN SEARCHED FOR THE SIGNAL, AND, IF FOUND, IS USED.  IF NOT
+FOUND, THE NEW SIGNAL MAY BE ADDED TO THE THREADED LIST.
+        THUS, SOME PARTS OF THE PROGRAM WILL SEARCH THROUGH THE FILE 
+FOR A GIVEN SIGNAL, OTHER PARTS WILL READ THE ENTIRE LIST INTO MEMORY,
+AND THERE TREAT IT AS AN ARRAY DIMENSIONED (n, 7), WHERE n IS THE 
+NUMBER OF BLOCKS THE TABLE TAKES UP.
+
+        IN ADDITION TO THE ABOVE-MENTIONED TEMPORARY FILES, WIRRAP
+ADDITIONALLY USES THE FOLLOWING I/O CHANNELS:
+
+        FORT. CHAN.     USE
+-------------------------------------
+        - - -           TYPE OUTPUT
+        - - -           ACCEPT INPUT
+        - - -           INF. FILE INPUT
+        - - -           COMMAND FILE INPUT
+          1             MASTER DATA-BASE FILE
+          2             PRINTER (.LST) FILE
+          3             WITNESS FILE (FOR SAVE COMMAND)
+          4             FILE FOR LIBRARY SEARCHES
+-------------------------------------
+
+
+        4.2     COMMON /FLAGS/
+
+        THERE ARE A VARIETY OF LOGICAL VARIABLES WHICH ARE USED TO
+MAINTAIN THE STATUS OF THE PROGRAM.  THESE ARE IN COMMON /FLAGS/, AND
+ARE, IN ORDER:
+
+        VARIABLE        USAGE
+------------------------------------------------------------------
+        GOTDB           .TRUE. IF THE DATABASE HAS BEEN READ
+        DBWRIT          .TRUE. IF THE DATABASE HAS BEEN MODIFIED AND
+                        MUST BE WRITTEN BACK TO THE MASTER DATABASE FILE
+        PICFRAM         .TRUE. IF WIRING IS TO BE PICTURE-FRAME;
+                        .FALSE. IF WIRING IS TO BE POINT-TO-POINT
+------------------------------------------------------------------
+
+
+        4.3     COMMON /HASHCON/
+
+        THOSE PARAMETERS DEALING WITH THE SIGNAL TABLE ARE CONTAINED
+IN THE COMMON BLOCK /HASHCON/.  THESE ARE, IN ORDER:
+
+        VARIABLE        FORM    USAGE
+------------------------------------------------------------------
+        NBLOCK          INT     NUMBER OF BLOCKS IN USE IN SIGNAL TABLE
+        THISSIG         INT     CURRENT BLOCK NUMBER IN LISTH
+        SID1            INT     WORD 1 OF SIGNAL NAME
+        SID2            INT     WORD 2 OF SIGNAL NAME
+        SNEXT           INT     POINTER TO NEXT BLOCK IN THIS SIGNAL LIST
+        SIGPIN          INT     POINTER TO FIRST SIGNAL PIN IN SIGNAL CHAIN
+                                ( N O T E . . . IF THE FIRST BIT IS SET,
+                                THIS SIGNAL IS A BUSSED SIGNAL AND CHAINS
+                                WILL BE OF DIFFERENT FORM THAN NORMAL)
+        SIGWRIT         LOGIC   FLAG TO INDICATE THAT THIS ENTRY MUST BE
+                                WRITTEN BACK TO THE SIGNAL TABLE.
+        DSHEAD<2>       INT     DEFINED-SIGNAL HEADER
+        CDSN            INT     CURRENT DEFINED-SIGNAL NUMBER
+------------------------------------------------------------------
+
+
+        4.4     COMMON /CPGLOB/
+
+        ALL PARAMETERS USED BY COMPAC ARE IN THIS COMMON.  THIS
+INFORMATION COMES FROM THE COMPAC USER SPECIFICATION.  VARIABLES ARE,
+IN ORDER:
+
+        VARIABLE        FORM    USAGE
+--------------------------------------------------------------
+        KURSOR          INT     LINE CURSOR
+        LINSIZ          INT     THE NUMBER OF CHARACTERS IN THE LINE
+        NATCH           INT     NUMBER OF CHARACTERS MATCHED IF PARTIAL
+        INLINE<270>     INT     THE LINE INPUT (R1 FORMAT)
+        ISTTY           LOGICAL .TRUE. IF INPUT IS COMING FROM TERMINAL
+        HUSH            LOGICAL .TRUE. IF NO PROMPTS ARE REQUIRED
+        UNCOLA          LOGICAL .TRUE. IF NO PROMPT INCREMENT
+        IPROMP          INT     CURRENT PROMPT NUMBER
+        IDFILE<5>       ALPHA   STORAGE FOR FILE-NAMES INPUT
+--------------------------------------------------------------
+
+
+
+        4.5     COMMON /SOCKET/
+
+        THE PARAMETERS DEALING WITH THE CURRENT SOCKET ARE:
+
+        VARIABLE        USAGE
+-----------------------------------------------------------------
+        SOCID<2>        SOCKET ID (FORMAT A10)
+        NPINS           NUMBER OF PINS IN SOCKET
+        NWORDS          NUMBER OF WORDS IN PIN TABLE FOR THIS SOCKET
+        SOCPNT          "rbn" OF START BLOCK OF SOCKET DESCRIPTION IN
+                        PIN TABLE
+        SOCFLAG         LOGICAL FLAG:  .TRUE. IF CURRENT SOCKET HAS BEEN
+                           MODIFIED
+        THISSOC         CURRENT SOCKET BLOCK NUMBER
+-----------------------------------------------------------------
+
+        4.6     COMMON /PINS/
+
+        THE PARAMETERS DEALING WITH THE CURRENT PIN ARE:
+
+      VARIABLE  BIT     USAGE
+---------------------------------------------------------------------
+        PID             PIN ID (A5 FORMAT)
+        BPCORAL<2>      C O R A L  RING FOR SOCKET PINS
+         .NEXT.            "rbn" OF NEXT PIN IN RING
+         .CPNT. 1          FLAG FOR INDEX TO SOCKET TABLE ENTRY IF SET
+                2-36       EITHER:  INDEX TO SOCKET TABLE ENTRY;
+                           OR:      "rbn" OF SECOND PREVIOUS RING ENTRY
+        XPINS           X-POSITION OF PIN ON BOARD (FLOATING POINT)
+        YPINS           Y-POSITION OF PIN ON BOARD (FLOATING POINT)
+        BPSIG<2>        SIGNAL NAME (A10 FORMAT)
+        .FROM.          .FROM. "rbn" OF LAST PIN IN SIGNAL LIST
+        .TO.            .TO. "rbn" OF NEXT PIN IN SIGNAL LIST
+        PLGPIN          "rbn" OF CORESPONDING PIN IN PLUG PIN TABLE
+        PLGRING         "rbn" OF NEXT PIN IN RING ASSOCIATED WITH
+                        SOCKET/PLUG
+        CODES           PACKED FORM OF VARIOUS SHORT ATTRIBUTES
+                1          FLAG FOR UPPER LEVEL WRAP ON .TO. IF SET
+                2          FLAG FOR EDGE PIN IF SET
+                3          FLAG FOR PLUG ATTACHED
+                4          FLAG FOR DEFAULT SIGNAL
+                5          FLAG FOR GROUP ATTACHED
+                6          FLAG FOR SUB-GROUP ATTACHED
+                7          FLAG FOR SIGNAL SOURCE
+                8-10       WIRED-OR CODE
+                11-13      TIE CONDITION CODE
+        DIST            DISTANCE TO NEXT PIN IN SIGNAL LIST
+        CHANGE          FLAG USED IN CHANGE UNIT
+        NULL            UNUSED--FOR FUTURE EXPANSION
+        PINFLAG         LOGICAL FLAG:  .TRUE. IF CURRENT
+                           PIN HAS BEEN MODIFIED
+        THISPIN         CURRENT PIN BLOCK NUMBER
+---------------------------------------------------------------------
+
+
+        4.7     COMMON /TITLE/
+
+        THIS BLOCK CONTAINS TITLE INFORMATION:
+
+        VARIABLE        USAGE
+-----------------------------------------------
+        TITLE<16>       TITLE FOR CURRENT DATABASE
+                           (TEXTC, 16A5 FORMAT)
+        MODIFY<2>       MODIFICATION LEVEL (TEXTC, A10 FORMAT)
+        MODFLG          LOGICAL FLAG:  .TRUE. IF WIRING DOCUMENT
+                           HAS BEEN GENERATED; .FALSE. IF
+                           NEW .MODIFY. HAS BEEN ENTERED.
+-----------------------------------------------
+
+        NOTE...textc FORMAT SPECIFIES THAT THE FIRST CHARACTER IN
+THE STRING IS NOT A STRING CHARACTER, BUT IS INSTEAD A count OF
+THE NUMBER OF CHARACTERS FOLLOWING IN THE STRING.
+
+
+        4.8     COMMON /DTABASE/
+
+        THIS BLOCK CONTAINS DATABASE FILE PARAMETERS.  THESE ARE:
+
+      VARIABLE  USAGE
+--------------------------------------------
+        DBFILE  FILE NUMBER
+        DBSIZE  RECORD SIZE (WORDS)
+        DBNREC  NUMBER OF RECORDS IN DATABASE
+        DBOPEN  LOGICAL FLAG:  SET IF FILE IS OPEN
+        DBID<5> FILE NAME (USER DEFINED, FROM CPGLOB/IDFILE)
+--------------------------------------------
+
+
+
+        4.9     COMMON /PLUGS/
+
+
+        THIS BLOCK CONTAINS PARAMETERS DEALING WITH THE CURRENT PLUG.
+
+        VARIABLE        USAGE
+---------------------------------------------------------------------
+        PLGID<3>        PLUG IDENTIFICATION (A15 FORMAT)
+        PLGPNT          "rbn" OF START OF PLUG DESCRIPTION
+        PLGSIZ          SIZE OF PLUG DESCRIPTION IN WORDS
+        NPLGPIN         NUMBER OF PINS IN PLUG DESCRIPTION
+        PLGFLAG         LOGICAL FLAG:  .TRUE. IF CURRENT PLUG
+                           HAS BEEM MODIFIED
+        THISPLG         CURRENT PLUG BLOCK NUMBER
+----------------------------------------------------------------------
+
+        4.10    COMMON /PLUGPIN/
+
+        THIS BLOCK CONTAINS PARAMETERS DEALING WITH THE CURRENT PLUG-PIN.
+
+        VARIABLE        USAGE
+-------------------------------------------------------------------
+        PPID            PLUG PIN ID (A5 FORMAT)
+        DEFAULT<2>      DEFAULT SIGNAL TO ASSIGN TO SOCKET (A10 FORMAT)
+        GROUP<2>        GROUP ID (A10 FORMAT)
+        SUBGRP<2>       SUB-GROUP ID (A10 FORMAT)
+        ILT             INPUT LOGIC TYPE (A5 FORMAT)
+        OLT             OUTPUT LOGIC TYPE (A5 FORMAT)
+        GRPNO           GROUP NUMBER
+        SGRPNO          SUB-GROUP NUMBER 
+        LOAD            INPUT LOAD (REAL)
+        DRIVE           OUTPUT DRIVE (REAL)
+        WOCC            WIRE-OR CONDITION CODE
+        TCC             TIE CONDITION CODE
+        CORAL<2>        C O R A L  RING POINTERS FOR PLUG PIN LIST
+        GRPRNG          GROUP RING
+        SGRPRNG         SUB-GROUP RING
+        X               X-POSITION OF PIN (REAL)
+        Y               Y-POSITION OF PIN (REAL)
+        PPFLAG          LOGICAL FLAG:  .TRUE. IF CURRENT PLUG PIN
+                           HAS BEEN MODIFIED
+        THISPP          BLOCK NUMBER OF THIS PLUG PIN
+------------------------------------------------------------------
+
+
+
+        4.11    COMMON /ROUTE/
+
+        THIS COMMON BLOCK CONTAINS WIRE-ROUTING INFORMATION FOR THE
+WIRE WHOSE LENGTH WAS COMPUTED LAST.
+
+        VARIABLE        USAGE
+-------------------------------------------------
+        IINDEX          INDEX FOR BEST EDGE OF XY(*,IINDEX,1)
+        JINDEX          INDEX FOR BEST EDGE OF XY(*,JINDEX,2)
+        XY<2,5,2>       THE ARRAY OF (X, Y) PAIRS XY(*,N,M), WHERE
+                        M IS THE FIRST OR SECOND END OF THE WIRE,
+                        AND N = 1 IS THE COORDINATE OF TLE PIN.
+-------------------------------------------------
+
+
+
+
+        4.12    COMMON /PRINTER/
+
+        THIS COMMON CONTAINS FILE INFORMATION FOR A FILE TO BE DIRECTED
+AT THE PRINTER.
+
+        VARIABLE        USAGE
+--------------------------------------------
+        PRFILE  FILE NUMBER
+        PRSIZ   RECORD SIZE(WORDS)
+        PRNREC  NUMBER OF RECORDS IN FILE
+        PROPEN  LOGICAL FLAG:  SET IF FILE IS OPEN
+        PRID<5> FILE NAME (USER DEFINED, FROM CPGLOB/IDFILE)
+--------------------------------------------
+
+
+
+
+
+        4.13    COMMON /WITNESS/
+
+        THIS COMMON CONTAINS FILE INFORMATION FOR A FILE USED TO SAVE
+A COMMAND LIST.
+
+        VARIABLE        USAGE
+--------------------------------------------
+        WIFILE  FILE NUMBER
+        WISIZ   RECORD SIZE(WORDS)
+        WINREC  NUMBER OF RECORDS IN FILE
+        WIOPEN  LOGICAL FLAG:  SET IF FILE IS OPEN
+        WIID<5> FILE NAME (USER DEFINED, FROM CPGLOB/IDFILE)
+--------------------------------------------
+
+
+
+
+
+        4.14    COMMON /LIBFILE/
+
+        THIS FILE IS USED TO PERFORM OPERATIONS ON LIBRARY FILES.
+
+        VARIABLE        USAGE
+--------------------------------------------
+        LIFILE  FILE NUMBER
+        LISIZ   RECORD SIZE(WORDS)
+        LINREC  NUMBER OF RECORDS IN FILE
+        LIOPEN  LOGICAL FLAG:  SET IF FILE IS OPEN
+        LIID<5> FILE NAME (USER DEFINED, FROM CPGLOB/IDFILE)
+--------------------------------------------
+
+
+
+
+
+        4.15    COMMON /LIBPRE/
+
+        THIS COMMON CONTAINS THE PREAMBLE INFORMATION ON THE CURRENT
+LIBRARY FILE.
+
+        VARIABLE        USAGE
+-----------------------------------------
+        LPRSIZE         LIBRARY RECORD SIZE
+        LPISIZE         LIBRARY INDEX ENTRY SIZE
+        LPNINDX         NUMBER OF LIBRARY INDEX ENTRIES
+        LPSINDX         START OF INDEX ENTRIES
+        LPSPP           START OF PLUGPIN ENTRIES
+        LPFREE          FIRST FREE BLOCK IN FILE
+-----------------------------------------
+
+
+
+
+
+        4.16    COMMON /LIBINXP/
+
+        THIS COMMON CONTAINS THE PARAMETERS DEALING WITH THE CURRENT
+LIBRARY INDEX.
+
+        VARIABLE        USAGE
+------------------------------------
+        LPLUGID<3>      LIBRARY PLUG IDENTIFICATION
+        LPPPS           POINTER TO START OF PLUG-PIN DESCRIPTION
+        LPPSIZ          SIZE OF PLUG DESCRIPTION (WORDS)
+        LPPNPIN         NUMBER OF PINS IN PLUG DESCRIPTION
+        LPFLAG          LOGICAL FLAG:  TRUE IF THIS INDEX HAS BEEN MODIFIED
+        LPXTHIS         BLOCK NUMBER OF THIS DESCRIPTION
+------------------------------------
+
+
+
+
+
+        4.17    COMMON /OWNPRM/
+
+        THIS COMMON CONTAINS THE PARAMETERS CONCERNING PROMPTING,
+INCLUDING THE SPECIAL CLAUSE PROMPT.
+
+        VARIABLE                USAGE
+---------------------------------------
+        PRMPCP          FLAG TO USE THE STANDARD PROMPT
+        PRMPEX          FLAG TO USE THE "!" PROMPT
+        UNPROMP         FLAG SET WHEN "!" PROMPT IS OUTPUT
+        JPROM           THE CURRENT PROMPT NUMBER:  INCREMENTED IF
+                           UNPROMP IS .FALSE.
+---------------------------------------
+  
