@@ -1,0 +1,296 @@
+%   MATCH
+
+   THIS MODULE CONTAINS THE ROUTINES TO PROVIDE THE RUN-TIME SYSTEM
+   FOR A SNOBOL-TYPE PATTERN MATCHING FACILITY FOR BLISS PROGRAMS.
+   THE MAIN ROUTINE IS 'MATCH' WHICH CALLS ALL THE OTHER ROUTINES
+   NEED.
+
+   MATCH IS GIVEN AS AN ARGUMENT A PATTERN NETWORK IN THE FORM OF
+   INTERCONNECTED NODES WHOSE SPECIFIC FORMAT IS SPECIFIED BY
+   THE STRUCTURE PATNODE.  EACH NODE CONTAINS THE PRIMITIVE FUNCTION TO
+   BE TESTED AT THAT POINT WITH POSSIBLE ALTERNATE AND SUCCESSOR NODES.
+   ALSO INCLUDED IF NEEDED IS AN ARGUMENT FOR THE PRIMITIVE ROUTINE.
+%
+
+BIND WANTBAL=0;    %CHANGE TO 1 IF BAL PRIMITIVE WANTED%
+
+BIND
+   SIGMA=#777777,
+   OFF=0,   STRP=0,   PRIM=0,   PHI=0,
+   LENG=1,  ARG=1,
+   SUBS=2,  LINK=2,   NDSIZE=2,
+   VAR=3,   ALT=3,
+   ACODE=4, CONDF=4,
+   CODE=5, BSIZE=5;
+
+STRUCTURE STRING[F]=CASE .F OF SET
+%STRP%   (.STRING+1)<0,36>;
+%LENG%   (.STRING)<0,18>
+         TES;
+
+STRUCTURE PATNODE[FIELD]=CASE .FIELD OF SET
+%PRIM%  (.PATNODE)<30,6>;
+%ARG %  (.PATNODE)<0,18>;
+%SUBS%  (.PATNODE+1)<0,18>;
+%ALT %  (.PATNODE+1)<18,18>;
+%CONDF% (.PATNODE)<21,1>;
+%CODE % (.PATNODE)<18,3>
+        TES;
+
+STRUCTURE HISTN[F]=CASE .F OF SET
+%STRP%  (.HISTN+1)<0,36>;
+%LENG%  (.HISTN)<0,9>;
+%LINK%  (.HISTN)<18,18>;
+%VAR %  (.HISTN)<9,6>;
+%ACODE% (.HISTN)<15,3>;
+%BSIZE% (.HISTN)<18,18>
+        TES;
+
+%  THE FOLLOWING MACRO TESTS DEFINED CHARACTER SETS AGAINST THE
+   ARGUMENT CHARACTER FOR SPAN AND BREAK,ETC.
+%
+MACRO MAKHISTN(N,SP,LN,P,CD)=
+   (N[STRP]_SP; N[LENG]_LN; N[VAR]_P; N[ACODE]_CD)$;
+
+MACRO NXTCHR=SCANI(CUR)$;
+
+GLOBAL ROUTINE MATCH(S,PATTERN,DP,FS %FULLSCAN MODE%,ANCH %ORED MODE%)=
+BEGIN
+   OWN
+      DYNARY DICT,  %DICTIONARY ARRAY BASE POINTER%
+      LKSTACK HIST, %HISTORY STACK FOR RECORDING COND. ASSIGNS UNTIL THRU%
+      SLEN,         %LENGTH OF THE SUBJECT STRING%
+      CUR,          %THE CURRENT SUBJECT STRING POINTER%
+      LEN,          %CURRENT REMAINING LENGTH OF SUBJECT STRING%
+      FUT,          %FUTILITY FLAG TO CUT SEARCH TIME%
+      ON;           %VALUE WHICH PUTS FUT ON (OFF IN FULLSCAN)%
+
+%  THE FOLLOWING MACRO INSERTS ASSIGNMENT NODES INTO THE APPROPRIATE
+   DICTIONARY STACK FOR USE BY THE CALLING ROUTINE
+%
+   MACRO DICTINS(S)=
+      BEGIN
+      BIND HISTN N=S;
+      BIND LKSTACK V=DICT[.N[VAR]]<0,0>;
+      N[VAR]_0;
+      PUSH(N,V)
+      END$;
+
+
+%  THE FOLLOWING RECURSIVE ROUTINE SCAN DOES ALL THE WORK.  IT
+   PERFORMS THE PRIMITIVE TEST CALLED FOR THE NODE AND THEN CALLS
+   ITSELF TO MATCH THE SUBSEQUENT ON SUCCESS OR THE ALTERNATE ON 
+FAILURE.
+%
+
+ROUTINE SCAN(P)=
+   BEGIN
+
+   BIND PATNODE PAT=.P;
+
+   IF PAT EQL SIGMA THEN RETURN 1;
+   IF PAT EQL PHI THEN RETURN 0;
+
+   BEGIN
+
+   BIND SAVLEN=.LEN, SAVCUR=.CUR;   %SAVE VALUES FOR POSS. BACKUP%
+   BIND A=.PAT[ARG];
+
+   IF BEGIN
+
+%  HERE WE GO OFF TO THE INDIVIDUAL PRIMITIVES WHICH GO ON FOR A WHILE
+   EACH CASE RETURNS EITHER 1 OR 0 TO BE TESTED BY THE ABOVE IF TO
+   DECIDE WHETHER OR NOT TO RECUR FOR THE SUBSEQUENT;
+%
+         LABEL SPAN,NSPAN,BRAKE,ONECHR,EQLSTR,PREFIX,BAL;
+
+         CASE .PAT[PRIM] OF SET
+
+%LEN     %  IF .LEN GEQ A
+               THEN BEGIN
+                  LEN_.LEN-A;
+                  INCPTR(CUR,A);
+                  1
+                  END
+               ELSE 0;
+
+ SPAN:      BEGIN
+            BIND SC=.LEN;
+            DECR N FROM .LEN TO 1 DO
+               UNLESS BELONGS(NXTCHR,A)
+                  THEN BEGIN
+                     DECP(CUR); LEN_.N;
+                     LEAVE SPAN WITH (IF .LEN EQL SC THEN (FUT_OFF; 0) ELSE 1)
+                     END;
+            LEN_0; SC NEQ 0
+            END;
+
+ NSPAN:     BEGIN
+            DECR N FROM .LEN TO 1 DO
+               UNLESS BELONGS(NXTCHR,A)
+                  THEN (DECP(CUR); LEN_.N; LEAVE NSPAN WITH 1);
+            LEN_0; 1
+            END;
+
+ BRAKE:     BEGIN
+            DECR N FROM .LEN TO 1 DO
+               IF BELONGS(NXTCHR,A)
+                  THEN (DECP(CUR); LEN_.N; LEAVE BRAKE WITH 1);
+            0
+            END;
+
+%ANY     %  IF .LEN GTR 0
+               THEN IF BELONGS(NXTCHR,A)
+                  THEN (DEC(LEN); 1)
+                  ELSE (FUT_OFF; 0)
+               ELSE 0;
+
+%NOTANY  %  IF .LEN GTR 0
+               THEN IF BELONGS(NXTCHR,A)
+                  THEN (FUT_OFF; 0)
+                  ELSE (DEC(LEN); 1)
+               ELSE 0;
+
+%FAIL    %  0;
+
+%SUCCEED %  1;
+
+%POS     %  .SLEN-.LEN EQL A;
+
+%RPOS    %  .LEN EQL A;
+
+%TAB     %  CASE SIGN(.SLEN-A-.LEN)+1 OF SET
+   %BEHIND%    0;
+   %EVEN%      1;
+   %AHEAD%     BEGIN
+               INCPTR(CUR,.SLEN-A-.LEN);
+               LEN_.SLEN-A;
+               1
+               END
+               TES;
+
+%RTAB    %  IF A LEQ .LEN
+               THEN BEGIN
+                  INCPTR(CUR,.LEN-A);
+                  LEN_A;
+                  1
+                  END
+               ELSE 0;
+
+ ONECHR:    BEGIN
+            IF .LEN LSS 1 THEN LEAVE ONECHR WITH 0;
+            IF NXTCHR EQL A
+               THEN (DEC(LEN); 1)
+               ELSE (DECP(CUR); FUT_OFF; 0)
+            END;
+
+ EQLSTR:    BEGIN
+            LOCAL AS,CNT;
+            AS_@@PAT; AS<18,9>_#700;
+            IF .LEN LSS (CNT_SCANI(AS)) THEN LEAVE EQLSTR WITH 0;
+            REPEAT(.CNT)
+               IF NXTCHR NEQ SCANI(AS)
+                  THEN (FUT_OFF; LEAVE EQLSTR WITH 0);
+            LEN_.LEN-.CNT;
+            1
+            END;
+
+ PREFIX:    BEGIN
+            BIND SL=.LEN;
+            LOCAL AS,CNT;
+            AS_@@PAT; AS<18,9>_#700;
+            IF (CNT_MIN(.LEN,SCANI(AS))) LEQ 1
+               THEN LEAVE PREFIX WITH 0;
+            DECR N FROM .CNT TO 1 DO
+               IF NXTCHR NEQ SCANI(AS)
+                  THEN (DECP(CUR); LEN_.LEN-.CNT+.N; EXITLOOP);
+            .LEN NEQ SL
+            END;
+
+%SUBR    %  SCAN(A);
+
+%  THE REMAINING CASES ARE THE COMPOUNDS THAT HANDLE THEIR SUBSEQUENTS
+   HERE RATHER THAN LATER, SINCE THEY HAVE IMPLICIT ALTERNATIVES
+%
+ BAL:       IF WANTBAL THEN
+            BEGIN
+            LOCAL SFUT,SL;
+            SFUT_.FUT; FUT_.ON;
+
+            DO BEGIN    %ADD TO THE BALANCED STRING%
+               REGISTER DEPTH;
+               DEPTH_0;
+               DO BEGIN
+                  IF .LEN LEQ 0
+                     THEN BEGIN
+                        IF .DEPTH NEQ 0 THEN FUT_OFF;
+                        LEAVE BAL WITH 0
+                        END;
+                  SELECT NXTCHR OF NSET
+                  "(":   INC(DEPTH);
+                  ")":   DEC(DEPTH);
+               ALWAYS:   DEC(LEN)
+                     TESN
+                  END
+               UNTIL .DEPTH LEQ 0;
+               SL_.LEN
+               END
+            UNTIL UNLESS SCAN(.PAT[SUBS])
+               THEN IF .FUT
+                  THEN (FUT_.SFUT; LEAVE BAL WITH 0)
+                  ELSE (FUT_.ON; 0)
+               ELSE 1;
+            IF .LEN NEQ 0 THEN FUT_OFF;
+            RETURN 1
+            END ELSE 0;
+
+%ASSIGN  %  IF SCAN(.A<18,18>)
+               THEN BEGIN
+                  BIND HISTN P=GETM(NDSIZE);
+                  MAKHISTN(P,SAVCUR,SAVLEN-.LEN,.A<0,18>,.PAT[CODE]);
+                  IF .PAT[CONDF]
+                     THEN PUSH(P,HIST)
+                     ELSE DICTINS(P);
+                  1
+                  END
+               ELSE 0;
+
+         TES
+
+         END         %END OF THE PRIMITIVES CASE STATEMENT AND COND.%
+
+      THEN IF SCAN(.PAT[SUBS])
+         THEN 1
+         ELSE BEGIN
+            LEN_SAVLEN; CUR_SAVCUR;
+            SCAN(.PAT[ALT])
+            END
+      ELSE SCAN(.PAT[ALT])
+      END
+      END;  %SCAN%
+
+%  FINALLY WE PICK UP THE MAIN LINE OF MATCH
+%
+   BIND STRING STRIN=.S;
+   DICT_.DP+1;
+   ON_IF .FS THEN 0 ELSE 1;    %WE IGNORE FUTILITY IN FULLSCAN MODE%
+   CUR_.STRIN[STRP]; LEN_SLEN_.STRIN[LENG]; FUT_.ON;
+   HIST_0;
+   UNTIL SCAN(.PATTERN)
+   DO BEGIN
+      IF .ANCH OR (NOT .ANCH AND .FUT AND NOT .FS) THEN RETURN 0;
+      INCP(CUR);
+      IF DEC(SLEN) LEQ 0 THEN RETURN 0;
+      FUT_.ON
+      END;
+%
+   ASSIGN VARIABLES FROM HISTORY LIST
+%
+   UNTIL EMPTY(HIST)
+   DO DICTINS(POP(HIST));
+
+   1
+   END;   %MATCH%
+
+END ELUDOM
+    
