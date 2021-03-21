@@ -1,0 +1,117 @@
+      SUBROUTINE SOINC
+C  READS INCIDENCE AND PLATE THICKNESS
+      DIMENSION  NAREA(20)
+      DIMENSION NSYSF(6)
+      DIMENSION NPRBF(6)
+      DIMENSION NARRF(36)
+      DIMENSION  JMIN(250),JPLS(250),MTYP(250)
+      DIMENSION A(40),BETA(37),LABL(16),IFREE(20),ICHK(2),IBUFF(40)
+      DIMENSION ICORD(3)                                                $MEM0160
+      COMMON NTMP,KCUR,NAVAL,NOVER,ISOLV,ISUCC,ISCAN,ITRAC,NSYSF        O
+      COMMON NJ,NB,NDAT,NFJS,NLDS,NLDSI,ID,NCORD,JF,NSQ,IMETH,NMR,NJR,
+     1IBETA,IYOUN,ISHEA,GSHEA,EYOUN,FILL1,FILL2,IPZER,ISTRS,NPRBF
+      COMMON IPLAT,NPLAT,KPLA1,KPLAT,KTHI1,KTHIK
+      COMMON KNAM1,KNAME,KXY1,KXYZ,KJRE1,KJREL,MEGA1,MEGAZ,KMEM1,KMEMB, OMEM0220
+     1KBET1,KBETA,KYON1,KYOUN,KSHE1,KSHEA,KMRE1,KMREL,KMEG1,KMEGA,
+     2KMKS1,KMKST,KROT1,KROTE,KPPL1,KPPLS,KPMN1,KPMNS,LOAD1,LOADS,
+     3KLIN1,KLINT,MLOA1,MLOAD,JLOA1,JLOAD,KDIA1,KDIAG,KOFD1,KOFDG,
+     4KPPR1,KPPRI,KSTA1,KSTAT
+      COMMON NARRF
+C  MEMBER INCIDENCE AND TYPE TABLES  250 JOINTS  500 MEMBERS
+      COMMON JMIN,JPLS,MTYP,IAMDU
+C  SCRATCH AREA
+      COMMON A,BETA,IFREE,LABL,IB,IL,ILOOK,JTOMB,K1,IPRER,JLD,INDEX,
+     1JINDL,JDEPL,IPRTA,KK,JJC,JDC,IS,ICHK,JMIC,JMPC,JCODE,JIB
+     2,MEMRE,CTE,KS1,LEM,IBUFF,K,NTHIK
+C     MEMBER INCIDENCES - H2                                            OMEM0870
+C     MATCH FIRST JOINT NO. ALREADY (FIXED POINT NO.)                   OMEM0880
+C     JTOMB (...) (..) FROM 151-KK=1                                    OMEM0890
+      IF(KK-2)300,800,800
+  300 IFIX=1                                                            OMEM0900
+C     MATCH NEXT NUMBER(JOINT NUMBERS)=JUNK                             OMEM0910
+302   CALL MATCH (JUNK,AA,0,6,IBUFF,I)                                  OMEM0920
+      IF(IFIX-3)303,303,9906
+  303 GO TO( 311,305,9902,9900,9906),I
+305   ICORD(IFIX)=JUNK                                                  OMEM0940
+      IF(JUNK-NJ)307,307,9911                                           OMEM0950
+C     TEST FOR 2ND NUMBER READ,AFTER MATCH-GO TO 310 TO COMPARE         OMEM0960
+C     COORD. NOTATION FOR MEMBERS                                       OMEM0970
+  307 IFIX=IFIX+1                                                       OMEM0980
+      IF(IFIX-3)302,302,308                                             $MEM0990
+  308 IF(ICORD(1)-ICORD(3))309,9918,309                                 $MEM0991
+  309 IF(ICORD(2)-ICORD(3))310,9918,310                                 $MEM0992
+  310 IF(ICORD(1)-ICORD(2))312,9918,312                                 $MEM0993
+  312 IF(ISCAN-1)500,313,500                                            $MEM0994
+  313 IF(IPLAT)9951,9951,316
+  316 A(1)=JTOMB
+      A(2)=ICORD(1)                                                     $MEM1000
+      A(3)=ICORD(2)                                                     $MEM1002
+      A(4)=ICORD(3)                                                     $MEM1003
+      NPLAT=NPLAT+1                                                     $MEM1005
+      KOUNT=JTOMB-NB
+      CALL SDATA(KPLA1,KPLAT,KOUNT,A,NAREA,-2,0)
+      CALL SPAK2(-JTOMB,MTYP,4)                                         $MEM1007
+      GO TO 500                                                         $MEM1009
+  311 IF(ICORD(1)-ICORD(2))314,9918,314                                 $MEM1010
+  314 IF(ISCAN-1)500,315,500                                            $MEM1014
+C     ISCAN=1 - STORE DATA,FIRST JOINT NO. THEN SECOND JOINT NO.        OMEM1020
+  315 JMIC=JMIC+1                                                       $MEM1025
+      CALL SPAK2(-JTOMB,JPLS,ICORD(1))
+      CALL SPAK2(-JTOMB,JMIN,ICORD(2))
+      GO TO 500
+  800 IF(JTOMB)9906,8001,803
+ 8001 CALL MATCH(JUNK,AA,0,6,IBUFF,I)
+      GO TO(9905,9901,802,9900,8002),I
+ 8002 IF(JUNK-18)9906,801,9906                                          $MEM2984
+  801 CALL MATCH(JUNK,AA,0,6,IBUFF,I)                                   $MEM2986
+      GO TO (9905,9901,802,9900,9906),I
+  802 THICK=AA                                                          $MEM2990
+      GO TO 500                                                         $MEM2992
+  803 IF(K3-18)8031,807,8031
+ 8031 CALL MATCH(K3,AA,0,6,IBUFF,I)
+      GO TO (810,9901,9902,9900,804),I                                  $MEM2996
+  804 IF(K3-16)9906,806,805                                             $MEM2998
+  805 IF(K3-18)803,807,9906                                             $MEM3000
+  806 LEM=1
+      CALL MATCH(IAMDU,AA,0,6,IBUFF,I)                                  $MEM3002
+      IF(I-2)9906,8031,9906                                             $MEM3004
+  807 CALL MATCH(JUNK,AA,0,6,IBUFF,I)                                   $MEM3006
+      GO TO(9905,9901,808,9900,9906),I
+  808 THICK=AA                                                          $MEM3010
+  810 IF(NPLAT)9955,9955,820
+  820 KLEM=JTOMB
+  816 KOUNT=KLEM-NB
+      IF(KOUNT-NPLAT)8141,8141,9955
+ 8141 CALL SDATA(KPLA1,KPLAT,KOUNT,A ,NAREA,-1,0)
+      A(5)=THICK                                                        $MEM3044
+      CALL SDATA(KPLA1,KPLAT,KOUNT,A ,NAREA,-2,0)
+      NTHIK=NTHIK+1
+      IF(LEM)815,500,815                                                $MEM3048
+  815 KLEM=KLEM+1                                                       $MEM3050
+      IF(KLEM-IAMDU)816,816,500                                         $MEM3052
+ 9900 IPRER=0
+      GO TO 600
+ 9901 IPRER=1
+      GO TO 600
+ 9902 IPRER=2
+      GO TO 600
+ 9905 IPRER=5
+      GO TO 600
+ 9906 IPRER=6
+      GO TO 600
+ 9911 IPRER=11                                                          OMEM2840
+      GO TO 600
+9918  IPRER=18                                                          OMEM2900
+      GO TO 600
+ 9951 IPRER=51
+      GO TO 600                                                         $MEM3056
+ 9955 IPRER=55
+      GO TO 600                                                         $MEM3060
+  600 IF(ISCAN-1)500,601,500
+  601 ISCAN=0
+      GO TO 500
+  500 ILOOK=7
+      LEM=0
+      K3=0
+      RETURN
+      END
