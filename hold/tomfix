@@ -1,0 +1,212 @@
+C        
+C        NEW VERSION OF MEH1 FOR FILTER DESIGN AND PERFORMANCE
+C        M. E. HINES' PROGRAM FOR WAVEGUIDE FILTER STUDIES-MEH1
+         COMPLEX Y,CP2,VF,VB,AMP,VR,FFUNC,BFUNC,VT,CP1,ECE,VC,VL
+         REAL LOSS,LENGTH,MAGB,MAGF,LGC2,LINCH,LG2,MAG,LGH2,LGL2
+         DIMENSION B(15),LENGTH(15),F(60),ANGF(60),MAGF(60),MAGB(60),
+     1   DELAY(60),AK(15),BK(15),G(15)
+         PI=3.1415926
+         PI2=2.*PI
+         TYPE 3000
+        ACCEPT 4500,NT
+         TYPE 3010
+        ACCEPT 4600,FCENT1
+         TYPE 3020
+        ACCEPT 4600,BW
+         IF(NT.EQ.1)GO TO 1
+         TYPE 3030
+        ACCEPT 4600,RIPPLE
+1         CONTINUE
+         TYPE 3040
+        ACCEPT 4600,NCAV
+         TYPE 3050
+        ACCEPT 4600,A
+         TYPE 3060
+        ACCEPT 4600,HGT
+         TYPE 3070
+        ACCEPT 4600,FACTOR
+         TYPE 3080
+        ACCEPT 4500,NDISH
+         FCENT=FCENT1*1.E6
+         NCP1=NCAV+1
+         FC=1.5E10/(A*2.54001)
+         LGC2=1.5E10/(FCENT*SQRT(1.-(FC/FCENT)**2))
+         CP2=CMPLX(2.,0.)
+         FNCAV=NCAV
+         IF(NT.EQ.1)GO TO 386
+         EXPQ=EXP(RIPPLE/17.37)
+         BETA=ALOG((EXPQ+1./EXPQ)/(EXPQ-1./EXPQ))
+         GAMM=.5*(EXP(BETA/2./FNCAV)-EXP(-BETA/2./FNCAV))
+         DO 383 N151=1,NCP1
+         FN151=N151
+         AK(N151)=SIN(PI/2./FNCAV*(2.*FN151-1.))
+         BK(N151)=GAMM**2+SIN(PI*FN151/FNCAV)**2
+383       CONTINUE
+         G(1)=2.*AK(1)/GAMM
+         DO 384 N152=2,NCP1
+         G(N152)=4.*AK(N152-1)*AK(N152)/BK(N152-1)/G(N152-1)
+384       CONTINUE
+         GO TO 388
+386       CONTINUE
+         DO 387 N333=1,NCAV
+         FN333=N333
+         G(N333)=2.*SIN(PI*(2.*FN333-1.)/2./FNCAV)
+387       CONTINUE
+388       CONTINUE
+         FH=FCENT+BW/2.*1.E6
+         FL=FCENT-BW/2.*1.E6
+         LGL2=1.5E10/(FL*SQRT(1.-(FC/FL)**2))
+         LGH2=1.5E10/(FH*SQRT(1.-(FC/FH)**2))
+         OMEGA=PI*(LGL2-LGH2)/(LGL2+LGH2)
+         B(1)=(1.-OMEGA/G(1))*SQRT(G(1)/OMEGA)
+         NA=NCAV/2
+         NB=(NCAV+1)/2
+         R=1.
+         EXPB=EXP(BETA/4.)
+         IF(NB.EQ.NA)R=((EXPB-1./EXPB)/(EXPB+1./EXPB))**2
+         B(NCP1)=(1.-R*OMEGA/G(NCAV))*SQRT(G(NCAV)/R/OMEGA)
+         G(NCP1)=1./R
+         DO 390 N334=2,NCAV
+         B(N334)=(1.-OMEGA**2/G(N334-1)/G(N334))*SQRT(G(N334-1)*
+     1    G(N334))/OMEGA
+        TYPE 3090
+390       CONTINUE
+3090    FORMAT('  N       G(N)     B(N)     LENGTH(N)')
+         DO 391 N335=1,NCAV
+         LENGTH(N335)=LGC2*(1.-.5*ATAN(2./B(N335))/PI-.5*ATAN(2.
+     1   /B(N335+1))/PI)
+391       CONTINUE
+         DO 392 N336=1,NCP1
+         LINCH=LENGTH(N336)/2.54001
+         TYPE 2070,N336,G(N336),B(N336),LINCH
+392       CONTINUE
+         RS=2.61E-7*SQRT(FCENT)
+         WLO2A=3.E10/(FCENT*5.08002*A)
+         ALPHA=RS*(1.+2*HGT/A*WLO2A**2)/(377.*2.54001*HGT*SQRT(1.-
+     1   WLO2A**2))*FACTOR
+         EXP1=EXP(-ALPHA*LGC2)
+         ECE=CMPLX(EXP1,0.)
+         DO 600 NF=7,53
+         FN=NF-30
+         FN20=NF-20
+         FN40=NF-40
+         F(NF)=(FCENT1+2.*FN)*1.E6
+         IF(NF.LT.18)F(NF)=(FCENT1+10.*FN20)*1.E6
+         IF(NF.GT.42)F(NF)=(FCENT1+10.*FN40)*1.E6
+         VF=CMPLX(1.,0.)
+         VB=CMPLX(0.,0.)
+         DO 500 J=1,NCAV
+         M=NCAV+1-J
+         LG2=1.5E10/F(NF)/SQRT(1.-(FC/F(NF))**2)
+         TH=PI*LENGTH(M)/LG2
+         CC=COS(TH)
+         SS=SIN(TH)
+         BF=-B(M+1)*(1.-2.*(F(NF)-FCENT)/FCENT)
+         Y=CMPLX(0.,BF)
+         FFUNC=CMPLX(CC,SS)/ECE
+         BFUNC=CMPLX(CC,-SS)*ECE
+         AMP=Y*(VF+VB)+VF-VB
+         VT=VF+VB
+         VF=(VT+AMP)/CP2*FFUNC
+         VB=(VT-AMP)/CP2*BFUNC
+500       CONTINUE
+         BF=-B(1)*(1.-2.*(F(NF)-FCENT)/FCENT)
+         Y=CMPLX(0.,BF)
+         AMP=Y*(VF+VB)+VF-VB
+         VT=VF+VB
+         VF=(VT+AMP)/CP2
+         VB=(VT-AMP)/CP2
+         VR=VB/VF
+         ANGF(NF)=-ATAN2(AIMAG(VF),REAL(VF))
+         MAGF(NF)=SQRT(AIMAG(VF)**2+REAL(VF)**2)
+         MAGB(NF)=SQRT(AIMAG(VR)**2+REAL(VR)**2)
+600       CONTINUE
+         EXC=0.
+         DO 650 N=10,51
+         ANGF(N)=ANGF(N)-PI2*EXC
+         DIF=ANGF(N)-ANGF(N-1)
+         IF(DIF.GT.3.5)EXC=EXC+1.
+         IF(DIF.GT.3.5)ANGF(N)=ANGF(N)-PI2
+650       CONTINUE
+         CENDEL=-(ANGF(31)-ANGF(29))/(PI2*(F(31)-F(29)))*1.E9
+         DO 700 N=10,50
+         DELAY(N)=-(ANGF(N+1)-ANGF(N-1))/(PI2*(F(N+1)-F(N-1)))*1.E9-CENDEL
+        TYPE 4000
+700       CONTINUE
+4000     FORMAT('CAV. NO.     LOSS         VSWR      DELAY')
+         DO 750 N=8,52
+         FR=F(N)*1.E-6
+         LOSS=20.*ALOG10(MAGF(N))
+         FX=1.-MAGB(N)
+         IF(FX.LT.1.E-6)MAGB(N)=.99999
+         VSWRR=(1.+MAGB(N))/(1.-MAGB(N))
+         VSWR=ABS(VSWRR)
+         IF(VSWR.GT.100.)VSWR=0.
+         TYPE 1030,FR,LOSS,VSWR,DELAY(N)
+750       CONTINUE
+         TYPE 1050,CENDEL
+         IF(NDISH.EQ.2) GO TO 1720
+        PAUSE 'TURN ON TAPE PUNCH IF DESIRED, THEN CR'
+         DO 999 NSTART=1,NCAV
+         PRINT 2080
+         DO 990 NF=1,61
+         FNF=NF
+         FREQ=FCENT+(FNF-31.)*1.E6
+         N30=NF-31
+         FN30=N30
+         VF=CMPLX(1.,0.)
+         VB=VF
+         IF(NSTART.EQ.NCAV)VB=CMPLX(0.,0.)
+         DO 980 NP=1,NSTART
+         NPB=NSTART+1-NP
+         LG2=1.5E10/FREQ/SQRT(1.-(FC/FREQ)**2)
+         TH=PI*LENGTH(NPB)/LG2
+         CC=COS(TH)
+         SS=SIN(TH)
+         BF=-B(NPB+1)*(1.-2.*(FREQ-FCENT)/FCENT)
+         Y=CMPLX(0.,BF)
+         FFUNC=CMPLX(CC,SS)/ECE
+         BFUNC=CMPLX(CC,-SS)*ECE
+         AMP=Y*(VF+VB)+VF-VB
+         VT=VF+VB
+         VF=(VT+AMP)/CP2
+         VB=(VT-AMP)/CP2
+         VC=VF-VB
+         VF=VF*FFUNC
+         VB=VB*BFUNC
+980       CONTINUE
+         BF=-B(1)*(1.-2.*(FREQ-FCENT)/FCENT)
+         Y=CMPLX(0.,BF)
+         VT=VF+VB
+         AMP=Y*VT+VF-VB
+         VF=(VT+AMP)/CP2
+         VB=(VT-AMP)/CP2
+         VR=VB/VF
+         VL=VC/VF
+         DISHP=(REAL(VL)**2+AIMAG(VL)**2)*.01
+         IF(NSTART.EQ.NCAV)DISHP=(REAL(VR)**2+AIMAG(VR)**2)*1000.
+         TYPE 2075,FN30,DISHP
+990       CONTINUE
+999       CONTINUE
+1720      CONTINUE
+1000      FORMAT(1H ,'B(',I2,')=')
+1010      FORMAT(1H ,'LENGTH(',I2,')=',F8.4)
+1020      FORMAT(1H ,'LENGTH(',I2,')=')
+1030      FORMAT(1H ,F10.1,F10.4,F10.4,F10.4)
+1040      FORMAT(1H ,I2,F10.2,2F8.4)
+1050      FORMAT(1H ,'CENDEL=',F10.4)
+1060      FORMAT(1H ,'LAMBDA-G OVER 2.=',F8.4)
+2070      FORMAT(1H ,I2,3F10.5)
+2075      FORMAT(1H ,F8.2,F10.4)
+2080      FORMAT(/,/)
+3000    FORMAT(1X,'FOR BUTTERWORTH, TYPE 1,FOR TCHEB,TYPE 2,' $)
+3010    FORMAT(1X,'CENTER FREQ=(MHZ) ' $)
+3020    FORMAT(1X,'BANDWIDTH IN MHZ=' $)
+3030    FORMAT(1X,'RIPPLE=' $)
+3040    FORMAT(1X,'NO. OF CAV.=' $)
+3050    FORMAT(1X,'WIDTH IN INCHES A=' $)
+3060    FORMAT(1X,'HIEGHT IN INCHES B=' $)
+3070    FORMAT(1X,'LOSS FACTOR=' $)
+3080    FORMAT(1X,'FOR DISHALL TUNING DATA, TYPE 1, NOT TYPE 2' $)
+4500    FORMAT(I)
+4600    FORMAT(F)
