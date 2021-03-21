@@ -1,0 +1,272 @@
+
+
+
+
+
+COMPIL.DOC - CHANGES FROM VERSION 21A TO 22
+Apr, 1973
+
+
+COPYRIGHT 1973, DIGITAL EQUIPMENT CORP., MAYNARD, MASS.
+
+
+
+
+
+1.0 SUMMARY
+
+     The reasons for this release are:-
+a) To provide support for FORTRAN-10
+b) To provide support for LINK-10
+c) To fix outstanding bugs.
+
+     COMPIL version  22  is  version  21A  with  edits  #110
+through   #143   inclusive.    This   version   has  no  new
+deficiencies and fully replaces version 21A.
+
+     COMPIL is documented in the software notebook vol.  #1.
+Section, DECsystem-10 OPERATING SYSTEM COMMANDS
+
+     It is suggested that version 22  be  used  as  soon  as
+possible  to accustom users to the new switches and features
+before the release of FORTRAN-10 and LINK-10.
+
+     Because of extra disk accesses this version  of  COMPIL
+will be slightly slower than previous versions, however this
+effect has not been noticable in house.
+
+COMPIL.DOC - CHANGES FROM VERSION 21A TO 22         PAGE   2
+Apr, 1973
+
+
+2.0 EXTERNAL CHANGES
+
+  #110  DMN
+        Add switches /F40 and /F10 for F40 old compiler  and
+        new  FORTRAN-10 compiler.  These switches are either
+        permanent or temporary just like /LIST, however they
+        only apply to fortran programs.
+        In addition recognise two  fortran  extensions,  .F4
+        and .FOR
+        COMPIL will read existing fortran  binary  files  to
+        see  if  they were compiled by the required compiler
+        (second word of title block), and if  not,  force  a
+        recompilation.
+        Note, it is  not  possible  to  load  both  F40  and
+        FORTRAN-10 produced binary files together, therefore
+        if loading or execution is required either  /F40  or
+        /F10 should be a permanent switch.
+        The assembly control switch  is  DFORTRAN  which  is
+        zero for F40 and one for FORTRAN-10.
+        The default case is /F40.
+
+  #111  DMN
+        Add switches /LOADER and /LINK to use either  LOADER
+        or  LINK-10  for  LOAD,  EXECUTE, or DEBUG commands.
+        One of these switches must be  given  early  in  the
+        command  string  as COMPIL may have to generate load
+        control switches.
+        The assembly control switch is LINK10 which is  zero
+        for LOADER and one for LINK-10.
+        The default value is /LOADER.
+        The LOADER temp file is xxxLOA whereas the  one  for
+        LINK-10 is xxxLNK
+
+  #113  SPR 9343
+        SYS:FILE.REL/REL command fails
+        Source file in same command but after above fails.
+        Diagnosis: Flags do not get  cleared  correctly  and
+        SYS: never gets stored.
+        Fix: set LOKNAM if switch /REL given,  clear  LOKNAM
+        and FL2 at scan for next file.
+
+  #114  SPR 9343
+        If temp file is greater than  128  words,  the  last
+        character is lost.
+        Diagnosis: Buffer count is off by one.
+        Fix: Make it one less.
+
+  #116  DMN
+        Since FORTRAN-10 generates different code  for  KA10
+        and  KI10,  add  two new switches /KA10 and /KI10 to
+        allow  the  user  to  specify  the  target  machine.
+        COMPIL  reads  the  existing fortran binary files to
+        determine if recompilation is required.
+
+COMPIL.DOC - CHANGES FROM VERSION 21A TO 22         PAGE   3
+Apr, 1973
+
+
+        The effect of #110 and #116 is to  ensure  that  all
+        fortran  programs  execute  with  either compiler on
+        either machine with the minimum of user confusion.
+
+  #123  DMN
+        If a PIP TMPCOR file exists, commands such as
+        DEL @xxxPIP, fail.
+        Problem is that COMPIL tries to  read  a  file  from
+        TMPCOR  using the rightmost 3 characters of the file
+        name.  Normally this loses  and  COMPIL  then  tries
+        DSK.   However  in the case of file xxxPIP where xxx
+        is not the job number COMPIL  reads  the  temp  file
+        rather than the DSK.
+        Fix: if the leftmost 3 characters of the  file  name
+        do not match the job number do not read TMPCOR.
+
+  #124  DMN
+        Add LINK-10 switches as quoted strings as in
+        %'HASHSIZE:7000' %"MAXCOR:45K"
+        The quote character can be any alphanumeric and most
+        but  not  all other characters.  The recomended ones
+        are single and double quote, characters not  allowed
+        are "@" and ";".
+        Note, see also #135
+
+  #124  DMN
+        Add switch /SEARCH, this  is  exactly  the  same  as
+        /LIBRARY but is more consistent with LINK-10.
+
+  #131  SPR 9676
+        COPY gives command error if a PIP switch  is  passed
+        on  the  input side when no file name is given (i.e.
+        PTR:).
+        Fix bug, and at same time allow PIP switches  to  be
+        passed  as  /X  where  X  is any single alphanumeric
+        character.
+
+  #132  SPR 9589
+        There are several bugs in the LABEL command, most of
+        them are user errors which COMPIL does not correctly
+        handle.
+        Fix, test  for  missing  label  delimiter  and  give
+        syntax error.
+        If device is missing give message :-
+        ?EXPLICIT DEVICE REQUIRED
+        Also allow @ sign to be part of a  label  name  (but
+        not a delimiter).
+
+  #133  BBN
+        Add feature test  switch  TENEX  which  if  non-zero
+        assembles  code  to  run  under TENEX monitor.  This
+        switch is zero in the DEC version.
+        As part of same  edit  (but  not  under  TENEX)  add
+
+COMPIL.DOC - CHANGES FROM VERSION 21A TO 22         PAGE   4
+Apr, 1973
+
+
+        recognition of LOADER switches of form:-
+        %&GLOBAL&SWITCH  which  passes  /&GLOBAL&SWITCH   to
+        LOADER.   This  is  for  the non-standard version of
+        LOADER which recognizes defined  global  values  for
+        some switches.
+
+  #135  DMN
+        As a conversion aid, if LINK-10 is to be used  check
+        the  switch  delimiter and give a warning message if
+        it is alphanumeric (0-9 ,A-Z, a-z) or - or &.
+        The message is
+        %Illegal switch delimeter: X
+        This is not fatal, but if LOADER switches are  being
+        passed, will generally result in a command error.
+
+  #143  DMN
+        Add two new switches /OPTIMIZE and /NOPTIMIZE  which
+        pass the corresponding switches to FORTRAN-10.
+        Also allow  FORTRAN-10  switches  to  be  passed  in
+        parentheses  as  (SWITCH1  SWITCH2  SWITCH3,,) where
+        each switch is separated by a space.
+
+COMPIL.DOC - CHANGES FROM VERSION 21A TO 22         PAGE   5
+Apr, 1973
+
+
+3.0 KNOWN BUGS AND DEFICIENCIES
+
+        No known bugs or deficiencies are in version 22
+
+4.0 CHANGES IN INSTALLATION INSTRUCTIONS
+
+        The installation guide is COMPIL.CTL.
+        There are no changes in installation instructions.
+
+5.0 INTERNAL CHANGES
+
+  #112  SPR 9343
+        There is not enough space for LOADER switches.
+        Fix: Increase LODSCT to 40 characters.
+
+  #115  DMN
+        The editor used for CREATE and EDIT is not symbolic,
+        so  COMPIL  must  be  edited to change from LINED to
+        EDITS.
+        Fix:  Add  assembly  symbol  EDITOR  which  has  the
+        default value of SIXBIT/LINED/.
+
+  #117  SPR 8768
+        Output devices for  binary  and  listing  files  are
+        ignored.
+        Diagnosis: No code to handle them.
+        Fix: Add some preliminary code to at least save  the
+        output device name.
+        Note, this does not  solve  the  problem,  which  is
+        complex,  but  is  at  least  a  start  in the right
+        direction.
+
+  #120  DMN
+        Fix bugs in FORTRAN-10 code.
+
+  #121  DMN
+        Fix bugs in LINK-10 code
+
+  #122  DMN
+        Fix bugs in /MAP code
+
+  #125  QAR 362
+        DEB FILE.CBL fails when going to LINK-10.
+        Fix, add a space after /E/L
+
+  #127  DMN
+        FORTRAN-10  uses  SCAN  which  does  not   recognize
+        LOADER! construction for RUN UUO.
+        Fix, pass /RUN:LOADER or /RUN:LINK  if  compiler  is
+        FORTRAN-10.
+
+  #130  DMN
+        Ill  mem  refs  etc.   while  compiling  F4   files.
+
+COMPIL.DOC - CHANGES FROM VERSION 21A TO 22         PAGE   6
+Apr, 1973
+
+
+        Reading   the   REL  file  to  check  compiler  type
+        sometimes wipes out TMPCOR file.
+        Fix, setup .JBFF correctly.
+
+  #134  DMN
+        Fix more LINK-10 /MAP bugs.
+
+  #136  SPR 9881
+        Directory  before  file  name  generates   incorrect
+        output.
+        Fix, correct code that handles default SFD.
+
+  #137  DMN
+        COMPIL will not assemble with MANTIS=1.
+        FCHF4 should be FORSW.
+
+  #140  DMN
+        Fix bugs in #111 and #116
+
+  #141  DMN
+        #116 was not complete.
+        Make the default cpu be the one on which  COMPIL  is
+        running.
+
+  #142  SPR 8215
+        Null extensions (period only) causes problems.
+        Fix, scan over the dot if an identifier has not been
+        seen.
+
+[END OF COMPIL.DOC]
+    
