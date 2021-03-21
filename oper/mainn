@@ -1,0 +1,143 @@
+C                  MAIN CONTROL PROGRAM                                       1
+      REAL    CJOB(70),CODE(80)                                               2
+      REAL         M11(6,6),M12(6,6),M13(6,6),M22(6,6),M23(6,6),M33(6,6)      3
+     1            ,K11(6,6),K12(6,6),K13(6,6),K22(6,6),K23(6,6),K33(6,6)      4
+      COMMON IN,IOUT,NOUTP,IFPLT,NEXEC,NERR,NNT,NEQ,IFEQ(3),IFUNA,            5
+     1       IFUPD(3),NREC(4),NFN(4),NS(10),NSTAT(600),CJOB,CODE              6
+      COMMON IDM(8),RDM(334)                                                  7
+      COMMON/FILES/IDTFL,IPRCM,ITERM
+      DATA YY/'Y'/,QUES/'?'/,HH/'H'/
+
+      NFN(1)=21                                                               9
+      NFN(2)=22                                                              10
+      NFN(3)=23                                                              11
+      NFN(4)=24                                                              12
+C                  INPUT LOGICAL NUMBER                                      13
+      IN=5                                                                   14
+C                  OUTPUT LOGICAL NUMBER                                     15
+      IOUT=5
+      CALL VALPRI(3,303,'BILIN')
+      CALL OFILE(21,'FOR21.TMP')
+      CALL OFILE(22,'FOR22.TMP')
+      CALL OFILE(23,'FOR23.TMP')
+      CALL OFILE(24,'FOR24.TMP')
+      IFUNA=0                                                                17
+      NEXEC=-1                                                               18
+      NERR=0                                                                 19
+      IDTFL=0
+      IPRCM=0
+      ITERM=1
+    4 WRITE(IOUT,5)
+ 9797 FORMAT(G)
+    5 FORMAT(15X,'MACE, VERSION I, MOD I')
+    8 WRITE(IOUT,1)
+    1 FORMAT(/'+OPTIONS? '$)
+      READ(IN,3)CODE
+    3 FORMAT(80A1)
+      IF(CODE(1)-YY)9,13,9
+    9 IF(CODE(1)-HH)7,12,7
+    7 IF(CODE(1)-QUES)26,12,26
+   12 CALL HELPR
+      GO TO 8
+   13 ITERM=0
+      WRITE(IOUT,14)
+   14 FORMAT('+DATA TO BE READ FROM EXISTING FILE? '$)
+      READ(IN,3)CODE
+      IF(CODE(1)-YY)21,16,21
+   16 WRITE(IOUT,17)
+   17 FORMAT('+FILE NAME(5 CHARACTERS)? '$)
+      READ(IN,18)NFILE
+   18 FORMAT(A5)
+      CALL IFILE(20,NFILE)
+      WRITE(IOUT,19)
+   19 FORMAT('+PRINT COMMANDS AS READ? '$)
+      READ(IN,3)CODE
+      IF(CODE(1)-YY)31,32,31
+   32 IPRCM=IOUT
+   31 WRITE(IOUT,33)
+   33 FORMAT(' **PROCEEDING')
+      IN=20
+      GO TO 50
+   21 WRITE(IOUT,22)
+   22 FORMAT('+DATA TO INPUT FROM TERMINAL? '$)
+      READ(IN,3)CODE
+      IF(CODE(1)-YY)13,23,13
+   23 ITERM=1
+      WRITE(IOUT,24)
+   24 FORMAT('+DATA TO BE WRITTEN INTO A FILE? '$)
+      READ(IN,3)CODE
+      IF(CODE(1)-YY)26,25,26
+   25 WRITE(IOUT,17)
+      READ(IN,18)NFILE
+      CALL OFILE(20,NFILE)
+      IDTFL=1
+      IPRCM=20
+      WRITE(IOUT,27)NFILE
+   27 FORMAT('+DATA WILL BE STORED AS FILE ** ',A5,'.DAT **')
+   26 WRITE(IOUT,28)
+   28 FORMAT(' **PROCEED')
+      GO TO 50
+   10 IF(NEXEC-4)20,400,20                                                   20
+   20 IF(NEXEC-5)30,500,30                                                   21
+   30 IF(IFUNA)40,40,1000                                                    22
+   40 NGOTO=NEXEC+2                                                          23
+      GO TO (50,50,100,200,300,400,500,600,700,800),NGOTO
+C                  SETUP EQUATIONS OR READ COMMANDS (NEXEC=0)                25
+   50 CALL VALPRI(2,303,'BILIN')
+      CALL CNTRL
+      IF(NERR)80,80,60
+   60 CONTINUE
+   80 IF(NEXEC)2000,10,10                                                    32
+C                  FREQUENCY RESPONSE  (NEXEC=1)                             33
+  100 IF(NEQ-50)105,105,101
+  101 CALL FREQRB
+      GO TO 106
+  105 CALL FREQRB
+  106 IF(IFPLT)50,50,110
+  110 CALL PLOTR
+      GO TO 50
+C                  NATURAL FREQUENCIES  (NEXEC=2)                            38
+  200 IF(NEQ-50)202,202,201
+  201 CALL NFREQB
+      GO TO 50
+  202 CALL NFREQB
+      GO TO 50                                                               40
+C                  MODAL ANALYSIS  (NEXEC=3)                                 41
+  300 IF(NEQ-50)305,305,301
+  301 CALL MODALB
+  302 IF(IFPLT)50,50,110
+  305 CALL MODALB
+      GO TO 302
+C                  CONSTRAINT TO EQUATIONS (NEXEC=4)                         44
+  400 CALL CNSTR
+      GO TO 50                                                               46
+C                  ELIMINATE STATIC COMPONENTS  (NEXEC=5)                    47
+  500 IF(NEQ-50)505,505,501
+  501 CALL REDUCB
+      GO TO 50
+  505 CALL REDUCB
+      GO TO 50
+C         STATIC DEFORMATIONS (NEXEC=6)
+  600 IF(NEQ-100)605,605,601
+  601 CALL STATCB
+      GO TO 50
+  605 CALL STATCB
+      GO TO 50                                                               52
+C                  READ, PRINT, OR PUNCH  (NEXEC=7)                          53
+  700 IF(NEQ-100)705,705,701
+  701 CALL SYSIOB
+      GO TO 50
+  705 CALL SYSIOB
+      GO TO 50                                                               55
+C                  INVERT STIFFNESS MATRIX  (NEXEC=8)
+  800 CALL FLEXI
+      GO TO 50
+C                  ASSEMBLY OF EQUATIONS                                     56
+ 1000 IF(NEQ-100)1005,1005,1001
+ 1001 CALL ASSEMB
+      GO TO 40
+ 1005 CALL ASSEMB
+      GO TO 40                                                               58
+ 2000 CALL VALPRI(4,303,'BILIN')
+      STOP
+      END
