@@ -1,0 +1,137 @@
+      SUBROUTINE SVRT9                                                  VRT90050
+C     LOCAL SUBROUTINE OF SLNK3-SVRT9 INVERT MATRIX WITH ARGUMENT       VRT90060
+C     FROM SLNK3.                                                       VRT90070
+C     COMPUTES INVERSE OF COMPACTED (IORD*IORD) MATRIX BACK IN Y        VRT90080
+C     IND=0 IF SINGULAR                                                 VRT90090
+C     IND=1 IF INVERSE SUCCESSFULLY COMPUTED                            VRT90100
+C     INVERSE SHOULD BE SYMMETRIC, COULD FORCE THE RESULT BY AVERAGING  VRT90110
+C     STRESS PROGRAMMING SYSTEM FOR IBM 1130                            VRT90120
+C     DIMENSION AND COMMON STATEMENTS WHICH MUST APPEAR IN ALL ROUTINES VRT90130
+      DIMENSION NSYSF(6)                                                VRT90140
+      DIMENSION NPRBF(6)                                                VRT90150
+      DIMENSION NARRF(36)                                               VRT90160
+      DIMENSION  JMIN(250),JPLS(250),MTYP(250)                                  
+      DIMENSION STIF(40),SCR1(40),SCR2(40),SCR3(40),SCR4(40),MO(6)      VRT90180
+      DIMENSION Y(1),R(6,6)                                             VRT90190
+C     SYSTEM PARAMETERS  -  14 WORDS                                    VRT90200
+      COMMON NTMP,KCUR,NAVAL,NOVER,ISOLV,ISUCC,ISCAN,ITRAC,NSYSF        VRT90210
+C     PROBLEM PARAMETERS  -  32 WORDS                                   VRT90220
+      COMMON NJ,NB,NDAT,NFJS,NLDS,NLDSI,ID,NCORD,JF,NSQ,IMETH,NMR,NJR,  VRT90230
+     1IBETA,IYOUN,ISHEA,GSHEA,EYOUN,FILL1,FILL2,FILL3,FILL4,NPRBF             VRT90240
+C     PLATE PARAMETERS                                                  $RT90244
+      COMMON IPLAT,NPLAT,KPLA1,KPLAT,KTHI1,KTHIK                        $RT90246
+C     ARRAY CODEWORDS  40 PAIRS = 80 WORDS                              VRT90250
+      COMMON KNAM1,KNAME,KXY1,KXYZ,KJRE1,KJREL,MEGA1,MEGAZ,KMEM1,KMEMB, VRT90260
+     1KBET1,KBETA,KYON1,KYOUN,KSHE1,KSHEA,KMRE1,KMREL,KMEG1,KMEGA,      VRT90270
+     2KMKS1,KMKST,KROT1,KROTE,KPPL1,KPPLS,KPMN1,KPMNS,LOAD1,LOADS,      VRT90280
+     3KLIN1,KLINT,MLOA1,MLOAD,JLOA1,JLOAD,KDIA1,KDIAG,KOFD1,KOFDG,      VRT90290
+     4KPPR1,KPPRI,KSTA1,KSTAT                                           VRT90300
+      COMMON NARRF                                                      VRT90310
+C  MEMBER INCIDENCE AND TYPE TABLES  250 JOINTS  500 MEMBERS                    
+      COMMON JMIN,JPLS,MTYP                                             VRT90330
+C     SCRATCH AREA CAN BE INSERTED AS DESIRED FOR EACH ROUTINE          VRT90340
+C     SCRATCH AREA                                                      VRT90350
+C     COMMON FOR MEMBER RELEASES ROUTINES                               VRT90360
+      COMMON/MRELX/STIF,SCR1,SCR2,SCR3,SCR4,NRC,NNRC,MO,M,SS,NOWCT,
+     1 IFCOM,IRC,IND,ISIDE
+      EQUIVALENCE (NRC,IORD),(Y(1),SCR2(1))                             VRT90390
+C     SUBSCRIPT COMPUTATION FUNCTION                                    VRT90400
+      IJF(I,J)=(J-1)*IORD+I                                             VRT90410
+C     SET UP UNIT MATRIX IN R                                           VRT90420
+      DO 16 I=1,IORD                                                    VRT90430
+      DO 17 J=1,IORD                                                    VRT90440
+17    R(I,J)=0.0                                                        VRT90450
+16    R(I,I)=1.0                                                        VRT90460
+      DO 2 I=1,IORD                                                     VRT90470
+      IPLUS=I+1                                                         VRT90480
+      IMIN=I-1                                                          VRT90490
+      IF(IMIN)50,50,3                                                   VRT90500
+C     FIRST ROW                                                         VRT90510
+4     DO 7 J=2,IORD                                                     VRT90520
+      KK=IJF(1,J)                                                       VRT90530
+7     Y(KK)=Y(KK)/Y(1)                                                  VRT90540
+      DO 40 J=1,IORD                                                    VRT90550
+40    R(1,J)=R(1,J)/Y(1)                                                VRT90560
+      GO TO 2                                                           VRT90570
+C     COLUMNS                                                           VRT90580
+3     DO 9 J=I,IORD                                                     VRT90590
+      SUM=0.                                                            VRT90600
+      DO  10 K=1,IMIN                                                   VRT90610
+      KK=IJF(J,K)                                                       VRT90620
+      KL=IJF(K,I)                                                       VRT90630
+10    SUM=SUM+Y(KK)*Y(KL)                                               VRT90640
+      KK=IJF(J,I)                                                       VRT90650
+9     Y(KK)=Y(KK)-SUM                                                   VRT90660
+      GO TO 50                                                          VRT90670
+C     ROWS OF Y                                                         VRT90680
+19    DO 11  J=IPLUS,IORD                                               VRT90690
+       SUM=0.                                                           VRT90700
+      DO 12 K=1,IMIN                                                    VRT90710
+      KK=IJF(I,K)                                                       VRT90720
+      KL=IJF(K,J)                                                       VRT90730
+12    SUM=SUM+Y(KK)*Y(KL)                                               VRT90740
+      KK=IJF(I,J)                                                       VRT90750
+      KL=IJF(I,I)                                                       VRT90760
+11    Y(KK)=(Y(KK)-SUM)/Y(KL)                                           VRT90770
+      GO TO 20                                                          VRT90780
+C     SWITCH ROUTINE TO GET LARGEST ELEMENT IN ANY COLUMN ON            VRT90790
+C     THE DIAGONAL.                                                     VRT90800
+50    XMAX=0.0                                                          VRT90810
+      DO 51 KLM=I,IORD                                                  VRT90820
+      KK=IJF(KLM,I)                                                     VRT90830
+      SUM=ABS(Y(KK))                                                    VRT90840
+      IF(SUM-XMAX)51,52,52                                              VRT90850
+52    XMAX=SUM                                                          VRT90860
+      INEW=KLM                                                          VRT90870
+51    CONTINUE                                                          VRT90880
+      IF(XMAX)33,33,53                                                  VRT90890
+C     SINGULAR MATRIX                                                   VRT90900
+33    IND=0                                                             VRT90910
+      RETURN                                                            VRT90920
+C     CHECK IF LAST ROW  -  SKIP ROWS OF Y AND SWITCH                   VRT90930
+53    IF(I-IORD)57,20,20                                                VRT90940
+C     CHECK IF LARGEST ELEMENT ALREADY IS ON THE DIAGONAL - SKIP SWITCH VRT90950
+57    IF(INEW-I)56,56,58                                                VRT90960
+58    DO 54 JSW=1,IORD                                                  VRT90970
+      KK=IJF(I,JSW)                                                     VRT90980
+      SWICH=Y(KK)                                                       VRT90990
+      KL=IJF(INEW,JSW)                                                  VRT91000
+      Y(KK)=Y(KL)                                                       VRT91010
+54    Y(KL)=SWICH                                                       VRT91020
+      DO 55 JSW=1,IORD                                                  VRT91030
+      SWICH=R(I,JSW)                                                    VRT91040
+      R(I,JSW)=R(INEW,JSW)                                              VRT91050
+55    R(INEW,JSW)=SWICH                                                 VRT91060
+C     RETURN TO 4 IF THE FIRST ROW                                      VRT91070
+56    IF(IMIN)4,4,19                                                    VRT91080
+C     ROWS OF R                                                         VRT91090
+20    DO 22  J=1,IORD                                                   VRT91100
+      SUM=0.                                                            VRT91110
+       DO 23 K=1,IMIN                                                   VRT91120
+      KK=IJF(I,K)                                                       VRT91130
+23    SUM=SUM+Y(KK)*R(K,J)                                              VRT91140
+      KK=IJF(I,I)                                                       VRT91150
+22    R(I,J)=(R(I,J)-SUM)/Y(KK)                                         VRT91160
+2     CONTINUE                                                          VRT91170
+C     BACK SUBSTITUTE                                                   VRT91180
+      DO 21  J=1,IORD                                                   VRT91190
+      I=IORD-1                                                          VRT91200
+24    SUM=0.                                                            VRT91210
+      L=IORD                                                            VRT91220
+25    KK=IJF(I,L)                                                       VRT91230
+      SUM=SUM+Y(KK)*R(L,J)                                              VRT91240
+      L=L-1                                                             VRT91250
+      IF(I-L)25,26,26                                                   VRT91260
+26    R(I,J)=R(I,J)-SUM                                                 VRT91270
+      I=I-1                                                             VRT91280
+      IF(I)21,21,24                                                     VRT91290
+21    CONTINUE                                                          VRT91300
+      N=0                                                               VRT91310
+      DO 27 J=1,IORD                                                    VRT91320
+      DO 27 I=1,IORD                                                    VRT91330
+      N=N+1                                                             VRT91340
+27    Y(N)=R(I,J)                                                       VRT91350
+      IND=1                                                             VRT91360
+      RETURN                                                            VRT91370
+      END                                                               VRT91380
+    
