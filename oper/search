@@ -1,0 +1,654 @@
+C           MULTIPLE LOAD PERFORMANCE SEARCH SUBROUTINE                 SEA00110    
+C                                                                       SEA00120    
+      SUBROUTINE SEARCH                                                 SEA00130    
+C                                                                       SEA00140    
+      COMMON /ABCD  / ABCD,FOC,ZOC                                      SEA00150    
+      COMMON /AZ    / A,Z,ZSW                                           SEA00160    
+      COMMON /CC    / ACC,ALPHA,BETA,B,PHI,CCS,Z0,ZCC,C0,AKL,ZZ0,ZC0,ZB SEA00170    
+      COMMON /CERAM / S333,G333,E333,NO,RHOCS,CLCS,ACS,LT,Q,CSW         SEA00180    
+      COMMON /CERFV / FVC,E,EC                                          SEA00190    
+      COMMON /CERI  / CURENT,TOTI,POWLOS(32),EF(32),TOTPL,TOTEF         SEA00200    
+      COMMON /CERST / STC                                               SEA00210    
+      COMMON /CNTROL/ N(12),IE,IBC                                      SEA00220    
+      COMMON /COMPOZ/ AC,ZC                                             SEA00230    
+      COMMON /DELTA / DELTAF,FMIN,FMAX                                  SEA00240    
+      COMMON /EDIT  / SEC(24),T(20),TYPE(2),MO,IDAY,IYR,IRUN,OUT(4)     SEA00250    
+      COMMON /FREQ  / FREQ,TWOPI                                        SEA00260    
+      COMMON /FV    / FV,ZT,ZH,BFVSW,FVSW                               SEA00270    
+      COMMON /PARAM / K(10,12),RHO(10,12),CL(10,12),AL(10,12),AR(10,12),SEA00280    
+     1C(10,12,2)                                                        SEA00290    
+      COMMON /POWER / POWER                                             SEA00300    
+      COMMON /ST    / ST                                                SEA00310    
+      COMMON /SW    / LSW(20)                                           SEA00320    
+      COMMON /TOT   / ATOT,TSW                                          SEA00330    
+      COMMON /TUNE  / NTUNE,KTUNE(10),RLCT(4,10),IABCD                  SEA00340    
+      COMMON /TUNEB / BS(4,10,2)                                        SEA00350    
+      COMMON /YC    / IC,YC                                             SEA00360    
+      COMMON /COM91 / OD,BARE                                           SEA00370    
+      COMMON /COM92 / FM,YM,FN,YN,CUT,NPRINT                            SEA00380    
+      COMMON /COM93 / AREA,RADIUS                                       SEA00390    
+      COMMON /COM94 / SPEAK,TPEAK                                       SEA00400    
+      COMMON /COM95 / ZIN,YIN,EIN,IIN                                   SEA00410    
+      COMMON /COM96 / LTP,LTM                                           SEA00420    
+      COMMON /COM97 / MODE                                              SEA00430    
+      COMMON /COM98 / ALL                                               SEA00440    
+C                                                                       SEA00450    
+      LOGICAL LSW,ALL,LSAVE(20)                                         SEA00460    
+C                                                                       SEA00470    
+      COMPLEX S333,G333,E333,FV(2,11,12),ZT,ZH,ZR,      A(4,10,12),Z(4,1SEA00480    
+     10,12),POWER(2),ATOT(6,2),ABCD(2,2),FOC,ZOC,ALPHA(2,2,2),BETA(2,2),SEA00490    
+     2B(2,2,2),PHI,CCS,Z0,C0,AKL,ZZ0,AC(2,2,12),ZC(2,2,12),ZCC(2,2),ZC0,SEA00500    
+     3ST(2,10,12),FVC(2,33),STC(2,32),CURENT(32),ZB(2,3),IC,YC,E,TOTI,ACSEA00510    
+     4C(2,3,2),EC,EIN,IIN,ZIN,YIN,SPEAK,TPEAK,BS,FH,VH,FT,VT,SAVEZT     SEA00520    
+C                                                                       SEA00530    
+      REAL LTP,LTM,IINMAG,ICMAG                                         SEA00540    
+C                                                                       SEA00550    
+      DIMENSION TMAX(100),TMIN(100),TAVG(100),NOZR(2,100),THING(4,100),USEA00560    
+     1NITS(100),TITLE(11)                                               SEA00570    
+     2,LIMLO(9),LIMUP(9),FR(100)                                                *NEW
+C                                                                       SEA00580    
+      DATA NTHING /    37/                                              SEA00590    
+C                                                                       SEA00600    
+      DATA THING(1,  1)/5HRADIA/                                                   
+      DATA THING(2,  1)/5HTION /
+      DATA THING(3,  1)/5HRESIS/
+      DATA THING(4,  1)/5HTANCE/
+      DATA THING(1,  2)/5HRADIA/                                                   
+      DATA THING(2,  2)/5HTION /
+      DATA THING(3,  2)/5HREACT/
+      DATA THING(4,  2)/5HANCE /
+      DATA THING(1,  3)/5HRADIA/                                                   
+      DATA THING(2,  3)/5HTION /
+      DATA THING(3,  3)/5HMAGNI/
+      DATA THING(4,  3)/5HANCE /
+      DATA THING(1,  4)/5HHEAD /                                                   
+      DATA THING(2,  4)/5HFORCE/
+      DATA THING(3,  4)/5H     /
+      DATA THING(4,  4)/5HTUDE /
+      DATA THING(1,  5)/5HHEAD /                                                   
+      DATA THING(2,  5)/5HVELOC/
+      DATA THING(3,  5)/5HITY  /
+      DATA THING(4,  5)/5H     /
+      DATA THING(1,  6)/5HPOWER/                                                   
+      DATA THING(2,  6)/5H OUTP/
+      DATA THING(3,  6)/5HUT AT/
+      DATA THING(4,  6)/5H     /
+      DATA THING(1,  7)/5HHEAD /                                                   
+      DATA THING(2,  7)/5HFORCE/
+      DATA THING(3,  7)/5H HEAD/
+      DATA THING(4,  7)/5H HEAD/
+      DATA THING(1,  8)/5HVOLTA/                                                   
+      DATA THING(2,  8)/5HGE IN/
+      DATA THING(3,  8)/5HPUT  /
+      DATA THING(4,  8)/5HVEL  /
+      DATA THING(1,  9)/5HCURRE/                                                   
+      DATA THING(2,  9)/5HNT IN/
+      DATA THING(3,  9)/5HPUT  /
+      DATA THING(4,  9)/5H     /
+      DATA THING(1, 10)/5HINPUT/                                                   
+      DATA THING(2, 10)/5H RESI/
+      DATA THING(3, 10)/5HSTANC/
+      DATA THING(4, 10)/5H     /
+      DATA THING(1, 11)/5HINPUT/                                                   
+      DATA THING(2, 11)/5H REAC/
+      DATA THING(3, 11)/5HTANCE/
+      DATA THING(4, 11)/5H     /
+      DATA THING(1, 12)/5HIMPED/                                                   
+      DATA THING(2, 12)/5HANCE /
+      DATA THING(3, 12)/5HMAGNI/
+      DATA THING(4, 12)/5H     /
+      DATA THING(1, 13)/5HIMPED/                                                   
+      DATA THING(2, 13)/5HANCE /
+      DATA THING(3, 13)/5HPHASE/
+      DATA THING(4, 13)/5HTUDE /
+      DATA THING(1, 14)/5HPOWER/                                                   
+      DATA THING(2, 14)/5H INPU/
+      DATA THING(3, 14)/5HT    /
+      DATA THING(4, 14)/5H     /
+      DATA THING(1, 15)/5HVOLTA/                                                   
+      DATA THING(2, 15)/5HMPERE/
+      DATA THING(3, 15)/5H INPU/
+      DATA THING(4, 15)/5H     /
+      DATA THING(1, 16)/5HELEME/                                                   
+      DATA THING(2, 16)/5HNT EF/
+      DATA THING(3, 16)/5HFICIE/
+      DATA THING(4, 16)/5HT    /
+      DATA THING(1, 17)/5HCERAM/                                                   
+      DATA THING(2, 17)/5HIC VO/
+      DATA THING(3, 17)/5HLTAGE/
+      DATA THING(4, 17)/5HNCY  /
+      DATA THING(1, 18)/5HCERAM/                                                   
+      DATA THING(2, 18)/5HIC CU/
+      DATA THING(3, 18)/5HRRENT/
+      DATA THING(4, 18)/5H     /
+      DATA THING(1, 19)/5HCERAM/                                                   
+      DATA THING(2, 19)/5HIC PO/
+      DATA THING(3, 19)/5HWER I/
+      DATA THING(4, 19)/5H     /
+      DATA THING(1, 20)/5HCERAM/                                                   
+      DATA THING(2, 20)/5HIC VO/
+      DATA THING(3, 20)/5HLTAMP/
+      DATA THING(4, 20)/5HNPUT /
+      DATA THING(1, 21)/5HCERAM/                                                   
+      DATA THING(2, 21)/5HIC CO/
+      DATA THING(3, 21)/5HNDUCT/
+      DATA THING(4, 21)/5HERES /
+      DATA THING(1, 22)/5HCERAM/                                                   
+      DATA THING(2, 22)/5HIC SU/
+      DATA THING(3, 22)/5HSCEPT/
+      DATA THING(4, 22)/5HANCE /
+      DATA THING(1, 23)/5HCERAM/                                                   
+      DATA THING(2, 23)/5HIC AD/
+      DATA THING(3, 23)/5HMITTA/
+      DATA THING(4, 23)/5HANCE /
+      DATA THING(1, 24)/5HCERAM/                                                   
+      DATA THING(2, 24)/5HIC ST/
+      DATA THING(3, 24)/5HRESS /
+      DATA THING(4, 24)/5HNCE  /
+      DATA THING(1, 25)/5HCERAM/                                                   
+      DATA THING(2, 25)/5HIC ST/
+      DATA THING(3, 25)/5HRAIN /
+      DATA THING(4, 25)/5H     /
+      DATA THING(1, 26)/5HCERAM/                                                   
+      DATA THING(2, 26)/5HIC PO/
+      DATA THING(3, 26)/5HWER L/
+      DATA THING(4, 26)/5H     /
+      DATA THING(1, 27)/5HCERAM/                                                   
+      DATA THING(2, 27)/5HIC EF/
+      DATA THING(3, 27)/5HFIIEC/
+      DATA THING(4, 27)/5HOSS  /
+      DATA THING(1, 28)/5HCERAM/                                                   
+      DATA THING(2, 28)/5HIC VO/
+      DATA THING(3, 28)/5HLTAGE/
+      DATA THING(4, 28)/5HNCY  /
+      DATA THING(1, 29)/5HTAIL /                                                   
+      DATA THING(2, 29)/5HFORCE/
+      DATA THING(3, 29)/5H     /
+      DATA THING(4, 29)/5HSTRES/
+      DATA THING(1, 30)/5HTAIL /                                                   
+      DATA THING(2, 30)/5HVELOC/
+      DATA THING(3, 30)/5HITY  /
+      DATA THING(4, 30)/5H     /
+      DATA THING(1, 31)/5HMAGNI/                                                   
+      DATA THING(2, 31)/5HTUDE /
+      DATA THING(3, 31)/5HOF FH/
+      DATA THING(4, 31)/5H     /
+      DATA THING(1, 32)/5HPHASE/                                                   
+      DATA THING(2, 32)/5H OF F/
+      DATA THING(3, 32)/5HH EIV/
+      DATA THING(4, 32)/5H EIS /
+      DATA THING(1, 33)/5HMAGNI/                                                   
+      DATA THING(2, 33)/5HTUDE /
+      DATA THING(3, 33)/5HOF VH/
+      DATA THING(4, 33)/5H     /
+      DATA THING(1, 34)/5HPHASE/                                                   
+      DATA THING(2, 34)/5H OF V/
+      DATA THING(3, 34)/5HH IIN/
+      DATA THING(4, 34)/5H IIS /
+      DATA THING(1, 35)/5HMAGNI/                                                   
+      DATA THING(2, 35)/5HTUDE /
+      DATA THING(3, 35)/5HOF VH/
+      DATA THING(4, 35)/5H VT  /
+      DATA THING(1, 36)/5HPHASE/                                                   
+      DATA THING(2, 36)/5H OF V/
+      DATA THING(3, 36)/5HH VT /
+      DATA THING(4, 36)/5H     /
+      DATA THING(1, 37)/5HPOWER/                                                   
+      DATA THING(2, 37)/5H LOSS/
+      DATA THING(3, 37)/5H IN T/
+      DATA THING(4, 37)/5HUNER /
+C                                                                       SEA00980    
+      DATA (UNITS(I),I=1,37)/5HK/SEC,5HKGSEC,5HKGSEC,5HNEWTN,5HM/SEC
+     1,5HWATTS,5HN*M/S,5HVOLTS,5HAMPS ,5HOHMS ,5HOHMS ,5HOHMS ,5
+     2HDEGRS,5HWATTS,5HVA   ,5HPRCNT,5HVOLTS,5HAMPS ,5HWATTS,5HV*
+     3A  ,5HUMHOS,5HUMHOS,5HUMHOS,5HPSI  ,5H-----,5HWATTS,5HPRCN
+     4T,5HV/MIL,5HNEWTN,5HM/SEC,5HN/VLT,5HDEGRS,5HM/S/A,5HDEGRS,5
+     5H-----,5HDEGRS,5HWATTS/
+C                                                                       SEA01050    
+C     INITIALIZE ROUTINE                                                SEA01060    
+      IE=1                                                                      *NEW
+      REWIND 14                                                                 *NEW
+      READ(14,88)NRUN,NFREQ                                                     *NEW
+   88 FORMAT(4I4)                                                               *NEW
+      READ(14,89)(FR(NN),NN=1,NFREQ)                                            *NEW
+   89 FORMAT(6E12.5)                                                            *NEW
+      READ(14,83)(TITLE(I),I=1,7),NZR                                           *NEW
+   83 FORMAT(1X7A6,I4)                                                          *NEW
+      READ(14)(LIMLO(L),LIMUP(L),L=1,NRUN)                                      *NEW
+      SAVEZT=ZT                                                         SEA01090**-2
+      IBCSAV=IBC                                                        SEA01100    
+      DO 100 I=1,11                                                     SEA01110    
+        LSAVE(I)=LSW(I)                                                 SEA01120    
+        LSW(I)=.FALSE.                                                  SEA01130    
+  100 CONTINUE                                                          SEA01140    
+      IESAVE=IE                                                         SEA01150    
+      DO 892 NN=1,NFREQ                                                         *NEW
+      FREQ=FR(NN)                                                               *NEW
+      REWIND 13                                                                 *NEW
+      DO 872 L5=1,NRUN                                                          *NEW
+      JB=LIMLO(L5)                                                              *NEW
+      JU=LIMUP(L5)                                                              *NEW
+      CALL INGB                                                                 *NEW
+      IBCSAV=1                                                                  *NEW
+C     CALCULATE TRANSFER MATRIX AT THIS FREQUENCY                       SEA01170**-1
+  110 CALL COMPZA                                                       SEA01180    
+      DO 120 IE=1,2                                                     SEA01190    
+        IF(MODE.EQ.31)CALL COMP31                                       SEA01200    
+        IF(MODE.EQ.33)CALL COMPCC                                       SEA01210    
+        CALL TOTAL                                                      SEA01220    
+  120 CONTINUE                                                          SEA01230    
+      IE=IESAVE                                                         SEA01240    
+      IBC=IBCSAV                                                        SEA01250    
+      ZT=SAVEZT                                                         SEA01260    
+      CALL BEGIN                                                        SEA01270    
+      IBC=2                                                             SEA01280    
+      CALL FOCZOC                                                       SEA01290    
+      DO 130 I=1,100                                                    SEA01300    
+        TMAX(I)=-1.0E38                                                 SEA01310    
+        TMIN(I)=1.0E38                                                  SEA01320    
+        TAVG(I)=0.0                                                     SEA01330    
+        NOZR(1,I)=0                                                     SEA01340    
+        NOZR(2,I)=0                                                     SEA01350    
+  130 CONTINUE                                                          SEA01360    
+      WRITE(6,970)FREQ,MO,IDAY,IYR,IRUN,TITLE                           SEA01370    
+C     LOOP FOR ARRAY LOADINGS                                           SEA01380    
+      DO 880 I=JB,JU                                                            *NEW
+C       READ AN ARRAY LOADING, CALCULATE BOUNDARY CONDITIONS            SEA01400**-1
+      READ(14,132)VHM,VHP,FHM,FHP                                               *NEW
+  132 FORMAT(6E12.5)                                                            *NEW
+        IF(ALL)GOTO930                                                  SEA01420**-1
+        FHP=FHP/57.2957795                                              SEA01430    
+        VHP=VHP/57.2957795                                              SEA01440    
+        FH=FHM*CMPLX(COS(FHP),SIN(FHP))                                 SEA01450    
+        VH=VHM*CMPLX(COS(VHP),SIN(VHP))                                 SEA01460    
+        ZR=FH/VH                                                        SEA01470    
+        WRITE(6,960)I,ZR                                                SEA01480    
+        LL=N(12)+1                                                      SEA01490    
+        FV(1,LL,12)=FH                                                  SEA01500    
+        FV(2,LL,12)=VH                                                  SEA01510    
+        POWER(1)=ABCD(2,1)*FH+ABCD(2,2)*VH                              SEA01520    
+        POWER(2)=ABCD(1,1)*FH+ABCD(1,2)*VH                              SEA01530    
+        CALL BEGIN                                                      SEA01540    
+C       ANALIZE TRANSDUCER FOR THIS SET OF BOUNDARY CONDITIONS          SEA01550    
+        CALL ADMIT                                                      SEA01560    
+        CALL CCFV                                                       SEA01570    
+        CALL CFV                                                        SEA01580    
+        CALL CST                                                        SEA01590    
+        CALL CCI                                                        SEA01600    
+        CALL CCST                                                       SEA01610    
+C       RADIATION RESISTANCE.                                           SEA01620    
+        ZRR=REAL(ZR)                                                    SEA01630    
+        IF(ZRR.LE.TMAX(1))GOTO140                                       SEA01640    
+        TMAX(1)=ZRR                                                     SEA01650    
+        NOZR(1,1)=I                                                     SEA0   
+  140   IF(ZRR.GE.TMIN(1))GOTO150                                       SEA01670    
+        TMIN(1)=ZRR                                                     SEA01680    
+        NOZR(2,1)=I                                                     SEA01690    
+  150   TAVG(1)=TAVG(1)+ZRR                                             SEA01700    
+C       RADIATION REACTANCE.                                            SEA01710    
+        ZRI=AIMAG(ZR)                                                   SEA01720    
+        IF(ZRI.LE.TMAX(2))GOTO160                                       SEA01730    
+        TMAX(2)=ZRI                                                     SEA01740    
+        NOZR(1,2)=I                                                     SEA01750    
+  160   IF(ZRI.GE.TMIN(2))GOTO170                                       SEA01760    
+        TMIN(2)=ZRI                                                     SEA01770    
+        NOZR(2,2)=I                                                     SEA01780    
+  170   TAVG(2)=TAVG(2)+ZRI                                             SEA01790    
+C       RADIATION MAGNITUDE.                                            SEA01800    
+        ZRM=CABS(ZR)                                                    SEA01810    
+        IF(ZRM.LE.TMAX(3))GOTO180                                       SEA01820    
+        TMAX(3)=ZRM                                                     SEA01830    
+        NOZR(1,3)=I                                                     SEA01840    
+  180   IF(ZRM.GE.TMIN(3))GOTO190                                       SEA01850    
+        TMIN(3)=ZRM                                                     SEA01860    
+        NOZR(2,3)=I                                                     SEA01870    
+  190   TAVG(3)=TAVG(3)+ZRM                                             SEA01880    
+C       MAGNITUDE OF HEAD FORCE.                                        SEA01890    
+        IF(FHM.LE.TMAX(4))GOTO200                                       SEA01900    
+        TMAX(4)=FHM                                                     SEA01910    
+        NOZR(1,4)=I                                                     SEA01920    
+  200   IF(FHM.GE.TMIN(4))GOTO210                                       SEA01930    
+        TMIN(4)=FHM                                                     SEA01940    
+        NOZR(2,4)=I                                                     SEA01950    
+  210   TAVG(4)=TAVG(4)+FHM                                             SEA01960    
+C       MAGNITUDE OF HEAD VELOCITY                                      SEA01970    
+        IF(VHM.LE.TMAX(5))GOTO220                                       SEA01980    
+        TMAX(5)=VHM                                                     SEA01990    
+        NOZR(1,5)=I                                                     SEA02000    
+  220   IF(VHM.GE.TMIN(5))GOTO230                                       SEA02010    
+        TMIN(5)=VHM                                                     SEA02020    
+        NOZR(2,5)=I                                                     SEA02030    
+  230   TAVG(5)=TAVG(5)+VHM                                             SEA02040    
+C       ACOUSTIC POWER OUTPUT AT HEAD.                                  SEA02050    
+        POUT=DOT(FH,VH)                                                 SEA02060    
+        IF(POUT.LE.TMAX(6))GOTO240                                      SEA02070    
+        TMAX(6)=POUT                                                    SEA02080    
+        NOZR(1,6)=I                                                     SEA02090    
+  240   IF(POUT.GE.TMIN(6))GOTO250                                      SEA02100    
+        TMIN(6)=POUT                                                    SEA02110    
+        NOZR(2,6)=I                                                     SEA02120    
+  250   TAVG(6)=TAVG(6)+POUT                                            SEA02130    
+C       PRODUCT OF HEAD FORCE AND VELOCITY (ACOUSTIC VOLTAMPERES).      SEA02140    
+        FHVH=CABS(FH*VH)                                                SEA02150    
+        IF(FHVH.LE.TMAX(7))GOTO260                                      SEA02160    
+        TMAX(7)=FHVH                                                    SEA02170    
+        NOZR(1,7)=I                                                     SEA02180    
+  260   IF(FHVH.GE.TMIN(7))GOTO270                                      SEA02190    
+        TMIN(7)=FHVH                                                    SEA02200    
+        NOZR(2,7)=I                                                     SEA02210    
+  270   TAVG(7)=TAVG(7)+FHVH                                            SEA02220    
+C       TRANSDUCER VOLTAGE INPUT.                                       SEA02230    
+        EINMAG=CABS(EIN)                                                SEA02240    
+        IF(EINMAG.LE.TMAX(8))GOTO280                                    SEA02250    
+        TMAX(8)=EINMAG                                                  SEA02260    
+        NOZR(1,8)=I                                                     SEA02270    
+  280   IF(EINMAG.GE.TMIN(8))GOTO290                                    SEA02280    
+        TMIN(8)=EINMAG                                                  SEA02290    
+        NOZR(2,8)=I                                                     SEA02300    
+  290   TAVG(8)=TAVG(8)+EINMAG                                          SEA02310    
+C       TRANSDUCER CURRENT INPUT.                                       SEA02320    
+        IINMAG=CABS(IIN)                                                SEA02330    
+        IF(IINMAG.LE.TMAX(9))GOTO300                                    SEA02340    
+        TMAX(9)=IINMAG                                                  SEA02350    
+        NOZR(1,9)=I                                                     SEA02360    
+  300   IF(IINMAG.GE.TMIN(9))GOTO310                                    SEA02370    
+        TMIN(9)=IINMAG                                                  SEA02380    
+        NOZR(2,9)=I                                                     SEA02390    
+  310   TAVG(9)=TAVG(9)+IINMAG                                          SEA02400    
+C       ELECTRICAL INPUT RESISTANCE                                     SEA02410    
+        RIN=REAL(ZIN)                                                   SEA02420    
+        IF(RIN.LE.TMAX(10))GOTO320                                      SEA02430    
+        TMAX(10)=RIN                                                    SEA02440    
+        NOZR(1,10)=I                                                    SEA02450    
+  320   IF(RIN.GE.TMIN(10))GOTO330                                      SEA02460    
+        TMIN(10)=RIN                                                    SEA02470    
+        NOZR(2,10)=I                                                    SEA02480    
+  330   TAVG(10)=TAVG(10)+RIN                                           SEA02490    
+C       ELECTRICAL INPUT REACTANCE.                                     SEA02500    
+        XIN=AIMAG(ZIN)                                                  SEA02510    
+        IF(XIN.LE.TMAX(11))GOTO340                                      SEA02520    
+        TMAX(11)=XIN                                                    SEA02530    
+        NOZR(1,11)=I                                                    SEA02540    
+  340   IF(XIN.GE.TMIN(11))GOTO350                                      SEA02550    
+        TMIN(11)=XIN                                                    SEA02560    
+        NOZR(2,11)=I                                                    SEA02570    
+  350   TAVG(11)=TAVG(11)+XIN                                           SEA02580    
+C       MAGNITUDE OF ELECTRICAL INPUT IMPEDANCE.                        SEA02590    
+        ZINMAG=CABS(ZIN)                                                SEA02600    
+        IF(ZINMAG.LE.TMAX(12))GOTO360                                   SEA02610    
+        TMAX(12)=ZINMAG                                                 SEA02620    
+        NOZR(1,12)=I                                                    SEA02630    
+  360   IF(ZINMAG.GE.TMIN(12))GOTO370                                   SEA02640    
+        TMIN(12)=ZINMAG                                                 SEA02650    
+        NOZR(2,12)=I                                                    SEA02660    
+  370   TAVG(12)=TAVG(12)+ZINMAG                                        SEA02670    
+C       PHASE OF ELECTRICAL INPUT IMPEDANCE.                            SEA02680    
+        ZINPHA=57.2957795*ATAN2(XIN,RIN)                                SEA02690    
+        IF(ZINPHA.LE.TMAX(13))GOTO380                                   SEA02700    
+        TMAX(13)=ZINPHA                                                 SEA02710    
+        NOZR(1,13)=I                                                    SEA02720    
+  380   IF(ZINPHA.GE.TMIN(13))GOTO390                                   SEA02730    
+        TMIN(13)=ZINPHA                                                 SEA02740    
+        NOZR(2,13)=I                                                    SEA02750    
+  390   TAVG(13)=TAVG(13)+ZINPHA                                        SEA02760    
+C       ELECTRICAL POWER INPUT TO TRANSDCUER.                           SEA02770    
+        PIN=DOT(EIN,IIN)                                                SEA02780    
+        IF(PIN.LE.TMAX(14))GOTO400                                      SEA02790    
+        TMAX(14)=PIN                                                    SEA02800    
+        NOZR(1,14)=I                                                    SEA02810    
+  400   IF(PIN.GE.TMIN(14))GOTO410                                      SEA02820    
+        TMIN(14)=PIN                                                    SEA02830    
+        NOZR(2,14)=I                                                    SEA02840    
+  410   TAVG(14)=TAVG(14)+PIN                                           SEA02850    
+C       VOLT-AMPERE INPUT TO TRANSDUCER ELEMENT.                        SEA02860    
+        EI=CABS(EIN*IIN)                                                SEA02870    
+        IF(EI.LE.TMAX(15))GOTO420                                       SEA02880    
+        TMAX(15)=EI                                                     SEA02890    
+        NOZR(1,15)=I                                                    SEA02900    
+  420   IF(EI.GE.TMIN(15))GOTO430                                       SEA02910    
+        TMIN(15)=EI                                                     SEA02920    
+        NOZR(2,15)=I                                                    SEA02930    
+  430   TAVG(15)=TAVG(15)+EI                                            SEA02940    
+C       TRANSDUCER ELEMENT EFFICIENCY.                                  SEA02950    
+        ETA=POUT/PIN*100.                                               SEA02960    
+        IF(ETA.LE.TMAX(16))GOTO440                                      SEA02970    
+        TMAX(16)=ETA                                                    SEA02980    
+        NOZR(1,16)=I                                                    SEA02990    
+  440   IF(ETA.GE.TMIN(16))GOTO450                                      SEA03000    
+        TMIN(16)=ETA                                                    SEA03010    
+        NOZR(2,16)=I                                                    SEA03020    
+  450   TAVG(16)=TAVG(16)+ETA                                           SEA03030    
+C       MAGNITUDE OF CERAMIC STACK VOLTAGE.                             SEA03040    
+        ECMAG=CABS(E)                                                   SEA03050    
+        IF(ECMAG.LE.TMAX(17))GOTO460                                    SEA03060    
+        TMAX(17)=ECMAG                                                  SEA03070    
+        NOZR(1,17)=I                                                    SEA03080    
+  460   IF(ECMAG.GE.TMIN(17))GOTO470                                    SEA03090    
+        TMIN(17)=ECMAG                                                  SEA03100    
+        NOZR(2,17)=I                                                    SEA03110    
+  470   TAVG(17)=TAVG(17)+ECMAG                                         SEA03120    
+C       MAGNITUDE OF CERAMIC STACK CURRENT.                             SEA03130    
+        ICMAG=CABS(IC)                                                  SEA03140    
+        IF(ICMAG.LE.TMAX(18))GOTO480                                    SEA03150    
+        TMAX(18)=ICMAG                                                  SEA03160    
+        NOZR(1,18)=I                                                    SEA03170    
+  480   IF(ICMAG.GE.TMIN(18))GOTO490                                    SEA03180    
+        TMIN(18)=ICMAG                                                  SEA03190    
+        NOZR(2,18)=I                                                    SEA03200    
+  490   TAVG(18)=TAVG(18)+ICMAG                                         SEA03210    
+C       ELECTRICAL POWER INPUT TO CERAMIC.                              SEA03220    
+        PCERAM=DOT(E,IC)                                                SEA03230    
+        IF(PCERAM.LE.TMAX(19))GOTO500                                   SEA03240    
+        TMAX(19)=PCERAM                                                 SEA03250    
+        NOZR(1,19)=I                                                    SEA03260    
+  500   IF(PCERAM.GE.TMIN(19))GOTO510                                   SEA03270    
+        TMIN(19)=PCERAM                                                 SEA03280    
+        NOZR(2,19)=I                                                    SEA03290    
+  510   TAVG(19)=TAVG(19)+PCERAM                                        SEA03300    
+C       ELECTRICAL VOLT-AMPERE INPUT TO CERAMIC STACK.                  SEA03310    
+        EICERM=CABS(E*IC)                                               SEA03320    
+        IF(EICERM.LE.TMAX(20))GOTO520                                   SEA03330    
+        TMAX(20)=EICERM                                                 SEA03340    
+        NOZR(1,20)=I                                                    SEA03350    
+  520   IF(EICERM.GE.TMIN(20))GOTO530                                   SEA03360    
+        TMIN(20)=EICERM                                                 SEA03370    
+        NOZR(2,20)=I                                                    SEA03380    
+  530   TAVG(20)=TAVG(20)+EICERM                                        SEA03390    
+C       CERAMIC ELECTRICAL CONDUCTANCE (MICROMHOS).                     SEA03400    
+        GCERAM=REAL(YC)*1.E6                                            SEA03410    
+        IF(GCERAM.LE.TMAX(21))GOTO540                                   SEA03420    
+        TMAX(21)=GCERAM                                                 SEA03430    
+        NOZR(1,21)=I                                                    SEA03440    
+  540   IF(GCERAM.GE.TMIN(21))GOTO550                                   SEA03450    
+        TMIN(21)=GCERAM                                                 SEA03460    
+        NOZR(2,21)=I                                                    SEA03470    
+  550   TAVG(21)=TAVG(21)+GCERAM                                        SEA03480    
+C       CERAMIC ELECTRICAL SUSCEPTANCE (MICROHMOS).                     SEA03490    
+        BCERAM=AIMAG(YC)*1.E6                                           SEA03500    
+        IF(BCERAM.LE.TMAX(22))GOTO560                                   SEA03510    
+        TMAX(22)=BCERAM                                                 SEA03520    
+        NOZR(1,22)=I                                                    SEA03530    
+  560   IF(BCERAM.GE.TMIN(22))GOTO570                                   SEA03540    
+        TMIN(22)=BCERAM                                                 SEA03550    
+        NOZR(2,22)=I                                                    SEA03560    
+  570   TAVG(22)=TAVG(22)+BCERAM                                        SEA03570    
+C       MAGNITUDE OF CERAMIC ELECTRICAL ADMITTANCE (MICROHMOS).         SEA03580    
+        YCMAG=CABS(YC)*1.E6                                             SEA03590    
+        IF(YCMAG.LE.TMAX(23))GOTO580                                    SEA03600    
+        TMAX(23)=YCMAG                                                  SEA03610    
+        NOZR(1,23)=I                                                    SEA03620    
+  580   IF(YCMAG.GE.TMIN(23))GOTO590                                    SEA03630    
+        TMIN(23)=YCMAG                                                  SEA03640    
+        NOZR(2,23)=I                                                    SEA03650    
+  590   TAVG(23)=TAVG(23)+YCMAG                                         SEA03660    
+C       MAGNITUDE OF PEAK CERAMIC STRESS.                               SEA03670    
+        TPEAKM=CABS(TPEAK)*1.45E-4                                      SEA03680    
+        IF(TPEAKM.LE.TMAX(24))GOTO600                                   SEA03690    
+        TMAX(24)=TPEAKM                                                 SEA03700    
+        NOZR(1,24)=I                                                    SEA03710    
+  600   IF(TPEAKM.GE.TMIN(24))GOTO610                                   SEA03720    
+        TMIN(24)=TPEAKM                                                 SEA03730    
+        NOZR(2,24)=I                                                    SEA03740    
+  610   TAVG(24)=TAVG(24)+TPEAKM                                        SEA03750    
+C       MAGNITUDE OF PEAK CERAMIC STRAIN.                               SEA03760    
+        SPEAKM=CABS(SPEAK)                                              SEA03770    
+        IF(SPEAKM.LE.TMAX(25))GOTO620                                   SEA03780    
+        TMAX(25)=SPEAKM                                                 SEA03790    
+        NOZR(1,25)=I                                                    SEA03800    
+  620   IF(SPEAKM.GE.TMIN(25))GOTO630                                   SEA03810    
+        TMIN(25)=SPEAKM                                                 SEA03820    
+        NOZR(2,25)=I                                                    SEA03830    
+  630   TAVG(25)=TAVG(25)+SPEAKM                                        SEA03840    
+C       TOTAL POWER LOST IN CERAMIC STACK.                              SEA03850    
+        IF(TOTPL.LE.TMAX(26))GOTO640                                    SEA03860    
+        TMAX(26)=TOTPL                                                  SEA03870    
+        NOZR(1,26)=I                                                    SEA03880    
+  640   IF(TOTPL.GE.TMIN(26))GOTO650                                    SEA03890    
+        TMIN(26)=TOTPL                                                  SEA03900    
+        NOZR(2,26)=I                                                    SEA03910    
+  650   TAVG(26)=TAVG(26)+TOTPL                                         SEA03920    
+C       TOTAL EFFICIENCY OF CERAMIC STACK.                              SEA03930    
+        TOTEF=100.*TOTEF                                                SEA03940    
+        IF(TOTEF.LE.TMAX(27))GOTO660                                    SEA03950    
+        TMAX(27)=TOTEF                                                  SEA03960    
+        NOZR(1,27)=I                                                    SEA03970    
+  660   IF(TOTEF.GE.TMIN(27))GOTO670                                    SEA03980    
+        TMIN(27)=TOTEF                                                  SEA03990    
+        NOZR(2,27)=I                                                    SEA04000    
+  670   TAVG(27)=TAVG(27)+TOTEF                                         SEA04010    
+C       VOLTAGE STRESS IN CERAMIC.                                      SEA04020    
+        WALL=(OD-SQRT(OD*OD-4.*ACS/3.14159265))/2.                      SEA04030    
+        IF(MODE.EQ.31)VPM=CABS(E)/(WALL*3.937E4)                        SEA04040    
+        IF(MODE.EQ.33)VPM=CABS(E)/(CLCS*3.937E4)                        SEA04050    
+        IF(VPM.LE.TMAX(28))GOTO680                                      SEA04060    
+        TMAX(28)=VPM                                                    SEA04070    
+        NOZR(1,28)=I                                                    SEA04080    
+  680   IF(VPM.GE.TMIN(28))GOTO690                                      SEA04090    
+        TMIN(28)=VPM                                                    SEA04100    
+        NOZR(2,28)=I                                                    SEA04110    
+  690   TAVG(28)=TAVG(28)+VPM                                           SEA04120    
+C       MAGNITUDE OF TAIL FORCE.                                        SEA04130    
+        FT=FV(1,1,11)                                                   SEA04140    
+        FTM=CABS(FT)                                                    SEA04150    
+        IF(FTM.LE.TMAX(29))GOTO700                                      SEA04160    
+        TMAX(29)=FTM                                                    SEA04170    
+        NOZR(1,29)=I                                                    SEA04180    
+  700   IF(FTM.GE.TMIN(29))GOTO710                                      SEA04190    
+        TMIN(29)=FTM                                                    SEA04200    
+        NOZR(2,29)=I                                                    SEA04210    
+  710   TAVG(29)=TAVG(29)+FTM                                           SEA04220    
+C       MAGNITUDE OF TAIL VELOCITY.                                     SEA04230    
+        VT=FV(2,1,11)                                                   SEA04240    
+        VTM=CABS(VT)                                                    SEA04250    
+        IF(VTM.LE.TMAX(30))GOTO720                                      SEA04260    
+        TMAX(30)=VTM                                                    SEA04270    
+        NOZR(1,30)=I                                                    SEA04280    
+  720   IF(VTM.GE.TMIN(30))GOTO730                                      SEA04290    
+        TMIN(30)=VTM                                                    SEA04300    
+        NOZR(2,30)=I                                                    SEA04310    
+  730   TAVG(30)=TAVG(30)+VTM                                           SEA04320    
+C       MAGNITUDE OF HEAD FORCE / VOLTAGE INPUT.                        SEA04330    
+        FHEINM=CABS(FH/EIN)                                             SEA04340    
+        IF(FHEINM.LE.TMAX(31))GOTO740                                   SEA04350    
+        TMAX(31)=FHEINM                                                 SEA04360    
+        NOZR(1,31)=I                                                    SEA04370    
+  740   IF(FHEINM.GE.TMIN(31))GOTO750                                   SEA04380    
+        TMIN(31)=FHEINM                                                 SEA04390    
+        NOZR(2,31)=I                                                    SEA04400    
+  750   TAVG(31)=TAVG(31)+FHEINM                                        SEA04410    
+C       PHASE OF HEAD FORCE / VOLTAGE INPUT.                            SEA04420    
+        FHEINP=57.2957795*ATAN2(AIMAG(FH/EIN),REAL(FH/EIN))             SEA04430    
+        IF(FHEINP.LE.TMAX(32))GOTO760                                   SEA04440    
+        TMAX(32)=FHEINP                                                 SEA04450    
+        NOZR(1,32)=I                                                    SEA04460    
+  760   IF(FHEINP.GE.TMIN(32))GOTO770                                   SEA04470    
+        TMIN(32)=FHEINP                                                 SEA04480    
+        NOZR(2,32)=I                                                    SEA04490    
+  770   TAVG(32)=TAVG(32)+FHEINP                                        SEA04500    
+C       MAGNITUDE OF HEAD VELOCITY / CURRENT INPUT.                     SEA04510    
+        VHIINM=CABS(VH/IIN)                                             SEA04520    
+        IF(VHIINM.LE.TMAX(33))GOTO780                                   SEA04530    
+        TMAX(33)=VHIINM                                                 SEA04540    
+        NOZR(1,33)=I                                                    SEA04550    
+  780   IF(VHIINM.GE.TMIN(33))GOTO790                                   SEA04560    
+        TMIN(33)=VHIINM                                                 SEA04570    
+        NOZR(2,33)=I                                                    SEA04580    
+  790   TAVG(33)=TAVG(33)+VHIINM                                        SEA04590    
+C       PHASE OF HEAD VELOCITY / CURRENT INPUT.                         SEA04600    
+        VHIINP=57.2957795*ATAN2(AIMAG(VH/IIN),REAL(VH/IIN))             SEA04610    
+        IF(VHIINP.LE.TMAX(34))GOTO800                                   SEA04620    
+        TMAX(34)=VHIINP                                                 SEA04630    
+        NOZR(1,34)=I                                                    SEA04640    
+  800   IF(VHIINP.GE.TMIN(34))GOTO810                                   SEA04650    
+        TMIN(34)=VHIINP                                                 SEA04660    
+        NOZR(2,34)=I                                                    SEA04670    
+  810   TAVG(34)=TAVG(34)+VHIINP                                        SEA04680    
+C       MAGNITUDE OF HEAD VELOCITY / TAIL VELOCITY.                     SEA04690    
+        VHVTM=CABS(VH/VT)                                               SEA04700    
+        IF(VHVTM.LE.TMAX(35))GOTO820                                    SEA04710    
+        TMAX(35)=VHVTM                                                  SEA04720    
+        NOZR(1,35)=I                                                    SEA04730    
+  820   IF(VHVTM.GE.TMIN(35))GOTO830                                    SEA04740    
+        TMIN(35)=VHVTM                                                  SEA04750    
+        NOZR(2,35)=I                                                    SEA04760    
+  830   TAVG(35)=TAVG(35)+VHVTM                                         SEA04770    
+C       PHASE OF HEAD VELOCITY / TAIL VELOCITY.                         SEA04780    
+        VHVTP=57.2957795*ATAN2(AIMAG(VH/VT),REAL(VH/VT))                SEA04790    
+        IF(VHVTP.LE.TMAX(36))GOTO840                                    SEA04800    
+        TMAX(36)=VHVTP                                                  SEA04810    
+        NOZR(1,36)=I                                                    SEA04820    
+  840   IF(VHVTP.GE.TMIN(36))GOTO850                                    SEA04830    
+        TMIN(36)=VHVTP                                                  SEA04840    
+        NOZR(2,36)=I                                                    SEA04850    
+  850   TAVG(36)=TAVG(36)+VHVTP                                         SEA04860    
+C       ELECTRICAL POWER LOST IN TUNING NETWORK.                        SEA04870    
+        PLT=PIN-PCERAM                                                  SEA04880    
+        IF(PLT.LE.TMAX(37))GOTO860                                      SEA04890    
+        TMAX(37)=PLT                                                    SEA04900    
+        NOZR(1,37)=I                                                    SEA04910    
+  860   IF(PLT.GE.TMIN(37))GOTO870                                      SEA04920    
+        TMIN(37)=PLT                                                    SEA04930    
+        NOZR(2,37)=I                                                    SEA04940    
+  870   TAVG(37)=TAVG(37)+PLT                                           SEA04950    
+  880 CONTINUE                                                          SEA04960    
+  872 CONTINUE                                                                  *NEW
+C     WRITE OUT SUMMARY OF ARRAY PERFORMANCE PARAMETER SEARCH.          SEA04970    
+      WRITE(6,980)                                                      SEA04980    
+      FNZR=FLOAT(NZR)                                                   SEA04990    
+      DO 890 I=1,NTHING                                                 SEA05000    
+        TAVG(I)=TAVG(I)/FNZR                                            SEA05010    
+        RATIO=0.                                                        SEA05020    
+        IF(TMIN(I).NE.0.)RATIO=TMAX(I)/TMIN(I)                          SEA05030    
+        WRITE(6,990)THING(1,I),THING(2,I),THING(3,I),THING(4,I),UNITS(I)SEA05040    
+     1  ,TMAX(I),NOZR(1,I),TMIN(I),NOZR(2,I),RATIO,TAVG(I)              SEA05050    
+        IF(4*(I/4).EQ.I)WRITE(6,1010)                                   SEA05060    
+  890 CONTINUE                                                          SEA05070    
+  892 CONTINUE                                                                  *NEW
+C     RESET ALL CONTROLS AND LEAVE SEARCH ROUTINE.                      SEA05100**-2
+  900 IBC=IBCSAV                                                        SEA05110    
+      ZT=SAVEZT                                                         SEA05120    
+      DO 910 I=1,11                                                     SEA05130    
+        LSW(I)=LSAVE(I)                                                 SEA05140    
+  910 CONTINUE                                                          SEA05150    
+  920 RETURN                                                            SEA05160    
+  930 WRITE(6,1000)                                                     SEA05170    
+      GOTO900                                                           SEA05180    
+C                                                                       SEA05190    
+  940 FORMAT (I6,11A6)                                                  SEA05200    
+  950 FORMAT (6E12.0)                                                   SEA05210    
+  960 FORMAT (I11,2X1P2E18.7)                                           SEA05220    
+  970 FORMAT (1H1//6X38HACTIVE TRANSDUCER ANALYSIS OUTPUT DATA,10X11HFRESEA05230    
+     1QUENCY =,F8.2,10X4HDATE,I4,1H/,I2,1H/,I2,10X10HRUN NUMBER,2XA6//6XSEA05240    
+     263HSEARCH OVER ALL ELEMENTS IN AN ARRAY FOR PERFORMANCE PARAMETERSSEA05250    
+     3//6X11A6//6X5HINDEX,13X19HRADIATION IMPEDANCE/18X4HREAL,14X9HIMAGISEA05260    
+     4NARY//)                                                           SEA05270    
+  980 FORMAT (1H1//6X27HRESULTS OF PARAMETER SEARCH//6X9HPARAMETER,18X5HSEA05280    
+     1UNITS,5X15HMAXIMUM (INDEX),7X15HMINIMUM (INDEX),7X9HMAX./MIN.,7X7HSEA05290    
+     2AVERAGE//)                                                        SEA05300    
+  990 FORMAT (6X4A6,3XA6,1PE16.6,2H (,I3,1H),E16.6,2H (,I3,1H),2E16.6)  SEA05310    
+ 1000 FORMAT (//6X41HUNEXPECTED END-OF-FILE ON INPUT DATA FILE//6X25HLEASEA05320    
+     1VING SEARCH SUBROUTINE)                                           SEA05330    
+ 1010 FORMAT (1H )                                                      SEA05340    
+C                                                                       SEA05350    
+      END                                                               SEA05360    
+wv>]k
