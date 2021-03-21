@@ -1,0 +1,132 @@
+      FUNCTION VRING(W,Z,R,T,Q)
+      X=4.*W*R/((W+R)**2+(Z-T)**2)
+      A=1.38629
+      B=0.111972
+      C=0.0725296
+      D=0.5
+      E=0.121347
+      F=0.0288729
+      Y=1.-X
+      IF(Y)1,2,1
+    1 ELINK=(A+B*Y+C*Y**2)+(D+E*Y+F*Y**2)*ALOG(1./Y)
+      VRING=Q*2./3.14159*ELINK/(((W+R)**2+(Z-T)**2)**.5)
+      GO TO 3
+    2 VRING=1.0E20
+    3 CONTINUE
+      RETURN
+      END
+      FUNCTION WINT(V,CV,X,N)
+      DIMENSION CV(1000),X(1000)
+      ALOW=1.0E10
+      AHI=1.0E10
+      DO 9 K=1,N
+      DV=CV(K)
+      W=X(K)
+   28 IF(DV-V)21,22,23
+   21 ALOW=DV
+      OX=W
+      GO TO 24
+   23 AHI=DV
+      HX=W
+   24 IF(AHI-1.0E10)25,8,25
+   25 IF(ALOW-1.0E10)30,8,30
+    8 IF(K-N)9,27,9
+   30 IF(AHI-1.0E15)2,2,27
+    2 DELTA=(V-AHI)/(ALOW-AHI)*(OX-HX)
+      AINT=DELTA+HX
+      GO TO 29
+   22 AINT=W
+      GO TO 29
+   27 AINT=1.0E38
+   29 K=N
+    9 CONTINUE
+      WINT=AINT
+      RETURN
+      END
+      FUNCTION BINT(V,CV,X,N)
+      DIMENSION CV(1000),X(1000)
+      ALOW=1.0E10
+      AHI=1.0E10
+      DO 9 KK=1,N
+      K=(N+1)-KK
+      DV=CV(K)
+      W=X(K)
+   28 IF(DV-V)21,22,23
+   21 ALOW=DV
+      OX=W
+      GO TO 24
+   23 AHI=DV
+      HX=W
+   24 IF(AHI-1.0E10)25,8,25
+   25 IF(ALOW-1.0E10)30,8,30
+    8 IF(KK-N)9,27,9
+   30 IF(AHI-1.0E15)2,2,27
+    2 DELTA=(V-AHI)/(ALOW-AHI)*(OX-HX)
+      AINT=DELTA+HX
+      GO TO 29
+   22 AINT=W
+      GO TO 29
+   27 AINT=1.0E38
+   29 KK=N
+    9 CONTINUE
+      BINT=AINT
+      RETURN
+      END
+      DIMENSION Q(25),B(25),CV(501),X(501),WB(33,11),WA(33,11),VAA(11)
+        OPEN(8,'MEL2',INPUT)
+      READ(8,1)(Q(I),B(I),I=1,9)
+      WRITE(5,50)(Q(I),B(I),I=1,9)
+   50 FORMAT(1X,'Q=',F10.7,5X,'B=',F4.1)
+      DO 2 II=1,33
+      Z=II*.5-.5
+      DO 9 NN=1,501
+      W=(NN-1.)*.01
+      IF(Z)1000,1001,1000
+ 1001 IF(W-2.5)1000,100,1000
+ 1000 IF(Z-8.)1002,1002,1003
+ 1002 IF(W)1003,100,1003
+ 1003 VW=0.0
+      DO 3 I=1,9
+      L=I-1
+    3 VW=B(I)*Q(I)/1.*(1./((Z-L)**2+W**2)**.5+1./((Z+L)**2+W**2)**.5)+VW
+      R=2.5
+      T=0.0
+      C=-1.
+      VT=   VRING(W,Z,R,T,C)
+      VTT=VT+VW/4.
+      CV(NN)=VTT
+      GO TO 101
+  100 CV(NN)=1.0E16
+  101 IF(Z)9,150,9
+  150 X(NN)=W
+    9 CONTINUE
+      PLUS=0.02649
+      V=-0.20659
+      DO 2 K=1,11
+      V=V+PLUS
+      N=501
+      WB(II,K)=BINT(V,CV,X,N)
+    2 WA(II,K)=WINT(V,CV,X,N)
+      WRITE(5,17)
+      DO 18 KK=1,11
+   18 VAA(KK)=(KK-1.)*10.
+      WRITE(5,19)(VAA(KK),KK=1,11)
+      DO 88 IY=1,33
+      ZY=IY*.5-.5
+   88 WRITE(5,20)ZY,(WA(IY,KC),KC=1,11)
+      WRITE(5,119)(VAA(KK),KK=1,11)
+      DO 85 IY=1,33
+      ZY=IY*.5-.5
+   85 WRITE(5,21)ZY,(WB(IY,KC),KC=1,11)
+   20 FORMAT(1X ,F4.1,11(1X,F10.4))
+   21 FORMAT(1X ,F4.1,11(1X,F10.4))
+   17 FORMAT('1',45X,'POTENTIALS DUE TO A FINITE ROD & RING'/35X,'
+     1TRAPEZOIDAL RULE FOR INTERGRATION OF CHARGE DISTRIBUTION')
+    1 FORMAT(2F10.0)
+   19 FORMAT(////4X,'V',3X,F5.0,10
+     1                           (6X,F5.0)/2X,'Z')
+  119 FORMAT('1'/4X,'V',3X,F5.0,10
+     1                           (6X,F5.0)/2X,'Z')
+        CLOSE(8)
+      CALL EXIT
+      END
