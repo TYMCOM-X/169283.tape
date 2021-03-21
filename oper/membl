@@ -1,0 +1,115 @@
+      SUBROUTINE MEMBL(IBUFF)                                                   
+C     DIMENSION AND COMMON STATEMENTS WHICH MUST APPEAR IN ALL ROUTINES LNK9  90
+      DIMENSION NSYSF(6)                                                LNK9 100
+      DIMENSION NPRBF(6)                                                LNK9 110
+      DIMENSION NARRF(32)                                               LNK9 120
+C     MEMBER INCIDENCE AND TYPE TABLES, MAX. 250 MEMBERS, 127 JOINTS    LNK9 130
+      DIMENSION JMIN(250),JPLS(250),MTYP(250)                           $NK9 140
+C     SCRATCH AREA CAN BE INSERTED AS DESIRED FOR EACH ROUTINE          LNK9 150
+C     SCRATCH AREA                                                      LNK9 160
+      DIMENSION  IBUFF(36)                                                      
+      DIMENSION A(40),B(40),C(10),D(10)                                 LNK9 170
+C     PRINT CODES                                                       LNK9 190
+C     DISPLACEMENTS=01                                                  LNK9 200
+C     DISTORTIONS=10                                                    LNK9 210
+C     REACTIONS=02                                                      LNK9 220
+C     FORCES=20                                                         LNK9 230
+C     DISTORTION OUTPUT REQUEST IS IGNORED                              LNK9 240
+C     SYSTEM PARAMETERS  -  14 WORDS                                    LNK9 250
+      COMMON NTMP,KCUR,NAVAL,NOVER,ISOLV,ISUCC,ISCAN,ITRAC,NSYSF        LNK9 260
+C     PROBLEM PARAMETERS  -  32 WORDS                                   LNK9 270
+      COMMON NJ,NB,NDAT,NFJS,NLDS,NLDSI,ID,NCORD,JF,NSQ,IMETH,NMR,NJR,  LNK9 280
+     1IBETA,IYOUN,ISHEA,GSHEA,EYOUN,FILL1,FILL2,IPZER,ISTRS,NPRBF       $NK9 290
+C     PLATE PARAMETERS                                                  $NK9 294
+      COMMON IPLAT,NPLAT,KPLA1,KPLAT,KTHI1,KTHIK                        $NK9 296
+C     ARRAY CODEWORDS  40 PAIRS = 80 WORDS                              LNK9 300
+      COMMON KNAM1,KNAME,KXY1,KXYZ,KJRE1,KJREL,MEGA1,MEGAZ,KMEM1,KMEMB, LNK9 310
+     1KBET1,KBETA,KYON1,KYOUN,KSHE1,KSHEA,KMRE1,KMREL,KMEG1,KMEGA,      LNK9 320
+     2KMKS1,KMKST,KROT1,KROTE,KPPL1,KPPLS,KPMN1,KPMNS,LOAD1,LOADS,      LNK9 330
+     3KLIN1,KLINT,MLOA1,MLOAD,JLOA1,JLOAD,KDIA1,KDIAG,KOFD1,KOFDG,      LNK9 340
+     4KPPR1,KPPRI,KSTA1,KSTAT,KJIN1,KJINT,KJEX1,KJEXT                   LNK9 350
+      COMMON NARRF                                                      LNK9 360
+      COMMON JMIN,JPLS,MTYP                                             LNK9 370
+      COMMON A,B,C,D,JLX,NLI,NPAIR,IPRIN                                LNK9 380
+100   FORMAT(////1H ,36A2)                                                      
+  653 FORMAT (1H1)                                                              
+      N=NSYSF(1)                                                                
+      IF(NB)200,200,600                                                         
+  600 IF (N-2) 777,778,777                                                      
+  777 WRITE(N,653)                                                              
+  778 WRITE(N,100) (IBUFF(I),I=1,36)                                            
+      WRITE (N,990)                                                     LNK91930
+ 990  FORMAT(' =========================================================LNK91940
+     1======================='//)                                       LNK91950
+  901 FORMAT(///' MEMBER FORCES FOR MEMBER'I4)                          LNK91960
+  910 FORMAT(I4,I6,3F10.3,3F10.2)                                       LNK91970
+  920 FORMAT(I6,I8,F12.3,F17.3,F19.2)                                   LNK91980
+  940 FORMAT(I6,I7,F14.3)                                               LNK91990
+  921 FORMAT(' LOADING  JOINT  AXIAL FORCE      SHEAR FORCE'10X'MOMENT')LNK92000
+  931 FORMAT(' LOADING  JOINT  SHEAR FORCE    TORSION MOMENT     BENDINGLNK92010
+     1 MOMENT')                                                         LNK92020
+  941 FORMAT(' LOADING  JOINT   AXIAL FORCE')                           LNK92030
+  951 FORMAT(' LOAD JOINT    AXIAL    SHEAR     SHEAR    TORSION    MOMELNK92040
+     1NT    MOMENT'/15X'FORCE   FORCE Y   FORCE Z   MOMENT'7X'Y'9X'Z')  LNK92050
+C     PRINT MEMBER FORCES BY MEMBER                                     LNK92060
+      DO 900 M=1,NB                                                     LNK92070
+      CALL SPAK2(M,JPLS,JSTA)                                           $NK92080
+      CALL SPAK2(M,JMIN,JEND)                                           $NK92090
+      CALL SDATA(KJEX1,KJEXT,JSTA,A,JSTA,1,1)                           LNK92100
+      CALL SDATA(KJEX1,KJEXT,JEND,A,JEND,1,1)                           LNK92110
+      WRITE(N,901)M                                                     LNK92120
+      WRITE (N,990)                                                     LNK92130
+      GO TO(804,802,803,804,805),ID                                     LNK92140
+  802 WRITE(N,921)                                                      LNK92150
+      GO TO 808                                                         LNK92160
+  803 WRITE(N,931)                                                      LNK92170
+      GO TO 808                                                         LNK92180
+  804 WRITE(N,941)                                                      LNK92190
+      GO TO 808                                                         LNK92200
+  805 WRITE(N,951)                                                      LNK92210
+  808 DO 900 JLX=1,NLDS                                                 LNK92220
+      CALL SDATA (KLIN1,KLINT,JLX,A,NLI,1,1)                            LNK92230
+      MAR=(NLI-1)*NB+M                                                  LNK92240
+      CALL SDATA (KPMN1,KPMNS,MAR,C,JKL,-1,0)                           LNK92250
+      CALL SDATA (KPPL1,KPPLS,MAR,D,JKL,-1,0)                           LNK92260
+      GO TO(840,820,820,840,810),ID                                     LNK92270
+  810 WRITE(N,910)JLX,JSTA,(D(I),I=1,6)                                 LNK92280
+      WRITE(N,910)JLX,JEND,(C(I),I=1,6)                                 LNK92290
+      GO TO 900                                                         LNK92300
+  820 WRITE(N,920)JLX,JSTA,(D(I),I=1,3)                                 LNK92310
+      WRITE(N,920)JLX,JEND,(C(I),I=1,3)                                 LNK92320
+      GO TO 900                                                         LNK92330
+  840 WRITE(N,940)JLX,JSTA,D(1)                                         LNK92340
+      WRITE(N,940)JLX,JEND,C(1)                                         LNK92350
+  900 CONTINUE                                                          LNK92360
+  200 IF(IPLAT)1000,1000,205                                                    
+  205 IF(ISTRS)1000,1000,210                                                    
+  210 WRITE(N,653)                                                              
+      WRITE(N,990)                                                              
+      WRITE(N,100)(IBUFF(I),I=1,36)                                             
+      WRITE(N,990)                                                              
+      DO 300 M=1,IPLAT                                                          
+      NMEM=M+NB                                                                 
+      WRITE(N,990)                                                              
+      WRITE(N,220)NMEM                                                          
+  220 FORMAT( //' MEMBER STRESSES FOR MEMBER ',I4/)                             
+      WRITE(N,230)                                                              
+      WRITE(N,240)                                                              
+  230 FORMAT(' LOADING   PRINCIPAL MEMBRANE      ANGLE       PRINCIPAL B        
+     1ENDING       ANGLE ' )                                                    
+  240 FORMAT('          STRESS-1    STRESS-2     (DEG)      STRESS-1   S        
+     1TRESS-2     (DEG) '/)                                                     
+      DO 300 I=1,NLDS                                                           
+C  GET INTERNAL LOAD NUMBER                                                     
+      CALL SDATA(KLIN1,KLINT,I,A,NLI,1,1)                                       
+C  GET THE STRESS VECTOR                                                        
+      MAR=(NLI-1)*IPLAT+M                                                       
+      CALL SDATA(KTHI1,KTHIK,MAR,B,NAREA,-1,0)                                  
+      CALL SMAXS(B(1),B(2),B(3))                                                
+      CALL SMAXS(B(4),B(5),B(6))                                                
+      WRITE(N,250)I,(B(J),J=1,6)                                                
+  250 FORMAT(I5,6E12.4)                                                         
+  300 CONTINUE                                                                  
+ 1000 RETURN                                                                    
+      END                                                                       
+  
