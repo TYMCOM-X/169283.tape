@@ -1,0 +1,189 @@
+I.  Introduction
+
+     The purpose of this document is to outline the course of development
+for Tymnet over the next several years.  Tymsat must be developed in the
+two dimensions of added capacity and additional function.  In considering
+the question of added capacity we can consider either scaling up current
+techniques, i.e., faster CPU's, more memory, etc; or different solutions
+to problems.  In both dimensions there are many questions which are
+independent of one another.  Certainly a more reliable node is desirable
+independent of the programs it may contain.  Remote loading of code is
+clearly very desirable no matter which of several approaches are taken in 
+the Supervisor.  These observations and the fact that taken as a whole, 
+the network is extremely complex, have lead to organizing the discussion
+of developments into a number of fairly independent problems.  Certainly
+there are interactions and the choices made in one area will effect decisions
+in all others; but in general, the effects are ones of interface and formats
+and not one of fundumental function.
+
+     The next section will set forth the overall goals of the project and
+each succeeding section will discuss one of the several inportant deve-
+lopment areas.
+
+II. Goals
+
+     First let us briefly review the history and current status of the
+network to give a background for the goals we have chosen.  The network
+as we now know it became fully operational in late 1971.  At that time
+there were _______ nodes, _______ of which were bases.  Of the ______
+hosts, _____ were 940's and 3 were PDP-10's.  The first Tymcom-III
+became operational at NLM in _____.  By June of 1970 a typical load was
+_____ terminations (or _____ circuits).  Today we have _____ nodes,
+_____ bases, _____ hosts, and _____ Tymcom-III's.  Average loads are on
+the order of _____ terminations.  Logins have increased from _____ in June
+1972 to _____ as of May 1973.  During the past 6 months many changes
+have been made in order to provide increased capacity and fix problems
+which have been discovered, often as the result of increased loading.
+The performance of the supervisor has been increased by modifications
+to the 940 monitor, which allows it to maintain its working set of pages.
+The supervisor has been modified to issue multiple disc reads, greatly
+improving its thruput.  In the nodes, the code has been substantially
+modified to deal effectively with occasions for heavy load
+(start-baud, terminal output fairness, 201 polling fairness).  Dual bases
+have been debuffed and installed.  All of these changes have been accomp-
+anied by numerious bug fixes and minor improvements.  In addition a
+major change in the topology of the network is being implemented which
+will provide substantially more capacity and most significantly, a greater
+ability to provide service despite major failures.
+
+     Finally, a great deal of effort has been spent in understanding the
+dynamics of the network and providing new and improved tools to monitor
+its functioning and detect and correct problems.
+
+     By July most of the current efforts will be essentially complete
+and the network should be adequate for the current load.  Assuming
+moderate and orderly load increases, it is clear that we have room for
+growth over the next 6 - 12 months.  We anticipate this growth taking 
+place primarily within the context of increasing current facilities,
+i.e., more nodes, more and somewhat faster lines, and increasingly
+more of a 940 denoted to running the supervisor.
+
+     In summary, the current design with normal extensions will provide
+for our current loads a moderate growth for perhaps the next year.
+This will not be without development effort, probably on the order of
+1 - 1 1/2 people fulltime.  Beyond this, we will require substantially
+new or  different equipment and software in order to meet increased load 
+and, of course, new service will require significant software and in some
+cases hardware development.
+
+     The current supervisor, for example, can handle a maximum of
+48 bases.  Shortly we will have 18 940 bases, 3 PDP-10, 12 Tymcom III's,
+3 300/370 (2 on our 158 and at least one at ABC), and at least 5 switching
+bases, for a total of 36.  We can add only 12 more total before the
+completion of a major change to the supervisor function.
+
+     So far, we have considered primarily questions of increased capacity.
+There are however, many new services which are needed such as higher
+data rates, dynamic rerouting, etc.  Many of these projects are described
+in Appendix A.
+
+     With this perhaps overlong background, let us consider some goals.
+The most obvious one is that of growth and expansion.  Rather than
+stating these goals directly, we have chosen to estimate the increase in
+demand which we might expect and choose the obvious goal of providing
+for these increases.  The following table (Table I) lists the expected
+load in each of several categories by year for the next several years.
+In some categories, we believe that greater growth might be possible, but
+is not achievable due to development and installation lead times.  In
+regard to this last point we wish to emphasize that we mean development
+in the broadest sense and take it to include such things as expanding
+the maintenance and installation staff, increased manufacturing, and
+overall management sufficient for a large network.
+
+Supervisor Function
+
+     The network supervisor presently constituted performs a variety
+of functions.  Before proceeding to a discussion of a new or more
+powerful supervisor and alternate means of providing these functions,
+let us first list and briefly describe them.  We will first follow the
+sequence of functions encountered by a normal user in the course of a
+login and then cover several of the auxiliary functions of the current
+supervisor.
+
+     The first part of the login consists of name and password valid-
+ation.  It is accomplished by using a hash address obtained from the
+user name to access a file of user data.  The most critical infor-
+mation is the inscription of the users password which is checked against
+the inscription of the password typed by the user.  Once the user pass-
+word has been determined to be valid, other miscellaneous information 
+contained in the same entry is used to determine his home system, whether
+he is authorized at that time, etc.  For reasons which become clear, 
+let us examine this process in somewhat greater detail, particularly
+the uses of the home or primary system.  First, observe that if we some-
+how know which system a user wished to access we could choose to connect
+him to that system and then validate his password there.  Second, the
+main use of the home system feature at present is to allow Tymshare to
+shuffle users and have this transparent to the users.
+
+     Once a user is validated and his desired system determined either
+his default home system or a specified one, the next problem is to deter-
+mine a route from his remote to the desired base.  The current supervisor
+handles the problem by periodically constriding information which shows
+the shortest route from any node to any base.  When rerun, the supervisor
+uses this information to determine a route for each user.
+
+     After the route is chosen each node along the route is directed to
+make table entries which will establish a virtual circuit between the
+remote and the desired base.  Finally the host is notified of a login
+and the supervisor has completed its job.
+
+     As circuits are no longer required typically the host sends out a
+circuit zapper which when it reaches the end of the circuit causes a message
+to be sent to the supervisor which then removes the circuit from its internal
+tables.
+
+     One of the major problems with the current approach is the 
+necessity for these internals tables and the requirement to establish
+their contents when a supervisor takes over.  In order to fill in all
+the tables for all the nodes in the current net requires   100,000
+characters input to the supervisor machine.  Another problem is that
+since the supervisor chooses exactly which entries to use we cannot have
+more than one supervisor process running.
+
+     One of the major advantages of having all of this information is
+that it allows us to examine the network for a number of problems, i.e.,
+deadend circuits, crossed circuits, etc.
+
+     The final function performed by the supervisor is logging of
+various error conditions such as line errors, node crashes, missent
+commands, etc.
+
+Alternate Supervisor
+
+     The following method of accomplishing the supervisor function
+contains a number of ideas which could be applied singularly or in
+combination.  They do, however, form a complete system which offers
+major advantages over the current method.  There are two major princ-
+iple which have guided this design.  The first is the separation of 
+function.  The second is allowing function to be decentralized and
+replicated where possible.  Let us now examine the new proposal and
+how we provide for each of the functions.
+
+     Refering to figure 1 let us first consider how we might build circuit
+without outside help.  Assume a user has dialed into remote D and that by
+some process which we will discuss later we have determined the node to
+which we should build a circuit.  Assume that this particular user should
+be connected to host 1, and therefore we should route this user to node A.
+If in each node we provide a table which contains an entry for each node
+to which we want to build a circuit that indicates the line to take to
+the next node in order to get to the desired node (A in this case).
+
+     If all the lines are working and available and if we follow the same
+algorithm used in the current supervisor then the entries for host in the
+tables for the nodes will be; node D - line 0, node C - line 0, node B -
+line 2.  The circuit building process would proceed as follows:
+Node D determines that line 0 is the proper line to take to reach node A.
+It then chooses a circuit on its line 0 places a special control character
+in the circuit which indicates that a circuit is being built, along with
+the node A so that the next node (C in this case) can continue the
+process.  Node C then repeats the process by choosing a circuit on its line
+0.  Node B will choose its line 2.  When the circuit building character
+arrives at node A, the node recognizes that this is the destination for
+this circuit and routes the circuit to the host.
+
+     The actual system needs to be somewhat more general in order to
+handle the problems a multiple host connected to a single node and hosts
+which are connected to more than one node (base).  The procedure will also
+handle building circuits to nodes where there are multiple nodes for
+purposes such as dial out.
+  
