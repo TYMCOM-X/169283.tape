@@ -1,0 +1,301 @@
+MODULE GSORT(DOLLAR,ENTRIES=($GBSRT,$GSORD,$GSORT),FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+  BEGIN
+
+  REQUIRE ADEFS.BLI[7,107355];
+  REQUIRE GDEFS.BLI[7,107355];
+  REQUIRE SDEFS.BLI[7,107355];
+  REQUIRE TDEFS.BLI[7,107355];
+  REQUIRE ZDEFS.BLI[7,107355];
+
+  UNDECLARE $GBSRT, $GSORD, $GSORT;
+
+  MAP A$ GBTKN$;
+  MAP G$ GGBFP$;
+  MAP G$OPND GGBOP$;
+  MAP Z$ ZBSTK$;
+
+%*****
+  PROCESS THE TV$8BGSORT TOKEN.
+*****%
+  GLOBAL ROUTINE $GBSRT =
+    BEGIN
+
+    $GPUSH(.GBTKN$,AV$SZTOK);
+    GLIST$ := .ZSTKP$;
+
+    END;
+
+
+%*****
+  PROCESS THE TV$ASCEND AND THE TV$DESCEND TOKENS.
+*****%
+  GLOBAL ROUTINE $GSORD =
+        ZBSTK$[Z$SORTORD,.ZSTKP$] :=
+                IF .GBTKN$[A$ID] EQL TV$ASCEND
+                  THEN
+                    SV$ASCEND
+                  ELSE
+                    NOT SV$ASCEND;
+
+
+%*****
+  SET UP THE SORT CHAIN FOR STANDARD KEY ORDER.
+*****%
+  ROUTINE KEYORDER(RELINCP)=
+    BEGIN
+
+    LABEL LINK;
+    LOCAL FRECPTR;
+    LOCAL S$ RINCSTE : PREDSTE : CURSTE;
+
+
+    FRECPTR := $GFREC(.GOB3I$);
+    IF .FRECPTR NEQ 0
+      THEN
+        BEGIN
+        $GMBUF(.GOB3I$,.GOB2I$,.FRECPTR,$GLREC(.GOB3I$));
+        $GCBUF(.GOB3I$);
+        END;
+    RINCSTE := $SGSTE(.RELINCP);
+    RINCSTE[S$SORTC] := .RINCSTE[S$FISTP];
+    RINCSTE[S$SORTN] := 1;
+    PREDSTE := $SGSTE(.RINCSTE[S$FISTP]);
+    PREDSTE[S$SORTCPRED] := .RELINCP;
+    IF .PREDSTE[S$FISTP] NEQ SV$NULL
+      THEN
+  LINK: BEGIN
+        CURSTE := $SGSTE(.PREDSTE[S$FISTP]);
+        WHILE .CURSTE[S$KDFLG] EQL SV$KEYF
+          DO
+            BEGIN
+            CURSTE[S$SORTORD] := SV$ASCEND;
+            RINCSTE[S$SORTN] := .RINCSTE[S$SORTN] + 1;
+            PREDSTE[S$SORTC] := .CURSTE[S$STPX];
+            CURSTE[S$SORTCPRED] := .PREDSTE[S$STPX];
+            $SFRCH(.PREDSTE);
+            PREDSTE := .CURSTE;
+            IF .CURSTE[S$FISTP] EQL SV$NULL
+              THEN
+                LEAVE LINK;
+            CURSTE := $SGSTE(.PREDSTE[S$FISTP]);
+            END;
+        $SFRNCH(.CURSTE);
+        END;
+    $SFRCH(.PREDSTE);
+    $SFRCH(.RINCSTE);
+
+    END;
+
+
+%*****
+  PROCESS SORT REQUESTS.
+****%
+  GLOBAL ROUTINE $GSORT =
+    BEGIN
+
+    BIND LEFTSUBSET = 256;
+    LOCAL S$ FNAMESTE : FINCSTE : PREDSTE : RINCSTE;
+    LOCAL RELINCSTP, RELSTKP, STKPTR, SORTPOS, LISTERR, SLISTOFFSET, LABSAV;
+    LOCAL SORTORD, FRECPTR;
+    LOCAL GF$ FINLSTP;
+    LABEL SORTLIST, SORTSPEC;
+
+
+    ROUTINE GENSORTCODE(RELSTKP)=
+      BEGIN
+
+      LOCAL S$ RINCSTE;
+      LOCAL BUFIXSAV;
+
+      RINCSTE := $SGSTE(.ZBSTK$[Z$INCSTP,.RELSTKP]);
+      $GIREC(GV$INSORT,3);                % INITIALIZE SORT N-TUPLE %
+      GGBFP$[G$OPND1] := $GOPND(.RELSTKP);
+      $GWBUF(.GGBFP$,.GOB1I$);
+  
+  
+      IF .RINCSTE[S$RCBTY] EQL SV$LEFTSB     AND
+         .ZBSTK$[Z$WHEREFLG,.RELSTKP] NEQ ZV$TRUE
+        THEN
+          BEGIN
+          $GCBUF(.GOB2I$);
+          $GCBUF(.GOB3I$);
+          $GIREC(GV$LSBSORT,3);
+          GGBFP$[G$OPND1] := $GOPND(.RELSTKP);
+          $GWBUF(.GGBFP$,.GOB2I$);
+          $GCBUF(.GOB3I$);
+          END
+        ELSE
+          BEGIN
+          $GIREC(GV$RELEASE,3);           % RELEASE A RECORD TO THESORT %
+          GGBFP$[G$OPND1] := $GOPND(.RELSTKP);
+          $GWBUF(.GGBFP$,.GOB2I$);
+      
+          IF .GELSF$ EQL ZV$SET
+            THEN
+              BEGIN
+              $GIREC(GV$LABEL,3);
+              GGBOP$[0,G$OPTYP] := GV$STP;
+              GGBOP$[0,G$OPVAL] := .GELSL$;
+              $GWBUF(.GGBFP$,.GOB2I$);
+              END;
+      
+          $GCBUF(.GOB3I$);
+      
+          $GIREC(GV$READ,3);
+          GGBFP$[G$OPND1] := $GOPND(.RELSTKP);
+          $GWBUF(.GGBFP$,.GOB2I$);
+  
+          $GIREC(GV$BRNEOF,4);
+          GGBFP$[G$OPND1] := $GOPND(.RELSTKP);
+          GGBOP$[1,G$OPTYP] := GV$STP;
+          GGBOP$[1,G$OPVAL] := .ZBSTK$[Z$NEXTLAB,.RELSTKP];
+          $GWBUF(.GGBFP$,.GOB2I$);
+          END;
+      $SFRNCH(.RINCSTE);
+  
+      $GIREC(GV$SORT,3);
+      GGBFP$[G$OPND1] := $GOPND(.RELSTKP);
+      $GWBUF(.GGBFP$,.GOB2I$);
+  
+      $GIREC(GV$READ,3);
+      GGBFP$[G$OPND1] := $GOPND(.RELSTKP);
+      $GWBUF(.GGBFP$,.GOB2I$);
+  
+      IF .GELSF$ EQL ZV$SET
+        THEN
+          BEGIN
+          $GIREC(GV$BREOF,4);
+          GGBFP$[G$OPND1] := $GOPND(.RELSTKP);
+          GGBOP$[1,G$OPTYP] := GV$STP;
+          GGBOP$[1,G$OPVAL] := .ZBSTK$[Z$NEXTLAB,.GFEAP$];
+          $GWBUF(.GGBFP$,.GOB2I$);
+          GELSF$ := ZV$RESET;
+          END;
+      $GIREC(GV$LABEL,3);
+      GGBOP$[0,G$OPTYP] := GV$STP;
+      GGBOP$[0,G$OPVAL] := ZBSTK$[Z$NEXTLAB,.RELSTKP] := $GNLAB();
+      $GWBUF(.GGBFP$,.GOB2I$);
+  
+      BUFIXSAV := .GOB1I$;
+      GOB1I$ := .GOB2I$;
+      $GFCHALL(.RELSTKP);
+      GOB1I$ := .BUFIXSAV;
+      END;
+
+
+%***   START OF SORT PROCESSING   ***%
+    RELSTKP := .ZBSTK$[Z$SUCP,.GFEAP$];
+    IF .ZBSTK$[Z$ERFL,.RELSTKP] EQL AV$FALSE
+      THEN
+  SORTSPEC:
+        BEGIN
+        IF .ZBSTK$[Z$SBID,.RELSTKP] NEQ ZV$REL
+          THEN
+            BEGIN
+            $GERR(543,.RELSTKP);
+            LEAVE SORTSPEC;
+            END;
+        RELINCSTP := .ZBSTK$[Z$INCSTP,.RELSTKP];
+        IF .GBTKN$[A$ID] EQL TV$SORTED  OR  .GLIST$ EQL .ZSTKP$
+          THEN
+            BEGIN
+            KEYORDER(.RELINCSTP);
+            IF .ZBSTK$[Z$WHEREFLG,.RELSTKP] EQL ZV$TRUE
+              THEN
+                GENSORTCODE(.RELSTKP);
+            END
+          ELSE
+  SORTLIST: BEGIN
+            STKPTR := .ZBSTK$[Z$SUCP,.GLIST$];
+            SLISTOFFSET := 0;
+            SORTORD := LEFTSUBSET;
+            PREDSTE := ZV$NULL;
+            LISTERR := ZV$FALSE;
+            WHILE .STKPTR NEQ ZV$NULL
+              DO
+                BEGIN
+                FNAMESTE := $SGSTE(.ZBSTK$[Z$STP,.STKPTR]);
+                IF .FNAMESTE[S$CISTP] EQL SV$NULL
+                  THEN
+                    BEGIN
+                    $GERR(527,.STKPTR);
+                    LISTERR := ZV$TRUE;
+                    END
+                  ELSE
+                    BEGIN
+                    FINCSTE := $SGSTE(.FNAMESTE[S$CISTP]);
+                    $SFRNCH(.FNAMESTE);
+                    IF .FINCSTE[S$RNSTP] NEQ .RELINCSTP
+                      THEN
+                        BEGIN
+                        $GERR(527,.STKPTR);
+                        LISTERR := ZV$TRUE;
+                        END
+                      ELSE
+                        BEGIN
+                        FINCSTE[S$SORTORD] := .ZBSTK$[Z$SORTORD,.STKPTR];
+                        IF .FINCSTE[S$RSBO] NEQ .SLISTOFFSET   OR
+                           .ZBSTK$[Z$SORTORD,.STKPTR] NEQ SV$ASCEND
+                          THEN
+                            SORTORD := NOT LEFTSUBSET;
+                        SLISTOFFSET := .SLISTOFFSET + 1;
+                        ZBSTK$[Z$INCSTP,.STKPTR] := .FINCSTE[S$STPX];
+                        IF .PREDSTE NEQ ZV$NULL  AND  .LISTERR NEQ ZV$TRUE
+                          THEN
+                            BEGIN
+                            PREDSTE[S$SORTC] := .FINCSTE[S$STPX];
+                            FINCSTE[S$SORTCPRED] := .PREDSTE[S$STPX];
+                            $SFRCH(.PREDSTE);
+                            END
+                          ELSE
+                            FINCSTE[S$SORTCPRED] := .RELINCSTP;
+                        PREDSTE := .FINCSTE;
+                        END;
+                    END;
+                STKPTR := .ZBSTK$[Z$SUCP,.STKPTR];
+                END;
+            IF .PREDSTE NEQ ZV$NULL
+              THEN
+                $SFRCH(.PREDSTE);
+            IF .LISTERR EQL ZV$TRUE
+              THEN
+                BEGIN
+                KEYORDER(.RELINCSTP);
+                LEAVE SORTLIST;
+                END;
+            IF .ZBSTK$[Z$ACCESS,.RELSTKP] EQL ZV$VIAACCESS
+              THEN
+                LEAVE SORTSPEC;
+            RINCSTE := $SGSTE(.RELINCSTP);
+            RINCSTE[S$SORTN] := .SLISTOFFSET;
+            RINCSTE[S$SORTC] := .ZBSTK$[Z$INCSTP,.ZBSTK$[Z$SUCP,.GLIST$]];
+            IF .SORTORD EQL LEFTSUBSET
+              THEN
+                BEGIN
+                $SFRCH(.RINCSTE);
+                KEYORDER(.RELINCSTP);
+                LEAVE SORTLIST;
+                END;
+            RINCSTE[S$IOMODE] := SV$SORTED;
+            FINLSTP := .ZBSTK$[Z$FINLSTP,.RELSTKP];
+            FINLSTP[GF$IOMODE] := GFV$SORTED;
+            $SFRCH(.RINCSTE);
+            GENSORTCODE(.RELSTKP);
+
+            END;
+        END;
+
+    IF .GBTKN$[A$ID] EQL TV$8SORTEDON
+      THEN
+        BEGIN
+        WHILE .ZBSTK$[Z$ID,.ZSTKP$] NEQ TV$8BGSRT
+          DO
+            $GPOP();
+        $GPOP();
+        END;
+
+    END;
+
+
+  END
+ELUDOM
