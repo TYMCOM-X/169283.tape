@@ -1,0 +1,162 @@
+C           SUBROUTINE TO CALCULATE TRANSDUCER A-TOTAL MATRIX.          TOT00110    
+C                                                                       TOT00120    
+      SUBROUTINE TOTAL                                                  TOT00130    
+C                                                                       TOT00140    
+C     FOR EASE OF PROGRAMMING, THE DIMENSIONS OF THE AC AND ZC          TOT00150    
+C     MATRICES HAVE BEEN CHANGED IN THIS SUBROUTINE.   THE TOTAL        TOT00160    
+C     DIMENSIONED AREA IS THE SAME BUT THEY ARE USED AS DOUBLY-         TOT00170    
+C     INSTEAD OF TRIPLY-SUBSCRIPTED ARRAYS.                             TOT00180    
+C                                                                       TOT00190    
+      COMMON /CC    / ACC,ALPHA,BETA,B,PHI,CCS,Z0,ZCC,C0,AKL,ZZ0,ZC0,ZB TOT00200    
+      COMMON /CNTROL/ N(12),IE,IBC                                      TOT00210    
+      COMMON /COMPOZ/ AC,ZC                                             TOT00220    
+      COMMON /EDIT  / SEC(24),T(20),PTYPE(2),MO,IDAY,IYR,IRUN,OUT(4)     TOT00230    
+      COMMON /FREQ  / FREQ,TWOPI                                        TOT00240    
+      COMMON /SW    / LSW(20)                                           TOT00250    
+      COMMON /TOT   / ATOT,TSW                                          TOT00260    
+C                                                                       TOT00270    
+      COMPLEX AC(4,12),ZC(4,12),ACC(2,3,2),ATOT(6,2),WORK(4),WORK1(4),WOTOT00280    
+     1RK2(4),WORK3(4),UNIT(2,2),ZCS5,ZCS6,ACS(6),ALPHA(2,2,2),BETA(2,2),TOT00290    
+     2B(2,2,2),PHI,CCS,Z0,C0,ZKL,ZZ0,ZCC(2,2),ZC0,ZB(2,3),AKL,AINV(2,2) TOT00300    
+C                                                                       TOT00310    
+      LOGICAL LSW                                                       TOT00320    
+C                                                                       TOT00330    
+C     STATEMENTS TO TRICK THE GE-635 COMPILER.                          TOT00340    
+      WORK1(1)=(0.,0.)                                                  TOT00350    
+      WORK2(1)=(0.,0.)                                                  TOT00360    
+      WORK3(1)=(0.,0.)                                                  TOT00370    
+      AINV(1,1)=(0.,0.)                                                 TOT00380    
+C                                                                       TOT00390    
+C***********************************************************************TOT00400    
+C*                                                                     *TOT00410    
+C*    COMPACT TAIL GROUP AND TAIL EXTENSION.                           *TOT00420    
+C*                                                                     *TOT00430    
+C***********************************************************************TOT00440    
+C                                                                       TOT00450    
+      UNIT(1,1)=(1.,0.)                                                 TOT00460    
+      UNIT(1,2)=AC(3,8)/AC(4,8)                                         TOT00470    
+      UNIT(2,1)=(0.,0.)                                                 TOT00480    
+      UNIT(2,2)=(1.,0.)                                                 TOT00490    
+      CALL MPY(AC(1,4),2,2,UNIT,2,WORK1)                                TOT00500    
+C                                                                       TOT00510    
+C***********************************************************************TOT00520    
+C*                                                                     *TOT00530    
+C*    COMPACT HEAD EXTENSION AND HEAD GROUP.                           *TOT00540    
+C*                                                                     *TOT00550    
+C***********************************************************************TOT00560    
+C                                                                       TOT00570    
+      UNIT(1,1)=(1.,0.)                                                 TOT00580    
+      UNIT(1,2)=-AC(3,9)/AC(1,9)                                        TOT00590    
+      UNIT(2,1)=(0.,0.)                                                 TOT00600    
+      UNIT(2,2)=(1.,0.)                                                 TOT00610    
+      CALL MPY(UNIT,2,2,AC(1,5),2,WORK2)                                TOT00620    
+C                                                                       TOT00630    
+C                                                                       TOT00640    
+C***********************************************************************TOT00650    
+C*                                                                     *TOT00660    
+C*    COMPACT TAIL GROUP, CERAMIC SECTION AND HEAD GROUPS.             *TOT00670    
+C*                                                                     *TOT00680    
+C***********************************************************************TOT00690    
+C                                                                       TOT00700    
+      CALL MPY(WORK1,2,2,ACC(1,1,IE),2,WORK3)                           TOT00710    
+      CALL MPY(WORK3,2,2,WORK2,2,ATOT(1,IE))                            TOT00720    
+      CALL MPY(WORK1,2,2,ACC(1,3,IE),1,ATOT(5,IE))                      TOT00730    
+C                                                                       TOT00740    
+C***********************************************************************TOT00750    
+C*                                                                     *TOT00760    
+C*    COMPACT IN STRESS ROD.                                           *TOT00770    
+C*                                                                     *TOT00780    
+C***********************************************************************TOT00790    
+C                                                                       TOT00800    
+      CALL TRAN(ATOT(1,IE),WORK1)                                       TOT00810    
+      ZCS5=ATOT(5,IE)-(ATOT(6,IE)*ATOT(1,IE))/ATOT(2,IE)                TOT00820    
+      ZCS6=-ATOT(6,IE)/ATOT(2,IE)                                       TOT00830    
+      DO 100 I=1,4                                                      TOT00840    
+        WORK(I)=WORK1(I)+ZC(I,3)                                        TOT00850    
+  100 CONTINUE                                                          TOT00860    
+      CALL TRAN(WORK,ACS)                                               TOT00870    
+      ACS(5)=ZCS5-(ZCS6*WORK(1))/WORK(2)                                TOT00880    
+      ACS(6)=-ZCS6/WORK(2)                                              TOT00890    
+C                                                                       TOT00900    
+C***********************************************************************TOT00910    
+C*                                                                     *TOT00920    
+C*    COMPACT NUT1 INTO THE TAIL SECTION.                              *TOT00930    
+C*                                                                     *TOT00940    
+C***********************************************************************TOT00950    
+C                                                                       TOT00960    
+      UNIT(1,1)=(1.,0.)                                                 TOT00970    
+      UNIT(1,2)=-AC(3,6)/AC(1,6)                                        TOT00980    
+      UNIT(2,1)=(0.,0.)                                                 TOT00990    
+      UNIT(2,2)=(1.,0.)                                                 TOT01000    
+      CALL MPY(AC(1,1),2,2,UNIT,2,WORK)                                 TOT01010    
+      CALL MPY(WORK,2,2,ACS,2,ATOT(1,IE))                               TOT01020    
+      CALL MPY(WORK,2,2,ACS(5),1,ATOT(5,IE))                            TOT01030    
+C                                                                       TOT01040    
+C***********************************************************************TOT01050    
+C*                                                                     *TOT01060    
+C*    COMPACT NUT 2 INTO THE HEAD SECTION.                             *TOT01070    
+C*                                                                     *TOT01080    
+C***********************************************************************TOT01090    
+C                                                                       TOT01100    
+      UNIT(1,1)=(1.,0.)                                                 TOT01110    
+      UNIT(1,2)=AC(3,7)/AC(4,7)                                         TOT01120    
+      UNIT(2,1)=(0.,0.)                                                 TOT01130    
+      UNIT(2,2)=(1.,0.)                                                 TOT01140    
+      CALL MPY(ATOT(1,IE),2,2,UNIT,2,WORK)                              TOT01150    
+      CALL MPY(WORK,2,2,AC(1,2),2,ATOT(1,IE))                           TOT01160    
+C                                                                       TOT01170    
+C **********************************************************************TOT01180    
+C*                                                                     *TOT01190    
+C*    COMPACT IN THE CAN.                                              *TOT01200    
+C*                                                                     *TOT01210    
+C **********************************************************************TOT01220    
+C                                                                       TOT01230    
+      CALL TRAN(ATOT(1,IE),WORK1)                                       TOT01240    
+      ZCS5=ATOT(5,IE)-(ATOT(6,IE)*ATOT(1,IE))/ATOT(2,IE)                TOT01250    
+      ZCS6=-ATOT(6,IE)/ATOT(2,IE)                                       TOT01260    
+      DO 110 I=1,4                                                      TOT01270    
+        WORK(I)=WORK1(I)+ZC(I,10)                                       TOT01280    
+  110 CONTINUE                                                          TOT01290    
+      CALL TRAN(WORK,ACS)                                               TOT01300    
+      ACS(5)=ZCS5-(ZCS6*WORK(1))/WORK(2)                                TOT01310    
+      ACS(6)=-ZCS6/WORK(2)                                              TOT01320    
+C                                                                       TOT01330    
+C***********************************************************************TOT01340    
+C*                                                                     *TOT01350    
+C*    COMPACT IN THE TAIL MOUNT.                                       *TOT01360    
+C*                                                                     *TOT01370    
+C***********************************************************************TOT01380    
+C                                                                       TOT01390    
+      CALL MPY(AC(1,11),2,2,ACS,2,ATOT(1,IE))                           TOT01400    
+      CALL MPY(AC(1,11),2,2,ACS(5),1,ATOT(5,IE))                        TOT01410    
+C                                                                       TOT01420    
+C***********************************************************************TOT01430    
+C*                                                                     *TOT01440    
+C*    COMPACT IN THE HEAD FACING.                                      *TOT01450    
+C*                                                                     *TOT01460    
+C***********************************************************************TOT01470    
+C                                                                       TOT01480    
+      DO 120 I=1,4                                                      TOT01490    
+        WORK(I)=ATOT(I,IE)                                              TOT01500    
+  120 CONTINUE                                                          TOT01510    
+      CALL MPY(WORK,2,2,AC(1,12),2,ATOT(1,IE))                          TOT01520    
+C                                                                       TOT01530    
+      IF(.NOT.LSW(3))RETURN                                             TOT01540    
+      N1=1                                                              TOT01550    
+      IF(IE .EQ.2)N1=3                                                  TOT01560    
+      N2=N1+1                                                           TOT01570    
+      WRITE(6,130)PTYPE(1),FREQ,MO,IDAY,IYR,IRUN,OUT(N1),OUT(N2)         TOT01580    
+      CALL PREP(ATOT(1,IE),18HA-TOTAL(1,1)                             )TOT01590    
+      CALL PREP(ATOT(3,IE),18HA-TOTAL(1,2)                             )TOT01600    
+      CALL PREP(ATOT(2,IE),18HA-TOTAL(2,1)                             )TOT01610    
+      CALL PREP(ATOT(4,IE),18HA-TOTAL(2,2)                             )TOT01620    
+      CALL PREP(ATOT(5,IE),18HA-TOTAL(5)                               )TOT01630    
+      CALL PREP(ATOT(6,IE),18HA-TOTAL(6)                               )TOT01640    
+      RETURN                                                            TOT01650    
+C                                                                       TOT01660    
+  130 FORMAT (1H1//6XA6,27H TRANSDUCER ANALYSIS OUTPUT,15X2HF=,F7.1,10X4TOT01670    
+     1HDATE,I4,1H/I2,1H/I2,4X10HRUN NUMBER,2XA6//6X14HTOTAL A-MATRIX,2A6TOT01680    
+     2,6H DRIVE//29X4HREAL,12X4HIMAG,16X9HMAGNITUDE,11X5HPHASE//)       TOT01690    
+C                                                                       TOT01700    
+      END                                                               TOT01710    
+  
