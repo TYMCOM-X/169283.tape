@@ -1,0 +1,535 @@
+PAIRF.F4	F40	V26(10)	15-MAY-73	15:25	PAGE 1
+
+
+  		      C****************************************************************
+PAIRF.F4	F40	V26(10)	15-MAY-73	15:25	PAGE 2
+
+
+  		      C*     COPYRIGHT        TEKTRONIX, INC    1973
+  		      C*                       BEAVERTON, OREGON
+  		      C*     PLOT-10/DECISION MAKER RELEASE 1.0 - VERSION 1
+  		      C*               MODIFICATION LEVEL 0
+  		      C****************************************************************
+  		            SUBROUTINE  PAIRF
+  		      C
+  		      C         PAIRING
+  		      C
+  		            COMMON /GAMA1/ IFFN,WA(2560),Y1DATA(300),Y2DATA(300),
+  		           *	X1DATA(300),X2DATA(300),RC1(300),RC2(300),FMA11(300),FMA12(300)
+  		      C
+  		            DIMENSION  FINDX1(300), FINDX2(300)
+  		            EQUIVALENCE (FINDX1(1),X1DATA(1))
+  		            EQUIVALENCE (FINDX2(1),X2DATA(1))
+  		      C
+  		            DIMENSION  PLOT2D (600)
+  		            EQUIVALENCE (PLOT2D(1),FMA11(1))
+  		            EQUIVALENCE (PLOT2D(301),FMA12(1))
+  		      C
+  		            DIMENSION DUMEQV (600), SEGARY(600)
+  		            DIMENSION FMA21(300), FMA22(300)
+  		            EQUIVALENCE (DUMEQV(1),SEGARY(1))
+  		            EQUIVALENCE (DUMEQV(1),FMA21(1))
+  		            EQUIVALENCE (DUMEQV(301),FMA22(1))
+  		      C
+  		            DIMENSION RDATA (300)
+  		      C
+  		            INTEGER ESFF(10),DASH(7),NODASH(7),ELLP(8),OID(4),CORCF(7)
+  		            DIMENSION MENU(4,4)
+  		            DIMENSION DATA (5)
+  		      C
+  		      C
+  		            DIMENSION NOS(2),IDATES(2),IDS(2),LEG(14),LENS(2)
+  		            DATA IDS / 0 , 34782 /
+  		            DATA LENS / 2*28 /
+  		      C
+  		            DATA MENU /
+  		           *	4HPURE, 4H IND, 4HEXES, 4H    ,
+  		           *	4HPERC, 4HENT , 4HCHAN, 4HGE  ,
+  		           *	4HCORR, 4HELAT, 4HION , 4H    ,
+  		           *	4HEND , 4H    , 4H    , 4H     /
+  		      C
+  		            DATA ESFF /
+  		           *	4HENTE, 4HR SM, 4HOOTH, 4HING , 4HFORM, 4HULA , 4HFOR ,
+  		           *	4HSEGM, 4HENT , 4H     /
+  		      C
+  		            DATA DASH /
+  		           *	4H----, 4H--  , 5*4H      /
+  		      C
+  		            DATA NODASH /
+  		           *	7*4H      /
+  		      C
+PAIRF.F4	F40	V26(10)	15-MAY-73	15:25	PAGE 3
+
+
+  		            DATA ELLP /
+  		           *	4HENTE, 4HR   , 4HLEAD, 4H OR , 4HLAG , 4HPARA, 4HMETE, 4HR =  /
+  		      C
+  		            DATA OID /
+  		           *	4HORIG, 4HINAL, 4H DAT, 4HA    /
+  		      C
+  		            DATA CORCF /
+  		           *	4HCORR, 4HELAT, 4HION , 4HCOEF, 4HFICI, 4HENT , 4H =   /
+  		            DATA IDOLLR, IBLANK /4H$   ,  4H     /
+  		      C-----
+  		            CALL READER
+  		            CALL WRITEL (IBLANK,0)
+  		      C
+  		      100   CONTINUE
+  		            CALL MESAGE (1)
+  		            READ (5,10000) NAME1
+  		            IF( NAME1 .EQ. IBLANK )  GO TO 99999
+  		            IF( NAME1 .EQ. IDOLLR )  GO TO 99999
+  		            CALL SEGGET (NAME1, J1)
+  		            IF( J1 .LE. 0 )  GO TO 100
+  		      C
+  		      110   CONTINUE
+  		            CALL MESAGE (1)
+  		            READ (5,10000) NAME2
+  		            IF( NAME2 .EQ. IBLANK )  GO TO 99999
+  		            IF( NAME2 .EQ. IDOLLR )  GO TO 99999
+  		            CALL SEGGET (NAME2, J2)
+  		            IF( J2 .LE. 0 )  GO TO 110
+  		      C-----
+  		      C			. GET DATA
+  		            CALL GETD (X1DATA, Y1DATA, N1DAT, P1TPYR, WA(J1))
+  		            IF( N1DAT .GE. 0 )  GO TO 99999
+  		            N1DATA = -N1DAT
+  		            ISDAT1 = 190000 + X1DATA (1)
+  		      C
+  		            CALL GETD (X2DATA, Y2DATA, N2DAT, P2TPYR, WA(J2))
+  		            IF( N2DAT .GE. 0 )  GO TO 99999
+  		            N2DATA = -N2DAT
+  		            ISDAT2 = 190000 + X2DATA (1)
+  		      C
+  		            IF( P1TPYR .NE. P2TPYR )  GO TO 99999
+  		            IF( ISDAT1 .NE. ISDAT2 )  GO TO 99999
+  		            NDATA = MIN0 (N1DATA, N2DATA)
+  		            YRS = NDATA / P1TPYR
+  		      C-----
+  		      C			. PLOT BOTH SEGMENTS
+  		            CALL NEWPAG
+  		      C
+  		            DO 200 I = 1,4
+  		            NODASH (I+2) = OID (I)
+  		            DASH (I+2) = OID (I)
+  		      200   CONTINUE
+  		      C
+PAIRF.F4	F40	V26(10)	15-MAY-73	15:25	PAGE 4
+
+
+  		            NODASH (7) = NAME1
+  		            DASH (7) = NAME2
+  		            IST = 0
+  		      C
+  		            DO 205 I = 1, NDATA
+  		            PLOT2D (IST+I) = Y1DATA (I)
+  		      205   CONTINUE
+  		      C
+  		            NOS (1) = NDATA
+  		            IST = IST + NDATA
+  		      C
+  		            DO 210 I = 1, NDATA
+  		            PLOT2D (IST+I) = Y2DATA (I)
+  		      210   CONTINUE
+  		      C
+  		            NOS (2) = NDATA
+  		            IDATES (1) = ISDAT1
+  		            IDATES (2) = ISDAT2
+  		      C
+  		            DO 215 I = 1, 7
+  		            LEG (I) = NODASH (I)
+  		            LEG (I+7) = DASH (I)
+  		      215   CONTINUE
+  		      C
+  		            IPY = P1TPYR
+  		      C
+  		            DO 216 I = 1, 15
+  		            SEGARY(I) = 0.0
+  		      216   CONTINUE
+  		      C
+  		            CALL MGRAPH(2,PLOT2D,NOS,IDATES,IPY,IDS,LEG,LENS,200,750,SEGARY)
+  		            READ (5,10000) DUMMY
+  		      C
+  		      220   CONTINUE
+  		      C-----
+  		      C			. GET SMOOTHING FORMULAS
+  		            CALL MOVABS (200,45)
+  		            ESFF (10) = NAME1
+  		            CALL STOUT (ESFF, 40)
+  		            N = 0
+  		            CALL FIN (5,DATA, N)
+  		      C
+  		            IF( N .GT. 0 )  GO TO 300
+  		            I1ONE = 3
+  		            I1TWO = 3
+  		            GO TO 320
+  		      C
+  		      300   CONTINUE
+  		            IF( N .NE. 1 )  GO TO 310
+  		            I1ONE = DATA (1)
+  		            I1TWO = 3
+  		            GO TO 320
+  		      C
+PAIRF.F4	F40	V26(10)	15-MAY-73	15:25	PAGE 5
+
+
+  		      310   CONTINUE
+  		            I1ONE = DATA (1)
+  		            I1TWO = DATA (2)
+  		      C
+  		      320   CONTINUE
+  		            CALL MOVABS (200,20)
+  		            ESFF (10) = NAME2
+  		            CALL STOUT (ESFF,40)
+  		            N = 0
+  		            CALL FIN (5,DATA, N)
+  		      C
+  		            IF( N .GT. 0 )  GO TO 330
+  		            I2ONE = 3
+  		            I2TWO = 3
+  		            GO TO 350
+  		      C
+  		      330   CONTINUE
+  		            IF( N .NE. 1 )  GO TO 340
+  		            I2ONE = DATA (I)
+  		            I2TWO = 3
+  		            GO TO 350
+  		      C
+  		      340   CONTINUE
+  		            I2ONE = DATA (1)
+  		            I2TWO = DATA (2)
+  		      C
+  		      350   CONTINUE
+  		            CALL NEWPAG
+  		      C-----
+  		      C			. MOVING AVERAGE
+  		            LIMIT1 = NDATA
+  		            IF( I1ONE .GT. 1 )  GO TO 410
+  		      C
+  		            DO 400 I = 1,LIMIT1
+  		            FMA11 (I) = Y1DATA (I)
+  		      400   CONTINUE
+  		            GO TO 420
+  		      C
+  		      410   CONTINUE
+  		            CALL MAF (Y1DATA, FMA11, NDATA, I1ONE,0,0 )
+  		      C
+  		      420   CONTINUE
+  		            IF( I1TWO .GT. 1 )  GO TO 440
+  		      C
+  		            DO 430 I = 1,LIMIT1
+  		            FMA12 (I) = FMA11 (I)
+  		      430   CONTINUE
+  		            GO TO 450
+  		      C
+  		      440   CONTINUE
+  		            LIMIT1 = NDATA - I1ONE + 1
+  		            CALL MAF (FMA11(I1ONE), FMA12(I1ONE), LIMIT1, I1TWO, 0,0 )
+  		      C
+PAIRF.F4	F40	V26(10)	15-MAY-73	15:25	PAGE 6
+
+
+  		      450   CONTINUE
+  		            LIMIT2 = NDATA
+  		            IF( I2ONE .GT. 1 )  GO TO 470
+  		      C
+  		            DO 460 I = 1, LIMIT2
+  		            FMA21 (I) = Y2DATA (I)
+  		      460   CONTINUE
+  		            GO TO 480
+  		      C
+  		      470   CONTINUE
+  		            CALL MAF (Y2DATA, FMA21, LIMIT2, I2ONE, 0,0 )
+  		      C
+  		      480   CONTINUE
+  		            IF( I2TWO .GT. 1 )  GO TO 495
+  		      C
+  		            DO 490 I = 1, LIMIT2
+  		            FMA22 (I) = FMA21 (I)
+  		      490   CONTINUE
+  		            GO TO 500
+  		      C
+  		      495   CONTINUE
+  		            LIMIT2 = NDATA - I2ONE + 1
+  		            CALL MAF (FMA21(I2ONE), FMA22(I2ONE),LIMIT2,I2TWO, 0,0 )
+  		      C
+  		      500   CONTINUE
+  		      C-----
+  		      C			. CALCULATE PURE INDEXES
+  		            N12 = NDATA - 12 + 1
+  		            S12 = 0.0
+  		      C
+  		            DO 510 I = N12, NDATA
+  		            S12 = S12 + Y1DATA (I)
+  		      510   CONTINUE
+  		      C
+  		            Y1MA12 = S12 / 12.0
+  		            S12 = 0.0
+  		      C
+  		            DO 520 I = N12, NDATA
+  		            S12 = S12 + Y2DATA(I)
+  		      520   CONTINUE
+  		      C
+  		            Y2MA12 = S12 / 12.0
+  		      C
+  		            N11 = 0
+  		            IF( I1ONE .GT. 1 )  N11 = I1ONE - 1
+  		            N12 = 0
+  		            IF( I1TWO .GT. 1 )  N12 = I1TWO - 1
+  		            I1SUM = N11 + N12 + 1
+  		      C
+  		            N21 = 0
+  		            IF( I2ONE .GT. 1 )  N21 = I2ONE - 1
+  		            N22 = 0
+  		            IF( I2TWO .GT. 1 )  N22 = I2TWO - 1
+PAIRF.F4	F40	V26(10)	15-MAY-73	15:25	PAGE 7
+
+
+  		            I2SUM = N21 + N22 + 1
+  		      C
+  		            DO 530 I = I1SUM, NDATA
+  		            FINDX1 (I) = (FMA12 (I) / Y1MA12 ) * 100.0
+  		      530   CONTINUE
+  		      C
+  		            DO 540 I = I2SUM, NDATA
+  		            FINDX2 (I) = (FMA22 (I) / Y2MA12 ) * 100.0
+  		      540   CONTINUE
+  		      C
+  		      C-----
+  		      C			. CALCULATE RATE OF CHANGE
+  		            IRC1 = I1SUM + 1
+  		      C
+  		            DO 600 I = IRC1, NDATA
+  		            RC1 (I) = (FINDX1 (I) / FINDX1 (I-1)) * 100.0
+  		      600   CONTINUE
+  		      C
+  		            IRC2 = I2SUM + 1
+  		      C
+  		            DO 610 I = IRC2,NDATA
+  		            RC2 (I) = (FINDX2 (I) / FINDX2 (I-1)) * 100.0
+  		      610   CONTINUE
+  		      C-----
+  		      C			. DISPLAY SELECTOR
+  		      800   CONTINUE
+  		      C
+  		            DO 810 I = 1, 15
+  		            SEGARY (I) = 0.0
+  		      810   CONTINUE
+  		      C
+  		            I = 1
+  		            CALL MENUG (MENU,4,4,I,750,780,IRTN)
+  		            IF(I.EQ.36) GO TO 99999
+  		            CALL NEWPAG
+  		            GO TO (1000,2000,3000,5000,99999) IRTN
+  		      1000  CONTINUE
+  		            CALL MESAGE (2)
+  		            GO TO 800
+  		      C-----
+  		      C			. DISPLAY PURE INDEXES
+  		      2000  CONTINUE
+  		            NO1 = NDATA - I1SUM + 1
+  		            NO2 = NDATA - I2SUM + 1
+  		      C
+  		            CALL DTADD (ISDAT1, I1SUM-1, IFIX(P1TPYR), NTIM1)
+  		            CALL DTADD (ISDAT2, I2SUM-1, IFIX(P2TPYR), NTIM2)
+  		      C
+  		            DO 2100 I = 1,4
+  		            DASH (I+2) = MENU (I,1)
+  		            NODASH (I+2) = MENU (I,1)
+  		      2100  CONTINUE
+  		      C
+PAIRF.F4	F40	V26(10)	15-MAY-73	15:25	PAGE 8
+
+
+  		            NODASH (7) = NAME1
+  		            DASH (7) = NAME2
+  		      C
+  		            K = 0
+  		      C
+  		            DO 2110 I = I1SUM,NDATA
+  		            K = K + 1
+  		            PLOT2D (K) = FINDX1(I)
+  		      2110  CONTINUE
+  		      C
+  		            NOS (1) = NO1
+  		      C
+  		            DO 2115 I = I2SUM, NDATA
+  		            K = K + 1
+  		            PLOT2D (K) = FINDX2(I)
+  		      2115  CONTINUE
+  		      C
+  		            NOS (2) = NO2
+  		            IDATES (1) = NTIM1
+  		            IDATES (2) = NTIM2
+  		      C
+  		            DO 2220 I = 1, 7
+  		            LEG (I) = NODASH (I)
+  		            LEG (I+7) = DASH (I)
+  		      2220  CONTINUE
+  		      C
+  		            CALL MGRAPH(2,PLOT2D,NOS,IDATES,IPY,IDS,LEG,LENS,200,750,SEGARY)
+  		            READ (5,10000) DUMMY
+  		            CALL WRITEL (IBLANK, 0)
+  		            CALL NEWPAG
+  		      C
+  		            GO TO 800
+  		      C-----
+  		      C			. DISPLAY RATE OF CHANGE
+  		      3000  CONTINUE
+  		            NO1 = NDATA - IRC1 + 1
+  		            NO2 = NDATA - IRC2 + 1
+  		      C
+  		            CALL DTADD (ISDAT1, IRC1-1,IFIX(P1TPYR),NTIM1)
+  		            CALL DTADD (ISDAT2, IRC2-1,IFIX(P2TPYR),NTIM2)
+  		      C
+  		            DO 3100 I = 1, 4
+  		            NODASH (I+2) = MENU (I,2)
+  		            DASH (I+2) = MENU (I,2)
+  		      3100  CONTINUE
+  		      C
+  		            NODASH (7) = NAME1
+  		            DASH (7) = NAME2
+  		      C
+  		            K = 0
+  		      C
+  		            DO 3110 I = IRC1, NDATA
+  		            K = K + 1
+PAIRF.F4	F40	V26(10)	15-MAY-73	15:25	PAGE 9
+
+
+  		            PLOT2D (K) = RC1 (I)
+  		      3110  CONTINUE
+  		      C
+  		            NOS (1) = NO1
+  		      C
+  		            DO 3115 I = IRC2, NDATA
+  		            K = K + 1
+  		            PLOT2D (K) = RC2 (I)
+  		      3115  CONTINUE
+  		      C
+  		            NOS (2) = NO2
+  		            IDATES (1) = NTIM1
+  		            IDATES (2) = NTIM2
+  		      C
+  		            DO 3220 I = 1, 7
+  		            LEG (I) = NODASH (I)
+  		            LEG (I+7) = DASH (I)
+  		      3220  CONTINUE
+  		      C
+  		            CALL MGRAPH(2,PLOT2D,NOS,IDATES,IPY,IDS,LEG,LENS,200,750,SEGARY)
+  		            READ (5,10000) DUMMY
+  		            CALL WRITEL (IBLANK, 0)
+  		            CALL NEWPAG
+  		      C
+  		            GO TO 800
+  		      C-----
+  		      C			. DISPLAY CORRELATION
+  		      5000  CONTINUE
+  		            CALL STOUT (ELLP,32)
+  		            CALL FIN (5,DAT,N)
+  		            IROTE = DAT
+  		      C
+  		            DO 5100 I = 1,4
+  		            NODASH (I+2) = OID (I)
+  		            DASH (I+2) = OID (I)
+  		      5100  CONTINUE
+  		      C
+  		            NODASH (7) = NAME1
+  		            DASH (7) = NAME2
+  		      C
+  		            CALL ROTE (IROTE, NDATA,Y2DATA, RDATA)
+  		            CALL CORREL (Y1DATA,RDATA,NDATA, COEF)
+  		      C
+  		            IST = 0
+  		      C
+  		            DO 5110 I = 1, NDATA
+  		            PLOT2D (IST+I) = Y1DATA (I)
+  		      5110  CONTINUE
+  		      C
+  		            NOS (1) = NDATA
+  		            IST = IST + NDATA
+  		      C
+  		            DO 5115 I = 1, NDATA
+PAIRF.F4	F40	V26(10)	15-MAY-73	15:25	PAGE 10
+
+
+  		            PLOT2D (IST+I) = RDATA (I)
+  		      5115  CONTINUE
+  		      C
+  		            NOS (2) = NDATA
+  		            IDATES (1) = ISDAT1
+  		            IDATES (2) = ISDAT2
+  		      C
+  		            DO 5220 I = 1, 7
+  		            LEG (I) = NODASH (I)
+  		            LEG (I+7) = DASH (I)
+  		      5220  CONTINUE
+  		      C
+  		            CALL MGRAPH(2,PLOT2D,NOS,IDATES,IPY,IDS,LEG,LENS,200,725,SEGARY)
+  		      C
+  		            CALL MOVABS (200,675)
+  		            CALL STOUT (CORCF,28)
+  		            CALL NOUT(COEF,8,3,0)
+  		            READ (5,10000) DUMMY
+  		            CALL WRITEL (IBLANK, 0)
+  		            CALL NEWPAG
+  		            GO TO 800
+  		      C-----
+  		      C			. FORMATS
+  		      10000 FORMAT(A4)
+  		      C
+  		      99999 CONTINUE
+  		            CALL NEWPAG
+  		      C
+  		            RETURN
+  		            END
+
+CONSTANTS
+
+0	000000000000	1	000000000001	2	222563060000	3	000000000002	4	000000000310
+5	000000001356	6	000000000055	7	000000000050	10	000000000005	11	000000000024
+12	777777777765	13	204600000000	14	000000000004	15	000000001414	16	000000000040
+17	000000001325	20	000000001243	21	000000000034	22	000000000010	23	000000000003
+
+COMMON
+
+IFFN  	/GAMA1 /+0	WA    	/GAMA1 /+1	Y1DATA	/GAMA1 /+5001	Y2DATA	/GAMA1 /+5455	X1DATA	/GAMA1 /+6131
+X2DATA	/GAMA1 /+6605	RC1   	/GAMA1 /+7261	RC2   	/GAMA1 /+7735	FMA11 	/GAMA1 /+10411	FMA12 	/GAMA1 /+11065
+FINDX1	/GAMA1 /+6131	FINDX2	/GAMA1 /+6605	PLOT2D	/GAMA1 /+10411	
+
+EQUIVALENCE
+
+FMA22 	2073		FMA21 	1417		SEGARY	1417		DUMEQV	1417		
+
+SUBPROGRAMS
+
+READER	WRITEL	MESAGE	SEGGET	GETD  	INT   	MIN0  	FLOAT 	NEWPAG	MGRAPH	MOVABS	STOUT 	FIN   	MAF   	MENUG 
+DTADD 	IFIX  	ROTE  	CORREL	NOUT  	ALPHO.	ALPHI.	
+
+PAIRF.F4	F40	V26(10)	15-MAY-73	15:25	PAGE 11
+
+
+SCALARS
+
+PAIRF 	2547		IDOLLR	2550		IBLANK	2551		NAME1 	2552		J1    	2553	
+NAME2 	2554		J2    	2555		N1DAT 	2556		P1TPYR	2557		N1DATA	2560	
+ISDAT1	2561		N2DAT 	2562		P2TPYR	2563		N2DATA	2564		ISDAT2	2565	
+NDATA 	2566		YRS   	2567		I     	2570		IST   	2571		IPY   	2572	
+DUMMY 	2573		N     	2574		I1ONE 	2575		I1TWO 	2576		I2ONE 	2577	
+I2TWO 	2600		LIMIT1	2601		LIMIT2	2602		N12   	2603		S12   	2604	
+Y1MA12	2605		Y2MA12	2606		N11   	2607		I1SUM 	2610		N21   	2611	
+N22   	2612		I2SUM 	2613		IRC1  	2614		IRC2  	2615		IRTN  	2616	
+NO1   	2617		NO2   	2620		NTIM1 	2621		NTIM2 	2622		K     	2623	
+DAT   	2624		IROTE 	2625		COEF  	2626		IFFN  	0		
+
+ARRAYS
+
+WA    	1		Y1DATA	5001		Y2DATA	5455		X1DATA	6131		X2DATA	6605	
+RC1   	7261		RC2   	7735		FMA11 	10411		FMA12 	11065		FINDX1	6131	
+FINDX2	6605		PLOT2D	10411		DUMEQV	1417		SEGARY	1417		FMA21 	1417	
+FMA22 	2073		RDATA 	2627		ESFF  	3303		DASH  	3315		NODASH	3324	
+ELLP  	3333		OID   	3343		CORCF 	3347		MENU  	3356		DATA  	3376	
+NOS   	3403		IDATES	3405		IDS   	3407		LEG   	3411		LENS  	3427	
+
+ PAIRF
+    
