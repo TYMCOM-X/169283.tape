@@ -1,0 +1,351 @@
+        TITLE   PMAC
+        INTERN  FUSER,CALLER,SLEEP,GBLK,ODRBLK,GOSUB,MKLD1,BITCNT
+        INTERN  SPLIT
+        EXTERN  CMDS,FLDFIL,FLDFLG,OPEND,FNDSTG,CHREAD,IXMSG
+        EXTERN  DCTERR,ERRET
+FUSER:  HRROI   3,-22
+        GETTAB  3,
+        Z
+        MOVEM   3,(1)
+        HRROI   3,-21
+        GETTAB  3,
+        Z
+        MOVEM   3,1(1)
+        SETZM   3,2(1)
+        HRROI   3,-23
+        GETTAB  3,
+        HLRZ    3,3
+        MOVEM   3,(2)
+        JRST    (17)
+
+;SUBROUTINE CALLER
+; R1 = SUBROUTINE NUMBER
+; R2 = ADDRESS OF SUBROUTINE TABLE
+; R3 - R17 = SUBROUTINE ARGUMENTS
+GOSUB:  ADD     2,1
+        HLRZ    1,1(2)
+        HRRZ    1,0(1)
+        JRST    @1
+
+; COMMAND CALLER
+;  R1 = COMMAND NUMBER
+CALLER: HLRZ    1,CMDS(1)
+        HRRZ    1,1(1)
+        JRST    (1)
+
+; SLEEPER
+; R1 = SECONDS
+SLEEP:  CALLI   1,31
+        JRST    (17)
+BLEN=^D1800
+;
+;  NEXT,,PREV
+;  SLOP LENGTH,,BLOCK LENGTH
+;  BID, (SIGN BIT USED FOR FLAG DURING HOLE CONCATENATION)
+;  --- DATA ---
+;  ADDRESS OF FIRST WORD OF BLOCK
+;
+HEDLEN=3
+CHAIN:  EXP     0
+        XWD     BLEN,4
+        XWD     377777,-1
+        BLOCK   BLEN
+        EXP     CHAIN
+FAKE:   EXP     0
+        XWD     0,4
+        XWD     377777,-1
+        EXP     FAKE
+
+EOC:    EXP     CHAIN
+
+TBUFF:  BLOCK   2
+
+TRET:   Z
+MBID:   Z
+TBID:   Z
+
+SAV3:   Z
+SAV16:  Z
+DUM:    Z
+
+GBLK:   MOVEM   17,TRET
+        MOVEM   1,MBID
+        MOVEM   2,TBID
+
+;
+;       BEGIN BY SEEING IF BLOCK IS IN CORE.
+;
+        MOVEI   16,CHAIN
+SRCH1:  LDB     2,[POINT 35,2(16),35]
+        CAMN    1,2
+        JRST    FND1            ; FOUND IT!!
+        HRRZ    16,0(16)        ; PICK UP NEXT POINTER
+        JUMPN   16,SRCH1        ; LOOK AT NEXT ONE IF THERE IS ONE.
+
+;
+;       BLOCK IS NOT IN CORE. READ IT INTO THE TEMPORARY BUFFER.
+;
+        SKIPE   FLDFLG          ; IS THE DICT ALREADY OPENED
+        JRST    DREAD           ; YES
+        MOVEI   1,FDCT##
+        SETZ    2,              ; INPUT
+        SETZ    3,              ; OLD
+        JSP     17,OPEND        ; OPEN DICTIONARY
+        MOVEM   1,FLDFIL
+        SETOM   FLDFLG
+
+DREAD:  MOVE    1,FLDFIL
+        MOVEI   2,GBERR
+        MOVEI   3,GBERR
+        MOVE    4,MBID
+        SETO    5,
+        MOVEI   6,DUM
+        MOVEI   7,DUM
+        MOVEI   10,TBUFF
+        JSP     17,FNDSTG
+
+;
+;       SEE IF WE CAN FIND A HOLE BIG ENOUGH FOR IT.
+;
+        MOVEI   2,4             ; ADD FOUR TO BLOCK LENGTH
+        ADDB    2,TBUFF+1
+
+        MOVEI   1,CHAIN
+        MOVE    4,[377777777777]
+SRCH2:  HLRZ    3,1(1)          ; PICK UP HOLE SIZE
+        CAML    3,2
+        JRST    FND2            ; FOUND A HOLE BIG ENOUGH!!
+        ANDM    4,2(1)          ; TURN OFF "SEEN" BIT
+        HRRZ    1,0(1)          ; PICK UP NEXT POINTER
+        JUMPN   1,SRCH2         ; LOOK AT NEXT HOLE IF THERE IS ONE.
+
+;
+;       THERE IS NO HOLE BIG ENOUGH FOR OUR BLOCK.
+;       NOW THINGS GET CUTE. WE MUST LOOK FOR THE EARLIEST SET
+;       OF BLOCKS IN THE LIST THAT WE CAN DELETE TO CREATE A LARGE
+;       ENOUGH HOLE.
+;
+        HRRZ    1,CHAIN         ; SKIP DUMMY START BLOCK.
+        HRLZ    14,400000
+SRCH3:  MOVE    6,2(1)          ; CHECK FOR TBID
+        CAME    6,TBID
+        JRST    .+3
+        SETO    1,              ; CANNOT DO THIS BLOCK!!!
+        JRST    @TRET
+
+        MOVE    5,1
+        IORM    14,2(1)         ; TURN ON "SEEN" BIT
+        HLRZ    4,1(1)          ; PICK UP SLOP HOLE SIZE
+
+SRCH4:  HRRZ    3,1(5)          ; PICK UP BLOCK SIZE
+        ADD     4,3
+        MOVE    15,5
+        MOVE    5,-1(5)         ; ADDRESS OF PREV PHYSICAL BLOCK
+        HLRZ    3,1(5)          ; ADD IN SLOP SIZE
+        ADD     4,3
+        CAML    4,2             ; HAVE WE FOUND ENOUGH ROOM?
+        JRST    FND3            ; YES!!
+        TDNE    14,2(5)         ; CAN WE USE THIS BLOCK?
+        JRST    SRCH4           ; YES
+
+        MOVE    5,1             ; LOOK IN OTHER DIRECTION
+SRCH5:  HRRZ    3,1(5)          ; CALC ADDRESS OF NEXT PHYSICAL BLK
+        HLRZ    6,1(5)
+        ADD     5,3
+        ADD     5,6
+        TDNN    14,2(5)         ; CAN WE USE NEXT BLOCK?
+        JRST    NOLUCK          ; NOPE
+        HRRZ    3,1(5)          ; YES, ADD IN BLOCK SIZE
+        ADD     4,3
+        HLRZ    3,1(5)          ; ADD IN SLOP HOLE SIZE
+        ADD     4,3
+        CAMGE   4,2             ; NOW DO WE HAVE ENOUGH ROOM?
+        JRST    SRCH5           ; NOPE
+        JRST    FND3
+
+NOLUCK: HRRZ    1,0(1)          ; LOOK AT NEXT BLOCK
+        JUMPN   1,SRCH3
+        XWD     0,111111        ; THIS SHOULD NEVER HAPPEN!!!!
+
+;       TRACE THE CONCATENTATED HOLE BACK TO ITS ORIGIN
+
+FND3:   MOVE    5,15            ; POINTER TO EARLIEST BLOCK SO FAR
+
+        MOVE    5,-1(5)         ; LOOK BACK TO PREV BLOCK
+        TDNN    14,2(5)         ; CAN WE USE IT?
+        JRST    .+3             ; NOPE
+        MOVE    15,5            ; BACK UP SAVE POINTER
+        JRST    .-4
+
+;       HAVEING FOUND THE BASIC ORIGIN, SEE IF WE CAN USE SLOP FROM
+;       PREV HOLE.
+
+        SETZ    4,              ; ZERO TOTAL WORD COUNT USED
+        MOVE    16,15           ; POINTER TO ABSOLUTE START OF HOLE
+        HLRZ    3,1(5)          ; PICK UP SLOP SIZE OF PREV HOLE
+        JUMPE   3,FIX1          ; IF NONE, FORGET SLOP..
+        SUB     16,3            ; BACK UP HOLE START INTO SLOP
+        HRLM    4,1(5)          ; ZERO SLOP SIZE OF PREV HOLE
+        MOVE    4,3             ; TOTAL WORD COUNT = PREV SLOP SIZE
+        HRRZ    3,1(5)          ; CALCULATE NEW LAST WORD OF PREV BLCK
+        ADD     3,5
+        MOVEM   5,-1(3)         ; POINT LAST WORD TO HEAD OF BLOCK
+
+;       ZERO BID OF ALL THE BLOCKS WE WILL NEED
+
+FIX1:   SETZM   2(15)           ; ZERO BID
+        HRRZ    3,1(15)         ; PICK UP BLOCK SIZE
+        ADD     15,3            ; ADD IN TO FIND NEXT BLOCK
+        ADD     4,3             ; ADD INTO TOTAL WORDS FOUND
+        HLRZ    3,1(15)         ; PICK UP SLOP SIZE
+        ADD     15,3            ; POINTER TO NEXT BLOCK
+        ADD     4,3             ; TOTAL WORDS FOUND
+        CAMGE   4,2             ; HAVE WE FOUND ENOUGH??
+        JRST    FIX1            ; GO GET MORE. WE KNOW THERE ARE ENOUGH.
+
+;       DELETE ALL BLOCKS WITH BID OF ZERO. STOP WHEN WE REACH THE
+;       BLOCK THAT TRIGGERED ALL THIS.
+
+        HRRZ    3,CHAIN         ; SKIP DUMMY START BLOCK
+FIX2:   SKIPE   2(3)            ; IS BID ZERO?
+        JRST    FIX3            ; NOPE
+
+        HRRZ    6,0(3)          ;PICK UP NEXT POINTER.
+        HLRZ    5,0(3)          ; PICK UP PREV POINTER.
+        HRRM    6,0(5)          ; POINT PREV TO NEXT
+        JUMPN   6,.+3           ; IS THER A NEXT??
+        MOVEM   5,EOC           ; NOPE, END-OF-CHAIN = PREV
+        JRST    .+2
+        HRLM    5,0(6)          ; POINT NEXT TO PREV
+        CAMN    3,1             ; IS THIS LAST BLOCK TO CHECK?
+        JRST    FIX4            ; YES
+FIX3:   HRRZ    3,0(3)          ; GO LOOK AT NEXT BLOCK
+
+FIX4:   MOVE    3,4             ; TOTAL NUMBER OF WORDS IN HOLE
+        JRST    MOVEIT          ; PUT BLOCK INTO HOLE
+
+;
+;       ALL THE REST OF THE CODE IS JUST VARIOUS ENTRY POINTS
+;       TO THE VICTORY CELEBRATION...
+;
+
+;       WE CAME HERE IF WE FOUND A SLOP HOLE LARGE ENOUGH..
+FND2:   HRRZ    16,1(1)         ; PICK UP BLOCK SIZE 
+        HRRZM   16,1(1)         ; ZERO SLOP SIZE OF BLOCK
+        ADD     16,1            ; CALC. END OF BLOCK
+        MOVEM   1,-1(16)        ; POINT NEW LAST WORD TO HEAD OF BLOCK
+
+;       READ BLOCK IN FROM DICTIONARY TO HOLE POINTER IN R16
+MOVEIT: MOVEM   3,SAV3          ; SAVE R3 (HOLE SIZE)
+        MOVEM   16,SAV16        ; SAVE R16 (HOLE ADDRESS)
+
+        MOVE    1,FLDFIL        ; READ IN REST OF BLOCK
+        MOVEI   2,GBERR
+        MOVEI   3,GBERR
+        MOVEI   4,1
+        MOVE    5,16
+        ADDI    5,3
+        MOVE    6,TBUFF
+        MOVE    7,TBUFF+1
+        JSP     17,CHREAD
+
+        MOVE    16,SAV16        ; HOLE ADDRESS
+
+        MOVE    1,MBID          ; PUT BID IN BLOCK
+        MOVEM   1,2(16)
+
+        MOVE    1,TBUFF+1       ; PUT BLOCK LENGTH IN BLOCK
+        ADDI    1,4
+        MOVEM   1,1(16)
+
+        MOVE    4,SAV3          ; (HOLE SIZE
+        SUB     4,1             ; MINUS NEW BLOCK SIZE
+        HRLM    4,1(16)         ; EQUALS NEW SLOP SIZE)
+
+        ADD     3,16            ; CALC LAST WORD OF NEW BLOCK
+        MOVEM   16,-1(3)        ; POINT LAST WORD TO HEAD OF BLOCK
+
+        JRST    LINK            ; GO LINK IT INTO CHAIN..
+
+
+;       COME HERE IF WE FOUND THE BLOCK IN CORE..
+;       DELETE IT FROM CHAIN!!
+FND1:   HRRZ    1,0(16)         ; NEXT POINTER
+        HLRZ    2,0(16)         ; PREV POINTER
+        JUMPE   2,.+2
+        HRRM    1,0(2)          ; LINK PREV TO NEXT
+        JUMPN   1,.+3
+        MOVEM   2,EOC           ; NO NEXT. EOC = PREV
+        JRST    .+2
+        HRLM    2,0(1)
+
+;       LINK BLOCK POINTED TO BY R16 TO END-OF-CHAIN
+LINK:   MOVE    1,EOC           ; ADDRESS OF END-OF-CHAIN
+        HRRM    16,0(1)
+        HRLZM   1,0(16)
+        MOVEM   16,EOC          ; DEFINE NEW END-OF-CHAIN
+
+        MOVE    1,16            ; PACK UP AND GO HOME..
+        ADDI    1,HEDLEN
+        JRST    @TRET
+;
+; ALTERNATE ENTRY POINT TO GBLK.
+; IF THE BLOCK IS NOT IN CORE THEN IT BAILS OUT.
+;
+ODRBLK: MOVEM   17,TRET
+        MOVEM   1,MBID
+
+        MOVEI   16,CHAIN
+ODR1:   LDB     2,[POINT 35,2(16),35]
+        CAMN    1,2
+        JRST    FND1
+        HRRZ    16,0(16)
+        JUMPN   16,ODR1
+        SETO    1,
+        JRST    @TRET
+
+GBERR:  MOVEI   1,[ASCIZ "ERROR READING FIELD DEFINITION RECORD.$"]
+        JSP     17,IXMSG
+        JSP     17,DCTERR
+        JRST    ERRET
+
+
+;
+; ROUTINE TO EXTRACT STATUS BITS FROM STATUS TABLE.
+; THIS IS HERE BECAUSE IT IS OH SO MUCH FASTER AND ELEGANT THAT
+; ANYTHING THAT SIMPL CAN BE TALKED INTO AND IT COULD BE USED
+; A WHOLE HELL OF A LOT IN A PRINT OUT LOOP.
+;
+MKLD1:  HLRZ    1,1
+        ADD     1,2
+        MOVE    1,0(1)
+        JRST    (17)
+
+;
+; ROUTINE TO COUNT THE ONE BITS IN A WORD
+;
+BITCNT: SETZ    3,
+BITL:   MOVE    2,1
+        ANDI    2,17
+        ADD     3,BITS(2)
+        LSH     1,-4
+        JUMPN   1,BITL
+        MOVE    1,3
+        JRST    (17)
+BITS:   EXP     0,1,1,2,1,2,2,3,1,2,2,3,2,3,3,4
+
+;       R1 = WORD TO SPLIT
+;       R2 = FIELDS TO SPLIT OUT
+;       FROM R3 ON, WE HAVE PAIRED SETS OF FIELD LENGTHS AND
+;        STORAGE ADDRESSES.
+SPLIT:  MOVN    2,2
+        HRLZ    2,2
+SPLOOP: SETZ    0,
+        LSHC    0,@3(2)
+        SKIPLE  4(2)
+        MOVEM   0,@4(2)
+        ADDI    2,1
+        AOBJN   2,SPLOOP
+        JRST    (17)
+        END
+ 
