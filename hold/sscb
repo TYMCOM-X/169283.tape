@@ -1,0 +1,1709 @@
+      INTEGER ZB,ZR,ZN,NY,ZE,SUMARY(26,26),ZP,ZD
+      DATA ZB/'B'/,ZR/'R'/,ZN/'N'/,ZY/'Y'/,ZE/'E'/
+     X,ZP/'P'/,ZD/'D'/
+      DIMENSION IV(26),IR(26),V(672),DATA(10000)
+      LOGICAL TF,TF2,TF3,ISYES
+      COMMON V
+      COMMON /SIZE/MAXSIZ
+      COMMON /X/ IDENT(500), DATA
+      COMMON /NAMES/ IDSYM(26),NAME(4,26),JOB(4)
+      MAXSIZ = 10000
+41    WRITE (5,200)
+200   FORMAT(/' IS THE INPUT DATA ON FILE  --')
+98    IF (.NOT.ISYES(5)) GO TO 65
+      CALL IFD(1,'INPUT   ',INREC)
+      ITAPE=1
+      GO TO 69
+65    ITAPE=5
+69    CALL STACKZ(&4)
+      WRITE (5,100)
+100   FORMAT(///' ANALYSIS OF PREFERENCE ORDER DATA.'
+     X//' '/' HOW MANY BRANDS DO YOU HAVE  --')
+      IFILE=ITAPE
+4     CALL IREAD(IFILE,N,DMY)
+      IF(N) 1,1,2
+2     IF (N-26) 3,3,1
+1     WRITE (5,102)N
+102   FORMAT(/' I CAN HANDLE BETWEEN ONE AND TWENTY-SIX BRANDS.'
+     X/' THE NUMBER I HAVE JUST READ IS',I3,'.'
+     X/' WHAT SHOULD IT HAVE BEEN  --')
+      IFILE=5
+      GO TO 4
+3     IF (IFILE.NE.5) WRITE (5,300) N
+300   FORMAT('>',I2)
+209   CALL STACKZ(&94)
+      WRITE (5,103)
+103   FORMAT(/' IS YOUR INPUT IN THE FORM OF"'/
+     X' THE BRANDS IN RANK ORDER (TYPE :B:),'/
+     X' THE RANKS IN BRAND ORDER (TYPE :R:),'/
+     X' PAIRED COMPARISON DOMINANCE DATA (TYPE :D:),'/
+     X' OR PREFERENCE SCALE VALUES (TYPE :P:). WHICH  --')
+94    K=0
+      MC=0
+      M=0
+      L=N*N
+      TF=.FALSE.
+      TF3=.FALSE.
+      IA=ZN
+      CALL INSYM(IFILE,IA,1)
+14    IF (IA-ZB) 8,6,8
+6     WRITE (5,104)
+104   FORMAT(/' BRAND GIVEN RANK.')
+      ASSIGN 9 TO LOC
+      GO TO 10
+8     IF (IA-ZR) 204,95,204
+204   IF (IA-ZP) 205,206,205
+205   IF (IA-ZD) 207,208,207
+207   WRITE (5,117)
+117   FORMAT('0INVALID REPLY.')
+      CALL CLEAR
+      GO TO 209
+208   WRITE (5,119)
+119   FORMAT('0PAIRED COMPARISON DATA.')
+      CALL STACKZ(&210)
+211   WRITE (5,118)
+118   FORMAT('0IS YOUR DATA IN THE FORM OF"'/
+     X' COMPLETE COMPARISONS FOR EACH RESPONDENT (TYPE :C:),'/
+     X' UPPER TRIANGLE COMPARISONS ONLY (TYPE :U:),'/
+     X' LOWER TRIANGLE COMPARISONS ONLY (TYPE :L:),'/
+     X' OR RANDOM ORDER (TYPE :R:)  WHICH  --')
+210   IA=ZN
+      CALL INSYM(IFILE,IA,1)
+      TF3=.TRUE.
+      GO TO  10
+206   WRITE (5,114)
+114   FORMAT(/' PREFERENCE SCALE VALUES. (LARGER IMPLIES MORE PREFERRED.
+     X)')
+      TF=.TRUE.
+      IF (ITAPE.NE.5) CALL CLEAR
+      CALL STACKZ(&99)
+      WRITE (5,116)
+116   FORMAT(/' SHOULD I NORMALIZE THE SCALE VALUES  --')
+99    TF2=ISYES(IFILE)
+      GO TO 10
+95    WRITE (5,105)
+105   FORMAT(/' RANK GIVEN BRAND.')
+      ASSIGN 11 TO LOC
+10    IF (ITAPE.EQ.5) GO TO 60
+      WRITE (5,203)
+203   FORMAT(/' DO YOU WANT AN INPUT LISTING  --')
+      IF (ISYES(5)) GO TO 80
+81    KLIST=-1
+      GO TO 66
+80    KLIST=1
+      GO TO 66
+60    KLIST=1
+      CALL STACKZ(&68)
+      WRITE (5,368)
+368   FORMAT(/' DO YOU WANT TYPING INSTRUCTIONS  --')
+68    IF (.NOT.ISYES(5)) GO TO 66
+602   WRITE (5,106)
+106   FORMAT(/' FOR EACH RESPONDENT TYPE ONE OR MORE LINES OF NUMBERS.'/
+     X' SEPERATE EACH NUMBER FROM THE PRECEDING ONE BY A BLANK OR',
+     X' COMMA.'/' TERMINATE EACH LINE EXCEPT THE LAST BY A CARRAGE',
+     X' RETURN.'/' TERMINATE THE LAST LINE BY : END: AND A CARRAGE',
+     X' RETURN.'//' ')
+66    IF (M.GT.0) GO TO 17
+      IF (KLIST.EQ.1) WRITE (5,369)
+369   FORMAT(//' TYPE JOB NUMBER OR NAME" --')
+      READ (ITAPE,373) JOB
+373   FORMAT(4A4)
+      IF (ITAPE.NE.5) WRITE (5,375) JOB
+375   FORMAT(//1X,4A4)
+      IF (ITAPE.EQ.5) WRITE (5,370)
+370   FORMAT(/' FOR EACH BRAND, TYPE THE SYMBOL TO BE USED TO REPRESENT'
+     X/' IT ON THE PLOTS AND ITS NAME"')
+      DO 374 I=1,N
+      IF (KLIST.EQ.1) WRITE (5,371) I
+371   FORMAT(' BRAND',I3,'" --')
+      READ (ITAPE,372) IDSYM(I),(NAME(J,I),J=1,4)
+372   FORMAT(A1,1X,4A4)
+374   IF (KLIST.EQ.1.AND.ITAPE.NE.5) WRITE (5,376) IDSYM(I),(NAME(J,I),J
+     X=1,4)
+376   FORMAT(1X,A1,1X,4A4)
+      IOSIZE=4*N+12
+      CALL RELEAS(8)
+      I8=1
+      CALL RELEAS(9)
+      I9=1
+      NN=N-1
+      FN=N
+      FNN=NN
+      DO 91 I=1,N
+      DO 91 J=1,N
+91    SUMARY(I,J)=0
+      DO 42 I=1,L
+42    V(I)=0.
+      RX=2*(N+1)
+      IF (.NOT.TF3) GO TO 17
+      CALL PAIRIN(IFILE,IA,N,M,V,DATA,DATA(N+1),IDENT,IV,SUMARY,&211)
+      MC=M
+      GO TO 29
+11    IVT=0
+      DO 1130 I=1,N
+1130  IF(IV(I).GT.0)IVT=IVT+1
+      IF(IVT.GT.0)GO TO 1131
+      M=M-1
+      MC=MC-1
+      CALL CLEAR
+      GO TO 29
+1131  RX=FLOAT(2*(IVT+1))
+      R=RX-0.5*FLOAT(IVT)
+      DO 1132 I=1,N
+1132  DATA(I)=R
+      DO 43 I=1,N
+      IF(IV(I).LE.0)GO TO 43
+      IF (IV(I).EQ.1) IDENT(M)=I
+      R=4*IV(I)
+      K=IV(I)
+      SUMARY(I,K)=SUMARY(I,K)+1
+      R=RX-R
+      DATA(I)=R
+      DO 43 J=I,N
+      IF(IV(J).LE.0)GO TO 43
+      S=4*IV(J)
+      S=RX-S
+      K=I+(J*J-J)/2
+      V(K)=V(K)+R*S
+43    CONTINUE
+      WRITE (9) (DATA(I),I=1,N)
+      CALL STACKZ(&21)
+17    M=M+1
+      MC=MC+1
+      CALL CLEAR
+      IF (KLIST.NE.1) GO TO 82
+83    WRITE (5,107) MC
+107   FORMAT(' RESPONDENT',I3,' --')
+82    DO 13 I=1,N
+13    CALL IREAD(ITAPE,IV(I),DATA(I))
+      IF (TF) GO TO 96
+      IF (KLIST.NE.1.OR.ITAPE.EQ.5) GO TO 84
+19    WRITE (5,101) (IV(I),I=1,N)
+101   FORMAT(18I3/17X8I3)
+84    DO 22 I=1,N
+      IF (IV(I).GE.0.AND.IV(I).LE.N) GO TO 26
+24    IF (KLIST.GE.0) GO TO 86
+      WRITE (5,107) MC
+      WRITE (5,101) (IV(J),J=1,N)
+86    WRITE (5,109)I
+109   FORMAT(' RETYPE THIS. CHECK CALL NUMBER',I3,'.')
+      M=M-1
+      IF (ITAPE.EQ.5) MC=M
+      GO TO 17
+26    IF (I.EQ.N.OR.IV(I).EQ.0) GO TO 22
+      JS=I+1
+      DO 25 J=JS,N
+      IF(IV(J).EQ.0)GO TO 25
+      IF (IV(I)-IV(J)) 25,24,25
+25    CONTINUE
+22    CONTINUE
+      GO TO LOC,(9,11)
+9     J=0
+      DO 32 I=1,N
+32    IR(I)=0
+      DO 31 I=1,N
+      IF (IV(I).LE.0) GO TO 31
+      J=J+1
+      L=IV(I)
+      IR(L)=J
+31    CONTINUE
+      DO 27 I=1,N
+27    IV(I)=IR(I)
+      GO TO 11
+96    IF (KLIST.NE.1.OR.ITAPE.EQ.5) GO TO 97
+      WRITE (5,115) (DATA(I),I=1,N)
+115   FORMAT(9F6.2/(17X9F6.2))
+97    S=0.0
+      SS=0.0
+      J=0
+      DO 505 I=1,N
+      IV(I)=I
+      IF (DATA(I)) 505,505,507
+507   J=J+1
+      S=S+DATA(I)
+      SS=SS+DATA(I)*DATA(I)
+505   CONTINUE
+      IF (SS.LE.0.0.OR.J.EQ.0) GO TO 30
+      IF (J.EQ.N) GO TO 508
+      AVG=S/FLOAT(J)
+      DO 509 I=1,N
+      IF (DATA(I)) 510,510,509
+510   DATA(I)=AVG
+509   CONTINUE
+      S=S+FLOAT(N-K)*AVG
+508   DO 500 I=1,NN
+      II=IV(I)
+      IJ=I+1
+      DO 501 J=IJ,N
+      JJ=IV(J)
+      IF (DATA(II).GT.DATA(JJ)) GO TO 501
+      II=JJ
+      IJ=J
+501   CONTINUE
+      IF (II.EQ.IV(I)) GO TO 500
+      IV(IJ)=IV(I)
+      IV(I)=II
+500   CONTINUE
+      DO 502 I=1,N
+      K=IV(I)
+      IF (I.EQ.1) IDENT(M)=K
+502   SUMARY(K,I)=SUMARY(K,I)+1
+      IF (.NOT.TF2) GO TO 506
+      SS=1.0/SQRT((SS-S*S/FN)/FNN)
+      S=S/FN
+      DO 503 I=1,N
+503   DATA(I)=SS*(DATA(I)-S)
+506   WRITE (9) (DATA(I),I=1,N)
+      K=0
+      DO 504 I=1,N
+      DO 504 J=1,I
+      K=K+1
+504   V(K)=V(K)+DATA(I)*DATA(J)
+      CALL STACKZ(&21)
+      GO TO 17
+30    M=M-1
+      MC=MC-1
+      GO TO 29
+21    IA=ZE
+      CALL INSYM(ITAPE,IA,1)
+      IF (IA.NE.ZE) GO TO 17
+29    WRITE (5,110) M
+110   FORMAT(/' END OF INPUT.',I5,' REPLIES ACCEPTED.')
+      IF (M.EQ.MC) GO TO 90
+      MC=M
+      WRITE (5,170)
+170   FORMAT(//' DO YOU WANT TO TYPE CORRECTED INPUT ON-LINE  --')
+      IF (ISYES(5)) GO TO 60
+90    IF (M.LE.0) GO TO 50
+      WRITE (5,171)
+171   FORMAT(//' DO YOU WANT ALL OUTPUT ON-LINE  --')
+      I9=1
+      IO=6
+      IF (ISYES(5)) GO TO 45
+      IO=2
+      CALL OFD(IO,'OUTPUT  ',IOREC)
+45    WRITE (IO,172) M,JOB,(I,I=1,N)
+172   FORMAT(///' SUMMARY OF INPUT DATA FOR',I3,' RESPONDENTS" JOB ',4A4
+     X/29X,'NUMBER OF TIMES RANKED NUMBER'/
+     X' BRAND  ',12X,'AVG. RANK',10I4/(29X10I4))
+      WRITE (16,172) M,JOB,(I,I=1,N)
+      DO 92 I=1,N
+      K=0
+      R=0.0
+      DO 93 J=1,N
+      R=R+SUMARY(I,J)
+93    K=K+J*SUMARY(I,J)
+      S=K
+      S=S/R
+      WRITE (16,173) (NAME(J,I),J=1,4),S,(SUMARY(I,J),J=1,N)
+92    WRITE (IO,173) (NAME(J,I),J=1,4),S,(SUMARY(I,J),J=1,N)
+173   FORMAT(1X,4A4,F12.3,10I4/(29X10I4))
+400   CALL MULTI(N,M,&50,IO,I8)
+54    WRITE (5,111)
+111   FORMAT(//' HOW MANY DIMENSIONS SHOULD I USE IN CLUSTERING THE RESP
+     XONDENTS  --')
+      CALL INPUT(ND,DMY)
+      IF (ND.LE.0) GO TO 50
+      I8=1
+      K=0
+      NM=0
+      DO 70 I=1,M
+      READ (8) (V(J),J=1,N)
+      S=0.
+      DO 71 J=1,ND
+71    S=S+V(J)*V(J)
+      IF (S.LE.1.05E-20) GO TO 70
+      S=1.0/SQRT(S)
+      NM=NM+1
+      DO 72 J=1,ND
+      K=K+1
+      IF (K.GT.MAXSIZ) GO TO 50
+72    DATA(K)=S*V(J)
+70    CONTINUE
+      IF (NM.EQ.0) GO TO 50
+      M=NM
+53    WRITE (5,112)
+112   FORMAT(//' HOW MANY CLUSTERS SHOULD I FIND  --')
+      CALL INPUT(NC,DMY)
+      IF (NC.LE.0) GO TO 54
+      K1=1
+      K2=K1+NC*ND
+      K3=K2+NC
+      K4=K3+NC*ND
+      K5=K4+M
+      CALL CLUSTR(M,V(K1),NC,ND,V(K2),V(K3),ND,V(K4),V(K5),N,IO)
+      GO TO 53
+50    WRITE (5,113)
+113   FORMAT(//' DO YOU HAVE ANOTHER SET OF DATA TO ANALYZE NOW  --')
+35    IA=ZN
+      CALL INSYM(5,IA,1)
+      CALL RENAME('FOR09','DAT',O,O,O,IERR)
+      CALL RENAME('FOR08','DAT',0,0,0,IERR)
+      CALL ERASE('FILE    ','FT15F001')
+      CALL LOGDSK
+      IF (IA.EQ.ZY) GO TO 41
+      CALL EXIT
+      STOP
+      END
+      SUBROUTINE MULTI(N,M,*,IO,I8)
+      DIMENSION U(672),V(672),RX(26)
+      COMMON U
+      COMMON /X/ IDENT(500), DATA(10000)
+      COMMON /NAMES/ ISYM(26),NAME(4,26),JOB(4)
+      WRITE (IO,100)
+100   FORMAT(///' RESULTS OF CARROLL NON-PARAMETRIC MULTIDIMENSIONAL SCA
+     XLING MODEL'//
+     X ' BASIC ASSUMPTION"'/
+     X5X':THE M ITEMS MAY BE REPRESENTED AS POINTS, V(1),...,V(M),'/
+     X4X'IN A R-DIMENSIONAL SPACE. FOR EACH INDIVIDUAL THERE'/4X
+     X'IS A VECTOR, P, IN THAT SPACE SUCH THAT IF '
+     X'P''V(I) > P''V(J)'/4X'THEN I WILL BE PREFERRED TO J.:'/)
+      CALL EIGEN(U,V,N,0)
+      WRITE (5,115) JOB
+115   FORMAT(/' PERCENTAGE OF TRACE ACCOUNTED FOR" JOB ',4A4/
+     X/' VALUE  % ADDED  % EXPLAINED')
+      IF (IO.NE.6) WRITE(IO,115) JOB
+      WRITE (16,115) JOB
+      N1=N-1
+      X=0.0
+      J=0
+      DO 60 I=1,N1
+      J=J+I
+60    X=X+SQRT(ABS(U(J)))
+      CUM=0.0
+      J=0
+      DO 31 I=1,N1
+      J=J+I
+      Y=SQRT(ABS(U(J)))/X
+      CUM=CUM+Y
+      IF (Y-0.0005) 31,31,32
+32    WRITE (5,116)I,Y,CUM
+116   FORMAT(1X,I3,2PF11.3,F12.3)
+      IF (IO.NE.6) WRITE (IO,116) I,Y,CUM
+      WRITE (16,116) I,Y,CUM
+      IR=I
+31    CONTINUE
+      WRITE (5,125)
+125   FORMAT(//' WHAT IS THE MAXIMUM NUMBER OF DIMENSIONS YOU WILL USE 
+     X--')
+      CALL CLEAR
+      CALL INPUT(IDMAX,DMY)
+      IR=MIN0(IR,IDMAX)
+      I8=1
+      IER=0
+      DO 37 I=1,M
+42    READ (9) (RX(J),J=1,N)
+      JV=0
+      DO 36 J=1,N
+      UK=0.
+      DO 15 L=1,N
+      JV=JV+1
+15    UK=UK+RX(L)*V(JV)
+36    DATA(J)=UK
+37    WRITE (8) (DATA(J),J=1,N)
+      IF (IR.EQ.0) RETURN
+      IF (IO.NE.6) WRITE (IO,127) IR
+127   FORMAT(///' THE MAXIMUM DIMENSIONALITY TO BE USED IS',I3,'.')
+      WRITE (IO,105) IR,(J,J=1,IR)
+105   FORMAT(/' IN',I3,' DIMENSIONS, THE COORDINATES OF THE ITEMS ARE"'
+     X/' ID     NAME         ',5(I5,3X)/(21X,5(I5,3X)))
+      WRITE (16,105) IR,(J,J=1,IR)
+63    WRITE (3,700) JOB,N,IR
+700   FORMAT('CARROLL CONFIGURATION'/4A4
+     X/2I3/'(A1,1X,10F7.4/(2X,10F7.4))')
+62    DO 18 I=1,N
+      K=I-N
+      DO 19 J=1,IR
+      K=K+N
+19    RX(J)=V(K)
+      WRITE (16,107) ISYM(I),(NAME(J,I),J=1,4),(RX(J),J=1,IR)
+      WRITE (3,701) ISYM(I),(RX(J),J=1,IR)
+701   FORMAT(A1,1X,10F7.4/(2X10F7.4))
+18    WRITE (IO,107) ISYM(I),(NAME(J,I),J=1,4),(RX(J),J=1,IR)
+107   FORMAT(1X,A1,'" ',4A4,1X,5F8.3/(21X,5F8.3))
+      IF (IO.EQ.6) GO TO 38
+      ND=IDMAX+1
+      DO 438 I=2,IDMAX
+      ND=ND-1
+      CALL TREE(N,ND,V,IO,N)
+438   CALL WARD(N,ND,N,V,IO)
+      NJ=M
+      GO TO 40
+38    WRITE (5,123)
+123   FORMAT(//' IN HOW MANY DIMENSIONS SHOULD I CALCULATE THE MST  --')
+      CALL CLEAR
+      CALL INPUT(ND,DMY)
+      IF (ND.LE.1) GO TO 41
+      WRITE (IO,124) ND
+124   FORMAT(///' TO CONSTRUCT THE MINIMUM SPANNING TREE IN',I3,' DIMENS
+     XIONS'/' PROCEDE AS FOLLOWS"')
+      CALL TREE(N,ND,V,IO,N)
+      CALL WARD(N,ND,N,V,IO)
+      GO TO 38
+41    WRITE (5,120)
+120   FORMAT(//' HOW MANY :P-VECTORS: SHOULD I LIST  --')
+      CALL CLEAR
+      CALL INPUT(NJ,DMY)
+      NJ=MIN0(NJ,M)
+      IF (NJ.LE.0) GO TO 39
+40    WRITE (IO,109)
+109   FORMAT(///' THE COORDINATES OF THE P-VECTORS ARE"')
+      I8=1
+      DO 20 I=1,NJ
+      READ (8) (DATA(J),J=1,N)
+20    WRITE (IO,122) I,(DATA(J),J=1,IR)
+122   FORMAT(' VECTOR',I3,'" ',7F8.3/(12X7F8.3))
+39    WRITE (IO,118)
+118   FORMAT(//' IN ONE DIMENSION, ')
+29    CALL PLOT1(V,N,IO)
+      IF (IO.EQ.6) WRITE (5,119)
+119   FORMAT(//' HOW MANY MORE DIMENSIONS SHOULD BE PLOTTED  --')
+      IF (IO.EQ.6) CALL INPUT(IDIM,DMY)
+      IF (IO.NE.6) IDIM=IR-1
+      IF (IDIM.LE.0) RETURN
+      IDIM=MIN0(IDIM+1,IR)
+      CALL PLOT2(V,N,M,IDIM,IO,I8)
+      RETURN
+      END
+      SUBROUTINE PLOT1(X,N,IO)
+      DIMENSION X(1),ID(51)
+      INTEGER ZAST,BLANK
+      DATA ZAST/'*'/,BLANK/' '/
+      COMMON /NAMES/ IV(26),FILL(108)
+      XMAX=-1.0E38
+      XMIN=1.0E38
+      DO 1 I=1,N
+      IF (XMAX-X(I)) 7,7,8
+7     XMAX=X(I)
+8     IF (X(I)-XMIN) 9,1,1
+9     XMIN=X(I)
+1     CONTINUE
+      XMAX=50.0/(XMAX-XMIN)
+      DO 3 I=1,51
+3     ID(I)=BLANK
+      DO 4 I=1,N
+      J=XMAX*(X(I)-XMIN)+1.0
+      IF (J-1) 10,10,11
+10    J=1
+11    IF (J-51) 12,12,13
+13    J=51
+12    IF (ID(J)-BLANK) 5,6,5
+5     ID(J)=ZAST
+      GO TO 4
+6     ID(J)=IV(I)
+4     CONTINUE
+      WRITE (IO,100)(ID(I),I=1,51)
+100   FORMAT(' THE RELATIVE POSITIONS OF THE BRANDS ARE"'/5X,51A1)
+      RETURN
+      END
+      SUBROUTINE PLOT2(X,N,M,KDIM,IO,I8)
+      COMMON /X/ IDENT(500),DATA(10000)
+      DIMENSION X(1),Y(26),ID(32,53),IX(53),IY(53)
+      INTEGER ZP,ZMI,ZAST,ZBLANK,ZAPO,ZCOL
+      DATA ZP/'+'/,ZMI/'-'/,ZAST/'*'/,ZBLANK/' '/,ZAPO/''''/
+     X,ZCOL/'"'/
+      COMMON /NAMES/ IV(26),FILL(104),JOB(4)
+      LIMIT(K,N)=MAX0(2,MIN0(K,N-1))
+      XMAX=0.
+      XMIN=0.
+      DO 30 I=1,N
+      XMAX=AMAX1(XMAX,X(I))
+30    XMIN=AMIN1(XMIN,X(I))
+      IDMAX=KDIM-1
+      DO 50 IDIM=1,IDMAX
+      JDMIN=IDIM+1
+      DO 50 JDIM=JDMIN,KDIM
+      I1=N*(IDIM-1)+1
+      I2=N*IDIM
+      J1=N*(JDIM-1)+1
+      J2=N*JDIM
+      DO 2 I=1,32
+      DO 2 J=1,53
+2     ID(I,J)=ZBLANK
+      R1=29.0/(XMAX-XMIN)
+      R2=50.0/(XMAX-XMIN)
+      I0=-R1*XMIN+2.0
+      J0=-R2*XMIN+2.0
+      I0=LIMIT(I0,32)
+      J0=LIMIT(J0,53)
+      DO 3 I=1,53
+      ID(1,I)=0
+3     ID(32,I)=0
+      DO 10 I=1,32
+      ID(I,1)=00
+10    ID(I,53)=00
+      DO 62 I=2,52,2
+62    ID(I0,I)=ZMI
+      DO 63 I=2,31,2
+63    ID(I,J0)=ZAPO
+      ID(I0,J0)=ZP
+      DO 4 KK=1,N
+      K=KK+I1-1
+      J=KK+J1-1
+      I=R1*(X(J)-XMIN)+2.0
+      J=R2*(X(K)-XMIN)+2.0
+      I=LIMIT(I,32)
+      J=LIMIT(J,53)
+      IF (ID(I,J)-ZBLANK) 5,6,5
+5     IF(ID(I,J)-ZAPO ) 7,6,7
+7     IF (ID(I,J)-ZMI) 8,6,8
+8     IF (ID(I,J)-ZP) 9,6,9
+9     ID(I,J)=ZAST
+      GO TO 4
+6     ID(I,J)=IV(KK)
+4     CONTINUE
+      IF (M.LE.0) GO TO 52
+      I8=1
+      DO 11 KK=1,M
+      READ (8) (DATA(J),J=1,N)
+      Y(1)=DATA(IDIM)
+      Y(2)=DATA(JDIM)
+      L=1
+      K=2
+      IF (Y(L)) 12,33,13
+33    I=I0
+      IF (Y(K)) 34,11,35
+34    J=1
+      GO TO 20
+35    J=32
+      GO TO 20
+13    Z=R1*(Y(K)*XMAX/Y(L)-XMIN)+2.0
+      I=IFIX(Z)
+      GO TO 14
+12    Z=R1*(Y(K)*XMIN/Y(L)-XMIN)+2.0
+      I=IFIX(Z)
+14    IF (Y(K)) 16,36,17
+36    J=J0
+      IF (Y(L)) 37,11,38
+37    I=53
+      GO TO 20
+38    I=1
+      GO TO 20
+17    Z=R2*(Y(L)*XMAX/Y(K)-XMIN)+2.0
+      J=IFIX(Z)
+      GO TO 18
+16    Z=R2*(Y(L)*XMIN/Y(K)-XMIN)+2.0
+      J=IFIX(Z)
+18    I=LIMIT(I+1,34)-1
+      J=LIMIT(J+1,55)-1
+20    ID(I,J)=ID(I,J)+1
+11    CONTINUE
+      WRITE (IO,103) JOB,IDIM,JDIM
+103   FORMAT(///' PLOT OF ITEM POSITIONS AND P-VECTOR PROJECTIONS" JOB '
+     X,4A4/' FOR DIMENSION',I2,' (X-AXIS) VRS. DIMENSION',I2,' (Y-AXIS)"
+     X')
+      IF (IDIM.EQ.1.AND.JDIM.EQ.2) WRITE (16,103) JOB,IDIM,JDIM
+      GO TO 53
+52    WRITE (IO,104) IDIM,JDIM
+104   FORMAT(///' PLOT OF ITEM POSITIONS FOR DIMENSION',I2,' (X-AXIS)'/
+     X' VRS. DIMENSION',I2,' (Y-AXIS)"')
+      GO TO 54
+53    NLM=0
+      NRM=0
+      DO 64 I=2,31
+      IF (ID(I,1).NE.0) NLM=NLM+1
+64    IF (ID(I,53).NE.0) NRM=NRM+1
+      IF (NLM.GE.NRM) GO TO 65
+      WRITE (IO,106)
+106   FORMAT(' X-AXIS REVERSED TO SPEED PRINTING.')
+      IF (IDIM.EQ.1.AND.JDIM.EQ.2) WRITE (16,106)
+      DO 66 I=1,32
+      K=54
+      DO 66 J=1,26
+      K=K-1
+      L=ID(I,J)
+      ID(I,J)=ID(I,K)
+66    ID(I,K)=L
+65    IS=0
+      DO 22 J=1,53
+      IY(J)=ZBLANK
+      IX(J)=ID(32,J)/100
+      IY(J)=ISYM(IX(J),IY(J))
+22    IS=IS+IX(J)
+      IF (IS.GT.0) WRITE (IO,101)(IY(J),J=1,53)
+      IF (IS.GT.0.AND.IDIM.EQ.1.AND.JDIM.EQ.2) WRITE (16,101) (IY(J),J=1
+     X,53)
+101   FORMAT(5X53A1)
+      DO 23 J=1,53
+      IX(J)=(ID(32,J)-100*IX(J))/10
+      IY(J)=ISYM(IX(J),IY(J))
+23    IS=IS+IX(J)
+      IF (IS.GT.0) WRITE (IO,101)(IY(J),J=1,53)
+      IF (IS.GT.0.AND.IDIM.EQ.1.AND.JDIM.EQ.2) WRITE (16,101) (IY(J),J=1
+     X,53)
+      DO 24 J=1,53
+      IX(J)=ID(32,J)-10*(ID(32,J)/10)
+24    IY(J)=ISYM(IX(J),IY(J))
+      WRITE (IO,101)(IY(J),J=1,53)
+      IF (IDIM.EQ.1.AND.JDIM.EQ.2) WRITE (16,101) (IY(J),J=1
+     X,53)
+54    DO 28 K=2,31
+      I=33-K
+      IF (M.EQ.0) GO TO 60
+      IX(1)=ID(I,53)/1000
+      IY(1)=ISYM(IX(1),ZBLANK)
+      IX(2)=(ID(I,53)-1000*IX(1))/100
+      IY(2)=ISYM(IX(2),IY(1))
+      IX(3)=(ID(I,53)-1000*IX(1)-100*IX(2))/10
+      IY(3)=ISYM(IX(3),IY(2))
+      IX(4)=ID(I,53)-10*(ID(I,53)/10)
+      IY(4)=ISYM(IX(4),IY(3))
+      J1=4
+      DO 39 J=1,3
+      IF (IY(1).NE.ZBLANK) GO TO 51
+      J1=J1-1
+      IY(1)=IY(2)
+      IY(2)=IY(3)
+      IY(3)=IY(4)
+39    IY(4)=ZBLANK
+51    IX(6)=ID(I,1)/1000
+      IX(7)=(ID(I,1)-1000*IX(6))/100
+      IX(8)=(ID(I,1)-1000*IX(6)-100*IX(7))/10
+      IX(9)=ID(I,1)-10*(ID(I,1)/10)
+      IY(6)=ISYM(IX(6),ZBLANK)
+      IY(7)=ISYM(IX(7),IY(6))
+      IY(8)=ISYM(IX(8),IY(7))
+   (9)=ISYM(IX(9),IY(8))
+      IY(5)=ZBLANK
+      IY(10)=ZBLANK
+      IF (ID(I,53).NE.0) IY(5)=ZCOL
+      IF (ID(I,1).NE.0) IY(10)=ZCOL
+      WRITE (IO,100) (IY(J),J=6,10),(ID(I,J),J=2,52),IY(5),(IY(J),J=1,J1
+     X)
+100   FORMAT(1X,61A1)
+      IF (IDIM.EQ.1.AND.JDIM.EQ.2) WRITE (16,100) (IY(J),J=6,10),
+     X (ID(I,J),J=2,52),IY(5),(IY(J),J=1,J1)
+      GO TO 28
+60    WRITE (IO,105) (ID(I,J),J=2,52)
+105   FORMAT(1X,51A1)
+28    CONTINUE
+      IF (M.LE.0) GO TO 50
+      IS=0
+      DO 25 J=1,53
+      IY(J)=ZBLANK
+      IX(J)=ID(1,J)/100
+      IY(J)=ISYM(IX(J),IY(J))
+25    JS=JS+IX(J)
+      IF (IS.GT.0) WRITE (IO,101)(IY(J),J=1,53)
+      IF (IS.GT.0.AND.IDIM.EQ.1.AND.JDIM.EQ.2) WRITE (16,101) (IY(J),J=1
+     X,53)
+      DO 26 J=1,53
+      IX(J)=(ID(1,J)-100*(ID(1,J)/100))/10
+      IY(J)=ISYM(IX(J),IY(J))
+26    IS=IS+IX(J)
+      IF (IS.GT.0) WRITE (IO,101)(IY(J),J=1,53)
+      IF (IS.GT.0.AND.IDIM.EQ.1.AND.JDIM.EQ.2) WRITE (16,101) (IY(J),J=1
+     X,53)
+      DO 27 J=1,53
+      IX(J)=ID(1,J)-10*(ID(1,J)/10)
+27    IY(J)=ISYM(IX(J),IY(J))
+      WRITE (IO,101)(IY(J),J=1,53)
+      IF (IDIM.EQ.1.AND.JDIM.EQ.2) WRITE (16,101) (IY(J),J=1
+     X,53)
+50    CONTINUE
+      RETURN
+      END
+      SUBROUTINE TREE(N,LDIM,X,OUT,IR)
+      REAL X(N,IR),C(100),MIN
+      INTEGER B(100),A(100),ROUTE(100),OUT
+      COMMON /X/ IDENT(500),D(10000)
+      COMMON /SIZE/NMAX
+      COMMON /WORK/A,B,C,ROUTE,DMY(100)
+      DATA DLARGE/1.E30/
+      IF(N.GT.100)RETURN
+      DO 6 I=2,N
+      A(I)=0
+      B(I)=0
+6     C(I)=DLARGE
+      K2=N-1
+      K=0
+      DO 10 J=2,N
+      K1=J-1
+      DO 10 I=1,K1
+      K=K+1
+      D(K)=0.
+      DO 9 L=1,LDIM
+9     D(K)=D(K)+(X(I,L)-X(J,L))**2
+      D(K)=SQRT(D(K))
+      IF (K.LT.NMAX) GO TO 10
+      WRITE (5,111)
+111   FORMAT(/' INSUFFICENT ROOM TO CONSTRUCT TREE.')
+      IF (OUT.NE.6) WRITE (OUT,111)
+      RETURN
+10    CONTINUE
+      J=1
+      DO 7 I=2,N
+      MIN=DLARGE
+      DO 8 K=2,N
+      IF(A(K).NE.0)GO TO 8
+      K1=MIN0(J,K)
+      K2=MAX0(J,K)
+      L=(K2-1)*(K2-2)/2+K1
+      DIS=D(L)
+      IF(DIS.GE.C(K))GO TO 12
+      C(K)=DIS
+      B(K)=J
+12    IF(MIN.LT.C(K))GO TO 8
+      MIN=C(K)
+      NEXT=K
+8     CONTINUE
+      J=NEXT
+7     A(J)=1
+      DO 13 I=1,N
+13    A(I)=0
+      DO 14 I=2,N
+      J=B(I)
+14    A(J)=A(J)+1
+      J=1
+      J0=1
+      K=1
+      ROUTE(1)=1
+18    IF(A(K).EQ.0)GO TO 16
+      A(K)=A(K)-1
+      DO 17 M=2,N
+      M0=M
+      IF(K.EQ.B(M))GO TO 19
+17    CONTINUE
+      RETURN
+19    IP=1
+      J=J+1
+      K=M0
+      ROUTE(J)=M0
+      B(M0)=-B(M0)
+      GO TO 18
+16    IF(IP.EQ.0)GO TO 22
+      K1=ROUTE(J0)
+      CALL LABLE(K1,C1,C2)
+      WRITE(OUT,100) C1,C2
+100   FORMAT(/' STARTING FROM POINT ',2A1,' GO TO')
+      K1=J0+1
+      K2=J-1
+      IF(K1.GT.K2)GO TO 20
+      DO 21 L=K1,K2
+      M=ROUTE(L)
+      CALL LABLE(M,C1,C2)
+21    WRITE(OUT,101) C1,C2,C(M)
+101   FORMAT(14X' POINT ',2A1,' (',F10.4,') THEN TO')
+20    M=ROUTE(J)
+      CALL LABLE(M,C1,C2)
+      WRITE(OUT,102) C1,C2,C(M)
+102   FORMAT(14X' POINT ',2A1,' (',F10.4,').')
+      IP=0
+22    J=J-1
+      IF (J.LE.0) GO TO 23
+      J0=J
+      K=ROUTE(J)
+      GO TO 18
+23    CALL DENDO(N,OUT)
+      RETURN
+      END
+      SUBROUTINE DENDO(N,IO)
+      REAL DIST(100)
+      INTEGER LOC(100),G(100),X(100),TEMP(100)
+      COMMON /WORK/TEMP,LOC,DIST,G,X
+      DO 1 I=1,N
+      G(I)=-I
+1     X(I)=3
+      IOSIZE=4*N+12
+7     CALL RENAME('FOR15','DAT',0,0,0,IERR)
+      IF(IERR.EQ.6)GOTO 6
+      GO TO 7
+6     I15=1
+      WRITE (15) (X(I),I=1,N)
+      DMIN=DIST(2)
+      DMAX=DIST(2)
+      DO 2 I=3,N
+      DMIN=AMIN1(DMIN,DIST(I))
+2     DMAX=AMAX1(DMAX,DIST(I))
+      IF (IO.EQ.6) WRITE (5,102) DMAX,DMIN
+102   FORMAT(/' SINGLE LINKAGE CLUSTER ANALYSIS"'/
+     X/' MAX DISTANCE=',F8.3/
+     X' MIN DISTANCE=',F8.3/
+     X' TYPE START AND STEP SIZE. USE ZERO TO BYPASS. --')
+      IF (IO.EQ.6) CALL INPUT(IL,DMIN)
+      IF (DMIN.LE.0.AND.IO.EQ.6) RETURN
+      STEP=0.0
+      IF (IO.EQ.6) CALL INPUT(IL,STEP)
+      IF (STEP.LE.0.0) STEP=(DMAX-DMIN)/50.0
+      VAL=DMIN-0.9999*STEP
+      RMAX=DMAX+5.*STEP
+      IF (IO.NE.6) WRITE(IO,103)
+103   FORMAT(///' SINGLE LINKAGE CLUSTER ANALYSIS"')
+      IL=0
+      WRITE (IO,100)
+100   FORMAT(/' LEVEL CRIT. VALUE    # GROUPS')
+3     IL=IL+1
+      IK=0
+      VAL=VAL+STEP
+      DO 4 I=2,N
+      IF (DIST(I).GT.VAL) GO TO 4
+      IK=IK+1
+      DIST(I)=RMAX
+      J=IABS(LOC(I))
+      CALL HIARC(I,J,N)
+4     CONTINUE
+      IF (IK.GT.0) GO TO 5
+      CALL HIARC(1,1,N)
+5     CALL DCALC(N,K)
+      WRITE (IO,101) IL,VAL,K
+101   FORMAT(1X,I4,F13.4,I9)
+      WRITE (15) (X(I),I=1,N)
+      IF (VAL.LT.DMAX.AND.K.GT.1) GO TO 3
+      CALL PRINTY(N,IL,IO,I15)
+      RETURN
+      END
+      SUBROUTINE HIARC(IX,JX,N)
+      IMPLICIT INTEGER (A-Z)
+      INTEGER G(100),X(100),TEMP(100)
+      COMMON /WORK/TEMP,DMY(200),G,X
+      DO 1 M=1,N
+      IF (IABS(G(M)).EQ.JX) Q=M
+1     IF (IABS(G(M)).EQ.IX) R=M
+      IF (Q.LT.R) GO TO 2
+      M=R
+      R=Q
+      Q=M
+2     CALL RANGE(Q,P1,P2,N)
+      CALL RANGE(R,Q1,Q2,N)
+      IF (P1.EQ.Q1) RETURN
+      CALL XCNG(P1,P2,Q1,Q2,N)
+      G(P2)=IABS(G(P2))
+      RETURN
+      END
+      SUBROUTINE DCALC(N,K)
+      IMPLICIT INTEGER (A-Z)
+      INTEGER G(100),X(100)
+      COMMON /WORK/DMY(300),G,X
+      U=0
+      V=0
+      K=0
+      DO 7 I=1,N
+7     IF (G(I).LT.0) K=K+1
+      DO 8 I=1,N
+      J=IABS(G(I))
+      S=X(J)
+      IF (U.NE.0) GO TO 9
+      IF (G(I).GT.0) GO TO 10
+      T=3
+      GO TO 8
+10    IF (S.NE.3) GO TO 11
+      T=1
+      U=1
+      V=1
+      GO TO 8
+11    T=0
+      U=1
+      GO TO 8
+9     IF (G(I).GT.0) GO TO 12
+      IF (V.NE.0) GO TO 13
+      T=3
+      V=0
+      GO TO 8
+13    T=2
+      U=0
+      V=0
+      GO TO 8
+12    IF (S.NE.2.AND.S.NE.3) GO TO 14
+      IF (V.NE.0) GO TO 15
+      T=1
+      U=1
+      V=1
+      GO TO 8
+15    T=5
+      V=1
+      GO TO 8
+14    IF (V.NE.0) GO TO 16
+      T=0
+      U=1
+      GO TO 8
+16    T=4
+8     X(J)=T
+      RETURN
+      END
+      SUBROUTINE XCNG(X1,X2,Y1,Y2,N)
+      IMPLICIT INTEGER (A-Z)
+      INTEGER A(100),TEMP(100)
+      COMMON /WORK/TEMP,DMY(200),A,DMY2(100)
+      K=0
+      L=X2+1
+      M=Y1-1
+      IF (L.GT.M) RETURN
+      DO 3 I=L,M
+      K=K+1
+3     TEMP(K)=A(I)
+      L=X2
+      DO 4 I=Y1,N
+      L=L+1
+4     A(L)=A(I)
+      DO 5 I=1,K
+      L=L+1
+5     A(L)=TEMP(I)
+      RETURN
+      END
+      SUBROUTINE RANGE(X,START,END,N)
+      IMPLICIT INTEGER (A-Z)
+      INTEGER H(100)
+      COMMON /WORK/ DMY(300),H,DMY2(100)
+      START=X
+      IF (X.EQ.1) GO TO 1
+      DO 2 I=2,X
+      IF (H(START-1).LT.0) GO TO 1
+2     START=START-1
+      START=1
+1     END=X
+      DO 3 I=X,N
+      IF (H(END).LT.0) RETURN
+3     END=END+1
+      RETURN
+      END
+      SUBROUTINE PRINTY(N,PS,OUT,I15)
+      IMPLICIT INTEGER (A-Z)
+      INTEGER X(100),LINE(100),G(100)
+      COMMON /WORK/ LINE,DMY(200),G,X
+      INTEGER SHIFT,SYM(6,2)
+      DATA SHIFT/1000000/,SYM/2*'  ',2*'  ',2*'  ',
+     X'  ',2H' ,' -','  ','--',2H'-/
+      NPASS=(N-1)/30+1
+      I2=0
+      P=PS+1
+      PX=NPASS+1
+      DO 1 PASS=1,NPASS
+      PX=PX-1
+      I15=1
+      I1=I2+1
+      I2=MIN0(N,I2+30)
+      IF (NPASS.NE.1) WRITE(OUT,100) PX,NPASS
+100   FORMAT(///' DENDROGRAM, PAGE',I2,' OF',I2,'"'/
+     X1X,' L ',11X,'POINT IDENTIFICATION')
+      IF (NPASS.EQ.1) WRITE (OUT,101)
+101   FORMAT(///' DENDROGRAM"'/1X,' L ',11X,'POINT IDENTIFICATION')
+      I=I2+1
+      DO 6 II=I1,I2
+      I=I-1
+      J=IABS(G(I))/10
+      IF (J.NE.0.AND.J.LT.10) LINE(II)=(J+240)
+      IF (J.EQ.0) LINE(II)=64
+      IF (J.GT.9) LINE(II)=92
+6     LINE(II)=SHIFT*LINE(II)
+      WRITE(OUT,106) (LINE(I),I=I1,I2)
+106   FORMAT(1X,' E ',30(1XA1))
+      I=I2+1
+      DO 7 II=I1,I2
+      I=I-1
+      J=IABS(G(I))
+7     LINE(II)=J-10*(J/10)
+      WRITE (OUT,107) (LINE(I),I=I1,I2)
+107   FORMAT(1X,' V ',30I2)
+      I=I2+1
+      DO 2 II=I1,I2
+      I=I-1
+      J=IABS(G(I))
+      CALL LABLE(J,C1,C2)
+2     LINE(II)=C1
+      CALL LABLE(5,C1,C2)
+      WRITE (OUT,102) C2,(LINE(I),I=I1,I2)
+102   FORMAT(1X,' ',A1,' ',30(1XA1))
+      I=I2+1
+      DO 5 II=I1,I2
+      I=I-1
+      J=IABS(G(I))
+      CALL LABLE(J,C1,C2)
+5     LINE(II)=C2
+      CALL LABLE(12,C1,C2)
+      WRITE (OUT,102) C2,(LINE(I),I=I1,I2)
+      WRITE (OUT,105) (SYM(5,2),I=I1,I2)
+105   FORMAT(1X,'---',30(1XA1))
+      DO 1 LEVEL=1,P
+      READ (15) (X(I),I=1,N)
+      I=I2+1
+      DO 4 II=I1,I2
+      I=I-1
+      J=IABS(G(I))
+      K=X(J)+1
+4     LINE(II)=SYM(K,2)
+      XL=LEVEL-1
+      WRITE (OUT,104) XL,(LINE(I),I=I1,I2)
+104   FORMAT(1X,I3,1X,30A2)
+      I=I2+1
+      DO 3 II=I1,I2
+      I=I-1
+      J=IABS(G(I))
+      K=X(J)+1
+3     LINE(II)=SYM(K,1)
+1     IF (OUT.NE.6) WRITE (OUT,103) (LINE(I),I=I1,I2)
+103   FORMAT(5X,30A2)
+      RETURN
+      END
+      SUBROUTINE LABLE(M,X,Y)
+      IMPLICIT INTEGER (A-Z)
+      DATA NUM/26/,BLANK/' '/
+      COMMON /NAMES/ SYM(26),FILL(108)
+      I=(M-1)/NUM
+      I=MIN0(NUM,MAX0(I,0))
+      J=M-NUM*I
+      J=MIN0(NUM,MAX0(J,1))
+      X=BLANK
+      IF (I.GT.0) X=SYM(I)
+      Y=SYM(J)
+      RETURN
+      END
+      SUBROUTINE WARD(N,ND,NM,P,IO)
+      REAL P(N,NM),SSGRP(100)
+      INTEGER G(100),X(100),TEMP(100),YES
+      YES='Y'
+      COMMON /WORK/ TEMP,SSGRP,DMY(100),G,X
+      DO 1 I=1,N
+      SSGRP(I)=0.
+      G(I)=-I
+1     X(I)=3
+      IOSIZE=4*N+12
+14    CALL RENAME('FOR15','DAT',0,0,0,IERR)
+       IF(IERR.EQ.6)GOTO 15
+      GO TO 14
+15    I15=1
+      WRITE (15) (X(I),I=1,N)
+      SSTOT=0.
+      M=N-1
+3     DO 2 I=1,M
+      IF (G(I).GT.0) GO TO 2
+      IJ=-G(I)
+      L=I+1
+      DO 2 J=L,N
+      IF (G(J).GT.0) GO TO 2
+      JI=-G(J)
+      DIJ=0.
+      DO 4 K=1,ND
+4     DIJ=DIJ+(P(IJ,K)-P(JI,K))**2
+      IF (DIJ.GT.0) GO TO 5
+      CALL HIARC(I,J,N)
+      GO TO 3
+5     SSTOT=SSTOT+DIJ
+2     CONTINUE
+      SSTOT=SSTOT/FLOAT(N)
+      L=1
+      CALL DCALC(N,K)
+      WRITE (15) (X(I),I=1,N)
+      IF (IO.EQ.6.OR.N.GT.30) WRITE (5,100) SSTOT
+100   FORMAT(///' HIERARCHICAL PROXIMITY CLUSTERING"'//' TOTAL SUM OF SQ
+     XUARES=',F12.3//' SHOULD I PROCEDE  --')
+      IF (IO.EQ.6.OR.N.GT.30) READ (5,106) IA
+      IF (IO.NE.6.AND.N.LE.30) IA=YES
+106   FORMAT(A1)
+      IF (IA.NE.YES) RETURN
+      IF (IO.NE.6) WRITE(IO,108)
+108   FORMAT(///' HIERARCHICAL PROXIMITY CLUSTERING"')
+      WRITE (IO,107)
+107   FORMAT(/' LEVEL  #GROUPS  F-VALUE  P(F<X)')
+      IF (IO.NE.6) WRITE (IO,102) L,K
+102   FORMAT(1X,I4,I7,'    INFINITE   1.000')
+6     L=L+1
+      DMIN=1.0E30
+      I=0
+7     I=I+1
+      IF (I.GT.N) GO TO 8
+      IF (G(I).GT.0) GO TO 7
+      J=I
+9     J=J+1
+      IF (J.GT.N) GO TO 7
+      IF (G(J).GT.0) GO TO 9
+      CALL RANGE(I,I1,I2,N)
+      CALL RANGE(J,J1,J2,N)
+      K=0
+      DO 10 IJ=I1,I2
+      K=K+1
+10    TEMP(K)=IABS(G(IJ))
+      DO 11 JI=J1,J2
+      K=K+1
+11    TEMP(K)=IABS(G(JI))
+      M=K-1
+      D=0.
+      DO 12 IJ=1,M
+      IK=IJ+1
+      IX=TEMP(IJ)
+      DO 12 JI=IK,K
+      JX=TEMP(JI)
+      DO 12 KI=1,ND
+12    D=D+(P(IX,KI)-P(JX,KI))**2
+      D=D/FLOAT(K)
+      IF (D.GT.DMIN) GO TO 9
+      I0=TEMP(1)
+      J0=TEMP(K)
+      DMIN=D
+      GO TO 9
+8     Y=DMIN
+      NG=1
+      DO 13 I=1,N
+      IF (G(I).GT.0) GO TO 13
+      IF (I.EQ.I0.OR.I.EQ.J0) GO TO 13
+      IJ=-G(I)
+      Y=Y+SSGRP(IJ)
+      NG=NG+1
+13    CONTINUE
+      CALL HIARC(I0,J0,N)
+      CALL RANGE(I0,IJ,JI,N)
+      IJ=-G(JI)
+      SSGRP(IJ)=DMIN
+      CALL DCALC(N,K)
+      ND1=N-1
+      ND2=NG-1
+      F=FLOAT(ND2)*(SSTOT-Y)/(FLOAT(ND1)*Y)
+      F=AMAX1(0.0,F)
+      PR=0.0
+      IF (K.GT.1) PR=PFTEST(F,ND2,ND1)
+      IF (IO.NE.6) WRITE (IO,101) L,K,F,PR
+101   FORMAT(1X,I4,I7,F12.3,F8.3)
+      IF (IFIX(1000.0*PR).LT.999.AND.IO.EQ.6) WRITE (5,101) L,K,F,PR
+      WRITE (15) (X(I),I=1,N)
+      IF (K.GT.1) GO TO 6
+      CALL PRINTY(N,L,IO,I15)
+      RETURN
+      END
+      FUNCTION PFTEST(X,N1,N2)
+      A=0.5*FLOAT(N2)
+      B=0.5*FLOAT(N1)
+      Y=A/(A+B*X)
+      CALL BDTR(Y,A,B,P,D,IER)
+      IF (IER.NE.0) GO TO 1
+      PFTEST=1.0-P
+      RETURN
+1     PFTEST=0.0
+      RETURN
+      END
+      SUBROUTINE CLUSTR(N,CENTER,NC,M,COUNT,TOTAL,NW,ID,XCLAS,NW2,IO)
+      REAL CENTER(M,NC),TOTAL(M,NC)
+      INTEGER ID(N),COUNT(NC),XCLAS(NC,NW)
+      COMMON /X/ IDENT(500),DATA(10000)
+      IC=0
+      CALL ZERO(NC,M,COUNT,TOTAL)
+      IX=0
+      R=NC
+      CALL TIMES(I,J)
+      KRAN=2*(I+J)+1
+      DO 2 I=1,N
+      ICL=MIN0(NC,MAX1(R*RAN(KRAN)+1.0,1.0))
+      ID(I)=ICL
+      COUNT(ICL)=COUNT(ICL)+1
+      DO 2 J=1,M
+      IX=IX+1
+2     TOTAL(J,I)=TOTAL(J,I)+DATA(IX)
+      DO 4 IK=1,100
+8     DO 5 I=1,NC
+      SX=0.0
+      DO 24 J=1,M
+24    SX=SX+TOTAL(J,I)**2
+      SX=SQRT(AMAX1(1.0E-20,SX))
+      R=0.
+      IF (SX.GT.1.05E-38) R=1.0/SX
+      DO 5 J=1,M
+5     CENTER(J,I)=R*TOTAL(J,I)
+      IC=0
+      CALL ZERO(NC,M,COUNT,TOTAL)
+      IX=1-NW
+      DO 6 I=1,N
+      IX=IX+NW
+6     CALL MATCH(DATA(IX),CENTER,NC,M,ID(I),IC,COUNT,TOTAL)
+      IF (IC.EQ.0) GO TO 9
+4     CONTINUE
+      WRITE (IO,100)
+100   FORMAT(/' WARNING" ****CLUSTER FAILED. ITERATION LIMIT EXCEDED.***
+     X*')
+      IF (IO.NE.6) WRITE (5,100)
+9     WRITE (IO,112) NC,IK
+112   FORMAT(///' CLUSTER CENTERS"',I4,' CENTER SOLUTION AFTER',I3,' PAS
+     XSES.'//' CENTER  (# IN IT)')
+      IF (IO.NE.6) WRITE (5,112) NC,IK
+      DO 7 I=1,NC
+      SX=0.
+      DO 22 J=1,M
+22    SX=SX+CENTER(J,I)**2
+      SX=SQRT(AMAX1(1.0E-20,SX))
+      R=0.0
+      IF (SX.GT.1.05E-38) R=1.0/SX
+      DO 23 J=1,M
+23    CENTER(J,I)=R*CENTER(J,I)
+      WRITE (IO,113) I,COUNT(I),(CENTER(J,I),J=1,M)
+7     IF (IO.NE.6) WRITE (5,113) I,COUNT(I),(CENTER(J,I),J=1,M)
+113   FORMAT(1XI4,4X,'(',I4,')',8F7.3/(15X8F7.3))
+16    WRITE (IO,114) (ID(J),J=1,N)
+114   FORMAT(///' MEMBERSHIP"'/(20I3))
+      DO 10 I=1,NC
+      DO 10 J=1,NW2
+10    XCLAS(I,J)=0
+      DO 11 K=1,N
+      J=IDENT(K)
+      I=ID(K)
+11    XCLAS(I,J)=XCLAS(I,J)+1
+      WRITE (IO,106)
+106   FORMAT(///' # CLUSTER MEMBERS BY FIRST CHOICE"')
+      R1=N
+      NX=NW2
+      CHI=0.
+      NDF=(NX-1)*(NC-1)
+17    DO 13 J=1,NX
+      L=0
+      DO 19 I=1,NC
+19    L=L+XCLAS(I,J)
+      R2=L
+      DO 14 I=1,NC
+      R3=COUNT(I)
+      R4=XCLAS(I,J)
+      R5=R2*R3
+      IF (R5.LE.0.0) NDF=NDF-1
+14    IF (R5.GT.0.0) CHI=CHI+((R1*R4-R5)**2)/R5
+13    WRITE (IO,105) J,L,(XCLAS(I,J),I=1,NC)
+105   FORMAT(' BRAND',I3,' (',I3,') "',10I4/(17X10I4))
+      WRITE (IO,101) N,(COUNT(I),I=1,NC)
+101   FORMAT(/' TOTAL    (',I3,') "',10I4/(17X10I4))
+      XDF=NDF
+      CHI=CHI/R1
+      CALL CDTR(CHI,XDF,R3,R2,L)
+      IF (L.EQ.0) R3=1.0-R3
+      IF (L.NE.0) R3=0.
+15    WRITE (IO,108) CHI,NDF,R3
+108   FORMAT(' CHI-SQUARE=',F10.3,' WITH',I3,' D.F. (P=',F6.3,')')
+      RETURN
+      END
+      SUBROUTINE MATCH(DATA,CENTER,NC,M,CURENT,CHANGE,COUNT,TOTAL)
+      REAL DATA(M),CENTER(M,NC),TOTAL(M,NC)
+      INTEGER CURENT,CHANGE,COUNT(NC)
+      DIST=1.0E38
+      DO 1 I=1,NC
+      X=0.
+      DO 2 J=1,M
+2     X=X+(DATA(J)-CENTER(J,I))**2
+      IF (X.GT.DIST) GO TO 1
+      K=I
+      DIST=X
+1     CONTINUE
+      DO 3 J=1,M
+3     TOTAL(J,K)=TOTAL(J,K)+DATA(J)
+      COUNT(K)=COUNT(K)+1
+      IF (K.EQ.CURENT) RETURN
+      CHANGE=CHANGE+1
+      CURENT=K
+      RETURN
+      END
+      SUBROUTINE ZERO(NC,M,COUNT,TOTAL)
+      INTEGER COUNT(NC)
+      REAL TOTAL(M,NC)
+      DO 1 I=1,NC
+      COUNT(I)=0
+      DO 1 J=1,M
+1     TOTAL(J,I)=0.
+      RETURN
+      END
+      FUNCTION ISYM(K,L)
+      DIMENSION NUM(11)
+      DATA NUM/' ','1','2','3','4','5','6','7','8','9','*'/,
+     X ZERO/'0'/
+      IF (K.LT.0.OR.K.GT.9) GO TO 1
+      IS=NUM(K+1)
+      IF (K.EQ.0.AND.L.NE.NUM(1)) IS=ZERO
+      ISYM=IS
+      RETURN
+1     ISYM=NUM(11)
+      RETURN
+      END
+      SUBROUTINE PAIRIN(IFILE,ID,N,M,SPS,S,P,IDENT,IRANK,SUMARY,*)
+      REAL SPS(1),S(N),P(N,N)
+      INTEGER IRANK(1),SUMARY(26,26),IDENT(1),C,U,L,R
+      DATA C/'C'/,U/'U'/,L/'L'/,R/'R'/
+      IF (ID-C) 5,6,5
+6     ASSIGN 1 TO LOC
+      WRITE (5,101)
+101   FORMAT('0COMPLETE COMPARISON MATRIX INPUT.')
+      GO TO 13
+5     IF (ID-U) 7,8,7
+8     ASSIGN 2 TO LOC
+      WRITE (5,102)
+102   FORMAT('0UPPER TRIANGLE ONLY.')
+      GO TO 13
+7     IF (ID-L) 9,10,9
+10    ASSIGN 3 TO LOC
+      WRITE (5,103)
+103   FORMAT('0LOWER TRIANGLE ONLY.')
+      GO TO 13
+9     IF (ID-R) 11,12,11
+12    ASSIGN 4 TO LOC
+      WRITE (5,104)
+104   FORMAT('0RANDOM ORDER INPUT.')
+      GO TO 13
+11    WRITE (5,100)
+100   FORMAT('0INVALID REPLY.')
+      CALL CLEAR
+      RETURN
+13    NN=N-1
+      NS=N*N
+      ASSIGN 34 TO LOC2
+      MS=0
+35    DO 14 K=1,500
+      SS=0.0
+      DO 15 I=1,N
+      S(I)=0.0
+      DO 15 J=1,N
+15    P(J,I)=0.0
+      GO TO LOC,(1,2,3,4)
+1     DO 16 I=1,N
+      DO 16 J=1,N
+      IF (I-J) 17,16,17
+17    CALL IREAD(IFILE,IDUM,P(I,J))
+      SS=SS+P(I,J)*P(I,J)
+16    CONTINUE
+      IF (SS) 18,18,20
+2     DO 19 I=1,NN
+      KK=I+1
+      DO 19 J=KK,N
+      CALL IREAD(IFILE,IDUM,P(I,J))
+      P(J,I)=-P(I,J)
+19    SS=SS+P(I,J)*P(I,J)
+      IF (SS) 18,18,20
+3     DO 21 I=2,N
+      KK=I-1
+      DO 21 J=1,KK
+      CALL IREAD(IFILE,IDUM,P(I,J))
+      P(J,I)=-P(I,J)
+21    SS=SS+P(I,J)*P(I,J)
+      IF (SS) 18,18,20
+4     DO 22 KK=1,NS
+      CALL IREAD(IFILE,II,DUM)
+      I=MAX0(1,MIN0(II,N))
+      IF (I-II) 23,24,23
+24    CALL IREAD(IFILE,J,DUM)
+      J=MAX0(1,MIN0(J,N))
+      CALL IREAD(IFILE,IDUM,P(I,J))
+22    SS=SS+P(I,J)*P(I,J)
+23    IF (SS) 18,18,20
+20    MM=K
+      DO 26 I=1,N
+      DO 26 J=1,N
+      IF (I-J) 27,26,27
+27    S(I)=S(I)+P(I,J)-P(J,I)
+26    CONTINUE
+      KK=0
+      DO 36 I=1,N
+      IRANK(I)=I
+      DO 36 J=1,I
+      KK=KK+1
+36    SPS(KK)=SPS(KK)+S(I)*S(J)
+      DO 28 I=1,NN
+      II=IRANK(I)
+      KK=I+1
+      DO 29 J=KK,N
+      JJ=IRANK(J)
+      IF (S(II)-S(JJ)) 30,29,29
+30    II=JJ
+      IJ=J
+29    CONTINUE
+      IF (II-IRANK(I)) 31,28,31
+31    IRANK(IJ)=IRANK(I)
+      IRANK(I)=II
+28    CONTINUE
+      DO 33 I=1,N
+      KK=IRANK(I)
+      GO TO LOC2,(33,34)
+34    IF (I-1) 32,32,33
+32    IDENT(K)=KK
+33    SUMARY(KK,I)=SUMARY(KK,I)+1
+14    WRITE (9) (S(I),I=1,N)
+      MS=MS+500
+      ASSIGN 33 TO LOC2
+      GO TO 35
+18    M=MM+MS
+      RETURN
+      END
+      SUBROUTINE INPUT(IV,RV)
+      INTEGER*2 IN(256),ID(10),TOP,POINT,BLANK,AST,RPR,I,J,K
+      DATA ID/'0','1','2','3','4','5','6','7','8','9'/,
+     XPOINT/73/,TOP/72/,BLANK/' '/,MINUS/'-'/,
+     X COMMA/','/,DOT/'.'/,AST/'*'/,MULT/0/,LPR/'('/,RPR/')'/
+     X,NULL/'#'/
+      INTEGER SYM(1)
+      LOGICAL TF,SIGN,T2
+      ITAPE=5
+14    ASSIGN 16 TO LOC
+      T2=.TRUE.
+      IF (MULT.GT.0) GO TO 21
+17    IF (POINT.LE.TOP) GO TO 1
+3     READ (ITAPE,100,END=19) (IN(I),I=1,72)
+100   FORMAT(72A1)
+      POINT=1
+      TOP=72
+      K=73
+      DO 2 I=1,72
+      K=K-1
+      IF (IN(K).NE.BLANK) GO TO 4
+2     CONTINUE
+19    IF (.NOT.T2) GO TO 18
+      IV=0
+      RV=0.0
+      RETURN
+4     TOP=K
+24    DO 25 I=1,TOP
+      IF (IN(I).NE.LPR) GO TO 25
+      ILPR=I
+      GO TO 26
+25    CONTINUE
+      GO TO 1
+26    NR=0
+      DO 27 I=ILPR,TOP
+      IF (IN(I).EQ.LPR) NR=NR+1
+      IF (IN(I).EQ.RPR) NR=NR-1
+      IF (NR.NE.0) GO TO 27
+      IRPR=I
+      GO TO 28
+27    CONTINUE
+      IN(ILPR)=NULL
+      GO TO 24
+28    NR=1
+      I1=ILPR
+      IF (I1.EQ.1) GO TO 29
+      I2=I1-1
+      J1=I2
+      DO 30 I=1,J2
+      IF (IN(I2).NE.BLANK.AND.IN(I2).NE.AST) GO TO 31
+30    I2=I2-1
+      I1=1
+      GO TO 29
+31    I1=I2
+      DO 32 I=1,I2
+      IF (IN(I1).EQ.BLANK.OR.IN(I1).EQ.COMMA) GO TO 33
+32    I1=I1-1
+      I1=0
+33    I1=I1+1
+      NR=0
+      IF (I1.GT.I2) GO TO 37
+      DO 34 I=I1,I2
+      L=0
+      DO 35 J=1,10
+      IF (IN(I).EQ.ID(J)) GO TO 36
+35    L=L+1
+      GO TO 34
+36    NR=10*NR+L
+34    CONTINUE
+37    NR=MAX0(1,NR)
+29    I2=I1-1
+      J1=ILPR+1
+      J2=IRPR-1
+      IF (J2.LT.J1) GO TO 38
+      DO 39 I=J1,J2
+      I2=I2+1
+39    IN(I2)=IN(I)
+38    NC=J2-J1+1
+      J1=I1+NC*NR
+      J2=TOP-IRPR
+      IF (J2.LE.0) GO TO 40
+      K1=J1+J2
+      K2=TOP+1
+      DO 41 I=1,J2
+      IF (IRPR.GT.J1-1.AND.J1+I-1.LT.256) IN(J1+I-1)=IN(I+IRPR)
+41    IF (IRPR.LT.J1-1.AND.K1-I.LE.256) IN(K1-I)=IN(K2-I)
+40    TOP=MIN0(J1+J2-1,256)
+      IF (NR.LE.1) GO TO 24
+      NR=NR-1
+      J1=I1
+      J2=I1+NC-1
+      DO 42 I=1,NR
+      IF (J1.GT.J2) GO TO 42
+      DO 43 J=J1,J2
+      I2=I2+1
+43    IF (I2.LE.256) IN(I2)=IN(J)
+42    CONTINUE
+      GO TO 24
+1     IV=0
+      RV=0.
+      X=1.
+      Y=1.
+      J=0
+      SIGN=.FALSE.
+      TF=.TRUE.
+8     IF (POINT.GT.TOP.AND..NOT.TF) GO TO 12
+      IF (POINT.GT.TOP) GO TO 3
+      K=IN(POINT)
+      POINT=POINT+1
+      IF ((K.EQ.BLANK.AND..NOT.TF).OR.K.EQ.COMMA) GO TO 12
+      IF (K.EQ.MINUS) SIGN=.TRUE.
+      IF (K.EQ.BLANK) GO TO 8
+      GO TO LOC, (15,16)
+16    IF (K.EQ.AST) GO TO 22
+      IF (K.EQ.LPR) GO TO 24
+      IF (K.NE.DOT.OR.Y.NE.1.0) GO TO 9
+      Y=0.1
+      GO TO 8
+9     L=-1
+      DO 10 I=1,10
+      L=L+1
+      IF (ID(I).EQ.K) GO TO 11
+10    CONTINUE
+      GO TO 8
+11    X=X*Y
+      TF=.FALSE.
+      J=J+1
+      IF (J.GE.10.OR.Y.NE.1.0) GO TO 13
+      IV=10*IV+L
+      RV=IV
+      GO TO 8
+13    RV=10.0*RV+FLOAT(L)
+      GO TO 8
+12    IF (.NOT.T2) GO TO 18
+      RV=X*RV
+      IF (.NOT.SIGN) GO TO 23
+      IV=-IV
+      RV=-RV
+23    IVS=IV
+      RVS=RV
+      RETURN
+22    IF (IV.LE.0) GO TO 8
+      MULT=IV-1
+      GO TO 1
+21    IV=IVS
+      RV=RVS
+      MULT=MULT-1
+      RETURN
+      CALL IREAD(IFILE,IV,RV)
+      IF (ITAPE.EQ.IFILE) GO TO 14
+      ITAPE=IFILE
+      TOP=72
+      POINT=73
+      MULT=0
+      GO TO 14
+      CALL CLEAR
+      TOP=72
+      POINT=73
+      MULT=0
+      RETURN
+      CALL INSYM(IFILE,SYM,LENGTH)
+      ILN=0
+      ITAPE=IFILE
+      ASSIGN 15 TO LOC
+      T2=.FALSE.
+      GO TO 17
+15    TF=.FALSE.
+      ILN=ILN+1
+      IF (K.EQ.AST) K=BLANK
+      KI=K
+      CALL MOVE(SYM,ILN,KI,3,1)
+      IF (ILN.LT.LENGTH) GO TO 8
+20    IF (POINT.GT.TOP) RETURN
+      K=IN(POINT)
+      POINT=POINT+1
+      IF (K.EQ.BLANK.OR.K.EQ.COMMA) RETURN
+      GO TO 20
+18    ILN=ILN+1
+      KI=BLANK
+      CALL MOVE(SYM,ILN,KI,3,1)
+      IF (ILN.LT.LENGTH) GO TO 18
+      RETURN
+      CALL STACKZ('*')
+      IF (POINT.LE.TOP.OR.MULT.GT.0) RETURN
+      RETURN
+      END
+      SUBROUTINE IFD(FILE,CHARA,POINT)
+      INTEGER FILE,POINT,SIZE,ANS,DELETE,APPEND,RETRY
+      LOGICAL TF,PRINT
+      REAL*8 NAME,TYPE,CHARA,FILEDF,CON,PTR,BLANK,STOP,TEMP,RETYY
+     *,DUMMY
+      DATA DELETE/'E'/,APPEND/'A'/,RETRY/'R'/,FILEDF/'FILEDEF*'/,
+     *CON/'CON     '/
+     X,PTR/'PTR     '/,BLANK/'        '/,STOP/'STOP    '/,
+     XRETYY/'RETRY   '/,DUMMY/'DUM     '/
+      TF=.TRUE.
+      IP=0
+2     PRINT=.TRUE.
+      CALL STACKZ(&13)
+      PRINT=.FALSE.
+      WRITE (5,100) CHARA
+100   FORMAT(/' TYPE :',A8,': FILE NAME AND TYPE" --')
+13    CALL INSYM(5,NAME,8)
+      CALL STACKZ(&5)
+      IF (NAME.EQ.FILEDF) RETURN
+      IF (NAME.EQ.DUMMY) GO TO 9
+      IF (TF.AND.NAME.EQ.CON) GO TO 9
+      IF (.NOT.TF.AND.NAME.EQ.PTR) GO TO 9
+      IF (NAME.EQ.STOP) GO TO 6
+      WRITE (5,107) NAME
+107   FORMAT('0ALL FILES ON CSS REQUIRE TWO NAMES, A FILE NAME AND TYPE.
+     X'/' YOU HAVE ONLY SPECIFIED ONE" :',A8,':. WHAT TYPE SHOULD BE USE
+     XD '/' (TYPE :RETRY: TO START OVER.) --')
+      CALL INSYM(5,TYPE,8)
+      IF (TYPE.EQ.RETYY) GO TO 2
+      GO TO 14
+5     CALL INSYM(5,TYPE,8)
+14    IF (.NOT.TF) CALL STACKZ(&4)
+      SIZE=80
+      GO TO 3
+4     CALL INPUT(SIZE,DUM)
+3     POINT=-1
+       CALL DEFINE(FILE,NAME,TYPE,POINT,SIZE,&1)
+       IF (TF) GO TO 8
+      IP=IP+1
+      IF (IP.GT.3) GO TO 6
+       WRITE (5,101) NAME,TYPE
+101   FORMAT(/' FILE :',A8,1X,A8,': ALREADY EXISTS. ACTION  --')
+      NP=0
+15    CALL CLEAR
+      ANS=RETRY
+      CALL INSYM(5,ANS,1)
+      IF (ANS.EQ.APPEND) RETURN
+      IF (ANS.EQ.RETRY) GO TO 2
+      IF (ANS.EQ.DELETE) GO TO 7
+      NP=NP+1
+      IF (NP.GT.3) GO TO 18
+      WRITE (5,105)
+105   FORMAT('0INVALID REPLY. VALID ANSWERS ARE"'
+     X/' :RETRY: (TO TRY A NEW FILE NAME AND TYPE),'
+     X/' :APPEND: (TO ADD THE NEW OUTPUT TO THIS FILE) AND'
+     X/' :ERASE: (TO ERASE THIS FILE AND GENERATE A NEW ONE).'
+     X//' ACTION  --')
+      GO TO 15
+18    WRITE (5,110)
+110   FORMAT('0INVALID REPLY. :RETRY: ASSUMED.')
+      CALL CLEAR
+      GO TO 2
+1     IF (.NOT.TF) GO TO 16
+      IP=IP+1
+      IF (IP.GT.3) GO TO 6
+      WRITE (5,103) NAME,TYPE
+103   FORMAT(' FILE ',A8,1X,A8,' DOES NOT EXIST. TRY AGAIN.')
+      GO TO 2
+      CALL OFD(FILE,CHARA,'POINT')
+      TF=.FALSE.
+      IP=0
+      GO TO 2
+6     WRITE (5,104)
+104   FORMAT('0EXECUTION TERMINATED.')
+      CALL EXIT
+7     CALL RENAME(NAME,TYPE,0,0,0,IERR)
+      GO TO 3
+8     POINT=1
+      IF (PRINT) WRITE (5,108) NAME,TYPE,CHARA
+108   FORMAT('0FILE :',A8,1X,A8,': OPENED AS :',A8,': FOR INPUT.')
+      RETURN
+16    IF (PRINT) WRITE (5,109) NAME,TYPE,CHARA
+109   FORMAT('0FILE :',A8,1X,A8,': OPENED AS :',A8,': FOR OUTPUT.')
+      RETURN
+9     TYPE=BLANK
+      IF (NAME.EQ.PTR) CALL CSS(POINT,'ROUTE   ','E       ','REMOTE  ',
+     X'NYC     ')
+      K=FILE
+      DO 10 J=1,8
+      L=K/10
+      I=240+K-10*L
+      IF (J.EQ.1) GO TO 12
+      K=J-1
+      TEMP=BLANK
+      CALL MOVE(TEMP,2,TYPE,1,K)
+      TYPE=TEMP
+12    CALL MOVE(TYPE,1,I,4,1)
+      K=L
+      IF (K.LE.0) GO TO 11
+10    CONTINUE
+11    CALL CSS(POINT,'FILEDEF ',TYPE,NAME)
+      IF (POINT.EQ.0) GO TO 17
+      WRITE (5,106) TYPE,NAME,POINT
+106   FORMAT('0FILEDEF ',A8,' ',A8,' ERROR CODE=',I5)
+      CALL EXIT
+17    WRITE (5,111) TYPE,NAME
+111   FORMAT('0CSS :FILEDEF ',A3,1X,A8,': EXECUTED.')
+      RETURN
+      END
+   -m ~‘
