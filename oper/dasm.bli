@@ -1,0 +1,175 @@
+SQLN,0);
+
+%MORE INITIALIZATION%
+
+
+IL_.INF[K$IDADR];
+OL_.OUTF[K$ODADR];
+
+ERRCT_IR_IS_IG_TLOC_0;  %INITIALIZATION%
+INCR IR FROM 0 TO 128 DO LNAME[.IR]_BLANKS;
+
+
+%EMIT FIRST PART OF FILE%
+$UOUTI(.OUTF);          % SET OUTPUT TO OUTF %
+SPRINT(' MODULE DTBDEF(DOLLAR,ENTRIES=($D$$))=');
+$UOUTL();
+SPRINT(' BEGIN ');
+$UOUTL();
+SPRINT(' BIND DTBL = PLIT( DTBL$ GLOBALLY NAMES ');
+$UOUTL();
+UNTIL .INF[K$EOFILE]
+DO 
+GRINDER:BEGIN
+        $KREAD(INF);
+        RPTR_.IL[C$BPTR];       %!!!FIX FIX FIX!!%
+        %CHECK FOR LABEL%
+        STATE_NSTATE_0;
+        T_.RPTR;
+        T_SCANI(T);
+        IF .T EQL "!" OR .T EQL "?M" THEN LEAVE GRINDER;
+        %EARLY EXIT%
+
+        IF .T NEQ " "  THEN
+                BEGIN %A LABEL%
+                TOKEN();
+                IF .STATE EQL 2 THEN
+                        BEGIN %A GLOBAL NAME%
+                        GNAME[.IG]_.WORD;
+                        GLOCS[.IG]_.TLOC;
+                        IG_.IG+1
+                        END
+                ELSE IF .STATE EQL 5 THEN
+                        LNAME[.IR]_.WORD %AN ORDINARY LABEL%
+                ELSE
+                        BEGIN %AN ERROR%
+                        ERROR(3);
+                        LEAVE GRINDER
+                        END
+                END;
+
+        %PROCESS REMAINDER OF THE LINE%
+        TOKEN();
+        IF .STATE EQL 5 AND .WORD EQL IEND THEN
+                BEGIN %PROCESS AN END%
+                PROCESS();
+                LEAVE GRINDER
+                END
+        ELSE IF .STATE EQL 1 THEN LEAVE GRINDER;
+        WSAVE _ .WORD ;   %READ IN FIRST OPERAND%
+        TOKEN();
+        %NOW DO THE RIGHT THING TO THAT OPERATOR AND OPERAND(S)%
+
+
+        CASE .STATE OF SET
+
+        %STATE=0...OBVIOUS ERROR%
+                BEGIN
+                
+                ERROR(4);
+                $UMESS(FTLMS$<36,7>);
+                $FATAL(0);
+                END;
+
+        %STATE=1..END OF LINE..NO OPERANDS%
+                BEGIN
+                INST(.WSAVE,BLANKS,BLANKS);
+                END;
+
+        %STATE=2..GLOBAL LABEL AT THE WRONG TIME AND PLACE%
+                BEGIN
+                ERROR(4);
+                END;
+
+        %STATE=3..FIRST OPERAND WAS A NUMBER%
+                BEGIN
+                WSAVB_.WORD;
+                WORD_BLANKS;
+                TOKEN();
+                INST(.WSAVE,.WSAVB,.WORD);
+                END;
+
+        %STATE=4..AN EQUATE..%
+                BEGIN
+                TOKEN();
+                IF .STATE EQL 3 THEN 
+                        BEGIN %BETTER BE A NUMBER%
+                        T_WHILST(.IS,ESYM,.WSAVE);
+                        IF .T LSS .IS THEN
+                           EVAL[.T]_.WORD  %RE-DEFINED EQUATE%
+                        ELSE
+                        BEGIN
+                        ESYM[.IS]  _.WSAVE;
+                        EVAL[.IS]  _.WORD;
+                        IS_.IS+1;
+                        IF .IS GEQ EQUMAX THEN ERROR(2);
+                        END %SET NEW VALUE FOR NEW SYMBOL%
+                        END
+                ELSE ERROR(0);
+                END;
+
+
+        %STATE=5.. A STRING FOR THE OPERAND%
+                BEGIN
+                WSAVB_.WORD;
+                WORD _BLANKS;
+                TOKEN();
+                INST(.WSAVE,.WSAVB,.WORD)
+                END;
+        TES;
+        END;
+
+%EMIT END OF PLIT %
+SPRINT(' 0); ');
+$UOUTL();
+
+SPRINT(' BIND DTBLP = PLIT( DTBLP$ GLOBALLY NAMES ');
+$UOUTL();
+INCR T FROM 0 TO .IG-1 DO
+        BEGIN
+        $UOCHR("%");
+        HUNK(GNAME[.T]);
+        $UOCHR("%");
+        SPRINT('     ');
+        $UOCHR("#");
+        $UAPOC(.GLOCS[.T]);
+        $UOCHR(",");
+        $UOUTL();
+        END;
+SPRINT('          0);');
+$UOUTL();
+
+%GENERATE DAC$ PLIT HERE%
+SPRINT(' BIND DAC = PLIT (DAC$ GLOBALLY NAMES ');
+$UOUTL();
+SPRINT(' 0,0,64,96,128,160,#442,#462,16,#445,0,192,224,256,288,320) ;');
+$UOUTL();
+%NOTE AC7 = ACC11,@,AC2...USEFUL FOR STACK ADDRESS%
+
+SPRINT('GLOBAL ROUTINE $D$$ = 0 ; %DUMMY ROUTINE%');
+$UOUTL();
+IF .ERRCT NEQ 0 THEN
+        BEGIN
+        SPRINT('ERROR**ERROR**ERROR**ERROR');
+        $UOUTL();
+        END;
+SPRINT('END ELUDOM');
+$UOUTL();
+
+$UOUTI(.CONTF$);        % RESUME OUTPUT TO TERMINAL %
+IF .ERRCT EQL 0 THEN
+        BEGIN
+        SPRINT('CONGRATULATIONS .. NO ERRORS');
+        $UOUTL();
+        END
+ELSE
+        BEGIN
+        SPRINT(' THERE WERE ');
+        $UAPDC(.ERRCT);
+        SPRINT(' ERRORS');
+        $UOUTL();
+        END;
+$KFREEFCB(INF);
+$KFREEFCB(OUTF);
+
+END ELUDOM
