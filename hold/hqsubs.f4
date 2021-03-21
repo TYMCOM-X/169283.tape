@@ -1,0 +1,634 @@
+C NEW QSUBS
+C       IPGMSW=1 FOR NETWORK    2 FOR COMMAND     3 FOR FASTAB
+C       IPBASE FOR COMMAND SERIES BASE LOCATIONS
+        SUBROUTINE QUAL(IBAT,IBNO,IBASES,IB,JB,NCDS,NDIC,IDIC,
+     1         NDSTG,IDSTG,IUNISW,IER,IPGMSW,IPBASE)
+        DIMENSION IBASES(IB,JB),IDIC(3,NDIC),IDSTG(NDSTG),IN(11),
+     1         LTOT(4),INTGR(0/9),LPCHS(12),IPNCH(12),IWD(2),
+     2         IPROC(7),LBIT(12),JBIT(12),IPBASE(430,0/6)
+C
+        DATA LTOT/'O','T','A','L'/,INTGR/'0','1','2','3','4',
+     1         '5','6','7','8','9'/,LPCHS/'1','2','3','4',
+     2         '5','6','7','8','9','0','X','Y'/
+        DATA LBIT/9,8,7,6,5,4,3,2,1,10,11,12/
+C
+        IER=0
+        ICH=80
+        KSTCK=0
+        MSTCK=IBAT-1
+        NPROC=0
+C       LAST=1(AND OR) 2(NOT) 3('(') 4(CODE BASE DICT) 5(')')
+       LAST=0
+        IF(IPGMSW.NE.3) GO TO 100
+        DO 50 J=1,10
+        IX=IGETCH(ICH,MX)
+        IF(IX.NE.' ') GO TO 60
+50      CONTINUE
+        IER=10
+        RETURN
+60      ICH=ICH-1
+100     DO 110 I=2,11
+110     IN(I)=' '
+        ASSIGN 100 TO IPRTN
+120     IN(1)=IGETCH(ICH,MX)
+        IX=IN(1)
+        IF(IX.EQ.'A') GO TO 200
+        IF(IX.EQ.'T') GO TO 250
+        IF(IX.EQ.'B') GO TO 300
+        IF(IX.EQ.'O') GO TO 450
+        IF(IX.EQ.'N') GO TO 500
+        IF(IX.EQ.'C') GO TO 600
+        IF(IX.EQ.' ') GO TO 120
+        IF(IX.EQ.'(') GO TO 550
+        IF(IX.EQ.')') GO TO 560
+        IF(IX.EQ.'.') GO TO 570
+        IF(IX.EQ.'@') GO TO 2000
+        IF(IX.EQ.'!') GO TO 460
+        IF(IX.EQ.'&') GO TO 410
+        K=1
+        GO TO 1000
+C A/LL/ A/ND/ A//
+200     IN(2)=IGETCH(ICH,MX)
+        IF(IN(2).NE.'L') GO TO 400
+        IN(3)=IGETCH(ICH,MX)
+        K=3
+        IF(IN(3).NE.'L') GO TO 1000
+210     IF(NPROC.NE.0) GO TO 1200
+        IN(4)=IGETCH(ICH,MX)
+        IF(IN(4).EQ.' ') GO TO 210
+        K=4
+        IF(IN(4).NE.'.') GO TO 1200
+230     DO 240 I=1,IB
+240     IBASES(I,IBAT)="777777777777
+        LAST=4
+        MSTCK=MSTCK+1
+        GO TO 570
+C T/OTAL/
+250     DO 260 K=2,5
+        IN(K)=IGETCH(ICH,MX)
+        IF(IN(K).NE.LTOT(K-1)) GO TO 1000
+260     CONTINUE
+        GO TO 210
+C B/ASE/
+300     IN(2)=IGETCH(ICH,MX)
+        IF(IN(2).EQ.'(') GO TO 320
+        K=2
+        IF(IN(2).NE.'A') GO TO 1000
+        IN(3)=IGETCH(ICH,MX)
+        K=3
+        IF(IN(3).NE.'S') GO TO 1000
+        IN(4)=IGETCH(ICH,MX)
+        K=4
+        IF(IN(4).NE.'E') GO TO 1000
+        IN(5)=IGETCH(ICH,MX)
+        IF(IN(5).NE.'(') GO TO 1200
+320     LOC=0
+330     L=IGETCH(ICH,MX)
+        DO 340 I=0,9
+        IF(L.EQ.INTGR(I)) GO TO 350
+340     CONTINUE
+        IF(L.EQ.' ') GO TO 330
+        IF(L.NE.')') GO TO 1200
+       IF(LOC.LT.1) GO TO 1200
+        IF(LOC.GT.IBNO) GO TO 1200
+        IF(LAST.LE.3) GO TO 345
+        ASSIGN 345 TO IPRTN
+        IPROC(1)=-4
+        GO TO 1100
+345     ASSIGN 100 TO IPRTN
+        IPROC(1)=-100-LOC
+        LAST=4
+        GO TO 1100
+350     LOC=LOC*10+I
+        GO TO 330
+C A/ND/
+400     IF(IN(2).EQ.' ') GO TO 410
+        K=2
+        IF(IN(2).NE.'N') GO TO 1000
+        IN(3)=IGETCH(ICH,MX)
+        K=3
+        IF(IN(3).NE.'D') GO TO 1000
+        IN(4)=IGETCH(ICH,MX)
+        K=4
+        IF(IN(4).NE.' ') GO TO 1000
+410     IPROC(1)=-4
+       IF(LAST.LT.4) GO TO 1200
+       LAST=1
+        GO TO 1100
+C O/R/
+450     IN(2)=IGETCH(ICH,MX)
+        IF(IN(2).EQ.' ') GO TO 460
+        K=2
+        IF(IN(2).NE.'R') GO TO 1000
+        IN(3)=IGETCH(ICH,MX)
+        K=3
+        IF(IN(3).NE.' ') GO TO 1000
+460     IPROC(1)=-3
+       IF(LAST.LT.4) GO TO 1200
+       LAST=1
+        GO TO 1100
+C N/OT/
+500     IN(2)=IGETCH(ICH,MX)
+        IF(IN(2).EQ.' ') GO TO 510
+        K=2
+        IF(IN(2).NE.'O') GO TO 1000
+        IN(3)=IGETCH(ICH,MX)
+        K=3
+        IF(IN(3).NE.'T') GO TO 1000
+        IN(4)=IGETCH(ICH,MX)
+        K=4
+        IF(IN(4).NE.' ') GO TO 1000
+510     IPROC(1)=-5
+       IF(LAST.EQ.2) GO TO 1200
+        IF(LAST.LE.3) GO TO 520
+        ASSIGN 520 TO IPRTN
+        IPROC(1)=-4
+        GO TO 1100
+        ASSIGN 100 TO IPRTN
+520    LAST=2
+        GO TO 1100
+C (
+550     IPROC(1)=-1
+       IF(LAST.GT.3) GO TO 1200
+       LAST=3
+        GO TO 1100
+C )
+560     IPROC(1)=-2
+       IF(LAST.LT.4) GO TO 1200
+       LAST=5
+        GO TO 1100
+C .
+570    IF(LAST.LT.4) GO TO 1200
+        IF(IUNISW.NE.-2) GO TO 575
+        IUNISW=0
+575     IPROC(1)=-6
+        ASSIGN 580 TO IPRTN
+        GO TO 1100
+580     IF(IUNISW.EQ.0) RETURN
+        IF(IUNISW.EQ.-1) GO TO 590
+        DO 585 I=1,IB
+585     IBASES(I,IBAT)=IBASES(I,IBAT).AND.IBASES(I,1)
+        RETURN
+590     ICH=ICH-1
+        IWD(1)='TV-RE'
+        IWD(2)='SP   '
+        IUNISW=-2
+        GO TO 1025
+C C/ODE/
+600     IN(2)=IGETCH(ICH,MX)
+        K=2
+        IF(IN(2).EQ.'(') GO TO 610
+        IF(IN(2).NE.'O') GO TO 1000
+        IN(3)=IGETCH(ICH,MX)
+        K=3
+        IF(IN(3).NE.'D') GO TO 1000
+        IN(4)=IGETCH(ICH,MX)
+        K=4
+        IF(IN(4).NE.'E') GO TO 1000
+        IN(5)=IGETCH(ICH,MX)
+        K=5
+        IF(IN(5).NE.'(') GO TO 1200
+610     ICD=0
+620     L=IGETCH(ICH,MX)
+        DO 630 I=0,9
+        IF(L.EQ.INTGR(I)) GO TO 640
+630     CONTINUE
+        IF(L.EQ.' ') GO TO 620
+        IF(L.EQ.',') GO TO 650
+        GO TO 1200
+640     ICD=ICD*10+I
+        GO TO 620
+650     IF((ICD.LE.0).OR.(ICD.GT.NCDS)) GO TO 1200
+        ICOL=0
+660     L=IGETCH(ICH,MX)
+        DO 670 I=0,9
+        IF(L.EQ.INTGR(I)) GO TO 680
+670     CONTINUE
+        IF(L.EQ.' ') GO TO 660
+        IF(L.EQ.',') GO TO 690
+        GO TO 1200
+680     ICOL=ICOL*10+I
+        GO TO 660
+690     IF((ICOL.LE.0).OR.(ICOL.GT.80)) GO TO 1200
+700     L=IGETCH(ICH,MX)
+        IF(L.EQ.' ') GO TO 700
+        DO 710 ILO=1,12
+        IF(L.EQ.LPCHS(ILO)) GO TO 720
+710     CONTINUE
+        GO TO 1200
+720     L=IGETCH(ICH,MX)
+        IF(L.EQ.' ') GO TO 720
+        IF(L.EQ.'-') GO TO 730
+        IF(L.NE.')') GO TO 1200
+        IHI=ILO
+        GO TO 800
+730     L=IGETCH(ICH,MX)
+        IF(L.EQ.' ') GO TO 730
+        DO 740 IHI=1,12
+        IF(L.EQ.LPCHS(IHI)) GO TO 750
+740     CONTINUE
+        GO TO 1200
+750     L=IGETCH(ICH,MX)
+        IF(L.EQ.' ') GOTO 750
+        IF(L.NE.')') GO TO 1200
+800     LOC=ICD*80+ICOL-46
+        CALL RECIN(11,IPNT,1,LOC,IER)
+        IF(IER.NE.0) GO TO 1120
+        CALL BRKDP(IPNT,JCOL,IPACK,IPNCH,LOC)
+        IF(JCOL.EQ.(ICOL.AND."37)) GO TO 820
+810     TYPE 811,ICD,ICOL
+811     FORMAT('+CARD',I3,', COLUMN',I3,' INVALID.'/)
+815     IER=1
+        RETURN
+820     IF(ILO.GT.IHI) GO TO 1200
+       IF(LAST.LE.3) GO TO 825
+        IPROC(1)=-4
+        ASSIGN 825 TO IPRTN
+        GO TO 1100
+825    LAST=4
+        IF(IPACK.NE.0) GO TO 900
+C UNPACKED
+        IPROC(1)=-1
+        ASSIGN 830 TO IPRTN
+        GO TO 1100
+830     IORSW=0
+        DO 880 K=1,12
+        I=K-3
+        IF(I.LE.0) I=10-I
+        IF((I.GE.ILO).AND.(I.LE.IHI)) GO TO 850
+        GO TO 870
+850     IF(IPNCH(K).NE.1) GO TO 890
+        IF(IORSW.EQ.0) GOTO 860
+        IPROC(1)=-3
+        ASSIGN 860 TO IPRTN
+        GO TO 1100
+860     IORSW=1
+        IPROC(1)=LOC
+        ASSIGN 870 TO IPRTN
+        GO TO 1100
+870     IF(IPNCH(K).EQ.1) LOC=LOC+1
+880     CONTINUE
+        ASSIGN 100 TO IPRTN
+        GO TO 560
+890     TYPE 891,ICD,ICOL,LPCHS(I)
+891     FORMAT('+CARD',I3,', COLUMN',I3,', PUNCH ',A1,' INVALID.'/)
+        GO TO 815
+C PACKED
+900     IPROC(1)=-7
+        IPROC(2)=ILO
+        IPROC(3)=IHI
+        DO 905 I=1,12
+905     JBIT(I)=0
+        DO 910 I=4,7
+910     IPROC(I)=0
+        L=0
+        DO 920 I=1,12
+        LL=LBIT(I)+3
+        IF(LL.GT.12) LL=16-LL
+        IF(IPNCH(LL).NE.1) GO TO 920
+        L=L+1
+        JBIT(L)=LBIT(I)
+920     CONTINUE
+        IF(L.GE.8) GO TO 930
+        IF(L.GE.4) GOTO 950
+        IF(L.GE.2) GO TO 960
+        IF(L.GE.1) GO TO 970
+        GO TO 810
+930     IPROC(4)=LOC
+        IPROC(5)=LOC+1
+        IPROC(6)=LOC+2
+        IPROC(7)=LOC+3
+940     ASSIGN 100 TO IPRTN
+        GO TO 1100
+950     IPROC(5)=LOC
+        IPROC(6)=LOC+1
+        IPROC(7)=LOC+2
+        GO TO 940
+960     IPROC(6)=LOC
+        IPROC(7)=LOC+1
+        GO TO 940
+970     IPROC(7)=LOC
+        GO TO 940
+C DICTIONARY LOOK UP
+1000    IF(IN(K).EQ.' ') GO TO 1020
+       I=K
+       IF((IN(K).EQ.'.') .OR. (IN(K).EQ.')')) GO TO 1015
+        KP=K+1
+        DO 1010 I=KP,11
+        IN(I)=IGETCH(ICH,MX)
+        IF(IN(I).EQ.' ') GO TO 1020
+       IF((IN(I).EQ.'.') .OR. (IN(I).EQ.')')) GO TO 1015
+1010    CONTINUE
+        GO TO 1200
+1015   IN(I)=' '
+       ICH=ICH-1
+1020    ENCODE(5,1021,IWD(1))(IN(I),I=1,5)
+1021    FORMAT(5A1)
+        ENCODE(5,1021,IWD(2))(IN(I),I=6,10)
+1025    DO 1040 I=1,NDIC
+        DO 1030 J=1,2
+        IF(IDIC(J,I).NE.IWD(J)) GO TO 1040
+1030    CONTINUE
+        GO TO 1050
+1040    CONTINUE
+        GO TO 1200
+1050    CALL UNPACK(IDIC(3,I),ILO,IHI)
+        IF((ILO.LT.1).OR.(IHI.GT.NDSTG)) GO TO 1200
+       IF(LAST.LE.3) GO TO 1055
+        ASSIGN 1055 TO IPRTN
+        IPROC(1)=-4
+        GO TO 1100
+1055   LAST=4
+        ASSIGN 1060 TO IPRTN
+        IPROC(1)=-1
+        GO TO 1100
+1060    ASSIGN 1075 TO IPRTN
+        I=ILO
+1070    IPROC(1)=IDSTG(I)
+        IF(IDSTG(I).EQ.-7) GO TO 1080
+        GO TO 1100
+1075    I=I+1
+        IF(I-IHI) 1070,1070,1090
+1080    I=I+1
+        CALL UNPACK(IDSTG(I),IPROC(2),IPROC(3))
+        I=I+1
+        CALL BRKDP(IDSTG(I),JCOL,IPACK,IPNCH,LOC)
+        DO 1082 L=1,12
+1082    JBIT(L)=0
+        L=0
+        DO 1084 II=1,12
+        LL=LBIT(II)+3
+        IF(LL.GT.12) LL=16-LL
+        IF(IPNCH(LL).NE.1) GO TO 1084
+        L=L+1
+        JBIT(L)=LBIT(II)
+1084    CONTINUE
+        DO 1085 J=4,7
+        I=I+1
+1085    IPROC(J)=IDSTG(I)
+        GO TO 1100
+1090    ASSIGN 100 TO IPRTN
+        GO TO 560
+C PROCESS
+1100    CALL POLISH(IPROC,IBAT,IBASES,IB,JB,IER,KSTCK,MSTCK,JBIT,
+     1          IPGMSW,IPBASE)
+C       TYPE 1101,IPROC(1),IBAT,KSTCK,MSTCK,IER
+1101    FORMAT(I5,4I2)
+        NPROC=NPROC+1
+        IF(IER.EQ.0) GO TO IPRTN
+        K=0
+        GO TO (1110,1200,1200,1110,1120,1130),IER
+1110    TYPE 1111
+1111    FORMAT('+STATEMENT TOO COMPLEX.'/)
+        GO TO 815
+1120    TYPE 1121
+1121    FORMAT('+I/O ERROR ON DATA FILE.'/)
+        GO TO 1140
+1130    TYPE 1131
+1131    FORMAT('+I/O ERROR ON BASE FILE.'/)
+1140    TYPE 1141
+1141    FORMAT(' CALL TELMAR (212) 986-6610'/)
+        GO TO 815
+C ERROR
+1200    K=ICH+71-MX
+        DO 1210 I=1,K
+        TYPE 1201
+1201    FORMAT('+ ',$)
+1210    CONTINUE
+        TYPE 1221
+1221    FORMAT('+^'/' ***SYNTAX ERROR***'/)
+        GO TO 815
+C @ (IMS CODING) @XXYYZ @XYYZ @XXYYZ-Z @XYYZ-Z
+C      X=CD NO    Y=COL NO       Z=PUNCH
+2000    IHI=0
+        DO 2010 I=1,6
+        IN(I)=IGETCH(ICH,MX)
+        IF(IN(I).EQ.' ') GO TO 2040
+        IF(IN(I).EQ.')') GO TO 2035
+        IF(IN(I).EQ.'-') GO TO 2020
+        IF(IN(I).EQ.'.') GO TO 2035
+        IF(IN(I).EQ.'!') GO TO 2035
+        IF(IN(I).EQ.'&') GO TO 2035
+2010    CONTINUE
+        GO TO 1200
+2020    L=IGETCH(ICH,MX)
+        DO 2030 IHI=1,12
+        IF(L.EQ.LPCHS(IHI)) GO TO 2040
+2030    CONTINUE
+        GO TO 1200
+2035    ICH=ICH-1
+2040    I=I-1
+        IF(I.LT.4) GO TO 1200
+        DO 2050 ILO=1,12
+        IF(IN(I).EQ.LPCHS(ILO)) GO TO 2060
+2050    CONTINUE
+        GO TO 1200
+2060    IF(IHI.LE.0) IHI=ILO
+        I=I-2
+        ICOL=0
+        DO 2080 L=I,I+1
+        DO 2070 J=0,9
+        IF(IN(L).EQ.INTGR(J)) GO TO 2080
+2070    CONTINUE
+2080    ICOL=ICOL*10+J
+        IF((ICOL.LE.0).OR.(ICOL.GT.80)) GO TO 1200
+        I=I-1
+        ICD=0
+        DO 2100 L=1,I
+        DO 2090 J=0,9
+        IF(IN(L).EQ.INTGR(J)) GO TO 2100
+2090    CONTINUE
+        GO TO 1200
+2100    ICD=ICD*10+J
+        IF((ICD.LE.0).OR.(ICD.GT.NCDS)) GO TO 1200
+        GO TO 800
+        END
+        SUBROUTINE POLISH(IN,IBNO,IBASES,IB,JB,IER,K,M,LBIT,
+     1          IPGMSW,IPBASE)
+C       IER=0 OK
+C          =1 STACK OVERFLOW
+C          =3 SYNTAX ERROR
+C          =4 TABLE OVERFLOW (NO MORE ROOM IN IBASES)
+C          =5 I/O ERROR IN DATA
+C          =6 I/O ERROR IN BASE
+        COMMON KPROJ,KPROG,KFILE,KACKBL,TCPU,ITCCV
+        DIMENSION KFILE(2),ITCCV(30)
+        DIMENSION IBASES(IB,JB),IN(7),ISTACK(50),LOWHI(0/12),LBIT(12),
+     1          IPBASE(430,0/6)
+        IER=0
+        I=1
+1       IX=IN(I)
+        IF(IX) 10,100,90
+10      IX=-IX
+        IF (IX .LT. 100) GO TO 15
+        IX=-IX
+        GO TO 90
+15      IF(IX .GT. 7) GO TO 160
+        GO TO (20,30,40,40,40,70,200),IX
+C -1 : (
+20      K=K+1
+        IF (K .GT. 50) GO TO 150
+        ISTACK(K)=IX
+        GO TO 100
+C -2 : )
+30     IF(K.LT.1) GO TO 160
+        IF (ISTACK(K) .EQ. 1) GO TO 35
+        CALL PROCES(-ISTACK(K),IBNO,IBASES,IB,JB,IER,M,IPGMSW,IPBASE)
+        IF (IER .NE. 0) GO TO 120
+        K=K-1
+       GO TO 30
+35      K=K-1
+        GO TO 100
+C -3,-4,-5 : OR AND NOT
+40      IF(K)45,45,60
+45      K=K+1
+        IF (K .GT. 50) GO TO 150
+50      ISTACK(K)=IX
+        GO TO 100
+60      IF(ISTACK(K) .EQ. 1) GO TO 45
+        IF (ISTACK(K) .LT. IX) GO TO 45
+        CALL PROCES(-ISTACK(K),IBNO,IBASES,IB,JB,IER,M,IPGMSW,IPBASE)
+        IF(IER .NE. 0) GO TO 120
+        K=K-1
+        GO TO 40
+C -6 : END
+70      IF(K) 110,110,80
+80      CALL PROCES(-ISTACK(K),IBNO,IBASES,IB,JB,IER,M,IPGMSW,IPBASE)
+        IF (IER .NE. 0) GO TO 120
+        K=K-1
+        GO TO 70
+C + : RECORD-NUMBER
+90      CALL PROCES(IX,IBNO,IBASES,IB,JB,IER,M,IPGMSW,IPBASE)
+        IF (IER .NE. 0) GO TO 120
+100     RETURN
+110     IF(M .NE. IBNO) IER=3
+120     RETURN
+150     IER=1
+        GO TO 120
+160     IER=3
+        GO TO 120
+C PROCESS PACKED DATA
+200     IF ((M+4) .LE. JB) GO TO 210
+        IER=4
+        GO TO 120
+210     LOW=IN(I+1)
+        IHI=IN(I+2)
+        IF((LOW.LT.1) .OR. (LOW.GT.IHI) .OR. (IHI.GT.12)) GO TO 160
+        DO 215 L=0,12
+215     LOWHI(L)=0
+        DO 220 L=1,12
+        IF((LBIT(L).GE.LOW).AND.(LBIT(L).LE.IHI)) LOWHI(L)=1
+220     CONTINUE
+        I=I+3
+        IP=I+3
+        J=I
+225     IF (IN(J) .LT. 0) GO TO 160
+        IF(IN(J) .GT. 0) GO TO 240
+        M=M+1
+        DO 230 L=1,IB
+230     IBASES(L,M)=0
+        GO TO 300
+240     JL=1
+        LOCP=IN(J)
+        IF(J .EQ. IP) GO TO 260
+        DO 250 JP=J+1,IP
+        IF((LOCP+JL) .NE. IN(JP)) GO TO 260
+        JL=JL+1
+250     CONTINUE
+260     M=M+1
+        LOC=(LOCP-1)*IB+1
+        NRD=IB*JL
+        CALL RECIN(12,IBASES(1,M),NRD,LOC,IER)
+        ITCCV(29)=ITCCV(29)+JL
+        IF(IER.EQ.0) GO TO 270
+        IER=5
+        GO TO 120
+270     JL=JL-1
+        J=J+JL
+        M=M+JL
+300     J=J+1
+        IF(J .LE. IP) GO TO 225
+        M=M-3
+        CALL PCKCOL(LOWHI,IBASES,M,IB)
+        I=I+3
+        GO TO 100
+        END
+        SUBROUTINE PROCES(IX,IBNO,IBASES,IB,JB,IER,M,IPGMSW,IPBASE)
+        COMMON KPROJ,KPROG,KFILE,KACKBL,TCPU,ITCCV
+        DIMENSION KFILE(2),ITCCV(30)
+        DIMENSION IBASES(IB,JB),IPBASE(430,0/6)
+        IER=0
+        IF(IX) 30,20,10
+C READ DATA
+10      M=M+1
+        IF (M .GT. JB) GO TO 140
+        LOC=(IX-1)*IB+1
+        CALL RECIN(12,IBASES(1,M),IB,LOC,IER)
+        IF(IER.NE.0) IER=5
+        ITCCV(29)=ITCCV(29)+1
+20      RETURN
+30      IXP=-IX
+        IF (IXP .LT. 100) GO TO 50
+C PRIOR BASE
+        IXP=IXP-100
+        M=M+1
+        IF (M .GT.JB) GO TO 140
+        IF(IXP.GT.0) GO TO 45
+35      DO 40 I=1,IB
+40      IBASES(I,M)=IBASES(I,1)
+        RETURN
+45      IF(IPGMSW.EQ.2) GO TO 200
+        IF(IPGMSW.EQ.3) GO TO 130
+        LOC=IXP*(IB+20)+27
+        CALL RECIN(13,IBASES(1,M),IB,LOC,IER)
+        IF(IER.NE.0) IER=6
+        ITCCV(29)=ITCCV(29)+1
+        RETURN
+50      GO TO (130,130,60,80,100,130),IXP
+C OR
+60      N=M-1
+        IF (N .LT. IBNO) GO TO 130
+        DO 70 I=1,IB
+70      IBASES(I,N)=IBASES(I,N) .OR. IBASES(I,M)
+75      M=N
+        RETURN
+C AND
+80      N=M-1
+        IF(N .LT. IBNO) GO TO 130
+        DO 90 I=1,IB
+90      IBASES(I,N)=IBASES(I,N) .AND. IBASES(I,M)
+        GO TO 75
+C NOT
+100     IF (M .LT. IBNO) GO TO 130
+        DO 110 I=1,IB
+110     IBASES(I,M)= .NOT. IBASES(I,M)
+        RETURN
+C ERROR
+130     IER=3
+        RETURN
+140     IER=4
+        RETURN
+C COMMAND SERIES BASE
+200     DO 210 I=1,IB
+210     IBASES(I,M)=IPBASE(I,IXP)
+        RETURN
+        END
+        FUNCTION IGETCH(I,MX)
+        DIMENSION IN(0/70)
+        IF(I.GT.70) GO TO 30
+        IF(I.GT.(MX-1)) GO TO 10
+5       I=I+1
+        IGETCH=IN(I)
+        RETURN
+10      TYPE 21
+21      FORMAT('++ ',$)
+        MX=70
+        GO TO 40
+30      TYPE 31
+31      FORMAT('+WHO: ',$)
+        MX=67
+40      ACCEPT 41,(IN(J),J=1,MX)
+41      FORMAT(70A1)
+        I=0
+        GO TO 5
+  
