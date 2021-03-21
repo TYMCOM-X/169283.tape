@@ -1,0 +1,207 @@
+
+       ORG  0B
+       LAA         INTERRUPT HANDLING
+       LAI  1B
+       OUT  10B    OUTPUT MARK TO H2000
+       XRA 
+       SHL  RAM+6  SET UP PROGRAM STATUS
+       LMA
+START  LEI  376B   REMOTE LEAD IN
+       CAL  OUTPUT OUTPUT A CHARACTER
+       LEI  234B   CLEAR SCREEN
+       CAL  OUTPUT
+       LCI  160    SET DELAY COUNT
+       INC
+       JFZ  *-1    DELAY=1534 STATES>6MS
+START1 LEI  376B
+       CAL  OUTPUT
+       LEI  235B   CLEAR FOREGROUND
+       CAL  OUTPUT
+       LCI  160    DELAY AGAIN
+       INC
+       JFZ  *-1
+       SHL  MSG0   SET UP MESSAGE ADDR.
+       LDI  17     SET UP CHARACTER CT.
+       CAL  DISPLA DISPLAY A MESSAGE
+       SHL  CS7    LOAD SWITCH ADDR.
+       LCM         READ SWITCHES
+       DCH         LOAD 2ND SW. ADDR.
+       LBM         READ SWITCHES
+       LAC
+       NDI  7B     MASK FOR LAST OCT. #
+       ORI  260B   FORM ASCII CODE
+       SHL  RAM+5  LOAD MEM. ADDR.
+       LMA         STORE LAST BYTE
+       LAC
+       RRC
+       RRC
+       RRC
+       NDI  7B     MASK FOR FIFTH BYTE
+       ORI  260B   FORM ASCII CODE
+       DCL
+       LMA         STORE FIFTH BYTE
+       LAC
+       RLC
+       RLC
+       NDI  3B
+       ORI  260B
+       DCL
+       LMA         STORE FOURTH BYTE
+       LAB
+       NDI  7B
+       ORI  260B
+       DCL
+       LMA         STORE THIRD BYTE
+       LAB
+       RRC
+       RRC
+       RRC
+       NDI  7B
+       ORI  260B
+       DCL
+       LMA         STORE SECOND BYTE
+       LAB
+       RLC
+       RLC
+       NDI  3B
+       ORI  260B
+       DCL
+       LMA         STORE FIRST BYTE
+       LDI  6       6 ID NUMBERS
+       CAL  DISPLA DISPLAY ID
+       SHL  MSG1
+       LDI  19
+       CAL  DISPLA DISPLAY MSG1
+PROG0  LAI  252B   THIS PROG. TESTS REG. XF'S
+       LBA
+       LCB
+       LDC
+       LED
+       LHE
+       LLH
+       CPL
+       SHL  STATUS LOAD STATUS ADDRESS
+       JTZ  *+9    BRANCH IF SUCCEED
+       LAI  1B     LOAD FAILURE STATUS
+       LMA         STORE STATUS
+       JMP  *+7
+       XRA         LOAD SUCCESS STATUS
+       JMP  *-5
+       LDI  4      4 MESSAGE LETTERS
+       SHL  STATUS
+       LAM
+       RRC
+       JTC  BAD
+       SHL  MSGGD
+       CAL  DISPLA DISPLAY MESSAGE
+       JMP  *+10
+BAD    SHL  MSGBD
+       JMP  *-10
+       CAL  PAUSE
+       SHL  MSG2
+       LDI  16
+       CAL  DISPLA
+PROG1  XRA         THIS PROG. TESTS THE ALU
+       LBA
+STEP   INB
+       ADB
+       JFC  STEP   BRANCH IF NO OVERFLOW
+       SUB
+       CPI  253    (N+1)N/2 = 253 < 255
+       JFZ  ERROR1
+       XRA
+       XRI  377B
+       NDI  252B
+       LBA         B=252B  CARRY=X
+       RLC         A=125B      C=1
+       RRC         A=252B      C=1
+       RAL         A=252B      C=1
+       RAL         A=253B      C=0
+       RAR         A=125B      C=1
+       ORB         A=377B      C=1
+       CPI  377B
+       JFZ  ERROR1
+       XRA
+       SHL  STATUS LOAD STATUS ADDRESS
+       LMA         STORE STATUS
+       JMP  *+8
+ERROR1 LAI  1
+       JMP  *-10
+       CAL  GDORBD
+       CAL  PAUSE
+       SHL  MSG3
+       LDI  16
+       CAL  DISPLA
+       SHL  RAM+6
+       LEM         SAVE PROGRAM STATUS
+PROG2  LBI  1      THIS PROG. TESTS THE RAM
+       XRA
+       LDI  16     16 RAM BYTES
+       SHL  RAM    FIRST ADDR. OF RAM
+LOOP   LMA         DATA TO RAM
+       LCM         DATA READ BACK
+       CPC         COMPARE
+       JFZ  ERROR2
+       INL         L=L+1
+       DCD         D=D-1
+       JFZ  LOOP
+       ADB         A=A+1
+       JFC  LOOP-6
+       XRA
+       SHL  STATUS LOAD STATUS ADDRESS
+       LMA         LOAD STATUS
+       JMP  *+8
+ERROR2 LAI  1
+       JMP  *-10
+       SHL  RAM+6
+       LME         RESTORE  PROGRAM STATUS
+       CAL  GDORBD
+       CAL  PAUSE
+       SHL  MSG4
+       LDI  16
+       CAL  DISPLA
+PROG3  LBI  0B     THIS PROG. TESTS I/O
+       LAB
+       OUT  11B    OUTPUT DATA
+       INP  1B     DATA READ BACK
+       CPB
+       JFZ  ERROR3
+       OUT  12B
+       INP  2B
+       CPB
+       JFZ  ERROR3
+       OUT  13B
+       INP  3B
+       CPB
+       JFZ  ERROR3
+       RRC         ACC RIGHT SHIFT
+       JFC  *+10   JUMP IF LAST BIT=SPACE
+       RLC         RESTORE ACC
+       OUT  10B
+       INP  0B
+       CPB         COMPARE SEVEN BITS
+       JFZ  ERROR3
+       INB
+       JFZ  PROG3+2
+       LAB         B=0 IF TEST IS PASSED
+       SHL  STATUS LOAD STATUS ADDR.
+       LMA         LOAD STATUS
+       JMP  *+8
+ERROR3 LAI  1
+       JMP  *-10
+       CAL  GDORBD
+       CAL  PAUSE
+       CAL  PAUSE
+       SHL  RAM+6
+       LAM
+       RRC
+       JTC  START1
+       SHL  MSGX   INQUIRY MESSAGE ADDR.
+       LDI  82
+       CAL  DISPLA
+PROG4  XRA         THIS PROG. RESP. TO H2000
+       LEA         CLEAR ARGUMENT CARRIER
+       LCI  248    SET BIT COUNT
+POLL   INP  0B     READ PROT #0
+       RRC         RECOGNITION TIME:
+       
