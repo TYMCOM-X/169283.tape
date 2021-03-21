@@ -1,0 +1,2001 @@
+ 21787256      78212744      1             1000         SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 69620861      30379139      2             999          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 29751041      70248959      3             998          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 96379437      3620563       4             997          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 46324583      53675417      5             996          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 76774633      23225367      6             995          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 82939927      17060073      7             994          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 18166694      81833306      8             993          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 15945444      84054556      9             992          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 6525675       93474325      10            991          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 79319365      20680635      11            990          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 64491277      35508723      12            989          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 92720077      7279923       13            988          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 89465602      10534398      14            987          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 97486059      2513941       15            986          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 80436721      19563279      16            985          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 99245752      754248        17            984          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 68784966      31215034      18            983          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 61977336      38022664      19            982          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 73156799      26843201      20            981          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 88711355      11288645      21            980          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 66271025      33728975      22            979          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 42414057      57585943      23            978          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 72402553      27597447      24            977          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 57496322      42503678      25            976          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 28248361      71751639      26            975          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 15570857      84429143      27            974          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 61113907      38886093      28            973          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 23767347      76232653      29            972          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 70662419      29337581      30            971          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 87973410      12026590      31            970          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 18610229      81389771      32            969          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 52015708      47984292      33            968          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 86233276      13766724      34            967          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 49087317      50912683      35            966          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 42377577      57622423      36            965          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 22678128      77321872      37            964          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 74206687      25793313      38            963          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 67697547      32302453      39            962          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 94393286      5606714       40            961          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 8911404       91088596      41            960          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 23294004      76705996      42            959          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 10075124      89924876      43            958          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 17071414      82928586      44            957          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 83118092      16881908      45            956          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 90991551      9008449       46            955          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 4468410       95531590      47            954          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 25982820      74017180      48            953          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 6412096       93587904      49            952          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 1066676       98933324      50            951          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 21539826      78460174      51            950          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 9100912       90899088      52            949          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 97403648      2596352       53            948          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 5535087       94464913      54            947          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 47522646      52477354      55            946          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 15513009      84486991      56            945          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 98470325      1529675       57            944          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 27074913      72925087      58            943          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 56623558      43376442      59            942          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 12916658      87083342      60            941          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 4005413       95994587      61            940          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 74597561      25402439      62            939          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 72136568      27863432      63            938          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 11386983      88613017      64            937          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 31080327      68919673      65            936          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 31221119      68778881      66            935          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 85053227      14946773      67            934          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 15392397      84607603      68            933          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 5677887       94322113      69            932          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 3357688       96642312      70            931          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 96440211      3559789       71            930          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 46472725      53527275      72            929          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 36899008      63100992      73            928          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 88410915      11589085      74            927          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 11832609      88167391      75            926          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 52150614      47849386      76            925          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 40256697      59743303      77            924          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 84851127      15148873      78            923          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 58305335      41694665      79            922          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 89049622      10950378      80            921          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 28667613      71332387      81            920          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 96683737      3316263       82            919          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 10455948      89544052      83            918          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 29306319      70693681      84            917          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 13518740      86481260      85            916          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 54989072      45010928      86            915          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 99505571      494429        87            914          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 57973932      42026068      88            913          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 10202477      89797523      89            912          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 65445021      34554979      90            911          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 28811890      71188110      91            910          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 71492673      28507327      92            909          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 65191550      34808450      93            908          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 64950593      35049407      94            907          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 86785823      13214177      95            906          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 81695151      18304849      96            905          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 30636571      69363429      97            904          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 93762483      6237517       98            903          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 58278496      41721504      99            902          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 46886702      53113298      100           901          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 95587165      4412835       101           900          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 80548307      19451693      102           899          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 39973648      60026352      103           898          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 77523274      22476726      104           897          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 89349648      10650352      105           896          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 38826804      61173196      106           895          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 86860351      13139649      107           894          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 73110439      26889561      108           893          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 69897956      30102044      109           892          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 78800453      21199547      110           891          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 64383624      35616376      111           890          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 62460087      37539913      112           889          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 8724759       91275241      113           888          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 65660803      34339197      114           887          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 37494063      62505937      115           886          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 32358043      67641957      116           885          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 87525212      12474788      117           884          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 30044427      69955573      118           883          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 99954151      45849         119           882          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 41082803      58917197      120           881          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 53186015      46813985      121           880          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 67538491      32461509      122           879          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 32312195      67687805      123           878          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 28608016      71391984      124           877          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 83230443      16769557      125           876          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 67492643      32507357      126           875          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 73394998      26605002      127           874          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 81794031      18205969      128           873          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 50768934      49231066      129           872          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 99804838      195162        130           871      ORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 2003014       97996986      131           870          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 65024474      34975526      132           869          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 18261578      81738422      133           868          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 73199836      26800164      134           867          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 83797046      16202954      135           866          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 15793409      84206591      136           865          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 18066416      81933584      137           864          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 75202851      24797149      138           863          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 48821521      51178479      139           862          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 34054987      65945013      140           861          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 91266253      8733747       141           860          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 58999897      41000103      142           859          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 64614930      35385070      143           858          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 52121404      47878596      144           857          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 66469104      33530896      145           856          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 7821418       92178582      146           855          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 98669918      1330082       147           854          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 43387656      56612344      148           853          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 25469001      74530999      149           852          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 72436348      27563652      150           851          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 50791321      49208679      151           850          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 9856761       90143239      152           849          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 33290420      66709580      153           848          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 71106267      28893733      154           847          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 94178979      5821021       155           846          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 35325763      64674237      156           845          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 5726768       94273232      157           844          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 21897589      78102411      158           843          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 4035740       95964260      159           842          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 68616184      31383816      160           841          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 76833037      23166963      161           840          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 16076568      83923432      162           839          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 39361504      60638496      163           838          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 74342953      25657047      164           837          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 98730626      1269374       165           836          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 20112309      79887691      166           835          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 7977688       92022312      167           834          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 51175990      48824010      168           833          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 14807195      85192805      169           832          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 59473814      40526186      170           831          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 82320642      17679358      171           830          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 49906616      50093384      172           829          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 34919505      65080495      173           828          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 67451503      32548497      174           827          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 33496633      66503367      175           826          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 64713812      35286188      176           825          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 94393320      5606680       177           824          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 49772146      50227854      178           823          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 83403251      16596749      179           822          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 99633318      366682        180           821          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 61844823      38155177      181           820          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 83268780      16731220      182           819          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 48117064      51882936      183           818          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 94026639      5973361       184           817          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 11616969      88383031      185           816          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 66672031      33327969      186           815          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 47750382      52249618      187           814          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 55871463      44128537      188           813          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 94885750      5114250       189           812          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 14789094      85210906      190           811          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 41777021      58222979      191           810          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 67488433      32511567      192           809          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 61557781      38442219      193           808          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 62539477      37460523      194           807          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 97648484      2351516       195           806          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 62374183      37625817      196           805          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 76346876      23653124      197           804          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 4316499       95683501      198           803          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 65136917      34863083      199           802          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 23931965      76068035      200           801          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 38886354      61113646      201           800          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 1964983       98035017      202           799          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 27511101      72488899      203           798          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 278841        99721159      204           797          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 43202853      56797147      205           796          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 67101901      32898099      206           795          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 51443066      48556934      207           794          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 39165196      60834804      208           793          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 45167837      54832163      209           792          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 94613002      5386998       210           791          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 51721909      48278091      211           790          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 82368050      17631950      212           789          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 12269738      87730262      213           788          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 46056068      53943932      214           787          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 90887105      9112895       215           786          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 27535887      72464113      216           785          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 6882740       93117260      217           784          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 97777978      2222022       218           783          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 73255156      26744844      219           782          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 39805626      60194374      220           781          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 52938810      47061190      221           780          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 88665084      11334916      222           779          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 791043        99208957      223           778          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 46688366      53311634      224           777          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 50716788      49283212      225           776          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 61920240      38079760      226           775          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 40596670      59403330      227           774          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 99627177      372823        228           773          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 39381873      60618127      229           772          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 62711283      37288717      230           771          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 87285037      12714963      231           770          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 50343966      49656034      232           769          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 1302112       98697888      233           768          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 3307953       96692047      234           767          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 86912215      13087785      235           766          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 89725839      10274161      236           765          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 64013397      35986603      237           764          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 90592991      9407009       238           763          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 37256181      62743819      239           762          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 91027953      8972047       240           761          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 67321350      32678650      241           760          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 77505206      22494794      242           759          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 26982021      73017979      243           758          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 55041349      44958651      244           757          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 57914341      42085659      245           756          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 14761387      85238613      246           755          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 18009974      81990026      247           754          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 22362700      77637300      248           753          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 35419547      64580453      249           752          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 41743409      58256591      250           751          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 73051324      26948676      251           750          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 80277043      19722957      252           749          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 50180935      49819065      253           748          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 59753383      40246617      254           747          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 95414025      4585975       255           746          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 15696590      84303410      256           745          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 91924344      8075656       257           744          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 32804708      67195292      258           743          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 75691069      24308931      259           742          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 65877526      34122474      260           741          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 51677727      48322273      261           740          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 28218733      71781267      262           739          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 91387660      8612340       263           738          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 57801871      42198129      264           737          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 84482437      15517563      265           736          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 3909803       96090197      266           735          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 57265186      42734814      267           734          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 9479599       90520401      268           733          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 12701170      87298830      269           732          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 95297463      4702537       270           731          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 15067057      84932943      271           730          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 93962036      6037964       272           729          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 16610974      83389026      273           728          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 52562649      47437351      274           727          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 24546657      75453343      275           726          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 6663206       93336794      276           725          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 11908437      88091563      277           724          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 67629708      32370292      278           723          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 18508693      81491307      279           722          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 23274181      76725819      280           721          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 64471087      35528913      281           720          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 92176365      7823635       282           719          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 25171900      74828100      283           718          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 35182618      64817382      284           717          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 32100795      67899205      285           716          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 10685059      89314941      286           715          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 48446082      51553918      287           714          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 99653706      346294        288           713          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 24277160      75722840      289           712          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 35856960      64143040      290           711          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 83628701      16371299      291           710          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 31754501      68245499      292           709          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 34962220      65037780      293           708          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 84303043      15696957      294           707          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 83282407      16717593      295           706          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 56031662      43968338      296           705          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 70819181      29180819      297           704          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 67931744      32068256      298           703          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 15036907      84963093      299           702          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 90993883      9006117       300           701          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 55122224      44877776      301           700          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 51214151      48785849      302           699          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 71068571      28931429      303           698          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 61813064      38186936      304           697          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 23053968      76946032      305           696          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 66251059      33748941      306           695          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 62062453      37937547      307           694          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 16935289      83064711      308           693          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 74268120      25731880      309           692          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 37319630      62680370      310           691          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 23875518      76124482      311           690          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 39989258      60010742      312           689          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 40519180      59480820      313           688          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 99382084      617916        314           687          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 40810808      59189192      315           686          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 14257378      85742622      316           685          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 77838811      22161189      317           684          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 23257602      76742398      318           683          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 80800066      19199934      319           682          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 54776559      45223441      320           681          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 77220895      22779105      321           680          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 64068410      35931590      322           679          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 95057445      4942555       323           678          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 32615369      67384631      324           677          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 478497        99521503      325           676          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 44868477      55131523      326           675          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 49834005      50165995      327           674          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 9836265       90163735      328           673          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 64546909      35453091      329           672          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 39925923      60074077      330           671          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 82449375      17550625      331           670          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 10314763      89685237      332           669          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 9415386       90584614      333           668          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 89759928      10240072      334           667          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 92285641      7714359       335           666          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 74861673      25138327      336           665          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 49341310      50658690      337           664          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 72209304      27790696      338           663          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 2600404       97399596      339           662          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 84277061      15722939      340           661          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 39101239      60898761      341           660          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 64494944      35505056      342           659          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 77462078      22537922      343           658          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 33618371      66381629      344           657          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 11310543      88689457      345           656          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 67095349      32904651      346           655          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 61739139      38260861      347           654          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 72719610      27280390      348           653          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 75805488      24194512      349           652          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 44557428      55442572      350           651          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 95357510      4642490       351           650          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 84030154      15969846      352           649          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 42900838      57099162      353           648          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 6296567       93703433      354           647          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 68077122      31922878      355           646          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 59835642      40164358      356           645          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 87458266      12541734      357           644          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 1654078       98345922      358           643          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 52107276      47892724      359           642          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 2736480       97263520      360           641          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 93754834      6245166       361           640          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 69731200      30268800      362           639          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 11942918      88057082      363           638          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 90194747      9805253       364           637          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 95408913      4591087       365           636          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 21838476      78161524      366           635          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 14679399      85320601      367           634          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 83949581      16050419      368           633          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 65140113      34859887      369           632          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 33781395      66218605      370           631          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 4874146       95125854      371           630          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 79358494      20641506      372           629          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 86978590      13021410      373           628          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 48460794      51539206      374           627          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 88823728      11176272      375           626          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 44498607      55501393      376           625          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 20759984      79240016      377           624          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 53334941      46665059      378           623          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 68182222      31817778      379           622          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 31477197      68522803      380           621          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 69220780      30779220      381           620          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 42158668      57841332      382           619          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 12680828      87319172      383           618          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 52237182      47762818      384           617          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 22555720      77444280      385           616          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 10340890      89659110      386           615          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 44158026      55841974      387           614          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 21457962      78542038      388           613          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 64714390      35285610      389           612          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 23021719      76978281      390           611          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 96395209      3604791       391           610          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 44013683      55986317      392           609          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 75055280      24944720      393           608          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 67179746      32820254      394           607          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 17853171      82146829      395           606          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 8728073       91271927      396           605          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 98077001      1922999       397           604          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 63574955      36425045      398           603          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 61866855      38133145      399           602          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 83783355      16216645      400           601          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 65256747      34743253      401           600          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 81428128      18571872      402           599          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 70594929      29405071      403           598          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 81860355      18139645      404           597          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 28831703      71168297      405           596          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 43294983      56705017      406           595          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 54378284      45621716      407           594          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 47117103      52882897      408           593          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 10259831      89740169      409           592          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 13889912      86110088      410           591          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 36238640      63761360      411           590          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 75948806      24051194      412           589          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 53554814      46445186      413           588          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 68268197      31731803      414           587          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 83355743      16644257      415           586          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 86208637      13791363      416           585          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 67444728      32555272      417           584          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 4506837       95493163      418           583          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 59304549      40695451      419           582          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 39763452      60236548      420           581          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 35712924      64287076      421           580          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 87862581      12137419      422           579          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 45513187      54486813      423           578          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 7208179       92791821      424           577          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 40219763      59780237      425           576          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 47167130      52832870      426           575          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 85276639      14723361      427           574          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 42921105      57078895      428           573          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 28082344      71917656      429           572          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 92680319      7319681       430           571          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 92484819      7515181       431           570          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 83140868      16859132      432           569          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 75249475      24750525      433           568          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 77956958      22043042      434           567          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 35405925      64594075      435           566          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 11223211      88776789      436           565          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 67929794      32070206      437           564          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 70441778      29558222      438           563          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 18546792      81453208      439           562          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 86472687      13527313      440           561          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 45886752      54113248      441           560          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 5847702       94152298      442           559          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 29770005      70229995      443           558          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 54402482      45597518      444           557          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 16328530      83671470      445           556          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 24394495      75605505      446           555          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 16242693      83757307      447           554          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 289233        99710767      448           553          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 22176233      77823767      449           552          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 54164502      45835498      450           551          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 70645175      29354825      451           550          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 16617765      83382235      452           549          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 46570730      53429270      453           548          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 70407195      29592805      454           547          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 70934410      29065590      455           546          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 38793999      61206001      456           545          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 735232        99264768      457           544          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 41052370      58947630      458           543          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 87552175      12447825      459           542          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 85364730      14635270      460           541          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 71142428      28857572      461           540          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 11986780      88013220      462           539          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 26346174      73653826      463           538          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 86099962      13900038      464           537          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 12194798      87805202      465           536          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 99538956      461044        466           535          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 11710904      88289096      467           534          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 57242390      42757610      468           533          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 24181579      75818421      469           532          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 25885130      74114870      470           531          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 97810867      2189133       471           530          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 69437190      30562810      472           529          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 23720536      76279464      473           528          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 37596035      62403965      474           527          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 55053258      44946742      475           526          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 93618771      6381229       476           525          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 49605667      50394333      477           524          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 35406903      64593097      478           523          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 24490448      75509552      479           522          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 17339307      82660693      480           521          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 87201703      12798297      481           520          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 90460161      9539839       482           519          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 18109219      81890781      483           518          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 66944975      33055025      484           517          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 22608607      77391393      485           516          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 14950610      85049390      486           515          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 35448526      64551474      487           514          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 54146679      45853321      488           513          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 13068769      86931231      489           512          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 33059829      66940171      490           511          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 2393502       97606498      491           510          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 76755287      23244713      492           509          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 28019379      71980621      493           508          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 68508357      31491643      494           507          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 56540182      43459818      495           506          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 89824056      10175944      496           505          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 61079209      38920791      497           504          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 70901860      29098140      498           503          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 33295469      66704531      499           502          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 17843435      82156565      500           501          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 29587566      70412434      501           500          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 27442042      72557958      502           499          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 23119524      76880476      503           498          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 78922646      21077354      504           497          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 489427        99510573      505           496          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 60737511      39262489      506           495          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 40962961      59037039      507           494          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 8510212       91489788      508           493          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 27931469      72068531      509           492          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 83857037      16142963      510           491          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 19885607      80114393      511           490          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 8999639       91000361      512           489          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 88668982      11331018      513           488          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 24819998      75180002      514           487          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 28395819      71604181      515           486          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 36931110      63068890      516           485          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 72526019      27473981      517           484          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 44705605      55294395      518           483          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 37395460      62604540      519           482          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 25600092      74399908      520           481          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 97346018      2653982       521           480          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 73101426      26898574      522           479          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 74326570      25673430      523           478          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 98126112      1873888       524           477          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 42051624      57948376      525           476          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 10496886      89503114      526           475          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 99926663      73337         527           474          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 95472130      4527870       528           473          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 15153050      84846950      529           472          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 84823458      15176542      530           471          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 98052775      1947225       531           470          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 37523754      62476246      532           469          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 25649938      74350062      533           468          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 84750121      15249879      534           467          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 93524905      6475095       535           466          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 52676806      47323194      536           465          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 10473395      89526605      537           464          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 82802897      17197103      538           463          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 31048660      68951340      539           462          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 78326744      21673256      540           461          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 95223518      4776482       541           460          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 76327803      23672197      542           459          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 83725467      16274533      543           458          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 88800140      11199860      544           457          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 78026415      21973585      545           456          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 7376463       92623537      546           455          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 62052211      37947789      547           454          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 84023658      15976342      548           453          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 54354217      45645783      549           452          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 91101931      8898069       550           451          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 50852352      49147648      551           450          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 62050073      37949927      552           449          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 61730682      38269318      553           448          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 53154143      46845857      554           447          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 34876010      65123990      555           446          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 16404291      83595709      556           445          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 52832614      47167386      557           444          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 4006495       95993505      558           443          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 96926083      3073917       559           442          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 78134973      21865027      560           441          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 5986757       94013243      561           440          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 38882506      61117494      562           439          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 13330374      86669626      563           438          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 30967587      69032413      564           437          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 9993252       90006748      565           436          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 35808591      64191409      566           435          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 91465349      8534651       567           434          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 36954345      63045655      568           433          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 48875760      51124240      569           432          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 49138965      50861035      570           431          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 22432936      77567064      571           430          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 46947598      53052402      572           429          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 84684351      15315649      573           428          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 40604315      59395685      574           427          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 59387281      40612719      575           426          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 95823359      4176641       576           425          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 33823317      66176683      577           424          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 63037251      36962749      578           423          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 6334880       93665120      579           422          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 80507710      19492290      580           421          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 74427632      25572368      581           420          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 22424533      77575467      582           419          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 2158239       97841761      583           418          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 14331027      85668973      584           417          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 37464884      62535116      585           416          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 28759414      71240586      586           415          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 82665950      17334050      587           414          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 88758660      11241340      588           413          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 59889417      40110583      589           412          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 30917654      69082346      590           411          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 96996978      3003022       591           410          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 26223544      73776456      592           409          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 88648831      11351169      593           408          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 13583604      86416396      594           407          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 85755639      14244361      595           406          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 86112962      13887038      596           405          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 19566486      80433514      597           404          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 10580582      89419418      598           403          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 11979182      88020818      599           402          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 74761794      25238206      600           401          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 33150090      66849910      601           400          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 96336222      3663778       602           399          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 98092145      1907855       603           398          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 94328280      5671720       604           397          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 43730674      56269326      605           396          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 8315405       91684595      606           395          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 72853939      27146061      607           394          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 27478370      72521630      608           393          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 40066895      59933105      609           392          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 6407550       93592450      610           391          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 67182220      32817780      611           390          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 71209045      28790955      612           389          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 48382301      51617699      613           388          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 79261491      20738509      614           387          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 94660591      5339409       615           386          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 11275941      88724059      616           385          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 54789853      45210147      617           384          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 46443710      53556290      618           383          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 65869635      34130365      619           382          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 59658243      40341757      620           381          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 34051344      65948656      621           380          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 41104301      58895699      622           379          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 77145577      22854423      623           378          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 14448096      85551904      624           377          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 80495055      19504945      625           376          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 6973937       93026063      626           375          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 36803820      63196180      627           374          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 48499440      51500560      628           373          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 21599356      78400644      629           372          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 84119514      15880486      630           371          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 51251916      48748084      631           370          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 28994496      71005504      632           369          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 28573294      71426706      633           368          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 20923335      79076665      634           367          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 99751358      248642        635           366          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 50593853      49406147      636           365          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 12692809      87307191      637           364          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 72175252      27824748      638           363          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 28745854      71254146      639           362          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 79167148      20832852      640           361          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 33616144      66383856      641           360          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 71926611      28073389      642           359          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 79339708      20660292      643           358          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 91859957      8140043       644           357          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 5791397       94208603      645           356          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 672465        99327535      646           355          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 58506856      41493144      647           354          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 25476101      74523899      648           353          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 77718008      22281992      649           352          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 80012174      19987826      650           351          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 50366813      49633187      651           350          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 31267499      68732501      652           349          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 78390474      21609526      653           348          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 38519030      61480970      654           347          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 75842915      24157085      655           346          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 8985507       91014493      656           345          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 58402648      41597352      657           344          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 88885844      11114156      658           343          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 7110414       92889586      659           342          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 87375982      12624018      660           341          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 96921679      3078321       661           340          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 64728760      35271240      662           339          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 16095922      83904078      663           338          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 45778631      54221369      664           337          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 85807524      14192476      665           336          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 71839175      28160825      666           335          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 3471905       96528095      667           334          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 42700311      57299689      668           333          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 50536284      49463716      669           332          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 87935099      12064901      670           331          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 49250537      50749463      671           330          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 28507834      71492166      672           329          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 22375459      77624541      673           328          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 91407005      8592995       674           327          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 91950848      8049152       675           326          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 79044119      20955881      676           325          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 10310558      89689442      677           324          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 40657542      59342458      678           323          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 20458683      79541317      679           322          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 1419578       98580422      680           321          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 1717563       98282437      681           320          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 32608391      67391609      682           319          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 99502803      497197        683           318          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 11730136      88269864      684           317          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 42375106      57624894      685           316          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 53067074      46932926      686           315          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 922381        99077619      687           314          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 13447701      86552299      688           313          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 74983498      25016502      689           312          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 52569877      47430123      690           311          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 12652518      87347482      691           310          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 55822807      44177193      692           309          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 28050573      71949427      693           308          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 53492258      46507742      694           307          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 26100219      73899781      695           306          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 30806306      69193694      696           305          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 80620451      19379549      697           304          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 66144778      33855222      698           303          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 81923028      18076972      699           302          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 58856879      41143121      700           301          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 34112710      65887290      701           300          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 92244998      7755002       702           299          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 12729334      87270666      703           298          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 39477330      60522670      704           297          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 257488        99742512      705           296          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 74168026      25831974      706           295          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 71586214      28413786      707           294          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 73590041      26409959      708           293          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 92502486      7497514       709           292          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 86897361      13102639      710           291          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 11063545      88936455      711           290          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 73847529      26152471      712           289          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 66670512      33329488      713           288          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 58483574      41516426      714           287          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 84653586      15346414      715           286          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 66350016      33649984      716           285          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 53567873      46432127      717           284          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 69547120      30452880      718           283          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 58501116      41498884      719           282          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 33020529      66979471      720           281          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 12051448      87948552      721           280          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 54200706      45799294      722           279          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 24851133      75148867      723           278          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 86588403      13411597      724           277          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 81598569      18401431      725           276          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 12701823      87298177      726           275          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 57871662      42128338      727           274          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 98639851      1360149       728           273          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 35799275      64200725      729           272          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 37552957      62447043      730           271          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 44460065      55539935      731           270          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 80238421      19761579      732           269          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 48501099      51498901      733           268          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 95424619      4575381       734           267          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 43099916      56900084      735           266          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 16037696      83962304      736           265          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 86054057      13945943      737           264          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 39884685      60115315      738           263          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 23338338      76661662      739           262          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 64538796      35461204      740           261          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 81478677      18521323      741           260          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 82984603      17015397      742           259          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 39376034      60623966      743           258          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 50592853      49407147      744           257          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 21363362      78636638      745           256          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 6322941       93677059      746           255          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 3914830       96085170      747           254          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 32071530      67928470      748           253          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 4347965       95652035      749           252          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 45698976      54301024      750           251          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 54507684      45492316      751           250          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 53434893      46565107      752           249          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 10670907      89329093      753           248          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 49613806      50386194      754           247          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 86579216      13420784      755           246          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 57782860      42217140      756           245          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 56369883      43630117      757           244          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 4121491       95878509      758           243          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 40014110      59985890      759           242          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 68453768      31546232      760           241          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 5983690       94016310      761           240          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 90700708      9299292       762           239          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 97796971      2203029       763           238          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 24823651      75176349      764           237          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 10105182      89894818      765           236          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 30714818      69285182      766           235          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 66250738      33749262      767           234          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 30807341      69192659      768           233          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 805890        99194110      769           232          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 28511788      71488212      770           231          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 91074390      8925610       771           230          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 40912524      59087476      772           229          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 31520708      68479292      773           228          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 94762527      5237473       774           227          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 21881731      78118269      775           226          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 41718415      58281585      776           225          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 60032497      39967503      777           224          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 85836917      14163083      778           223          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 62794256      37205744      779           222          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 73239124      26760876      780           221          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 54795024      45204976      781           220          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 7718649       92281351      782           219          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 4512672       95487328      783           218          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 33271622      66728378      784           217          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 40631942      59368058      785           216          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 70512906      29487094      786           215          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 77751796      22248204      787           214          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 88066647      11933353      788           213          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 48350592      51649408      789           212          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 75025579      24974421      790           211          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 11023417      88976583      791           210          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 28698589      71301411      792           209          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 18863499      81136501      793           208          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 52777374      47222626      794           207          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 99090065      909935        795           206          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 77049182      22950818      796           205          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 93889078      6110922       797           204          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 63800793      36199207      798           203          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 27788655      72211345      799           202          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 95912682      4087318       800           201          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 46666453      53333547      801           200          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 62890859      37109141      802           199          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 4837838       95162162      803           198          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 89801761      10198239      804           197          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 10467246      89532754      805           196          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 90679514      9320486       806           195          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 750520        99249480      807           194          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 36468214      63531786      808           193          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 73358106      26641894      809           192          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 95517353      4482647       810           191          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 90552282      9447718       811           190          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 46935460      53064540      812           189          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 64037620      35962380      813           188          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 96267875      3732125       814           187          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 27020496      72979504      815           186          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 20293567      79706433      816           185          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 59554974      40445026      817           184          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 86820156      13179844      818           183          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 73955958      26044042      819           182          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 84331188      15668812      820           181          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 55822848      44177152      821           180          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 13840653      86159347      822           179          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 94249525      5750475       823           178          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 43886162      56113838      824           177          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 42643005      57356995      825           176          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 87796611      12203389      826           175          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 78580713      21419287      827           174          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 99709011      290989        828           173          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 56483658      43516342      829           172          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 82046136      17953864      830           171          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 22466875      77533125      831           170          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 42352016      57647984      832           169          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 44280269      55719731      833           168          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 60626849      39373151      834           167          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 22175887      77824113      835           166          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 98835675      1164325       836           165          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 26326405      73673595      837           164          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 83093726      16906274      838           163          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 64527904      35472096      839           162          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 43115944      56884056      840           161          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 86953256      13046744      841           160          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 5269613       94730387      842           159          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 63363579      36636421      843           158          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 69442350      30557650      844           157          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 70046981      29953019      845           156          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 69797517      30202483      846           155          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 6479524       93520476      847           154          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 56395606      43604394      848           153          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 75316595      24683405      849           152          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 33161097      66838903      850           151          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 75921876      24078124      851           150          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 26442588      73557412      852           149          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 45114113      54885887      853           148          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 39640622      60359378      854           147          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 32317482      67682518      855           146          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 1759184       98240816      856           145          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 78275211      21724789      857           144          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 15562498      84437502      858           143          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 58760071      41239929      859           142          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 46873297      53126703      860           141          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 17915834      82084166      861           140          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 47879982      52120018      862           139          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 60519255      39480745      863           138          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 25148509      74851491      864           137          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 33478333      66521667      865           136          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 6640054       93359946      866           135          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 7392554       92607446      867           134          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 43064344      56935656      868           133          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 81358316      18641684      869           132          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 67159311      32840689      870           131          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 32541063      67458937      871           130          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 76542678      23457322      872           129          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 87998370      12001630      873           128          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 74551865      25448135      874           127          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 75605408      24394592      875           126          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 57900994      42099006      876           125          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 55157681      44842319      877           124          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 7092928       92907072      878           123          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 52148086      47851914      879           122          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 45899365      54100635      880           121          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 29709546      70290454      881           120          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 82698337      17301663      882           119          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 10049080      89950920      883           118          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 1057046       98942954      884           117          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 36802475      63197525      885           116          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 34846423      65153577      886           115          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 55948446      44051554      887           114          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 30766593      69233407      888           113          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 19500813      80499187      889           112          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 44895504      55104496      890           111          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 57005492      42994508      891           110          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 67569069      32430931      892           109          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 54347236      45652764      893           108          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 843951        99156049      894           107          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 87772086      12227914      895           106          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 87069882      12930118      896           105          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 99242742      757258        897           104          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 57849444      42150556      898           103          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 55341156      44658844      899           102          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 41417119      58582881      900           101          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 86692         99913308      901           100          SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 45621531      54378469      902           99           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 42411039      57588961      903           98           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 40659861      59340139      904           97           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 57936138      42063862      905           96           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 962688        99037312      906           95           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 83828159      16171841      907           94           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 40746554      59253446      908           93           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 3557669       96442331      909           92           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 43373727      56626273      910           91           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 24488020      75511980      911           90           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 98682693      1317307       912           89           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 4520357       95479643      913           88           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 27201885      72798115      914           87           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 65234575      34765425      915           86           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 2240362       97759638      916           85           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 47894084      52105916      917           84           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 51689907      48310093      918           83           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 63917269      36082731      919           82           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 6760720       93239280      920           81           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 75095971      24904029      921           80           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 16924483      83075517      922           79           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 66157631      33842369      923           78           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 54654805      45345195      924           77           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 26785878      73214122      925           76           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 80841752      19158248      926           75           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 72918352      27081648      927           74           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 29750777      70249223      928           73           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 43710361      56289639      929           72           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 46999384      53000616      930           71           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 27573157      72426843      931           70           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 56536656      43463344      932           69           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 24552114      75447886      933           68           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 19917737      80082263      934           67           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 57323935      42676065      935           66           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 247018        99752982      936           65           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 71551499      28448501      937           64           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 47490895      52509105      938           63           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 13860591      86139409      939           62           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 24799132      75200868      940           61           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 91469236      8530764       941           60           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 4814831       95185169      942           59           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 14107609      85892391      943           58           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 96350632      3649368       944           57           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 38960132      61039868      945           56           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 18675423      81324577      946           55           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 38906742      61093258      947           54           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 87819869      12180131      948           53           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 43774964      56225036      949           52           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 32783033      67216967      950           51           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 35257375      64742625      951           50           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 26780001      73219999      952           49           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 62450388      37549612      953           48           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 71689777      28310223      954           47           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 23077244      76922756      955           46           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 70554967      29445033      956           45           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 95233423      4766577       957           44           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 6947152       93052848      958           43           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 49857247      50142753      959           42           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 33005355      66994645      960           41           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 66923199      33076801      961           40           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 30024397      69975603      962           39           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 20412214      79587786      963           38           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 28238778      71761222      964           37           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 73870353      26129647      965           36           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 79881645      20118355      966           35           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 53417570      46582430      967           34           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 95161979      4838021       968           33           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 3894750       96105250      969           32           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 293859        99706141      970           31           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 81656349      18343651      971           30           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 69032332      30967668      972           29           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 83776395      16223605      973           28           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 53711430      46288570      974           27           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 76818328      23181672      975           26           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 72927082      27072918      976           25           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 84070255      15929745      977           24           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 35367778      64632222      978           23           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 45850660      54149340      979           22           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 56703478      43296522      980           21           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 37781685      62218315      981           20           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 12186107      87813893      982           19           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 18777742      81222258      983           18           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 40773733      59226267      984           17           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 73149464      26850536      985           16           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 58036767      41963233      986           15           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 75481220      24518780      987           14           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 78555419      21444581      988           13           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 85335572      14664428      989           12           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 76814510      23185490      990           11           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 16254954      83745046      991           10           SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 51704883      48295117      992           9            SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 43372340      56627660      993           8            SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 52295731      47704269      994           7            SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 94810373      5189627       995           6            SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 37040455      62959545      996           5            SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 20186850      79813150      997           4            SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 68550686      31449314      998           3            SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 46515257      53484743      999           2            SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+ 80412796      19587204      1000          1            SORT BENCHMARK
+TEST SAMPLE    3.14         <#-()/+@!%     1.00000E-37   1.00000E+38
+# ~
