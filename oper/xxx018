@@ -1,0 +1,1377 @@
+C	BMD07M
+CBMD07M   STEPWISE DISCRIMINANT ANALYSIS	 SEPTEMBER  1, 1965
+C
+C
+C
+C
+      DIMENSION DF(81,82),XM(81,81),W(81,81),T(81,81),GZ(91,55),IC(81),L
+     1Q(20),MQ(81),FT(288),F(81),V(81),U(81),P(81),X(81),NPG(81),C(255),
+     2DODE(162),LIST(81),CHAR(81,2),CLIST(81,2)
+      DIMENSION AU(81)
+      DIMENSION FFV(4),FFV1(8),FFG(8),FTT(18)
+      COMMON/XX12/ ISTEP,STRAT
+      LOGICAL STRAT
+      COMMON  W
+      COMMON  Q000CM (	 81)
+      COMMON  DF
+      COMMON  Q001CM ( 6561)
+      COMMON  IC     , LQ     , NV     , NG	, NQ	 , F
+      COMMON  L      , K      , FADD   , FDEL	, FT	 , NG1
+      COMMON  U      , P      , X      , NPG	, N	 , NST
+      COMMON  FL     , NS     , V      , TOL	, MQ	 , MORE
+      COMMON  C      , YOS    , YES    , IT1	, IT2	 , NV1
+      COMMON  DODE   , LIST   , CHAR   , CLIST	, NGU
+      COMMON PRIORS(40)
+      REAL*8 PRIO/6HPRIORS/
+      EQUIVALENCE (W(1,2),T(1,1)),(GZ(1,1),DF(1,1)),(DF(1,82),XM(1,1))
+      DIMENSION ALF(81,1)
+      EQUIVALENCE (DF(42,41),ALF(1,1))
+      EXTERNAL SIGN
+  200 FORMAT('1BMD07M - STEPWISE DISCRIMINANT ANALYSIS - REVISED ',
+     1'MAY 17, 1971'/
+     241H HEALTH SCIENCES COMPUTING FACILITY, UCLA//
+     320H0PROBLEM CODE			    A6/
+     420H0NUMBER OF VARIABLES		    I6/
+     520H0NUMBER OF GROUPS		    I6/
+     630H0NUMBER OF CASES IN EACH GROUP16I6/(30X,16I6))
+      DOUBLE PRECISION ALPHA
+      DATA ALPHA/8HALPHA   /
+      DATA FFV/4H(9H ,4HVARI,4HABLE,4H)   /,FFV1/4H(1H0,4H,10X,4H,8HV,
+     1	4HARIA,4HBLE/,4H(1X,,4H9I14,4H))  /, FFG/4H(1H0,4H,11X,4H,5HG,
+     2	4HROUP,4H/(4X,4H,9(8,4HX,2A,4H3)))/,Q002HL/4HNO  /,
+     3	Q005HL/4HYES /
+      AAAA(A,B)=.5*B*(1.0-SIGN(1.0,A))+A
+      IT1=1
+      IT2=2
+      REAL*8 PR/'PROBLM  '/,FN/'FINISH	'/,GR/'SAMSIZ  '/,GL/'GPLABL  '/
+     1,SP/'SUBPRO  '/,CND/'CONDEL  '/,Z,ZZ,PC,COVAR/'COVAR '/
+      ON=(+Q002HL)
+      YES=(+Q005HL)
+      MT=5
+ 20   MTP=MT
+      FL=0.0
+      REWIND IT1
+      REWIND IT2
+      READ (5,1)Z,PC,NV,NG,NSP,NF,MT,NGPP,EAN,STD,COV,COR,AUA ,IUA,ONO
+     2,NUA,ISTEP,STRA,IPRIOR
+ 1    FORMAT(2A6,6I2,5A3,I1,A2,2I1,A3,I1)
+      STRAT=.FALSE.
+      IF(STRA.EQ.YES) STRAT=.TRUE.
+      DO 85 I=1,81
+ 85   AU(I)=1.0
+      IF(Z.EQ.PR) GO TO 101
+  131 IF(Z.EQ.FN) GO TO 132
+ 530  WRITE (6,531)
+ 531  FORMAT(10H0PROBLM OR)
+      ZZ=FN
+  500  WRITE (6,501) ZZ,Z
+  501 FORMAT(1H0A6,1X,58HCARD EXPECTED, THE FIRST SIX COLUMNS OF THE CAR
+     1D READ WERE,A12)
+      GO TO 110
+ 132  WRITE (6,133)
+ 133  FORMAT(40H0FINISH CARD ENCOUNTERED, JOB TERMINATED)
+      GO TO 110
+  101 IF(NV*(81-NV))100,100,230
+ 230  IF(NG*(81-NG))165,165,231
+ 231  IF(NF*(15-NF))163,1017,1017
+ 1017 IF(AUA.NE.YES) GO TO 82
+ 83   READ (5,84) Z ,(AU(I),I=1,NG)
+   84 FORMAT(A6,11F6.5/(6X,11F6.5))
+      ZZ=COVAR
+      IF (Z.NE.COVAR) GO TO 500
+ 82   READ (5,2)Z,(NPG(I),I=1,NG)
+    2 FORMAT(A6,11I6/(6X,11I6))
+      GO TO 232
+  100 WRITE (6,571) NV
+  571 FORMAT (1H ,I6,1X,20HVARIABLES IS ILLEGAL  /)
+      WRITE (6,572)
+  572 FORMAT (1H ,10X,14HJOB TERMINATED   )
+      GO TO 110
+  165 WRITE (6,573) NG
+  573 FORMAT (1H ,I6,1X,17HGROUPS IS ILLEGAL  /)
+      WRITE (6,572)
+      GO TO 110
+  163 WRITE (6,164)
+  164 FORMAT (1H 23X71HNUMBER OF VARIABLE FORMAT CARDS INCORRECTLY SPECI
+     2FIED,ASSUMED TO BE 1.  )
+      NF=1
+ 232  ZZ=GR
+      IF(Z.NE.GR) GO TO 500
+  102 NF=MAX0(NF,1)*18
+      WRITE (6,200)PC,NV,NG,(NPG(I),I=1,NG)
+      READ (5,550) Z,(CHAR(I,1),CHAR(I,2),I=1,NG)
+  550 FORMAT(A6,22A3/(6X,22A3))
+      ZZ=GL
+      IF(Z.NE.GL) GO TO 500
+      NG11=NG-1
+      DO 559 I=1,NG11
+      DO 559 J=1,I
+ 559  ALF(I,J)=1.
+      IF(ISTEP.EQ.2) READ (5,558)Z,((ALF(I,J),J=1,I),I=1,NG11)
+ 558  FORMAT(A6,18F4.4/(6X,18F4.4))
+      ZZ=ALPHA
+      IF(ISTEP.EQ.2 .AND. Z.NE.ALPHA) GO TO 500
+ 551  J=0
+      DO 752 I=1,NG
+ 752  IF(NPG(I).GT.0) J=J+NPG(I)
+      DO 750 I=1,NG
+      PRIORS(I)=0.
+      IF(NPG(I).LT.0) GO TO 750
+      PRIORS(I)=1./NG
+      IF(IPRIOR.EQ.1) PRIORS(I)=NPG(I)/FLOAT(J)
+ 750  CONTINUE
+      IF(IPRIOR.NE.2) GO TO 751
+      READ (5,84)  Z,(PRIORS(I),I=1,NG)
+      ZZ=PRIO
+      IF(Z.NE.ZZ) GO TO 500
+ 751  WRITE (6,3131) (PRIORS(I),I=1,NG)
+ 3131 FORMAT('0PRIOR PROBABILITIES',5X,10F10.4,/(25X,10F10.4))
+      DO 3467 I=1,NG
+ 3467 IF(PRIORS(I).GT.0.)PRIORS(I)=ALOG(PRIORS(I))
+      READ (5,3) (FT(I),I=1,NF)
+      IF(IUA) 123,123,124
+ 124  READ (5,3) (FTT(I),I=1,18)
+    3 FORMAT(18A4)
+ 123  DO 5 I=1,81
+      DO 4 J=1,81
+      W(I,J)=0.0
+ 4    T(I,J)=0.0
+      V(I)=0.0
+ 5    U(I)=0.0
+      L=0
+      IF(MT)12,12,13
+ 12   MT=5
+ 13   HH=0.0
+      NGU=0
+      IF((MT-IT1)*(MT-IT2)*(MT-6))104,105,104
+ 105  WRITE (6,106)MT
+ 106  FORMAT(5H0TAPEI4,43H MAY NOT BE USED AS AN ALTERNATE INPUT TAPE)
+  110 IF(MTP.EQ.5) GO TO 112
+      REWIND MTP
+  112 STOP
+ 104  IF(MT-5)114,115,114
+ 114  IF(ONO-ON) 121,115,121
+ 121  REWIND MT
+ 115  IF(MT-MTP)116,119,116
+  116 IF(MTP.EQ.5) GO TO 119
+      REWIND MTP
+ 119  KL=0
+      WRITE (6,201)(FT(I),I=1,NF)
+  201 FORMAT(21H0VARIABLE FORMAT     5X,18A4/(26X,18A4))
+      IF (IUA) 208,208,209
+  208 IF(MT-5)202,203,202
+ 203  WRITE (6,204)
+ 204  FORMAT(22H0DATA INPUT FROM CARDS)
+      GO TO 205
+  209 WRITE (6,2965) (FTT(I),I=1,18)
+ 2965 FORMAT (' VARIABLE FORMAT FOR ALTERNATE OUTPUT IS '/(5X,18A4))
+      GO TO 208
+ 202  WRITE (6,207)MT
+ 2051 FORMAT('0STEPPING CRITERION IS AVERAGE OVER DISTINCT PAIRS OF GROU
+     *PS OF 1/(1+D(I,J)**2/4)')
+ 2053 FORMAT('0STEPPING CRITERION IS AVERAGE OVER DISTINCT PAIRS OF GROU
+     *PS OF ALPHA(I,J)/(1+D(I,J)**2/4)')
+ 207  FORMAT(29H0DATA INPUT FROM LOGICAL TAPEI3)
+ 205  IF(ISTEP.EQ.1) WRITE (6,2051)
+      IF(ISTEP.EQ.2) WRITE (6,2053)
+      IF(ISTEP.EQ.2) ISTEP=1
+      IF(ISTEP.EQ.3) WRITE (6,2052)
+ 2052 FORMAT('0STEPPING CRITERION IS MAXIMUM MINIMUM F'/22X,'	VAR.   P
+     *AIRS'/22X,'	   OF GPS')
+      DO 6 I=1,NG
+      N=IABS(NPG(I))
+      F(I)=(N+NPG(I))/2
+      IF(F(I)) 260,260,80
+ 80   NGU=NGU+1
+ 260  DO 8 J=1,N
+      H=J
+      HHH=0.
+      IF(H.NE.1.) HHH=H/(H-1.0)
+      READ (MT,FT)(X(K),K=1,NV)
+      DO 8 K=1,NV
+      KL=KL+1
+      IF(KL-255) 25,25,24
+   24 WRITE (IT2,300) C
+      KL=1
+ 25   C(KL)=X(K)
+      U(K)=U(K)+X(K)
+      P(K)=X(K)-U(K)/H
+      Q=P(K)*HHH
+ 251  DO 250 M=1,K
+ 250  T(M,K)=T(M,K)+P(M)*Q
+ 8    CONTINUE
+      H1=H-1.0
+      DO 253 K=1,NV
+      DF(K,I)=0.0
+      IF(H1.GT.0.0) DF(K,I)=SQRT(T(K,K)/H1)
+      XM(K,I)=U(K)/H
+      TEMP=U(K)
+      U(K)=0.0
+      IF(NPG(I))254,254,252
+ 252  V(K)=V(K)+TEMP
+      DO 9 M=1,K
+ 9    W(K,M)=W(K,M)+T(M,K)*AU(I)
+ 254  DO 253 M=1,K
+ 253  T(M,K)=0.0
+ 6    HH=HH+F(I)
+      WRITE (IT2,300) C
+      NG1=NG+1
+      N=HH
+      D=HH-FLOAT(NGU)
+      QG=N-1
+      NV1=NV+1
+      DO 850 I=1,NV
+      U(I)=V(I)/HH
+      XM(I,NG1)=U(I)
+C
+      DO 10 J=1,I
+      Q=W(I,J)
+      DO 11 K=1,NG
+ 11   Q=Q+(XM(I,K)-U(I))*(XM(J,K)-U(J))*F(K)
+ 851  W(I,J)=W(I,J)/D
+      C(I)=SQRT(ABS(Q/QG))
+ 10    T(J,I)=Q/D
+      V(I)=W(I,I)
+ 850  X(I)=SQRT(W(I,I))
+ 880  WRITE (IT2,300) ((ALF(I,J),I=1,NG11),J=1,I),((W(I,J),J=1,NV1)
+     *,(XM(I,J),J=1,NG1),I=1,NV)
+ 879  ENDFILE IT2
+      REWIND IT2
+      IF(EAN.NE.YES) GO TO 800
+ 801  WRITE (6,802)
+ 802  FORMAT(87H0MEANS	(THE LAST COLUMN CONTAINS THE GRAND MEANS OVER T
+     1HE GROUPS USED IN THE ANALYSIS))
+      DATA Q009HL/'    '/
+      CHAR(NG1,1)=(+Q009HL)
+      CHAR(NG1,2)=(+Q009HL)
+      CALL PRM(XM,NV,NG1,1,FFV,FFG,CHAR)
+  800 IF(STD.NE.YES) GO TO 804
+ 703  WRITE (6,805)
+ 805  FORMAT(20H0STANDARD DEVIATIONS)
+      CALL PRM(DF,NV,NG,1,FFV,FFG,CHAR)
+  804 IF(COV.NE.YES) GO TO 806
+ 807  WRITE (6,809)
+ 809  FORMAT(32H0WITHIN GROUPS COVARIANCE MATRIX)
+      CALL PRM(W,NV,NV,0,FFV,FFV1,CHAR)
+  806 IF(COR.NE.YES) GO TO 812
+ 813  DO 810 I=1,NV
+      DO 810 J=1,I
+      IF (X(I)*X(J).EQ.0.0) DF(I,J)=0.0
+      IF (X(I)*X(J).EQ.0.0) GO TO 810
+      DF(I,J)=W(I,J)/(X(I)*X(J))
+  810 CONTINUE
+      WRITE (6,811)
+ 811  FORMAT(33H0WITHIN GROUPS CORRELATION MATRIX)
+      CALL PRM(DF,NV,NV,0,FFV,FFV1,CHAR)
+ 812  DO 18 NN=1,NSP
+      READ (5,15)Z,NST,FADD,FDEL,TOL,CD,YOS,(LQ(I),I=1,19)
+ 15   FORMAT(A6,I4,3F6.6,2A3,19I2)
+      L=0
+      DO 295 I=1,NG
+      IF(NPG(I))295,295,261
+ 261  L=L+1
+      LIST(L)=I
+      CLIST(L,1)=CHAR(I,1)
+      CLIST(L,2)=CHAR(I,2)
+ 295  CONTINUE
+      NGU=L
+      IF (TOL.EQ.0.0) TOL=AAAA(TOL,.0001)
+      IF (FADD.EQ.0.0) FADD=AAAA(FADD,.01)
+      IF (FDEL.EQ.0.0) FDEL=AAAA(FDEL,.005)
+      ZZ=SP
+      IF(Z.NE.SP) GO TO 500
+ 130  IF(NST)34,34,35
+ 34   NST=2*NV
+   35 IF(CD.EQ.YES) GO TO 31
+ 30   DO 32 I=1,NV
+ 32   IC(I)=1
+      ICSUM=1
+      GO TO 33
+ 31   READ (5,14)Z,(IC(I),I=1,NV)
+   14 FORMAT(A6,66I1/(6X,66I1))
+      ICSUM=0
+      DO 321 I=1,NV
+  321 ICSUM=ICSUM+IC(I)
+      ZZ=CND
+      IF(Z.NE.CND) GO TO 500
+ 33   DO 16 I=1,19
+      IF(LQ(I))17,17,1675
+ 1675 LQ(I)=LQ(I)+1
+ 16   CONTINUE
+      I=20
+ 17   NQ=I-1
+ 701  DO 23 I=1,NV
+      DO 23 J=1,NG1
+ 23   DF(I,J)=-XM(I,J)
+      WRITE (6,210)NN,FADD,FDEL,TOL,(IC(I),I=1,NV)
+ 210  FORMAT(22H1SUBPROBLEM	      I8/22H F-LEVEL FOR INCLUSIONF8.4/
+     122H F-LEVEL FOR DELETION F8.4/22H TOLERANCE LEVEL      F8.4/
+     222H CONTROL VALUES       92I1///)
+      IF(FADD-FDEL)510,220,220
+ 510  WRITE (6,511)
+ 511  FORMAT(51H0F FOR INCLUSION MUST BE AS LARGE AS F FOR DELETION)
+      GO TO 1888
+  220 IF(ICSUM.NE.0) GO TO 2111
+      PRINT 3001
+ 3001 FORMAT('0    CONTROL VALUES SPECIFY NO VARIABLES TO BE USED IN THI
+     *S SUBPROBLEM')
+      GO TO 1888
+ 2111 IF(NN-1)838,838,832
+ 832  READ (IT2,300) ((ALF(I,J),I=1,NG11),J=1,I),((W(I,J),J=1,NV1)
+     *,(XM(I,J),J=1,NG1),I=1,NV)
+  300 FORMAT (20A4)
+      REWIND IT2
+ 838  CALL MASTER
+      IF(NGPP*L) 18,18,900
+ 900  READ (IT2,300) ((ALF(I,J),I=1,NG11),J=1,I),((W(I,J),J=1,NV1)
+     *,(XM(I,J),J=1,NG1),I=1,NV)
+      REWIND IT2
+      CALL PLT(NGPP,IUA,FTT,NUA)
+      GO TO 18
+ 1888 II=(N*NV+254)/255
+      DO 1889 I=1,II
+ 1889 READ(IT2,300) C
+ 18   CONTINUE
+   21 GO TO 20
+      END
+CEVEN	      SUBROUTINE  EVEN	FOR BMD07M	 SEPTEMBER  1, 1965
+      SUBROUTINE EVEN(YMIN,YMAX)
+      DIMENSION C(10)
+      REAL LOG10
+      YINT=90.0
+       C(1)=  1.0
+       C(2)=1.5
+       C(3)=2.0
+       C(4)=3.0
+       C(5)=4.0
+      C(6)=5.0
+       C(7)=7.5
+       C(8)=10.0
+   50 YR=YMAX-YMIN
+      TT=YR/YINT
+      J=ALOG10(TT)
+      E=10.0**J
+      TT=TT/E
+      I=0
+      IF(TT-1.0)205,201,201
+  205 TT=TT*10.0
+      E=E/10.0
+ 201  I=I+1
+      IF(C(I)-TT)201,202,233
+  233 YIJ=C(I)*E
+      GO TO 203
+  202 J=YMIN/C(I)
+      YIJ=C(I)*E
+      T=J
+      IF(ABS(T-YMIN/C(I))-.0001)203,203,204
+  204 YIJ=C(I+1)*E
+  203 X=((YMAX+YMIN)/YIJ-YINT )/2.0+.00001
+      K=X
+      IF(K)235,240,240
+  235 Y=K
+      IF(X-Y)236,240,236
+  236 K=K-1
+  240 TYMIN=K
+      TYMIN=YIJ*TYMIN
+      TYMAX=TYMIN+YINT*YIJ
+      TT=YINT/10.0
+      JY=TT+.000001
+      YIJ=YINT*(YIJ/10.0)
+      J=TYMIN/ YIJ
+      IF (K)242,241,241
+  242 J=J-1
+  241 J=J*JY+JY-K
+      JY=J
+      YMIN=TYMIN
+      YMAX=TYMAX
+      RETURN
+      END
+CINV2	   SUBROUTINE INV2 FOR BMD07M		 SEPTEMBER  1, 1965
+      SUBROUTINE INV2(A,B,C,N,T,U,IN)
+      DIMENSION U(81),IN(81),A(81,81),B(81,81),C(81,81)
+      DIMENSION V(81)
+      DO 1 I=1,N
+      DO 60 J=1,N
+      V(I)=A(I,I)
+ 60   C(I,J)=0.0
+      C(I,I)=1.0
+ 1    IN(I)=0
+      K=1
+ 2    DO 3 I=K,N
+      U(I)=A(I,K)
+ 3    A(I,K)=0.0
+      P=U(K)
+      DO 4 I=1,K
+      U(I)=A(K,I)
+ 4    A(K,I)=0.0
+      U(K)=-1.0
+      IN(K)=1
+      H=0.0
+      K1=K+1
+      DO 5 I=1,N
+      Y=U(I)/P
+      DO 6 J=1,I
+ 6    A(I,J)=A(I,J)-U(J)*Y
+      IF(IN(I))5,7,5
+ 7    IF(I-K)30,30,31
+ 30   Z=B(I,I)-Y*(2.0*B(I,K)-Y*B(K,K))
+      DO 32 J=1,N
+      IF(J-I)33,32,34
+ 33   B(J,I)=B(J,I)-Y*B(J,K)
+      GO TO 32
+ 34   IF(J-K)35,36,36
+ 35   B(I,J)=B(I,J)-Y*B(J,K)
+      GO TO 32
+ 36   B(I,J)=B(I,J)-Y*B(K,J)
+ 32   CONTINUE
+      GO TO 37
+ 31   Z=B(I,I)-Y*(2.0*B(K,I)-Y*B(K,K))
+      DO 42 J=1,N
+      IF(J-K)43,43,44
+ 43   B(J,I)=B(J,I)-Y*B(J,K)
+      GO TO 42
+ 44   IF(J-I)45,42,46
+ 45   B(J,I)=B(J,I)-Y*B(K,J)
+      GO TO 42
+ 46   B(I,J)=B(I,J)-Y*B(K,J)
+ 42   CONTINUE
+ 37   B(I,I)=Z
+      DO 50 J=1,N
+ 50   C(J,I)=C(J,I)-Y*C(J,K)
+      IF(A(I,I)/V(I)-H)5,5,9
+ 9    H=A(I,I)/V(I)
+      KK=I
+ 5    CONTINUE
+      Z=B(K,K)/P
+      P=SQRT(P)
+      DO 14 I=1,K
+ 14   B(I,K)=B(I,K)/P
+      IF(K-N)47,48,48
+ 47   DO 49 I=K1,N
+ 49   B(K,I)=B(K,I)/P
+ 48   B(K,K)=Z
+      DO 51 I=1,N
+ 51   C(I,K)=C(I,K)/P
+      K=KK
+      IF(H-T)10,10,2
+ 10   DO 70 I=1,N
+      I1=I+1
+      IF(IN(I))71,71,76
+ 71   DO 72 J=1,I
+ 72   B(J,I)=0.0
+      IF(I-N)74,76,76
+ 74   DO 75 J=I1,N
+ 75   B(I,J)=0.0
+      DO 73 J=1,N
+ 73   C(J,I)=0.0
+ 76   DO 77 J=1,I
+      A(I,J)=B(J,I)
+ 77   A(J,I)=B(J,I)
+ 70   CONTINUE
+      RETURN
+      END
+CJACOBI     SUBROUTINE JACOBI FOR BMD07M	 SEPTEMBER  1, 1965
+      SUBROUTINE JACOBI(A,B,NV,ACC,NR,IV,LK,Q)
+      DIMENSION A(81,81),LK(81),Q(81),B(81,81)
+      NR=0
+      Q(1)=0.0
+      W=0.0
+      H=.5*ABS(A(1,1))
+      DO 1 I=2,NV
+      H=H+ABS(A(I,I))*.5
+      Q(I)=0.0
+      I1=I-1
+      DO 2 J=1,I1
+      Z=ABS(A(I,J))
+      H=H+Z
+      IF(Z-Q(I))2,2,3
+ 3    Q(I)=Z
+      LK(I)=J
+ 2    CONTINUE
+      IF(Q(I)-W)1,1,4
+ 4    W=Q(I)
+      III=I
+ 1    CONTINUE
+      X=NV*NV
+      H=2.0*H*ACC/X
+ 30   II=LK(III)
+      JJ=III
+      X=A(II,II)
+      Y=A(JJ,II)
+      Z=A(JJ,JJ)
+      W=X-Z
+      T=.5*(W+SQRT(W*W+4.0*Y*Y))/Y
+      W=SQRT(1.0+T*T)
+      S=T/W
+      C=1.0/W
+      CC=C*C
+      SS=S*S
+      SC=S*C*2.0
+      Q1=0.0
+      Q2=0.0
+      W=0.0
+      NR=NR+1
+      DO 27 I=1,NV
+      IF(I-II)10,11,12
+ 10   U=A(II,I)
+      V=A(JJ,I)
+      E=U*S+V*C
+      A(II,I)=E
+      IF(ABS(E)-Q1)15,15,14
+ 14   Q1=ABS(E)
+      I1=I
+ 15   F=V*S-U*C
+      A(JJ,I)=F
+      IF(I-II) 100,100,110
+ 110  IF(LK(I)-II) 100,101,100
+ 101  Q(I)=-1.E20
+      I3=I-1
+      DO 103 J=1,I3
+      IF(ABS(A(I,J))-Q(I)) 103,103,107
+ 107  LK(I)=J
+      Q(I)=ABS(A(I,J))
+ 103  CONTINUE
+ 100  IF(ABS(F)-Q2) 9,9,16
+ 16   Q2=ABS(F)
+      I2=I
+      GO TO 9
+ 11   A(II,I)=SS*X+SC*Y+CC*Z
+      Q(I)=Q1
+      LK(I)=I1
+      GO TO 9
+ 12   IF(I-JJ)17,18,19
+ 17   U=A(I,II)
+      V=A(JJ,I)
+      E=S*U+C*V
+      A(I,II)=E
+      IF(ABS(E)-Q(I))15,15,21
+ 21   LK(I)=II
+      Q(I)=ABS(E)
+      GO TO 15
+ 18   A(JJ,I)=CC*X-SC*Y+SS*Z
+      A(I,II)=0.0
+      Q(I)=Q2
+      LK(I)=I2
+      GO TO 9
+ 19   U=A(I,II)
+      V=A(I,JJ)
+      E=U*S+V*C
+      F=V*S-U*C
+      A(I,II)=E
+      A(I,JJ)=F
+      IF((LK(I)-II)*(LK(I)-JJ)) 109,101,109
+ 109  G=AMAX1(ABS(E),ABS(F))
+      IF(G-Q(I))9,9,13
+ 13   Q(I)=G
+      IF(ABS(E)-ABS(F))23,24,24
+ 24   LK(I)=II
+      GO TO 9
+ 23   LK(I)=JJ
+ 9    IF(Q(I)-W)40,25,25
+ 25   W=Q(I)
+      III=I
+ 40   IF(IV)27,27,33
+ 33   U=B(I,II)
+      V=B(I,JJ)
+      B(I,II)=U*S+V*C
+      B(I,JJ)=V*S-U*C
+ 27   CONTINUE
+      IF(W-H)31,31,30
+ 31   RETURN
+      END
+CMASTER      SUBROUTINE MASTER FOR BMD07M	 SEPTEMBER  1, 1965
+      SUBROUTINE MASTER
+      DIMENSION DF(81,82),XM(81,81),W(81,81),T(81,81),GZ(91,55),IC(81),L
+     1Q(20),MQ(81),FT(288),F(81),V(81),U(81),P(81),X(81),NPG(81),C(255),
+     2DODE(162),LIST(81),CHAR(81,2),CLIST(81,2)
+      DIMENSION NSU(180)
+      COMMON/XX12/ ISTEP,STRAT
+      COMMON  W
+      COMMON  Q000CM (	 81)
+      COMMON  DF
+      COMMON  Q001CM ( 6561)
+      COMMON  IC     , LQ     , NV     , NG	, NQ	 , F
+      COMMON  L      , K      , FADD   , FDEL	, FT	 , NG1
+      COMMON  U      , P      , X      , NPG	, N	 , NST
+      COMMON  FL     , NS     , V      , TOL	, MQ	 , MORE
+      COMMON  C      , YOS    , YES    , IT1	, IT2	 , NV1
+      COMMON  DODE   , LIST   , CHAR   , CLIST	, NGU
+      COMMON PRIORS(40)
+C     EXTERNAL SIGN
+      EQUIVALENCE (W(1,2),T(1,1)),(GZ(1,1),DF(1,1)),(DF(1,82),XM(1,1))
+      COMMON/TOLER/LISTOL(80),LQQL
+      DIMENSION XWX(81,1)
+      EQUIVALENCE (XWX(1,1),DF(1,41))
+      DO 47 I=1,NG
+      DO 47 J=1,I
+ 47   XWX(I,J)=0.
+      K=0
+      USTAT=1.0
+      YAS=YOS
+      YOS=0.0
+      NS=0
+      Q=NGU-1
+      L=0
+      LQQL=0
+      DO 2 I=1,NV
+      LISTOL(I)=0
+ 2    MQ(I)=0
+      IJ=0
+      DO 5 I=1,NV
+      J=IC(I)
+      IF(J)5,5,3
+ 3    MQ(J)=MQ(J)+1
+      IF(J-IJ)5,5,4
+ 4    IJ=J
+ 5    CONTINUE
+      H=1.E20
+      G=-1.E20
+      A=N-NGU
+      DO 30 I=1,NV
+      IF(IC(I))30,30,31
+ 31   F(I)=(T(I,I)-W(I,I))/W(I,I)*A/Q
+      IF(ISTEP.GT.0) P(I)=CRIT(I,NG,NPG,ISTEP,1.)
+      FI=F(I)
+      IF(ISTEP.EQ.1) FI=-P(I)
+      IF(ISTEP.EQ.3) FI=P(I)
+      IF(G-FI) 32,30,30
+ 32   G=FI
+      KK=I
+ 30   CONTINUE
+      CALL OUT(0)
+      IF(F(KK) .GT.FADD .AND. G.NE.-1.E20) GO TO 12
+ 250  WRITE (6,261)
+ 261  FORMAT(39H0NO VARIABLE HAS A SUFFICIENTLY LARGE F)
+      RETURN
+ 12   IF(IJ-1)21,21,13
+ 13   IF(MQ(IJ))14,14,16
+ 14   IJ=IJ-1
+      GO TO 12
+ 16   MQ(IJ)=MQ(IJ)-1
+      G=-1.E20
+      LQQL=0
+      DO 19 I=1,NV
+      IF(IC(I)-IJ)19,17,19
+   17 IF(W(I,I)/V(I)-TOL) 9019,175,175
+ 175  FI=F(I)
+      IF(ISTEP.EQ.1) FI=-P(I)
+      IF(ISTEP.EQ.3) FI=P(I)
+      IF(G-FI) 18,18,19
+ 18   G=FI
+      K=I
+      GO TO 19
+ 9019 LQQL=LQQL+1
+      LISTOL(LQQL)=I
+ 19   CONTINUE
+      IF(G+1.E20)14,14,24
+ 21   IF(H-FDEL)22,22,225
+ 22   L=L-1
+      FL=-1.0
+      GO TO 28
+ 225  IF(F(KK) .GT.FADD .AND. G.NE.-1.E20) GO TO 20
+ 400  WRITE (6,401)
+ 401  FORMAT(45H0F LEVEL INSUFFICIENT FOR FURTHER COMPUTATION)
+ 23   YOS=YAS
+      CALL OUT(1)
+      WRITE (6,315)
+ 315  FORMAT(20H1SUMMARY TABLE
+     1//      92H0 STEP        VARIABLE 	F VALUE TO	    NUMB
+     2ER OF	  U-STATISTIC		   /
+     3 94H NUMBER   ENTERED  REMOVED   ENTER OR REMOVE	 VARIABLES INCLU
+     4DED			      //)
+      J=0
+      DS=DODE(NS)
+      DO 300 I=1,NS
+      IF(FT(I))310,310,311
+ 310  J=J-1
+      Q=-FT(I)
+      WRITE (6,317)I,NSU(I),Q,J,DODE(I)
+ 317  FORMAT(1X,I4,9X,I9,F16.4,10X,I8,F19.4,F12.4)
+      GO TO 300
+ 311  J=J+1
+      WRITE (6,316)I,NSU(I),FT(I),J,DODE(I)
+ 316  FORMAT(1X,I4,I9,9X,F16.4,10X,I8,F19.4,F12.4)
+ 300  CONTINUE
+      RETURN
+ 20   K=KK
+ 24   L=L+1
+      FL=1.0
+ 28   IF(NQ) 27,27,29
+ 29   DO 25 I=1,NQ
+      IF(L-LQ(I))25,26,25
+ 25   CONTINUE
+      GO TO 27
+ 26   CALL OUT(1)
+      REWIND IT2
+ 27    I=1,K
+      U(I)=W(K,I)
+      P(I)=T(I,K)
+      W(K,I)=0.0
+ 41   T(I,K)=0.0
+      PW=U(K)
+      IC(K)=-IC(K)
+      PT=P(K)
+      USTAT=USTAT*PW/PT
+      DO 42 I=K,NV
+      U(I)=W(I,K)
+      P(I)=T(K,I)
+      W(I,K)=0.0
+ 42   T(K,I)=0.0
+      DO 44 I=1,NG1
+      X(I)=DF(K,I)
+ 44   DF(K,I)=0.0
+C
+      DO 46 I=1,NG
+      DO 46 J=1,I
+ 46   XWX(I,J)=XWX(I,J)+X(I)*X(J)/PW
+      P(K)=FL
+      U(K)=FL
+      DO 43 I=1,NV
+      YW=U(I)/PW
+      YT=P(I)/PT
+      DO 45 J=1,NG1
+ 45   DF(I,J)=DF(I,J)-X(J)*YW
+      DO 43 J=1,I
+      W(I,J)=W(I,J)-U(J)*YW
+ 43   T(J,I)=T(J,I)-P(J)*YT
+      A=N-L-NGU+1
+      FACTU=(A-1.)/(N-NGU)/(L+1)
+      G=-1.E20
+      H=1.E20
+      LQQL=0
+      DO 11 I=1,NV
+      IF(IC(I))10,11,7
+    7 F(I)=0.0
+      IF (W(I,I).NE.0.0) F(I)=(T(I,I)-W(I,I))/W(I,I)*(A-1.0)/Q
+      IF(ISTEP.GT.0) P(I)=CRIT(I,NG,NPG,ISTEP,FACTU)
+      FI=F(I)
+      IF(ISTEP.EQ.1) FI=-P(I)
+      IF(ISTEP.EQ.3) FI=P(I)
+      IF(W(I,I)/V(I)-TOL) 9011,8,8
+ 8    IF(G-FI) 9,9,11
+ 9    G=FI
+      KK=I
+      GO TO 11
+ 10   F(I)=(W(I,I)-T(I,I))/T(I,I)*A/Q
+      IF(IC(I)+1)11,101,11
+ 101  IF(H-F(I))11,105,105
+ 105  H=F(I)
+      KKK=I
+      GO TO 11
+ 9011 LQQL=LQQL+1
+      LISTOL(LQQL)=I
+ 11   CONTINUE
+      NS=NS+1
+      FT(NS)=SIGN(F(K),FL)
+      NSU(NS)=K
+      DODE(NS)=USTAT
+      CALL OUT(0)
+      K=KKK
+      IF(NS-NST) 121,23,23
+  121 GO TO 12
+      END
+COUT   SUBROUTINE OUT FOR BMD07M		 SEPTEMBER  1, 1965
+      SUBROUTINE OUT(KKK)
+      DIMENSION DF(81,82),XM(81,81),W(81,81),T(81,81),GZ(91,55),IC(81),L
+     1Q(20),MQ(81),FT(288),F(81),V(81),U(81),P(81),X(81),NPG(81),C(255),
+     2DODE(162),LIST(81),CHAR(81,2),CLIST(81,2)
+      DIMENSION XX(90)
+      DIMENSION LH(90)
+      COMMON/XX12/ ISTEP,STRAT
+      LOGICAL STRAT
+      COMMON  W
+      COMMON  Q000CM (	 81)
+      COMMON  DF
+      COMMON  Q001CM ( 6561)
+      COMMON  IC     , LQ     , NV     , NG	, NQ	 , F
+      COMMON  L      , K      , FADD   , FDEL	, FT	 , NG1
+      COMMON  U      , P      , X      , NPG	, N	 , NST
+      COMMON  FL     , NS     , V      , TOL	, MQ	 , MORE
+      COMMON  C      , YOS    , YES    , IT1	, IT2	 , NV1
+      COMMON  DODE   , LIST   , CHAR   , CLIST	, NGU
+      COMMON PRIORS(40)
+      EQUIVALENCE (W(1,2),T(1,1)),(GZ(1,1),DF(1,1)),(DF(1,82),XM(1,1))
+      COMMON/TOLER/LISTOL(80),LQQL
+      DO 17 I=1,NG
+ 17   U(I)=(NPG(I)+IABS(NPG(I)))/2
+      MG=NGU-1
+      N1=N-NGU
+      N3=N1-L
+      N2=N3+1
+      IF(KKK)23,23,24
+ 23   WRITE (6,91)
+ 91   FORMAT(1H0,100(1H*))
+      IF(NS)801,801,800
+ 801  WRITE (6,20)NS
+      GO TO 802
+ 800  IF(FL)19,18,18
+ 18   WRITE (6,20)NS,K
+   20 FORMAT(17H0STEP NUMBER	  I4/17H VARIABLE ENTERED   I4)
+      GO TO 21
+ 19   WRITE (6,22)NS,K
+ 22   FORMAT(17H0STEP NUMBER	  I4/17H VARIABLE REMOVED  I4)
+ 21   WRITE (6,10)MG,N2
+ 10   FORMAT(56H0VARIABLES INCLUDED AND F TO REMOVE - DEGREES OF FREEDOM
+     12I5/)
+      J=0
+      DO 11 I=1,NV
+      IF(IC(I))12,11,11
+ 12   J=J+1
+      LH(J)=I
+      X(J)=F(I)
+ 11   CONTINUE
+      M1=(J+6)/7
+      DO 100 M=1,M1
+ 100  WRITE (6,13)(LH(I),X(I),I=M,J,M1)
+ 13   FORMAT(I4,F9.4,I10,F9.4,I10,F9.4,I10,F9.4,I10,F9.4,I10,F9.4,I10,F9
+     1.4)
+ 802  J=0
+      DO 15 I=1,NV
+      IF(IC(I))15,15,16
+   16 IF (LQQL.LE.0) GO TO 1656
+      DO 1655 LQQLL=1,LQQL
+      IF (LISTOL(LQQLL).EQ.I)GO TO 15
+ 1655 CONTINUE
+ 1656 J=J+1
+      LH(J)=I
+      P(J)=P(I)
+      X(J)=F(I)
+ 15   CONTINUE
+      IF(J)101,101,102
+ 102  M1=(J+6)/7
+      WRITE (6,14)MG,N3
+ 14   FORMAT(59H0VARIABLES NOT INCLUDED AND F TO ENTER - DEGREES OF FREE
+     1DOM2I5/)
+      DO 103 M=1,M1
+ 103  WRITE (6,13)(LH(I),X(I),I=M,J,M1)
+      IF(ISTEP.EQ.0) GO TO 101
+      WRITE (6,3216)
+ 3216 FORMAT('0VARIABLES NOT INCLUDED AND ACTUAL ENTRY CRITERIA'/)
+      DO 3217 M=1,M1
+ 3217 WRITE (6,13) (LH(I),P(I),I=M,J,M1)
+ 101  IF(NS)82,82,804
+ 804  P7=L
+      Q7=MG
+      PP=P7*P7
+      QQ=Q7*Q7
+      IF(PP+QQ-5.0)3175,3176,3175
+ 3176 S=1.0
+      GO TO 3177
+ 3175 S=SQRT((PP*QQ-4.0)/(PP+QQ-5.0))
+ 3177 D2=(FLOAT(N)-(P7+Q7+3.0)/2.0)*S-P7*Q7*.5+1.0
+      ID1=L*MG
+      HL=DODE(NS)**(1.0/S)
+      FST=(1.0-HL)/HL*D2/FLOAT(ID1)
+      IF(LQQL.GT.0) WRITE(6,9090) (LISTOL(JQQJ),JQQJ=1,LQQL)
+ 9090 FORMAT(57H0THE FOLLOWING VARIABLES DID NOT PASS THE TOLERANCE TEST
+     1	  ,20I3)
+      IF (LQQL.GT.0) WRITE (6,9091)
+ 9091 FORMAT ('   THEY WILL NO LONGER BE PRINTED')
+      WRITE (6,35)DODE(NS),L,MG,N1,FST,ID1,D2
+ 35   FORMAT(12H0U-STATISTICF17.5,5X,18HDEGREES OF FREEDOM3I5/
+     114H APPROXIMATE F  F15.5,5X,18HDEGREES OF FREEDOMI5,F8.2)
+      WRITE (6,1)L,N2
+ 1    FORMAT(30H0F MATRIX - DEGREES OF FREEDOM2I5)
+      E=FLOAT(N2)/(FLOAT(L)*FLOAT(N1))
+      L1=0
+      NG2=NGU-1
+ 2    L0=L1+1
+      L1=MIN0(L1+10,NG2)
+      WRITE (6,3) (CLIST(J,1),CLIST(J,2),J=L0,L1)
+    3 FORMAT(1H012X,5HGROUP/5X,10(6X,2A3))
+      WRITE (6,4)
+ 4    FORMAT(6H GROUP)
+      LS=L0
+      L00=L0+1
+      DO 5 I=L00,NGU
+      II=LIST(I)
+      DO 6 J=L0,LS
+      JJ=LIST(J)
+      Q=0.0
+      DO 7 LL=1,NV
+      IF(IC(LL))40,7,7
+ 40   Q=Q+(DF(LL,II)-DF(LL,JJ))*(XM(LL,II)-XM(LL,JJ))
+ 7    CONTINUE
+      DS=DS+U(JJ)*Q
+ 6    X(J)=Q*E*U(II)*U(JJ)/(U(II)+U(JJ))
+      WRITE (6,8) CLIST(I,1),CLIST(I,2),(X(J),J=L0,LS)
+    8 FORMAT(1H ,2A3,10F12.5)
+      LS=MIN0(LS+1,L1)
+ 5    CONTINUE
+      IF(L1-NG2)2,82,82
+ 24   L1=0
+ 550  L0=L1+1
+      L1=MIN0(L1+9,NGU)
+      WRITE (6,50) (CLIST(I,1),CLIST(I,2),I=L0,L1)
+   50 FORMAT(1H010X,8HFUNCTION/4X,9(8X,2A3))
+      WRITE (6,51)
+ 51   FORMAT(9H VARIABLE)
+      DO 52 I=1,NV
+      IF(IC(I))86,52,52
+ 86   DO 270 J=L0,L1
+      JJ=LIST(J)
+ 270  X(J)=DF(I,JJ)
+      WRITE (6,55)I,(X(J),J=L0,L1)
+   55 FORMAT(I4,9F14.5/(4X,9F14.5))
+ 52   CONTINUE
+      DO 30 J=L0,L1
+      JJ=LIST(J)
+      P(J)=0.0
+      DO 31 I=1,NV
+      IF(IC(I))36,31,31
+ 36   P(J)=P(J)+DF(I,JJ)*XM(I,JJ)
+ 31   CONTINUE
+ 30   P(J)=PRIORS(JJ)-.5*P(J)
+      WRITE (6,32)(P(J),J=L0,L1)
+ 32   FORMAT(10H0CONSTANT   /(4X,9F14.5))
+      IF(L1-NGU)550,560,560
+  560 IF(YOS.NE.YES) GO TO 95
+ 96   WRITE (6,90)
+ 90   FORMAT(1H05X,10HGROUP WITH10X,37HSQUARE OF DISTANCE FROM AND POSTE
+     1RIOR/5X,13HLARGEST PROB.15X,23HPROBABILITY FOR GROUP -)
+ 95   KL=255
+      DO 85 JJ=1,NG
+      DO 84 I=1,NG
+ 84   LH(I)=0
+      IF(YOS.NE.YES) GO TO 111
+  112 WRITE (6,67) (CLIST(I,1),CLIST(I,2),I=1,NGU)
+   67 FORMAT(8H0 GROUP ,6X,7(9X,2A3)/(13X,7(9X,2A3)))
+      WRITE (6,190) CHAR(JJ,1),CHAR(JJ,2)
+  190 FORMAT(3H   ,2A3/7H   CASE)
+ 111  NO=IABS(NPG(JJ))
+ 66   DO 92 J=1,NO
+      DO 69 I=1,NV
+      KL=KL+1
+      IF(KL-255) 69,69,71
+   71 READ (IT2,300) C
+  300 FORMAT (20A4)
+      KL=1
+ 69   X(I)=C(KL)
+      XY=0.0
+      B=-1.E20
+      DO 70 KI=1,NGU
+      KJ=LIST(KI)
+      U(KI)=P(KI)
+      DO 72 I=1,NV
+      IF(IC(I))73,72,72
+ 73   U(KI)=U(KI)+X(I)*DF(I,KJ)
+ 72   CONTINUE
+      IF(B-U(KI))74,74,70
+ 74   B=U(KI)
+      KK=KI
+ 70   CONTINUE
+      LH(KK)=LH(KK)+1
+      IF(YOS.NE.YES) GO TO 92
+ 60   QV=0.0
+      DO 780 I=1,NV
+      ZZ=0.0
+      IF(IC(I))781,780,780
+ 781  DO 782 MM=1,I
+      IF(IC(MM))783,782,782
+ 783  YY=X(MM)*W(I,MM)
+      ZZ=ZZ+YY
+ 782  CONTINUE
+      XY=XY+X(I)*(ZZ-YY*.5)
+ 780  CONTINUE
+      DO 75 I=1,NGU
+      XX(I)=U(I)
+      IF(U(I)-B.GE.-180.218) GO TO 751
+      U(I)=0.0
+      GO TO 75
+  751 CONTINUE
+      U(I)=EXP(U(I)-B)
+ 75   QV=QV+U(I)
+      DO 76 I=1,NGU
+      TO=U(I)
+      U(I)=-2.*(XY+XX(I)-PRIORS(LIST(I)))
+ 76   XX(I)=TO/QV
+      WRITE (6,77) J,CLIST(KK,1),CLIST(KK,2),(U(K),XX(K),K=1,NGU)
+ 92   CONTINUE
+   77 FORMAT(I5,6X,2A3,7(F8.3,F6.3,1H,)/(17X,F8.3,F6.3,1H,F8.6,F6.3,1H,
+     1F8.3,F6.3,1H,F8.3,F6.3,1H,F8.3,F6.3,1H,F8.3,F6.3,1H,F8.3,F6.3))
+   85 WRITE (IT1,300) (LH(I),I=1,NGU)
+   63 WRITE (6,78) (CLIST(I,1),CLIST(I,2),I=1,NGU)
+   78 FORMAT(1H011X,39HNUMBER OF CASES CLASSIFIED INTO GROUP -/(10X,17(1
+     1X,2A3)))
+      REWIND IT1
+      WRITE (6,79)
+ 79   FORMAT(6H GROUP)
+      DO 80 I=1,NG
+   81 FORMAT(2H  2A3,17I7/(7X,17I7))
+      READ (IT1,300) (LH(J),J=1,NGU)
+   80 WRITE (6,81) CHAR(I,1),CHAR(I,2),(LH(J),J=1,NGU)
+      REWIND IT1
+82    RETURN
+      END
+CPLT	 SUBROUTINE PLT FOR BMD07M		 SEPTEMBER  1, 1965
+      SUBROUTINE PLT(NGPP,IUA,FTT,NUA)
+      DIMENSION PCHAR(81),HHH(41),A3(41),F3(41)
+      DIMENSION DF(81,82),XM(81,81),W(81,81),T(81,81),GZ(91,55),IC(81),L
+     1Q(20),MQ(81),FT(288),F(81),V(81),U(81),P(81),X(81),NPG(81),C(255),
+     2DODE(162),LIST(81),CHAR(81,2),CLIST(81,2)
+      DIMENSION TEV(81),FTT(18)
+      DIMENSION X1(10),X2(60)
+      COMMON/XX12/ ISTEP,STRAT
+      LOGICAL STRAT
+      COMMON  W
+      COMMON  Q000CM (	 81)
+      COMMON  DF
+      COMMON  Q001CM ( 6561)
+      COMMON  IC     , LQ     , NV     , NG	, NQ	 , F
+      COMMON  L      , K      , FADD   , FDEL	, FT	 , NG1
+      COMMON  U      , P      , X      , NPG	, NQ00N  , NST
+      COMMON  FL     , NS     , V      , TOL	, MQ	 , MORE
+      COMMON  C      , YOS    , YES    , IT1	, IT2	 , NV1
+      COMMON  DODE   , LIST   , CHAR   , CLIST	, NGU
+      COMMON PRIORS(40)
+      EQUIVALENCE (W(1,2),T(1,1)),(GZ(1,1),DF(1,1)),(DF(1,82),XM(1,1))
+      DATA DOLAR/'$   '/,ST/'*	 '/,BL/'    '/,Q003HL/'0   '/
+      L=0
+      DO 1 I=1,NV
+      TEV(I)=W(I,I)
+      IF(IC(I))2,1,1
+ 2    L=L+1
+      U(L)=XM(I,NG1)
+      MQ(L)=I
+      DO 3 J=1,L
+      K=MQ(J)
+      T(J,L)=T(K,I)-W(I,K)
+ 3    W(L,J)=W(I,K)
+ 1    CONTINUE
+      IF(L.EQ.0) RETURN
+      IF(L.GT.1) GO TO 1019
+      X(1)=W(1,2)/W(1,1)
+      V(1)=X(1)
+      W(1,1)=1.
+      W(1,2)=0.
+      TX=1./(1.+X(1))
+      LFT=1
+      GO TO 1029
+ 1019 CONTINUE
+      CALL INV2(W,W(1,2),DF,L,1.E-5,IC,X)
+      CALL JACOBI(W,DF,L,1.E-6,NR,1,IC,X)
+      DO 4 I=1,L
+      X(I)=W(I,I)
+ 4    IC(I)=I
+      TX=1.0
+      RQ=0.0
+      LFT=L
+      DO 5 I=1,L
+      DO 6 J=I,L
+      IF(X(J)-X(I))6,6,8
+ 8    Y=X(J)
+      X(J)=X(I)
+      X(I)=Y
+      II=IC(I)
+      IC(I)=IC(J)
+      IC(J)=II
+ 6    CONTINUE
+      TX=TX/(1.0+X(I))
+      RQ=RQ+X(I)
+      V(I)=RQ
+      M=IC(I)
+      DO 5 J=1,L
+ 5    W(J,I)=DF(J,M)
+ 1029 CONTINUE
+      WRITE (6,7)(X(I),I=1,LFT)
+ 7    FORMAT(1H06X,11HEIGENVALUES//(4X,9F14.5))
+      DO 859 LO=1,LFT
+      V(LO)=V(LO)/RQ
+      XDP1=X(LO)/(1.0+X(LO))
+      AXDP1=ABS(XDP1)
+  859 X(LO)=SQRT(AXDP1)
+      WRITE (6,858)(V(LO),LO=1,LFT)
+ 858  FORMAT(1H06X,41HCUMULATIVE PROPORTION OF TOTAL DISPERSION// (4X,9F
+     114.5))
+      WRITE (6,857)(X(LO),LO=1,LFT)
+ 857  FORMAT(1H0,5X,23H CANONICAL CORRELATIONS//(4X,9F14.5))
+      L1=0
+ 10   L0=L1+1
+      L1=MIN0(L1+9,LFT)
+      WRITE (6,11)(I,I=L0,L1)
+ 11   FORMAT(39H0COEFFICIENTS FOR CANONICAL VARIABLE - /9H0ORIGINALI6,8I
+     114)
+      WRITE (6,12)
+ 12   FORMAT(9H VARIABLE)
+      DO 13 I=1,L
+ 13   WRITE (6,14)MQ(I),(W(I,J),J=L0,L1)
+      DO 180 J=L0,L1
+      DO 180 I=1,NG
+      DF(I,J)=0.0
+      DO 180 K=1,L
+      M=MQ(K)
+ 180  DF(I,J)=DF(I,J)+W(K,J)*(XM(M,I)-U(K))
+      WRITE (6,182)
+ 182  FORMAT(6H0GROUP 10X,44HCANONICAL VARIABLES EVALUATED AT GROUP MEAN
+     1S)
+      DO 181 I=1,NG
+ 181  WRITE (6,14)I,(DF(I,J),J=L0,L1)
+      IF(L1-LFT)10,15,15
+ 15   DO 25 I=1,L
+      A3(I)=W(I,3)
+      V(I)=W(I,1)
+ 25   P(I)=W(I,2)
+      WRITE (6,100)TX
+ 100  FORMAT(27H0CHECK ON FINAL U-STATISTICF15.5)
+      A=0.0
+      CC=0.
+      B=0.0
+      DO 37 M=1,L
+      CC=CC+U(M)*A3(M)
+      A=A+U(M)*V(M)
+ 37   B=B+U(M)*P(M)
+      BX=-1.E20
+      BY=-1.E20
+      AX=1.E20
+      AY=1.E20
+      N=0
+      DO 27 I=1,NG
+      F(I)=-A
+      N=N+IABS(NPG(I))
+      FT(I)=-B
+      F3(I)=-CC
+      DO 26 J=1,L
+      M=MQ(J)
+      Z=XM(M,I)
+      F3(I)=F3(I)+Z*A3(J)
+      F(I)=F(I)+Z*V(J)
+ 26   FT(I)=FT(I)+Z*P(J)
+      AX=AMIN1(AX,F(I))
+      AY=AMIN1(AY,FT(I))
+      BX=AMAX1(BX,F(I))
+ 27   BY=AMAX1(BY,FT(I))
+      DO 600 I=1,NG
+ 600  HHH(I)=F3(I)
+      DO 620 I=1,NG
+      HHM=1.E70
+      DO 610 J=I,NG
+      HHM=AMIN1(HHM,HHH(J))
+ 610  IF(HHM.EQ.HHH(J)) K=J
+      HHH(K)=HHH(I)
+ 620  HHH(I)=HHM
+      DO 630 I=2,NG
+ 630  HHH(I)=(HHH(I)+HHH(I-1))/2.
+      HHH(1)=-1.E30
+      IF(.NOT.STRAT) HHH(2)=1.E30
+      HHH(NG+1)=1.E30
+      AX=AMIN1(AX,AY)-3.
+      BX=AMAX1(BX,BY)+3.0
+C
+ 14   FORMAT(1X,I3,9F14.5)
+      AY=AX
+      RX=BX-AX
+      RY=RX
+      D=RX/9.0
+      Z=AX
+      IF (NUA) 1225,1225,122
+ 1225 IF(IUA) 121,121,122
+ 122  KL=255
+      REWIND IUA
+      DO 124 J=1,N
+      DO 143 I=1,NV
+      KL=KL+1
+      IF(KL-255) 143,143,144
+  144 READ (IT2,300) C
+  300 FORMAT (20A4)
+      KL=1
+ 143  X(I)=C(KL)
+      DO 146 I=1,L
+      DODE(I)=0.0
+      DO 146 K=1,L
+      M=MQ(K)
+ 146  DODE(I)=DODE(I)+W(K,I)*(X(M)-U(K))
+      IF (IUA) 1465,1465,124
+ 124  WRITE (IUA,FTT)(DODE(I),I=1,L)
+C
+      ENDFILE IUA
+      REWIND IUA
+ 1465 IF (NUA) 121,121,1475
+ 1475 DO 147 I=1,L
+ 147  WRITE (NUA,FTT)(W(K,I),K=1,L)
+      ENDFILE NUA
+      REWIND NUA
+ 121  DO 71 I=1,10
+      X1(I)=Z
+ 71   Z=Z+D
+      NSTRAT=1
+      IF(STRAT) NSTRAT=NG
+      DO 200 LKKL=1,NSTRAT
+      REWIND IT2
+      KL=255
+      L1=0
+ 30   L0=L1+1
+      IF(STRAT) WRITE (6,201) LKKL
+ 201  FORMAT('1STRATIFICATION',I3,' ON THIRD CANONICAL VARIABLE')
+      LLZ1=1
+      IF(STRAT) LLZ1=0
+      WRITE (6,120) LLZ1
+ 120  FORMAT(I1,'POINTS PLOTTED ON THE FOLLWING GRAPH'//5X,29HX = FIRST
+     1CANONICAL VARIABLE /5X,30HY = SECOND CANONICAL VARIABLE /5X,62HCAS
+     2E NUMBER FOLLOWED BY * INDICATES THE POINT IS OFF THE GRAPH)
+      DO 31 I=1,91
+      DO 31 J=1,55
+ 31   GZ(I,J)=BL
+      L1=MIN0(L1+NGPP,NG)
+C      FINDING THE FIRST NON-BLANK LETTER OF THE GROUP LABELS
+      DO 39 ICH=1,NG
+      KC=1
+      IF(CHAR(ICH,1).EQ.BL) KC=2
+      DO 36 JCH=1,4
+      CALL GETCHR(CHAR(ICH,KC),JCH,CCCHAR)
+      IF(CCCHAR.NE.BL) GO TO 38
+   36 CONTINUE
+   38 PCHAR(ICH)=CCCHAR
+   39 CONTINUE
+C      PCHAR(I) IS THE FIRST LETTER OF GROUP LABEL I
+      DO 40 MZ=L0,L1
+      LOST=0
+      MX=0
+      N87=IABS(NPG(MZ))
+      N41=MIN0((N87-1)/10,5)
+      WRITE (6,154) CHAR(MZ,1),CHAR(MZ,2), F(MZ),FT(MZ),(BL,J=1,N41)
+  154 FORMAT(7H0GROUP ,2A3,18H	MEAN COORDINATES2F8.3//
+     16(A1,21H	CASE	 X	 Y ))
+      DO 42 J=1,N87
+      DO 43 I=1,NV
+      KL=KL+1
+      IF(KL-255)43,43,44
+   44 READ (IT2,300) C
+      KL=1
+ 43   X(I)=C(KL)
+      AA=-A
+      CCC=-CC
+      BB=-B
+      DO 45 I=1,L
+      M=MQ(I)
+      CCC=CCC+X(M)*A3(I)
+      AA=AA+X(M)*V(I)
+ 45   BB=BB+X(M)*P(I)
+      IF(CCC.LE.HHH(LKKL) .OR. CCC.GT.HHH(LKKL+1)) GO TO 42
+      MX=MX+1
+      IF(MX-61)150,151,151
+C
+ 151  CONTINUE
+      WRITE (6,153) ((LIST(I),X2(I),CLIST(I,1),U(I),I=K,60,10),K=1,10)
+  153 FORMAT(1H0,I4,A1,2F8.3,5(I5,A1,2F8.3)/6(I5,A1,2F8.3))
+C
+      MX=1
+  150 CLIST(MX,1)=AA
+      U(MX)=BB
+      LIST(MX)=J
+      X2(MX)=BL
+      XIX=(AA-AX)/RX*90.0+1.5
+      IX=XIX
+      XIX=55.5-(BB-AY)/RY*54.0
+      IY=XIX
+      IF(IX*(92-IX))50,50,48
+ 48   IF(IY*(56-IY))50,50,49
+ 49   IF(GZ(IX,IY)-BL)934,935,934
+  934 IF(GZ(IX,IY)-PCHAR(MZ)) 936,42,936
+ 936  GZ(IX,IY)=DOLAR
+      GO TO 42
+  935 GZ(IX,IY)=PCHAR(MZ)
+      GO TO 42
+ 50   X2(MX)=ST
+ 42   CONTINUE
+C
+      IF(MX.EQ.0) GO TO 40
+      R=(+Q003HL)
+      N41=MIN0(10,MX)
+      DO 161 K0=1,N41
+      WRITE (6,162) R,(LIST(I),X2(I),CLIST(I,1),U(I),I=K0,MX,10)
+ 162  FORMAT(A1,I4,A1,2F8.3,5(I5,A1,2F8.3))
+  161 R=BL
+ 40   CONTINUE
+      DO 92 MZ=L0,L1
+      XIX=(F(MZ)-AX)/RX*90.0+1.5
+      IX=XIX
+      XIX=55.5-(FT(MZ)-AY)/RY*54.0
+      IY=XIX
+      IF(F3(MZ).LE.HHH(LKKL) .OR. F3(MZ).GT.HHH(LKKL+1)) GO TO 92
+      GZ(IX,IY)=ST
+ 92   CONTINUE
+      D=RY/54.0
+      Z=AY+RY
+      DO 70 I=1,55
+      X2(I)=Z
+ 70   Z=Z-D
+      WRITE (6,95)
+ 95   FORMAT(45H-OVERLAP IS INDICATED BY $, GROUP MEANS BY *. )
+      WRITE (6,80)(X1(I),I=1,9,2),(X1(I),I=2,10,2),(X2(J),(GZ(I,J),I=1,9
+     11),X2(J),J=1,55),(X1(I),I=2,10,2),(X1(I),I=1,9,2)
+ 80   FORMAT(1H15X,5(F10.3,10X)/6X,5(10X,F10.3)/12X,1H+18(5H....+),55(/1
+     1X,F9.3,2H .91A1,1H.F9.3)/12X,1H+18(5H....+)/6X,5(10X,F10.3)/6X,5(F
+     210.3,10X))
+      IF(L1-NG) 30,200,200
+ 200  CONTINUE
+ 90   DO 995 I=1,NV
+ 995  V(I)=TEV(I)
+      RETURN
+      END
+CPRM	      SUBROUTINE  PRM	FOR BMD07M	 SEPTEMBER  1, 1965
+      SUBROUTINE PRM(A,NV,NG,KK,F1,F2,CHAR)
+      DIMENSION A(81,81),F1(4),F2(8),CHAR(81,2)
+      L1=0
+ 1    L0=L1+1
+      L1=MIN0(L1+9,NG)
+      IF(KK)3,3,2
+ 2    LS=L1
+      WRITE (6,12) (CHAR(I,1),CHAR(I,2),I=L0,L1)
+   12 FORMAT (1H0,11X,5HGROUP,/4X,9(8X,2A3))
+      L00=1
+      GO TO 4
+ 3    LS=L0
+      WRITE (6,13) (I,I=L0,L1)
+   13 FORMAT (1H0,11X,9HVARIABLES/4X,9(8X,I4,2X))
+      L00=L0
+    4 WRITE (6,14)
+   14 FORMAT (9H VARIABLE)
+      DO 5 I=L00,NV
+      WRITE (6,7)I,(A(I,J),J=L0,LS)
+    7 FORMAT (1X,I3,9F14.5)
+ 5    LS=MIN0(LS+1,L1)
+      IF(L1-NG)1,6,6
+ 6    RETURN
+      END
+      SUBROUTINE GETCHR(A,N,C)
+CGETCHR        SUBROUTINE GETCHR FOR BMD07M		    JULY 26,1966
+C FINDS THE NTH LETTER OF THE WORD A AND RETURNS IT FOLLOWED BY BLANKS
+C	  IN THE WORD C
+      LOGICAL*1 A,C1
+      DIMENSION A(N)
+      LOGICAL CW,BLANK,C
+      EQUIVALENCE (C1,CW)
+      DATA BLANK/1H /
+ 9000 FORMAT (' DO NOT REMOVE THIS UNTIL COMPILER IS FIXED ')
+      CW=BLANK
+      C1=A(N)
+      C=CW
+      RETURN
+      END
+      FUNCTION CRIT(K,NG,NPG,ISTEP,C)
+      DIMENSION NPG(1),XWX(81,8),Y(40)
+      COMMON W(81,81),X(81),DF(81,81)
+      EQUIVALENCE (XWX(1,1),DF(1,41))
+      DIMENSION ALF(81,1)
+      EQUIVALENCE (DF(41,41),ALF(1,1))
+      AL=0.
+      F=1.E50
+      IF(ISTEP.EQ.1) F=0.
+      DO 1 I=1,NG
+      IF(NPG(I).LT.0) GO TO 1
+      Y(I)=XWX(I,I)+DF(K,I)**2/W(K,K)
+      I1=I-1
+      IF(I1.EQ.0) GO TO 1
+      DO 2 J=1,I1
+      IF(NPG(J).LT.0) GO TO 2
+      AL=AL+ALF(I,J)
+      S=Y(I)+Y(J)-2.*(XWX(I,J)+DF(K,I)*DF(K,J)/W(K,K))
+      IF(ISTEP.EQ.1) F=F+4.*ALF(I,J)/(4.+S)
+      IF(ISTEP.EQ.3) F=AMIN1(F,S*NPG(I)*NPG(J)/(NPG(I)+NPG(J))*C)
+ 2    CONTINUE
+ 1    CONTINUE
+      IF(ISTEP.EQ.1) F=F/AL
+      CRIT=F
+      RETURN
+      END
+    cari
