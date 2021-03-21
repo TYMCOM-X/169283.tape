@@ -1,0 +1,139 @@
+        DIMENSION AA(100,100),BB(100,100),IIQ(100,100),HH(5000)
+     -,FFILE(10),TTITLE(2),IID(100),AAK(100)
+        TYPE 1
+1       FORMAT(' ENTER THE NAME OF THE DATA FILE: ',$)
+        READ(5,2)FFILE
+2       FORMAT(10A1)
+        OPEN(9,FFILE,INPUT)
+        READ(9,3)TTITLE
+3       FORMAT(2A5)
+        READ(9,4)NNUMB,LLENGTH,IISPACE
+4       FORMAT(I4,I6,I5)
+        II=LLENGTH/IISPACE+1
+        III=LLENGTH+1
+        CALL WORK (AA,BB,IIQ,AAK,FFILE,TTITLE,IID,NNUMB,LLENGTH,IISPACE,
+     -  HH,II,III)
+        READ(9,4)NNUMB,LLENGTH,IISPACE
+        II=LLENGTH/IISPACE+1
+        III=LLENGTH+1
+        CALL WORK(AA,BB,IIQ,AAK,FFILE,TTITLE,IID,NNUMB,LLENGTH,IISPACE,
+     -  HH,II,III)
+        END
+        SUBROUTINE WORK(A,B,IQ,AK,FILE,TITLE,ID,NUMB,LENGTH,ISPACE,H,II,
+     -  III)
+        DIMENSION A(NUMB,II),B(NUMB,II),IQ(NUMB,II),H(III),ID(100)
+     -  ,AK(100)
+5       GFIVE=0
+        TYPE 6
+6       FORMAT(' PROFILE DATA CHECK ',//)
+7       IPONE=1
+15      READ(9,8)IP
+8       FORMAT(I6)
+        WRITE(5,9)IP
+9       FORMAT(I6,1X,$)
+11      FORMAT(2I5)
+        DO 10 I=0,IP-1
+        READ (9,11)ID(I),H(I)
+10      CONTINUE
+        DO 12 I=1,IP-1
+        AK(I)=(H(I)-H(I-1))/(ID(I)-ID(I-1))
+12      CONTINUE
+        J=1
+        IBSIX=1
+        DO 13 IX=1,LENGTH
+        H(IX)=H(IX-1)+AK(J)
+        IF(IX.EQ.ID(J))J=J+1
+13      CONTINUE
+        IPTWO=1
+        DO 14 IX=0,LENGTH,ISPACE
+        IQ(IPONE,IPTWO)=INT(100*H(IX)+.5)/100
+        IPTWO=IPTWO+1
+14      CONTINUE
+        IPONE=IPONE+1
+        IF(IPONE.LE.NUMB)GO TO 15
+        TYPE 16
+16      FORMAT(///,' DO YOU WANT A PRINT OUT OF THE ELEVATION MATRIX ?
+     -  ',$)
+        READ(5,17)ANS
+17      FORMAT(A3)
+        IF(ANS.EQ.'NO ')GO TO 18
+        J=1
+19      TYPE 20
+20      FORMAT(' ')
+        DO 75 I=1,II
+        DO 76 J=1,NUMB
+        WRITE (5,21)IQ(J,1)
+76      CONTINUE
+75      CONTINUE
+
+21     FORMAT(1X,I3)
+18      TYPE 22
+22      FORMAT(//)
+        DO 70 I=1,II
+        DO 71 J=1,NUMB
+        A(J,I)=IQ(J,I)
+        IQ(J,I)=0
+71      CONTINUE
+70      CONTINUE
+        ICOUNT=ICOUNT+1
+        IF (ICOUNT.EQ.2)RETURN
+        DO 72 I=1,II
+        DO 73 J=1,NUMB
+        B(J,II)=IQ(J,II)
+73      CONTINUE
+72      CONTINUE
+        IA1=NUMB
+        IA2=LENGTH/ISPACE
+        TYPE 24
+24      FORMAT(' ENTER INCHES OF SOIL TO BE REMOVED ',$)
+        READ(5,25)T3
+25      FORMAT(F4.1)
+        TYPE 26
+26      FORMAT(' ENTER COMPACTION INDEX ',$)
+        READ(5,27)C8
+27      FORMAT(F4.2)
+        WRITE(5,28)TITLE,C8
+28      FORMAT(//,2A5,'  - CUT AND FILL EVALUATION',/,
+     -  '*****************************************',/,'COMPACTION 
+     -  INDEX -',F4.2,//)
+        DO 29 I=1,IA1-1
+        DO 30 J=1,IA2
+        XK=(A(I,J)+A(I+1,J)+A(I,J+1)+A(I+1,J+1))/4
+        XK=XK-T3/12
+        XK1=(B(I,J)+B(I+1,J)+B(I,J+1)+B(I+1,J+1))/4
+        IF(XK.GT.XK1)GO TO 31
+        F=F+((XK1-XK)*ISPACE*ISPACE)*C8
+        GO TO 32
+31      C=C+(XK-XK1)*ISPACE*ISPACE
+32      T9=T9+1
+30      CONTINUE
+29      CONTINUE
+        TYPE 33
+33      FORMAT(' TOTAL CUT',15X,'TOTAL FILL',15X,'EXCESS 
+     -  CUT',15X,'ADDITIONAL FILL',/,'REQUIRED',15X,
+     -  'REQUIRED',15X,'TO BE REMOVED',15X,'TO BE HAULED IN',
+     -  /,'(C.Y.)',15X,'(C.Y.)',15X,'(C.Y.)',15X,'(C.Y.)',///)
+        C=C/27
+        F=F/27
+        IF(F.EQ.C)GO TO 35
+        IF(F.LT.C)GO TO 36
+        FC=F-C
+        WRITE(5,34)C,F,FC
+34      FORMAT(F10.1,5X,F10.1,20X,F10.1,/)
+        GO TO 40
+35      WRITE (5,38)C,F
+38      FORMAT(F10.1,5X,F10.1,/)
+        GO TO 40
+36      CF=C-F
+        WRITE(5,39)C,F,CF
+39      FORMAT(F10.1,5X,F10.1,5X,F10.1,/)
+40      WRITE(5,41)
+41      FORMAT(' ')
+        IF (T3.EQ.0)GO TO 60
+        WRITE(5,42)
+42      FORMAT(' AMOUNT OF TOPSOIL REMOVED',//)
+        TT3=((T3/12*T9*ISPACE*ISPACE)/27)
+        WRITE(5,43)TT3
+43      FORMAT(F10.1,2X,' CUBIC YARDS',/)
+60      CONTINUE
+        END
