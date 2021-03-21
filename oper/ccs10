@@ -1,0 +1,235 @@
+     Phase II FORTRAN on the PDP-10 allows users to enter and edit
+text in CCS (without incremental compilation), use the F40
+compiler, access the commands of DEBUG after program execution,
+and return to CCS via the DEBUG command EDIT.
+ 
+     This document describes the CCS module by pointing out its
+differences from CCS on the 940, as described in the SFORTRAN 
+Reference Manual and its January 1972 addendum.
+ 
+ 
+A.   Line Numbers
+ 
+        Line numbers may range from .001 to 99999.999
+ 
+B.   Listing a Program
+ 
+        LIST output has been improved.  The line number field is as
+     long as the longest line number to be written, rather than the
+     maximum length.  (For example, LIST 10 will no longer precede 10
+     by blanks; LIST 10,100 precedes 10 by one blank and 100 by none).
+ 
+        FAST lines TO file writes line numbers in the same format as
+     SAVE (see below).
+ 
+        When lines are listed to the terminal, control X, where X is
+     any character except I (tab), L (form feed), M (carriage return),
+     and J (line feed), is printed as &X.
+ 
+C.   Entering Statements from the Terminal
+ 
+        When lines are entered using a line range (the @ or line number
+     prompt), input is terminated with a leading carriage return rather
+     than control D.
+ 
+        No syntax checking is done during line entry.  A tab character
+     or blank immediately following a line number is not stored as part
+     of the line.
+ 
+        LOAD TEL and COPY TEL TO line range have not been implemented;
+     paper tape can be read using the EXECUTIVE command TAPE.
+ 
+D.   Retrieving a Stored Program
+ 
+        There is no LINK command.
+ 
+        LOAD has been renamed EDIT.  To avoid confusion with EDIT 
+     line list, the file name following EDIT cannot be numeric.
+ 
+        If the file specification of an EDIT, MERGE, or COPY file to 
+     line range command does not include an extension, e.g., EDIT NAME,
+     CCS looks for the file NAME.F4.  If no such file exists, it looks
+     for the file NAME (having no extension).  If no such file exists,
+     the message FILE NOT FOUND is given.
+ 
+        As in the case of line entry from the terminal, the lines are
+     not checked for syntax errors, and a tab character or blank
+     immediately following a line number is not stored as part of the 
+     line.
+ 
+        MERGE file name now responds with the OK message after the
+     specified file has been opened, an improvement resulting from 
+     the fact that MERGE is no longer equivalent to COMMANDS, but
+     is now a command in its own right.  It is still true, however,
+     that MERGE is very slow and should be used only when necessary.
+ 
+        If there is not enough room for EDIT to read the specified 
+     file, nothing at all is read.  MERGE essentially performs successive
+     ENTERs of the lines on the file specified, and so reacts as does
+     a multiple ENTER to an overflow condition:  all lines up to
+     the point of overflow are retained.
+ 
+E.   Storing a Program
+ 
+        There is no special facility for paper tape output.  As usual,
+     LIST, FAST and COPY lines TO TEL may be used since they are
+     the usual terminal output commands.
+ 
+        The SAVE command has been changed substantially.  It may
+     be used to save the symbolic source test only;  the binary
+     object code is saved when the RUN command is given, as explained
+     below.  Thus, the TEXT ONLY ? question is not asked.
+ 
+        If the SAVE file specification does not include an extension
+     or is omitted entirely, CCS assumes certain default values,
+     as follows:
+ 
+        An EDIT or a SAVE command sets the default file name and
+     extension to the name and extension (if any) of the file being
+     read or written.  CLEAR clears these values.  No other commands
+     affect or use them; this includes MERGE, COPY FILE input or
+     output, and LIST or FAST file output.  If no EDIT or SAVE com-
+     mand was previously given, the default extension used is F4,
+     and omitting the file specification entirely constitutes an
+     error.
+ 
+        SAVE (and FAST lines to file) write line numbers right
+     justified (in one or two words, whichever is necessary) with
+     leading zeroes and with the special "line number" bit set that
+     is recognized by certain other pieces of software on the system.
+     The first character of the line is preceded by a tab character.
+     Since the maximum number of integer digits is 5, an integer
+     line number will not occupy more than one word.
+ 
+F.   The COPY and MOVE Commands
+ 
+        COPY file TO file, where either file may be TEL, has not
+     been implemented.  This command may be executed as usual from
+     the EXECUTIVE level.
+ 
+        When lines are copied or moved to a line range, and the 
+     specified range is not large enough (thereby causing deletion
+     or interleaving of lines), the command is not executed at all,
+     rather than partially executed.
+ 
+G.   Executing a Program
+ 
+        EXECUTE, equivalent to RUN in the 940 CCS, has not been
+     implemented.
+ 
+        RUN may be followed by a carriage return only, or by the 
+     same type of argument string that would follow the EXECUTIVE
+     command FDEBUG, with the addition that $ may be used in the
+     string to denote the currently entered text.  If no arguments
+     are specified the first time RUN is called, the default is
+     RUN $; after the first call, subsequent omission of arguments
+     defaults to the last RUN string specified.
+ 
+        If no relocatable binary file name is specified for the 
+     current text (using file name =$), the default name used is that
+     which would be used by SAVE, as previously explained.  If, how-
+     ever, there is not yet a default output name (because no EDIT
+     or SAVE command was previously given), the relocatable binary
+     code is written on a temporary file.
+ 
+H.   Program Control and Debugging Aids
+ 
+        RUN actually executes an FDEBUG command, which compiles
+     if necessary, loads, and starts DEBUG.  DEBUG then has control;
+     the user may type any of the available debugging commands
+     (as described in the DEBUG Reference Manual), or reenter CCS
+     by typing EDIT followed by a carriage return.
+ 
+        CCS contains none of the debugging commands SET, BREAK, 
+     RESET, CONTINUE, AT, NEXT, RUN TO, REFERENCES, DEFINITIONS,
+     CHECK, INITIALIZE, and MAP.  Neither has the COMMANDS command
+     been implemented.
+ 
+I.   Program Editing
+ 
+        CLEAR asks ALL? rather than ERASE PROGRAM?, and no longer
+     prints the message OK. (This message is printed when a file is
+     opened for input or output, to indicate the file has been
+     opened successfully and the command execution begun.)
+ 
+        When control A and control W are used for editing, the
+     characters deleted are printed with surrounding back slashes,
+     i.e., the first control A or W prints a back slash followed
+     by the character(s) deleted, successive control A's and W's
+     print the character(s) deleted, and any other character
+     then causes the terminating back slash to be printed.
+ 
+        Control L is equivalent to control H except that it prints
+     only a + (as in the EDITOR).
+ 
+        As usual, control I enters blanks into the line; a tab
+     (or any other control) character can be entered only if pre-
+     ceded by control V.  The tab stops observed by control I and
+     control U are statement positions 9, 17, 25, and so on, in
+     increments of 8.
+ 
+        During EDIT and MODIFY, control X, where X is any character
+     except M (carriage return) and J (line feed), is printed as
+     &X.  This differs from other CCS terminal output in that con-
+     trol I and control L are included among the characters
+     printed this way.  This will aid the user in remembering,
+     for example, that although a control I normally echoes a
+     number of blanks, it is a single character which will be deleted
+     with one control A, copied with one control C, and so on.
+ 
+        A leading control D during a range EDIT or MODIFY does not
+     terminate the command; edit of any additional lines specified
+     in the range is expected.
+ 
+        Editing of input data is a function of the language being
+     used and should not be included in a description of CCS.
+ 
+        RENUMBER works as documented in the SFORTRAN manual and
+     its addendum, with the additions:
+ 
+        1)  The source line range in the RENUMBER command is 
+            optional; RENUMBER AS line range renumbers all
+            lines as specified.
+ 
+        2)  When a list is specified for renumbering, any type
+            address (rather than only a line number) may be used.
+ 
+        3)  RENUMBER will never move or delete lines.  Formerly,
+            REN L1:L2 AS L3:L4 (or AS L3 (incr)L4) deleted
+            any lines in the range L3:L4.
+ 
+NOTE:   Items 2 and 3 are not different from the latest 940 CCS,
+        but are included because they apparently have not yet
+        been documented.
+ 
+ 
+J.   User Aids
+ 
+        The elimination of AS and TO from commands is no longer
+     permitted.  Neither is there a feature whereby ? will print
+     a command model, though this will result in any case where
+     CCS detects a syntactical error in a command.
+ 
+K.   Summary
+ 
+        In the following models of CCS commands, square brackets
+     enclose optional items:
+ 
+        CLEAR
+        COPY lines or file TO line range or file (where file TO file
+             is illegal)
+ 
+        DELETE [lines]
+        EDIT lines or file
+        ENTER line number  statement
+           or line range (c.r.) statements (c.r.)
+        FAST [lines]  [TO file]
+        LIST [lines]  [TO file]
+        MERGE file
+        MODIFY lines
+        MOVE lines TO line range or file
+        QUIT
+        RENUMBER [line[:line]]  [AS line range]
+        RUN [arguments]
+        SAVE [file]
+ 
