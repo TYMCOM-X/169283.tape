@@ -1,0 +1,484 @@
+TITLE   CLEAR - VERSION A4.00
+SUBTTL  LAST UPDATED   4/27/72   W.E. MOZET
+
+        AC=0
+        A=1
+        B=2
+        C=3
+        D=4
+        WD=5
+        E=6
+        DCH=7
+        BP=10
+        BP1=11
+        FX=12
+        FPPN=13
+        G=14
+        CH=15
+        FLAG=16
+        P=17
+
+        NAM1==0
+        NAM2==40
+        OPLIC==100
+        PASWRD==140
+
+START:  RESET
+        MOVE    P,PDL
+        TTCALL  3,[ASCIZ/
+BATCH CLEAR - VERSION A4.00
+/]
+        MOVEI   BP1,5
+        INIT    BP1,0
+        SIXBIT  /TTY/
+        0
+        JRST    DCHERR
+        MOVEI   DCH,3
+        OPEN    DCH,OPPSWD
+        JRST    DCHERR
+        MOVE    FX,PSWDFI+1
+        MOVE    FPPN,PSWDFI+3
+        MOVSI   D,-5
+RETRY2: LOOKUP  DCH,PSWDFI
+        JRST    PASBUS
+        HLRE    WD,PSWDFI+3
+        JUMPG   WD,SKIP
+        MOVNS   WD
+        LSH     WD,-7
+        ADDI    WD,1
+
+ARRAY   OPNAME[2]
+
+SKIP:   SETZM   OPNAME
+        SETZM   OPNAME+1
+        MOVEI   E,^D12
+        MOVE    BP,[POINT 6,OPNAME]
+        TTCALL  3,[ASCIZ/
+ENTER YOUR NAME /]
+GETNAM: TTCALL  4,CH
+        CAIN    CH,15
+        JRST    CLRTTY
+        SUBI    CH,40
+        IDPB    CH,BP
+        SOJG    E,GETNAM
+        TTCALL  0,CH
+        CAIE    CH,15
+        JRST    .-2
+CLRTTY: TTCALL  0,CH
+VALNAM: INPUT   DCH,COMLST
+        STATZ   DCH,340000
+        JRST    NONAME
+        MOVSI   FLAG,-40
+        MOVE    A,OPNAME
+        MOVE    B,OPNAME+1
+VALNA1: SKIPN   INBUFF+NAM1(FLAG)
+        JRST    VALNA2
+        CAMN    A,INBUFF+NAM1(FLAG)
+        CAME    B,INBUFF+NAM2(FLAG)
+        JRST    VALNA2
+        JRST    CKLIC
+VALNA2: AOBJN   FLAG,VALNA1
+        SUBI    WD,1
+        JUMPN   WD,VALNAM
+        JRST    NONAME
+CKLIC:  MOVE    AC,INBUFF+OPLIC(FLAG)
+        TRNN    AC,100000
+        JRST    BADLIC
+        SETSTS  BP1,200
+
+ARRAY   X[5]
+
+        MOVE    A,[555555555555]
+        MOVEM   A,X
+        MOVEM   A,X+2
+        MOVEM   A,X+4
+        MOVE    A,[361275431652]
+        MOVEM   A,X+1
+        MOVEM   A,X+3
+        SETZ    E,
+        TTCALL  3,[ASCIZ/
+ENTER YOUR PASSWORD /]
+GETPAS: TTCALL  4,C
+        CAIE    C,15
+        CAIN    C,12
+        JRST    TTYCLR
+        ADDM    C,X
+        ADDM    C,X+3
+        MOVEI   G,40
+RAND:   MOVE    C,X(E)
+        MUL     C,[5*5*5*5*5*5*5*5*5*5*5*5*5*5*5]
+        ADDM    D,X+1(E)
+        CAIE    E,3
+        AOJA    E,RAND1
+        MOVE    E,X+4
+        ADDM    E,X
+        LSH     E,-42
+RAND1:  SOJG    G,RAND
+        JRST    GETPAS
+TTYCLR: TTCALL  15,[15]
+        TTCALL  15,[12]
+        TTCALL  15,[12]
+        TTCALL  11,
+        MOVE    A,X
+        CAME    A,INBUFF+PASWRD(FLAG)
+        JRST    ERRPAS
+        CLOSE   DCH,
+        RELEASE DCH,
+        SETSTS  BP1,0
+        SETZ    FLAG,
+        MOVSI   D,^D-10
+RETRY:  MOVEI   DCH,1
+        OPEN    DCH,OPNFIL
+        JRST    DCHERR
+        MOVE    FX,FILNAM+1     ;SAVE FILE EXT.
+        MOVE    FPPN,FILNAM+3   ;SAVE PPN
+        LOOKUP  DCH,FILNAM
+        JRST    BUSY
+        MOVE    B,FILNAM+2      ;SAVE FILE PROTECTION
+        MOVEM   FX,FILNAM+1     ;RESTORE FILE EXT.
+        SETZM   FILNAM+2
+        MOVEM   FPPN,FILNAM+3   ;RESTORE PPN
+        RENAME  DCH,FINAME
+        JRST    NOCRE
+        MOVEI   FLAG,1
+        MOVEM   FX,FINAME+1     ;RESTORE FILE EXT.
+        SETZM   FINAME+2
+        MOVEM   FPPN,FINAME+3   ;RESTORE PPN
+RETRY1: LOOKUP  DCH,FINAME
+        JRST    BUSY
+        INBUF   DCH,1           ;SET UP INPUT BUFFER
+        INPUT   DCH,
+        STATZ   DCH,340000
+        JRST    BADFI
+        MOVSI   D,^D-10
+        MOVEI   G,2
+        OPEN    G,OPENFI
+        JRST    DCHERR
+        MOVEM   FX,FILNAM+1
+        MOVEM   B,FILNAM+2      ;RESTORE FILE PROTECTION
+        MOVEM   FPPN,FILNAM+3
+        ENTER   G,FILNAM
+        JRST    OPNERR
+        OUTBUF  G,1             ;SET UP OUTPUT BUFFER
+        OUTPUT  G,              ;DUMMY OUTPUT TO CLEAR OUTPUT BUFFER
+        SETZ    FLAG,
+        MOVE    A,IBUF+2        ;NUMBER OF CHARACTERS INPUT
+        CAIE    A,^D40
+        JRST    GETREQ
+CLEAR:  MOVSI   E,^D-19
+        ILDB    CH,IBUF+1       ;GET CHARACTER
+        SOS     IBUF+2
+        TTCALL  1,CH
+        IDPB    CH,OBUF+1       ;DEPOSIT CHARACTER
+        AOBJN   E,.-4
+        MOVSI   E,^D-18
+        ILDB    CH,IBUF+1
+        SOS     IBUF+2
+        TTCALL  1,CH
+        AOBJN   E,.-3
+        TTCALL  15,[12]
+        PUSHJ   P,DATE
+        MOVEI   A,1
+        HRLI    A,(USETO G,)
+        XCT     A
+        OUTPUT  G,              ;OUTPUT TO FILE
+        STATZ   G,740000
+        JRST    BADFI
+        CLOSE   G,
+        RELEASE G,
+        JUMPE   FLAG,.+2
+        POPJ    P,
+        JRST    DEL
+EXIT:   CALLI   12
+DECPNT: IDIVI   B,12
+        ADDI    B,60            ;CONVERT TO ASCII
+        JUMPN   FLAG,.+2
+        TTCALL  1,B
+        MOVE    WD,B
+        LSH     WD,1            ;DROP SIGN BIT
+        PUSHJ   P,OUTSTR
+        ADDI    C,60
+        JUMPN   FLAG,.+2
+        TTCALL  1,C
+        MOVE    WD,C
+        LSH     WD,1            ;DROP SIGN BIT
+        PUSHJ   P,OUTSTR
+        POPJ    P,
+OUTSTR: MOVSI   E,-5
+        MOVE    BP,[POINT 7,WD]
+        ILDB    CH,BP           ;GET CHARACTER
+        JUMPE   CH,.+2          ;JUMP IF BLANK
+        IDPB    CH,OBUF+1       ;DEPOSIT CHARACTER
+        AOBJN   E,.-3
+        POPJ    P,
+EOF:    MOVSI   E,-5
+        MOVE    BP,[POINT 7,EOFROU]
+        ILDB    CH,BP
+        IDPB    CH,OBUF+1
+        AOBJN   E,.-2
+        POPJ    P,
+DATE:   CALLI   B,14            ;GET DATE FROM MONITOR
+        IDIVI   B,^D31
+        EXCH    B,C             ;DAY IN B, YEAR AND MONTH IN C
+        MOVE    D,C             ;SAVE CONTENTS OF C
+        AOJ     B,              ;ADD ONE TO THE DAY
+        PUSHJ   P,DECPNT        ;CONVERT TO DECIMAL AND PRINT
+        MOVE    C,D
+        SETZ    B,
+        DIVI    B,^D12
+        EXCH    B,C             ;MONTH IN B, YEAR -64 IN C
+        IMULI   B,2
+        JUMPN   FLAG,.+2
+        TTCALL  3,MONTH(B)      ;PRINT THE MONTH
+        MOVE    WD,MONTH(B)
+        PUSHJ   P,OUTSTR
+        MOVEI   B,^D64(C)       ;OBTAIN THE YEAR
+        PUSHJ   P,DECPNT
+        MOVEI   A,40
+        IDPB    A,OBUF+1
+        IDPB    A,OBUF+1
+        JUMPN   FLAG,.+2
+        TTCALL  3,[ASCIZ/  /]
+        CALLI   B,22            ;RECOVER TIME IN MILISECONDS
+        IDIVI   B,^D3600        ;CHANGE TO MINUTES
+        IDIVI   B,^D60          ;HOURS IN B, MINUTES IN C
+        MOVE    D,C             ;SAVE CONTENTS OF C
+        PUSHJ   P,DECPNT        ;CONVERT TO DECIMAL AND PRINT
+        JUMPN   FLAG,.+2
+        TTCALL  15,[72]
+        MOVEI   A,":"
+        IDPB    A,OBUF+1
+        MOVE    B,D
+        PUSHJ   P,DECPNT
+        PUSHJ   P,EOF
+        JUMPN   FLAG,.+3
+        TTCALL  15,[15]
+        TTCALL  15,[12]
+        POPJ    P,
+DCHERR: TTCALL  3,[ASCIZ/
+DATA CHANNEL ERROR
+/]
+        JRST    EXIT
+BUSY:   AOBJP   D,OPNERR        ;ATTEMPT TO OPEN FILE TEN TIMES
+        TTCALL  3,[ASCIZ/
+DATA FILE BUSY - BEGINNING 10 SECOND WAIT
+/]
+        MOVEI   B,^D10
+        CALLI   B,31            ;GO TO SLEEP FOR 10 SECONDS
+        MOVEM   FX,FINAME+1     ;RESTORE FILE EXT.
+        SETZM   FINAME+2
+        MOVEM   FPPN,FINAME+3   ;RESTORE PPN
+        MOVEM   FX,FILNAM+1
+        SETZM   FILNAM+2
+        MOVEM   FPPN,FILNAM+3
+        JUMPE   FLAG,RETRY
+        JRST    RETRY1
+NOCRE:  TTCALL  3,[ASCIZ/
+UNABLE TO CREATE NEW FILE
+/]
+        RELEASE DCH,
+        RELEASE G,
+        CALLI   12
+OPNERR: TTCALL  3,[ASCIZ/
+UNABLE TO OPEN FILE
+/]
+        RELEASE DCH,
+        JRST    EXIT
+BADFI:  TTCALL  3,[ASCIZ/
+DATA FILE FORMAT INCORRECT
+/]
+        CLOSE   DCH,
+        RELEASE DCH,
+        JRST    EXIT
+MONTH:  ASCIZ /-JAN-/
+        ASCIZ /-FEB-/
+        ASCIZ /-MAR-/
+        ASCIZ /-APR-/
+        ASCIZ /-MAY-/
+        ASCIZ /-JUN-/
+        ASCIZ /-JUL-/
+        ASCIZ /-AUG-/
+        ASCIZ /-SEP-/
+        ASCIZ /-OCT-/
+        ASCIZ /-NOV-/
+        ASCIZ /-DEC-/
+OPNFIL: 0
+        SIXBIT /DSK/
+        XWD 0,IBUF
+FILNAM: SIXBIT /PPRTMP/
+        SIXBIT /DAT/
+        0
+        XWD 1,2
+IBUF:   BLOCK 3
+EOFROU: BYTE (7)15,12,32,15,12  ;CR. LF. AND EOF CHARACTER
+PDL:    XWD -50,.
+        BLOCK 50
+GETREQ: MOVEI   FLAG,1
+        PUSHJ   P,CLEAR
+        SETZ    FLAG,
+AGAIN:  MOVSI   E,-5
+        TTCALL  15,[12]
+        AOBJN   E,.-1
+        TTCALL  3,[ASCIZ/
+REQUEST NUMBER          /]
+        JUMPE   FLAG,.+2
+        TTCALL  1,CH
+        PUSHJ   P,OUTCHR
+        TTCALL  3,[ASCIZ/
+COMPUTER NUMBER         /]
+        PUSHJ   P,OUTCHR
+        TTCALL  3,[ASCIZ/
+DATE AND TIME           /]
+        PUSHJ   P,OUTCHR
+        TTCALL  3,[ASCIZ/
+ENTERED FROM            /]
+        PUSHJ   P,OUTCHR
+        SOSGE   IBUF+2
+        PUSHJ   P,NXTBLK
+        ILDB    CH,IBUF+1
+        SUBI    CH,60           ;CONVERT TO NUMBER
+        MOVE    BP1,CH          ;INHOUSE FLAG
+        JUMPE   BP1,HERE
+        TTCALL  3,[ASCIZ/
+COMPANY NAME            /]
+        PUSHJ   P,OUTCHR
+        TTCALL  3,[ASCIZ/
+USER NAME               /]
+        PUSHJ   P,OUTCHR
+HERE:   TTCALL  3,[ASCIZ/
+PROJECT CODE            /]
+        PUSHJ   P,OUTCHR
+        TTCALL  3,[ASCIZ/
+TELEPHONE NO. (EXT.)    /]
+        PUSHJ   P,OUTCHR
+        TTCALL  3,[ASCIZ/
+REQUESTED BY            /]
+        PUSHJ   P,OUTCHR
+        CAIE    BP1,2
+        JRST    HERE1
+        TTCALL  3,[ASCIZ/
+RECEIVED BY             /]
+        PUSHJ   P,OUTCHR
+HERE1:  TTCALL  15,[12]
+        TTCALL  3,[ASCIZ/
+DESCRIPTION OF WORK
+/]
+        TTCALL  15,[12]
+        PUSHJ   P,OUTCHR
+        TTCALL  15,[12]
+        TTCALL  3,[ASCIZ/
+DELIVERY INSTRUCTIONS
+/]
+        TTCALL  15,[12]
+        PUSHJ   P,OUTCHR
+        PUSHJ   P,PUTSTR
+        SETZ    BP1,
+        JRST    AGAIN
+END:    MOVSI   E,-5
+        TTCALL  15,[12]
+        AOBJN   E,.-1
+DEL:    MOVEM   FX,FINAME+1
+        SETZM   FINAME+2
+        MOVEM   FPPN,FINAME+3
+        SETZ    AC,
+        RENAME  DCH,AC          ;DELETE PPRCLR.DAT
+        JRST    DELFI
+        RELEASE DCH,
+        JRST    EXIT
+OUTCHR: SOSGE   IBUF+2          ;SKIP IF BUFFER NOT EMPTY
+        PUSHJ   P,NXTBLK
+        ILDB    CH,IBUF+1
+        CAIN    CH,32
+        JRST    END
+        CAIN    CH,30
+        POPJ    P,
+        TTCALL  1,CH
+        JRST    OUTCHR
+NXTBLK: INPUT   DCH,
+        STATZ   DCH,340000
+        JRST    BADFI
+        SOS     IBUF+2
+        POPJ    P,
+PUTSTR: TTCALL  15,[12]
+        TTCALL  3,MSG
+        SOSGE   IBUF+2          ;SKIP IF BUFFER NOT EMPTY
+        PUSHJ   P,NXTBLK
+        ILDB    CH,IBUF+1
+        MOVEI   FLAG,1
+        CAIN    CH,32
+        JRST    END
+        POPJ    P,
+MSG:    ASCIZ/
+1.--------PAGES --------PARTS TO LISTING --------LISTINGS DECOLATED
+
+2.--------CARDS TO DISC    3.--------DISC TO CARDS
+
+4.--------FILES TAPE TO DISC
+
+5.--------FILES DISC TO TAPE --------TAPE CHARGE
+
+6.--------OTHER CHARGE     7.--------TAPE CONVERSION
+
+----------COMPLETED BY       --------POSTAGE
+
+----------ENTERED INTO ACCT. ------------DATE
+
+/
+DELFI:  TTCALL  3,[ASCIZ/
+UNABLE TO DELETE FILE
+/]
+        CLOSE   DCH,
+        RELEASE DCH,
+        JRST    EXIT
+OPENFI: 0
+        SIXBIT /DSK/
+        XWD OBUF,0
+FINAME: SIXBIT /PPRCLR/
+        SIXBIT /DAT/
+        0
+        XWD 1,2
+OBUF:   BLOCK 3
+OPPSWD: 16
+        SIXBIT /DSK/
+        0
+PSWDFI: SIXBIT /OPERPS/
+        SIXBIT /WRD/
+        0
+        XWD 1,4
+COMLST: IOWD 200,INBUFF
+        0
+INBUFF: BLOCK 200
+PASBUS: AOBJN   D,OPNERR
+        TTCALL  3,[ASCIZ/
+PASSWORD FILE BUSY - BEGINNING 10 SECOND WAIT
+/]
+        MOVEI   C,^D10
+        CALLI   C,31
+        MOVEM   FX,PSWDFI+1
+        SETZM   PSWDFI+2
+        MOVEM   FPPN,PSWDFI+3
+        JRST    RETRY2
+NONAME: TTCALL  3,[ASCIZ/
+NAME DOES NOT APPEAR IN THE PASSWORD FILE
+/]
+        CLOSE   DCH,
+        RELEASE DCH,
+        CALLI   12
+BADLIC: TTCALL  3,[ASCIZ/
+OPERATOR LICENSE REQUIRED
+/]
+        CLOSE   DCH,
+        RELEASE DCH,
+        CALLI   12
+ERRPAS: TTCALL  3,[ASCIZ/ERROR TYPE PASSWORD
+/]
+        CLOSE   DCH,
+        RELEASE DCH,
+        SETSTS  BP1,0
+        CALLI   12
+NUM:    XWD 555555,555555
+NUM1:   XWD 361275,431652
+        VAR
+        LIT
+        END     START
+  
