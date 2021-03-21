@@ -1,0 +1,159 @@
+      SUBROUTINE PLATS
+C  SUBROUTINE OF SLNK9  CALCULATES THE CENTROIDAL STRESSES FOR PLATE            
+C  MEMBERS.  ALSO CALCULATES THE NODAL POINT FORCES AND UPDATES THE             
+C  STATICS CHECK ARRAY                                                          
+C     DIMENSION AND COMMON STATEMENTS WHICH MUST APPEAR IN ALL ROUTINES         
+      REAL  KK(18,18),KK2(324)                                                  
+      DIMENSION NSYSF(6)                                                        
+      DIMENSION NPRBF(6)                                                        
+      DIMENSION NARRF(20)                                                       
+      DIMENSION  JMIN(250),JPLS(250),MTYP(250)                                  
+      DIMENSION  A(40),B(40),C(10),D(10)                                        
+      DIMENSION DELTM(6),DELTB(9),DELTG(18),N(3),SSS(6)                         
+      DIMENSION  D2(10)                                                         
+C     SYSTEM PARAMETERS  -  14 WORDS                                            
+      COMMON NTMP,KCUR,NAVAL,NOVER,ISOLV,ISUCC,ISCAN,ITRAC,NSYSF                
+C     PROBLEM PARAMETERS  -  32 WORDS                                           
+      COMMON NJ,NB,NDAT,NFJS,NLDS,NLDSI,ID,NCORD,JF,NSQ,IMETH,NMR,NJR,          
+     1IBETA,IYOUN,ISHEA,GSHEA,EYOUN,FILL1,FILL2,IPZER,ISTRS,NPRBF               
+C     PLATE PARAMETERS                                                          
+      COMMON IPLAT,NPLAT,KPLA1,KPLAT,KTHI1,KTHIK                                
+C     ARRAY CODEWORDS  40 PAIRS = 80 WORDS                                      
+      COMMON KNAM1,KNAME,KXY1,KXYZ,KJRE1,KJREL,MEGA1,MEGAZ,KMEM1,KMEMB,         
+     1KBET1,KBETA,KYON1,KYOUN,KSHE1,KSHEA,KMRE1,KMREL,KMEG1,KMEGA,              
+     2KMKS1,KMKST,KROT1,KROTE,KPPL1,KPPLS,KPMN1,KPMNS,LOAD1,LOADS,              
+     3KLIN1,KLINT,MLOA1,MLOAD,JLOA1,JLOAD,KDIA1,KDIAG,KOFD1,KOFDG,              
+     4KPPR1,KPPRI,KSTA1,KSTAT,KJIN1,KJINT,KJEX1,KJEXT,KPDS1,KPDSP,              
+     5KPLO1,KPLOD                                                               
+      COMMON NARRF,KPST2,KPSTR,KPST1,KPSTF,KPME1,KPMEM,KPZE1,KPZER              
+C     MEMBER INCIDENCE AND TYPE TABLES, MAX. 350 MEMBERS, 175 JOINTS    PH1B0310
+      COMMON JMIN,JPLS,MTYP                                                     
+C     SCRATCH AREA CAN BE INSERTED AS DESIRED FOR EACH ROUTINE                  
+C  SCRATCH AREA FOR LINK9                                                       
+      COMMON A,B,C,D ,JLX,NLI,NPAIR,IPRIN                                       
+      EQUIVALENCE (KK(1,1),KK2(1))                                              
+      EQUIVALENCE (DELTM(1),C(1)),(DELTB(1),D(1)),(DELTG(1),B(1))               
+      K=NSYSF(1)                                                                
+      DO 100 JM=1,NPLAT                                                         
+      CALL SDATA(KPLA1,KPLAT,JM,A,NAREA,-1,0)                                   
+C  AT THIS POINT, INCIDENCE NUMBERS ARE INTERNAL, THEY WERE RESET IN            
+C    SPLT1.                                                                     
+      N(1)=A(2)+.1                                                              
+      N(2)=A(3)+.1                                                              
+      N(3)=A(4)+.1                                                              
+      NMEM=A(1)+.1                                                              
+      THICK=A(5)                                                                
+      NMEMB=(JM-1)*7+1                                                          
+      IF(ISTRS)121,121,120                                                      
+  120 CONTINUE                                                                  
+C  GET THE ROTATION MATRIX                                                      
+      CALL SDATA(KPST1,KPSTF,NMEMB,KK2,NAREA,-1,0)                              
+  121 CONTINUE                                                                  
+C  GET THE JOINT DISPLACEMENTS,STORE IN DELTG AND AFTER ROTATION IN DELTM       
+      DO 101 I=1,3                                                              
+      MAR=(NLI-1)*NJ+N(I)                                                       
+      CALL SDATA(KPPR1,KPPRI,MAR ,A,NAREA,-1,0)                                 
+      DO 105 IJ=1,6                                                             
+      II=6*(I-1)+IJ                                                             
+  105 DELTG(II)=A(IJ)                                                           
+      IF(ISTRS)101,101,122                                                      
+  122 CALL MLTPY(D2,6,KK2,6,A,6,6,6,1)                                          
+      II=(I-1)*3+1                                                              
+      DELTB(II)=-D2(3)                                                          
+      DELTB(II+1)= D2(4)                                                        
+      DELTB(II+2)= D2(5)                                                        
+      II=(I-1)*2+1                                                              
+      DELTM(II)= D2(1)                                                          
+      DELTM(II+1)= D2(2)                                                        
+  101 CONTINUE                                                                  
+      IF(ISTRS)124,124,123                                                      
+C  GET THE MEMBRANE STRESS INFORMATION, BUILD THE STRESS MATRIX, PREMULT        
+C  BY THE MATERIAL MATRIX AND CALCULATE THE STRESS                              
+  123 CALL SDATA(KPME1,KPMEM,JM,A,NAREA,-1,0)                                   
+      DO 102 I=1,324                                                            
+  102  KK2(I)=0.0                                                               
+      AREA=A(1)                                                                 
+      ELAS=A(2)                                                                 
+      EMU=A(3)                                                                  
+      IFCHG=A(10)*1.1                                                           
+      KK(1,1)=A(4)                                                              
+      KK(1,3)=A(5)                                                              
+      KK(1,5)=A(6)                                                              
+      KK(2,2)=A(7)                                                              
+      KK(2,4)=A(8)                                                              
+      KK(2,6)=A(9)                                                              
+      KK(3,1)=A(7)                                                              
+      KK(3,2)=A(4)                                                              
+      KK(3,3)=A(8)                                                              
+      KK(3,4)=A(5)                                                              
+      KK(3,5)=A(7)                                                              
+      KK(3,6)=A(6)                                                              
+      CALL MLTPY(A,10,KK,18,DELTM,6,3,6,1)                                      
+C  FORM THE MATERIAL MATRIX                                                     
+      DO 103 I=1,54                                                             
+  103 KK2(I)=0.0                                                                
+      CON1=ELAS/(1.0-EMU*EMU)                                                   
+      KK(1,1)=CON1                                                              
+      KK(2,2)=CON1                                                              
+      KK(3,3)=CON1*(1.0-EMU)*.5                                                 
+      CON1=CON1*EMU                                                             
+      KK(1,2)=CON1                                                              
+      KK(2,1)=CON1                                                              
+      CALL MLTPY(D2,6,KK,18,A,10,3,3,1)                                         
+C  SAVE THE MEMBRANE STRESSES                                                   
+      CON1=1.0/(2.0*AREA)                                                       
+      DO 104 I=1,3                                                              
+  104 SSS(I)=D2(I)*CON1                                                         
+C  CALCULATE THE BENDING STRESSES FOR THE CENTROID                              
+C  GET THE BENDING STRESS MATRIX AND MULTIPLY BY THE DEFLECTIONS                
+C  THE BENDING STRESS MATRIX WAS FORMED IN LINK SPLT1                           
+      CALL SDATA(KPST2,KPSTR,JM,KK2,NAREA,-1,0)                                 
+      CALL MLTIP(KK2,3,DELTB,9,A,3,9,1)                                         
+C  SAVE THE RESULTING STRESSES                                                  
+      CON1=1.0/(8.0*AREA*AREA*AREA)                                             
+      DO 106 I=4,6                                                              
+  106 SSS(I)=KK2(I-3)*CON1                                                      
+C  CALCULATE THE NODAL FORCES AND ADD TO THE STATICS CHECK ARRAY                
+C  FIRST GET THE MEMBER STIFFNESSES AND FILL KK.  RESULT IS A 18X18 IN KK       
+C  THEN MULTIPLY THE MEMBER STIFFNESS (KK) BY THE DISPLACEMENTS                 
+C   IN GLOBAL COORDINATES                                                       
+  124 CONTINUE                                                                  
+      CALL FILLK(KPST1,KPSTF,1,1,NMEMB+1,A,KK)                                  
+      CALL FILLK(KPST1,KPSTF, 7, 7,NMEMB+4,A,KK)                                
+      CALL FILLK(KPST1,KPSTF,13,13,NMEMB+6,A,KK)                                
+      CALL FILLK(KPST1,KPSTF, 7, 1,NMEMB+2,A,KK)                                
+      CALL FILLK(KPST1,KPSTF,13, 1,NMEMB+3,A,KK)                                
+      CALL FILLK(KPST1,KPSTF,13, 7,NMEMB+5,A,KK)                                
+      DO 107 I=1,18                                                             
+      DO 107 J=1,18                                                             
+  107 KK(I,J)=KK(J,I)                                                           
+  414 CALL MLTIP(KK,18,DELTG,18,A,18,18,1)                                      
+      IF(JIM-1)421,420,421                                                      
+  420 WRITE(K,405)(KK(I,1),I=1,18)                                              
+  405 FORMAT(/' NODAL FORCES '/9E12.4/9E12.4/)                                  
+  421 CONTINUE                                                                  
+C  ADD THE RESULTANT FORCES INTO THE CHECK ARRAY                                
+      DO 109 II=1,3                                                             
+      MAR=(NLI-1)*NJ+N(II)                                                      
+      CALL SDATA(KSTA1,KSTAT,MAR,A,NAREA,-1,0)                                  
+      DO 108 I=1,JF                                                             
+      ICON=(II-1)*JF+I                                                          
+  108 A(I)=A(I)+KK(ICON,1)                                                      
+C  STORE BACK                                                                   
+  109 CALL SDATA(KSTA1,KSTAT,MAR,A,NAREA,-2,0)                                  
+      IF(ISTRS)100,100,125                                                      
+C  OUTPUT THE RESULTING STRESSES FOR THIS MEMBER                                
+C  CONVERT THE BENDING MOMENTS TO STRESS                                        
+  125 CON1=6.0/(THICK*THICK)                                                    
+      DO 110 II=4,6                                                             
+  110 SSS(II)=SSS(II)*CON1                                                      
+C  STORE THE STRESS VECTOR                                                      
+      MAR=(NLI-1)*IPLAT+(NMEM -NB)                                              
+      CALL SDATA(KTHI1,KTHIK,MAR,SSS,NAREA,-2,0)                                
+  100 CONTINUE                                                                  
+      IF(K-1)204,205,204                                                        
+  204 WRITE(K,206)                                                              
+  206 FORMAT(//)                                                                
+  205 CONTINUE                                                                  
+      RETURN                                                                    
+      END                                                                       
