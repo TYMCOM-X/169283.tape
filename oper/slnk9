@@ -1,0 +1,109 @@
+      SUBROUTINE SLNK9
+C     LINK (SLNK9)                                                      LNK9  60
+C     MAIN PROGRAM FOR BACKSUBSTITUTION STRESS                          LNK9  70
+C     STRESS PROGRAMMING SYSTEM FOR IBM 1130                            LNK9  80
+C     DIMENSION AND COMMON STATEMENTS WHICH MUST APPEAR IN ALL ROUTINES LNK9  90
+      DIMENSION NSYSF(6)                                                LNK9 100
+      DIMENSION NPRBF(6)                                                LNK9 110
+      DIMENSION NARRF(32)                                               LNK9 120
+      DIMENSION  JMIN(250),JPLS(250),MTYP(250)                                  
+C     SCRATCH AREA CAN BE INSERTED AS DESIRED FOR EACH ROUTINE          LNK9 150
+C     SCRATCH AREA                                                      LNK9 160
+      DIMENSION A(40),B(40),C(10),D(10)                                 LNK9 170
+      DIMENSION IBUFF(40)                                               LNK9 180
+C     PRINT CODES                                                       LNK9 190
+C     DISPLACEMENTS=01                                                  LNK9 200
+C     DISTORTIONS=10                                                    LNK9 210
+C     REACTIONS=02                                                      LNK9 220
+C     FORCES=20                                                         LNK9 230
+C     DISTORTION OUTPUT REQUEST IS IGNORED                              LNK9 240
+C     SYSTEM PARAMETERS  -  14 WORDS                                    LNK9 250
+      COMMON NTMP,KCUR,NAVAL,NOVER,ISOLV,ISUCC,ISCAN,ITRAC,NSYSF        LNK9 260
+C     PROBLEM PARAMETERS  -  32 WORDS                                   LNK9 270
+      COMMON NJ,NB,NDAT,NFJS,NLDS,NLDSI,ID,NCORD,JF,NSQ,IMETH,NMR,NJR,  LNK9 280
+     1IBETA,IYOUN,ISHEA,GSHEA,EYOUN,FILL1,FILL2,IPZER,ISTRS,NPRBF       $NK9 290
+C     PLATE PARAMETERS                                                  $NK9 294
+      COMMON IPLAT,NPLAT,KPLA1,KPLAT,KTHI1,KTHIK                        $NK9 296
+C     ARRAY CODEWORDS  40 PAIRS = 80 WORDS                              LNK9 300
+      COMMON KNAM1,KNAME,KXY1,KXYZ,KJRE1,KJREL,MEGA1,MEGAZ,KMEM1,KMEMB, LNK9 310
+     1KBET1,KBETA,KYON1,KYOUN,KSHE1,KSHEA,KMRE1,KMREL,KMEG1,KMEGA,      LNK9 320
+     2KMKS1,KMKST,KROT1,KROTE,KPPL1,KPPLS,KPMN1,KPMNS,LOAD1,LOADS,      LNK9 330
+     3KLIN1,KLINT,MLOA1,MLOAD,JLOA1,JLOAD,KDIA1,KDIAG,KOFD1,KOFDG,      LNK9 340
+     4KPPR1,KPPRI,KSTA1,KSTAT,KJIN1,KJINT,KJEX1,KJEXT                   LNK9 350
+      COMMON NARRF                                                      LNK9 360
+      COMMON JMIN,JPLS,MTYP                                             LNK9 370
+      COMMON A,B,C,D,JLX,NLI,NPAIR,IPRIN                                LNK9 380
+99    FORMAT(1H , 75H ==================================================LNK9 400
+     1===================      )                                        LNK9 410
+100   FORMAT(////1H ,36A2)                                              LNK9 420
+  101 FORMAT (////1H ,18A4)                                             LNK9 430
+200   FORMAT(6HISOLV=,I4)                                               LNK9 440
+      N=NSYSF(1)                                                        LNK9 450
+      ISOLV=9                                                           LNK9 460
+      IF(ITRAC)1,1,2                                                    LNK9 470
+    2 WRITE(5,200)ISOLV
+C     ZERO THE STATICS CHECK ARRAYS, KSTAT                              LNK9 490
+    1 DO 300 I=1,JF                                                     LNK9 500
+300   A(I)=0.0                                                          LNK9 510
+      NUM=NJ*NLDS                                                       LNK9 520
+      DO 301 I=1,NUM                                                    LNK9 530
+301   CALL SDATA(KSTA1,KSTAT,I,A,JLK,-2,0)                              LNK9 540
+C     PUNCH PROBLEM TITLE                                               LNK9 550
+      CALL SDATA(KNAM1,KNAME,1,A,IBUFF,1,0)                             LNK9 560
+      IF (N-3) 651,652,652                                                      
+  652 WRITE (N,653)                                                             
+  653 FORMAT (1H1)                                                      LNK9 590
+  651 WRITE (N,100)(IBUFF(I),I=1,36)                                    LNK9 600
+      WRITE (N,99)                                                      LNK9 610
+C     LOOP ON EXTERNAL LOADINGS                                         LNK9 620
+      DO 1000 JLX=1,NLDS                                                LNK9 630
+C     GET INTERNAL LOADING NUMBER                                       LNK9 640
+      CALL SDATA(KLIN1,KLINT,JLX,A,NLI,1,1)                             LNK9 650
+C     GET LOADS(JLX) IN A  -  4 FILE RECORDS                            LNK9 660
+      CALL SDATA (LOAD1,LOADS,JLX,A,JLK,-1,0)                           LNK9 670
+C     WRITE LOADING HEADER                                              LNK9 680
+      IF (JLX-1) 655,671,655                                            LNK9 690
+  655 IF (N-3) 656,658,658                                                      
+  658 WRITE (N,653)                                                     LNK9 710
+  656 WRITE (N,100) (IBUFF(I),I=1,36)                                   LNK9 720
+      WRITE (N,99)                                                              
+  671 WRITE (N,101) (A(I), I=2,19)                                      LNK9 730
+      WRITE (N,99)                                                      LNK9 740
+C     UNPACK HEADER CARD                                                LNK9 750
+      CALL SPAK4(0,A(1),LTP,NPAIR,NCOMB,NPRCD)                          LNK9 760
+C     CHECK IF COMBINATION LOADING                                      LNK9 770
+      IF(LTP-1)5,5,6                                                    LNK9 780
+C     COMBINATION LOADING - CALL SCMLD                                  LNK9 790
+6     CALL SCMLD                                                        LNK9 800
+      GO TO 7                                                           LNK9 810
+    5 IF(NB)525,525,8                                                   $NK9 815
+    8 CALL MEMBF                                                        $NK9 820
+C     FORCES AND REACTIONS COMPUTED AND STORED                          $NK91661
+C  NOW LOOP ON PLATES IF STRESS OUTPUT HAS BEEN ASKED FOR.              $NK91662
+      IF(IPLAT)7,7,525                                                  $NK91664
+  525 CALL PLATS                                                        $NK91666
+C     COMBINATION LOADING RETURNS HERE WITH DISPLACEMENTS, FORCES       LNK91680
+C     AND REACTIONS COMPUTED AND STORED.                                LNK91690
+C     CHECK PRINT CODE, NPRCD                                           LNK91700
+7     IF(NPRCD-20)700,701,701                                           LNK91710
+C     PRINT FORCES                                                      LNK91720
+701   IPRIN=1                                                           LNK91730
+      CALL SANST                                                        LNK91740
+700   NPR=NPRCD- NPRCD/10*10-1                                          LNK91750
+C     NPR=-1  NEITHER DISPLACEMENTS OR REACTIONS                        LNK91760
+C     NPR=0  PRINT DISPLACEMENTS ONLY                                   LNK91770
+C     NPR=1  REACTIONS ONLY                                             LNK91780
+C     NPR=2  DISPLACEMENTS AND REACTIONS                                LNK91790
+      IF(NPR)1000,703,702                                               LNK91800
+C     REACTIONS                                                         LNK91810
+702   IPRIN=2                                                           LNK91820
+      CALL SANST                                                        LNK91830
+      IF(NPR-1)1000,1000,703                                            LNK91840
+C     DISPLACEMENTS                                                     LNK91850
+703   IPRIN=3                                                           LNK91860
+      CALL SANST                                                        LNK91870
+1000  CONTINUE                                                          LNK91880
+C       END OF BACKSUBSTITUTION  -  CALL STRESS                         LNK92380
+      ISUCC=1                                                           LNK92390
+      RETURN
+      END                                                               LNK92410
