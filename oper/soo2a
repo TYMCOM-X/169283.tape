@@ -1,0 +1,163 @@
+      SUBROUTINE SOO2A                                                  OO2A  60
+C     STRESS PROGRAMMING SYSTEM FOR IBM 1130                            OO2A  70
+C     DIMENSION AND COMMON STATEMENTS WHICH MUST APPEAR IN ALL ROUTINES OO2A  80
+C     SYSTEM PARAMETERS  -  14 WORDS                                    OO2A  90
+      DIMENSION NSYSF(6)                                                OO2A 100
+      DIMENSION NPRBF(6)                                                OO2A 110
+      DIMENSION NARRF(34)                                               $O2A 120
+      DIMENSION  JMIN(250),JPLS(250),MTYP(250)
+      DIMENSION A(40),BETA(37),LABL(16),IFREE(20),ICHK(2),IBUFF(40)     OO2A 140
+      COMMON NTMP,KCUR,NAVAL,NOVER,ISOLV,ISUCC,ISCAN,ITRAC,NSYSF        OO2A 150
+C     PROBLEM PARAMETERS  -  32 WORDS                                   OO2A 160
+      COMMON NJ,NB,NDAT,NFJS,NLDS,NLDSI,ID,NCORD,JF,NSQ,IMETH,NMR,NJR,  OO2A 170
+     1IBETA,IYOUN,ISHEA,GSHEA,EYOUN,FILL1,FILL2,IPZER,ISTRS,NPRBF       $O2A 180
+C     PLATE PARAMETERS                                                  $O2A 182
+      COMMON IPLAT,NPLAT,KPLA1,KPLAT,KTHI1,KTHIK                        $O2A 184
+C     ARRAY CODEWORDS  40 PAIRS = 80 WORDS                              OO2A 190
+      COMMON KNAM1,KNAME,KXY1,KXYZ,KJRE1,KJREL,MEGA1,MEGAZ,KMEM1,KMEMB, OO2A 200
+     1KBET1,KBETA,KYON1,KYOUN,KSHE1,KSHEA,KMRE1,KMREL,KMEG1,KMEGA,      OO2A 210
+     2KMKS1,KMKST,KROT1,KROTE,KPPL1,KPPLS,KPMN1,KPMNS,LOAD1,LOADS,      OO2A 220
+     3KLIN1,KLINT,MLOA1,MLOAD,JLOA1,JLOAD,KDIA1,KDIAG,KOFD1,KOFDG,      OO2A 230
+     4KPPR1,KPPRI,KSTA1,KSTAT                                           OO2A 240
+      COMMON NARRF,KPZE1,KPZER                                          $O2A 250
+C  MEMBER INCIDENCE AND TYPE TABLES  250 JOINTS  500 MEMBERS
+      COMMON JMIN,JPLS,MTYP,IAMDU                                       OO2A 270
+C     SCRATCH AREA CAN BE INSERTED AS DESIRED FOR EACH ROUTINE          OO2A 280
+C     SCRATCH AREA FOR INPUT PHASE  -  SPH1A AND SPH1B                  OO2A 290
+      COMMON A,BETA,IFREE,LABL,IB,IL,ILOOK,JTOMB,K1,IPRER,JLD,INDEX,    OO2A 300
+     1JINDL,JDEPL,IPRTA,KK,JJC,JDC,IS,ICHK,JMIC,JMPC,JCODE,JIB          OO2A 310
+     2,MEMRE,CTE,KS1,LEM,IBUFF                                          OO2A 320
+      IPRER=-1                                                          OO2A 330
+      JW=NSYSF(1)                                                       OO2A 340
+      NB1=NB+IPLAT                                                      $O2A 345
+      K1=K1-9                                                           OO2A 350
+      GO TO (100,110,120,130,500,1000,1000),K1                          OO2A 360
+C     STOP                                                              OO2A 370
+C     WORD QUIT WAS ENCOUNTERED,ENTER 100                               OO2A 380
+100   ISUCC=3                                                           OO2A 390
+      WRITE(5,907)
+  907 FORMAT(' ERROR, EXIT FROM SOO2A '//)
+      CALL EXIT
+C     TRACE                                                             OO2A 410
+C     TRACE CARD PRESENT IN INPUT,ITRACE=1,THE VALUE ISOLV IS TYPED     OO2A 420
+110   ITRAC=1                                                           OO2A 430
+      GO TO 1000                                                        OO2A 440
+C     ALTER STIFFNESS                                                   OO2A 450
+  120 CALL MATCH(K,AA,4,2,IBUFF,II)                                     $O2A 460
+      GO TO (121,9906,9906,9906,122),II                                 OO2A 480
+  122 IF(K-10)119,126,9906                                              $O2A 465
+  119 NSYSF(4)=1
+      IF(K-6)9906,123,124                                               $O2A 475
+  121 NSYSF(4)=4                                                        $O2A 480
+      GO TO 1000                                                        $O2A 485
+  123 NSYSF(4)=NSYSF(4)+1                                               $O2A 490
+  124 NSYSF(4)=NSYSF(4)+1                                               $O2A 495
+      GO TO 1000                                                        $O2A 500
+C  ASSIGN DISK SPACE FOR THE ZERO DATA AND ZERO                         $O2A 524
+  126 CALL SBITE(KPZE1,KPZER,1,NJ,0)                                    $O2A 525
+C  CALCULATE THE NUMBER OF RECORDS REQUIRES                             $O2A 526
+      IPZER=1                                                           $O2A 527
+      NRECR=(NJ-1)/20+1                                                 $O2A 528
+      DO 128 I=1,NRECR                                                  $O2A 530
+  128 CALL SDATA(KPZE1,KPZER,20*I-19,A,IFREE,+2,0)                      $O2A 532
+      ILOOK=8                                                           $O2A 534
+      K1=K1+9                                                           $O2A 535
+      RETURN                                                            $O2A 536
+C     SYMM.                                                             $O2A 538
+130   GO TO 1000                                                        OO2A 540
+C     CONSTANTS                                                         OO2A 550
+  500 KREM=0                                                            OO2A 560
+C     M=0,READ NEXT LOGICAL FIELD,LIST 8 TO COMPARE E,G,ALL AND BUT     OO2A 570
+  501 CALL MATCH(KW,VAL,0,8,IBUFF,IW)                                   OO2A 580
+      GO TO(1000,570,501,9900,503),IW                                   OO2A 590
+  503 GO TO(505,505,507,520),KW                                         OO2A 600
+C     E  OR  G                                                          OO2A 610
+C     KREM=1  E                                                         OO2A 620
+C         =2  G                                                         OO2A 630
+  505 KREM=KW                                                           OO2A 640
+      VAL=0.0                                                           OO2A 650
+      GO TO 501                                                         OO2A 660
+C     ALL                                                               OO2A 670
+507   IF(VAL)508,9906,508                                               OO2A 680
+508   KD=KREM+1                                                         OO2A 690
+      GO TO(9906,510,515),KD                                            OO2A 700
+  510 IYOUN=1                                                           OO2A 710
+      EYOUN=VAL                                                         OO2A 720
+      GO TO 501                                                         OO2A 730
+  515 ISHEA=1                                                           OO2A 740
+      GSHEA=VAL                                                         OO2A 750
+      GO TO 501                                                         OO2A 760
+C     BUT                                                               OO2A 770
+520   IF(NB1)9917,9917,522                                              $O2A 780
+522   KD=KREM+1                                                         OO2A 790
+      GO TO(9906,527,537),KD                                            OO2A 800
+  527 IF(EYOUN)529,9906,529                                             OO2A 810
+  529 IYOUN=2                                                           OO2A 820
+      CALL SBITE(KYON1,KYOUN,2,NB1,0)                                   $O2A 830
+      ICO1=KYON1                                                        OO2A 840
+      ICOD=KYOUN                                                        OO2A 850
+      GO TO 550                                                         OO2A 860
+537   IF(GSHEA)539,9906,539                                             OO2A 870
+539   ISHEA=2                                                           OO2A 880
+      CALL SBITE(KSHE1,KSHEA,2,NB1,0)                                   $O2A 890
+      ICO1=KSHE1                                                        OO2A 900
+      ICOD=KSHEA                                                        OO2A 910
+550   LIM=(NB1-1)/10+1                                                  $O2A 920
+      DO 551 IC=1,10                                                    OO2A 930
+551   A(IC)=VAL                                                         OO2A 940
+      DO 552 IC=1,LIM                                                   OO2A 950
+552   CALL SDATA(ICO1,ICOD,10*IC-9,A,NAREA,-2,0)                        OO2A 960
+      GO TO 501                                                         OO2A 970
+C     FIXED POINT NUMBER-ACTUAL VALUES OF E,G                           OO2A 980
+  570 IF(ISCAN-1)1000,5700,1000                                         OO2A 990
+5700  IF(NB1)9917,9917,571                                              $O2A1000
+  571 IF(KW-NB1)572,572,9910                                            $O2A1010
+  572 IF(VAL)573,9906,573                                               OO2A1020
+573   KD=KREM+1                                                         OO2A1030
+      GO TO(9906,575,585),KD                                            OO2A1040
+  575 IF(IYOUN)577,576,577                                              OO2A1050
+C     ASSIGNS DISK STORAGE TABLE FOR YOUNG:S MODULI IF DIFFERENT        OO2A1060
+C     VALUES ARE GIVEN                                                  OO2A1070
+  576 CALL SBITE(KYON1,KYOUN,2,NB1,0)                                   $O2A1080
+      IYOUN=2                                                           OO2A1090
+      ICO1=KYON1                                                        OO2A1100
+      ICOD=KYOUN                                                        OO2A1110
+      GO TO 580                                                         OO2A1120
+  585 IF(ISHEA)587,586,587                                              OO2A1130
+  586 CALL SBITE(KSHE1,KSHEA,2,NB1,0)                                   $O2A1140
+      ISHEA=2                                                           OO2A1150
+      ICO1=KSHE1                                                        OO2A1160
+      ICOD=KSHEA                                                        OO2A1170
+580   LIM=(NB1-1)/10+1                                                  $O2A1180
+      DO 581  IE=1,10                                                   OO2A1190
+581   A(IE)=0.0                                                         OO2A1200
+      DO 582  IE=1,LIM                                                  OO2A1210
+582   CALL SDATA(ICO1,ICOD,10*IE-9,A,NAREA,-2,0)                        OO2A1220
+      GO TO(9906,577,587),KD                                            OO2A1230
+C     STORE TABLE FOR FLOATING POINT VALUES FOR E                       OO2A1240
+  577 CALL SDATA(KYON1,KYOUN,KW,VAL,NAREA,-2,1)                         OO2A1250
+      GO TO 501                                                         OO2A1260
+  587 CALL SDATA(KSHE1,KSHEA,KW,VAL,NAREA,-2,1)                         OO2A1270
+      GO TO 501                                                         OO2A1280
+1000  ILOOK=1                                                           OO2A1290
+      K1=K1+9                                                           OO2A1300
+      RETURN                                                            OO2A1310
+9900  IPRER=0                                                           OO2A1320
+      GO TO 1001                                                        $O2A1330
+9906  IPRER=6                                                           OO2A1360
+      GO TO 1001                                                        $O2A1370
+9910  IPRER=10                                                          OO2A1380
+      GO TO 1001                                                        $O2A1390
+ 9954 IPRER=54                                                          $O2A1394
+      GO TO 1001                                                        $O2A1396
+ 9917 IPRER=17                                                          OO2A1400
+ 1001 ISCAN=0                                                           OO2A1410
+      GO TO 1000                                                        OO2A1420
+      END                                                               OO2A1430
+// DUP                                                                  OO2A1440
+*DELETE             SOO2A
+*STORE      WS  UA  SOO2A
+// FOR                                                                  OREL0020
+*ONE WORD INTEGERS                                                      OREL0040
+**SOREL
+  
