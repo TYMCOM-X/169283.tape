@@ -1,0 +1,378 @@
+C *********************DISPLAY ITEM REMOVER*******
+C *DDA = THE DDA
+C *IPTR = THE DDA POINTER
+C****************************************************************
+C*     COPYRIGHT        TEKTRONIX, INC    1973
+C*                       BEAVERTON, OREGON
+C*     PLOT-10/DECISION MAKER RELEASE 1.0 - VERSION 1
+C*               MODIFICATION LEVEL 0
+C****************************************************************
+      SUBROUTINE DELPTG(DDA,IPTR)
+      DIMENSION DDA(1280)
+4     CALL WHATG(IX,IY,I,DDA)
+      IF(I.EQ.0)RETURN
+C   COPY REMAINING ITEMS DOWN
+      J=DDA(I)
+      K=DDA(J)
+2     IF(K.EQ.0)GO TO 3
+      LMOVE=K-J-1
+      DO1 IND=1,LMOVE
+1     DDA(I+IND)=DDA(J+IND)
+C   CORRECT THE POINTER
+      DDA(I)=I+LMOVE+1
+      I=DDA(I)
+      J=K
+      K=DDA(K)
+      GO TO 2
+3     DDA(I)=0
+      IPTR=I
+      RETURN
+      END
+C *************REPORT PAGE SAVER********
+C *DDA = THE DDA
+C *IPTR = THE DDA POINTER
+C****************************************************************
+C*     COPYRIGHT        TEKTRONIX, INC    1973
+C*                       BEAVERTON, OREGON
+C*     PLOT-10/DECISION MAKER RELEASE 1.0 - VERSION 1
+C*               MODIFICATION LEVEL 0
+C****************************************************************
+       SUBROUTINE SAVPAG(DDA,IPTR)
+       DIMENSION DDA(1280)
+       CALL MESAGE(7)
+       CALL NIN(IPNO)
+       IF(IPNO.EQ.0)RETURN
+       WRITE(4#IPNO)DDA
+       RETURN
+       END
+C **************DISPLAY ITEM MOVER***********
+C *DDA = THE DDA
+C *IPTR = THE DDA POINTER
+C****************************************************************
+C*     COPYRIGHT        TEKTRONIX, INC    1973
+C*                       BEAVERTON, OREGON
+C*     PLOT-10/DECISION MAKER RELEASE 1.0 - VERSION 1
+C*               MODIFICATION LEVEL 0
+C****************************************************************
+      SUBROUTINE MOVPTG(DDA,IPTR)
+      DIMENSION DDA(1280)
+1     CALL WHATG(IX,IY,I,DDA)
+      IF(I.EQ.0)RETURN
+      IF(DDA(I+1).EQ.2)GO TO 4
+      DDA(I+3)=IX
+      DDA(I+4)=IY
+      IF(DDA(I+1).EQ.3)GO TO 2
+      IF(DDA(I+5).LE.57)GO TO 3
+      RETURN
+2     CALL DCURSR(IC,IX,IY)
+      DDA(I+5)=IX
+      DDA(I+6)=IY
+      RETURN
+3     CALL DCURSR(IC,IX1,IY)
+      DDA(I+6)=IX1-IX
+      RETURN
+4     CALL REVCOT(IX,IY,X,Y)
+      DDA(I+3)=X
+      DDA(I+4)=Y
+      RETURN
+      END
+C *******************REFRESH COMMAND EXECUTOR*******
+C *DDA = THE DDA
+C *IP = THE DDA POINTER
+C****************************************************************
+C*     COPYRIGHT        TEKTRONIX, INC    1973
+C*                       BEAVERTON, OREGON
+C*     PLOT-10/DECISION MAKER RELEASE 1.0 - VERSION 1
+C*               MODIFICATION LEVEL 0
+C****************************************************************
+       SUBROUTINE DISDAG(DDA,IP)
+       DIMENSION DDA(1280)
+1	CONTINUE
+       CALL MESAGE(7)
+       CALL NIN(IPNO)
+       IF(IPNO.EQ.0)GO TO 10
+C   READ THE NEW PAGE
+       READ(4#IPNO,END=99)DDA
+10     CALL NEWPAG
+       IP=1
+97    IF(DDA(IP).EQ.0)GO TO 98
+      CALL DISITG(DDA,IP)
+      IP=DDA(IP)
+      GO TO 97
+98     CALL WRITEL(' ',0)
+       RETURN
+99	CONTINUE
+	CALL MESAGE(9)
+	GO TO 1
+       END
+C ***********DISLAY ELEMENT LOCATOR******
+C * IX,IY SCREEN COORINATE OF THE ELEMENT
+C * I = ELEMENT LOCATION IN DDA
+C * DDA = THE DDA
+C****************************************************************
+C*     COPYRIGHT        TEKTRONIX, INC    1973
+C*                       BEAVERTON, OREGON
+C*     PLOT-10/DECISION MAKER RELEASE 1.0 - VERSION 1
+C*               MODIFICATION LEVEL 0
+C****************************************************************
+       SUBROUTINE WHATG(IX,IY,I,DDA)
+       DIMENSION DDA(1280)
+      DIMENSION M1(6)
+       DATA M1/'NOTH','ING ','TO M','OVE/','DELE','TE.'/
+10     CALL DCURSR(IC,IX,IY)
+       IF(IC.EQ.36)GO TO 20
+       CALL REVCOT(IX,IY,X,Y)
+       IP=1
+       I=1
+       IF(DDA(1).EQ.0)GO TO 70
+       IDELT=50
+       CALL REVCOT(IDELT,IDELT,RDELTX,RDELTY)
+      CALL REVCOT(0,0,ZX,ZY)
+      RDELTX=RDELTX-ZX
+      RDELTY=RDELTY-ZY
+30     IF(IABS(IFIX(DDA(IP+3))-IX).LE.IDELT)GO TO 40
+       IF(ABS(DDA(IP+3)-X).LE.ABS(RDELTX))GO TO 80
+60     IP=DDA(IP)
+       IF(IP.EQ.0)IP=1
+       IF(IP.EQ.I)GO TO 10
+       GO TO  30
+40     IF(IABS(IFIX(DDA(IP+4))-IY).LE.IDELT)GO TO 50
+       GO TO 60
+50     CALL DISITG(DDA,IP)
+       CALL DCURSR(IC,IX,IY)
+      CALL MOVABS(IX,IY)
+      CALL MARKG(43)
+       CALL REVCOT(IX,IY,X,Y)
+       IF(IC.EQ.36)GO TO 20
+       IF(IC.EQ.48)GO TO 60
+       I=IP
+       RETURN
+20     I=0
+       RETURN
+80     IF(ABS(DDA(IP+4)-Y).LE.ABS(RDELTY)) GO TO 50
+       GO TO 60
+70     CALL WRITEL(M1,23)
+      I=0
+       END
+C **************ADD A SEGMENT GRAPH TO THE DISPLAY********
+C *DDA = THE DDA
+C *IPTR = THE DDA POINTER
+C****************************************************************
+C*     COPYRIGHT        TEKTRONIX, INC    1973
+C*                       BEAVERTON, OREGON
+C*     PLOT-10/DECISION MAKER RELEASE 1.0 - VERSION 1
+C*               MODIFICATION LEVEL 0
+C****************************************************************
+       SUBROUTINE DISPRG(DDA,IPTR)
+      COMMON /GAMA1/FFN, WA(2560)
+       DIMENSION DDA(1280)
+       DIMENSION GRAPH(2,16)
+       DIMENSION M1(5),M2(4),M3(4)
+       DATA GRAPH/'NO T','ITLE','NO U','NITS','NO A','XIS',
+     ''NO D','ATA',
+     ''NO X',' LAB','NO Y',' LAB','NO G','RID','SUB ','TIC',
+     ''CENT','ERED','DASH','ED ','SCAT','TER','LETT','ER',
+     ''X LO','G','Y LO','G',
+     ''POSI','TION','END',' '/
+       DATA M1/'FILE',' SEG','MENT',' NAM','E? '/
+       DATA M2/'ENTE','R CH','ARAC','TER:'/
+       DATA M3/'ENTE','R IN','CREM','ENT:'/
+      DATA MX,MY,LENS,NOITMS/900,530,2,16/
+      DATA BLK,DOL/' ','$'/
+       IPRT=1
+      NOAX=0
+      CALL MESAGE(1)
+       READ(5,200)RGNAM
+      IF(RGNAM.EQ.BLK.OR.RGNAM.EQ.DOL)RETURN
+200    FORMAT(A4)
+      CALL READER
+      CALL SEGGET(RGNAM,JJ)
+      IF(JJ.EQ.0)RETURN
+      IP=IPTR
+      JJJ=JJ
+      J=1
+6     K=WA(JJ)
+      IF(WA(J+JJJ-1).EQ.0)GO TO 5
+      LEN=K-J
+      DO 500 I=1,LEN
+500   DDA(IP+I)=WA(JJ+I)
+      DDA(IP)=IP+LEN+1
+      DDA(IP+LEN+1)=0
+      IP=IP+LEN+1
+      JJ=K+JJJ-1
+      J=K
+      GO TO 6
+5     IOPTX=DDA(IPTR+7)
+      IOPTY=DDA(IPTR+8)
+      NOPT=DDA(IPTR+9)
+      ID=DDA(IPTR+14)
+      NO=DDA(IPTR+ID)
+3      CALL MENUG(GRAPH,LENS,NOITMS,IPRT,MX,MY,ISEL)
+       IF(IPRT.EQ.36) RETURN
+       IPRT=0
+       GO TO (1,70,80,90,120,10,20,30,40,50,60,140,130,150,160
+     *,100,110),ISEL
+C  SUPRESS X LABELS
+10     IOPTX=IOPTX+128
+       GO TO 3
+C  SUPRESS Y LABELS
+20     IOPTY=IOPTY+128
+       GO TO 3
+C  SET NO GRID LINE OPTION
+30     IOPTX=IOPTX-64
+       IOPTY=IOPTY-64
+       GO TO 3
+C  SET SUB TIC MARK NUMBER
+40     NOPT=NOPT+NO
+       GO TO 3
+C  SET BETWEEN TIC OPTION
+50     IOPTX=IOPTX-1024
+       GO TO 3
+C  SET DASHED LINE TYPES
+60     NOPT=NOPT+32
+       GO TO 3
+C  FLAG NO TITLE
+70     NOPT=NOPT-40960
+       GO TO 3
+C   SET SUPRESSION OF LABELS
+80     NOPT=NOPT-36864
+       GO TO 3
+C SET SUPRESS AXIS OPTION
+90     NOPT=NOPT+16
+      NOAX=1
+       GO TO 3
+C  SET NO DATA PLOT OPTION
+120    NOPT=NOPT+64
+       GO TO 3
+C   OBTAIN ID INFORMATION
+130    CALL WRITEL(M2,16)
+       CALL TINPUT(MC)
+       CALL TOUTPT(MC)
+       CALL WRITEL(M3,16)
+       CALL NIN(INC)
+       DDA(IPTR+10)=MC+INC*127
+       GO TO 3
+C    SET SCATTER PLOT OPTION
+140   NOPT=NOPT+96
+      DDA(IPTR+10)=42+127
+      GO TO 3
+C   XLOG OPTION
+150    IOPTX=IOPTX+256
+       NOPT=NOPT+128
+       GO TO 3
+C   YLOG OPTION
+160    IOPTY=IOPTY+256
+       NOPT =NOPT+256
+       GO TO 3
+C   POSITION OF THE GRAPH
+100      CALL DCURSR(IC,IX,IY)
+      CALL MOVABS(IX,IY)
+      CALL MARKG(43)
+       CALL DCURSR(IC,IIX,IIY)
+       CALL MOVABS(IIX,IIY)
+       CALL MARKG(43)
+111   DDA(IPTR+3)=IX
+      DDA(IPTR+4)=IY
+      DDA(IPTR+5)=IIX
+      DDA(IPTR+6)=IIY
+      NOAX=0
+      GO TO 113
+C  END OF SELECTIONS
+110   IF(NOAX.EQ.1)GO TO 111
+      IF(NOAX.EQ.0)GO TO 112
+113   DDA(IPTR+7)=IOPTX
+       DDA(IPTR+8)=IOPTY
+       DDA(IPTR+9)=NOPT
+       CALL DISFRO(DDA,IPTR)
+       IPTR=IP
+       RETURN
+112    IX=DDA(IPTR+3)
+       IY=DDA(IPTR+4)
+       IIX=DDA(IPTR+5)
+       IIY=DDA(IPTR+6)
+      GO TO 113
+1      GO TO 3
+       END
+C****************************************************************
+C*     COPYRIGHT        TEKTRONIX, INC    1973
+C*                       BEAVERTON, OREGON
+C*     PLOT-10/DECISION MAKER RELEASE 1.0 - VERSION 1
+C*               MODIFICATION LEVEL 0
+C****************************************************************
+	SUBROUTINE RGAUTO(DDA,IAUTO)
+C
+	COMMON /GAMA1/ IFFN,WA(2560),Y(600),X(300),WORK(1280)
+C
+	REAL DDA(1280)
+C
+	INTEGER TTY,IM2(6)
+C
+	DATA TTY/5/,
+     *       IM2/'ENTE','R MO','DEL ','PAGE',' NUM','BER-'/
+C
+	CALL READER
+5	CONTINUE
+	CALL WRITEL(IM2,24)
+	CALL NIN(I)
+	IAUTO = 0
+	IF(I.EQ.0) RETURN
+1000	FORMAT(1A4)
+	READ(8#I,END=99) WORK
+	CALL RELEAS(8)
+C
+	IP = 1
+	JP = 1
+C----- IP IS POINTER INTO MODEL PAGE
+C----- JP IS POINTER INTO DDA WHICH WE ARE BUILDING
+C
+10	CONTINUE
+	IF(WORK(IP).EQ.0) GO TO 60
+	IF(WORK(IP+1).EQ.3) GO TO 30
+C
+C----- NON-GRAPH, COPY AS IS.
+	IPP = WORK(IP)
+	LEN = IPP - IP - 1
+	DDA(JP) = JP + LEN + 1
+	DO 20 I = 1,LEN
+20	DDA(JP+I) = WORK(IP+I)
+	JP = DDA(JP)
+	IP = IPP
+	GO TO 10
+C
+C----- COPY NEW SEGMENT FROM WA TO DDA WITH OPTIONS FROM MODEL PAGE
+30	CONTINUE
+	CALL MESAGE(1)
+	READ(TTY,1000) I
+	CALL SEGGET(I,J)
+	IF(J.EQ.0) GO TO 30
+	LEN = WA(J-2) - J - 1
+	DDA(JP) = JP + LEN + 1
+	DO 40 I = 1,LEN
+40	DDA(JP+I) = WA(J+I)
+	DO 50 I = 1,8
+	DDA(JP+2+I) = WORK(IP+2+I)
+50	CONTINUE
+C
+	JP = DDA(JP)
+	IP = WORK(IP)
+	GO TO 10
+C
+C----- ALL DONE, SET LAST SEGMENT POINTER=0 AND EXIT
+60	CONTINUE
+	DDA(JP) = 0
+	IAUTO = JP
+	CALL NEWPAG
+	CALL WRITEL(' ',0)
+C----- REFRESH PAGE IN CORE.
+	JP = 1
+70	CONTINUE
+	IF(DDA(JP).EQ.0) RETURN
+	CALL DISITG(DDA,JP)
+	JP = DDA(JP)
+	GO TO 70
+C
+99	CONTINUE
+	CALL MESAGE(9)
+	GO TO 5
+	END
+    
