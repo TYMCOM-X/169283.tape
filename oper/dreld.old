@@ -1,0 +1,648 @@
+MODULE DRELD(DOLLAR,FSAVE,ENTRIES=($DRELD),TIMING,TIMER=EXTERNAL(SIX12))=
+
+BEGIN
+
+% THIS MODULE IS USED TO MAKE AN ASSEMBLY LANGUAGE LISTING
+IT MUST BE CALLED BY THE MODULE FOOL.
+/RAF......................2-12-75
+%
+
+REQUIRE JDEFS.BLI[7,107355];
+REQUIRE WDEFS.BLI[7,107355];
+REQUIRE RDEFS.BLI[7,107355];
+REQUIRE CDEFS.BLI[7,107355];
+REQUIRE DDEFS.BLI[7,107355];
+REQUIRE UDEFS.BLI[7,107355];
+REQUIRE SDEFS.BLI[7,107355];
+
+UNDECLARE $DRELD;
+
+BIND   MOVE = #200,
+       MOVEI = #201,
+       JUMPE = #322,
+       JUMPN = #326,
+       JRST = #254,
+       PUSH = #261,
+       PUSHJ = #260,
+       SUB = #274,
+       HRRZI = #551,
+       HLR = #544,
+       HRLM = #506,
+       HLLZS = #513,
+       HRRM = #542,
+       SETZ = #400,
+       POPJ = #263,
+       HRRZ = #550,
+       POP = #262,
+       MOVN = #210,
+       MOVNI = #211,
+       CAIG = #307,
+       CAIL = #301,
+       CAMG = #317,
+       CAML = #311,
+       CAILE = #303,
+       CAIGE = #305,
+       CAMLE = #313,
+       CAMGE = #315,
+       CAIE = #302,
+       CAME = #312,
+       CAIN = #306,
+       CAMN = #316,
+       MOVEM = #202,
+       LAND = #404,
+       ANDI = #405,
+       IORI = #435,
+       IOR = #434,
+       IMUL = #220,
+       IMULI = #221,
+       SKIPL = #331,
+       LADD = #270,
+       ADDI = #271,
+       IDIV = #230,
+       IDIVI = #231,
+       DMOVM = #124,
+       SKIPG = #337,
+       SETZM = #402,
+       BLT = #251,
+       HRLI = #505,
+       HRRI = #541,
+       DMOVE = #120,
+       TRNE = #602,
+       SKIPGE = #335,
+       TRNN = #606,
+       SETO = #474,
+       AOJ = #340,
+       SOJ = #360,
+       TLZ = #621,
+       JUMPGE = #325,
+       SUBI = #275,
+       MUL = #224,
+       MULI = #225,
+       TLO = #661,
+       LDIV = #234,
+       DIVI = #235,
+       SKIPLE = #333,
+       SKIPE = #332,
+       SKIPN = #336,
+       MOVM = #214,
+       TRC = #640,
+       HLRZ = #554,
+       SOJG = #367,
+       ANDM = #406,
+       HRL = #504,
+       LDB = #135,
+       HRLZI = #515,
+       IORM = #436,
+       TDNE = #612;
+
+% HPOX PRINTS HALF A WORD IN OCTAL WITH LEADING ZEROS. %
+
+ROUTINE HPOX(ARG)=
+  BEGIN LOCAL T;
+
+        T_ARG<18,3>;    % CREATE A STRING POINTER %
+        INCR I FROM 1 TO 6 DO
+          $UOCHR(SCANI(T)+"0");
+  END;
+
+ROUTINE SYMPOTS(PTR)=   %PRINT SYMBOL TABLE ENTRIES%
+    BEGIN LOCAL S$ SP,X;
+
+        SP_$SGSTE(.PTR);      % GET SYMBOL TABLE ENTRY. %
+        SELECT .SP[S$TYPE] OF
+          NSET
+
+          SV$NAME:      $UAPSC((SP[S$NAME])[1]<36,7>,.SP[S$NCHAR]);
+
+          SV$LABEL:     $UAPSC((SP[S$NAME])[1]<36,7>,.SP[S$NCHAR]);
+
+          SV$RW:        $UAPSC((SP[S$NAME])[1]<36,7>,.SP[S$NCHAR]);
+
+          SV$STLIT:     $UAPSC((SP[S$NAME])[1]<36,7>,.SP[S$NCHAR]);
+
+          SV$LABINC:    BEGIN X_.SP[S$STP1];
+                          $SFRNCH(.SP); SP_$SGSTE(.X);
+                          $UAPSC((SP[S$NAME])[1]<36,7>,.SP[S$NCHAR]);
+                        END;
+
+          SV$SYSADCON:  BEGIN
+                          $UAPSZ( SELECT .SP[S$AVB] OF     % SELCET A BASE TO PRINT %
+                                NSET
+
+                            DBV$PROCBASE:       $USPTR('PROCBASE');
+                            DBV$PROGBASE:       $USPTR('PROGBASE');
+                            DBV$FIBASE:         $USPTR('FIBASE');
+                            DBV$DDBASE:         $USPTR('DDBASE');
+                            DBV$RSBBASE:        $USPTR('RSBBASE');
+                            DBV$RBBASE:         $USPTR('RBBASE');
+                            DBV$SCBBASE:        $USPTR('SCBBASE');
+                            DBV$LITBASE:        $USPTR('LITBASE');
+                            DBV$LNEBASE:        $USPTR('LNEBASE');
+                            DBV$TEMPBASE:       $USPTR('TEMPBASE');
+                            DBV$STEMPBASE:      $USPTR('STEMPBASE');
+                            DBV$RCBBASE:        $USPTR('RCBBASE');
+                            OTHERWISE:  $USPTR('BASELESS BASE');
+
+                                TESN);
+
+                          $UOCHR("+"); $UAPOC(.SP[S$AVFO]);
+                        END;
+
+          SV$SYSLIT:    BEGIN $UOCHR("[");
+                          $UAPOC(.((SP[S$NAME])[1])<18,18>);   % TYPE NAME %
+                          $UOCHR(","); $UOCHR(",");        % SEPERATE LEFT FROM RIGHT %
+                          $UAPOC(.((SP[S$NAME])[1])< 0,18>);     % TYPE NAME %
+                          $UOCHR("]");
+                        END;
+
+          SV$LIE:       IF .SP [S$DDTYPE] EQL SV$SINGD THEN      % IS IT A NUMBER? %
+                          BEGIN $DIVOT('^D');
+                            $UAPDC(.(SP[S$NAME])[1]);
+                          END
+                            ELSE IF .SP[S$DDTYPE] EQL SV$SLIT   % NO IT'S A NAME %
+                              THEN $UAPSC((SP[S$NAME])[1]<36,7>,.SP[S$NCHAR]);    % TYPE NAME %
+
+          SV$SWLIT:     BEGIN
+                           $DIVOT('^D');
+                           $UAPDC(.(SP[S$NAME])[1]);
+                        END;
+
+        TESN;
+    $SFRNCH(.SP);             % FREEZE NO CHANGE %
+
+    END;
+
+GLOBAL ROUTINE $DRELD(DBASE)=  %FORMAT & RELOCATE DELTA FILES%
+BEGIN
+
+LOCAL PFCB;
+LOCAL OUTF;             % OUTPUT FILE %
+LOCAL PDB$ PDB;         % PROCDURE DEFINITION BLOCK %
+LOCAL S$ S;
+LOCAL UDYNARY$ STPSP;
+LOCAL UDYNARY$ PROGSP,BREGS[13],CLC[13],TKP,BUF[DV$MAXDREC],CB,PROGSIZE;
+LOCAL JRL$ BITS;
+LOCAL S$ P;
+MAP UDYNARY$ DBASE;
+MAP D$ TKP;
+
+
+FUNCTION FLASH(LO,HI)=
+   BEGIN
+   %FLASH PRINTS OUT IN A NICE FORMAT
+   A SECTION OF PROGSP
+
+   /JS...................7/4/74
+   %
+
+    INCR I FROM .LO TO .HI DO
+        BEGIN
+        HPOX(.I<0,18>); $DIVOT('  ');             % PRINT ADDRESS IN OCTAL %
+        HPOX(.PROGSP[.I]<18,18>);                 % PRINT LEFT HALF OF PROGSP %
+        IF .BITS[J$RLLEFT,.I] THEN $DIVOT(''' ')      % WAS IT RELOCATED? %
+            ELSE $DIVOT('  ');                    % NO NOT RELOCATED %
+        HPOX(.PROGSP[.I]<0,18>);                  % PRINT RIGHT HALF OF PROGSP %
+        IF .BITS[J$RLRIGHT,.I] THEN $DIVOT(''' ')     % WAS IT RELOCATED? %
+            ELSE $DIVOT('  ');                    % NO NOT RELOCATED %
+        IF .STPSP[.I]<18,18> NEQ 0                % IS THERE A SYMBOL TABLE POINTER (RIGHT)? %
+           THEN SYMPOTS(.STPSP[.I]<18,18>);       % YES PRINT THE ENTRY %
+        IF .STPSP[.I]< 0,18> NEQ 0                % SYMBOL TABLE POINTER (LEFT)? %
+          THEN                                    % YES PRINT IT %
+            BEGIN IF .STPSP[.I]<18,18> NEQ 0 THEN $UOCHR(",");
+                SYMPOTS(.STPSP[.I]< 0,18>);
+            END;
+        $UOUTL();                     % PRINT STUFF TO THE TERMINAL %
+        END;
+
+    END;
+
+
+TKP_BUF<0,0>;                          % SET UP BUFFER ADDRESS %
+$CSTART(CV$DELTAIN);                   % OPEN DELTA FILE %
+
+   PROGSIZE_CLC[0]_DBASE[0]_0;        % ZERO STUFF %
+
+   % SET UP BASE REGISTERS %
+   %************************************%
+    INCR I FROM 1 TO 12 DO
+        BEGIN
+        PROGSIZE_.PROGSIZE+.DBASE[.I];
+        CLC[.I]_ BREGS[.I]_.DBASE[.I-1]+.CLC[.I-1];
+        END;
+
+     %*********************************%
+
+
+    STPSP_$CGTZM(.PROGSIZE);         % GET STPSP SPACE %
+    BITS_$CGTZM((.PROGSIZE+17)/18); %GET SPACE FOR RELOCATION TABLE%
+    PDB_PROGSP_$CGTZM(.PROGSIZE);  % GET PROGSP SPACE %
+
+    DO BEGIN
+        $CIND(BUF<0,0>);      % READ A TOKEN FROM A DELTA FILE %
+
+   SELECT .TKP[D$TYPE] OF             % RELOCATE ACCORDING TO TYPE %
+       NSET
+
+         % STORE A SINGLE CONSTANT %
+
+       DV$CNST:    BEGIN PROGSP[.CLC[.CB]]_.TKP[D$WD2];
+                       CLC[.CB]_.CLC[.CB]+1      % INCREMENT CURRENT LOCATION COUNTER %
+                   END;
+
+         % RELOCATE BOTH ADDRESSES %
+
+       DV$DRELB:   BEGIN TKP[D$WD3L]_.TKP[D$WD3L] +
+                     (IF .TKP[D$LRR] NEQ 0
+                       THEN .BREGS[.TKP[D$LRR]] ELSE 0);      % RELOCATE LEFT? %
+                     TKP[D$WD3R]_.TKP[D$WD3R] +
+                       (IF .TKP[D$RRR] NEQ 0
+                         THEN .BREGS[.TKP[D$RRR]] ELSE 0);    % RELOCATE RIGHT? %
+                     PROGSP[.CLC[.CB]]_.TKP[D$WD3];           % STORE WORD %
+                     STPSP[.CLC[.CB]]<18,18>_.TKP[D$WD2L];    % SYMBOL TABLE LEFT? %
+                     STPSP[.CLC[.CB]]< 0,18>_.TKP[D$WD2R];    %SYMBOL TABLE RIGHT? %
+                     BITS[J$RLLEFT,.CLC[.CB]]_(IF .TKP[D$LRR] NEQ 0
+                        THEN 1 ELSE 0);                       % RELOCATED LEFT? %
+                     BITS[J$RLRIGHT,.CLC[.CB]]_(IF .TKP[D$RRR] NEQ 0
+                        THEN 1 ELSE 0);                      % RELOCATED RIGHT? %
+                     CLC[.CB]_.CLC[.CB]+1
+                   END;
+
+         % RELOCATE LEFT HALF %
+
+       DV$DRELL:   BEGIN TKP[D$WD2L]_.TKP[D$WD2L] +
+                     (IF .TKP[D$LRR] NEQ 0
+                       THEN .BREGS[.TKP[D$LRR]] ELSE 0);      % RELOCATE LEFT %
+                     PROGSP[.CLC[.CB]]_.TKP[D$WD2];
+                     STPSP[.CLC[.CB]]< 0,18>_.TKP[D$OPND];    % SYMBOL TABLE LEFT %
+                     BITS[J$RLLEFT,.CLC[.CB]]_(IF .TKP[D$LRR] NEQ 0
+                        THEN 1 ELSE 0);                      % RELOCATED LEFT? %
+                     CLC[.CB]_.CLC[.CB]+1;
+                   END;
+
+         % RELOCATE RIGHT HALF %
+
+       DV$DRELR:   BEGIN TKP[D$WD2R]_.TKP[D$WD2R] +
+                     (IF .TKP[D$RRR] NEQ 0
+                       THEN .BREGS[.TKP[D$RRR]] ELSE 0);      % RELOCATE RIGHT %
+                     PROGSP[.CLC[.CB]]_.TKP[D$WD2];
+                     STPSP[.CLC[.CB]]< 0,18>_.TKP[D$OPND];    % SYMBOL TABLE ? %
+                     BITS[J$RLRIGHT,.CLC[.CB]]_(IF .TKP[D$RRR] NEQ 0
+                         THEN 1 ELSE 0);                     % RELOCATED RIGHT? %
+                     CLC[.CB]_.CLC[.CB]+1;
+                   END;
+
+         % TERMINATE DELTA CODE %
+
+       DV$END:     0;
+
+         % IMMEDIATE INSTRUCTION %
+
+       DV$II:       BEGIN PROGSP[.CLC[.CB]]_.TKP[D$WD2];
+                       CLC[.CB]_.CLC[.CB]+1
+                   END;
+
+         % INCREMENT LOCATION COUNTER %
+
+       DV$INCR:    IF .TKP[D$LRR] NEQ 0
+                     THEN CLC[.TKP[D$LRR]]_.CLC[.TKP[D$LRR]]+
+                       .TKP[D$OPND];
+
+         % RELOCATE INSTRUCTION OPERAND ADDRESS %
+
+       DV$IREL:    BEGIN TKP[D$WD2R]_.TKP[D$WD2R] +
+                     (IF .TKP[D$RRR] NEQ 0
+                       THEN .BREGS[.TKP[D$RRR]] ELSE 0);      % RIGHT? %
+                     PROGSP[.CLC[.CB]]_.TKP[D$WD2];          % STORE. %
+                     STPSP[.CLC[.CB]]< 0,18>_.TKP[D$OPND];    % SYMBOL TABLE ? %
+                     BITS[J$RLRIGHT,.CLC[.CB]]_(IF .TKP[D$RRR] NEQ 0
+                         THEN 1 ELSE 0);                      % RELOCATED RIGHT? %
+                     CLC[.CB]_.CLC[.CB]+1;
+                   END;
+
+         % RELOCATE INSTRUCTION VIA SYMBOL TABLE POINTER %
+
+       DV$ISTP:    BEGIN P_$SGSTE(.TKP[D$WD2R]);
+                     TKP[D$WD2R]_.P[S$DFO] +
+                       (IF .P[S$DB] NEQ 0
+                         THEN .BREGS[.P[S$DB]] ELSE 0);
+                     BITS[J$RLRIGHT,.CLC[.CB]]_(IF .P[S$DB] NEQ 0
+                         THEN 1 ELSE 0);                   % RELOCATED RIGHT? %
+                       $SFRNCH(.P);                        %FREEZE NO CHANGE %
+                     PROGSP[.CLC[.CB]]_.TKP[D$WD2];
+                     STPSP[.CLC[.CB]]< 0,18>_.TKP[D$OPND];    % SYMBOL TABLE ? %
+                     CLC[.CB]_.CLC[.CB]+1;
+                   END;
+
+         % STORE SINGLE WORD NUMERIC LITERAL %
+
+       DV$LIT1:    BEGIN PROGSP[.CLC[.CB]]_.TKP[D$WD2];
+                     STPSP[.CLC[.CB]]< 0,18>_.TKP[D$OPND];    % SYMBOL TABLE ? %
+                       CLC[.CB]_.CLC[.CB]+1
+                   END;
+
+         % STORE DOUBLE WORD NUMERIC LITERAL %
+
+       DV$LIT2:    BEGIN PROGSP[.CLC[.CB]]_.TKP[D$WD2];
+                     STPSP[.CLC[.CB]]< 0,18>_.TKP[D$OPND];    % SYMBOL STUFF ? %
+                       CLC[.CB]_.CLC[.CB]+1;
+                       PROGSP[.CLC[.CB]]_.TKP[D$WD3];
+                     STPSP[.CLC[.CB]]< 0,18>_.TKP[D$OPND];    % SYMBOL WORD 2 %
+                       CLC[.CB]_.CLC[.CB]+1
+                   END;
+
+         % STORE THREE WORD NUMERIC LITERAL %
+
+       DV$LIT3:    BEGIN PROGSP[.CLC[.CB]]_.TKP[D$WD2];
+                     STPSP[.CLC[.CB]]< 0,18>_.TKP[D$OPND];    % WORD 1 %
+                     CLC[.CB]_.CLC[.CB]+1;
+                     PROGSP[.CLC[.CB]]_.TKP[D$WD3];
+                     STPSP[.CLC[.CB]]< 0,18>_.TKP[D$OPND];    % WORD 2 %
+                     CLC[.CB]_.CLC[.CB]+1;
+                     PROGSP[.CLC[.CB]]_.(TKP[D$WD3])[1];
+                     STPSP[.CLC[.CB]]< 0,18>_.TKP[D$OPND];    % WORD 3 %
+                     CLC[.CB]_.CLC[.CB]+1;
+                   END;
+
+         % STORE STRING OF ANSI CHATACTERS %
+
+       DV$LITS:    BEGIN INCR I FROM 0 TO .TKP[D$LENGTH]-3 DO
+                     PROGSP[.CLC[.CB]+.I]_.(TKP[D$WD2])[.I];  % STORE WORD %
+                     STPSP[.CLC[.CB]]< 0,18>_.TKP[D$OPND];    % SYMBOL TABLE STUFF %
+                     CLC[.CB]_.CLC[.CB]+.TKP[D$LENGTH]-2;
+                   END;
+
+         % STORE A NAME STRING %
+
+       DV$LITN:    BEGIN INCR I FROM 0 TO .TKP[D$LENGTH]-3 DO
+                     PROGSP[.CLC[.CB]+.I-1]_.(TKP[D$WD2])[.I]; %STORE WORD %
+                     STPSP[.CLC[.CB]]< 0,18>_.TKP[D$OPND];    % SYMBOL TABLE STUFF %
+                     CLC[.CB]_.CLC[.CB]+.TKP[D$LENGTH]-2;
+                   END;
+
+         % PURPOSE AND USAGE (NOTE) %
+
+       DV$NOTE:    IF .TKP[D$LRR] EQL 1 THEN STPSP[.TKP[D$WD2R]+
+                       .BREGS[DBV$PROGBASE]]<18,18>_.TKP[D$OPND];
+
+         % SET RELOCATION REGISTER %
+
+       DV$SET:     CLC[.TKP[D$LRR]]_.BREGS[.TKP[D$LRR]]+.TKP[D$OPND];
+
+         % SET RELOCATION REGISTER FOR LIBRARY LINKAGE %
+
+       DV$SETL:    0;
+
+         % USE SPECIFIED LOCATION COUNTER %
+
+       DV$USE:     CB_.TKP[D$LRR];
+
+       TESN;
+
+    END UNTIL .TKP[D$TYPE] EQL DV$EOF;
+   $CSTOP(CV$DELTAIN);                % CLOSE DELTA FILE %
+
+   OUTF_$JOFO();               % OPEN FILE *.LST FOR OUTPUT %
+   PFCB_$UOUTI(.OUTF);                % ARRANGE FOR OUTPUT TO GO TO A FILE %
+
+
+    $DIVOT('PROCBASE = '); $UAPOC(.BREGS[DBV$PROCBASE]); $UOUTL();
+    $DIVOT('PROGBASE = '); $UAPOC(.BREGS[DBV$PROGBASE]); $UOUTL();
+    $DIVOT('FIBASE = '); $UAPOC(.BREGS[DBV$FIBASE]); $UOUTL();
+    $DIVOT('DDBASE = '); $UAPOC(.BREGS[DBV$DDBASE]); $UOUTL();
+    $DIVOT('RSBBASE = '); $UAPOC(.BREGS[DBV$RSBBASE]); $UOUTL();
+    $DIVOT('RCBBASE = '); $UAPOC(.BREGS[DBV$RCBBASE]); $UOUTL();
+    $DIVOT('RBBASE = '); $UAPOC(.BREGS[DBV$RBBASE]); $UOUTL();
+    $DIVOT('SCBBASE = '); $UAPOC(.BREGS[DBV$SCBBASE]); $UOUTL();
+    $DIVOT('LITBASE = '); $UAPOC(.BREGS[DBV$LITBASE]); $UOUTL();
+    $DIVOT('LNEBASE = '); $UAPOC(.BREGS[DBV$LNEBASE]); $UOUTL();
+    $DIVOT('TEMPBASE = '); $UAPOC(.BREGS[DBV$TEMPBASE]); $UOUTL();
+    $DIVOT('STEMPBASE = '); $UAPOC(.BREGS[DBV$STEMPBASE]); $UOUTL();
+
+    $DIVOT('?M?JPROGSIZE = '); $UAPOC(.PROGSIZE); $UOUTL();
+
+    $UMESS($USPTR('?M?JDBV$PROGBASE'));
+
+         % DUMP PROGBASE %
+
+    INCR I FROM .BREGS[DBV$PROGBASE] TO .BREGS[DBV$FIBASE]-1 DO
+      BEGIN HPOX(.I< 0,18>); $DIVOT('  ');    % ADDRESS FIRST %
+        HPOX(.PROGSP[.I]<18,18>);            % LEFT HALF %
+        IF .BITS[J$RLLEFT,.I] THEN $DIVOT(''' ')  % RELOCATED LEFT? %
+            ELSE $DIVOT('  ');               % NOT RELOCATED %
+        HPOX(.PROGSP[.I]< 0,18>);            % RIGHT HALF %
+        IF .BITS[J$RLRIGHT,.I] THEN $DIVOT(''' ')   % RELOCATED RIGHT? %
+            ELSE $DIVOT('  ');                   % NOT RELOCATED %
+        IF .STPSP[.I]<18,18> NEQ 0    % SYMBOL TABLE POINTERS? %
+          THEN
+            BEGIN
+               S_$SGSTE(.STPSP[.I]<18,18>);   % YES %
+               CB_.S[S$STP1];
+               $SFRNCH(.S);
+               S_$SGSTE(.CB);
+               IF .S[S$NCHAR] LEQ 9
+                  THEN
+                     $UAPSC((S[S$NAME])[1]<36,7>,.S[S$NCHAR]) % TYPE NAME %
+                  ELSE
+                     $UAPSC((S[S$NAME])[1]<36,7>,9);        % TYPE NAME %
+               $UOCHR(":");
+               INCR CB FROM .S[S$NCHAR] TO 10 DO
+                  $UOCHR(" ");                   % ADD EXTRA BLANKS TO KEEP THINGS IN LINE %
+               $SFRNCH(.S);
+            END
+          ELSE $DIVOT('            ');         %NO POINTER %
+
+       $UAPSZ( SELECT .PROGSP[.I]<27,9> OF    % SELECT INSTRUCTION %
+           NSET
+
+           MOVE:       $USPTR('MOVE    ');
+           MOVEI:      $USPTR('MOVEI   ');
+           JUMPE:      $USPTR('JUMPE   ');
+           JUMPN:      $USPTR('JUMPN   ');
+           JRST:       $USPTR('JRST    ');
+           PUSH:       $USPTR('PUSH    ');
+           PUSHJ:      $USPTR('PUSHJ   ');
+           SUB:        $USPTR('SUB     ');
+           HRRZI:      $USPTR('HRRZI   ');
+           HLR:        $USPTR('HLR     ');
+           HRLM:       $USPTR('HRLM    ');
+           HLLZS:      $USPTR('HLLZS   ');
+           HRRM:       $USPTR('HRRM    ');
+           SETZ:       $USPTR('SETZ    ');
+           POPJ:       $USPTR('POPJ    ');
+           HRRZ:       $USPTR('HRRZ    ');
+           POP:        $USPTR('POP     ');
+           MOVN:       $USPTR('MOVN    ');
+           MOVNI:      $USPTR('MOVNI   ');
+           CAIG:       $USPTR('CAIG    ');
+           CAIL:       $USPTR('CAIL    ');
+           CAMG:       $USPTR('CAMG    ');
+           CAML:       $USPTR('CAML    ');
+           CAILE:      $USPTR('CAILE   ');
+           CAIGE:      $USPTR('CAIGE   ');
+           CAMLE:      $USPTR('CAMLE   ');
+           CAMGE:      $USPTR('CAMGE   ');
+           CAIE:       $USPTR('CAIE    ');
+           CAME:       $USPTR('CAME    ');
+           CAIN:       $USPTR('CAIN    ');
+           CAMN:       $USPTR('CAMN    ');
+           MOVEM:      $USPTR('MOVEM   ');
+           LAND:       $USPTR('AND     ');
+           ANDI:       $USPTR('ANDI    ');
+           IORI:       $USPTR('IORI    ');
+           IOR:        $USPTR('IOR     ');
+           I      $USPTR('IMUL    ');
+           IMULI:      $USPTR('IMULI   ');
+           SKIPL:      $USPTR('SKIPL   ');
+           LADD:       $USPTR('ADD     ');
+           ADDI:       $USPTR('ADDI    ');
+           IDIV:       $USPTR('IDIV    ');
+           IDIVI:      $USPTR('IDIVI   ');
+           DMOVM:      $USPTR('DMOVM   ');
+           SKIPG:      $USPTR('SKIPG   ');
+           SETZM:      $USPTR('SETZM   ');
+           BLT:        $USPTR('BLT     ');
+           HRLI:       $USPTR('HRLI    ');
+           HRRI:       $USPTR('HRRI    ');
+           DMOVE:      $USPTR('DMOVE   ');
+           TRNE:       $USPTR('TRNE    ');
+           SKIPGE:     $USPTR('SKIPGE  ');
+           TRNN:       $USPTR('TRNN    ');
+           SETO:       $USPTR('SETO    ');
+           AOJ:        $USPTR('AOJ     ');
+           SOJ:        $USPTR('SOJ     ');
+           TLZ:        $USPTR('TLZ     ');
+           JUMPGE:     $USPTR('JUMPGE  ');
+           SUBI:       $USPTR('SUBI    ');
+           MUL:        $USPTR('MUL     ');
+           MULI:       $USPTR('MULI    ');
+           TLO:        $USPTR('TLO     ');
+           LDIV:       $USPTR('DIV     ');
+           DIVI:       $USPTR('DIVI    ');
+           SKIPLE:     $USPTR('SKIPLE  ');
+           SKIPE:      $USPTR('SKIPE   ');
+           SKIPN:      $USPTR('SKIPN   ');
+           MOVM:       $USPTR('MOVM    ');
+           TRC:        $USPTR('TRC     ');
+           HLRZ:       $USPTR('HLRZ    ');
+           SOJG:       $USPTR('SOJG    ');
+           ANDM:       $USPTR('ANDM    ');
+           HRL:        $USPTR('HRL     ');
+           LDB:        $USPTR('LDB     ');
+           HRLZI:      $USPTR('HRLZI   ');
+           IORM:       $USPTR('IORM    ');
+           TDNE:       $USPTR('TDNE    ');
+
+        TESN);
+        $UAPOC(.PROGSP[.I]<23,4>);        %TYPE REGISTER %
+        $UOCHR(",");
+        IF (.PROGSP[.I]<22, 1> AND (.PROGSP[.I]<27, 9> EQL PUSHJ)
+         AND (.PROGSP[.I]< 0,18> LSS (.BREGS[DBV$PROGBASE])))
+            THEN
+               BEGIN
+                  CB_PROGSP[(.PROGSP[.I]< 0,18>-1)]<36, 6>;
+                  $UAPSZ($USPTR('@('));
+                  INCR J FROM 0 TO 5 DO
+                     $UOCHR(SCANI(CB)+#40);
+                  $UOCHR(")");
+               END
+            ELSE
+               BEGIN
+
+        IF .PROGSP[.I]<22,1> THEN $UOCHR("@");     % INDIRECT? %
+        IF .STPSP[.I]< 0,18> NEQ 0             % SYMBOL TABLE STUFF? %
+          THEN
+            BEGIN S_$SGSTE(.STPSP[.I]< 0,18>);
+                IF (.S[S$TYPE] EQL SV$LIE AND .S[S$DDTYPE] EQL SV$SINGD)
+                OR (.S[S$TYPE] EQL SV$SYSADCON)
+                  THEN
+                    BEGIN $UOCHR("[");
+                        SYMPOTS(.STPSP[.I]< 0,18>);   % SYMBOL ? %
+                        $UOCHR("]");
+                    END
+                  ELSE
+                      SYMPOTS(.STPSP[.I]< 0,18>);     % SYMBOL ? %
+                  $SFRNCH(.S);
+            END
+        ELSE
+          IF .PROGSP[.I]<27,2> EQL 1 AND .PROGSP[.I]<27,9> NEQ PUSH
+            THEN
+              BEGIN $DIVOT('^D');
+                $UAPDC(.PROGSP[.I]< 0,18>);
+              END
+        ELSE
+          $UAPOC(.PROGSP[.I]< 0,18>);
+   IF .PROGSP[.I]<18, 4> NEQ 0
+      THEN
+        BEGIN
+           $UOCHR("(");
+           $UAPOC(.PROGSP[.I]<18, 4>);
+           $UOCHR(")");
+         END
+        END;
+        $UOUTL();
+   END;
+
+    $UMESS($USPTR('DBV$PROCBASE'));
+
+    CB_6+.PDB[PD$PARCT];    %CALCULATE WHERE SIXBIT WORDS START%
+    INCR I FROM .BREGS[DBV$PROCBASE] TO .BREGS[DBV$PROGBASE]-1 DO
+      BEGIN HPOX(.I< 0,18>); $DIVOT('  ');        % TYPE ADDRESS %
+        HPOX(.PROGSP[.I]<18,18>);               % TYPE LEFT HALF %
+        IF .BITS[J$RLLEFT,.I] THEN $DIVOT(''' ')    % RELOCATED LEFT? %
+            ELSE $DIVOT('  ');                  % NOT RELOCATED %
+        HPOX(.PROGSP[.I]< 0,18>);               % TYPE RIGHT HALF %
+        IF .BITS[J$RLRIGHT,.I] THEN $UOCHR("''");    % RELOCATED RIGHT? %
+        IF .I EQL .CB THEN
+          BEGIN $DIVOT('  ');
+            CB_PROGSP[.I]<36,6>;
+            INCR J FROM 0 TO 5 DO
+              $UOCHR(SCANI(CB)+#40);
+            CB_.I+2;
+          END;
+        IF .STPSP[.I]< 0,18> NEQ 0 THEN SYMPOTS(.STPSP[.I]< 0,18>);
+        $UOUTL();
+      END;
+
+   % TYPE THE REST OF THE BASES %
+
+    $UMESS($USPTR('DBV$FIBASE'));
+   FLASH(.BREGS[DBV$FIBASE],.BREGS[DBV$DDBASE]-1);
+
+    $UMESS($USPTR('DBV$DDBASE'));
+    FLASH(.BREGS[DBV$DDBASE],.BREGS[DBV$RSBBASE]-1);
+
+    $UMESS($USPTR('DBV$RSBBASE'));
+    FLASH(.BREGS[DBV$RSBBASE],.BREGS[DBV$RCBBASE]-1);
+
+    $UMESS($USPTR('DBV$RCBBASE'));
+    FLASH(.BREGS[DBV$RCBBASE],.BREGS[DBV$RBBASE]-1);
+
+    $UMESS($USPTR('DBV$RBBASE'));
+    FLASH(.BREGS[DBV$RBBASE],.BREGS[DBV$SCBBASE]-1);
+
+    $UMESS($USPTR('DBV$SCBBASE'));
+    FLASH(.BREGS[DBV$SCBBASE],.BREGS[DBV$LITBASE]-1);
+
+    $UMESS($USPTR('DBV$LITBASE'));
+    FLASH(.BREGS[DBV$LITBASE],.BREGS[DBV$LNEBASE]-1);
+
+    $UMESS($USPTR('DBV$LNEBASE'));
+    FLASH(.BREGS[DBV$LNEBASE],.BREGS[DBV$TEMPBASE]-1);
+
+    $UMESS($USPTR('DBV$TEMPBASE'));
+    FLASH(.BREGS[DBV$TEMPBASE],.BREGS[DBV$STEMPBASE]-1);
+    $UMESS($USPTR('DBV$STEMPBASE'));
+    FLASH(.BREGS[DBV$STEMPBASE],.PROGSIZE-1);
+
+    $UOUTI(.PFCB);              % OUTPUT BACK TO WHERE EVER IT WAS BEFORE %
+    $JSTOP(.OUTF);              % CLOSE OUTPUT FILE %
+    $CFREEM(.PROGSP);           % FREE PROGSP MEMORY %
+    $CFREEM(.STPSP);            % FREE STPSP MEMORY %
+    $CFREEM(.BITS);             % FREE BITS MEMORY %
+
+
+    END;
+
+END ELUDOM
+  
+²
