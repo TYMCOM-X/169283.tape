@@ -1,0 +1,56 @@
+MODULE KGLED(DOLLAR,ENTRIES=($KGLED),FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+BEGIN
+
+REQUIRE KDEFS.BLI[7,107355];
+REQUIRE CDEFS.BLI[7,107355];
+REQUIRE UDEFS.BLI[7,107355];
+
+UNDECLARE $KGLED;
+
+MACHOP TTCALL=#051;
+
+MACRO
+   OUTCHR(C)=(REGISTER Q; Q := (C); TTCALL(1,Q))&,
+   INCHWL(LL)=TTCALL(4,LL)&;
+
+GLOBAL ROUTINE $KGLED(FCB)=
+   BEGIN
+   MAP KFCB$ FCB;
+   REGISTER REG;
+   LOCAL CLINE$ L;
+   IF (L := .FCB[K$IDADR]) EQL 0
+      THEN $KIOAB(.FCB,KV$NDADR);
+   L[C$SEQNO] := .L[C$SEQNO]+1;
+   IF .FCB[K$PRCHR] NEQ "?0"
+      THEN OUTCHR(.FCB[K$PRCHR]);
+   L[C$WPTR] := .L[C$BPTR];
+   L[C$WCNT] := 0;
+   UNTIL (INCHWL(REG); .REG) EQL "?M"
+   DO IF .L[C$WCNT] LSS .L[C$LCBSIZE]
+         THEN BEGIN
+            REPLACEI(L[C$WPTR],.REG);
+            L[C$WCNT] := .L[C$WCNT]+1  END;
+   L[C$EPTR] := .L[C$WPTR];
+   REPLACEI(L[C$WPTR],.REG);
+   INCHWL(REG);
+   FCB[K$EOFILE] :=
+      IF .L[C$WCNT] EQL 1
+         THEN IF ..L[C$EPTR] EQL "&"
+            THEN BEGIN   % TERMINAL END OF FILE %
+               (L[C$EPTR] := .L[C$EPTR] + 7^30) := "?M";
+               L[C$WCNT] := 0;    % SUBSTITUTE NULL LINE %
+               1   END
+            ELSE 0
+      ELSE IF .L[C$WCNT] EQL 2
+         THEN IF .(.L[C$BPTR])<29,7> EQL "&" AND ..L[C$EPTR] EQL "&"
+            THEN BEGIN     % A NORMAL AMPERSAND %
+               (L[C$EPTR] := .L[C$EPTR] + 7^30) := "?M";
+               L[C$WCNT] := 1;
+               0   END
+            ELSE 0
+      ELSE 0;
+   L[C$WPTR] := .L[C$BPTR];
+   L[C$LCBCNT] := .L[C$WCNT]
+   END;
+
+END ELUDOM
