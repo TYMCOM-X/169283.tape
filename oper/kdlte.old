@@ -1,0 +1,711 @@
+MODULE KDLTE(DOLLAR,ENTRIES=($KDLTE),FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+
+BEGIN
+
+REQUIRE KDEFS.BLI;
+REQUIRE DBDEFS.BLI[7,107355];
+REQUIRE IBDEFS.BLI[7,107355];
+REQUIRE SBDEFS.BLI[7,107355];
+REQUIRE UDEFS.BLI[7,107355];
+REQUIRE FDEFS.BLI[7,107355];
+REQUIRE DVDEFS.BLI[7,107355];
+
+UNDECLARE $KDLTE;
+
+MACRO INC(NAME)= (NAME_.NAME+1)&;
+
+MACRO DEC(NAME)= (NAME_.NAME-1)&;
+
+MACRO WRITE(A,B,C)= $KVIWR(A,B,C)&;
+
+MACHOP LSH = #242;
+MACRO RSHIFT(X,N)= (REGISTER Q$$$; Q$$$_X; LSH(Q$$$,-(N)))&;
+
+MACRO RIBWRITE(F)=
+   IF .SOB[K$SEXPAND]
+      THEN
+         BEGIN
+         SOB[K$SEXPAND]_0;
+         $KRIBW(F);
+         END&;
+
+MACRO RIGHTIB= ( BEGIN LOCAL KIB$ PIB;
+   IF .SB[SB$NOL] EQL .LVL
+      THEN 0
+      ELSE 
+         BEGIN
+            PIB_$KVIRD(.FCB,.SPB[K$SIBPN,.LVL+1]);
+            IF .SPB[K$SIBOF,.LVL+1] LSS .BSIZ-.KSIZ1
+               THEN .(.PIB+.SPB[K$SIBOF,.LVL+1]+.KSIZ1+.KSIZ)<0,18>
+               ELSE 0
+         END
+END)&;
+
+MACRO RIGHTDB= (BEGIN 
+   IF .SB[SB$NOL] EQL 0
+      THEN 0
+      ELSE
+         BEGIN
+         IB_$KVIRD(.FCB,.SPB[K$SIBPN,1]);
+         IF .SPB[K$SIBOF,1] LSS (.BSIZ-.KSIZ1)
+            THEN .(.IB+.SPB[K$SIBOF,1]+.KSIZ1+.KSIZ)<0,18>
+            ELSE 0
+         END
+END)&;
+
+MACRO LEFTIB= ( BEGIN LOCAL KIB$ PIB;
+   IF .SB[SB$NOL] EQL .LVL
+      THEN 0
+      ELSE 
+         BEGIN
+            PIB_$KVIRD(.FCB,.SPB[K$SIBPN,.LVL+1]);
+            IF .SPB[K$SIBOF,.LVL+1] GTR .PIB[IB$OFF]
+               THEN .(.PIB+.SPB[K$SIBOF,.LVL+1]-1)<0,18>
+               ELSE 0
+         END
+END)&;
+
+MACRO LEFTDB= (BEGIN 
+   IF .SB[SB$NOL] EQL 0
+      THEN 0
+      ELSE
+         BEGIN
+         IB_$KVIRD(.FCB,.SPB[K$SIBPN,1]);
+         IF .SPB[K$SIBOF,1] GTR .IB[IB$OFF]
+            THEN .(.IB+.SPB[K$SIBOF,1]-1)<0,18>
+            ELSE 0
+         END
+END)&;
+
+
+GLOBAL ROUTINE $KDLTE(FCB)=
+   BEGIN
+   MAP KFCB$ FCB;
+   LOCAL KDB$ DB;
+   LOCAL KDB$ RDB;
+   LOCAL KDB$ LDB;
+   LOCAL KIB$ IB;
+   LOCAL KSB$ SB;
+   LOCAL KSPB$ SPB;
+   LOCAL KSOB$ SOB;
+   LOCAL KDSC$ DSC;
+   LOCAL DBPN,DBOF,N,M,NEW,OLD,ISIZ,KSIZ,KSIZ1,BSIZ;
+   LOCAL TOTAL,LIMIT,STATE,LASTFLAG,LPN,RPN,PN;
+   FORWARD KEY2DELETE,KEY1DELETE;
+
+FUNCTION MASSAGE(A,B)=
+
+   BEGIN LOCAL S;
+   MAP UDYNARY$ A;
+   MAP UDYNARY$ B;
+
+   %  THIS FUNCTION MOVES THE KEY FIELDS OF AN INSTANCE FROM A TO B
+      AND SLIGHTLY ALTERS THEIR VALUE. EACH WORD OF THE KEY FIELDS DEFINED
+      AS STRINGS ARE SHIFTED RIGHT LOGICALLY ONE BIT.          %
+
+   INCR I FROM 0 TO .SOB[K$SNKEY]-1
+      DO
+         BEGIN
+         IF .DSC[K$SDDTYPE,.I] EQL DDV$STR
+            THEN INCR J FROM 0 TO (S_.DSC[K$SSIZE,.I])-1
+               DO B[.J]_RSHIFT(.A[.J],1)
+            ELSE INCR J FROM 0 TO (S_.DSC[K$SSIZE,.I])-1
+               DO B[.J]_.A[.J];
+         A_.A+.S;
+         B_.B+.S;
+         END
+   END;
+
+FUNCTION ADJUSTKEY(KEY,PN,LVL)=
+   BEGIN
+   LOCAL KIB$ NIB;
+   LOCAL KIB$ IB;
+   LOCAL UDYNARY$ A;
+   LABEL FOO;
+   LOCAL IBPN,IBOF,N,Q,NPN;
+
+
+%   THIS FUNCTION IS CALLED WHEN THE LAST INSTANCE IN A DB IS DELETED.
+    ADJUSTKEY MOVES THE NEW LAST KEY INTO THE IB (PROPERLY MASSAGED). IT
+    CALLS ITSELF RECURSIVELY IF THE ADJUSTED ENTRY IS THE LAST IN THE IB AND
+    NOT EQUAL TO INFINITY.            %
+
+
+   IBPN_.SPB[K$SIBPN,.LVL];
+   IBOF_.SPB[K$SIBOF,.LVL];
+   IB_$KVIRD(.FCB,.IBPN);
+   IF .IBOF EQL (A_.BSIZ-.KSIZ1)
+      THEN
+
+      %       ADJUSTED ENTRY IS LAST IN IB       %
+
+         BEGIN
+         IF .LVL EQL 1
+            THEN 
+FOO:
+               BEGIN
+               A_.A+.IB;
+               INCR I FROM 0 TO .KSIZ-1
+                  DO IF .A[.I] NEQ #377777777777
+                     THEN LEAVE FOO;
+
+               % ENTRY IS LAST INDEX IN FILE (I.E. = TO INFINITY)   %
+
+               (.A+.KSIZ)<0,18>_.PN;
+               INC((.A+.KSIZ)<18,18>);
+               RIBWRITE(.FCB);
+               $KACWR(.FCB,.IB,.IBPN);
+               RETURN
+               END;
+         IF .SB[SB$NOL] GTR .LVL
+            THEN
+
+               %  CREATE NEW IB & CALL ADJUSTKEY RECURSIVELY   %
+
+               BEGIN
+               NIB_$KGBUF(.FCB,NPN_$KGETP(.FCB));
+               NIB[IB$NUMBER]_.IB[IB$NUMBER];
+               NIB[IB$OFF]_.IB[IB$OFF];
+               NIB[IB$VERNO]_.IB[IB$VERNO]+1;
+               N_(.NIB[IB$NUMBER]-1)*.KSIZ1;
+               IF .N GTR 0
+                  THEN $UMOVE(.N,.IB+.IB[IB$OFF],.NIB+.IB[IB$OFF]);
+               Q_.NIB+.IBOF;
+               IF .LVL EQL 1
+                  THEN MASSAGE(.KEY,.Q)
+                  ELSE $UMOVE(.KSIZ,.KEY,.Q);
+               (.Q+.KSIZ)<0,18>_.PN;
+               (.Q+.KSIZ)<18,18>_.(.IB+.IBOF+.KSIZ)<18,18>+1;
+               $KRBUF(.FCB,.IB,.IBPN);
+               $KACWR(.FCB,.NIB,.NPN);
+               $KPRON(.FCB,.NIB,.NPN);
+               ADJUSTKEY(.NIB+.BSIZ-.KSIZ1,.NPN,.LVL+1);
+               $KPROF(.FCB,.NIB,.NPN);
+               $KRELP(.FCB,.IBPN);
+               RETURN
+               END
+         END;
+
+   %   ADJUSTED KEY IS NOT LAST IN IB. CHANGE KEY & RETURN   %
+
+   Q_.IB+.IBOF;
+   IF .LVL EQL 1
+      THEN MASSAGE(.KEY,.Q)
+      ELSE $UMOVE(.KSIZ,.KEY,.Q);
+   (.Q+.KSIZ)<0,18>_.PN;
+   INC((.Q+.KSIZ)<18,18>);
+   RIBWRITE(.FCB);
+   $KACWR(.FCB,.IB,.IBPN);
+   END;
+
+FUNCTION DNOP(N,B,BPN,LVL,LASTFLAG)=
+   BEGIN
+   MAP KDB$ B;
+   LOCAL KDB$ NB;
+   LOCAL NPN,DSIZ;
+
+   % KNOP IS CALLED WHEN DELETING AN ENTRY FROM AN B DOES NOT WARRANT
+     BALANCING OR COMPACTING.  IT IS ALSO CALLED IF THERE IS ONLY 1
+     B IN EXISTENCE.    %
+
+   IF .LVL EQL 0
+      THEN
+         BEGIN
+      
+         DSIZ_.ISIZ;
+         END
+      ELSE
+         BEGIN
+      
+         DSIZ_.KSIZ1;
+         END;
+
+   IF .N EQL 0
+      THEN
+         BEGIN
+
+         %  NO ENTRIES LEFT IN B.  DELETE IT & RELEASE BUFFER & PAGE  %
+
+         SB[SB$1ST]_0;
+         $KRBUF(.FCB,.B,.BPN);
+         $KRELP(.FCB,.BPN);
+         RETURN
+         END;
+   IF .LASTFLAG
+      THEN
+
+      % DELETED ENTRY IS LAST IN B, SO CREATE NEW B & CALL ADJUST KEY
+        TO FIX UP INDEX TREE.   %
+
+         BEGIN
+         SOB[K$SCHANGE]_1;
+         NB_$KGBUF(.FCB,NPN_$KGETP(.FCB));
+         $UMOVE(.BSIZ,.B,.NB);
+         INC(NB[DB$VERNO]);
+         $KACWR(.FCB,.NB,.NPN);
+         $KPRON(.FCB,.NB,.NPN);
+         $KRBUF(.FCB,.B,.BPN);
+         ADJUSTKEY(.NB+.BSIZ-.DSIZ,.NPN,.LVL+1);
+         $KPROF(.FCB,.NB,.NPN);
+         IF .SB[SB$1ST] EQL .BPN
+            THEN SB[SB$1ST]_.NPN;
+         $KRELP(.FCB,.BPN);
+         END
+      ELSE
+         BEGIN
+         IF .LVL EQL 0
+            THEN WRITE(.FCB,.B,.BPN)
+            ELSE $KACWR(.FCB,.B,.BPN);
+         $KPROF(.FCB,.B,.BPN);
+         END;
+   END;
+
+FUNCTION D1COMPACT(OB1,OPN1,OB2,OPN2,OFFST,LVL,LASTFLAG,TOTAL,STATE)=
+   BEGIN
+   MAP KDB$ OB1:OB2;
+   LOCAL KDB$ B1;
+   LOCAL PN1,DSIZ;
+
+   %  D1COMPACT IS CALLED WHEN 2 BS ARE COMPACTED INTO 1.  IT CREATES 1
+      NEW B AND RELEASES THE OLD 2.   %
+
+   IF .LVL EQL 0
+      THEN
+         BEGIN
+      
+         DSIZ_.ISIZ;
+         END
+      ELSE
+         BEGIN
+      
+         DSIZ_.KSIZ1;
+         END;
+
+   B1_$KGBUF(.FCB,PN1_$KGETP(.FCB));
+   B1[DB$NUMBER]_.TOTAL;
+   B1[DB$OFF]_.BSIZ-.TOTAL*.DSIZ;
+   B1[DB$VERNO]_.OB1[DB$VERNO]+.OB2[DB$VERNO]+1;
+   $UMOVE(M_(.OB1[DB$NUMBER]*.DSIZ),.OB1+.OB1[DB$OFF],.B1+.B1[DB$OFF]);
+   $UMOVE(.OB2[DB$NUMBER]*.DSIZ,.OB2+.OB2[DB$OFF],.B1+.B1[DB$OFF]+.M);
+   $KRBUF(.FCB,.OB1,.OPN1);
+   $KRBUF(.FCB,.OB2,.OPN2);
+   $KACWR(.FCB,.B1,.PN1);
+   $KPRON(.FCB,.B1,.PN1);
+   KEY1DELETE(.B1+.BSIZ-.DSIZ,.B1[DB$VERNO],.PN1,.LVL+1,.OFFST,
+               .LASTFLAG AND (.STATE EQL 5));
+   $KPROF(.FCB,.B1,.PN1);
+   $KRELP(.FCB,.OPN1);
+   $KRELP(.FCB,.OPN2);
+   IF .OPN1 EQL .SB[SB$1ST]
+      THEN SB[SB$1ST]_.PN1;
+   END;
+
+FUNCTION D2BALANCE(OB1,OPN1,OB2,OPN2,OFFST,LVL,LASTFLAG,TOTAL,STATE)=
+   BEGIN
+   MAP KDB$ OB1:OB2;
+   LOCAL KDB$ B1:B2;
+   LOCAL PN1,PN2,M,N,OFF,N1,N2,DSIZ;
+
+   %  D2BALANCE IS CALLED TO BALANCE 2 BS.  IT CREATES 2 NEW BS AND
+      RELEASES THE OLD 2.    %
+
+   IF .LVL EQL 0
+      THEN
+         BEGIN
+      
+         DSIZ_.ISIZ;
+         END
+      ELSE
+         BEGIN
+      
+         DSIZ_.KSIZ1;
+         END;
+
+   N1_.TOTAL/2;
+   N2_.TOTAL-.N1;
+   IF .N1 EQL .OB1[DB$NUMBER]
+      THEN
+         BEGIN     %  NO BALANCING NECESSARY   %
+         IF .STATE EQL 2
+            THEN $KPROF(.FCB,.OB2,.OPN2)
+            ELSE $KPROF(.FCB,.OB1,.OPN1);
+         IF .STATE EQL 2
+            THEN (B1_.OB1; PN1_.OPN1)
+            ELSE (B1_.OB2; PN1_.OPN2);
+         DNOP(.B1[DB$NUMBER],.B1,.PN1,.LVL,.LASTFLAG);
+         RETURN
+         END;
+   B2_$KGBUF(.FCB,PN2_$KGETP(.FCB));
+   $KPRON(.FCB,.B2,.PN2);
+   B1_$KGBUF(.FCB,PN1_$KGETP(.FCB));
+   B1[DB$NUMBER]_.N1;
+   B2[DB$NUMBER]_.N2;
+   B1[DB$VERNO]_.OB1[DB$VERNO]+1;
+   B2[DB$VERNO]_.OB2[DB$VERNO]+1;
+   B1[DB$OFF]_.BSIZ-.N1*.DSIZ;
+   B2[DB$OFF]_.BSIZ-.N2*.DSIZ;
+   IF (N_.OB1[DB$NUMBER]-.N1) GTR 0
+      THEN
+         BEGIN    %  OLD B1 BIGGER   %
+         $UMOVE(.N1*.DSIZ,.OB1+.OB1[DB$OFF],.B1+.B1[DB$OFF]);
+         OFF_.OB1[DB$OFF]+.N1*.DSIZ;
+         $UMOVE(.N*.DSIZ,.OB1+.OFF,.B2+.B2[DB$OFF]);
+         OFF_.B2[DB$OFF]+.N*.DSIZ;
+         $UMOVE(.OB2[DB$NUMBER]*.DSIZ,.OB2+.OB2[DB$OFF],.B2+.OFF)
+         END
+      ELSE
+         BEGIN    %  OLD B2 BIGGER   %
+         $UMOVE(.OB1[DB$NUMBER]*.DSIZ,.OB1+.OB1[DB$OFF],.B1+.B1[DB$OFF]);
+         OFF_.B1[DB$OFF]+.OB1[DB$NUMBER]*.DSIZ;
+         $UMOVE(-.N*.DSIZ,.OB2+.OB2[DB$OFF],.B1+.OFF);
+         OFF_.OB2[DB$OFF]-.N*.DSIZ;
+         $UMOVE(.N2*.DSIZ,.OB2+.OFF,.B2+.B2[DB$OFF]);
+         END;
+   $KRBUF(.FCB,.OB1,.OPN1);
+   $KRBUF(.FCB,.OB2,.OPN2);
+   $KACWR(.FCB,.B1,.PN1);
+   $KACWR(.FCB,.B2,.PN2);
+   IB_$KVIRD(.FCB,.SPB[K$SIBPN,.LVL+1]);
+   IF .LVL EQL 0
+      THEN MASSAGE(.B1+.BSIZ-.DSIZ,(M_.IB+.SPB[K$SIBOF,1]+.OFFST))
+      ELSE $UMOVE(.KSIZ,.B1+.BSIZ-.DSIZ,(M_.IB+.SPB[K$SIBOF,.LVL+1]+.OFFST));
+   (.M+.KSIZ)<0,18>_.PN1;
+   (.M+.KSIZ)<18,18>_.B1[DB$VERNO];
+   M_.M+.KSIZ1;
+   IF .LASTFLAG AND (.STATE EQL 4)
+      THEN ADJUSTKEY(.B2+.BSIZ-.DSIZ,.PN2,.LVL+1)  % DELETED ENTRY LAST IN IB   %
+      ELSE
+         BEGIN
+         (.M+.KSIZ)<0,18>_.PN2;
+         (.M+.KSIZ)<18,18>_.B2[DB$VERNO];
+         RIBWRITE(.FCB);
+         $KACWR(.FCB,.IB,.SPB[K$SIBPN,.LVL+1]);
+         END;
+   $KPROF(.FCB,.B2,.PN2);
+   $KRELP(.FCB,.OPN1);
+   $KRELP(.FCB,.OPN2);
+   IF .OPN1 EQL .SB[SB$1ST]
+      THEN SB[SB$1ST]_.PN1;
+   END;
+
+FUNCTION D2COMPACT(LB,LPN,B,BPN,RB,RPN,LVL,TOTAL)=
+   BEGIN
+   MAP KDB$ RB:B:LB;
+   LOCAL KDB$ B1:B2;
+   LOCAL PN1,PN2,M,N,OFF,N1,N2,DSIZ;
+
+   % D2COMPACT COMPACTS 3 BS INTO 2.  IT CREATES 2 NEW BS AND RELEASES
+     THE 3 OLD BS:  RB, B & LB;    %
+
+   IF .LVL EQL 0
+      THEN
+         BEGIN
+      
+         DSIZ_.ISIZ;
+         END
+      ELSE
+         BEGIN
+      
+         DSIZ_.KSIZ1;
+         END;
+
+   N1_.TOTAL/2;
+   N2_.TOTAL-.N1;
+   B1_$KGBUF(.FCB,PN1_$KGETP(.FCB));
+   $KPRON(.FCB,.B1,.PN1);
+   B2_$KGBUF(.FCB,PN2_$KGETP(.FCB));
+   $KPRON(.FCB,.B2,.PN2);
+   B1[DB$NUMBER]_.N1;
+   B2[DB$NUMBER]_.N2;
+   B1[DB$OFF]_.BSIZ-.N1*.DSIZ;
+   B2[DB$OFF]_.BSIZ-.N2*.DSIZ;
+   B1[DB$VERNO]_.LB[DB$VERNO]+.B[DB$VERNO]+1;
+   B2[DB$VERNO]_.RB[DB$VERNO]+1;
+   $UMOVE(.LB[DB$NUMBER]*.DSIZ,.LB+.LB[DB$OFF],.B1+.B1[DB$OFF]);
+   OFF_.B1[DB$OFF]+.LB[DB$NUMBER]*.DSIZ;
+   N1_.N1-.LB[DB$NUMBER];
+   $UMOVE(.N1*.DSIZ,.B+.B[DB$OFF],.B1+.OFF);
+   N_.B[DB$NUMBER]-.N1;
+   OFF_.B[DB$OFF]+.N1*.DSIZ;
+   $UMOVE(.N*.DSIZ,.B+.OFF,.B2+.B2[DB$OFF]);
+   OFF_.B2[DB$OFF]+.N*.DSIZ;
+   $UMOVE(.RB[DB$NUMBER]*.DSIZ,.RB+.RB[DB$OFF],.B2+.OFF);
+   $KRBUF(.FCB,.RB,.RPN);
+   $KRBUF(.FCB,.LB,.LPN);
+   $KRBUF(.FCB,.B,.BPN);
+   $KACWR(.FCB,.B1,.PN1);
+   $KACWR(.FCB,.B2,.PN2);
+   KEY2DELETE(.B1+.BSIZ-.DSIZ,.B1[DB$VERNO],.PN1,.B2[DB$VERNO],.PN2,.LVL+1);
+   $KPROF(.FCB,.B1,.PN1);
+   $KPROF(.FCB,.B2,.PN2);
+   $KRELP(.FCB,.BPN);
+   $KRELP(.FCB,.RPN);
+   $KRELP(.FCB,.LPN);
+   IF .RPN EQL .SB[SB$1ST]
+      THEN SB[SB$1ST]_.PN1;
+   END;
+
+FUNCTION D3BALANCE(LB,LPN,B,BPN,RB,RPN,LVL,TOTAL,LASTFLAG)=
+
+   %  D3BALANCE IS CALLED WHEN THE TOTAL ENTRIES IN THE 3 BS EXAMINED EXCEED
+      TWICE THE MAXIMUM SIZE OF AN B.  THE CURRENT B IS BALANCED WITH THE
+      LARGER OF THE LEFT B (LB) AND THE RIGHT B (RB).    %
+
+   BEGIN
+   MAP KDB$ LB:B:RB;
+
+   IF .LB[DB$NUMBER] GTR .RB[DB$NUMBER]
+      THEN
+         BEGIN
+         $KPROF(.FCB,.RB,.RPN);
+         D2BALANCE(.LB,.LPN,.B,.BPN,-.KSIZ1,.LVL,.LASTFLAG,.B[DB$NUMBER]+
+                        .LB[DB$NUMBER],4);
+         END
+      ELSE
+         BEGIN
+         $KPROF(.FCB,.LB,.LPN);
+         D2BALANCE(.B,.BPN,.RB,.RPN,0,.LVL,.LASTFLAG,.B[DB$NUMBER]+
+                        .RB[DB$NUMBER],2);
+         END;
+   END;
+
+
+FUNCTION KEY1DELETE(KEY,VERNO,PN,LVL,OFFST,LOWERLASTFLAG)=
+
+   BEGIN
+   LOCAL KIB$ IB;
+   LOCAL KIB$ RIB;
+   LOCAL KIB$ LIB;
+   LOCAL UDYNARY$ A;
+   LOCAL IBPN,IBOF,N,Q,NEW,OLD,M,STATE,TOTAL,LIMIT,RPN,LPN,LASTFLAG;
+
+
+%      KEY1DELETE IS CALLED BY K1COMPACT & KEY2DELETE. IT DELETES THE
+       APPROPRIATE ENTRY FROM THE NEXT HIGHER LEVEL IB & MAY COMPACT OR
+       BALANCE THE IBS ON THAT LEVEL.           %
+
+
+FUNCTION KEYMOVE=
+   BEGIN
+   LOCAL UDYNARY$ A;
+   LOCAL Q;
+   LABEL FOO;
+
+
+   LASTFLAG_ (.IBOF EQL .BSIZ-.KSIZ1);
+   IF .LVL EQL 1 AND .LASTFLAG
+      THEN
+FOO:
+         BEGIN
+         A_.IB+.BSIZ-.KSIZ1;
+         INCR I FROM 0 TO .KSIZ-1
+            DO IF .A[.I] NEQ #377777777777
+               THEN LEAVE FOO;
+         (.A+.KSIZ)<0,18>_.PN;
+         (.A+.KSIZ)<18,18>_.VERNO;
+         LASTFLAG_0;
+         RETURN
+         END;
+   Q_.IB+.IBOF;
+   IF .LVL EQL 1
+      THEN MASSAGE(.KEY,.Q)
+      ELSE $UMOVE(.KSIZ,.KEY,.Q);
+   (.Q+.KSIZ)<0,18>_.PN;
+   (.Q+.KSIZ)<18,18>_.VERNO;
+   END;
+
+
+   % START OF KEY1DELETE  %
+
+   IBPN_.SPB[K$SIBPN,.LVL];
+   IBOF_.SPB[K$SIBOF,.LVL];
+   IB_$KVIRD(.FCB,.IBPN);    % READ IN IB CONTAINING ENTRY TO
+                                      BE DELETED  %
+   IF .LVL EQL .SB[SB$NOL] AND .IB[IB$NUMBER] EQL 2
+      THEN
+         BEGIN    % THIS IS THE TOP LEVEL IB AND IT CONTAINS ONLY 2
+                    ENTRIES SO THE TREE SHRINKS BY 1 LEVEL  %
+         IF DEC(SB[SB$NOL]) EQL 0
+            THEN
+               BEGIN
+               SB[SB$1ST]_.PN;
+               SB[SB$TOP]_0;
+               END
+            ELSE SB[SB$TOP]_.PN;
+         $KRBUF(.FCB,.IB,.IBPN);
+         $KRELP(.FCB,.IBPN);
+         RETURN
+         END;
+
+   LASTFLAG_0;
+   IF .LOWERLASTFLAG
+      THEN KEYMOVE()
+      ELSE
+         BEGIN
+         Q_.IB+.IBOF+.OFFST+.KSIZ1+.KSIZ;
+         (.Q)<0,18>_.PN;
+         (.Q)<18,18>_.VERNO;
+         END;
+   NEW_IB[IB$OFF]_(OLD_.IB[IB$OFF])+.KSIZ1;
+   IF (M_.IBOF+.OFFST-.OLD) GTR 0
+      THEN $UMOVO(.M,.IB+.OLD,.IB+.NEW);    % DELETE ENTRY FROM CURRENT
+                                              IB   %
+   $KPRON(.FCB,.IB,.IBPN);
+   TOTAL_N_DEC(IB[IB$NUMBER]);
+   STATE_0;
+   LIMIT_2*.SOB[K$SIBMENT]/3;    % COMPUTE STATE  %
+   IF .TOTAL LSS .LIMIT
+      THEN
+         BEGIN    % CURRENT IB NOW IS LESS THAN 2/3 FULL  %
+         LIMIT_0;
+         IF (LPN_LEFTIB) NEQ 0
+            THEN
+               BEGIN    % READ IN LEFT IB (LIB)  %
+               LIB_$KVIRD(.FCB,.LPN);
+               $KPRON(.FCB,.LIB,.LPN);
+               STATE_.STATE OR 4;
+               TOTAL_.TOTAL+.LIB[IB$NUMBER];
+               LIMIT_.SOB[K$SIBMENT];
+               END;
+         IF .TOTAL GTR .LIMIT
+            THEN IF (RPN_RIGHTIB) NEQ 0
+               THEN
+                  BEGIN    % READ IN RIGHT IB  %
+                  RIB_$KVIRD(.FCB,.RPN);
+                  $KPRON(.FCB,.RIB,.RPN);
+                  STATE_.STATE OR 2;
+                  TOTAL_.TOTAL+.RIB[IB$NUMBER];
+                  LIMIT_.SOB[K$SIBMENT]+(IF .STATE GTR 4 THEN .SOB[K$SIBMENT]
+                                                         ELSE 0);
+                  END;
+         STATE_.STATE OR (.TOTAL LEQ .LIMIT);
+         END;
+
+
+   % THE VARIABLE STATE HAS VALUES 0-7.  IF REALLY CONSISTS OF 3 1 BIT
+     FLAGS.  THE RIGHTMOST BIT INDICATES IF 3 (OR 2) IBS CONSIDERED
+     CAN BE COMPACTED INTO 2 (OR 1) IB, (1=YES).  THE MIDDLE BIT
+     INDICATES THAT THE RIGHT SIBLING IB HAS BEEN READ IN.  THE LEFT BIT
+     INDICATES THAT THE LEFT SIBLING IB (LIB) HAS BEEN READ IN.   %
+
+   CASE .STATE OF
+      SET
+      DNOP(.TOTAL,.IB,.IBPN,.LVL,.LASTFLAG);
+      DNOP(.TOTAL,.IB,.IBPN,.LVL,.LASTFLAG);
+      D2BALANCE(.IB,.IBPN,.RIB,.RPN,0,.LVL,.LASTFLAG,.TOTAL,.STATE);
+      D1COMPACT(.IB,.IBPN,.RIB,.RPN,0,.LVL,.LASTFLAG,.TOTAL,.STATE);
+      D2BALANCE(.LIB,.LPN,.IB,.IBPN,-.KSIZ1,.LVL,.LASTFLAG,.TOTAL,.STATE);
+      D1COMPACT(.LIB,.LPN,.IB,.IBPN,-.KSIZ1,.LVL,.LASTFLAG,.TOTAL,.STATE);
+      D3BALANCE(.LIB,.LPN,.IB,.IBPN,.RIB,.RPN,.LVL,.TOTAL,.LASTFLAG);
+      D2COMPACT(.LIB,.LPN,.IB,.IBPN,.RIB,.RPN,.LVL,.TOTAL);
+      TES;
+   END;
+
+
+FUNCTION KEY2DELETE(KEY,VERNO1,PN1,VERNO2,PN2,LVL)=
+   BEGIN
+   LOCAL OFF;
+
+   % KEY2DELETE IS CALLED BY K2COMPACT TO DELETE AN ENTRY FROM THE NEXT
+     HIGHER LEVEL IB AND TO FIX UP THE VALUES OF THE OTHER 2 ENTRIES.
+     IT FIXES UP THE RIGHTMOST ENTRY AND CALLS KEY1DELETE WITH SOME
+     DUMMIED-UP ARGUMENTS TO DO THE MAIN WORK.  %
+
+   IB_$KVIRD(.FCB,.SPB[K$SIBPN,.LVL]);
+   OFF_.IB+.SPB[K$SIBOF,.LVL]+.KSIZ1+.KSIZ;
+   (.OFF)<0,18>_.PN2;
+   (.OFF)<18,18>_.VERNO2;
+   IF .LVL EQL 1
+      THEN MASSAGE(.KEY,.IB+.SPB[K$SIBOF,.LVL])
+      ELSE $UMOVE(.KSIZ,.KEY,.IB+.SPB[K$SIBOF,.LVL]);
+   KEY1DELETE(0,.VERNO1,.PN1,.LVL,-.KSIZ1,0);
+   END;
+
+
+
+
+%    START OF $KDLTE     %
+
+   SOB_.FCB[K$SOBP];
+   SB_.FCB[K$SBP];
+   SPB_.SOB[K$SSPBP];
+   DSC_.SOB[K$SDESCR];
+   IF $KSRCH(.FCB,KV$MASSAGE) NEQ 0
+      THEN RETURN 1;     %   INSTANCE DOESN'T  EXIST %
+   SOB[K$SLASTOP]_KV$DLTE;
+
+
+   ISIZ_.SOB[K$SISIZ];
+   KSIZ1_(KSIZ_.SOB[K$SKSIZ])+1;
+   BSIZ_.FCB[K$BLKSIZ]*KV$PAGS;
+   DBPN_.SPB[K$SDBPN];
+   DBOF_.SPB[K$SDBOF];
+   DEC(SB[SB$NINS]);
+
+   DB_.SPB[K$SDBBA];
+   IF (N_DEC(DB[DB$NUMBER]))  NEQ 0
+      THEN
+         BEGIN  %  DELETE INSTANCE FROM DB  %
+         $KPRON(.FCB,.DB,.DBPN);
+         NEW_DB[DB$OFF]_(OLD_.DB[DB$OFF])+.ISIZ;
+         IF (M_.DBOF-.OLD) GTR 0
+            TUMOVO(.M,.DB+.OLD,.DB+.NEW);
+         LASTFLAG_(.DBOF EQL .BSIZ-.ISIZ);  % DELETED = LAST IN DB FLAG %
+         END;
+   STATE_0;
+   TOTAL_.N;
+   LIMIT_2*.SOB[K$SDBMENT]/3;
+
+   % COMPUTE STATE %
+
+   IF .TOTAL LSS .LIMIT
+      THEN
+         BEGIN     % CURRENT DB IS NOW LEES THAN 2/3 FULL  %
+         LIMIT_0;
+         IF (LPN_LEFTDB) NEQ 0
+            THEN
+               BEGIN     % READ IN LEFT DB %
+               LDB_$KVIRD(.FCB,.LPN);
+               $KPRON(.FCB,.LDB,.LPN);
+               STATE_.STATE OR 4;
+               TOTAL_.TOTAL+.LDB[DB$NUMBER];
+               LIMIT_.SOB[K$SDBMENT];
+               END;
+         IF .TOTAL GTR .LIMIT
+            THEN IF (RPN_RIGHTDB) NEQ 0
+               THEN
+                  BEGIN    % READ IN RIGHT DB %
+                  RDB_$KVIRD(.FCB,.RPN);
+                  $KPRON(.FCB,.RDB,.RPN);
+                  STATE_.STATE OR 2;
+                  TOTAL_.TOTAL+.RDB[DB$NUMBER];
+                  LIMIT_.SOB[K$SDBMENT]+(IF .STATE GTR 4 THEN .SOB[K$SDBMENT]
+                                                         ELSE 0);
+                  END;
+         STATE_.STATE OR (.TOTAL LEQ .LIMIT);
+         END;
+
+   % THE VARIABLE STATE HAS VALUES 0-7.  IF REALLY CONSISTS OF 3 1 BIT
+     FLAGS.  THE RIGHTMOST BIT INDICATES IF 3 (OR 2) DBS CONSIDERED
+     CAN BE COMPACTED INTO 2 (OR 1) DB, (1=YES).  THE MIDDLE BIT
+     INDICATES THAT THE RIGHT SIBLING DB HAS BEEN READ IN.  THE LEFT BIT
+     INDICATES THAT THE LEFT SIBLING DB (LIB) HAS BEEN READ IN.   %
+
+   CASE .STATE OF
+      SET
+      DNOP(.N,.DB,.DBPN,0,.LASTFLAG);
+      DNOP(.N,.DB,.DBPN,0,.LASTFLAG);
+      D2BALANCE(.DB,.DBPN,.RDB,.RPN,0,0,.LASTFLAG,.TOTAL,.STATE);
+      D1COMPACT(.DB,.DBPN,.RDB,.RPN,0,0,.LASTFLAG,.TOTAL,.STATE);
+      D2BALANCE(.LDB,.LPN,.DB,.DBPN,-.KSIZ1,0,.LASTFLAG,.TOTAL,.STATE);
+      D1COMPACT(.LDB,.LPN,.DB,.DBPN,-.KSIZ1,0,.LASTFLAG,.TOTAL,.STATE);
+      D3BALANCE(.LDB,.LPN,.DB,.DBPN,.RDB,.RPN,0,.TOTAL,.LASTFLAG);
+      D2COMPACT(.LDB,.LPN,.DB,.DBPN,.RDB,.RPN,0,.TOTAL);
+      TES;
+   IF .STATE GTR 1 OR .LASTFLAG
+      THEN (SOB[K$SCHANGE]_1; $KACWR(.FCB,.SB,SBV$SBPN))
+      ELSE $KVIWR(.FCB,.SB,SBV$SBPN);
+   RETURN 0
+   END;
+END ELUDOM
+  TYy 
