@@ -1,0 +1,116 @@
+PROCEDURE REVENUE % EXT: REVNUE  MAG: TM82YX.##2
+  Tymshare Commission Service Revenue Posting %
+% Original version:  1975.04.15  / Caroline Rose (CD) %
+% Last version:   1975.04.29  / Peter Haas (HAASP) %
+% Current version:   1976.01.07  / Steve Albanese (TC) %
+BEGIN
+
+SOURCE SERVICE.REVENUE.TRANS
+  FROM '*'
+  INVALIDS TO 'MONREV.ERR-ANY'
+  FIXED FORM
+  INPUT
+    AREA.2N, DISTRICT.3N, SALESNUM.5N, SREV.TRANS.TYPE, AMOUNT
+
+FIELD ECNT AS 'N'
+
+FORMAT SERV.TRANS
+  AREA.2N OF SERVICE.REVENUE.TRANS, DISTRICT.3N OF SERVICE.REVENUE.TRANS,
+  SALESNUM.5N OF SERVICE.REVENUE.TRANS, SREV.TRANS.TYPE OF SERVICE.REVENUE.TRANS,
+  AMOUNT OF SERVICE.REVENUE.TRANS, @CR
+
+REPORT TO 'TER'
+  PAGE.SIZE 0
+  REPORT.HEADING
+    PRINT @TAB TO 20, "Monthly Service Revenue Transaction Reject Report", @SKIP 1
+
+QUERY:
+  BEGIN
+  TYPE "Enter the year and month for the run as YY,MM: "
+  ACCEPT YR.PROCESSED, MO.PROCESSED
+  TYPE "Year and month entered are ", YR.PROCESSED, ',', MO.PROCESSED, '.  OK? '
+  ACCEPT RESPONSE
+  IF RESPONSE NE "Y" AND NE "y" AND NE "YES" AND NE "yes" AND NE "Yes"
+    THEN REPEAT QUERY
+  END
+
+FOR EACH SERVICE.REVENUE.TRANS WRITE REPORT
+PROCESS:
+  BEGIN
+
+  MOVE 0 TO ECNT
+
+  SELECT IAREA VIA KEY
+    THEN
+      BEGIN
+      IF REGION.2N NE 01 AND 02
+        THEN FINISH PROCESS
+      END
+    % Invalid area number detected below as is invalid district number,
+      during comparison to value in ISP instance %
+
+  SELECT ISP VIA KEY
+    THEN
+      BEGIN
+      IF COM.PLAN NE "SR"
+        THEN
+          BEGIN
+          PRINT SERV.TRANS
+          PRINT "   Salesman type is not SR", @CR
+          ADD 1 TO ECNT
+          END
+        ELSE IF AREA.2N OF SERVICE.REVENUE.TRANS NE AREA.2N
+          THEN
+            BEGIN
+            PRINT SERV.TRANS
+            PRINT "   Area number for this salesman is ", AREA.2N, @CR
+            ADD 1 TO ECNT
+            END
+        ELSE IF DISTRICT.3N OF SERVICE.REVENUE.TRANS NE DISTRICT.3N
+          THEN
+            BEGIN
+            PRINT SERV.TRANS
+            PRINT "   District number for this salesman is ", DISTRICT.3N, @CR
+            ADD 1 TO ECNT
+            END
+      END
+    ELSE
+      BEGIN
+      PRINT SERV.TRANS
+      PRINT "   Salesman number is invalid", @CR
+      ADD 1 TO ECNT
+      END
+
+  IF ECNT EQ 0
+    THEN
+      BEGIN
+      IF SREV.TRANS.TYPE EQ 01
+        THEN LET TRANSACTION = "TYMC9"
+      ELSE IF SREV.TRANS.TYPE EQ 02
+        THEN LET TRANSACTION = "TYMCX"
+      ELSE IF SREV.TRANS.TYPE EQ 03
+        THEN LET TRANSACTION = "WSYST"
+      ELSE IF SREV.TRANS.TYPE EQ 04 
+        THEN LET TRANSACTION = "TADEV"
+      ELSE IF SREV.TRANS.TYPE EQ 07
+        THEN LET TRANSACTION = "TY370"
+      ELSE IF SREV.TRANS.TYPE EQ 11
+         THEN LET TRANSACTION = "INFSD"
+     ELSE IF SREV.TRANS.TYPE EQ 14
+        THEN LET TRANSACTION = "TAINS"
+      ELSE IF SREV.TRANS.TYPE EQ 15
+        THEN LET TRANSACTION = "TAPRD"
+      ELSE IF SREV.TRANS.TYPE EQ 17
+        THEN LET TRANSACTION = "LESCO"
+      ELSE IF SREV.TRANS.TYPE EQ 60
+        THEN LET TRANSACTION = "RVBFA"
+      ELSE IF SREV.TRANS.TYPE EQ 61
+        THEN LET TRANSACTION = "RVADJ"
+      ELSE  % SREV.TRANS.TYPE EQ 65 %
+        LET TRANSACTION = "NACCR"
+
+      LET COM.PLAN = "SR"
+      INSERT INTO MBMDMSR
+      END
+  END
+END
