@@ -1,0 +1,766 @@
+MODULE DASM(DOLLAR,STACK(#3000),FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+BEGIN
+%****************************************************
+
+        MIDAS PSEUDO-ASSEMBLER
+        FOR BUILDING CODE TEMPLATES
+        IN THE DTBL$ AND DTBLP$ STRUCTURES
+        FOR THE MIDAS CODE GENERATOR
+
+        TODAY IS MAY 24,1974
+        THIS VERSION HAS DAC$ AND NEW OCTAL PRINTER
+        AS WELL AS EXPANDED GLOBAL AND EQUATE TABLES
+        JOHN SLIMICK IS THOUGHT TO BE INVOLVED WITH THIS..
+
+**********************************************************%
+%FIRST , THE REQUIRED REQUIRES..%
+REQUIRE CDEFS.BLI[7,107355]; %CDEFS%
+REQUIRE UDEFS.BLI[7,107355]; %UNIVERSAL DEFS%
+REQUIRE KDEFS.BLI[7,107355]; %NEW,YES NEW I/O ROUTINES%
+REQUIRE FDEFS.BLI[7,107355]; %JUST TRY TO EMIT A SIMPLE FATAL ERROR!!%
+
+%AND SOME DECLARATIONS..%
+LOCAL T,ERRCT,GLOVE; %GLOVE HOLDS INDEX OF FOUND GLOBAL VARIABLE%
+LOCAL KFCB$ INF:OUTF;   %NEW,NEW,NEW FCB STRUCTURE%
+
+LOCAL CLINE$ IL:OL;
+MACHOP TTCALL = #51;
+
+MACRO WHILST(X,Y,Z) = (LOCAL I; I_0;
+        WHILE .I LSS X AND .Y[.I] NEQ Z DO   I_.I+1; .I)&;
+LOCAL RPTR;
+MACRO HUNK(X) = $UAPSC(X<36,7>,5)&;
+MACRO SCARF(X) = IF ABS(.X) GEQ 512 THEN HUNK(X) ELSE $UAPN(.X,8,5)&;
+MACRO SPRINT(X) = $UAPSZ($USPTR(X))&;
+BIND BLANKS = '     ';
+BIND EQUMAX = 128 ;  %FOR NOW%
+LOCAL I,J,K;
+
+LOCAL NSTATE;
+LOCAL T1,T2,ESW,PSW;
+LOCAL WORD,STATE;
+LABEL GRINDER;
+LOCAL GNAME[128]:GLOCS[128];
+LOCAL IG,TLOC,IR,IS,WSAVE,WSAVB;
+LOCAL LNAME[128]:OPR[128]:OPND1[128]:OPND2[128];
+LOCAL ESYM[128]:EVAL[128];
+BIND IEND = 'END  ';
+STRUCTURE HWORD[I]= CASE (.I MOD 2) OF SET
+%EVEN ADDRESSES% (.HWORD + .I/2)<18,18>;
+%ODD ADDRESSES % (.HWORD + .I/2)<0,18>;
+        TES;
+FUNCTION POX(ARG) =
+   BEGIN
+   %PRINT ONE EACH OCTAL WORD=12 OCTAL DIGITS WITH
+    NO SIGN UNLIKE $UAPOC WHICH INSISTS ON
+   SIGNING NEGATIVE NUMBERS%
+
+    %/JS            5/4/74%
+
+   LOCAL T,I;
+   T_ARG<36,3>;
+   INCR I FROM 1 TO 12 DO
+        $UOCHR(SCANI(T)+"0");
+   END;
+
+
+FUNCTION ERROR(ID)=
+        BEGIN
+        ERRCT_.ERRCT+1;
+        PSW_1;
+        CASE .ID OF SET
+        
+                BEGIN
+                %ERROR 0 ..A NONNUMERIC QUANTITY ON THE RIGHT SIDE
+                OF AN EQUAL SIGN%
+                $UOUTL();
+                SPRINT('NUMBER DOES NOT FOLLOW AN =...INPUT IS ');
+                HUNK(WSAVE);
+                $UOCHR("=");
+                HUNK(WORD);
+                $UOUTL()
+                END;
+
+                BEGIN
+                %ERROR 1 ..AN OPERAND ERROR%
+                END;
+
+                BEGIN
+                %ERROR 2 .. EQUATE SYMBOL TABLE OVERFLOW%
+                $UOUTL();
+                SPRINT('EQUATE TABLE OVERFLOW');
+                $UOUTL();
+                $UMESS(FTLMS$<36,7>);
+                $FATAL(0);
+                END;
+
+                BEGIN
+                %ERROR 3 .. ODD CHARACTER AT BEGINNING OF LINE%
+                $UOUTL();
+                SPRINT('ODD CHARACTER AT BEGINNING OF LINE');
+                HUNK(WORD);
+                $UOUTL();
+                END;
+
+                BEGIN
+                %ERROR 4 .. EITHER A GLOBAL LABEL IN A LINE
+                OR STATE=0, FUNNY BUSINESS%
+                $UOUTL();
+                SPRINT('STATE IS INCORRECT FOR LINE INTERIOR');
+                SPRINT(' STATE = ');
+                $UAPOC(.STATE);
+                $UOUTL();
+                SPRINT('WORD = ');
+                HUNK(WORD);
+                $UOUTL();
+                END;
+
+
+                BEGIN
+                %ERROR 5...UNDEFINED EQUATE%
+                $UOUTL();
+                SPRINT(' UNDEFINED EQUATE ... ');
+                HUNK(WORD);
+                $UOUTL();
+                END;
+
+                BEGIN
+                %ERROR 6...FIELD OVERFLOW%
+                $UOUTL();
+                SPRINT(' FIELD OVERFLOW ..N= ');
+                $UAPOC(.WORD);
+                $UOUTL();
+                END;
+
+                BEGIN
+                %ERROR 7..BACKWARD REFERENCE IN A JUMP ..%
+                $UOUTL();
+                SPRINT(' BACKWARD REFERENCE IN A JMP.. ');
+                HUNK(WORD);
+                $UOUTL();
+                END;
+                
+                BEGIN
+                %ERROR 8..UNDEFINED LOCAL LABEL%
+                $UOUTL();
+                SPRINT(' UNDEFINED LOCAL LABEL .. ');
+                HUNK(WORD);
+                $UOUTL();
+                END;
+
+                BEGIN
+                %ERROR 9..LABEL OUT OF RANGE%
+                $UOUTL();
+                SPRINT(' LOCAL LABEL OUT OF RANGE .. ');
+                HUNK(WORD);
+                $UOUTL();
+                END;
+
+                BEGIN
+                %ERROR 10..UNDEFINED GLOBAL LABEL%
+                $UOUTL();
+                SPRINT(' UNDEFINED GLOBAL LABEL .. ');
+                HUNK(WORD);
+                $UOUTL();
+                END;
+
+                BEGIN
+                %ERROR 11..UNDEFINED OPERATOR%
+                $UOUTL();
+                SPRINT(' UNDEFINED OPERATOR ... ');
+                HUNK(WORD);
+                $UOUTL();
+                END;
+
+                BEGIN
+                %ERROR 12 .. NO LABEL AT BEGINNING OF ROUTINE%
+                $UOUTL();
+                SPRINT(' NO LABEL AT BEGINNING OF ROUTINE');
+                $UOUTL()
+                END;
+
+                BEGIN
+                %ERROR 13 .. PAGE OVERFLOW..FROM INST%
+                $UOUTL();
+                SPRINT('?? PAGE OVERFLOW IN ');
+                HUNK(GNAME[.IG-1]);
+                $UOUTL();
+                END;
+
+        TES; %END OF ERROR PROCESSING%
+        END;
+
+
+
+
+
+FUNCTION INST(OPERATOR,OPERAND1,OPERAND2)=
+        BEGIN
+        %STORE SYMBOLIC OPERATOR AND OPERAND%
+        OPR[.IR]_.OPERATOR;
+        OPND1[.IR]_.OPERAND1;
+        OPND2[.IR]_.OPERAND2;
+        IR_.IR+1;
+        TLOC_.TLOC+1;
+        IF .IR GEQ 128 THEN
+                BEGIN
+                %PAGE OVERFLOW%
+                ERROR(13);
+                IR_0;
+                END
+        END;
+
+FUNCTION LGLOB(STR)=
+        BEGIN
+        %LOOKUP A GLOBAL NAME
+        IF NOT DEFINEDD YET, EMIT A MESSAGE AND RETURN 0
+        %
+        LOCAL I,T;
+        T_0;
+        I_WHILST(.IG,GNAME,.STR);
+        IF .I LSS .IG THEN
+                T_.GLOCS[.I]
+        ELSE
+                BEGIN
+                WORD_.STR;
+                ERROR(10);
+                END;
+        GLOVE_.I; %SAVE WHERE FOR POSTERITY%
+        .T
+        END;
+
+FUNCTION LLAB(STR,N)=
+        BEGIN
+        %LOOK UP LABEL..REFERRENCED ONLY BY *JFS,*JFN,*JMP
+        IF NO LABEL OF THAT NAME PRINT A MESSAGE AND RETURN 0;
+        IF LABEL IS BACKWARDS PRINT A MESSAGE AND RETURN 0
+        IF LABEL IS TOO FAR AHEAD, PRINT A MESSAGE AND RETURN 0
+        (MOSTLY WE JUST PRINT MESSAGES)
+        %
+        LOCAL I,T;
+        T_0;
+        I_WHILST(.IR,LNAME,.STR);
+        IF .I LSS .N THEN
+                BEGIN
+                %BACKWARD REFERENCE%
+                WORD_.STR;
+                ERROR(7);
+                END
+        ELSE
+                IF .I LSS .IR AND (.I-.N) LEQ 32 THEN 
+                        T_.I-.N 
+        ELSE IF .I GEQ .IR THEN
+                BEGIN
+                %UNDEFINED LABEL%
+                WORD_.STR;
+                ERROR(8);
+                END
+        ELSE
+                BEGIN
+                %OUT OF RANGE%
+                WORD_.STR;
+                ERROR(9)
+                END;
+        .T
+        END;
+
+FUNCTION LEQU(STR,N)=
+        BEGIN
+        %LOOK UP A VALUE IN THE EQUATE TABLE
+        AND RETURN IT..IF NOT DEFINED AND NON-NUMERIC
+        EMIT AND INTIMIDATING MESSAGE AND ASSUME 0...
+        IN ANY CASE CHECK FOR SIZE AND BITCH IF TOO LARGE
+        AGAIN ASSUMING 0
+        %
+        LOCAL I,T;
+        T_0;
+        I_WHILST(.IS,ESYM,.STR);
+        IF .I LSS .IS THEN
+                T_.EVAL[.I]
+        ELSE IF ABS(.STR) LSS 512 THEN
+                T_.STR
+        ELSE
+                BEGIN
+                WORD_.STR;
+                ERROR(5);
+                END;
+
+        IF .T GEQ 2^(.N) THEN
+                BEGIN
+                WORD_.T;
+                ERROR(6);
+                T_0;
+                END;
+        .T
+        END;
+FUNCTION LOPR(ARG)=
+        BEGIN
+        %LOOKUP ONE EACH OPERATOR IN ESYM TABLE AND RETURN ITS VALUE
+        IF NOT THERE , RETURN A 0 PLUS AN INTIMIDATING MESSAGE
+        %
+        LOCAL I,T;
+        I_T_0;
+        I_WHILST(.IS,ESYM,.ARG);
+!               I_.I+1;
+        IF .I LSS .IS THEN 
+                T_.EVAL[.I] 
+        ELSE IF ABS(.ARG) GEQ 512 THEN
+                BEGIN
+                %AN UNDEFINED SYMBOL NO DOUBT%
+                WORD_.ARG;
+                ERROR(11);
+                END
+        ELSE
+                T_.ARG;
+        %NOW RETURN THE VALUE OF T%
+        .T
+        END;
+
+
+
+FUNCTION TYPER(ARG,IARG)=
+        BEGIN
+        %THIS RETURNS WHAT TYPE OF PCP INSTRUCTION
+        ARG IS THE SYMBOLIC FOR THE OPERATOR
+        IARG IS CURRENT ENTRY IN LOCALS VECTOR
+        VAL=0  OPR,OPND1,OPND2
+        VAL=1  OPR,OPND1(9 BITS)
+        INCIDENTALLY FETCHING THE VALUES FOR THE OPERAND FIELDS
+        WHILE DELIBERATING OVER TYOE
+        %
+        LOCAL T;
+        T_T1_T2_0;
+        IF .ARG EQL '*JFS ' OR .ARG EQL '*JFN ' THEN
+                BEGIN
+                %PCP JUMP%
+                T1_LEQU(.OPND1[.IARG],4);
+                T2_LLAB(.OPND2[.IARG],.IARG)
+                END
+        ELSE IF .ARG EQL '*JMP ' THEN
+                BEGIN
+                %PROCESS A JUMP%
+                T1_0;
+                T2_LLAB(.OPND1[.IARG],.IARG)
+                END
+        ELSE IF .ARG EQL '*ENT ' OR .ARG EQL '*BR  ' THEN
+                BEGIN
+                %PCP ENTER%
+                T_1;
+                LGLOB(.OPND1[.IARG]);
+                T1_.GLOVE; %POSTERITY..MAKES ENTRY POINTS RIGHT%
+%               T1_LGLOB(.OPND1[.IARG])%
+                END
+        ELSE IF .ARG EQL '*EXIT' THEN
+                BEGIN
+                T_1;
+                IF .OPND1[.IARG] NEQ BLANKS THEN
+                        T1_LEQU(.OPND1[.IARG])
+                ELSE
+                        T1_0;
+                END
+        ELSE IF .OPND2[.IARG] EQL BLANKS THEN
+                BEGIN
+                IF .OPND1[.IARG] EQL BLANKS THEN
+                        BEGIN
+                        %NO OPERANDS%
+                        T1_T2_0
+                        END
+                ELSE
+                        BEGIN
+                        %1 OPERAND%
+                        T1_0;
+                        T2_LEQU(.OPND1[.IARG],9)
+                        END
+                END
+        ELSE
+                BEGIN
+                %2 OPERANDS%
+                T1_LEQU(.OPND1[.IARG],4);
+                T2_LEQU(.OPND2[.IARG],5)
+                END;
+        .T
+        END;
+FUNCTION PROCESS =
+        BEGIN
+        %BUILD THE PSEUDO-INSTRUCTIONS
+        STORED  IN  LNAME,OPR,OPND1, AND OPND2
+        %
+        LOCAL I,T,TT;
+        LOCAL HW;
+        MAP HWORD HW;
+        FUNCTION PLINE(J)=
+                BEGIN
+                %PRINT A PCP INSTRUCTION%
+                LOCAL I;
+                I_.J;
+                $UOUTL();
+                $UOCHR("%");
+                $UAPOC(.TLOC+.I-.IR);
+                $UOCHR(":");
+                IF .I NEQ 0 THEN
+                        BEGIN
+                        HUNK(LNAME[.I]);
+                        SPRINT('   ')
+                        END
+                ELSE IF .GLOCS[.IG-1] EQL (.TLOC-.IR) THEN
+                        BEGIN
+                        $UOCHR("^");
+                        HUNK(GNAME[.IG-1]);
+                        SPRINT('  ')
+                        END
+                ELSE
+                         ERROR(12);
+                HUNK(OPR[.I]);
+                SPRINT('  ');
+                IF .OPND1[.I] NEQ BLANKS THEN
+                        BEGIN
+                        SCARF(OPND1[.I]);
+                        IF .OPND2[.I] NEQ BLANKS THEN
+                                BEGIN
+                                $UOCHR(",");
+                                SCARF(OPND2[.I])
+                                END
+                        ELSE
+                                SPRINT('      ');
+                        END
+                ELSE
+                        SPRINT('           ');
+                $UOCHR(" ");
+                $UAPOC(.TT);
+                $UOCHR(" ");
+                $UAPOC(.T1);
+                $UOCHR(" ");
+                $UAPOC(.T2);
+                $UOCHR("%");
+        END;
+
+        INCR I FROM 0 TO .IR-1 DO
+                BEGIN
+                %MAIN PROCESS LOOP%
+!               PLINE(.I);
+                TT_T_LOPR(.OPR[.I]);
+                CASE TYPER(.OPR[.I],.I) OF SET
+
+%CASE 0..2 OPND%        T_.T^9+.T1^5+.T2;
+%CASE 1..1 OPND%        T_.T^9+.T1;
+                TES;
+
+                IF .PSW EQL 1 THEN
+                        PLINE(.I);
+
+                IF .I MOD 2 EQL 0 THEN
+                        HW[0]_.T
+                ELSE
+                        BEGIN
+                        %EMIT THE WORD HERE%
+                        HW[1]_.T;
+                        SPRINT('     ');
+                        $UOCHR("#");
+                        POX(.HW);
+                        $UOCHR(",");
+                        $UOUTL();
+                        END;
+                LNAME[.I]_BLANKS;
+                END;
+
+        IF .IR MOD 2 EQL 1 THEN 
+                BEGIN
+                %ALIGNMENT REQUIRED%
+                HW[1]_0;
+                SPRINT('     ');
+                $UOCHR("#");
+                $UAPOC(.HW);
+                $UOCHR(",");
+                $UOUTL();
+                TLOC_.TLOC+1;
+                END;
+
+        IF .PSW EQL 1 THEN
+                BEGIN
+                %PRINT AN END CARD%
+                $UOUTL();
+                SPRINT('%*****      END %');
+                $UOUTL();
+                END;
+        IR_0;
+        END;
+
+
+FUNCTION GETSTR  =
+        BEGIN
+        LOCAL X,Y,Z;
+        LABEL VAST;
+        WORD_BLANKS;
+        IF .NSTATE EQL 1 THEN
+                BEGIN
+                STATE_1;
+                %FORCE EOL%
+                RETURN
+                END;
+        Z_.RPTR; %CHECK FOR EOL%
+        IF SCANI(Z) EQL #15 THEN
+                BEGIN
+                STATE_1;
+                RETURN ;
+                END;
+        Y_WORD<36,7>;
+VAST:   INCR Z FROM 0 TO 4 DO
+                BEGIN
+                X_SCANI(RPTR);
+                IF .X EQL " " OR .X EQL "," OR .X EQL #15  THEN 
+                        LEAVE VAST;
+                REPLACEI(Y,.X)
+                END;
+        UNTIL .X EQL " " OR .X EQL "," OR .X EQL #15 DO X_SCANI(RPTR);
+        IF .X EQL #15 THEN NSTATE_1;
+        END;
+
+%NOW THE ENTOKENER OR WHATEVER YOU CALL IT...%
+
+FUNCTION TOKEN =
+        BEGIN
+        LOCAL T,X,Y;
+        %TOKEN RETURNS THE TOKEN IF THERE IS ONE
+        IN WORD AND THE TYPE IN STATE
+                STATE=1....END OF LINE
+                STATE=2....GLOBAL SYMBOL
+                STATE=3....OCTAL NUMBER
+                STATE=4....EQUAL SIGN(AS IN AN EQUATE)
+                STATE=5....ORDINARY STRING
+        %
+        IF .NSTATE EQL 1 THEN STATE_1;
+        IF .STATE EQL 1 THEN RETURN; %EOL STILL PENDING%
+        T_.RPTR;
+        X_SCANI(T); %GET FIRST CHARACTER FOR TESTING%
+        IF .X EQL #15 THEN
+                BEGIN
+                STATE_1;
+
+               RETURN
+                END;
+
+        %NOT AN EOL, SO DELETE BLANKS%
+        WHILE .X EQL " " DO
+                BEGIN
+                Y_SCANI(RPTR);
+                X_SCANI(T)
+                END;
+        IF .X EQL "!" OR .X EQL #15 THEN
+                BEGIN %COMMENT OR CR%
+                STATE_1
+                END
+        ELSE IF .X EQL "^" THEN
+                BEGIN %GLOBAL SYMBOL%
+                STATE_2;
+                SCANI(RPTR);
+                GETSTR()
+                END
+        ELSE IF .X GEQ "0" AND .X LEQ "7" THEN
+                BEGIN %NUMBER HANDLER%
+                Y_0;
+                X_SCANI(RPTR);
+                WHILE .X GEQ "0" AND .X LEQ "7" DO
+                        BEGIN %CONVERT LOOP%
+                        Y_8*.Y+.X-"0";
+                        X_SCANI(RPTR)
+                        END;
+                IF .X EQL #15 THEN NSTATE_1;
+                WORD_.Y;
+                STATE_3
+                END
+        ELSE IF .X EQL "=" THEN
+                BEGIN %EQUATE%
+                X_SCANI(RPTR); %INCREMENT POINTER%
+                STATE_4
+                END
+        ELSE 
+                BEGIN %A STRING%
+                STATE_5;
+                GETSTR();
+                END
+        ;
+        RETURN
+        END;
+
+
+%NOW THE ACTION....%
+
+PSW_1;  %FOREVER..AN EXPANDED LISTING%
+$CRESET();      %THIS MAKES ALL THINGS POSSIBLE%
+INF_$KCRFCB(SIXBIT 'DPCODE',0,0,KV$INPUT,$KSQLN,0);
+OUTF_$KCRFCB(SIXBIT 'DTBDEF', SIXBIT 'BLI',0,KV$OUTPUT,$KSQLN,0);
+
+%MORE INITIALIZATION%
+
+
+IL_.INF[K$IDADR];
+OL_.OUTF[K$ODADR];
+
+ERRCT_IR_IS_IG_TLOC_0;  %INITIALIZATION%
+INCR IR FROM 0 TO 128 DO LNAME[.IR]_BLANKS;
+
+
+%EMIT FIRST PART OF FILE%
+$UOUTI(.OUTF);          % SET OUTPUT TO OUTF %
+SPRINT(' MODULE DTBDEF(DOLLAR,ENTRIES=($D$$))=');
+$UOUTL();
+SPRINT(' BEGIN ');
+$UOUTL();
+SPRINT(' BIND DTBL = PLIT( DTBL$ GLOBALLY NAMES ');
+$UOUTL();
+UNTIL .INF[K$EOFILE]
+DO 
+GRINDER:BEGIN
+        $KREAD(INF);
+        RPTR_.IL[C$BPTR];       %!!!FIX FIX FIX!!%
+        %CHECK FOR LABEL%
+        STATE_NSTATE_0;
+        T_.RPTR;
+        T_SCANI(T);
+        IF .T EQL "!" OR .T EQL "?M" THEN LEAVE GRINDER;
+        %EARLY EXIT%
+
+        IF .T NEQ " "  THEN
+                BEGIN %A LABEL%
+                TOKEN();
+                IF .STATE EQL 2 THEN
+                        BEGIN %A GLOBAL NAME%
+                        GNAME[.IG]_.WORD;
+                        GLOCS[.IG]_.TLOC;
+                        IG_.IG+1
+                        END
+                ELSE IF .STATE EQL 5 THEN
+                        LNAME[.IRRD %AN ORDINARY LABEL%
+                ELSE
+                        BEGIN %AN ERROR%
+                        ERROR(3);
+                        LEAVE GRINDER
+                        END
+                END;
+
+        %PROCESS REMAINDER OF THE LINE%
+        TOKEN();
+        IF .STATE EQL 5 AND .WORD EQL IEND THEN
+                BEGIN %PROCESS AN END%
+                PROCESS();
+                LEAVE GRINDER
+                END
+        ELSE IF .STATE EQL 1 THEN LEAVE GRINDER;
+        WSAVE _ .WORD ;   %READ IN FIRST OPERAND%
+        TOKEN();
+        %NOW DO THE RIGHT THING TO THAT OPERATOR AND OPERAND(S)%
+
+
+        CASE .STATE OF SET
+
+        %STATE=0...OBVIOUS ERROR%
+                BEGIN
+                
+                ERROR(4);
+                $UMESS(FTLMS$<36,7>);
+                $FATAL(0);
+                END;
+
+        %STATE=1..END OF LINE..NO OPERANDS%
+                BEGIN
+                INST(.WSAVE,BLANKS,BLANKS);
+                END;
+
+        %STATE=2..GLOBAL LABEL AT THE WRONG TIME AND PLACE%
+                BEGIN
+                ERROR(4);
+                END;
+
+        %STATE=3..FIRST OPERAND WAS A NUMBER%
+                BEGIN
+                WSAVB_.WORD;
+                WORD_BLANKS;
+                TOKEN();
+                INST(.WSAVE,.WSAVB,.WORD);
+                END;
+
+        %STATE=4..AN EQUATE..%
+                BEGIN
+                TOKEN();
+                IF .STATE EQL 3 THEN 
+                        BEGIN %BETTER BE A NUMBER%
+                        T_WHILST(.IS,ESYM,.WSAVE);
+                        IF .T LSS .IS THEN
+                           EVAL[.T]_.WORD  %RE-DEFINED EQUATE%
+                        ELSE
+                        BEGIN
+                        ESYM[.IS]  _.WSAVE;
+                        EVAL[.IS]  _.WORD;
+                        IS_.IS+1;
+                        IF .IS GEQ EQUMAX THEN ERROR(2);
+                        END %SET NEW VALUE FOR NEW SYMBOL%
+                        END
+                ELSE ERROR(0);
+                END;
+
+
+        %STATE=5.. A STRING FOR THE OPERAND%
+                BEGIN
+                WSAVB_.WORD;
+                WORD _BLANKS;
+                TOKEN();
+                INST(.WSAVE,.WSAVB,.WORD)
+                END;
+        TES;
+        END;
+
+%EMIT END OF PLIT %
+SPRINT(' 0); ');
+$UOUTL();
+
+SPRINT(' BIND DTBLP = PLIT( DTBLP$ GLOBALLY NAMES ');
+$UOUTL();
+INCR T FROM 0 TO .IG-1 DO
+        BEGIN
+        $UOCHR("%");
+        HUNK(GNAME[.T]);
+        $UOCHR("%");
+        SPRINT('     ');
+        $UOCHR("#");
+        $UAPOC(.GLOCS[.T]);
+        $UOCHR(",");
+        $UOUTL();
+        END;
+SPRINT('          0);');
+$UOUTL();
+
+%GENERATE DAC$ PLIT HERE%
+SPRINT(' BIND DAC = PLIT (DAC$ GLOBALLY NAMES ');
+$UOUTL();
+SPRINT(' 0,0,64,96,0,0,#442,#462,16,0,0,192,224,256,288,320) ;');
+$UOUTL();
+%NOTE AC7 = ACC11,@,AC2...USEFUL FOR STACK ADDRESS%
+
+SPRINT('GLOBAL ROUTINE $D$$ = 0 ; %DUMMY ROUTINE%');
+$UOUTL();
+IF .ERRCT NEQ 0 THEN
+        BEGIN
+        SPRINT('ERROR**ERROR**ERROR**ERROR');
+        $UOUTL();
+        END;
+SPRINT('END ELUDOM');
+$UOUTL();
+
+$UOUTI(.CONTF$);        % RESUME OUTPUT TO TERMINAL %
+IF .ERRCT EQL 0 THEN
+        BEGIN
+        SPRINT('CONGRATULATIONS .. NO ERRORS');
+        $UOUTL();
+        END
+ELSE
+        BEGIN
+        SPRINT(' THERE WERE ');
+        $UAPDC(.ERRCT);
+        SPRINT(' ERRORS');
+        $UOUTL();
+        END;
+$KFREEFCB(INF);
+$KFREEFCB(OUTF);
+
+END ELUDOM
+  eb°
