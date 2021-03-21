@@ -1,0 +1,148 @@
+      SUBROUTINE REDUC
+C                  LINK REDUC                                                 2
+C    -------------------------------------------------------------------      3
+C                  ASSEMBLES EQUATIONS INTO THREE PARTITIONED PARTS           4
+C                  DELETING ZEROED COMPONENTS OF FREEDOM                      5
+C                  COMPUTES  T=-K22 INVERSE * K21                             6
+C                  COMPUTES  K = K11+K12*T                                    7
+C                  COMPUTES  M = M11+M12*T+T'*M21+T'*M22*T                    8
+C                  COMPUTES  C = C11+C12*T+T'*C21+T'*C22*T                    9
+C    -------------------------------------------------------------------     10
+      REAL   TITLE(70),CODE(80)                                              11
+C      -----------------------------------------------------------------     12
+C                  DIMENSION TO SIZE APPROPRIATE                             13
+C                  A IS DIMENSIONED NMAX*(NMAX+1)                            14
+C                  IF CHANGED, CHANGE NMAX BELOW                             15
+C                  C IS DIMENSIONED TO NVPR                                  16
+      DIMENSION A( 2550),B( 2500),NSLAV( 50),NACT( 50),D( 50),C(40)          17
+C      -----------------------------------------------------------------     18
+      COMMON IN,IOUT,NOUTP,IFPLT,NEXEC,NERR,NNT,NEQ,IFEQ(3),IFUNA,           19
+     1       IFUPD(3),NREC(4),NFN(4),NS(10),NSTAT(600),TITLE,CODE            20
+     1      ,IDMY(8),RDMY(34)                                                21
+C                   MAXIMUM NUMBER OF EQUATIONS                              22
+      NMAX=50
+      NVPR=40                                                                24
+C                  DETERMINE ORIGINAL COMPONENT NUMBERS                      25
+      NV=6*NNT                                                               26
+      NNEQ=0                                                                 27
+      NRLS=0                                                                 28
+      DO 60 I=1,NV                                                           29
+      IF(NSTAT(I))20,20,10                                                   30
+   10 IF(NSTAT(I)-2)60,40,60                                                 31
+   20 NNEQ=NNEQ+1                                                            32
+      IF(NNEQ-NMAX)30,30,160                                                 33
+   30 NACT(NNEQ)=I                                                           34
+      GO TO 60                                                               35
+   40 NRLS=NRLS+1                                                            36
+      IF(NRLS-NMAX)50,50,180                                                 37
+   50 NSLAV(NRLS)=I                                                          38
+   60 CONTINUE                                                               39
+      IF(NERR)65,65,100                                                      40
+C                  GET STIFFNESS MATRIX                                      41
+   65 IF(IFUPD(3))200,200,70                                                 42
+   70 CALL GPART(A,B,C,NSTAT,NACT,NNEQ,NSLAV,NRLS,NMAX,IFEQ(3),NFN(3),
+     1 NREC(3))                                                              44
+      NREC(3)=0                                                              45
+C                  WRITE K12 ON SCRATCH                                      46
+      NREC4=0                                                                47
+      CALL MRDWT(B,NMAX,NNEQ,NRLS,NFN(4),NREC4,NVPR,C,1)                     48
+C                  PUT K11 ON K FILE                                         49
+      NST=NRLS*(NRLS+1)/2                                                    50
+      NV=NNEQ*(NNEQ+1)/2                                                     51
+      DO 75 I=1,NST                                                          52
+   75 A(I)=-A(I)                                                             53
+      NS1=NST+1                                                              54
+      CALL VRDWT(A(NS1),NV,NFN(3),NVPR,C,1)                                  55
+      CALL MTRIP(B,NMAX,NRLS,NNEQ)                                           56
+C                  COMPUTE T=K22 INVERSE * K21                               57
+      CALL MSTOR(B,NMAX,NRLS,NNEQ,1)                                         58
+      CALL SIMQ2(B,A,NRLS,NNEQ,1.E-6,IER,D)                                  59
+      IF(IER)220,78,78                                                       60
+   78 CALL MSTOR(B,NMAX,NRLS,NNEQ,4)                                         61
+C                  READ K12                                                  62
+      NREC4=0                                                                63
+      CALL MRDWT(A,NMAX,NNEQ,NRLS,NFN(4),NREC4,NVPR,C,-1)                    64
+      CALL MLTIP(A,NMAX,B,NMAX,D,NNEQ,NRLS,NNEQ)                             65
+      CALL MSTOR(A,NMAX,NNEQ,NNEQ,2)                                         66
+      CALL FLADD(A,NV,NVPR,NFN(3),C)                                         67
+      IFEQ(3)=NNEQ                                                           68
+      NREC(3)=1+(NV-1)/NVPR
+C    ------------------------------------------------------------------      69
+C                  STIFFNESS REDUCTION COMPLETE                              70
+C                  REDUCE MASS AND DAMPING MATRICES                          71
+C    ------------------------------------------------------------------      72
+      IF(IFUPD(1)+IFUPD(2))100,100,80                                        73
+   80 NREC4=0                                                                74
+C                  PUT T ON SCRATCH                                          75
+      CALL MRDWT(B,NMAX,NRLS,NNEQ,NFN(4),NREC4,NVPR,C,1)                     76
+      DO 90 II=1,2                                                           77
+      IF(IFUPD(II))90,90,82                                                  78
+C                  GET MASS OR DAMPING EQUATIONS                             79
+   82 CALL GPART(A,B,C,NSTAT,NACT,NNEQ,NSLAV,NRLS,NMAX,IFEQ(II),NFN(II),     80
+     1 NREC(II))                                                             81
+C                  PUT A11 ON THE A FILE                                     82
+      NST=NRLS*(NRLS+1)/2                                                    83
+      NV=NNEQ*(NNEQ+1)/2                                                     84
+      NS1=NST+1                                                              85
+      CALL VRDWT(A(NS1),NV,NFN(II),NVPR,C,1)                                 86
+C                  PUT A12 BEHIND T                                          87
+      NREC4=1+(NNEQ*NRLS-1)/NVPR                                             88
+      CALL MRDWT(B,NMAX,NNEQ,NRLS,NFN(4),NREC4,NVPR,C,1)                     89
+C                  GET T                                                     90
+      NREC4=0                                                                91
+      CALL MRDWT(B,NMAX,NRLS,NNEQ,NFN(4),NREC4,NVPR,C,-1)                    92
+      CALL MSTOR(A,NMAX,NRLS,NRLS,5)                                         93
+      CALL MBTAB(A,NMAX,B,NMAX,D,NRLS,NNEQ)                                  94
+      CALL MSTOR(A,NMAX,NNEQ,NNEQ,2)                                         95
+      CALL FLADD(A,NV,NVPR,NFN(II),C)                                        96
+C                  GET A12                                                   97
+      NREC4=1+(NNEQ*NRLS-1)/NVPR                                             98
+      CALL MRDWT(A,NMAX,NNEQ,NRLS,NFN(4),NREC4,NVPR,C,-1)                    99
+      CALL MLTIP(A,NMAX,B,NMAX,D,NNEQ,NRLS,NNEQ)                            100
+      DO 85 I=1,NNEQ                                                        101
+      IST=I                                                                 102
+      DO 85 J=IST,NNEQ                                                      103
+      NA=NMAX*(J-1)+I                                                       104
+      NB=NMAX*(I-1)+J                                                       105
+      A(NA)=A(NA)+A(NB)                                                     106
+   85 A(NB)=A(NA)                                                           107
+      CALL MSTOR(A,NMAX,NNEQ,NNEQ,2)                                        108
+      CALL FLADD(A,NV,NVPR,NFN(II),C)                                       109
+      IFEQ(II)=NNEQ                                                         110
+      NREC(II)=1+(NV-1)/NVPR
+      NFILE=NFN(4)
+      REWIND NFILE
+      DO 95 I=1,NREC4
+   95 READ(NFILE)
+   90 CONTINUE                                                              111
+C                  FINISH UP                                                112
+  100 NV=6*NNT                                                              113
+      DO 140 I=1,NV                                                         114
+      IF(NSTAT(I)-1)120,110,120                                             115
+  110 NSTAT(I)=3                                                            116
+      GO TO 140                                                             117
+  120 IF(NSTAT(I)-2)140,130,140                                             118
+  130 NSTAT(I)=4                                                            119
+  140 CONTINUE                                                              120
+  150 IFUNA=0                                                               121
+      NEQ=NNEQ                                                              122
+      NEXEC=0                                                               123
+      RETURN
+  160 NERR=1                                                                125
+      WRITE(IOUT,170)NMAX                                                   126
+  170 FORMAT(10X,'----- MORE THAN',I4,' EQUATIONS -----')                   127
+      GO TO 150                                                             128
+  180 NERR=1                                                                129
+      WRITE(IOUT,190)NMAX                                                   130
+  190 FORMAT(10X'----- MORE THAN',I4,' ELIMINATION COMP -----')             131
+      GO TO 150                                                             132
+  200 NERR=1                                                                133
+      WRITE(IOUT,210)                                                       134
+  210 FORMAT(10X,'----- THERE IS NO STIFFNESS MATRIX -----')                135
+      GO TO 150                                                             136
+  220 WRITE(IOUT,230)                                                       137
+  230 FORMAT(10X,'----- STIFFNESS MATRIX SINGULAR -----')                   138
+      NERR=1                                                                139
+      GO TO 150                                                             140
+      END                                                                   141
+  
