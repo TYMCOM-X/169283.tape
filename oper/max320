@@ -1,0 +1,154 @@
+        SUBROUTINE RNGRHS(IARG,ALPHA,CB,NFLAG,ETA,TEMP,INDETA,
+     +  BU,BETA,B,DICT,ETAINC)
+        DOUBLE PRECISION OBVAL
+        DIMENSION ALPHA(1),CB(1),NFLAG(1),ETA(1),TEMP(1),ETAINC(1)
+        DIMENSION INDETA(1),BU(1),BETA(1),B(1),DICT(0/1)
+C DECLARATIONS MADE 6/19/73
+C*S     START COMMON
+        COMMON /MIPCOM/ V,AV,WDCNT,DUEL,IR,IK,RI,L,M,N
+        COMMON /MIPCOM/ Q,QP,QPP,NETA,MAXETA,PRIM,NODUAL,NOPRIM
+        COMMON /MIPCOM/ BIG,NPM,MP1,NP1,DELTA,UNB,ITYPE,ISTAR,IRP,IRPP
+        COMMON /MIPCOM/ TOL,TOL1,OPTION,ISW,ID,CHSIN,ITER,OBVAL,OBJ1
+        COMMON /OUTCOM/ JL,JR,NAML,VAL,NAMR,KR,PR
+        COMMON /LINCNT/ LINE,IEUSE,INCETA
+C       LINE IS CURRENT LINE NO. IN CREATE FILE
+        INTEGER DICT, OPTION
+        INTEGER V,AV,CB,CN,WDCNT,DUEL ,PRIM,UNB,RI
+C*E     END COMMON
+C
+C
+C       RANGET THE ORIGINAL CONSTRAINT VALUES B(I), I=1,2,...,M
+C
+C
+        WRITE (ID,5600)
+5600    FORMAT(///,1X,'CONSTRAINT',3X,'TYPE',2X,'ORIGINAL VALUE',6X,
+     +  'MIN',15X,'MAX')
+
+
+        IST = 1
+        IFIN = M
+        IF(IARG .EQ.0)  GO TO 100
+
+        IST = IARG
+        IFIN = IARG
+
+100     DO 1000 J = IST, IFIN
+C
+C       CONSTRUCT ALPHA
+C
+        DO 800 I = 1,M
+800     ALPHA(I) = 0.
+        ALPHA(J) = -1.
+
+        CALL FTRAN(ALPHA,ETA,TEMP, INDETA,ETAINC)
+
+        QP = BIG
+        QPP = -BIG
+
+
+        RAT = BIG
+        BRAT = BIG
+
+        DO 900 I = 1, M
+        IF(ABS(ALPHA(I)) .LE. TOL)  GO TO 900
+
+        UB = BIG
+        IF(CB(I) .LE. M)  GO TO 850
+
+        UB = BU(CB(I)-M)
+
+
+
+850     IF(NFLAG(CB(I)) .EQ. 2)  GO TO 900
+
+        IF(ALPHA(I) .GT. 0)  GO TO 880
+
+        IF(UB .GE. BIG)  GO TO 870
+
+        T1 = (BETA(I) - UB) / ALPHA(I)
+        QP = AMIN1(QP, T1)
+870     T = BETA(I) / ALPHA(I)
+        QPP = AMAX1(QPP, T)
+        GO TO 900
+
+880     IF(UB .GE. BIG)  GO TO 890
+
+        T1 = (BETA(I) - UB) / ALPHA(I)
+        QPP = AMAX1(QPP, T1)
+890     T = BETA(I) / ALPHA(I)
+        QP = AMIN1(QP, T)
+900     CONTINUE
+
+        BJ = B(J)
+
+
+
+
+
+
+
+        IF(NFLAG(J) .EQ. 3)  L ='=    '
+        IF(NFLAG(J) .EQ. 4)  L ='>=   '
+        IF(NFLAG(J) .EQ. 5)  L = '<=   '
+
+        IF((QPP .LE. -BIG) .AND. (QP .GE. BIG)) GO TO 1100
+
+        IF(NFLAG(J) .NE. 4)  GO TO 990
+
+        L = '>=   '
+        BJ = -B(J)
+        IF(QPP .LE. -BIG)  GO TO 910
+
+        IF(QP .GE. BIG)  GO TO 920
+
+        T1 = B(J) + QP
+        T0 = B(J) + QPP
+        GO TO 995
+
+910     T0 = B(J) + QP
+        GO TO 1125
+
+920     T0 = B(J) + QPP
+        GO TO 1115
+
+        
+990     L = '<=   '
+        IF(NFLAG(J) .EQ. 3)  L = '=    '
+
+        IF(QPP .LE. -BIG)  GO TO 1110
+
+       IF(QP .GE. BIG)  GO TO 1120
+
+        BJ = B(J)
+        T0 = BJ + QPP
+        T1 = BJ + QP
+
+995     WRITE(ID,5200) DICT(J),L,BJ,T0,T1
+        GO TO 1000
+
+C       HERE WHEN QP AND QPP INFINITE
+
+1100    WRITE(ID,5500) DICT(J),L,BJ
+        GO TO 1000
+
+C       HERE WHEN QPP = -INFINITY
+
+1110    T0 = BJ + QP
+1115    WRITE(ID,5400) DICT(J),L,BJ,T0
+        GO TO 1000
+
+C       HERE WHEN QP = INFINITY
+
+1120    T0 = BJ + QPP
+1125    WRITE(ID,5300) DICT(J),L,BJ,T0
+
+1000    CONTINUE
+
+
+        RETURN
+
+5300    FORMAT(1X,A5,8X,A2,3X,G,5X,G,3X,'INFINITE')
+5400    FORMAT(1X,A5,8X,A2,3X,G,5X,' INFINITE',7X,G)
+5500    FORMAT(1X,A5,8X,A2,3X,G,5X,'INFINITE',10X,'INFINITE')
+5200    FORMAT(1X,A5,8X,A2,3X,G,3X,G,3X,G)
+        END
