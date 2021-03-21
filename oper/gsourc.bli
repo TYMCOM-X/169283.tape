@@ -1,0 +1,314 @@
+MODULE GSOURC(DOLLAR,ENTRIES=($GSRCE,$GINPL,$GBCND,$GEINL,$GCOND),FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+  BEGIN
+
+  REQUIRE ADEFS.BLI[7,107355];
+  REQUIRE DTDEFS.BLI[7,107355];
+  REQUIRE GDEFS.BLI[7,107355];
+  REQUIRE HDEFS.BLI[7,107355];
+  REQUIRE SDEFS.BLI[7,107355];
+  REQUIRE TDEFS.BLI[7,107355];
+  REQUIRE ZDEFS.BLI[7,107355];
+
+  UNDECLARE $GSRCE, $GINPL, $GBCND, $GEINL, $GCOND;
+
+  MAP Z$ ZBSTK$;
+  MAP G$OPND GGBOP$;
+  MAP G$ GGBFP$;
+
+%*****
+  PROCESS TV$SOURCE
+*****%
+  GLOBAL ROUTINE $GSRCE =
+    BEGIN
+
+    LOCAL S$ DEFSTE : ITEMSTE : FDEFSTE;
+    LOCAL LABSAV, ITEMSTP, SRCSTKP, LNLFLG;
+
+    GSRCP$ := GBILP$ := .ZSTKP$;
+    GBCNP$ := GLIST$ := ZV$NULL;
+    GICNF$ := GICLF$ := ZV$RESET;
+    GASBI$ := $GNBUF(127);
+
+    LNLFLG := ZV$FALSE;
+    SRCSTKP := .ZSTKP$;
+    DEFSTE := $SGSTE(.ZBSTK$[Z$DEFSTP,.SRCSTKP]);
+    IF .DEFSTE[S$PLNL] NEQ HV$EMPTY
+      THEN
+        BEGIN
+        LNLFLG := ZV$TRUE;
+        $GNXSTN(DEFSTE[S$PLNL],ZV$TRUE);
+        END;
+    $GASCOPE(.SRCSTKP);
+    IF .LNLFLG EQL ZV$TRUE
+      THEN
+        $GLINE(ZV$SRC,.ZBSTK$[Z$INCSTP,.SRCSTKP]);
+    $GFINAPND(.SRCSTKP,GFV$SEQ);
+
+    $GIREC(GV$OPEN,3);                          % OPEN THE SOURCE FILE %
+    GGBOP$[0,G$OPTYP] := GV$STP;
+    GGBOP$[0,G$OPVAL] := .ZBSTK$[Z$INCSTP,.ZSTKP$];
+    $GWBUF(.GGBFP$,.GOB1I$);
+
+    $GIREC(GV$LABEL,3);                         % GENERATE THE LABEL TO BRANCH TO FOR READING THE 
+                                                  NEXT SOURCE RECORD
+                                                %
+    GGBOP$[0,G$OPTYP]  := GV$STP;
+    GGBOP$[0,G$OPVAL] := ZBSTK$[Z$NEXTLAB,.ZSTKP$] := $GNLAB();
+    $GWBUF(.GGBFP$,.GOB1I$);
+
+    $GIREC(GV$SIN,4);                           % START INPUT %
+    GGBOP$[0,G$OPTYP] := GV$STP;
+    GGBOP$[0,G$OPVAL] := .ZBSTK$[Z$INCSTP,.ZSTKP$];  % SOURCE INCARNATION %
+    GGBOP$[1,G$OPTYP] := GV$STP;
+    GGBOP$[1,G$OPVAL] := ZBSTK$[Z$NEXTLAB,.GFEAP$] := $GNLAB();  % EOF/END FOR EACH LABEL %
+    $GWBUF(.GGBFP$,.GOB1I$);
+
+    %****
+      FLAG THE FIELDS OF THE SOURCE FILE AS NEEDING VERIFY CODE ROUTINES WHEN THE 
+      SOURCE DEFINITION ENTRY'S S$VERFLG IS EQUAL TO SV$TRUE.
+    ****%
+
+    IF .DEFSTE[S$VERFLG] EQL SV$TRUE
+      THEN
+        BEGIN
+        ITEMSTP := .DEFSTE[S$ISTP];
+        WHILE .ITEMSTP NEQ SV$NULL
+          DO
+            BEGIN
+            ITEMSTE := $SGSTE(.ITEMSTP);
+            FDEFSTE := $SGSTE(.ITEMSTE[S$FDSTP]);
+            IF .FDEFSTE[S$DTYP] NEQ SV$SLIT   OR
+              (.FDEFSTE[S$DTYP] EQL SV$SLIT AND .FDEFSTE[S$CNSTL] GTR 0)
+              THEN
+                FDEFSTE[S$VRF] := SV$TRUE;
+            $SFRCH(.FDEFSTE);
+            ITEMSTP := .ITEMSTE[S$ISTP];
+            $SFRNCH(.ITEMSTE);
+            END;
+        END;
+    $SFRNCH(.DEFSTE);
+
+    END;
+
+
+%*****
+  PROCESS INPUT LIST
+****%
+  GLOBAL ROUTINE $GINPL =
+    BEGIN
+
+    LOCAL DT$ DATEP;
+    LOCAL S$ INCSTE : DEFSTE;
+    LOCAL CONDVAR, CONDLIT, BGINPLST, INPITEMP;
+
+    IF .GICLF$ EQL ZV$SET                       % IS THIS PART OF A CONDITIONAL INPUT LIST? %
+      THEN
+        BEGIN                                   % YES %
+        GICLF$ := ZV$RESET;
+        CONDVAR := .ZBSTK$[Z$SUCP,.GBCNP$];      % GET THE POINTER TO THE CONDITION VARIABLE %
+        CONDLIT := .ZBSTK$[Z$SUCP,.CONDVAR];     % GET THE POINTER TO THE CONDITION LITERAL %
+        $GLOGC(.CONDVAR,.CONDLIT,TV$EQ);        % GENERATE A TEST FOR THE TWO BEING EQUAL %
+        $GIREC(GV$BRCHF,4);                     % IF THE TEST FAILS , BRANCH TO THE NEXT CASE %
+        GGBOP$[0,G$OPTYP] := GV$NP;
+        GGBOP$[0,G$NPTYPE] := GV$LOGICAL;
+        GGBOP$[0,G$OPVAL] := .GGFID$ - 2;
+        GGBOP$[1,G$OPTYP] := GV$STP;
+        GGBOP$[1,G$OPVAL] := GNXCL$ := $GNLAB();
+        $GWBUF(.GGBFP$,.GOB1I$);
+
+        INPITEMP := .ZBSTK$[Z$SUCP,.CONDLIT];    % GET THE POINTER TO THE FIRST INPUT ITEM %
+        BGINPLST := .CONDVAR;                    % SET UP THE POINTER THAT INDICATES HOW FAR THE STACK
+                                                  IS TO BE CLEARED WHEN IT HAS BEEN PROCESSED
+                                                %
+        END
+      ELSE
+        BEGIN                                   % NOT A CONDITIONAL INPUT LIST %
+        INPITEMP := .ZBSTK$[Z$SUCP,.GBILP$];     % GET THE POINTER TO THE FIRST INPUT ITEM %
+        BGINPLST := .GBILP$;                     % SET UP THE POINTER THAT INDICATES HOW FAR THE STACK
+                                                  IS TO BE CLEARED WHEN IT HAS BEEN PROCESSED 
+                                                %
+        END;
+
+    WHILE .INPITEMP NEQ ZV$NULL                 % PROCESS THE INPUT LIST %
+      DO
+        BEGIN
+        SELECT .ZBSTK$[Z$ID,.INPITEMP] OF
+                        NSET
+                TV$NAME:
+                    BEGIN
+                    $GICHK(.INPITEMP);          % INSURE THE EXISTENCE OF AN ACTIVE INCARNATION %
+                    INCSTE := $SGSTE(.ZBSTK$[Z$INCSTP,.INPITEMP]);
+                    INCSTE[S$VALCHGF] := SV$TRUE;
+                    IF INCSTE[S$DTYP] EQL SV$DLIT
+                      THEN
+                        BEGIN
+                        DATEP := INCSTE[S$DTP];
+                        IF .DATEP[DT$INOK] EQL DTV$FALSE
+                          THEN
+                            $GERR(573,.INPITEMP);
+                        END;
+                    $SFRCH(.INCSTE);
+                    $GIREC(GV$INPUT,3);         % INPUT THE ITEM %
+                    (GGBFP$[G$OPNDN])[0] := $GOPND(.INPITEMP);
+                    $GWBUF(.GGBFP$,.GOB1I$);
+                    IF .ZBSTK$[Z$FASRECP,.INPITEMP] NEQ ZV$NULL
+                      THEN
+                        $GMBUF(.GASBI$,.GOB1I$,.ZBSTK$[Z$FASRECP,.INPITEMP],.ZBSTK$[Z$LASRECP,.INPITEMP]);
+                    END;
+                TV$8TABTO:
+                    BEGIN
+                    $GIREC(GV$TABTO,3);
+                    GGBFP$[G$OPND1] := .ZBSTK$[Z$GOPND,.INPITEMP];
+                    $GWBUF(.GGBFP$,.GOB1I$);
+                    END;
+                TV$9TAB:
+                    BEGIN
+                    $GIREC(GV$TAB,3);
+                    GGBFP$[G$OPND1] := .ZBSTK$[Z$GOPND,.INPITEMP];
+                    $GWBUF(.GGBFP$,.GOB1I$);
+                    END;
+                TV$9CR:
+                    BEGIN
+                    $GIREC(GV$CR,2);
+                    $GWBUF(.GGBFP$,.GOB1I$);
+                    END;
+                OTHERWISE:
+                    BEGIN
+                    $GERR(555,.INPITEMP);
+                    $GWBUF(.GGBFP$,.GOB1I$);
+                    END;
+                        TESN;
+        INPITEMP := .ZBSTK$[Z$SUCP,.INPITEMP];   % GET THE POINTER TO THE NEXT INPUT ITEM %
+        END;
+
+    WHILE .ZSTKP$ NEQ .BGINPLST                 % CLEAR THE STACK OF TEH INPUT LIST JUST PROCESSED %
+      DO
+        $GPOP();
+
+    END;
+
+
+%*****
+  PROCESS TV$8BGCOND. ANY INPUT ITEMS CURRENTLY IN THE STACK ARE PROCESSED BEFORE
+  STACKING THE TOKEN.
+*****%
+  GLOBAL ROUTINE $GBCND =
+    BEGIN
+
+    $GINPL();                                   % PROCESS THE INPUT LIST CURRENTLY ON THE STACK %
+
+    $GPUSH(.GBTKN$,6);                          % STACK THE TV$8BGCOND TOKEN %
+    ZBSTK$[Z$ILCNDFLG,.ZSTKP$] := .GICNF$;
+    ZBSTK$[Z$NCASELAB,.ZSTKP$] := .GNXCL$;
+    ZBSTK$[Z$PREVBGP   ,.ZSTKP$] := .GBCNP$;
+    ZBSTK$[Z$ELSEFLG ,.ZSTKP$] := .GELSF$;
+    ZBSTK$[Z$ELSELAB ,.ZSTKP$] := .GELSL$;
+    ZBSTK$[Z$ELSEP   ,.ZSTKP$] := .GELSP$;
+
+    GICNF$ := ZV$SET;
+    GBCNP$ := GBILP$ := .ZSTKP$;
+    GELSF$ := GICLF$ := ZV$RESET;
+    END;
+
+
+%*****
+  PROCESS TV$8NDILST
+*****%
+  GLOBAL ROUTINE $GEINL =
+    BEGIN
+
+    IF .GBILP$ NEQ .ZSTKP$                       % IS THERE A CASE LIST ON TOP OF THE STACK? %
+      THEN                                      % YES %
+        $GINPL();                               % PROCESS THE INPUT LIST CURRENTLY IN THE STACK %
+
+    IF .GICNF$ EQL ZV$SET                       % WAS THE INPUT LIST PART OF A CONDITIONAL LIST? %
+      THEN
+        BEGIN                                   % YES %
+        IF .GELSF$ EQL ZV$RESET                 % IF AN ELSE LABEL IS NOT OUTSTANDING, THEN CREATE ONE %
+          THEN
+            BEGIN
+            GELSF$ := ZV$SET;
+            GELSL$ := $GNLAB();
+            END;
+        $GIREC(GV$BRANCH,3);                    % THIS IS THE END OF A CASE LIST SO GENERATE
+                                                  A BRANCH TO THE ELSE LABEL
+                                                %
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .GELSL$;
+        $GWBUF(.GGBFP$,.GOB1I$);
+
+        $GIREC(GV$LABEL,3);                     % GENERATE THE LABEL FOR THE NEXT CASE %
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .GNXCL$;
+        $GWBUF(.GGBFP$,.GOB1I$);
+        END;
+    END;
+
+
+%*****
+  PROCESS TV$CONDIT
+*****%
+  GLOBAL ROUTINE $GCOND =
+    BEGIN
+
+    LOCAL S$ DEFSTE;
+
+    DEFSTE := $SGSTE(.ZBSTK$[Z$DEFSTP,.GSRCP$]); % GET TH SOURCE DEFINITION ENTRY %
+    IF .DEFSTE[S$VERFLG] EQL SV$TRUE            % IS THE VERIFY OPTION SPECIFIED? %
+      THEN
+        BEGIN                                   % YES %
+        $GIREC(GV$INPERR,4);                    % GENERATE A CALL TO THE ERROR PROCEDURE FOR
+                                                  INPUT VERIFICATION BECAUSE WE ARE AT THE END
+                                                  OF A CONDITIONAL LIST AND HAVEN'T FOUND A VALID
+                                                  CASE VALUE
+                                                %
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .ZBSTK$[Z$INCSTP,.GSRCP$];
+        GGBOP$[1,G$OPTYP] := GV$STP;
+        GGBOP$[1,G$OPVAL] := .ZBSTK$[Z$INCSTP,.ZSTKP$];
+        $GWBUF(.GGBFP$,.GOB1I$);
+
+        $GIREC(GV$BRANCH,3);                    % BRANCH BACK TO THE START OF SEQUENTIAL INPUT TO 
+                                                  READ A NEW RECORD
+                                                %
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .ZBSTK$[Z$NEXTLAB,.GSRCP$];
+        END
+      ELSE
+        BEGIN                                   % NO VERIFICATION SPECIFIED %
+        IF .GEIPF$ EQL ZV$RESET                 % HAS THE END OF INPUT SEQUENCE LABEL BEEN GENERATED YET? %
+          THEN
+            BEGIN                               % NO! GENERATE ONE. %
+            GEIPL$ := $GNLAB();
+            GEIPF$ := ZV$SET;
+            END;
+        $GIREC(GV$BRANCH,3);                    % BRANCH TO THE END OF INPUT LABEL BECAUSE WE ARE
+                                                  AT THE END OF A CONDITIONAL INPUT LIST AND HAVEN'T
+                                                  FOUND A VALID CASE VALUE
+                                                %
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .GEIPL$;
+        END;
+    $GWBUF(.GGBFP$,.GOB1I$);
+
+    $GIREC(GV$LABEL,3);                         % GENERATE AN ELSE LABEL %
+    GGBOP$[0,G$OPTYP] := GV$STP;
+    GGBOP$[0,G$OPVAL] := .GELSL$;
+    $GWBUF(.GGBFP$,.GOB1I$);
+    $GPOP();                                    % POP THE CONDITIONAL VARIABLE TOKEN %
+    GELSL$ := .ZBSTK$[Z$ELSELAB,.ZSTKP$];
+    GELSF$ := .ZBSTK$[Z$ELSEFLG,.ZSTKP$];
+    GELSP$ := .ZBSTK$[Z$ELSEP  ,.ZSTKP$];
+    GBCNP$ := .ZBSTK$[Z$PREVBGP  ,.ZSTKP$];
+    GICNF$ := .ZBSTK$[Z$ILCNDFLG,.ZSTKP$];
+    GNXCL$ := .ZBSTK$[Z$NCASELAB,.ZSTKP$];
+
+    $GPOP();                                    % POP TH TV$8BGCOND TOKEN %
+    GBILP$ := .ZSTKP$;
+    $SFRNCH(.DEFSTE);
+    END;
+
+
+  END
+ELUDOM
+ 
