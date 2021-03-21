@@ -1,0 +1,453 @@
+PROCEDURE SR.COM.RPT % EXT: SRREP  MAG: SMPE2H.M#2 %
+% Tymshare Commission Sales Representative Commission Report %
+% Original version:  1975.04.10  / Dale Jordan (DALE) %
+% Current version:   1976.04.02 / Steve Albanese (SALBANESE) %
+%
+CHANGES:
+    1976.04.02 - Printed monthly chargeback figure instead of YDT.
+    1976.03.29 - Broke LEASCO out of total revenue.
+    1976.03.28 - Changed percnt of NROQ to reflect limit of 250 Pc of nrq 
+%
+BEGIN
+%  THIS PROCEDURE CREATES THE SALES REPRESENTATIVE'S COMMISSION REPORT
+   FROM THE YSR RELATION AND OTHERS AND FORMATS IT FOR OUTPUT
+
+   THE USER IS PROMPTED FOR THE FILE NAME FOR THE REPORTS WHEN
+   EXECUTION BEGINS.
+%
+
+FIELD
+   NFSIZE AS 'NN',           % NUMBER OF POSITIONS TO TAB WHEN NO MONTH FIGURE %
+   PERIOD.D AS DATE 'MMM YYYY',         % PERIOD FOR WHICH BATCH IS RUN %
+   PREV.MO SAME AS MO.PROCESSED,        % KEY FOR RETRIEVING PREV MONTH %
+   PREV.YR SAME AS YR.PROCESSED,        % KEY FOR RETRIEVING PREV YEAR  %
+   PERIOD.M AS DATE 'MMM',              % PERIOD FOR PRINTOUT ON STATMT %
+   P.PERIOD.M SAME AS PERIOD.M,         % PREVIOUS PERIOD MONTH NAME    %
+
+%  THE FOLLOWING FIELDS ARE THE FIELDS OF YSR PREFIXED WITH P. TO
+   REPRESENT THE PREVIOUS MONTH VALUES
+%
+   P.M.BASE.REV.Q           SAME AS M.BASE.REV.Q,
+   P.Y.BASE.REV.Q           SAME AS Y.BASE.REV.Q,
+   P.M.NEW.REV.Q            SAME AS M.NEW.REV.Q,
+   P.Y.NEW.REV.Q            SAME AS Y.NEW.REV.Q,
+   P.M.REV.BEF.ADJ          SAME AS M.REV.BEF.ADJ,
+   P.Y.REV.BEF.ADJ          SAME AS Y.REV.BEF.ADJ,
+   P.M.REV.ADJ              SAME AS M.REV.ADJ,
+   P.Y.REV.ADJ              SAME AS Y.REV.ADJ,
+   P.M.NEW.ACC.REV          SAME AS M.NEW.ACC.REV,
+   P.Y.NEW.ACC.REV          SAME AS Y.NEW.ACC.REV,
+   P.M.PRD.COM.REV          SAME AS M.PRD.COM.REV,
+   P.Y.PRD.COM.REV          SAME AS Y.PRD.COM.REV,
+   P.M.NEW.REV.COM          SAME AS M.NEW.REV.COM,
+   P.Y.NEW.REV.COM          SAME AS Y.NEW.REV.COM,
+   P.M.NROQ.COM             SAME AS M.NROQ.COM,
+   P.Y.NROQ.COM             SAME AS Y.NROQ.COM,
+   P.M.TAS.DEV.COM          SAME AS M.TAS.DEV.COM,
+   P.Y.TAS.DEV.COM          SAME AS Y.TAS.DEV.COM,
+   P.COM.EARNED             SAME AS COM.EARNED,
+   P.PREV.COM.EARNED        SAME AS PREV.COM.EARNED,
+   P.M.NAR.COM              SAME AS M.NAR.COM,
+   P.Y.NAR.COM              SAME AS Y.NAR.COM,
+   P.M.PRODUCT.COM          SAME AS M.PRODUCT.COM,
+   P.Y.PRODUCT.COM          SAME AS Y.PRODUCT.COM,
+   P.M.CHARGEBACKS          SAME AS M.CHARGEBACKS,
+   P.Y.CHARGEBACKS          SAME AS Y.CHARGEBACKS,
+   P.M.COM.ADJ              SAME AS M.COM.ADJ,
+   P.Y.COM.ADJ              SAME AS Y.COM.ADJ,
+   P.DRAW.AMOUNT            SAME AS DRAW.AMOUNT,
+   P.M.RECV.DRAW.USED        SAME AS M.RECV.DRAW.USED,
+   P.M.NONR.DRAW.USED        SAME AS M.NONR.DRAW.USED,
+   P.Y.RECV.DRAW.USED        SAME AS Y.RECV.DRAW.USED,
+   P.Y.NONR.DRAW.USED        SAME AS Y.NONR.DRAW.USED,
+   P.M.DRAW.RECVRY          SAME AS M.DRAW.RECVRY,
+   P.Y.DRAW.RECVRY          SAME AS Y.DRAW.RECVRY,
+   P.M.COM.PAYABLE          SAME AS M.COM.PAYABLE,
+   P.Y.COM.PAYABLE          SAME AS Y.COM.PAYABLE,
+   P.M.TYMCOM.9             SAME AS M.TYMCOM.9,
+   P.Y.TYMCOM.9             SAME AS Y.TYMCOM.9,
+   P.M.TYMCOM.10            SAME AS M.TYMCOM.10,
+   P.Y.TYMCOM.10            SAME AS Y.TYMCOM.10,
+   P.M.TYMCOM.370           SAME AS M.TYMCOM.370,
+   P.Y.TYMCOM.370           SAME AS Y.TYMCOM.370,
+   P.M.W.SYSTEMS            SAME AS M.W.SYSTEMS,
+   P.Y.W.SYSTEMS            SAME AS Y.W.SYSTEMS,
+   P.M.LEASCO               SAME AS M.LEASCO,
+   P.Y.LEASCO               SAME AS Y.LEASCO,
+   P.M.TASC.DEVEL           SAME AS M.TASC.DEVEL,
+   P.Y.TASC.DEVEL           SAME AS Y.TASC.DEVEL,
+   P.M.TASC.INSTL           SAME AS M.TASC.INSTL,
+   P.Y.TASC.INSTL           SAME AS Y.TASC.INSTL,
+   P.M.TASC.PRDTN           SAME AS M.TASC.PRDTN,
+   P.Y.TASC.PRDTN           SAME AS Y.TASC.PRDTN,
+   P.M.INF.SYS.DIV          SAME AS M.INF.SYS.DIV,
+   P.Y.INF.SYS.DIV          SAME AS Y.INF.SYS.DIV,
+   P.M.PRD.BEF.TAX          SAME AS M.PRD.BEF.TAX,
+   P.Y.PRD.BEF.TAX          SAME AS Y.PRD.BEF.TAX,
+%
+   THE FOLLOWING FIELDS ARE THE COMPUTED VALUES
+   APPEARING ON THE REPORT.
+%
+   M.TQ         SAME AS M.BASE.REV.Q,
+   P.M.TQ       SAME AS M.TQ,
+   Y.TQ         SAME AS M.TQ,
+   P.Y.TQ       SAME AS Y.TQ,
+
+   M.TSR        SAME AS M.BASE.REV.Q,
+   Y.TSR        SAME AS M.TSR,
+   P.M.TSR      SAME AS M.TSR,
+   P.Y.TSR      SAME AS Y.TSR,
+
+   M.NR         SAME AS M.BASE.REV.Q,
+   P.M.NR       SAME AS M.NR,
+   Y.NR         SAME AS M.NR,
+   P.Y.NR       SAME AS Y.NR,
+
+   M.NROQ       SAME AS M.BASE.REV.Q,
+   P.M.NROQ     SAME AS M.NROQ,
+   Y.NROQ       SAME AS M.NROQ,
+   P.Y.NROQ     SAME AS Y.NROQ,
+
+
+   TOT.EARN     SAME AS M.BASE.REV.Q,
+   P.TOT.EARN   SAME AS TOT.EARN
+
+REPORT TO 'SR.RPT'
+   PAGE.SIZE 58
+   PAGE.TOP @FF
+   REPORT.HEADING
+      PRINT @SKIP TO 28, @TAB TO 32,
+            "Sales Quota Charts",@CR,
+            @TAB TO 34,
+            "for ", PERIOD.D, @CR, PAGE.TOP
+%  PAGE.FOOTING
+      PRINT
+      @TAB TO 15, "*** This report brought to you courtesy of MAGNUM ***",
+      @SKIP 3
+
+  HERE WE START THE EXECUTION PROPER
+%
+LET NFSIZE = 13        % THIS MUST CHANGE IF THE PICTURE OF M.BASE.REV.Q DOES %
+LET HOUSE.ACCOUNT = 90000    % ALL HOUSE ACCOUNT NOS MUST BE GREATER %
+
+TYPE "Sales Representative Commission Report Procedure",@CR,@CR,
+     "Enter the month and year for the run as YY,MM: "
+ACCEPT YR.PROCESSED, MO.PROCESSED
+
+LET PERIOD.D, PERIOD.M  =
+       ((YR.PROCESSED * 100 + MO.PROCESSED) AS '4C') AS DATE 'YYMM'
+IF MO.PROCESSED = 1
+   THEN BEGIN
+      LET PREV.MO = 12
+      LET PREV.YR = YR.PROCESSED - 1
+      END
+   ELSE BEGIN
+      LET PREV.MO = MO.PROCESSED - 1
+      LET PREV.YR = YR.PROCESSED
+      END
+LET P.PERIOD.M = ((PREV.YR * 100 + PREV.MO) AS '4C') AS DATE 'YYMM'
+
+% WITH ALL THE PRELIMINARIES TAKEN CARE OF LETS GO
+%
+FOR EACH YSR VIA (YR.PROCESSED, MO.PROCESSED)  WRITE REPORT
+   BEGIN
+
+   % GET THE PREVIOUS PERIOD INSTANCES INTO THEIR P. FIELDS, OR ELSE
+     USE THE DEFAULTS IF THERE IS NO PREVIOUS ONE.
+   %
+
+   SELECT YSR VIA (YR.PROCESSED, MO.PROCESSED = PREV.MO, SALESNUM.5N, EMPLOYE.NUM)
+      THEN BEGIN
+         MOVE M.BASE.REV.Q           TO P.M.BASE.REV.Q
+         MOVE Y.BASE.REV.Q           TO P.Y.BASE.REV.Q
+         MOVE M.NEW.REV.Q            TO P.M.NEW.REV.Q
+         MOVE Y.NEW.REV.Q            TO P.Y.NEW.REV.Q
+         MOVE M.REV.BEF.ADJ          TO P.M.REV.BEF.ADJ
+         MOVE Y.REV.BEF.ADJ          TO P.Y.REV.BEF.ADJ
+         MOVE M.REV.ADJ              TO P.M.REV.ADJ
+         MOVE Y.REV.ADJ              TO P.Y.REV.ADJ
+         MOVE M.NEW.ACC.REV          TO P.M.NEW.ACC.REV
+         MOVE Y.NEW.ACC.REV          TO P.Y.NEW.ACC.REV
+         MOVE M.PRD.COM.REV          TO P.M.PRD.COM.REV
+         MOVE Y.PRD.COM.REV          TO P.Y.PRD.COM.REV
+         MOVE M.NEW.REV.COM          TO P.M.NEW.REV.COM
+         MOVE Y.NEW.REV.COM          TO P.Y.NEW.REV.COM
+         MOVE M.NROQ.COM             TO P.M.NROQ.COM
+         MOVE Y.NROQ.COM             TO P.Y.NROQ.COM
+         MOVE M.TAS.DEV.COM          TO P.M.TAS.DEV.COM
+         MOVE Y.TAS.DEV.COM          TO P.Y.TAS.DEV.COM
+         MOVE COM.EARNED             TO P.COM.EARNED
+         MOVE PREV.COM.EARNED        TO P.PREV.COM.EARNED
+         MOVE M.NAR.COM              TO P.M.NAR.COM
+         MOVE Y.NAR.COM              TO P.Y.NAR.COM
+         MOVE M.PRODUCT.COM          TO P.M.PRODUCT.COM
+         MOVE Y.PRODUCT.COM          TO P.Y.PRODUCT.COM
+         MOVE M.CHARGEBACKS          TO P.M.CHARGEBACKS
+         MOVE Y.CHARGEBACKS          TO P.Y.CHARGEBACKS
+         MOVE M.COM.ADJ              TO P.M.COM.ADJ
+         MOVE Y.COM.ADJ              TO P.Y.COM.ADJ
+         MOVE DRAW.AMOUNT            TO P.DRAW.AMOUNT
+         MOVE M.RECV.DRAW.USED        TO P.M.RECV.DRAW.USED
+         MOVE M.NONR.DRAW.USED        TO P.M.NONR.DRAW.USED
+         MOVE Y.RECV.DRAW.USED        TO P.Y.RECV.DRAW.USED
+         MOVE Y.NONR.DRAW.USED        TO P.Y.NONR.DRAW.USED
+         MOVE M.DRAW.RECVRY          TO P.M.DRAW.RECVRY
+         MOVE Y.DRAW.RECVRY          TO P.Y.DRAW.RECVRY
+         MOVE M.COM.PAYABLE          TO P.M.COM.PAYABLE
+         MOVE Y.COM.PAYABLE          TO P.Y.COM.PAYABLE
+         MOVE M.TYMCOM.9             TO P.M.TYMCOM.9
+         MOVE Y.TYMCOM.9             TO P.Y.TYMCOM.9
+         MOVE M.TYMCOM.10            TO P.M.TYMCOM.10
+         MOVE Y.TYMCOM.10            TO P.Y.TYMCOM.10
+         MOVE M.TYMCOM.370           TO P.M.TYMCOM.370
+         MOVE Y.TYMCOM.370           TO P.Y.TYMCOM.370
+         MOVE M.W.SYSTEMS            TO P.M.W.SYSTEMS
+         MOVE Y.W.SYSTEMS            TO P.Y.W.SYSTEMS
+         MOVE M.LEASCO               TO P.M.LEASCO
+         MOVE Y.LEASCO               TO P.Y.LEASCO
+         MOVE M.TASC.DEVEL           TO P.M.TASC.DEVEL
+         MOVE Y.TASC.DEVEL           TO P.Y.TASC.DEVEL
+         MOVE M.TASC.INSTL           TO P.M.TASC.INSTL
+         MOVE Y.TASC.INSTL           TO P.Y.TASC.INSTL
+         MOVE M.TASC.PRDTN           TO P.M.TASC.PRDTN
+         MOVE Y.TASC.PRDTN           TO P.Y.TASC.PRDTN
+         MOVE M.INF.SYS.DIV          TO P.M.INF.SYS.DIV
+         MOVE Y.INF.SYS.DIV          TO P.Y.INF.SYS.DIV
+         MOVE M.PRD.BEF.TAX          TO P.M.PRD.BEF.TAX
+         MOVE Y.PRD.BEF.TAX          TO P.Y.PRD.BEF.TAX
+         END
+      ELSE MOVE DEFAULT TO
+            P.M.BASE.REV.Q,
+            P.Y.BASE.REV.Q,
+            P.M.NEW.REV.Q,
+            P.Y.NEW.REV.Q,
+            P.M.REV.BEF.ADJ,
+            P.Y.REV.BEF.ADJ,
+            P.M.REV.ADJ,
+            P.Y.REV.ADJ,
+            P.M.NEW.ACC.REV,
+            P.Y.NEW.ACC.REV,
+            P.M.PRD.COM.REV,
+            P.Y.PRD.COM.REV,
+            P.M.NEW.REV.COM,
+            P.Y.NEW.REV.COM,
+            P.M.NROQ.COM,
+            P.Y.NROQ.COM,
+            P.M.TAS.DEV.COM,
+            P.Y.TAS.DEV.COM,
+            P.COM.EARNED,
+            P.PREV.COM.EARNED,
+            P.M.NAR.COM,
+            P.Y.NAR.COM,
+            P.M.PRODUCT.COM,
+            P.Y.PRODUCT.COM,
+            P.M.CHARGEBACKS,
+            P.Y.CHARGEBACKS,
+            P.M.COM.ADJ,
+            P.Y.COM.ADJ,
+            P.DRAW.AMOUNT,
+            P.M.RECV.DRAW.USED,
+            P.M.NONR.DRAW.USED,
+            P.Y.RECV.DRAW.USED,
+            P.Y.NONR.DRAW.USED,
+            P.M.DRAW.RECVRY,
+            P.Y.DRAW.RECVRY,
+            P.M.COM.PAYABLE,
+            P.Y.COM.PAYABLE,
+            P.M.TYMCOM.9,
+            P.Y.TYMCOM.9,
+            P.M.TYMCOM.10,
+            P.Y.TYMCOM.10,
+            P.M.TYMCOM.370,
+            P.Y.TYMCOM.370,
+            P.M.W.SYSTEMS,
+            P.Y.W.SYSTEMS,
+            P.M.LEASCO,
+            P.Y.LEASCO,
+            P.M.TASC.DEVEL,
+            P.Y.TASC.DEVEL,
+            P.M.TASC.INSTL,
+            P.Y.TASC.INSTL,
+            P.M.TASC.PRDTN,
+            P.Y.TASC.PRDTN,
+            P.M.INF.SYS.DIV,
+            P.Y.INF.SYS.DIV,
+            P.M.PRD.BEF.TAX,
+            P.Y.PRD.BEF.TAX
+
+   % NOW WE DO THE NECESSARY COMPUTATIONS FOR THE REPORT
+   %
+
+   SELECT CSR VIA SALESNUM.5N
+      THEN BEGIN
+
+         LET M.TQ = M.BASE.REV.Q + M.NEW.REV.Q
+         LET Y.TQ = Y.BASE.REV.Q + Y.NEW.REV.Q
+         LET P.M.TQ = P.M.BASE.REV.Q + P.M.NEW.REV.Q
+         LET P.Y.TQ = P.Y.BASE.REV.Q + P.Y.NEW.REV.Q
+      
+         LET M.TSR = M.REV.BEF.ADJ + M.REV.ADJ
+         LET Y.TSR = Y.REV.BEF.ADJ + Y.REV.ADJ
+         LET P.M.TSR = P.M.REV.BEF.ADJ + P.M.REV.ADJ
+         LET P.Y.TSR = P.Y.REV.BEF.ADJ + P.Y.REV.ADJ
+      
+         LET M.NR = M.TSR - M.BASE.REV.Q
+         LET Y.NR = Y.TSR - Y.BASE.REV.Q
+         LET P.M.NR = P.M.TSR - P.M.BASE.REV.Q
+         LET P.Y.NR = P.Y.TSR - P.Y.BASE.REV.Q
+      
+         IF M.TSR > M.TQ
+            THEN LET M.NROQ = M.TSR - M.TQ
+            ELSE LET M.NROQ = 0
+         IF Y.TSR > Y.TQ
+            THEN LET Y.NROQ = Y.TSR - Y.TQ
+            ELSE LET Y.NROQ = 0
+         IF P.M.TSR > P.M.TQ
+            THEN LET P.M.NROQ = P.M.TSR - P.M.TQ
+            ELSE LET P.M.NROQ = 0
+         IF P.Y.TSR > P.Y.TQ
+            THEN LET P.Y.NROQ = P.Y.TSR - P.Y.TQ
+            ELSE LET P.Y.NROQ = 0
+
+         LET TOT.EARN = COM.EARNED - PREV.COM.EARNED
+         LET P.TOT.EARN = P.COM.EARNED - P.PREV.COM.EARNED
+      
+         % NOW TO PRINT THE HEADER LINES
+         %
+      
+         PRINT
+            @TAB TO 30, PERIOD.D AS DATE 'YYYY', " SALES QUOTA CHART",@CR,@CR
+      
+         SELECT IEMPL VIA EMPLOYE.NUM
+            THEN PRINT
+            "   Salesman:         ", TRIM(E.FIRST.NAME), " ", TRIM(E.LAST.NAME)
+
+         PRINT
+            @TAB TO 50, "Draw:    ", DRAW.AMOUNT, @CR,
+            "   Sales Number:     ", SALESNUM.5N, @TAB TO 50, "Draw period: "
+         IF DRAW.AMOUNT # 0
+            THEN PRINT DRAW.PER.BEG, " - ", DRAW.PER.END, @CR
+            ELSE PRINT @CR
+
+         PRINT
+            "   District:         ",
+            GROUP.NAME(IDIST VIA DISTRICT.3N(ISP VIA SALESNUM.5N)),
+            @TAB TO 50, "Draw type:    ", DRAW.TYPE, @CR, @CR,
+            @TAB TO 33, "MON", @TAB TO 39, P.PERIOD.M, @TAB TO 46,
+            "YTD", @TAB TO 59, "MON", @TAB TO 65, PERIOD.M, @TAB TO 72,
+            "YTD", @CR, @CR
+
+
+        % CHANGE SIGN ON CHARGE BACKS FOR REPORT %
+
+        LET P.Y.CHARGEBACKS = P.Y.CHARGEBACKS * -1.00
+        LET  Y.CHARGEBACKS = Y.CHARGEBACKS * -1.00
+
+        % ZERO OUT ALL PAID FIELDS IF IT IS A HOUSE ACCOUNT %
+
+        IF EMPLOYE.NUM GT HOUSE.ACCOUNT THEN
+          LET P.M.NEW.REV.COM, M.NEW.REV.COM,
+              P.M.NROQ.COM, M.NROQ.COM,
+              P.M.TAS.DEV.COM, M.TAS.DEV.COM,
+              P.M.PRODUCT.COM, P.Y.PRODUCT.COM, M.PRODUCT.COM, Y.PRODUCT.COM,
+              P.COM.EARNED, COM.EARNED,
+              P.PREV.COM.EARNED, PREV.COM.EARNED,
+              P.TOT.EARN, TOT.EARN,
+              P.M.NAR.COM, M.NAR.COM,
+              P.Y.CHARGEBACKS, Y.CHARGEBACKS,
+              P.Y.RECV.DRAW.USED, Y.RECV.DRAW.USED,
+              P.Y.NONR.DRAW.USED, Y.NONR.DRAW.USED,
+              P.Y.DRAW.RECVRY, Y.DRAW.RECVRY,
+              P.Y.COM.ADJ, Y.COM.ADJ,
+              P.M.COM.PAYABLE, M.COM.PAYABLE = 0
+
+
+         % NOW WE LET IT ROLL FOR THE BODY OF THE REPORT
+         %
+
+   PRINT
+      "   Base                   ",
+         P.M.BASE.REV.Q, P.Y.BASE.REV.Q, M.BASE.REV.Q, Y.BASE.REV.Q, @CR,
+      "   NRQ                    ",
+         P.M.NEW.REV.Q, P.Y.NEW.REV.Q, M.NEW.REV.Q, Y.NEW.REV.Q, @CR,
+      "   TQ                     ",
+         P.M.TQ, P.Y.TQ, M.TQ, Y.TQ, @CR,
+      "   Revenue before Adj.    ",
+         P.M.REV.BEF.ADJ, P.Y.REV.BEF.ADJ, M.REV.BEF.ADJ, Y.REV.BEF.ADJ, @CR,
+      "   Adjustment             ",
+         P.M.REV.ADJ, P.Y.REV.ADJ, M.REV.ADJ, Y.REV.ADJ, @CR,
+      "   Total Service Revenue  ",
+         P.M.TSR, P.Y.TSR, M.TSR, Y.TSR, @CR,
+      "   New Revenue            ",
+         P.M.NR, P.Y.NR, M.NR, Y.NR, @CR,
+      "   NROQ                   ",
+         P.M.NROQ, P.Y.NROQ, M.NROQ, Y.NROQ, @CR,
+      "   NAR                    ",
+          P.M.NEW.ACC.REV, P.Y.NEW.ACC.REV, M.NEW.ACC.REV, Y.NEW.ACC.REV, @CR,
+      "   TASC Development       ",
+          P.M.TASC.DEVEL, P.Y.TASC.DEVEL, M.TASC.DEVEL, Y.TASC.DEVEL, @CR,
+      "   Product Comm. Revenue  ",
+         P.M.PRD.COM.REV, P.Y.PRD.COM.REV, M.PRD.COM.REV, Y.PRD.COM.REV, @CR,
+
+      @CR, @TAB TO 42, "Commissions and Bonuses", @CR,
+
+      "   NR              ", PC.NEW.REV, "%",
+         @TAB NFSIZE, P.M.NEW.REV.COM, @TAB NFSIZE, M.NEW.REV.COM, @CR,
+      "   NROQ            ", PC.N.R.O.Q, "% <= 250% NRQ ",
+         P.M.NROQ.COM, @TAB NFSIZE, M.NROQ.COM, @CR,
+      "   TASC Development", PC.TASC.DEVEL, "%",
+         @TAB NFSIZE, P.M.TAS.DEV.COM, @TAB NFSIZE,  M.TAS.DEV.COM, @CR,
+      "   Products               ",
+         P.M.PRODUCT.COM, P.Y.PRODUCT.COM, M.PRODUCT.COM, Y.PRODUCT.COM, @CR,
+      "   Total Earned YTD       ",
+          @TAB NFSIZE, P.COM.EARNED, @TAB NFSIZE, COM.EARNED, @CR,
+      "   Less Total Paid YTD    ",
+          @TAB NFSIZE, P.PREV.COM.EARNED, @TAB NFSIZE, PREV.COM.EARNED, @CR,
+      "   Total Earned this Month",
+          @TAB NFSIZE, P.TOT.EARN, @TAB NFSIZE, TOT.EARN, @CR,
+      "   NAR             ", PC.N.ACC.REV, "%",
+         @TAB NFSIZE, P.M.NAR.COM, @TAB NFSIZE, M.NAR.COM, @CR,
+      "   Chargebacks            ",
+         @TAB NFSIZE,P.M.CHARGEBACKS, @TAB NFSIZE,M.CHARGEBACKS, @CR,
+      "   Recov. Draw            ",
+         @TAB NFSIZE, P.Y.RECV.DRAW.USED, @TAB NFSIZE, Y.RECV.DRAW.USED, @CR,
+      "   Nonrecov. Draw         ",
+         @TAB NFSIZE, P.Y.NONR.DRAW.USED, @TAB NFSIZE, Y.NONR.DRAW.USED, @CR,
+      "   Draw Recovery          ",
+         @TAB NFSIZE, P.Y.DRAW.RECVRY, @TAB NFSIZE, Y.DRAW.RECVRY, @CR,
+      "   Adjustment             ",
+         @TAB NFSIZE, P.Y.COM.ADJ, @tab nfsize, Y.COM.ADJ, @CR,
+      "   Net Paid               ",
+         @TAB NFSIZE, P.M.COM.PAYABLE, @TAB NFSIZE, M.COM.PAYABLE, @CR,
+
+      @CR, @TAB TO 48, "Performance", @CR,
+
+      "   TYMCOM-IX              ",
+         P.M.TYMCOM.9, P.Y.TYMCOM.9, M.TYMCOM.9, Y.TYMCOM.9, @CR,
+      "   TYMCOM-X               ",
+         P.M.TYMCOM.10, P.Y.TYMCOM.10, M.TYMCOM.10, Y.TYMCOM.10, @CR,
+      "   TYMCOM-370             ",
+         P.M.TYMCOM.370, P.Y.TYMCOM.370, M.TYMCOM.370, Y.TYMCOM.370, @CR,
+      "   W Systems              ",
+         P.M.W.SYSTEMS, P.Y.W.SYSTEMS, M.W.SYSTEMS, Y.W.SYSTEMS, @CR,
+      "   Leasco                 ",
+        P.M.LEASCO, P.Y.LEASCO, M.LEASCO, Y.LEASCO, @CR,
+      "   TASC Development       ",
+         P.M.TASC.DEVEL, P.Y.TASC.DEVEL, M.TASC.DEVEL, Y.TASC.DEVEL, @CR,
+      "   TASC Installation      ",
+         P.M.TASC.INSTL, P.Y.TASC.INSTL, M.TASC.INSTL, Y.TASC.INSTL, @CR,
+      "   TASC Production        ",
+         P.M.TASC.PRDTN, P.Y.TASC.PRDTN, M.TASC.PRDTN, Y.TASC.PRDTN, @CR,
+      "   ISD                    ",
+         P.M.INF.SYS.DIV, P.Y.INF.SYS.DIV, M.INF.SYS.DIV, Y.INF.SYS.DIV, @CR,
+      "   NAR                    ",
+         P.M.NEW.ACC.REV, P.Y.NEW.ACC.REV, M.NEW.ACC.REV, Y.NEW.ACC.REV, @CR,
+      "   Products e Tax    ",
+         P.M.PRD.BEF.TAX, P.Y.PRD.BEF.TAX, M.PRD.BEF.TAX, Y.PRD.BEF.TAX, @CR,
+      PAGE.TOP
+
+      END
+   END
+
+END % Of PROCEDURE SR.COM.RPT %
+ Y@PÖ
