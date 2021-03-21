@@ -1,0 +1,303 @@
+      SUBROUTINE YBCOMP
+      COMMON X(200),FAIL(200),SUSP(200),SUMS(9)
+      COMMON BOGEY,I,KEY,N,POP,SUMHRS,SUMHRF,SUMSUP,XZERO,IGO
+      COMMON TITLE(12),IPLT,LDEV,HOTLVL,SP,FP
+      COMMON/SUBCOM/YH(200),YL(200),YM(200),ASLOPE,BSLOPE
+      COMMON/SUBCM1/A,B,D,J,K,L,M,Y,XMAX,XMIN,PLT
+      DIMENSION RANKM(200)
+C*    alpha title
+C*    filename indata
+      LCNT = 0
+      SSHRF = 0.
+      PLT=KEY
+4001  IF(KEY.GT.3) KEY=3
+      IF (HOTLVL.EQ.0.0)  HOTLVL =5.0
+      K=0
+C ORDERING
+60    J=N-1
+      DO 64 K=1,J
+      IMIN=K
+      DO 63 I=K,N
+      IF (X(IMIN)-X(I)) 63, 63, 62
+62    IMIN=I
+63    CONTINUE
+      TS=X(K)
+      X(K)=X(IMIN)
+      X(IMIN)=TS
+      TS=FAIL(K)
+      FAIL(K) = FAIL(IMIN)
+      FAIL(IMIN)= TS
+      TS= SUSP(K)
+      SUSP(K) = SUSP(IMIN)
+      SUSP(IMIN)=TS
+64    CONTINUE
+      IF(LCNT .GE. 1) GO TO 70
+      NHAVG = SUMS(2)
+      THAVG = SUMHRF
+      HAVG = SUMHRF/SUMS(2)
+      DO 6080 J=1,N
+      JJ = N +1 -J
+      IF(SUSP(JJ).EQ.0.) GO TO 6080
+      IF(X(JJ).LT.HAVG) GO TO 65
+      NHAVG = NHAVG+SUSP(JJ)
+      THAVG=THAVG+X(JJ)*SUSP(JJ)
+      HAVG=THAVG/NHAVG
+6080  CONTINUE
+65    L=1
+      DO 69 I=2,N
+      IF(X(I)-X(L))68,68,66
+66    IF(FAIL(L))68,68,67
+67    L=L+1
+      FAIL(L)=FAIL(I)
+      SUSP(L)=SUSP(I)
+      GO TO 681
+68    FAIL(L)=FAIL(L)+FAIL(I)
+      SUSP(L)=SUSP(L)+SUSP(I)
+681   X(L)=X(I)
+69    CONTINUE
+      IF (FAIL(L))682,682,683
+682   L=L-1
+683   J=1
+C SEPARATING
+      IF(L.GT.30 .OR. LCNT.GE.1) GO TO 70
+      LCNT = 1
+      LSEP = L
+      DO 7050 JJ=1,LSEP
+      IF(FAIL(JJ).LE.1.0) GO TO 7050
+      KSEP = FAIL(JJ) - 1.0
+      FAIL(JJ) = 1.0
+      DO 7025 JJJ=1,KSEP
+      LSEP = LSEP + 1
+      X(LSEP) = X(JJ)
+      SUSP(LSEP) = 0.
+7025  FAIL(LSEP) = 1
+7050  CONTINUE
+      IF(L.NE.LSEP) TYPE 7055
+7055  FORMAT('  VALUES WERE SEPARATED')
+      L = LSEP
+      N = L
+      GO TO 60
+70    IF(KEY.GE.3) GO TO 30
+C GROUPING
+171   DELT=(X(L)-X(1))/9.
+      HAFD=DELT/2.
+      DELX=HAFD+X(1)
+      M=L+1
+      X(M)=X(L)+DELT
+      SUTS=0
+      FATS=0
+      DO 75 I=1,M
+72    IF(X(I)-DELX)73,73,74
+73    SUTS=SUTS+SUSP(I)
+      FATS=FATS+FAIL(I)
+      GO TO 75
+74    IF(FATS)741,741,742
+742   X(J)=DELX-HAFD
+      FAIL(J)=FATS
+      SUSP(J)=SUTS
+      J=J+1
+      FATS=0
+      SUTS=0
+741   DELX=DELX+DELT
+      GO TO 72
+75    CONTINUE
+      L=J-1
+30    CONTINUE
+      N=L
+      DO 31 I=1,L
+31    SUMS(1)=SUMS(1) + SUSP (I)
+      XMAX = X(N)
+      XMIN=X(1)
+      IENTER=SUMSUP+SUMS(2)
+      AVGF=SUMHRF/SUMS(2)+XZERO
+      AVGWS=(SUMHRS+SUMHRF)/IENTER+XZERO
+6051  IF((SUMSUP +SUMS(2)).LE.POP) GO TO  1031
+      POP = SUMSUP  + SUMS(2)
+      IF(IABS(IGO).NE.3) TYPE 1030, POP
+1030  FORMAT(' POPULATION WAS SMALLER BUT SET EQUAL TO ITEMS'
+     1  ,' ENTERED - ',F)
+6055  IF((POP-SUMSUP).GT.1) GO TO 1031
+      RETURN
+1031  CONTINUE
+4006  DO 32 I=1,N
+      SSHRF=SSHRF+X(I)**2*FAIL(I)
+32    X(I) = X(I)/XMAX
+      D=(X(N)-X(1))*.15
+      IF(D.GE.X(1)) D=X(1)/2.
+      IF(D.LE.0.0) D=.001
+      SI = 0.0
+      Z = 0.0
+      TI = 0.0
+      ORDER = 0.0
+      DO 34 I=1,N
+      SI = SI + SUSP (I)
+      ORDER=ORDER + FAIL(I)*(POP+1.0-ORDER)/(1.0+POP-SI-TI)
+      TI = TI + FAIL(I)
+      RANKM(I)=(ORDER-.3)/(POP+.4)
+      IF(RANKM(I).GE.1.0) RANKM(I)=.99999
+      Z=-(ALOG(1.0-RANKM(I)))
+      Z = ALOG(Z)
+      YM(I)=(Z+6.907255)*6/1.1246+.5
+      IF(YM(I).EQ.0)  YM(I)=1
+      SUMS(4) = SUMS(4) + Z
+      SUMS(6) = SUMS(6) + Z*Z
+      Y = ALOG(X(I))
+      SUMS(3) = SUMS(3) + Y
+      SUMS (5) = SUMS(5) + Y*Y
+34    SUMS(7) = SUMS(7) + Y*Z
+      TOT = N
+      DNOM=TOT*SUMS(5) - SUMS(3)*SUMS(3)
+      B = (TOT*SUMS(7) - SUMS(3)*SUMS(4))/DNOM
+      A=(SUMS(4)*SUMS(5)-SUMS(3)*SUMS(7))/DNOM
+      GOOD=(SUMS(6)-B*SUMS(7)-A*SUMS(4))*TOT/(TOT*SUMS(6)-SUMS(4))
+      GOOD=(1.0-GOOD)**0.5
+      CC = -(A/B)
+      CHARL = EXP(CC)
+45    CONTINUE
+      IF(IGO.GE.0) GO TO 47
+      TYPE 1530
+1530  FORMAT(/,20X,'LOG SOLUTION')
+      GO TO 57
+1565  FORMAT(/,20X,'EXPONENTIAL  SOLUTION',5X,I5)
+46    IGO= -IGO
+47    BO = B
+      CLO = CHARL
+      LCNT=0
+48    DO 49 I=3,7
+49    SUMS(I) = 0.0
+      DO 50 I=1,N
+      TS1 = X(I)/CLO
+      TS2 = TS1**BO
+      TS3 = ALOG(TS1)
+      IF(TS2-100.)1650,1648,1648
+1648  TS2=100.
+1650  TS4=EXP(-TS2)
+      Z=RANKM(I) - 1.0 + TS4
+      W = TS3*TS4*TS2
+      Y=-TS2*TS4/CLO*BO
+      SUMS(3) = SUMS(3) +W*W
+      SUMS(4) = SUMS(4) + W*Y
+      SUMS(5) = SUMS(5) + W*Z
+      SUMS(6)=SUMS(6)+Y*Y
+50    SUMS(7)=SUMS(7)+Y*Z
+      DNOM=SUMS(4)**2 - SUMS(3)*SUMS(6)
+      DQ=(SUMS(5)*SUMS(4)-SUMS(7)*SUMS(3))/DNOM
+      DB=(SUMS(7)*SUMS(4)-SUMS(5)*SUMS(6))/DNOM
+      IF(ABS(DQ)-.0001)52,54,54
+52    IF(ABS(DB)-.0001) 56, 54, 54
+54    CLO =CLO+DQ/2.
+      BO=BO+DB/2.
+      LCNT=LCNT+1
+      IF(LCNT.LT.100)    GO TO 48
+      IF(IABS(IGO).NE.1 .AND. IABS(IGO).NE.3) TYPE 1651, BO,CLO
+1651  FORMAT(' 100 ITERATIONS',/,'     BO       CLO',/,
+     1' ',2F10.5 ,//,' LOG SOLUTION USED ')
+      GO TO 57
+56    B=BO
+      TYPE 1565, LCNT
+      CHARL = CLO
+57    BSLOPE = B
+      ASLOPE = -(BSLOPE*ALOG(CHARL))
+      A = ASLOPE
+      GOOD=GOOD**.5
+      GO TO 35
+35    IF(IABS(IGO).NE.1 .AND. IABS(IGO).NE.3) TYPE 116
+116   FORMAT(1H0,3X,'LATEST  SUSP.  FAILURES   5 PCT. MEDIAN  95',
+     1 ' PCT     CAL')
+      IF(IABS(IGO).NE.1 .AND. IABS(IGO).NE.3) TYPE 118
+118   FORMAT(5X,'LIFE    SET  OBS.  CAL.   RANK   RANK    RANK'
+     1 ,'    MED RANK  DEV')
+      IF(IABS(IGO).NE.1 .AND. IABS(IGO).NE.3) TYPE 120
+120   FORMAT(' ')
+      PRVOR=0.0
+      SI=0.0
+      TI = 0.0
+      DO 42 I = 1,N
+      E=B*ALOG(X(I))+A
+      EE=EXP(E)
+      F=EXP(EE)
+      RM = 1.0-1.0/F
+      ORDER = RM*(POP+0.4) +0.3
+      SI = SI + SUSP(I)
+      FF = (ORDER-PRVOR)*(1.0+POP-SI-TI)/(POP+1.0-PRVOR)
+      TI = TI + FF
+      DEV = FAIL(I)-FF
+      PRVOR=ORDER
+      Q=0.3/(SUMS(2) + 1.0) + RM*(SUMS(2) +0.4)/(SUMS(2)+1.0)
+      SG=(Q*(1.0-Q)/(SUMS(2)+2.0))**0.5
+      A3=2.0*(1.0-2.0*Q)/(SG*(SUMS(2)+3.0))
+      T5=-1.645 + 0.2885*A3+0.0565*A3*A3
+      T95 = 1.645+0.2885*A3-0.0565*A3*A3
+      Q5 =Q+T5*SG
+      IF (Q5) 38, 40, 40
+38    Q5=0.0
+      ZQ5=.001
+      GO TO 1422
+40    ZQ5=-(ALOG(1.0-Q5))
+1422  ZQ5=ALOG(ZQ5)
+      YL(I)=(ZQ5+6.907255)*6/1.1246+.5
+      IF (YL(I).EQ.0) YL(I)=1
+      Q95 = Q+T95*SG
+      IF(Q95.GE.1) Q95=.995
+      ZQ95=-(ALOG(1-Q95))
+      IF(ZQ95.EQ.0) ZQ95=0
+      ZQ95=ALOG(ZQ95)
+      YH(I)=(ZQ95+6.907255)*6/1.1246+.5
+      IF(YH(I).EQ.0) YH(I)=1
+      XIX=X(I)*XMAX+XZERO
+42    IF(IABS(IGO).NE.1 .AND. IABS(IGO).NE.3) TYPE 44,XIX,
+     1 SUSP(I),FAIL(I),FF,Q5,RANKM(I),Q95,RM,DEV
+44    FORMAT(' ',F9.2,2F5.0,F7.2,F8.4,F8.4,F8.4,F10.4,F7.2)
+      CHRL=CHARL*XMAX+XZERO
+      XJUNK=POP-SUMS(2)
+      IF(XZERO.NE.0.) TYPE 1499, XZERO
+1499  FORMAT('     ////  XZERO OF ',F7.2,' WAS USED    ////')
+      IF(IABS(IGO).NE.1 .AND. IABS(IGO).NE.3) TYPE 8786, TITLE
+8786  FORMAT(//,1X,12A5,/)
+      TYPE 1500, CHRL
+1500  FORMAT(' CHARACTERISTIC LIFE=',F12.4)
+      TYPE 1496, B
+1496  FORMAT(' WEIBULL SLOPE=',6X,F12.4)
+1518  FX=1./(1.-HOTLVL/100.)
+      FX=ALOG(FX)
+      FX=ALOG(FX)
+      XLOG=(FX+B*ALOG(CHRL-XZERO))/B
+      ECKS = EXP(XLOG) +XZERO
+      TYPE 3,HOTLVL,ECKS
+3     FORMAT(/2X,F7.2,'  PER CENT OF POP WILL FAIL BEFORE ',F8.2,
+     1 ' UNITS ')
+      IF(BOGEY.NE.0.0) GO TO 1532
+6049  BOGEY = 3.5
+6050  IF(AVGF.GT.10.0)  BOGEY = 34.0
+1532  WIGGLE=((BOGEY-XZERO)/(CHRL-XZERO))**B
+      WIGGLE=EXP(-WIGGLE)
+      WIGGLE=1.-WIGGLE
+      WIGGLE=WIGGLE*100.
+      TYPE 3, WIGGLE,BOGEY
+1502  CONTINUE
+      TYPE 1492,GOOD
+1492  FORMAT(' GOODNESS OF FIT  =',7X,F6.4)
+      IF(IGO.LT.0) GO TO 46
+      TYPE 1504, POP
+1504  FORMAT(' TOTAL POPULATION =',4X,F6.1)
+      I=SUMS(2)
+      AVGZ=AVGF-XZERO
+      SDF=(SSHRF-SUMS(2)*AVGZ**2)/(SUMS(2)-1)
+      SDF=SDF**.5
+      TYPE 1512,I,AVGF,SDF
+1512  FORMAT(' AVERAGE OF FAILURES  (',I4,') =',F8.2
+     X,'     STD.DEV. = ',F8.2)
+      IF(IENTER.NE.I) TYPE 1514, IENTER,AVGWS
+1514  FORMAT( ' AVG. OF ITEMS ENTERED(',I4,') =',F8.2)
+      IF(IENTER.NE.I) TYPE 1515, NHAVG,HAVG
+1515  FORMAT(' HIGHEST AVG POSS. WITH SUSP ITEMS(',I4,') =',F8.2)
+      IF(IABS(IGO).NE.3)TYPE 1513,XJUNK
+1513  FORMAT(' TOTAL SUSPENDED ITEMS=',2X,F6.1)
+      IF(XJUNK.EQ.0) GO TO 188
+      IF(IABS(IGO).NE.3)TYPE 1508,SUMS(1)
+1508  FORMAT(' SUSPENDED ITEMS PRIOR TO LAST FAILURE =',F6.1)
+188   CONTINUE
+      RETURN
+      end
+      
+  
