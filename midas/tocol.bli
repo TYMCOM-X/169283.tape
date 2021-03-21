@@ -1,0 +1,74 @@
+MODULE  TOCOL
+(DOLLAR, ENTRIES=($TSKPO,$TCOLO), TIMING, TIMER=EXTERNAL(SIX12), FSAVE) =
+
+BEGIN
+
+% Version 1975.04.03    / Peter Haas  (HAASP) %
+
+REQUIRE CDEFS.BLI[7,107355];
+REQUIRE RDEFS.BLI[7,107355];
+REQUIRE UDEFS.BLI[7,107355];
+
+
+UNDECLARE $TSKPO;
+GLOBAL ROUTINE          $TSKPO (N)  =
+                % Position column pointer at (current column + .N) %
+BEGIN
+
+MAP     RB$ RSINK$;     % RSINK$ is a global variable %
+LOCAL   CLINE$ LCB;
+LCB := .RSINK$[RB$LCB];
+
+$TCOLO(.LCB[C$LCBCNT] + 1 + .N);
+
+END;    % of global routine $TSKPO %
+
+
+UNDECLARE $TCOLO;
+GLOBAL ROUTINE          $TCOLO (N)  =
+                % Position column pointer at .N %
+BEGIN
+
+MAP     RB$ RSINK$;
+LOCAL   CLINE$ LCB, BYTADR;
+
+IF .N  LSS 1
+    THEN        % Illegal column position %
+        BEGIN
+        $TILER ($USPTR ('Output tabulation < 1'), 0, 0);
+        RETURN 0;
+        END;
+
+IF .N  GTR .RSINK$[RB$LMAX]
+    THEN        % Column position beyond maximum for this report %
+        BEGIN
+        $TILER ($USPTR ('Output tabulation > line maximum'), 0, 0);
+        RETURN 0;
+        END;
+
+% Set appropriate Line Control Block fields %
+
+LCB := .RSINK$[RB$LCB];
+BYTADR := (.LCB[C$BPTR])<0,18>+(.N-1)/5;
+
+% Use C$WPTR and C$WCNT, if necessary, to store respective maxima  %
+% for C$EPTR and C$LCBCNT.                                         %
+
+IF .N - 1  LSS  .LCB[C$LCBCNT]
+    THEN        % Leftward tabulation occurring %
+        IF .LCB[C$LCBCNT]  GTR  .LCB[C$WCNT]
+            THEN        % C$LCBCNT has exceeded previous maximum, if any %
+                BEGIN
+                LCB[C$WCNT] := .LCB[C$LCBCNT];
+                LCB[C$WPTR] := .LCB[C$EPTR];
+                END;
+
+% Now set C$LCBCNT and C$EPTR to new current values %
+
+LCB[C$EPTR] := (.BYTADR)<36-((.N-1) MOD 5)*7,7>; % Pointer to preceding byte %
+LCB[C$LCBCNT] := .N - 1;
+
+END;    % Of global routine $TCOLO %
+
+
+END     % Of module TOCOL.BLI %
