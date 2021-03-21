@@ -1,0 +1,119 @@
+C           CALCULATE A- AND Z-MATRICES FOR PIECES                      CZA00110    
+C                                                                       CZA00120    
+      SUBROUTINE COMPZA                                                 CZA00130    
+C                                                                       CZA00140    
+C     MATRICES FOR CYLINDERS AND CONES, THE MOST FREQUENTLY USED        CZA00150    
+C     PTYPES, ARE CALCULATED INTERNALLY.  SUBROUTINES ARE CALLED TO      CZA00160    
+C     CALCULATE MATRICES FOR OTHER PTYPES.                               CZA00170    
+C                                                                       CZA00180    
+      COMMON /AZ    / A,Z,ZSW                                           CZA00190    
+      COMMON /CNTROL/ N(12),IE,IBC                                      CZA00200    
+      COMMON /COMPOZ/ AC,ZC                                             CZA00210    
+      COMMON /EDIT  / SEC(24),T(20),PTYPE(2),MO,IDAY,IYR,IRUN,OUT(4)     CZA00220    
+      COMMON /FREQ  / FREQ,TWOPI                                        CZA00230    
+      COMMON /PARAM / K(10,12),RHO(10,12),CL(10,12),AL(10,12),AR(10,12),CZA00240    
+     1C(10,12,2)                                                        CZA00250    
+      COMMON /SW    / LSW(20)                                           CZA00260    
+C                                                                       CZA00270    
+      COMPLEX CJ,RHOCA,RHOC,A(4,10,12),Z(4,10,12),AC(2,2,12),ZC(2,2,12),CZA00280    
+     1SINKL,COTKL,ARG,AK,CCC,ZZZ                                        CZA00290    
+C                                                                       CZA00300    
+      LOGICAL LSW                                                       CZA00310    
+C                                                                       CZA00320    
+      OMEGA=TWOPI*FREQ                                                  CZA00330    
+      CJ=(0.,1.)                                                        CZA00340    
+      IF(LSW(1))WRITE(6,230)PTYPE(1),FREQ,MO,IDAY,IYR,IRUN               CZA00350    
+      N2=0                                                              CZA00360    
+C     OUTER LOOP FOR SECTIONS.                                          CZA00370    
+      DO 220 J=1,12                                                     CZA00380    
+C       INITIALIZE COMPOSITE A AND Z MATRICES.                          CZA00390    
+        CALL PTYPE2(AC(1,1,J),ZC(1,1,J))                                 CZA00400    
+        N1=N2+1                                                         CZA00410    
+        N2=N1+1                                                         CZA00420    
+        IF(LSW(1))WRITE(6,260)SEC(N1),SEC(N2)                           CZA00430    
+        L=N(J)                                                          CZA00440    
+C       INNER LOOP FOR PIECES WITHIN A SECTION.                         CZA00450    
+        DO 200 I=1,L                                                    CZA00460    
+          M=K(I,J)+1                                                    CZA00470    
+          GOTO(100,100,130,140,150,160,170,180,130,130),M               CZA00480    
+  100     CCC=CMPLX(C(I,J,1),C(I,J,2))                                  CZA00490    
+          AK=TWOPI*FREQ/CCC                                             CZA00500    
+          ARG=AK*CL(I,J)                                                CZA00510    
+          SINKL=CSIN(ARG)                                               CZA00520    
+          GOTO(110,120),M                                               CZA00530    
+C                                                                       CZA00540    
+C         Z AND A-MATRICES FOR CYLINDRICAL PIECE.                       CZA00550    
+  110     RHOCA=CJ*RHO(I,J)*CCC*AL(I,J)                                 CZA00560    
+          Z(1,I,J)=-RHOCA*CCOS(ARG)/SINKL                               CZA00570    
+          Z(3,I,J)=RHOCA/SINKL                                          CZA00580    
+          Z(2,I,J)=-Z(3,I,J)                                            CZA00590    
+          Z(4,I,J)=-Z(1,I,J)                                            CZA00600    
+          CALL TRAN(Z(1,I,J),A(1,I,J))                                  CZA00610    
+          GOTO190                                                       CZA00620    
+C                                                                       CZA00630    
+C         Z AND A-MATRICES FOR CONICAL PIECE.                           CZA00640    
+  120     COTKL=CCOS(ARG)/SINKL                                         CZA00650    
+          RHOC=CJ*RHO(I,J)*CCC                                          CZA00660    
+          XT=CL(I,J)/(SQRT(AR(I,J)/AL(I,J))-1.0)                        CZA00670    
+          XH=CL(I,J)+XT                                                 CZA00680    
+          Z(1,I,J)=-RHOC*AL(I,J)*(COTKL+1.0/(AK*XT))                    CZA00690    
+          Z(3,I,J)=RHOC*SQRT(AL(I,J)*AR(I,J))/SINKL                     CZA00700    
+          Z(2,I,J)=-Z(3,I,J)                                            CZA00710    
+          Z(4,I,J)=RHOC*AR(I,J)*(COTKL-1.0/(AK*XH))                     CZA00720    
+          CALL TRAN(Z(1,I,J),A(1,I,J))                                  CZA00730    
+          GOTO190                                                       CZA00740    
+C                                                                       CZA00750    
+C         UNIT PTYPE PIECE.                                              CZA00760    
+  130     CALL PTYPE2(A(1,I,J),Z(1,I,J))                                 CZA00770    
+          IF(LSW(1))WRITE(6,270)I,T(M)                                  CZA00780    
+          GOTO200                                                       CZA00790    
+C                                                                       CZA00800    
+C         IDEAL TRANSFORMER.                                            CZA00810    
+  140     CALL PTYPE3(RHO(I,J),A(1,I,J),Z(1,I,J))                        CZA00820    
+          IF(LSW(1))WRITE(6,270)I,T(M)                                  CZA00830    
+          CALL PCHAIN(AC(1,1,J),A(1,I,J))                                CZA00840    
+          GOTO200                                                       CZA00850    
+C                                                                       CZA00860    
+C         SERIES IMPEDANCE.                                             CZA00870    
+  150     CALL PTYPE4(RHO(I,J),CL(I,J),AL(I,J),A(1,I,J),Z(1,I,J))        CZA00880    
+          IF(LSW(1))WRITE(6,270)I,T(M)                                  CZA00890    
+          CALL PCHAIN(AC(1,1,J),A(1,I,J))                                CZA00900    
+          GOTO200                                                       CZA00910    
+C                                                                       CZA00920    
+C         PARALLEL IMPEDANCE.                                           CZA00930    
+  160     CALL PTYPE5(RHO(I,J),CL(I,J),AL(I,J),A(1,I,J),Z(1,I,J))        CZA00940    
+          GOTO190                                                       CZA00950    
+C                                                                       CZA00960    
+C         SERIES ADMITTANCE.                                            CZA00970    
+  170     CALL PTYPE6(RHO(I,J),CL(I,J),AL(I,J),A(1,I,J),Z(1,I,J))        CZA00980    
+          IF(LSW(1))WRITE(6,270)I,T(M)                                  CZA00990    
+          CALL PCHAIN(AC(1,1,J),A(1,I,J))                                CZA01000    
+          GOTO200                                                       CZA01010    
+C                                                                       CZA01020    
+C         PARALLEL ADMITTANCE.                                          CZA01030    
+  180     CALL PTYPE7(RHO(I,J),CL(I,J),AL(I,J),A(1,I,J),Z(1,I,J))        CZA01040    
+C                                                                       CZA01050    
+C         CASCADE A-MATRICES.                                           CZA01060    
+  190     CALL PCHAIN(AC(1,1,J),A(1,I,J))                                CZA01070    
+          IF(LSW(1))WRITE(6,240)I,T(M),(Z(IJ,I,J),IJ=1,4)               CZA01080    
+  200   CONTINUE                                                        CZA01090    
+C                                                                       CZA01100    
+C       COMPUTE COMPOSITE A AND Z-MATRICES.                             CZA01110    
+        IF(CABS(AC(2,1,J)).EQ.0.0)GOTO210                               CZA01120    
+        CALL TRAN(AC(1,1,J),ZC(1,1,J))                                  CZA01130    
+  210   IF(LSW(1))WRITE(6,250)((ZC(I,IJ,J),I=1,2),IJ=1,2)               CZA01140    
+  220 CONTINUE                                                          CZA01150    
+      RETURN                                                            CZA01160    
+C                                                                       CZA01170    
+  230 FORMAT (1H1//6XA6,27H TRANSDUCER ANALYSIS OUTPUT,10X11HFREQUENCY =CZA01180    
+     1,F8.2,10X4HDATE,I4,1H/,I2,1H/,I2,10X10HRUN NUMBER,A7//6X39HNON-PIECZA01190    
+     2ZOELECTRIC QUADRUPOLE IMPEDANCES//7X5HPIECE,15X3HZ11,23X3HZ21,23X3CZA01200    
+     3HZ12,23X3HZ22/6X8HNO. TYPE,7X4HREAL,8X4HIMAG,3(10X4HREAL,8X4HIMAG)CZA01210    
+     4//)                                                               CZA01220    
+  240 FORMAT (6XI2,1XA6,4(1PE14.4,E12.4))                               CZA01230    
+  250 FORMAT (6X9HCOMPOSITE,4(1PE14.4,E12.4))                           CZA01240    
+  260 FORMAT (/16X2A6)                                                  CZA01250    
+  270 FORMAT (6XI2,1XA6,41H   (PIECE HAS NO Z-MATRIX REPRESENTATION))   CZA01260    
+C                                                                       CZA01270    
+      END                                                               CZA01280    
+ 
