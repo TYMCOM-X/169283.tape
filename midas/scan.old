@@ -1,0 +1,564 @@
+MODULE SCAN(DOLLAR,ENTRIES=($ASCAN,$ATKGEN),
+   FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=BEGIN
+%VERSION E5     %
+%LAST UPDATE, APR. 4, 1975, BY VEV      %
+REQUIRE KDEFS.BLI[7,107355];
+REQUIRE WDEFS.BLI[7,107355];
+REQUIRE ADEFS.BLI[7,107355];
+REQUIRE CDEFS.BLI[7,107355];
+REQUIRE SDEFS.BLI[7,107355];
+REQUIRE UDEFS.BLI[7,107355];
+REQUIRE TDEFS.BLI[7,107355];
+REQUIRE FDEFS.BLI[7,107355];
+
+%SCANNER        %
+
+UNDECLARE $ASCAN,$ATKGEN;
+
+MAP S$ ACBUF$, A$ ATOKN$,SNAM$ ATBF$, KFCB$ WFILE$, CLINE$ WBUF$;
+
+FORWARD GLIN,MKTOK,$ATKGEN,MKEN;
+
+
+BIND VAL1=AVAL$[1];
+
+MACRO WCI(N)=REPLACEI(TBFP,N)&,         %WRITES CHAR. IN NAME BLK       %
+   SCHC=CHC:=IF .ANCH$ GTR "Z" OR .ANCH$ LSS #42 THEN 7
+        ELSE .CHT[.ANCH$-#42]&,
+   FERR(S)=($UOUTM(FTLMS$<36,7>,0); $FATAL(S))&,   %TYPE FATAL ERR MSG. %
+   ERR(S)=ERSW:=S&,
+   UGCH=(CH:=.ANCH$; ACHP$:=.ACHP$+1;
+     ANCH$:=IF .ANCH$ EQL CR THEN GLIN() ELSE SCANI(AP$))&,
+   GCH=(CH:=.ANCH$;
+   ACHP$:=.ACHP$+1;
+   ANCH$:=IF .ANCH$ EQL CR THEN GLIN() ELSE SCANI(AP$);
+   IF .ANCH$ GTR #140 AND .ANCH$ LSS #173 THEN
+      ANCH$:=.ANCH$-#40)&;
+
+%SPECIAL CHAR. TABLE - STARTS WITH "("  %
+BIND SPCHTB=PLIT (TV$LPAREN,TV$RPAREN,TV$STAR,TV$PLUS,TV$COMMA,
+   TV$MINUS,TV$PERIOD,TV$SLASH);
+
+BIND
+  SPACE=#40,    %SPACE (BLANK) CHAR.    %
+  CR=#15,       %CARRIAGE RETURN        %
+  FF=#14,       %FORM FEED      %
+  LF=#12;       %LINE FEED      %
+
+BIND ALP=1^32,DIG=1^33,PER=1^34; %FLAGS FOR CHAR. TABLE WHERE   %
+%ALP FOR ALPHABETICALS, DIG FOR DIGITS, AND PER FOR PERIOD      %
+
+%CHAR. TABLE WHERE      %
+%0=PERCENT-SIGN FOR START OF COMMENT    %
+%1=ALPHA. CHAR., FOR START OF NAME      %
+%2=AT-SIGN FOR INTEGER NAME OR C.C.LITERAL      %
+%3=DIGIT OR PERIOD FOR START OF INTEGER LITERAL %
+%4=QUOTES, FOR QUOTED STRING    %
+%5=RELATIONAL OPERATORS %
+%6=SPECIAL CHARACTERS   %
+%7=ILLEGAL CHARS.       %
+BIND CHT=PLIT (4,5,7,0,7,4,6:6,PER+3,6,10:DIG+3,
+   6,7,3:5,7,2,26:ALP+1);
+
+GLOBAL ROUTINE $ASCAN=
+BEGIN
+
+LOCAL TOK[AV$SZTOK];            %TEMP. STORAGE FOR TOKEN        %
+
+ANCH$:=#15;              %TO FORCE  FIRST LINE   %
+ALINE$:=0;               %MAKES FIRST  LINE =  1 %
+ASF$:=1;         %DUMMY FILE NO. %
+$CSTART(CV$ALPHAOUT);         %START ALPHA FILE %
+DO
+  BEGIN
+  $ATKGEN(TOK);     %GET NEXT TOKEN     %
+  $COUTA(TOK)          %WRITE IN ALPHA FILE     %
+  END
+UNTIL
+  .ATOKN$[A$ID] EQL TV$EOF;
+$CSTOP(CV$ALPHAOUT);
+$KFREEFCB(WFILE$);
+
+END;
+%      %
+%TOKEN GENERATOR        %
+%FOR EACH CALL, RETURNS POINTER TO "TOKEN" BLOCK THAT CONTAINS  %
+%   ONE ALPHA TOKEN.   ANY ERROR MAKES CALL TO "ERR(NUMBER)" WHERE      %
+%   NUMBER IS BETWEEN 51 AND 99.        %
+GLOBAL ROUTINE $ATKGEN(TKSP)=
+BEGIN
+
+LOCAL BF[SV$MSTL/5+3],ERSW,SCH,T1,T2,T3,CT1,CHC,TBFP,CT,CH,S$ CBUF,
+   EBF[AV$SZTOK],A$ PEBF;
+
+LABEL ERS0,ERS3,ERS4;
+
+FUNCTION BLDST=
+BEGIN
+
+LABEL FER;
+
+FER: WHILE .CHC GTR ALP DO
+   BEGIN
+   GCH;
+   SCHC;                        %SET CHAR. CONTROL WORD %
+   WCI(.CH);                    %WRITE CHAR. IN NAME BLOCK      %
+   CT := .CT+1;
+   IF .CT GTR SV$MXNL THEN
+      BEGIN
+      ERR(57);                %STRING TOO LONG  %
+      WHILE .CHC GTR ALP DO
+        BEGIN
+        GCH;            %DISCARD REST OF STRING %
+        SCHC
+        END;
+      LEAVE FER
+      END
+   END;
+
+INCR K TO 3 DO WCI(SPACE);      %FILL WITH SPACE CHARS. %
+
+ATBF$[S$NCHAR] := .CT;            %BUILD FIRST WORD OF NAME BLK. %
+
+ASIZE$ := (.CT+9)/5                %SIZE HAS NO. OF WORDS IN BLK %
+END;
+
+
+
+ERSW := 0;               %CLEAR ERROR SWITCH     %
+ATOKN$ :=.TKSP;
+ATBF$ := BF;             %SET PTR TO TEMP BUF AREA       %
+PEBF := EBF;             %SET PTR TO ERROR BUFFER        %
+
+T1 := .ATOKN$;
+INCR K TO AV$SZTOK-1 DO (@T1)[.K] := 0;    %CLEAR TOKEN BUFFER   %
+T1 := .ATBF$;
+INCR K TO SV$MSTL/5+2 DO (@T1)[.K]:=0;   %CLEAR TEMP. BUFFER     %
+%      %
+DO BEGIN
+   WHILE (.ANCH$ EQL SPACE) OR
+         (.ANCH$ EQL CR) OR
+         (.ANCH$ EQL LF) OR
+         (.ANCH$ EQL #11)       %DISCARD CONTROL "I"    %
+   DO GCH;                 %DISCARDS SPACE AND CAR.RET. %
+   IF .ANCH$ NEQ CV$EOF THEN
+      BEGIN
+      IF .ANCH$ EQL "$" AND
+          .AIO$ NEQ 0 THEN
+         CHC := .CHT["A" - #42]
+      ELSE
+         SCHC;                          %SET CHAR. CONTROL WORD %
+
+      ASVLN$ := .ALINE$;        %SET POS. INDICATORS FOR START OF TOKEN  %
+      ASVCP$ := .ACHP$;
+
+      CASE (.CHC AND #7) OF 
+         SET                       %TOKEN PROC. ROUTINES BY 1ST CHAR.   %
+
+%      %
+%SET E. 0       %
+%PERCENT-SIGN, START OF COMMENT %
+
+BEGIN
+DO GCH UNTIL
+  .ANCH$ EQL "%" OR .ANCH$ EQL CV$EOF;
+IF .ANCH$ EQL CV$EOF THEN ERR(52)               %COMMENT NOT TERMINATED %
+  ELSE GCH
+END;
+%      %
+%SET E. 1       %
+%ALPHA. CHAR., FOR START OF A NAME      %
+
+BEGIN
+TBFP := (.ATBF$)<0,7>;              %BYTE POINTER FOR BUILDING STRING    %
+CT := 0;                         %CHAR. COUNT    %
+BLDST();
+
+IF .ANCH$ EQL ":" THEN
+  BEGIN
+  GCH;
+  IF .ERSW EQL 0 THEN ERSW:=MKEN(SV$LABEL,TV$LABEL)
+    ELSE MKEN(SV$LABEL,TV$LABEL)
+  END
+ELSE
+  MKEN(SV$NAME,TV$NAME);          %GO MAKE ENTRY AND BUILD TOKEN BLOCK  %
+
+END;
+%      %
+%SET E. 2       %
+%AT-SIGN FOR INTEGER NAME OR C.C. LITERAL       %
+
+BEGIN
+TBFP := (.ATBF$)<0,7>;              %BYTE POINTER FOR BUILDING STRING    %
+GCH;                     %TO NEXT CHAR. %
+SCHC;                           %SET CHAR. CONTROL WORD %
+
+IF .CHC GTR PER THEN ERR(53)    %PERIOD ILLEGAL HERE    %
+ELSE IF .CHC GTR DIG THEN
+   %CONTROL-CHAR. LITERAL SINCE CHAR. AFTER AT-SIGN IS DIGIT    %
+   BEGIN
+   GCH;
+   SCHC;
+   VAL1 := .CH-#60;              %CHANGE DIGIT INTO VALUE        %
+   IF .CHC LSS PER AND .CHC GTR DIG THEN
+      BEGIN
+      GCH;
+      SCHC;
+      VAL1 := .VAL1*10+.CH-#60;  %GET VALUE OF NEXT DIGIT        %
+      IF .CHC LSS PER AND .CHC GTR DIG THEN
+         BEGIN
+         GCH;
+         SCHC;
+         VAL1 := .VAL1*10+.CH-#60;
+         IF .CHC LSS PER AND .CHC GTR DIG THEN ERR(60)
+         END
+      END;
+   ATBF$[S$NCHAR] := 1;           %MAKE LOOK LIKE 1 CHAR. STRING %
+   WCI(.VAL1);                %WRITE THE INTEGER VALUE AS A CHAR.       %
+   ASIZE$ := 2;                    %NO. OF WORDS %
+
+   ATBF$[S$DDTYPE] := SV$SLIT;        %CLASS OF STRING   %
+   MKEN(SV$STLIT,TV$CCLIT)      %MAKE ENTRY AND COMPLETE TOKEN BLOCK    %
+   END
+ELSE IF .CHC GTR ALP THEN
+   %AT-SIGN STRING LITERAL SINCE STARTS WITH ALPHA.     %
+   BEGIN
+   CT :=1;                       %FOR FIRST CHAR, WRITE IT NOW   %
+   WCI(.CH);
+   BLDST();                %BUILD STRING        %
+   ASTP$ := $SLKUP(.ATBF$,.ASIZE$);     %LOOK-UP STRING., MUST BE THERE  %
+   IF .ASTP$ EQL 0 THEN
+     %AT-SIGN NAME NOT IN RES.WORD TABLE, REPLACE WITH "@CR"    %
+     BEGIN
+     ERR(54);           %AT-SIGN NAME NOT IN RES. WORD TABLE    %
+     ATBF$[S$NCHAR]:=3;
+     ASIZE$:=2;
+     BF[1]:='@CR  ';
+     ASTP$:=$SLKUP(.ATBF$,.ASIZE$);
+     IF .ASTP$ EQL 0 THEN FERR(#54)
+     END;
+
+   CBUF := $SGSTE(.ASTP$);         %GET THIS ENTRY       %
+
+   AID$ := .CBUF[S$TOKEN];            %GET TOKEN ID NO. FOR THIS RES.WORD        %
+   $SFRNCH(.CBUF);              %FREE BUFFER    %
+   IF .AID$ EQL TV$9FF THEN
+      BEGIN
+      ATBF$[S$NCHAR]:=1;
+      TBFP:=(.ATBF$)<0,7>;
+      WCI(FF);
+      ASIZE$:=2;
+      ATBF$[S$DDTYPE] := SV$SLIT;        %CLASS OF STRING        %
+      MKEN(SV$STLIT,TV$CCLIT)
+      END
+   ELSE IF .AID$ EQL TV$9CR THEN
+      BEGIN
+      ATBF$[S$NCHAR]:=1;
+      TBFP:=(.ATBF$)<0,7>;
+      WCI(CR);
+      ASIZE$:=2;
+      ATBF$[S$DDTYPE] := SV$SLIT;        %CLASS OF STRING        %
+      MKEN(SV$STLIT,TV$9CR)
+      END
+   ELSE MKTOK();
+   END
+ELSE ERR(55);                   %ILLEGAL CHAR. AFTER AT-SIGN    %
+
+END;
+%      %
+%SET E. 3       %
+%DIGIT OR PERIOD, START OF INTEGER LITERAL      %
+
+BEGIN
+
+%MAKES A BINARY INTEGER %
+ERS3: BEGIN
+VAL1:=AVAL$:=APER$:=ANID$:=ANDP$:=0;
+WHILE
+   BEGIN
+   SCHC;                        %SET CHAR. CONTROL WORD %
+   (.CHC GTR DIG) OR
+   ((.CHC GTR PER) AND (.APER$ NEQ 0))
+   END
+DO BEGIN
+   IF .ANID$+.ANDP$ EQL 20 THEN
+      BEGIN
+      ERR(58);          %INTEGER INPUT EXCEEDS 20 DIGITS        %
+      LEAVE ERS3
+      END;
+   GCH;
+   IF .CHC GTR PER THEN
+      APER$ := 1
+   ELSE
+      BEGIN
+      IF .APER$ EQL 0 THEN
+         ANID$ := .ANID$+1
+      ELSE
+         ANDP$ := .ANDP$+1;
+      $UMPY(AVAL$,10);
+      T1 := .CH - #60;
+      $UDADD(AVAL$,.T1)
+      END;
+   END
+END;
+
+ATBF$[S$NID] := .ANID$;             %NO. OF DIGITS TO LEFT OF POINT      %
+
+ATBF$[S$NDP] := .ANDP$;             %NO. OF DIGITS TO RIGHT OF POINT     %
+
+T1 := .ATBF$;            %FOR UNSTRUCTURED STORAGE OF VALUE      %
+
+IF .APER$ EQL 0 AND .ANCH$ EQL "B" THEN
+   %NO. OF BLANKS SPEC. %
+   BEGIN
+   GCH;
+   CT:=.VAL1;            %NO OF BLANKS   %
+   TBFP:=(.ATBF$)<0,7>;
+   INCR K TO .CT+2 DO WCI(SPACE);
+   ASIZE$:=(.CT+9)/5;
+   ATBF$[S$DDTYPE]:=SV$SLIT;
+   ATBF$[S$NCHAR]:=.CT;
+   MKEN(SV$STLIT,TV$STRING)
+   END
+ELSE IF .ANID$+.ANDP$ LEQ 10 THEN
+   %SINGLE PRECISION INTEGER IN 2ND WORD ONLY   %
+   BEGIN
+   (@T1)[1] := .VAL1;    %BINARY VALUE INTO BUFFER       %
+   ASIZE$ := 2;
+   ATBF$[S$DDTYPE] := SV$SINGD;
+   IF .APER$ EQL 0 THEN
+      MKEN(SV$SWLIT,TV$INTLIT)     %GO MAKE ENTRY & TOKEN       %
+   ELSE
+      MKEN(SV$SWLIT,TV$DECLIT);
+   END
+ELSE
+   %DOUBLE PRECISION INTEGER    %
+   BEGIN
+   ASIZE$ := 3;
+   (@T1)[1] := .AVAL$;   %FIRST WORD OF VALUE    %
+   (@T1)[2] := .VAL1;    %SECOND WORD OF VALUE   %
+   ATBF$[S$DDTYPE] := SV$DBLD;
+   IF .APER$ EQL 0 THEN
+      MKEN(SV$DWLIT,TV$INTLIT)
+   ELSE
+      MKEN(SV$DWLIT,TV$DECLIT);
+   END
+
+END;
+%      %
+%SET E. 4       %
+%QUOTED STRING  %
+
+BEGIN
+TBFP := (.ATBF$)<0,7>;              %BYTE POINTER FOR BUILDING STRING    %
+CT := 0;
+GCH;
+SCH := .CH;                      %STARTING CHAR (TYPE OF QUOTE)  %
+
+ERS4: WHILE 1 DO
+   BEGIN
+   IF .ANCH$ EQL .SCH THEN
+     BEGIN
+     GCH;
+     IF .ANCH$ NEQ .SCH THEN LEAVE ERS4
+     END;
+   IF .ANCH$ EQL CR THEN
+      BEGIN
+      ERR(61);                  %C.R. ENDS ILLEGALLY QUOTED STRING      %
+      GCH;
+      LEAVE ERS4
+      END;
+   UGCH;
+   WCI(.CH);
+   CT := .CT+1;
+   IF .CT GTR SV$MSTL THEN
+     BEGIN
+     ERR(57);           %STRING TOO LONG        %
+     UNTIL .ANCH$ EQL .SCH OR .ANCH$ EQL CR DO UGCH;
+     LEAVE ERS4
+     END;
+   END;
+INCR K TO 3 DO WCI(SPACE);      %FILL WITH SPACE CHARS. %
+ASIZE$ := (.CT+9)/5;               %NO. OF WORDS %
+ATBF$[S$DDTYPE] := SV$SLIT;        %CLASS OF STRING      %
+ATBF$[S$NCHAR] := .CT;            %NO. OF CHARS. IN STRING       %
+
+MKEN(SV$STLIT,TV$STRING)        %MAKE ENTRY AND TOKEN   %
+
+END;
+%      %
+%SET E. 5       %
+%RELATIONAL OPERATORS   %
+
+BEGIN
+GCH;
+ATOKN$[A$ID]:= IF (.CH EQL "<") OR (.CH EQL ">") THEN
+  IF .ANCH$ EQL "=" THEN
+    BEGIN
+    T1:=.CH;
+    GCH;
+    IF .T1 EQL "<" THEN TV$LE ELSE TV$GE
+    END
+  ELSE IF .CH EQL "<" THEN TV$LT ELSE TV$GT
+ELSE IF .CH EQL "=" THEN TV$EQ ELSE TV$NE;
+
+ATOKN$[A$LN] := .ALINE$;
+ATOKN$[A$CP] := .ACHP$;
+ATOKN$[A$SF] := .ASF$;
+ATOKN$[A$STP] := 0;
+ATOKN$[A$CID] := AV$TRUE
+
+END;
+%      %
+%SET E. 6       %
+%SPECIAL CHARACTER      %
+
+BEGIN
+IF .ANCH$ EQL ":" THEN
+   ATOKN$[A$ID] := TV$COLON
+ELSE
+   ATOKN$[A$ID] := .SPCHTB[.ANCH$ - "("]; %SPEC.CHAR.TBL STARTS WITH "(" %
+ATOKN$[A$LN] := .ALINE$;
+ATOKN$[A$CP] := .ACHP$;
+ATOKN$[A$SF] := .ASF$;
+ATOKN$[A$STP] := 0;
+ATOKN$[A$CID] := AV$TRUE;
+
+GCH
+
+END;
+%      %
+%SET E. 7       %
+%ILLEGAL CHAR   %
+
+ERR(59);      %ILLEGAL CHARACTER        %
+%      %
+%END OF MAIN BODY       %
+      TES;
+      IF .ERSW NEQ 0 THEN
+        BEGIN
+        %WRITE ERROR BLOCK      %
+        PEBF[A$STP]:=0;
+        PEBF[A$ID]:=TV$ERROR;
+        PEBF[A$LN]:=.ALINE$;
+        PEBF[A$CP]:=.ACHP$;
+        PEBF[A$SF]:=.ASF$;
+        PEBF[A$CID]:=AV$FALSE;
+        PEBF[A$SBID]:=0;
+
+        $FERROR(FV$FATAL,.PEBF,.ERSW,0);         %WRITE THE ERROR BLK IN ERR FILE       %
+        IF .ERSW EQL 59 THEN GCH;       %LETS PTR STAY ON BAD CHAR.     %
+        ERSW:=0
+        END
+     END
+   ELSE
+     BEGIN
+     ATOKN$[A$STP]:=0;
+     ATOKN$[A$ID]:=TV$EOF;
+     ATOKN$[A$LN]:=.ALINE$+1;
+     ATOKN$[A$CP]:=0;
+     ATOKN$[A$SF]:=.ASF$;
+     ATOKN$[A$CID]:=AV$FALSE;
+     ATOKN$[A$SBID]:=0
+     END
+   END
+WHILE
+   BEGIN
+   T1 := .ATOKN$;
+   .(@T1)[0]
+   END
+   EQL 0;               %CONTINUE UNTIL HAVE A TOKEN    %
+
+.ATOKN$                  %RETURN TOKEN ADR. AS VALUE    %
+END;
+
+
+%MAKE ENTRY IN SYMBOL TABLE     %
+%REQUIRES INPUT PARAMETERS OF   %
+%   TYPE                ENTRY TYPE VALUE        %
+%   ID                  TOKEN ID VALUE  %
+%ALSO CALLS MKTOK TO FILL IN THE TOKEN FIELDS   %
+%IF ENTRY ALREADY EXISTS, THEN JUST MAKES TOKEN.        %
+
+ROUTINE  MKEN(TYPE,ID)=
+BEGIN
+LOCAL S$ CBUF:IB,ERS,T1,T2;
+
+ERS := 0;                %CLEAR ERR SW.  %
+AID$ := .ID;             %SETUP TOKEN ID FIELD FOR MKTOK ROUTINE %
+
+ASTP$ := $SLKUP(.ATBF$,.ASIZE$);
+IF .ASTP$ EQL 0 THEN
+   BEGIN
+   CBUF := $SGVSTS (.TYPE, .ASIZE$);
+   ASTP$ := CBUF[S$STP1] := .CBUF[S$STPX];
+   MKTOK();
+   CBUF[S$TOKEN] := .AID$;
+   IF .AIO$ NEQ 0 THEN CBUF[S$ENFL]:=SV$TRUE;
+   T1 := CBUF[S$NAME];
+   T2 := .ATBF$;
+   INCR K TO .ASIZE$-1 DO
+      (@T1)[.K] := .(@T2)[.K];   %COPIES NAME INTO ENTRY BUFFER  %
+   IF (.ID NEQ TV$NAME AND .ID NEQ TV$LABEL) OR
+      .AIO$ NEQ 0 THEN
+      %MAKE LITERAL INCARNATION ENTRY   %
+      BEGIN
+      IB:=$SGVSTS(SV$LIE,.ASIZE$); %GET BUFFER FOR ENTRY %
+      CBUF[S$LITINCP]:=.IB[S$STPX];      %SET PTR. IN NAME ENTRY TO THIS %
+      IB[S$STP1]:=.ASTP$;                %SET PTR BACK TO NAME ENTRY     %
+      T1:=IB[S$NAME];
+      T2:=.ATBF$;
+      INCR K TO .ASIZE$-1 DO (@T1)[.K]:=.(@T2)[.K];      %COPIES STRING  %
+      IF .AIO$ NEQ 0 AND .ID EQL TV$NAME THEN
+        IB[S$DDTYPE]:=SV$SLIT;           %SET STR.LIT. FOR NAME TYPE RES.WD%
+      $SFRCH(.IB)
+      END;
+   ASTP$ := $SFNME(.CBUF,.ASIZE$)     %MAKE NAME ENTRY   %
+   END
+ELSE
+   BEGIN
+   IF .AID$ EQL TV$LABEL THEN
+     ERS:=62                     %LABEL NAME ALREADY ENTERED     %
+   ELSE
+     BEGIN
+     CBUF := $SGSTE(.ASTP$);
+     IF .CBUF[S$TOKEN] NEQ TV$LABEL THEN
+       AID$ := .CBUF[S$TOKEN];            %GET TOKEN ID FROM ENTRY       %
+     $SFRNCH(.CBUF);              %FREE BUFFER  %
+     MKTOK();
+     ATOKN$[A$RSW]:=.CBUF[S$RSW]         %SET RESERVED WORD FLAG %
+     END
+   END;
+.ERS
+END;
+
+ROUTINE MKTOK=
+BEGIN
+ATOKN$[A$STP] := .ASTP$;
+ATOKN$[A$ID]  := .AID$;
+ATOKN$[A$LN]  := .ASVLN$;
+ATOKN$[A$CP]  := .ASVCP$;
+ATOKN$[A$SF]  := .ASF$;
+ATOKN$[A$CID] := AV$FALSE
+END;
+%      %
+%      %
+%GETS NEXT LINE %
+ROUTINE GLIN=
+BEGIN
+
+IF .ANCH$ EQL CV$EOF THEN RETURN CV$EOF;
+ALINE$ := .ALINE$ + 1;
+ACHP$ := 1;
+AP$:=IF .AIO$ EQL 0
+       THEN BEGIN
+         IF .WFILE$[K$EOFILE]
+           THEN RETURN CV$EOF;
+         $KREAD(WFILE$);
+         .WBUF$[C$BPTR]   END
+       ELSE (.AIO$)<36,7>;
+SCANI(AP$)
+
+END;
+
+END ELUDOM
