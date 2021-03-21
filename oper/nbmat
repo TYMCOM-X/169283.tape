@@ -1,0 +1,76 @@
+C           CALCULATE COMPOSITE B-MATRIX FOR TUNING NETWORK.            BMA00110    
+C                                                                       BMA00120    
+        SUBROUTINE BMAT
+C                                                                       BMA00140    
+C     AI = A-MATRIX FOR INDIVIDUAL SECTION OF TUNING NETWORK.           BMA00150    
+C     B = COMPOSITE B-MATRIX FOR TUNING NETWORK.                        BMA00160    
+C     BS = B-MATRICES FOR INDIVIDUAL SECTIONS OF TUNING NETWORK.        BMA00170    
+C     KTUNE = ARRAY OF PTYPES OF INDIVIDUAL SECTIONS.                    BMA00180    
+C     NTUNE = NUMBER OF PASSIVE SECTIONS IN TUNING NETWORK.             BMA00190    
+C     RLCT = ARRAY OF TUNING NETWORK COMPONENTS.                        BMA00200    
+C     ZI = Z-MATRIX FOR INDIVIDUAL SECTION OF TUNING NETWORK.           BMA00210    
+C                                                                       BMA00220    
+      COMMON /CC    / ACC,ALPHA,BETA,B,PHI,CCS,Z0,ZCC,C0,AKL,ZZ0,ZC0,ZB BMA00230    
+      COMMON /CNTROL/ N(12),IE,IBC                                      BMA00240    
+      COMMON /EDIT  / SEC(24),T(20),PTYPE(2),MO,IDAY,IYR,IRUN,OUT(4)     BMA00250    
+      COMMON /FREQ  / FREQ,TWOPI                                        BMA00260    
+      COMMON /SW    / LSW(20)                                           BMA00270    
+      COMMON /TUNE  / NTUNE,KTUNE(10),RLCT(4,10),IABCD                  BMA00280    
+      COMMON /TUNEB / BS(4,10,2)                                        BMA00290    
+C                                                                       BMA00300    
+      COMPLEX ACC(2,3,2),ALPHA(2,2,2),BETA(2,2),B(2,2,2),PHI,CCS,Z0,ZCC(BMA00310    
+     12,2),C0,AKL,ZZ0,ZC0,ZB(2,3),Z1,Z2,Z3,CJ,AI(2,2),ZI(2,2),BS        BMA00320    
+C                                                                       BMA00330    
+      LOGICAL LSW                                                       BMA00340    
+C                                                                       BMA00350    
+      IF(LSW(2).AND.NTUNE.GT.1)WRITE(6,230)FREQ,MO,IDAY,IYR,IRUN        BMA00360    
+C     INITIALIZE COMPOSITE B-MATRIX                                     BMA00370    
+      B(1,1,IE)=(1.,0.)                                                 BMA00380    
+      B(1,2,IE)=(0.,0.)                                                 BMA00390    
+      B(2,1,IE)=(0.,0.)                                                 BMA00400    
+      B(2,2,IE)=(1.,0.)                                                 BMA00410    
+C     CALCULATE A B-MATRIX FOR EACH SECTION OF THE TUNER                BMA00420    
+      IF(NTUNE.EQ.0)GOTO210                                             BMA00430    
+      DO 190 I=1,NTUNE                                                  BMA00440    
+        KT=KTUNE(I)                                                     BMA00450    
+        IF(KT.NE.0.AND.KT.NE.1)GOTO110                                  BMA00460    
+  100   WRITE(6,220)KT                                                  BMA00470    
+        BS(1,I,IE)=(1.,0.)                                              BMA00480    
+        BS(2,I,IE)=(0.,0.)                                              BMA00490    
+        BS(3,I,IE)=(0.,0.)                                              BMA00500    
+        BS(4,I,IE)=(1.,0.)                                              BMA00510    
+        GOTO190                                                         BMA00520    
+  110   KTP1=KT+1                                                       BMA00530    
+        GOTO(100,100,120,130,140,150,160,170,120,120),KTP1              BMA00540    
+  120   CALL PTYPE2(AI,ZI)                                               BMA00550    
+        GOTO180                                                         BMA00560    
+  130   CALL PTYPE3(RLCT(4,I),AI,ZI)                                     BMA00570    
+        GOTO180                                                         BMA00580    
+  140   CALL PTYPE4(RLCT(1,I),RLCT(2,I),RLCT(3,I),AI,ZI)                 BMA00590    
+        GOTO180                                                         BMA00600    
+  150   CALL PTYPE5(RLCT(1,I),RLCT(2,I),RLCT(3,I),AI,ZI)                 BMA00610    
+        GOTO180                                                         BMA00620    
+  160   CALL PTYPE6(RLCT(1,I),RLCT(2,I),RLCT(3,I),AI,ZI)                 BMA00630    
+        GOTO180                                                         BMA00640    
+  170   CALL PTYPE7(RLCT(1,I),RLCT(2,I),RLCT(3,I),AI,ZI)                 BMA00650    
+  180   CALL TRANAB(AI,BS(1,I,IE))                                      BMA00660    
+C       SKIP TRIVIAL PRINTOUT.                                          BMA00670    
+        IF(.NOT.LSW(2).OR.NTUNE.LE.1)GOTO190                            BMA00680    
+        WRITE(6,240)I,T(KTP1),(BS(J,I,IE),J=1,4)                        BMA00690    
+  190 CONTINUE                                                          BMA00700    
+C     CASCADE THE MATRICES FOR THE INDIVIDUAL SECTIONS                  BMA00710    
+      DO 200 I=1,NTUNE                                                  BMA00720    
+        J=NTUNE-I+1                                                     BMA00730    
+        CALL PCHAIN(B(1,1,IE),BS(1,J,IE))                                BMA00740    
+  200 CONTINUE                                                          BMA00750    
+  210 RETURN                                                            BMA00760    
+C                                                                       BMA00770    
+  220 FORMAT (//6X4HPTYPE,I2,39H NETWORK NOT ALLOWED IN TUNING SECTION.) BMA00780    
+  230 FORMAT (1H1///6X33HACTIVE TRANSDUCER ANALYSIS OUTPUT,10X11HFREQUENBMA00790    
+     1CY =,F8.2,10X4HDATE,I4,1H/,I2,1H/,I2,10X10HRUN NUMBER,A7//6X63HB-MBMA00800    
+     2ATRIX REPRESENTATIONS FOR PASSIVE ELECTRICAL TUNING SECTIONS//5X7HBMA00810    
+     3SECTION,10X3HB11,21X3HB21,21X3HB12,21X3HB22/4X8HNO. TYPE,4X4HREAL,BMA00820    
+     48X4HIMAG,3(8X4HREAL,8X4HIMAG)//)                                  BMA00830    
+  240 FORMAT (/I6,2XA6,1P8E12.4)                                        BMA00840    
+C                                                                       BMA00850    
+      END                                                               BMA00860    
