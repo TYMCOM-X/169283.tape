@@ -1,0 +1,541 @@
+MODULE KINSR(DOLLAR,ENTRIES=($KINSR),
+                        FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+
+BEGIN
+
+EXTERNAL SIX12;
+REQUIRE KDEFS.BLI[7,107355];
+REQUIRE DBDEFS.BLI[7,107355];
+REQUIRE IBDEFS.BLI[7,107355];
+REQUIRE SBDEFS.BLI[7,107355];
+REQUIRE UDEFS.BLI[7,107355];
+REQUIRE FDEFS.BLI[7,107355];
+REQUIRE DVDEFS.BLI[7,107355];
+UNDECLARE $KINSR;
+
+
+MACRO  INC(NAME)= (NAME_.NAME+1)&;
+
+MACRO  DEC(NAME)= (NAME_.NAME-1)&;
+
+MACRO WRITE(A,B,C)= $KVIWR(A,B,C)&;
+
+MACHOP LSH=#242;
+MACRO LSHIFT(X,N)=  (REGISTER Q$$$; Q$$$_X; LSH(Q$$$,N))&;
+
+MACRO RSHIFT(X,N)= (REGISTER Q$$$; Q$$$_X; LSH(Q$$$,-(N)))&;
+
+BIND
+   DATA=0,
+   INDEX=1;
+
+
+MACRO KEYMOVE(A,B)= IF .LVL EQL 1
+        THEN MASSAGE(A,B)
+        ELSE $UMOVE(.KSIZ,A,B)&;
+
+MACRO LEFTIB= ( BEGIN
+   IF .SB[SB$NOL] EQL .LVL
+      THEN 0
+      ELSE 
+         BEGIN
+            PIB_$KVIRD(.FCB,.SPB[K$SIBPN,.LVL+1]);
+            IF .SPB[K$SIBOF,.LVL+1] GTR .PIB[IB$OFF]
+               THEN .(.PIB+.SPB[K$SIBOF,.LVL+1]-1)<0,18>
+               ELSE 0
+         END
+END)&;
+
+MACRO LEFTDB= (BEGIN
+   IF .SB[SB$NOL] EQL 0
+      THEN 0
+      ELSE
+         BEGIN
+         IB_$KVIRD(.FCB,.SPB[K$SIBPN,1]);
+         IF .SPB[K$SIBOF,1] GTR .IB[IB$OFF]
+            THEN .(.IB+.SPB[K$SIBOF,1]-1)<0,18>
+            ELSE 0
+         END
+END)&;
+
+MACRO INSERTINSTACE(DB,OFF,PN)=
+   $UMOVE(.ISIZ,.INSBUF,DB+OFF)&;
+
+MACRO MAKEOP(OP,REG,ADDR)=(OP^27+REG^23+ADDR<0,0>)&;
+
+MACRO RIBWRITE(F)=
+   IF .SOB[K$SEXPAND]
+      THEN
+         BEGIN
+         SOB[K$SEXPAND]_0;
+         $KRIBW(F);
+         END&;
+
+
+GLOBAL ROUTINE $KINSR(FCB)=
+   BEGIN
+   MAP KFCB$ FCB;
+   LOCAL KDB$ DB;
+   LOCAL KIB$ IB;
+   LOCAL KSB$ SB;
+   LOCAL KSOB$ SOB;
+   LOCAL KDSC$ DSC;
+   LOCAL UDYNARY$ INS;
+   LOCAL KSPB$ SPB;
+   FORWARD NSERTS,INSERTKEY;
+   LOCAL PN,ANS,OLD,N;
+   LOCAL ISIZ,KSIZ,INSBUF;
+   LOCAL DBPN,DBOF,KSIZ1,S;
+
+FUNCTION MASSAGE(A,B)=
+
+   BEGIN
+   MAP UDYNARY$ A;
+   MAP UDYNARY$ B;
+   LOCAL S;
+
+   INCR I FROM 0 TO .SOB[K$SNKEY]-1
+      DO
+         BEGIN
+         IF .DSC[K$SDDTYPE,.I] EQL DDV$STR
+            THEN INCR J FROM 0 TO (S_.DSC[K$SSIZE,.I])-1
+               DO B[.J]_RSHIFT(.A[.J],1)
+            ELSE INCR J FROM 0 TO (S_.DSC[K$SSIZE,.I])-1
+               DO B[.J]_.A[.J];
+         A_.A+.S;
+         B_.B+.S;
+         END
+   END;
+
+FUNCTION SPLITANDBALANCE(B,BPN,BOF,LEFT,LEVEL,DATAD,LPN,ANS)=
+
+   BEGIN
+
+   MAP KDB$ B;
+   LOCAL KDB$ LB:B1:B2:B3;
+   LOCAL KIB$ IB;
+
+   LOCAL N,LIN,OLD,PN1,PN2,PN3,M,Q,TYPE,MOVNUM,LOLD,BMENT,BSIZ,DSIZ;
+   LOCAL MOV2,MOV3,N1,N2,N3,OFF,OFF2,OFF3,L,PGSIZ,MAXOFF;
+
+FUNCTION INSERTDATA(B,OFF,PN,TYPE)=
+   IF .TYPE EQL DATA
+      THEN $UMOVE(.ISIZ,.DATAD,.B+.OFF)
+      ELSE
+         BEGIN
+         IF .LEVEL EQL 1
+            THEN MASSAGE(.DATAD,.B+.OFF)
+            ELSE $UMOVE(.KSIZ,.DATAD,.B+.OFF);
+         (.B+.OFF+.KSIZ)<0,18>_.PN;
+         END;
+
+   IF .LEVEL EQL 0
+      THEN  %  DATA BLOCK  %
+         BEGIN
+         TYPE_DATA;
+         DSIZ_.ISIZ;
+      
+         BMENT_.SOB[K$SDBMENT];
+         SOB[K$SCHANGE]_1;
+         END
+      ELSE  %  INDEX BLOCK  %
+         BEGIN
+         TYPE_INDEX;
+         DSIZ_.KSIZ1;
+      
+         BMENT_.SOB[K$SIBMENT];
+         END;
+   PGSIZ_KV$PAGS*.BSIZ;
+   MAXOFF_.PGSIZ-.DSIZ;
+
+   %  THIS B IS FULL, SO BALANCE WITH A NEIGHBOR TO THE LEFT %
+
+   IF .LEFT NEQ 0
+      THEN
+         BEGIN
+         $KPRON(.FCB,.B,.BPN);
+         LB_$KVIRD(.FCB,.LEFT);
+         $KPRON(.FCB,.LB,.LEFT);
+         IF .LB[DB$NUMBER] NEQ .BMENT
+            THEN  %  LEFT SIBLING B NOT FULL %
+               BEGIN
+               B2_$KGBUF(.FCB,PN2_$KGETP(.FCB));
+               $KPRON(.FCB,.B2,.PN2);
+               B1_$KGBUF(.FCB,PN1_$KGETP(.FCB));
+               MOVNUM_(.BMENT-.LB[DB$NUMBER]+1)/2;
+               B1[DB$NUMBER]_.LB[DB$NUMBER]+.MOVNUM;
+               B1[DB$OFF]_(LOLD_.LB[DB$OFF])-.MOVNUM*.DSIZ;
+               B2[DB$NUMBER]_.B[DB$NUMBER]-.MOVNUM+1;
+               B2[DB$OFF]_(OLD_.B[DB$OFF])+(.MOVNUM-1)*.DSIZ;
+               B2[DB$VERNO]_.B[DB$VERNO]+1;
+               B1[DB$VERNO]_.LB[DB$VERNO]+1;
+               $UMOVE(.LB[DB$NUMBER]*.DSIZ,.LB+.LOLD,.B1+.B1[DB$OFF]);
+               IF .ANS EQL 1
+                  THEN IF (Q_.MOVNUM*.DSIZ) LEQ (N_.BOF-.OLD)
+                     THEN   % INSERTED DATA GOES IN B2 %
+                        BEGIN
+                        $UMOVE(.Q,.B+.OLD,.B1+.PGSIZ-.Q);
+                        OLD_.OLD+.Q;
+                        IF (N_.BOF-.OLD) NEQ 0
+                           THEN
+                              BEGIN
+                              $UMOVE(.N,.B+.OLD,.B2+.B2[DB$OFF]);
+                              IF (M_(.B2[DB$NUMBER]-1)*.DSIZ-.N) NEQ 0
+                                 THEN $UMOVE(.M,.B+.BOF,
+                                               .B2+.B2[DB$OFF]+.N+.DSIZ);
+                              END
+                           ELSE $UMOVE((.B2[DB$NUMBER]-1)*.DSIZ,.B+.OLD,
+                                            .B2+.BOF);
+
+                        %  ACTUALLY INSERT DATA  %
+
+                        INSERTDATA(.B2,.BOF-.DSIZ,.LPN,.TYPE);
+                        END
+                     ELSE   % INSERTED DATA GOES IN B1 %
+                        BEGIN
+                        LIN_.PGSIZ-.Q;
+                        IF .N NEQ 0
+                           THEN $UMOVE(.N,.B+.OLD,.B1+.LIN);
+                        MOVNUM_.MOVNUM-.N/.DSIZ-1;
+                        INSERTDATA(.B1,.LIN+.N,.LPN,.TYPE);
+                        IF .MOVNUM NEQ 0
+                           THEN $UMOVE(.MOVNUM*.DSIZ,.B+.BOF,
+                                          .B1+.LIN+.N+.DSIZ);
+                        $UMOVE(.B2[DB$NUMBER]*.DSIZ,.B+.B2[DB$OFF],
+                                     .B2+.B2[DB$OFF]);
+                        END
+                  ELSE % ANS EQL 2 %
+                     BEGIN
+                     $UMOVE(.MOVNUM*.DSIZ,.B+.OLD,
+                                     .B1+.PGSIZ-.MOVNUM*.DSIZ);
+                     OLD_.OLD+.MOVNUM*.DSIZ;
+                     $UMOVE((.B2[DB$NUMBER]-1)*.DSIZ,.B+.OLD,
+                                     .B2+.B2[DB$OFF]);
+                     INSERTDATA(.B2,.MAXOFF,0,DATA);
+                     END;
+               $KACWR(.FCB,.B2,.PN2);
+               $KPROF(.FCB,.B2,.PN2);
+               $KACWR(.FCB,.B1,.PN1);
+               $KRBUF(.FCB,.B,.BPN);
+               $KRBUF(.FCB,.LB,.LEFT);
+               IB_$KVIRD(.FCB,.SPB[K$SIBPN,.LEVEL+1]);
+               (L_(.IB+(OFF_.SPB[K$SIBOF,.LEVEL+1])+.KSIZ))<0,18>_.PN2;
+               (.L)<18,18>_.B2[DB$VERNO];
+               (L_(.IB+.OFF-1))<0,18>_.PN1;
+               (.L)<18,18>_.B1[DB$VERNO];
+               IF .TYPE EQL DATA
+                  THEN MASSAGE(.B1+.MAXOFF,.L-.KSIZ)
+                  ELSE $UMOVE(.KSIZ,.B1+.MAXOFF,.L-.KSIZ);
+               RIBWRITE(.FCB);
+               $KACWR(.FCB,.IB,.SPB[K$SIBPN,.LEVEL+1]);
+               $KRELP(.FCB,.LEFT);
+               $KRELP(.FCB,.BPN);
+               $KACWR(.FCB,.SB,SBV$SBPN);
+               IF .LEFT EQL .SB[SB$1ST] AND .TYPE EQL DATA
+                  THEN SB[SB$1ST]_.PN1;
+               END
+            ELSE        % LEFT SIBLING FULL    %
+               BEGIN    % SPLIT 2 BS INTO 3 %
+               B1_$KGBUF(.FCB,PN1_$KGETP(.FCB));
+               $KPRON(.FCB,.B1,.PN1);
+               B2_$KGBUF(.FCB,PN2_$KGETP(.FCB));
+               $KPRON(.FCB,.B2,.PN2);
+               B3_$KGBUF(.FCB,PN3_$KGETP(.FCB));
+               B1[DB$NUMBER]_N1_(N_(.BMENT*2+1))/3;
+               B2[DB$NUMBER]_N2_(.N-.N1)/2;
+               B3[DB$NUMBER]_N3_.N-.N1-.N2;
+               B1[DB$OFF]_.PGSIZ-.N1*.DSIZ;
+               B2[DB$OFF]_.PGSIZ-.N2*.DSIZ;
+               B3[DB$OFF]_.PGSIZ-.N3*.DSIZ;
+               B1[DB$VERNO]_0;
+               B2[DB$VERNO]_.LB[DB$VERNO]+1;
+               B3[DB$VERNO]_.B[DB$VERNO]+1;
+
+               %  SPLIT LB BETWEEN B1 & B2   %
+
+               $UMOVE(.N1*.DSIZ,.LB+(LOLD_.LB[DB$OFF]),.B1+.B1[DB$OFF]);
+               MOV2_.BMENT-.N1;
+               $UMOVE(.MOV2*.DSIZ,.LB+.LOLD+.N1*.DSIZ,.B2+.B2[DB$OFF]);
+               OFF2_.B2[DB$OFF]+.MOV2*.DSIZ;
+               MOV2_.N2-.MOV2;
+               OLD_.B[DB$OFF];
+               IF .ANS EQL 1
+                  THEN IF (N_.MOV2*.DSIZ) LEQ (M_.BOF-.OLD)
+                     THEN     % INSERT GOES IN B3 %
+                        BEGIN
+                        $UMOVE(.N,.B+.OLD,.B2+.OFF2);
+                        OLD_.OLD+.N;
+                        OFF3_.B3[DB$OFF];
+                        MOV3_.N3-1;
+                        IF (M_.BOF-.OLD) NEQ 0
+                           THEN
+                              BEGIN
+                              $UMOVE(.M,.B+.OLD,.B3+.OFF3);
+                              OLD_.OLD+.M;
+                              OFF3_.OFF3+.M;
+                              MOV3_.MOV3-.M/.DSIZ;
+                              END;
+                        INSERTDATA(.B3,.OFF3,.LPN,.TYPE);
+                        IF .MOV3 GTR 0 
+                           THEN $UMOVE(.MOV3*.DSIZ,.B+.OLD,.B3+.OFF3+.DSIZ);
+                        END
+                     ELSE % DATA GOES IN B2   %
+                        BEGIN
+                        MOV2_.MOV2-1;
+                        OLD_.B[DB$OFF];
+                        IF .M NEQ 0
+                           THEN
+                              BEGIN
+                              $UMOVE(.M,.B+.OLD,.B2+.OFF2);
+                              OLD_.OLD+.M;
+                              OFF2_.OFF2+.M;
+                              MOV2_.MOV2-.M/.DSIZ;
+                              END;
+                        INSERTDATA(.B2,.OFF2,.LPN,.TYPE);
+                        IF .MOV2 GTR 0
+                           THEN 
+                              BEGIN
+                              $UMOVE(.MOV2*.DSIZ,.B+.OLD,.B2+.OFF2+.DSIZ);
+                              OLD_.OLD+.MOV2*.DSIZ;
+                              END;
+                        $UMOVE(.N3*.DSIZ,.B+.OLD,.B3+.B3[DB$OFF]);
+                        END
+                  ELSE   %    ANS EQUALS 2 (INSERT AT END)  %
+                     BEGIN
+                     $UMOVE(.MOV2*.DSIZ,.B+(OLD_.B[DB$OFF]),.B2+.OFF2);
+                     OLD_.OLD+.MOV2*.DSIZ;
+                     $UMOVE((.N3-1)*.DSIZ,.B+.OLD,.B3+.B3[DB$OFF]);
+                     INSERTDATA(.B3,.MAXOFF,0,DATA);
+                     END;
+               $KACWR(.FCB,.B1,.PN1);
+               $KACWR(.FCB,.B2,.PN2);
+               $KPROF(.FCB,.B2,.PN2);
+               $KACWR(.FCB,.B3,.PN3);
+               $KRBUF(.FCB,.B,.BPN);
+               $KRBUF(.FCB,.LB,.LEFT);
+               NSERTS(.B1+.MAXOFF,.B2+.MAXOFF,
+                      .PN1,.PN2,.PN3,.LEVEL+1);
+               $KPROF(.FCB,.B1,.PN1);
+               $KRELP(.FCB,.BPN);
+               $KRELP(.FCB,.LEFT);
+               IF .SB[SB$1ST] EQL .LEFT AND .TYPE EQL DATA
+                  THEN SB[SB$1ST]_.PN1;
+               $KACWR(.FCB,.SB,SBV$SBPN);
+               END
+         END
+      ELSE         % NO LEFT SIBLING SO SPLIT BLOCK %
+         BEGIN
+         $KPRON(.FCB,.B,.BPN);
+         B2_$KGBUF(.FCB,PN2_$KGETP(.FCB));
+         $KPRON(.FCB,.B2,.PN2);
+         B1_$KGBUF(.FCB,PN1_$KGETP(.FCB));
+         MOVNUM_(.BMENT+1)/2;
+         B1[DB$NUMBER]_.MOVNUM;
+         B1[DB$OFF]_.PGSIZ-.MOVNUM*.DSIZ;
+         B2[DB$NUMBER]_.BMENT-.MOVNUM+1;
+         B2[DB$OFF]_(OLD_.B[DB$OFF])+.DSIZ*(.MOVNUM-1);
+         B1[DB$VERNO]_0;
+         B2[DB$VERNO]_.B[DB$VERNO]+1;
+         IF .ANS EQL 1
+            THEN IF (Q_.MOVNUM*.DSIZ) LEQ (N_.BOF-.OLD)
+               THEN      %   DATA GOES IN B2   %
+                  BEGIN
+                  $UMOVE(.Q,.B+.OLD,.B1+.B1[DB$OFF]);
+                  OLD_.OLD+.Q;
+                  IF (N_.BOF-.OLD) NEQ 0
+                     THEN
+                        BEGIN
+                        $UMOVE(.N,.B+.OLD,.B2+.B2[DB$OFF]);
+                        IF (M_(.B2[DB$NUMBER]-1)*.DSIZ-.N) NEQ 0
+                           THEN $UMOVE(.M,.B+.BOF,
+                                         .B2+.B2[DB$OFF]+.N+.DSIZ);
+                        END
+                     ELSE $UMOVE((.B2[DB$NUMBER]-1)*.DSIZ,.B+.OLD,
+                                      .B2+.BOF);
+                  INSERTDATA(.B2,.BOF-.DSIZ,.LPN,.TYPE);
+                  END
+               ELSE      %   DATA GOES IN B1   %
+                  BEGIN
+                  IF .N NEQ 0
+                     THEN $UMOVE(.N,.B+.OLD,.B1+.B1[DB$OFF]);
+                  MOVNUM_.MOVNUM-.N/.DSIZ-1;
+                  INSERTDATA(.B1,.B1[DB$OFF]+.N,.LPN,.TYPE);
+                  IF .MOVNUM NEQ 0
+                     THEN $UMOVE(.MOVNUM*.DSIZ,.B+.BOF,.B1+.B1[DB$OFF]+.N+.DSIZ);
+                  $UMOVE(.B2[DB$NUMBER]*.DSIZ,.B+.B2[DB$OFF],.B2+.B2[DB$OFF]);
+                  END
+            ELSE % ANS EQL 2 %
+               BEGIN
+               $UMOVE(.MOVNUM*.DSIZ,.B+.OLD,
+                               .B1+.B1[DB$OFF]);
+               OLD_.OLD+.MOVNUM*.DSIZ;
+               $UMOVE((.B2[DB$NUMBER]-1)*.DSIZ,.B+.OLD,
+                               .B2+.B2[DB$OFF]);
+               INSERTDATA(.B2,.MAXOFF,0,DATA);
+               END;
+         $KACWR(.FCB,.B2,.PN2);
+         $KPROF(.FCB,.B2,.PN2);
+         $KACWR(.FCB,.B1,.PN1);
+         $KRBUF(.FCB,.B,.BPN);
+         $KPRON(.FCB,.B1,.PN1);
+         INSERTKEY(.B1+.MAXOFF,.PN1,.PN2,.LEVEL+1);
+         $KPROF(.FCB,.B1,.PN1);
+         $KRELP(.FCB,.BPN);
+         IF .SB[SB$1ST] EQL .BPN AND .TYPE EQL DATA
+            THEN SB[SB$1ST]_.PN1;
+         $KACWR(.FCB,.SB,SBV$SBPN);
+         END;
+   END;
+
+FUNCTION INFINITY(A)=
+   BEGIN
+
+   (.A)<0,36>_#377777777777;
+   IF .KSIZ GTR 1
+      THEN $UMOVE(.KSIZ-1,.A,.A+1);
+   END;
+
+FUNCTION INSERTKEY(KEY,LPN,PN,LVL)=
+   BEGIN
+   LOCAL IBPN,IBOF,N,L,IPN;
+   LOCAL KIB$ IB:PIB;
+
+   %  THIS FUNCTION IS USED TO INSERT A NEW ENTRY INTO AN IB   %
+
+   IF .LVL GTR .SB[SB$NOL]
+      THEN
+         BEGIN      %  INDEX GROWS BY 1 LEVEL   %
+         SB[SB$NOL]_.LVL;
+         $KALBF(1);
+         IB_$KGBUF(.FCB,IPN_$KGETP(.FCB));
+         IB[IB$NUMBER]_2;
+         SB[SB$TOP]_.IPN;
+         IB[IB$OFF]_.FCB[K$BLKSIZ]*KV$PAGS-.KSIZ1*2;
+         KEYMOVE(.KEY,.IB+.IB[IB$OFF]);
+         (L_.IB+.IB[IB$OFF]+.KSIZ)<0,36>_.LPN;
+         INFINITY(.L+1);
+         (.L+.KSIZ1)<0,18>_.PN;
+         (.L+.KSIZ1)<18,18>_1;
+         RIBWRITE(.FCB);
+         $KACWR(.FCB,.IB,.IPN);
+         END
+      ELSE
+         BEGIN    %  INSERT NEW ENTRY INTO EXISTING IB   %
+         IBPN_.SPB[K$SIBPN,.LVL];
+         IB_$KVIRD(.FCB,.IBPN);
+         IBOF_.SPB[K$SIBOF,.LVL];
+         (.IB+.IBOF+.KSIZ)<0,18>_.PN;
+         INC((.IB+.IBOF+.KSIZ)<18,18>);
+         IF .IB[IB$NUMBER] NEQ .SOB[K$SIBMENT]
+            THEN
+               BEGIN    %  THERE IS ROOM FOR NEW ENTRY   %
+               INC(IB[IB$NUMBER]);
+               IB[IB$OFF]_(OLD_.IB[IB$OFF])-.KSIZ1;
+               IF (N_.IBOF-.OLD) NEQ 0
+                  THEN $UMOVE(.N,.IB+.OLD,.IB+.IB[IB$OFF]);
+               L_.IB+.IBOF-.KSIZ1;
+               KEYMOVE(.KEY,.L);
+               (.L+.KSIZ)<0,36>_.LPN;
+               RIBWRITE(.FCB);
+               $KACWR(.FCB,.IB,.IBPN);
+               END
+
+            %  THIS IB IS FULL, SO BALANCE WITH A NEIGHBOR TO THE LEFT %
+      
+            ELSE SPLITANDBALANCE(.IB,.IBPN,.IBOF,LEFTIB,.LVL,.KEY,.LPN,1);
+
+         END
+   END;
+
+FUNCTION NSERTS(KEY1,KEY2,P1,P2,P3,LVL)=
+   BEGIN
+
+   LOCAL KIB$ IB;
+
+   LOCAL L,N;
+   IF .LVL GTR .SB[SB$NOL]
+      THEN $KFATL(#732)
+      ELSE
+         BEGIN
+         IB_$KVIRD(.FCB,.SPB[K$SIBPN,.LVL]);
+         KEYMOVE(.KEY2,.IB+(L_.SPB[K$SIBOF,.LVL]-.KSIZ1));
+         (N_.IB+.SPB[K$SIBOF,.LVL]+.KSIZ)<0,18>_.P3;
+         INC((.N)<18,18>);
+         SPB[K$SIBOF,.LVL]_.L;
+         INSERTKEY(.KEY1,.P1,.P2,.LVL);
+         END
+   END;
+
+
+%  START OF $KINSR ROUTINE    %
+
+
+   SOB_.FCB[K$SOBP];
+   SB_.FCB[K$SBP];
+   SPB_.SOB[K$SSPBP];
+   DSC_.SOB[K$SDESCR];
+   IF (ANS_$KSRCH(.FCB,KV$MASSAGE)) EQL 0
+      THEN RETURN 1;     % INSTANCE EXISTS %
+   SOB[K$SLASTOP]_KV$NSRT;
+
+
+   ISIZ_.SOB[K$SISIZ];
+   KSIZ_.SOB[K$SKSIZ];
+   INSBUF_.SOB[K$SINSBUF];
+   KSIZ1_.KSIZ+1;
+   DBPN_.SPB[K$SDBPN];
+   DBOF_.SPB[K$SDBOF];
+   INC(SB[SB$NINS]);     % INCREMENT # OF INSTANCES %
+   INS_.INSBUF;
+   INCR I FROM 0 TO .SOB[K$SNKEY]-1
+      DO
+         BEGIN
+         S_.DSC[K$SSIZE,.I];
+         IF .DSC[K$SDDTYPE,.I] EQL DDV$STR
+            THEN INCR J FROM 0 TO .S-1
+               DO INS[.J]_LSHIFT(.INS[.J],1);
+         INS_.INS+.S;
+         END;
+   IF .ANS EQL 3
+      THEN
+         BEGIN
+         SB[SB$1ST]_PN_$KGETP(.FCB);
+         DB_$KGBUF(.FCB,.PN);
+         DB[DB$OFF]_KV$PAGS*.FCB[K$BLKSIZ]-.ISIZ;
+         DB[DB$NUMBER]_1;
+         INSERTINSTANCE(.DB,.DB[DB$OFF],.DBPN);
+         $KACWR(.FCB,.DB,.PN);
+         RIBWRITE(.FCB);
+         $KACWR(.FCB,.SB,SBV$SBPN);
+         RETURN
+         END;
+   DB_.SPB[K$SDBBA];
+   IF .DB[DB$NUMBER] LSS .SOB[K$SDBMENT]
+      THEN 
+         BEGIN
+         INC(DB[DB$NUMBER]);
+         DB[DB$OFF]_(OLD_.DB[DB$OFF])-.ISIZ;
+         IF .ANS EQL 1
+            THEN
+               BEGIN
+               IF (N_.DBOF-.OLD) NEQ 0
+                  THEN $UMOVE(.N,.DB+.OLD,.DB+.DB[DB$OFF]);
+               INSERTINSTANCE(.DB,.DBOF-.ISIZ,.DBPN);
+               END
+            ELSE     % ANS EQL 2 => LARGER THAN ANY IN FILE %
+               BEGIN
+               $UMOVE(.DBOF-.DB[DB$OFF],.DB+.OLD,.DB+.DB[DB$OFF]);
+               INSERTINSTANCE(.DB,.DBOF,.DBPN);
+               END;
+         WRITE(.FCB,.DB,.DBPN);
+         WRITE(.FCB,.SB,SBV$SBPN);
+         RETURN
+         END
+
+      %  THIS DB IS FULL, SO BALANCE WITH A NEIGHBOR TO THE LEFT %
+
+      ELSE SPLITANDBALANCE(.DB,.DBPN,.DBOF,LEFTDB,0,.INSBUF,0,.ANS);
+
+   END;
+END ELUDOM
+    
