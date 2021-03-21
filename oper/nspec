@@ -1,0 +1,967 @@
+C.......................................................................
+C     PROGRAM SPECHOKA(NEWBERT)
+C  ***MODIFIED & READY FOR PDP-10. . .720311. . .LBA
+C  ***MAIN PROGRAM DRIVER AND BLOCK DATA TO OPTIMIZE DELAY FUNCTION.
+      INTEGER FILNAM(5)
+      REAL*8 FINAME
+      COMMON/C/RF(5),Q(5),F0,NQ,PI
+      COMMON/SK/KV(20)
+      COMMON/O3/FL,FST,DELF,HSUG1,HSUG2,AER
+      COMMON/HP/GEM,KO,EX
+      EXTERNAL QBEP
+      LOGICAL INIT
+      DIMENSION R(4),ICR(5),ICQ(5)
+      EQUIVALENCE (RF(2),R(1)),(FINAME,FILNAM(1))
+      DATA ICR/3HR1=,3HR2=,3HR3=,3HR4=,3HR5=/
+      DATA ICQ/3HQ1=,3HQ2=,3HQ3=,3HQ4=,3HQ5=/
+      DATA FLK/.5/,ZRO/0.0/
+      CALL TIME(IHR,ISEC)
+      TYPE 200,IHR,ISEC
+  200 FORMAT(1H1,'BEGIN PROGRAM SPECHOKA...',T31,'TIME=',A5,':',A3)
+      INIT=.FALSE.
+      WRITE(5,100)
+  100 FORMAT(//1X,'WHAT SOURCE DESIRED FOR INITIAL PARAMETERS (NQ, ',
+     &'R, Q, F0, ETC.):'/5X,'T=TERMINAL, F=FILE, B=BUILT-IN VALUES? ',$)
+      GOTO 97
+   98 WRITE(5,108)
+  108 FORMAT(1H1,'PARAMETERS FROM FILE OR TERMINAL (F OR T)? ',$)
+   97 ACCEPT 101,INPUT
+  101 FORMAT(A1)
+      IF(INPUT.EQ.'F')GOTO 96
+      IF(INPUT.EQ.'B'.AND..NOT.INIT)GOTO 1
+   99 WRITE(5,105)
+  105 FORMAT(1X,'0.K. THEN, HOW MANY VALUES OF Q WILL BE ENTERED (NQ)'
+     &'? ',$)
+      ACCEPT 109,N
+  109 FORMAT(I1)
+      IF(N.LT.3.OR.N.GT.5)GOTO 99
+      NQ=N
+      NR=N-1
+      WRITE(5,102)NR
+  102 FORMAT(1X,'ENTER FOLLOWING VALUES ONE ITEM PER LINE, I.E., DATA ',
+     &'VALUE FOLLOWED BY CARRIAGE RETURN.'//1X,I1,' VALUES FOR R: ')
+      ACCEPT 103,(R(I),I=1,NR)
+  103 FORMAT(E)
+      WRITE(5,104)NQ
+  104 FORMAT(/1X,I1,' VALUES FOR Q: ')
+      ACCEPT 103,(Q(I),I=1,NQ)
+      WRITE(5,107)
+  107 FORMAT(/1X,'VALUES FOR REF.FREQ.(F0), FREQ.LIM.CONST.(FLK)'/
+     &'START FREQ.(FST), DELTA FREQ.(DELF) & AER: ',$)
+      ACCEPT 113,F,FL,FS,DEL,AER
+  113 FORMAT(5E)
+      GOTO 94
+   96 WRITE(5,110)
+  110 FORMAT(1H0,'PARAMETER FILE NAME: ',$)
+      ACCEPT 111,FINAME
+  111 FORMAT(A10)
+      IERR=0
+      CALL FILECK(FILNAM,IERR)
+      IF (IERR.NE.0)GOTO 96
+      CALL IFILE(1,FINAME)
+      CALL OPENOU
+      READ(1,109)N
+      IF(N.LT.3.OR.N.GT.5)GOTO 95
+      NQ=N
+      NR=N-1
+      READ(1,103)(R(I),I=1,NR)
+      READ(1,103)(Q(I),I=1,NQ)
+      READ(1,103)F,FL,FS,DEL,AER
+      ENDFILE(1)
+   94 IF(F.NE.ZRO)F0=F
+      IF(FL.NE.ZRO)FLK=FL
+      IF(FS.NE.ZRO)FST=FS
+      IF(DEL.NE.ZRO)DELF=DEL
+      GOTO 1
+   95 WRITE(5,112)
+  112 FORMAT(1H0,'BAD NQ DATA ON PARAMETER FILE.'//1X,'STOP PROGRAM ',
+     &'OR INPUT PARAMETERS FROM TERMINAL (S OR T)? ',$)
+      ACCEPT 101,INPUT
+      IF(INPUT.EQ.'S'.OR.INPUT.EQ.'Q')STOP
+      GOTO 99
+    1 INIT=.TRUE.
+      WRITE(20,10)(ICR(L),RF(L),ICQ(L),Q(L),L=1,NQ)
+      TYPE 10,(ICR(L),RF(L),ICQ(L),Q(L),L=1,NQ)
+      WRITE(20,13)NQ,F0,FLK,FST,DELF,AER
+   10 FORMAT(1H1,'STARTWAARDEN...'//2(3X,A3,E14.7))
+      TYPE 13,NQ,F0,FLK,FST,DELF,AER
+   13 FORMAT(/3X,'NQ=',I2,'  F0=',F6.1,'  FLK=',F4.2,'  FST=',F6.1,
+     &'  DELF='F7.2,'  AER=',E9.2//)
+    6 N=2*NQ-1
+      NCTOT=2*NQ-1
+      FL=FLK*F0
+      DO 7 J=1,N
+    7 KV(J)=J
+      CALL TIME(IHR,ISEC)
+      TYPE 201,IHR,ISEC
+  201 FORMAT(1X,'START OPTIMIZING...',T31,'TIME=',A5,':',A3)
+    8 CALL OPTIMUM(1,N,NCTOT,1,0,0,1E-8,AE,JW,QBEP)
+      WRITE(20,30)
+      TYPE 30
+   30 FORMAT(//,1X,24H****R'S & Q'S OPTIMIZED./)
+      WRITE(20,40)(ICR(L),RF(L),ICQ(L),Q(L),L=1,NQ)
+      TYPE 40,(ICR(L),RF(L),ICQ(L),Q(L),L=1,NQ)
+   40 FORMAT(1X,'OPTIMUM VALUES...'/2(3X,A3,E15.8))
+      WRITE(20,12)
+      TYPE 12
+   12 FORMAT(//)
+      CALL QBEP(Y)
+    9 TYPE 50,GEM,KO,EX,Y
+      WRITE(20,50)GEM,KO,EX,Y
+   50 FORMAT(1X,5HGEM.=,E14.7,2X,8HKL.OPP.=,E14.7,2X,7HRHOGR.=,E14.7/
+     &1X,10HQUAL.FAK.=,E14.7/1H1)
+      CALL TIME(IHR,ISEC)
+      TYPE 106,IHR,ISEC
+  106 FORMAT(//1X,'...SPECHOKA COMPLETED.',T31,'TIME='A5,':'A3///
+     &1X,'ANOTHER RUN? '$)
+      ACCEPT 101,INPUT
+      IF(INPUT.EQ.'Y')GOTO 98
+      STOP
+      END
+C.......................................................................
+      BLOCK DATA
+      COMMON/C/RF(5),Q(5),F0,NQ,PI
+      COMMON/O3/FL,FST,DELF,HSUG1,HSUG2,AER
+      DATA RF/1.0,2.0,2.7,3.5,5.0/
+      DATA Q/0.5,1.1,1.5,2.5,3.0/
+      DATA F0,NQ,PI/500.,5,3.1415926535/
+      DATA FST,DELF,AER/0.0,20.0,1.0E-6/
+      END
+C.......................................................................
+C.....END SPECHOKA MAIN.................................................
+C.......................................................................
+      SUBROUTINE OPTIMUM(MAX,N,NCTOT,ZGVO,TEKSTA,TEKSTB,AER,AE,JW,SUBR)
+C  ***MODIFIED AND READY FOR PDP-10. . .720310. . .LBA
+C  ***DISPLAY OF MAJOR AND NEXT INNER LOOP PROGRESS ON TERMINAL;
+C  ***OTHER PRINTOUT CHANGED FROM TYPE STATEMENTS TO WRITE(20,<FORMAT>)
+C  ***STATEMENTS TO SEND OUTPUT TO DISC LOGICAL UNIT 20.
+C  ***COMMON/OPL/ ADDED TO PROVIDE LOOP STATUS INFO TO SUBROUTINES;
+C  ***THE VALUE OF J REPRESENTS THE ELEMENT OF THE INPUT ARRAY C
+C  ***BEING OPERATED UPON IN THE OPTIMIZING PROCESS AT THE MOMENT.
+C     0=FALSE   1=TRUE
+      COMMON/C/RF1,C(9),F0,NQC
+      COMMON/SK/KV(20)
+      COMMON/O3/FL,FST,DELF,HSUG1,HSUG2
+      COMMON/EP/CC,IW,NU
+      COMMON/OPL/J,KD,KA,JA,K
+      EXTERNAL EVPOL
+      INTEGER ZGVO,TEKSTA,TEKSTB,VER
+      DIMENSION CO(20),OC(20),COB(20),CB(20),BC(20),CBB(20),XT(12),
+     &YT(12),CC(11),SS(11),SZ(10),XS(10),TER(10),TR(12),W0(12),W2(12),
+     &AM2(20),XB(20),NQ(20),JJ(20)
+      DIMENSION EXTR(12),CZ(20,3)
+      CALL BOUEV(CO,CB,N,0)
+      IBEL="034000000000
+      DO 27 J=1,N
+      NQ(J)=12
+      JJ(J)=J
+      IF(C(KV(J)).LT.CO(J).OR.C(KV(J)).GT.CB(J))GOTO 2
+      GOTO 1
+    2 C(KV(J))=.5*(CO(J)+CB(J))
+    1 TER(J)=CB(J)-CO(J)
+      COB(J)=CO(J)
+      XS(J)=C(KV(J))
+   27 CBB(J)=CB(J)
+      KD=0
+      ICH=0
+      IH=0
+C     COB EN   CBB ZYN DE UITERSTE GRENZEN
+C     HIER BEGINT DE HOOFDCYCLUS, NA ELKE SLAG WORDT INTERVAL TER
+C      GEHALVEERD
+    4 KD=KD+1
+      WRITE(20,8889)KD
+      TYPE 8889,KD
+ 8889 FORMAT(1X,'>*>KD=',I2)
+      IF(KD.GT.10)GOTO 66
+C     BEGIN BINNENCYCLUS, WORDT ZOLANG VOORTGEZET TOT PLAATSEN EXTREMEN
+C     NIET MEER VERANDEREN
+      DO 57 KA=1,6
+      CALL TIME(IHR,ISEC)
+      WRITE(20,8888)KA,IHR,ISEC
+      TYPE 8888,KA,IHR,ISEC
+ 8888 FORMAT(1X,'>=>KA=',I2,2X,'TIME=',A5,':',A3)
+      DO 43 JA=1,N
+      TYPE 8880,IBEL
+8880  FORMAT(1H+,A1,$)
+      J=JJ(JA)
+      NQJ=NQ(J)
+      HSUG1=.2*DELF
+      HSUG2=.2*DELF
+      SZ(J)=C(KV(J))
+      DO 3 K=1,NQJ
+      XT(K)=CO(J)+(K-.5)*TER(J)/NQJ
+    7 C(KV(J))=XT(K)
+      CALL SUBR(YT(K))
+      XT(K)=(XT(K)-CO(J))/TER(J)
+    3 CONTINUE
+C     XT EN YT ZYN DE BASISPUNTEN VOOR INTERPOLATIE
+  124 EXTR(1)=YT(1)
+      NT=1
+      NTI=2
+   84 NT=NT+1
+      EXTR(2)=YT(NT)
+      IF(YT(NT-1)-YT(NT))85,84,86
+   85 LGR=1
+      GOTO 87
+   86 LGR=0
+   87 NT=NT+1
+      IF(NT.EQ.NQ(J)+1)GOTO 95
+      IF(LGR.EQ.1)GOTO 88
+      GOTO 92
+   88 IF(YT(NT).GT.EXTR(NTI))GOTO 89
+      GOTO 91
+   89 EXTR(NTI)=YT(NT)
+      GOTO 87
+   91 NTI=NTI+1
+      EXTR(NTI)=YT(NT)
+      LGR=0
+      GOTO 87
+   92 IF(YT(NT).LT.EXTR(NTI))GOTO 93
+      GOTO 94
+   93 EXTR(NTI)=YT(NT)
+      GOTO 87
+   94 NTI=NTI+1
+      EXTR(NTI)=YT(NT)
+      LGR=1
+      GOTO 87
+   95 VAR=ABS(EXTR(1)-EXTR(2))
+      DO 97 I=3,NTI
+      IF(ABS(EXTR(I)-EXTR(I-1)).LT.VAR)GOTO 96
+      GOTO 97
+   96 VAR=ABS(EXTR(I)-EXTR(I-1))
+   97 CONTINUE
+      FAK=.1*VAR
+      IF(FAK.LT.AER)FAK=AER
+      CALL LSQOP(XT,YT,NQJ,NQJ-1,FAK,CC,SS,NU)
+      IF(NU.EQ.1)GOTO 5
+      GOTO 6
+    5 TR(1)=.5*(CO(J)+CB(J))
+      C(KV(J))=TR(1)
+      NU2=1
+      GOTO 105
+    6 IW=1
+      NU2=0
+      AN=-.5
+      BE=1.5
+      IF(AN.LT.(COB(J)-CO(J))/TER(J))AN=(COB(J)-CO(J))/TER(J)
+      IF(BE.GT.(CBB(J)-CO(J))/TER(J))BE=(CBB(J)-CO(J))/TER(J)
+   11 BI=AN+1./NQJ
+      IF(BI.GT.BE)GOTO 28
+      P1=EVPOL(BI)
+      IF(P1.EQ.0)GOTO 12
+      GOTO 13
+   12 NU2=NU2+1
+      TR(NU2)=BI
+      AN=BI+.5/NQJ
+      GOTO 11
+   13 IF(EVPOL(AN)*P1.LT.0)GOTO 14
+      GOTO 29
+   14 NU2=NU2+1
+      TR(NU2)=ZERO(AN,BI,1E-8,1E-8,EVPOL)
+   29 AN=BI
+      GOTO 11
+   28 IW=2
+      DO 31 I=1,NU2
+   31 W2(I)=EVPOL(TR(I))
+  201 CONTINUE
+      DO 18 I=1,NU2
+      IF(MAX.EQ.0)GOTO 15
+      IF (W2(I)) 17,18,18
+   15 IF (W2(I)) 18,18,17
+   17 NU2=NU2-1
+      DO 19 IA=I,NU2
+      TR(IA)=TR(IA+1)
+   19 W2(IA)=W2(IA+1)
+      GO TO 201
+   18 CONTINUE
+  105 TR(NU2+1)=CO(J)
+      C(KV(J))=CO(J)
+      CALL SUBR(W0(NU2+1))
+      IF(NU.EQ.1)GOTO 106
+      W2(NU2+1)=EVPOL(0.)
+  106 TR(NU2+2)=CB(J)
+      C(KV(J))=CB(J)
+      CALL SUBR(W0(NU2+2))
+      IF(NU.EQ.1)GOTO 107
+      W2(NU2+2)=EVPOL(1.)
+      IW=1
+      W2(NU2+1)=W2(NU2+1)/(1.+EVPOL(0.)**2)**1.5
+      W2(NU2+2)=W2(NU2+2)/(1.+EVPOL(1.)**2)**1.5
+      IF (NU2.LE.0)GOTO 202
+  107 DO 21 I=1,NU2
+      TR(I)=TR(I)*TER(J)+CO(J)
+      C(KV(J))=TR(I)
+   21 CALL SUBR(W0(I))
+202   CONTINUE
+      NP=NU2+2
+C     AE IS DE EXTREME FUNCTIEWAARDE, IB HET ARRAYNO.
+   33 AE=W0(1)
+      IB=1
+      DO 25 I=2,NP
+      IF(MAX.EQ.0)GOTO 22
+      GOTO 23
+   22 IF(W0(I).GT.AE)GOTO 24
+      GOTO 25
+   23 IF(W0(I).LT.AE)GOTO 24
+      GOTO 25
+   24 AE=W0(I)
+      IB=I
+   25 CONTINUE
+      IF(IB.GE.NU2+1.OR.NU.LE.2.OR.KD.EQ.1)GOTO 161
+      ST=TR(IB)-.05*TER(J)
+      DO 156 I=1,5
+      XT(I)=ST+.025*(I-1)*TER(J)
+      C(KV(J))=XT(I)
+      CALL SUBR(YT(I))
+  156 XT(I)=(XT(I)-ST)*10./TER(J)
+      CALL LSQOP(XT,YT,5,3,0.,CC,SS,ND)
+      IF(CC(3).EQ.0)GOTO 161
+      YP=ST-.05*TER(J)*CC(2)/CC(3)
+      IF(YP.LT.CO(J).OR.YP.GT.CB(J))GOTO 161
+      C(KV(J))=YP
+      CALL SUBR(YP)
+      IF(MAX.EQ.0)GOTO 157
+      GOTO 158
+  157 IF(YP.GT.AE)GOTO 159
+      GOTO 161
+  158 IF(YP.LT.AE)GOTO 159
+      GOTO 161
+  159 AE=YP
+      TR(IB)=C(KV(J))
+  161 IF(KD.EQ.1.AND.KA.EQ.1)GOTO 104
+  152 IF(MAX.EQ.0)GOTO 153
+      GOTO 154
+  153 IF(AE.LT.AS)GOTO 155
+      GOTO 104
+  154 IF(AE.GT.AS)GOTO 155
+      GOTO 104
+  155 AE=AS
+      TR(IB)=SZ(J)
+  104 IF(TEKSTA.EQ.0)GOTO 98
+      GOTO 101
+   98 WRITE(20,10)J,NU,CO(J),CB(J)
+   10 FORMAT(1X,2HJ=,I2,2X,
+     &3HNU=,I2,2X,6HCO(J)=,E14.7,2X,6HCB(J)=,E14.7)
+      WRITE(20,30)(TR(LA),LA=1,NP)
+      WRITE(20,30)(W0(LA),LA=1,NP)
+      WRITE(20,30)(W2(LA),LA=1,NP)
+      WRITE(20,40)AE,IB
+   30 FORMAT(1X,7(E14.7,2X))
+   40 FORMAT(1X,3HAE=,E14.7,2X,3HIB=,I2/)
+  101 NQ(J)=NU+3
+      IF(NQ(J).GT.12)NQ(J)=12
+      IF(TR(IB)-.5*TER(J).LT.COB(J))GOTO 67
+      GOTO 68
+   67 CO(J)=COB(J)
+      CB(J)=CO(J)+TER(J)
+      GOTO 72
+   68 IF(TR(IB)+.5*TER(J).GT.CBB(J))GOTO 69
+      GOTO 71
+   69 CB(J)=CBB(J)
+      CO(J)=CB(J)-TER(J)
+      GOTO 72
+   71 CO(J)=TR(IB)-.5*TER(J)
+      CB(J)=TR(IB)+.5*TER(J)
+   72 AM2(J)=0.
+      IF(NU.GE.3)AM2(J)=W2(IB)
+      IF(KD.EQ.1.AND.KA.EQ.1.AND.ZGVO.EQ.1.AND.N.NE.1)GOTO 41
+      GOTO 42
+   41 C(KV(J))=XS(J)
+      GOTO 43
+   42 XS(J)=TR(IB)
+      C(KV(J))=TR(IB)
+      IF(N.EQ.1)GOTO 43
+      CALL BOUEV(OC,BC,N,KA)
+      DO 26 I=1,N
+      IF(I.EQ.J)GOTO 26
+      IF(OC(I).GT.CO(I))GOTO 73
+      GOTO 74
+   73 CO(I)=OC(I)
+      IF(CO(I).GT.CB(I)-.5*TER(I))CO(I)=CB(I)-.5*TER(I)
+   74 IF(BC(I).LT.CB(I))GOTO 75
+      GOTO 26
+   75 CB(I)=BC(I)
+      IF(CB(I).LT.CO(I)+.5*TER(I))CB(I)=CO(I)+.5*TER(I)
+   26 TER(I)=CB(I)-CO(I)
+   43 AS=AE
+  134 IF(KA.EQ.1.AND.KD.EQ.1)GOTO 139
+  141 ICH=ICH+1
+      DO 136 M=1,N
+  136 CZ(M,ICH)=C(KV(M))
+      IF(ICH.EQ.2)GOTO 137
+      GOTO 139
+  137 DO 138 M=1,N
+  138 C(KV(M))=2.*CZ(M,2)-CZ(M,1)
+      CALL SUBR(AX)
+      IF(TEKSTA.EQ.0)GOTO 108
+      GOTO 109
+  108 WRITE(20,100)KD,KA,AX
+  100 FORMAT(1X,19HAITKEN EXTRAPOLATIE,2(2X,I2),2X,10HQUAL.FAK.=,E14.7)
+      NX=NCTOT
+      IF(NX.GT.7)NX=7
+      WRITE(20,60)(C(L),L=1,NX)
+      IF(NCTOT.GT.7)WRITE(20,70)(C(L),L=8,NCTOT)
+  109 IF(MAX.EQ.0)GOTO 111
+      GOTO 112
+  111 IF(AX.LT.AE+AER)GOTO 143
+      GOTO 144
+  112 IF(AX.GT.AE-AER)GOTO 143
+      GOTO 144
+  143 DO 145 M=1,N
+  145 CZ(M,1)=CZ(M,2)
+      C(KV(M))=CZ(M,2)
+      ICH=1
+      GOTO 139
+  144 AE=AX
+      AS=AX
+      ICH=0
+  139 IF(ZGVO.EQ.1.AND.N.NE.1)GOTO 44
+      GOTO 49
+   44 IO=0
+   47 IO=IO+1
+      IF(IO.EQ.N)GOTO 49
+      JO=IO+1
+      JNB=JJ(IO)
+      AXI=ABS(AM2(JNB))
+      DO 46 JA=JO,N
+      J=JJ(JA)
+      IF(ABS(AM2(J)).GT.AXI)GOTO 45
+      GOTO 46
+   45 AXI=ABS(AM2(J))
+      JNB=J
+      JAB=JA
+   46 CONTINUE
+      IF(JNB.NE.JJ(IO))GOTO 83
+      GOTO 47
+   83 IQ=JJ(IO)
+      JJ(IO)=JNB
+      JJ(JAB)=IQ
+      GOTO 47
+   49 VER=1
+      IF(KA.EQ.1.AND.KD.EQ.1)GOTO 54
+      IF(MAX.EQ.0)GOTO 113
+      GOTO 114
+  113 IF(AE.LT.AEV+AER.AND.KA.NE.1)GOTO 115
+      GOTO 116
+  114 IF(AE.GT.AEV-AER.AND.KA.NE.1)GOTO 115
+      GOTO 116
+  115 VER=0
+      GOTO 54
+  116 ER=10.**(-1-INT(KD/1.99))
+      IF(ER.LT.1E-6)ER=1E-6
+      DO 55 J=1,N
+C     GETEST WORDT, OF DE PLAATS VAN EEN EXTREEM NOG VERANDERD IS TOV
+C     VORIGE ITERATIE
+      IF(ABS(XS(J)-XB(J)).GT.ER*ABS(XS(J)))GOTO 54
+   55 CONTINUE
+      VER=0
+   54 DO 56 J=1,N
+   56 XB(J)=XS(J)
+      AEV=AE
+      IF(VER.EQ.0)GOTO 58
+   57 CONTINUE
+   58 IF(TEKSTB.EQ.0)GOTO 102
+      GOTO 103
+  102 WRITE(20,50)KD,AE
+   50 FORMAT(1X,19HTUSSENRESULTAAT.KD=,I2,2X,10HQUAL.FAK.=,E14.7)
+      NX=NCTOT
+      IF(NX.GT.7)NX=7
+      WRITE(20,60)(C(L),L=1,NX)
+   60 FORMAT(1X,9HC-WAARDEN,7(2X,E14.7))
+      IF(NCTOT.GT.7)WRITE(20,70)(C(L),L=8,NCTOT)
+   70 FORMAT(10X,7(2X,E14.7))
+      WRITE(20,80)
+   80 FORMAT(/)
+  103 DO 64 J=1,N
+      TER(J)=TER(J)/4.0
+      IF(XS(J)-TER(J).LT.COB(J))GOTO 59
+      GOTO 61
+   59 CO(J)=COB(J)
+      CB(J)=CO(J)+TER(J)*2.
+      GOTO 64
+   61 IF(XS(J)+TER(J).GT.CBB(J))GOTO 62
+      GOTO 63
+   62 CB(J)=CBB(J)
+      CO(J)=CB(J)-2.*TER(J)
+      GOTO 64
+   63 CO(J)=XS(J)-TER(J)
+      CB(J)=XS(J)+TER(J)
+   64 TER(J)=TER(J)*2.0
+      IF(IH.EQ.0)GOTO 146
+  147 IF(MAX.EQ.0)GOTO 148
+      GOTO 149
+  148 IF(AE.LT.AES+10.*AER.AND.KD.GT.2)GOTO 151
+      GOTO 146
+  149 IF(AE.GT.AES-10.*AER.AND.KD.GT.2)GOTO 151
+  146 IH=1
+      AES=AE
+      GOTO 4
+  151 JW=0
+      RETURN
+   66 JW=1
+      RETURN
+      END
+C.......................................................................
+C.......................................................................
+      SUBROUTINE BOUEV(CL,CU,N,K)
+C  ***MODIFIED AND READY FOR PDP-10. . .720112. . .LBA
+C  ***VALUE OF K CONTROLS PRINTOUT OF VALUES READ.
+      DIMENSION CL(N),CU(N)
+      CALL IFILE(1,'BOUVD')
+      READ(1,100)NN
+  100 FORMAT(I)
+      IF(NN.NE.N)GOTO 10
+      READ(1,101)(CL(I),CU(I),I=1,N)
+  101 FORMAT(2F)
+      ENDFILE(1)
+      IF(K.GT.0)RETURN
+      TYPE 99,(CL(I),CU(I),I=1,N)
+   99 FORMAT(/1X,'BOUEV:  CL & CU...'/2(3X,F4.2))
+      TYPE 98
+   98 FORMAT(//)
+      RETURN
+   10 TYPE 102
+  102 FORMAT(1H-,'PARAMETER LIMIT FILE COUNT VALUE DIFFERENT FROM ',
+     &'COUNT SUPPLIED BY CALLING ROUTINE.'//1X,'PROGRAM TERMINATED.'//)
+      STOP
+      END
+C.......................................................................
+C.......................................................................
+      SUBROUTINE QBEP(Y)
+C  ***MODIFIED AND READY FOR PDP-10. . .720207. . .LBA
+C  ***THIS VERSION EVALUATES Q AS INTEGRAL OF THE SQUARE OF BERT-GEM,
+C  ***RATHER THAN AVERAGE OF SUM OF EXTREME VARIATIONS SQUARED;
+C  ***CALCULATION OF Y MODIFIED FOR CONSISTANCY WITH THIS APPROACH.
+      COMMON/HP/GEM,Q,EX
+      COMMON/O3/FL,FST,DELF,HSUG1,HSUG2,AER
+      DIMENSION AE(20),FE(20)
+      EXTERNAL BERT,BERGEM
+    1 CALL EXSEEK(FST,DELF,EX,AE,FE,NE)
+      GEM=GAINT(0.,EX,1E-5,0.,1E-4,HSUG1,JZ,BERT)/EX
+      Q=GAINT(0.,EX,1E-5,AER,1E-3,HSUG2,JZ,BERGEM)
+      IF(EX.GE.FL+.01*EX)GOTO 3
+      Z=.01*EX
+      GOTO 4
+    3 Z=EX-FL
+    4 Y=SQRT(Q)/Z
+      RETURN
+      END
+C.......................................................................
+C.......................................................................
+      FUNCTION BERT(F)
+C  ***MODIFIED AND READY FOR PDP-10. . .720112. . .LBA
+C  ***NEW VERSION OF BERT RETURNING NANOSECOND DELAY FOR GIVEN FREQ.
+C  ***CODING OPTIMIZED BY REDUCING STATEMENTS TO MINIMUM, MINIMIZING
+C  ***USE OF SUBSCRIPTED VARIABLES, INITIALIZING OF PARAMETERS, ETC.
+      COMMON/C/RF(5),Q(5),F0,NQ,PI
+      SUM=0.
+      RO1=F/F0
+      DO 20 J=1,NQ
+      RFJ=RF(J)
+      QJ=Q(J)
+      ROJ2=(RO1/RFJ)**2
+      T0=1E3/(PI*F0*RFJ*QJ)
+      QTEM=2.-1./QJ**2
+      SUM=SUM+T0*(1.+ROJ2)/(ROJ2**2-QTEM*ROJ2+1.)
+   20 CONTINUE
+      BERT=SUM
+      RETURN
+      END
+C.......................................................................
+      FUNCTION BERGEM(F)
+C  ***CREATED AND READY FOR PDP-10. . .720207. . .LBA
+      COMMON/HP/GEM
+      BERGEM=(BERT(F)-GEM)**2
+      RETURN
+      END
+C.......................................................................
+C.......................................................................
+      SUBROUTINE EXSEEK(FST,DELF,EX,AE,R,NAE)
+C  ***MODIFIED AND READY FOR PDP-10. . .720207. . .LBA
+      DIMENSION AE(20),R(20),Y(4)
+      EQUIVALENCE (Y(1),Y1),(Y(2),Y2),(Y(3),Y3),(Y(4),Y4)
+    1 R(1)=FST
+      F=FST
+      NY=2
+      NE=2
+      NT=1
+      TEMP=BERT(F)
+      AE(1)=TEMP
+      Y1=TEMP
+      GEM=TEMP
+      AMIN=0
+    2 NT=NT+1
+      F=F+DELF
+      Y2=BERT(F)
+      GEM=((NT-1.)*GEM+Y2)/NT
+      IF(Y1-Y2)3,2,4
+    3 MAX=1
+      GOTO 5
+    4 MAX=0
+    5 NY=NY+1
+      NT=NT+1
+      F=F+DELF
+      Y(NY)=BERT(F)
+      GEM=((NT-1.)*GEM+Y(NY))/NT
+      IF(Y(NY)-GEM*.5)13,11,11
+   11 IF(MAX.EQ.0)GOTO 7
+    6 IF(Y(NY)-Y(NY-1))9,9,8
+    7 IF(Y(NY)-Y(NY-1))8,9,9
+    8 Y1=Y2
+      Y2=Y3
+      NY=2
+      GOTO 5
+    9 IF(NY.LT.4)GOTO 5
+      CALL EXTREM(MAX,F,DELF,Y,AE(NE),R(NE),NT,NE)
+      IF(MAX.EQ.0)GOTO 12
+      MAX=0
+      GOTO 16
+   12 MAX=1
+      AMIN=AE(NE)
+   16 NE=NE+1
+      NY=2
+      Y1=Y3
+      Y2=Y4
+      GOTO 5
+   13 CONTINUE
+      FN=F
+      IF(AMIN-0.)15,14,15
+   14 TEMP=GEM*.707
+      AE(2)=TEMP
+      P=TEMP
+      NAE=2
+      KL=0
+      GOTO 25
+   15 NAE=NE-1
+      KL=1
+      P=AMIN
+   25 F=F-DELF
+      IF(F-0.)32,21,21
+   21 AI=BERT(F)
+      IF(AI-P)25,29,26
+   26 DELFD=DELF/16
+   27 FB=F
+      AB=AI
+      F=F+DELFD
+      AI=BERT(F)
+      IF(AI-P)31,29,27
+   =F
+      GOTO 33
+   31 EX=FB+(AB-P)*(F-FB)/(AB-AI)
+   33 IF(KL.EQ.0)R(2)=EX
+      RETURN
+   32 CONTINUE
+      TYPE 10,NT,NE,NY,AE(NAE),R(NAE),NAE,AMIN,P,GEM,FN,AI,F,Y
+      STOP
+   10 FORMAT(1X,'***F.LT.ZERO...'/3X,'NT=',I4,'  NE=',I3,'  NY=',I2/
+     &3X,'AE=',E15.8,5X,'R=',E15.8,3X,'NAE=',I3/
+     &1X,'AMIN=',E15.8,5X,'P=',E15.8,3X,'GEM=',E15.8/
+     &3X,'FN=',E15.8,4X,'AI=',E15.8,5X,'F=',E15.8/
+     &3X,'Y...'/(6X,E15.8,7X,E15.8))
+      END
+C.......................................................................
+C.......................................................................
+      SUBROUTINE EXTREM(MAX,F,DELF,Y,AE,X,NT,NE)
+C  ***CREATED AND READY FOR PDP-10. . .720225. . .LBA
+C  ***EXTREME VALUE AE AND FREQ. X FOUND IN REGION OF FUNCTION GIVEN
+C  ***BY EXSEEK USING FIRST THREE Y VALUES; THE FUNCTION IS
+C  ***SCANNED FROM THE MIDDLE POINT IN THE PROPER DIRECTION IN
+C  ***INCREMENTS OF 1.E-3*DELF UNTIL EXTREME VALUE IS FOUND.
+      DIMENSION Y(4)
+      REAL LY
+      Y1=Y(1)
+      Y2=Y(2)
+      Y3=Y(3)
+      ASSIGN 12 TO L2
+      AE=0
+      EQY=0
+      NINCR=1.E3
+      FINC=DELF/NINCR
+      F2=F-2*DELF
+      IF(MAX.EQ.1)GOTO 2
+    1 ASSIGN 13 TO L1
+      ASSIGN 11 TO L3
+      GOTO 3
+    2 ASSIGN 11 TO L1
+      ASSIGN 13 TO L3
+      IF(Y3-Y1)5,6,7
+    3 IF(Y1-Y3)5,6,7
+    5 STEP=-FINC
+      FT=F2-DELF
+      ASSIGN 19 TO L4
+      GOTO 8
+    6 EQY=1
+    7 STEP=FINC
+      FT=F-DELF
+      ASSIGN 18 TO L4
+    8 F0=F2+STEP
+      LY=Y2
+      FP=F2
+      NC=0
+    9 TYEQLY=0
+   29 FC=F0
+      DO 10 NI=1,NINCR
+      TY=BERT(FC)
+      IF(TY.LT.LY)GOTO L1
+      IF(TY.GT.LY)GOTO L3
+      GOTO L2
+   11 IF(NI.EQ.1)GOTO 14
+   15 AE=LY
+      X=FP
+      RETURN
+   12 IF(NI.GT.1)GOTO 15
+      IF(TYEQLY.GT.0)GOTO 15
+      STEP=STEP/10.
+      F0=FP+STEP
+      FT=FC
+      TYEQLY=1
+      NC=NC+1
+      GOTO 29
+   14 IF(NC.GT.0)GOTO 15
+      STEP=-STEP
+      IF(FT.LT.F2)GOTO  16
+      FT=F2-DELF
+      ASSIGN 19 TO L4
+      GOTO 17
+   16 FT=F-DELF
+      ASSIGN 18 TO L4
+   17 F0=F2+STEP
+      LY=Y2
+      NC=NC+1
+      GOTO 9
+   13 LY=TY
+      FP=FC
+      FC=FC+STEP
+      GOTO L4
+   18 IF(FC.GT.FT)GOTO 20
+      GOTO 10
+   19 IF(FC.LT.FT)GOTO 20
+   10 CONTINUE
+   20 CONTINUE
+      TYPE 9998
+ 9998 FORMAT(1X,'   SEARCH OUT-OF-BOUNDS:')
+      TYPE 9997,NI,NC,EQY,TYEQLY,F0,FT,FP,FC,STEP,AE,NT,NE,Y
+ 9997 FORMAT(3X,'NI='I4,'  NC=',I3,'  EQY=',I2,'  TYEQLY=',I2/3X,'F0=',
+     &E15.8,'  FT=',E15.8,/3X,'FP=',E15.8,'  FC=',E15.8,'  STEP=',F10.6/
+     &3X,'AE='E15.8,'  NT=',I4,'  NE=',I3/
+     &3X,'Y...'/(6X,E15.8))
+      STOP
+      END
+C.......................................................................
+C.......................................................................
+      FUNCTION GAINT(A,B,RER,AER,HMIN,HSUG,JW,FUN)
+C  ***MODIFIED AND READY FOR PDP-10. . .720310. . .LBA
+      DIMENSION A1(3),A2(6)
+      DATA A1/.1127016654,.5,.8872983346/
+      DATA A2/.0563508327,.25,.4436491673,.5563508327,.75,.9436491673/
+      H0=0.
+      H1=0.
+    1 SO=0.
+      JW=0
+      LA=0
+      IF(B-A)2,3,4
+    2 TE=-1.
+      XO=B
+      XE=A
+      GOTO 5
+    3 GAINT=0.
+      RETURN
+    4 TE=1.
+      XO=A
+      XE=B
+    5 H=ABS(HSUG)
+      HM=ABS(HMIN)
+      IF(H.LT.HM)H=HM
+      ID=0
+    6 HSUG=H
+      IF(XO+1.01*H.GT.XE)GOTO 7
+      GOTO 8
+    7 LA=1
+      H=XE-XO
+      GOTO 14
+    8 IF(H.LT.HM.AND.LA.EQ.0)GOTO 9
+      GOTO 14
+    9 IF(ID.EQ.0)GOTO 11
+      GOTO 12
+   11 ID=1
+      GOTO 13
+   12 JW=JW+1
+C  ***THE FOLLOWING STATEMENT ADDED TO PROVIDE INDICATION IF GAINT IS
+C  ***SUPPLIED PARAMETERS WHICH CAUSE INTERMINABLE LOOP; IF THIS OCCURS
+C  ***BEYOND JW=1, TRY CHANGING AER TO LARGER VALUE OR BEGIN JUGGLING
+C  ***RELATIVE VALUES OF HMIN, HSUG, AER.
+      IF(MOD(JW,100).EQ.1)TYPE 9997,JW
+ 9997 FORMAT(1X,'JW=',I4)
+   13 H=HM
+   14 Y1=(5.*FUN(A1(1)*H+XO)+8.*FUN(A1(2)*H+XO)+5.*FUN(A1(3)*H+XO))/18.0
+      Y2=(5.*FUN(A2(1)*H+XO)+8.*FUN(A2(2)*H+XO)+5.*FUN(A2(3)*H+XO)+
+     &5.*FUN(A2(4)*H+XO)+8.*FUN(A2(5)*H+XO)+5.*FUN(A2(6)*H+XO))/36.0
+      ERR=(Y2-Y1)/63.
+      TOL=(ABS(RER*Y2)+AER)*ABS(H/(B-A))
+      IF(ERR.EQ.0.)GOTO 18
+      GOTO 19
+   18 C=2.*H
+      H1=0.
+      GOTO 26
+   19 C=(ABS(TOL/ERR))**(1./6.)*H
+      IF(C.GT.2.*H)GOTO 18
+   24 IF(C.LT.0.5*H)GOTO 25
+      GOTO 26
+   25 C=.5*H
+      H1=0.
+   26 IF(ABS(ERR).LT.TOL.OR.ID.EQ.1)GOTO 15
+      GOTO 16
+   15 SO=SO+H*(Y2+ERR)
+      IF(LA.EQ.1)GOTO 23
+      IF(ABS(ERR).LT.TOL)ID=0
+      XO=XO+H
+      H0=H1
+      H1=C
+      H=C
+      IF(H0.NE.0.)H=.95*H1**2/H0
+      GOTO 6
+   16 LA=0
+      H=.95*C
+      GOTO 6
+   23 GAINT=TE*SO
+      RETURN
+      END
+C.......................................................................
+C.......................................................................
+      SUBROUTINE LSQOP(XT,YT,NX,NMAX,RER,CA,SA,NU)
+C  ***EDITED AND READY FOR PDP-10. . .711027. . .LBA
+C     Y=C1+C2*X+C3*X**2+...
+      DIMENSION XT(NX),YT(NX),AA(11),AL(11,11),B(11,11),X(30),Y(30),
+     &Q(20),P(10),R(2),CA(NMAX),SA(NMAX),C(11),S(11)
+      DOUBLE PRECISION X,Y,AA,AL,B,Q,P,R,SKA,C,S,AX
+      DO 13 I=1,NX
+      X(I)=XT(I)
+   13 Y(I)=YT(I)
+      DO 1 I=1,2
+      R(I)=0D0
+      DO 1 J=1,NX
+    1 R(I)=R(I)+Y(J)**I
+      AX=NX
+      AL(1,1)=DSQRT(AX)
+      B(1,1)=1D0/AL(1,1)
+      AA(1)=B(1,1)*R(1)
+      C(1)=AA(1)*B(1,1)
+      S(1)=R(2)-AA(1)**2
+      SA(1)=S(1)
+      IF(SQRT(SA(1)/NX).LT.RER)GOTO 14
+      GOTO 15
+   14 CA(1)=C(1)
+      NU=1
+      RETURN
+   15 DO 11 K=2,NMAX
+      KM=K-1
+      SKA=0D0
+      LO=1
+      LB=2*KM
+      DO 2 L=LO,LB
+      Q(L)=0D0
+      DO 2 I=1,NX
+    2 Q(L)=Q(L)+X(I)**L
+      LO=LB+1
+      P(KM)=0D0
+      DO 3 I=1,NX
+    3 P(KM)=P(KM)+Y(I)*X(I)**KM
+      DO 5 L=1,KM
+      AL(K,L)=0D0
+      DO 4 I=1,L
+    4 AL(K,L)=AL(K,L)+B(L,I)*Q(K+I-2)
+    5 SKA=SKA+AL(K,L)**2
+      AL(K,K)=DSQRT(Q(2*KM)-SKA)
+      DO 7 I=1,KM
+      B(K,I)=0D0
+      DO 6 J=I,KM
+    6 B(K,I)=B(K,I)-AL(K,J)*B(J,I)
+    7 B(K,I)=B(K,I)/AL(K,K)
+      B(K,K)=1D0/AL(K,K)
+      AA(K)=B(K,1)*R(1)
+      DO 8 L=2,K
+    8 AA(K)=AA(K)+B(K,L)*P(L-1)
+      C(K)=0D0
+      S(K)=R(2)
+      DO 9 J=1,K
+      C(J)=C(J)+AA(K)*B(K,J)
+      S(K)=S(K)-AA(J)**2
+      SA(K)=S(K)
+    9 CA(J)=C(J)
+      IF(SQRT(SA(K)/NX).LT.RER)GOTO 12
+   11 NU=NMAX
+      RETURN
+   12 NU=K
+      RETURN
+      END
+C.......................................................................
+C.......................................................................
+      FUNCTION EVPOL(X)
+C     ***EDITED AND READY FOR PDP-10. . .711027. . .LBA
+C     Y=C(1)+C(2)*X+C(3)*X**2+...+C(NU)*X**(NU-1)
+      COMMON/EP/CC,IW,NU
+      DIMENSION AA(11),CC(11)
+      IF(NU.EQ.2.AND.IW.EQ.2)GOTO 1
+      GOTO 2
+    1 EVPOL=0
+      RETURN
+    2 N1=NU-1
+      N2=NU-2
+      AA(1)=CC(NU)
+      DO 3 I=2,NU
+    3 AA(I)=X*AA(I-1)+CC(NU+1-I)
+      EVPOL=AA(NU)
+      IF(IW.EQ.0)RETURN
+      DO 4 I=2,N1
+    4 AA(I)=X*AA(I-1)+AA(I)
+      EVPOL=AA(N1)
+      IF(IW.EQ.1)RETURN
+      DO 5 I=2,N2
+    5 AA(I)=X*AA(I-1)+AA(I)
+      EVPOL=2*AA(N2)
+      RETURN
+      END
+C.......................................................................
+C.......................................................................
+      FUNCTION ZERO(A,B,RER,AER,FUN)
+C  ***EDITED AND READY FOR PDP-10. . .711027. . .LBA
+      COMMON/EP/CC,IW,NU
+      OG=A
+      BG=B
+      FOG=FUN(OG)
+      FBG=FUN(BG)
+      IF(FOG*FBG.GT.0)GOTO 1
+      GOTO 20
+C***THE CONSTANT BELOW HAS BEEN CHANGED FROM THE ORIGINAL PROGRAM VALUE
+C     OF 1E301 TO 1E38 FOR COMPATIBILITY WITH PDP-10.
+    1 ZERO=1.E+38
+      RETURN
+   10 IF(ABS(AI-BG).LT.TOL)AI=BG+SIGN(TOL,C-BG)
+      X=AM
+      IF((AI-AM)*(BG-AI).GT.0)X=AI
+      OG=BG
+      FOG=FBG
+      BG=X
+      FBG=FUN(X)
+      IF(FC*FBG.GT.0)GOTO 20
+      GOTO 2
+   20 C=OG
+      FC=FOG
+    2 IF(ABS(FBG).GT.ABS(FC))GOTO 3
+      GOTO 4
+    3 OG=BG
+      FOG=FBG
+      BG=C
+      FBG=FC
+      C=OG
+      FC=FOG
+    4 AM=(BG+C)*.5
+      AI=AM
+      IF(FBG-FOG.NE.0)AI=(OG*FBG-BG*FOG)/(FBG-FOG)
+      TOL=ABS(BG*RER)+AER
+      IF(ABS(AM-BG).GT.TOL)GOTO 10
+      ZERO=BG
+      RETURN
+      END
+C.......................................................................
+    > 6
