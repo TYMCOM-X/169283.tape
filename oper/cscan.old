@@ -1,0 +1,410 @@
+MODULE CSCAN(DOLLAR,ENTRIES=($CSCAN),FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+BEGIN
+
+REQUIRE CDEFS.BLI[7,107355];
+REQUIRE UDEFS.BLI[7,107355];
+
+
+UNDECLARE $CSCAN;
+
+
+MACRO   %! Build a pointer to a program's entry point within the plit
+           PROGRAM below composed of two-word-pairs constructed
+           using the macro PROG.
+        %
+      ENTRYPOINT(PGM)= PROGRAM[(PGM)*2]<36,6>&;
+
+
+MACRO   %! Build the individual programs in two words totalling twelve
+           fields for specifying functions to be performed serially
+           in the order supplied as actuals to this macro.
+        %
+      PROG(P0,P1,P2,P3,P4,P5,P6,P7,P8,P9,P10,P11)=
+        P0^30 OR P1^24 OR P2^18 OR P3^12 OR P4^6 OR P5,
+        P6^30 OR P7^24 OR P8^18 OR P9^12 OR P10^6 OR P11&;
+
+
+MACRO   %! Define a short form of the transition matrix entry building
+            macro.
+        %
+  TM( T1, T2, T3, T4, T5, T6, T7, T8, T9 )=
+         $CTM(T1,T2,T3,T4,T5,T6,0,0,0,T7,T8,T9) &;
+
+MACRO   %! DO SOME LOCAL RENAMING %
+  BEGID = CV$BEGID&,
+  CONT  = CV$CONT&,
+  BEGPAD= CV$BEGPAD&,
+  PADPGM= CV$PADPGM&,
+  BEGNUM= CV$BEGNUM&,
+  SPCL  = CV$SPLCHR&,
+  BEGDLM= CV$BEGDLM&,
+  CKDLIM= CV$CKDLIM&,
+  INCLDC= CV$INCLDC&,
+  EOLPGM= CV$EOLPGM&,
+  BOLPGM= CV$BOLPGM&,
+  ENDTK = CV$ENDTK&,
+  CKDOT = CV$CKDOT&,
+  SUB   = CV$SUB&,
+  DRCT  = CV$DRCT&;
+
+BIND    %! Assign values to function names; these functions appear in the
+           case/select statement below and define the instruction set from
+           which the programs are defined.
+        %
+   READ    =  1, % Obtain the next character from the input line        %
+   DISP    =  2, % Set the "program counter" to dispatch to a program   %
+   INIT    =  3, % Initialize a new scanner output token                %
+   EMIT    =  4, % Finish building a scanner output token               %
+   COLLECT =  5, % Store the current character (or representation )     %
+   CSTATE  =  6, % Change to a new state                                %
+   RETRN   =  7, % Return from the scanner to the invoking process      %
+   CKDLM   =  8, % Check delimiting character for inclusion, setting PC %
+   PADCNT  =  9, % Keep track of the number of padding characters       %
+   DOTTST  = 10; % Check for numeric immed. behind this period          %
+
+
+BIND    %! Define the individual programs in terms of their component
+           functions; recall that the program is followed by a SCANI on
+           PC which is initially set by use of the ENTRYPOINT macro.
+           The order of function execution is from left to right.
+        %
+   PROGRAM = PLIT(
+  %BEGID  % PROG( EMIT,  CSTATE,  CV$ID,   INIT,    COLLECT, READ,
+                  DISP,  0,       0,       0,       0,       0        ),
+  %CONT   % PROG(COLLECT,READ,    DISP,    0,       0,       0,
+                 0,      0,       0,       0,       0,       0        ),
+  %BEGPAD % PROG(EMIT,   CSTATE,  CV$PAD,  INIT,    COLLECT, READ,
+                 DISP,   0,       0,       0,       0,       0        ),
+  %PAD    % PROG(PADCNT, READ,    DISP,    0,       0,       0,
+                 0,      0,       0,       0,       0,       0        ),
+  %BEGNUM % PROG(EMIT,   CSTATE,  CV$NUM,  INIT,    COLLECT, READ,
+                 DISP,   0,       0,       0,       0,       0        ),
+  %SPLCHR % PROG(EMIT,   CSTATE,  CV$SPLC, INIT,    COLLECT, READ,
+                 DISP,   0,       0,       0,       0,       0        ),
+  %BEGDLM % PROG(EMIT,   CSTATE,  CV$SPLC, INIT,    COLLECT, EMIT,
+                 CSTATE, CV$DLIM, INIT,    READ,    DISP,    0        ),
+  %CKDLIM % PROG(CKDLM,  EMIT,    CSTATE,  CV$SPLC, INIT,    COLLECT,
+                 READ,   DISP,    0,       0,       0,       0        ),
+  %INCLDC % PROG(READ,   COLLECT, READ,    DISP,    0,       0,
+                 0,      0,       0,       0,       0,       0       ),
+  %EOL    % PROG(EMIT,   CSTATE,  CV$EOL,  INIT,    COLLECT, EMIT,
+                 RETRN,  0,       0,       0,       0,       0        ),
+  %BOL    % PROG(CSTATE, CV$LOOK, INIT,    READ,    DISP,    0,
+                 0,      0,       0,       0,       0,       0        ),
+  %ENDTK  % PROG(CSTATE, CV$LOOK, DISP,    0,       0,       0,
+                 0,      0,       0,       0,       0,       0        ),
+  %CKDOT  % PROG(EMIT,   DOTTST,  CSTATE,  CV$SPLC, INIT,   COLLECT,
+                 EMIT,   CSTATE,  CV$NUM,  INIT,    READ,    DISP     )
+        ); % end of PROGRAM plit %
+
+
+BIND    %! Define a default local transition matrix  %
+   LOCALMATRIX = PLIT(
+    % LOOK   PAD    ID     NUM    SPLC   DLIM   CODE  CNT  VAL   %
+    % =====  =====  =====  =====  =====  =====  ====  ==  ====   %
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SUB,  2,  '&@'), % null   %
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SUB,  2,  '&A'), % ctl-A  %
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SUB,  2,  '&B'),
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SUB,  2,  '&C'),
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SUB,  2,  '&D'),
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SUB,  2,  '&E'),
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SUB,  2,  '&F'),
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SUB,  2,  '&G'),
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SUB,  2,  '&H'),
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SUB,  2,  '&I'),
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SUB,  2,  '&J'),
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SUB,  2,  '&K'),
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SUB,  2,  '&L'),
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SUB,  2,  '&M'),
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SUB,  2,  '&N'),
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SUB,  2,  '&O'),
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SUB,  2,  '&P'),
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SUB,  2,  '&Q'),
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SUB,  2,  '&R'),
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SUB,  2,  '&S'),
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SUB,  2,  '&T'),
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SUB,  2,  '&U'),
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SUB,  2,  '&V'),
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SUB,  2,  '&W'),
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SUB,  2,  '&X'),
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SUB,  2,  '&Y'),
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SUB,  2,  '&Z'),
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SUB,  5,'<ESC>'), 
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SUB,  2,  '&\'), 
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SUB,  2,  '&]'), 
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SUB,  2,  '&^'), 
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SUB,  2,  '&_'), 
+   TM(BEGPAD,PADPGM,BEGPAD,BEGPAD,BEGPAD,CONT,  DRCT, 0,    0 ), 
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  CONT,  DRCT, 0,    0 ),  %  !     %
+   TM(BEGDLM,BEGDLM,BEGDLM,BEGDLM,BEGDLM,CKDLIM,DRCT, 0,    0 ),  % dbl-" %
+ 2:(TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  CONT,  DRCT, 0,    0 )), % # $    %
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  CONT,  DRCT, 0,    0 ),  % percent %
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  CONT,  DRCT, 0,    0 ),  % &      %
+   TM(BEGDLM,BEGDLM,BEGDLM,BEGDLM,BEGDLM,CKDLIM,DRCT, 0,    0 ),  % sgl-'  %
+ 6:(TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  CONT,  DRCT, 0,    0 )), % ()*+, - %
+   TM(CKDOT, CKDOT, CONT,  CKDOT, CKDOT, CONT,  DRCT, 0,    0 ),  % period %
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  CONT,  DRCT, 0,    0 ),  % slash  %
+   TM(BEGPAD,PADPGM,CONT,  CONT,  BEGPAD,CONT,  DRCT, 0,    0 ),  % zero   %
+ 9:(TM(BEGNUM,BEGNUM,CONT,  CONT,  BEGNUM,CONT,  DRCT, 0,    0 )), % 1-9    %
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  CONT,  DRCT, 0,    0 ),  % colon  %
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  CONT,  DRCT, 0,    0 ),  % s-colon %
+ 3:(TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  CONT,  DRCT, 0,    0 )), % < = >  %
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  CONT,  DRCT, 0,    0 ),  % Q-mark %
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  CONT,  DRCT, 0,    0 ),  %  @     %
+26:(TM(BEGID, BEGID, CONT,  BEGID, BEGID, CONT,  DRCT, 0,    0 )), %  A-Z (up) %
+ 6:(TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  CONT,  DRCT, 0,    0 )), % \]^_'  %
+   TM(BEGID, BEGID, CONT,  BEGID, BEGID, CONT,  SUB,  1,   'A'),  % L-case a %
+   TM(BEGID, BEGID, CONT,  BEGID, BEGID, CONT,  SUB,  1,   'B'),  % L-case b %
+   TM(BEGID, BEGID, CONT,  BEGID, BEGID, CONT,  SUB,  1,   'C'),
+   TM(BEGID, BEGID, CONT,  BEGID, BEGID, CONT,  SUB,  1,   'D'),
+   TM(BEGID, BEGID, CONT,  BEGID, BEGID, CONT,  SUB,  1,   'E'),
+   TM(BEGID, BEGID, CONT,  BEGID, BEGID, CONT,  SUB,  1,   'F'),
+   TM(BEGID, BEGID, CONT,  BEGID, BEGID, CONT,  SUB,  1,   'G'),
+   TM(BEGID, BEGID, CONT,  BEGID, BEGID, CONT,  SUB,  1,   'H'),
+   TM(BEGID, BEGID, CONT,  BEGID, BEGID, CONT,  SUB,  1,   'I'),
+   TM(BEGID, BEGID, CONT,  BEGID, BEGID, CONT,  SUB,  1,   'J'),
+   TM(BEGID, BEGID, CONT,  BEGID, BEGID, CONT,  SUB,  1,   'K'),
+   TM(BEGID, BEGID, CONT,  BEGID, BEGID, CONT,  SUB,  1,   'L'),
+   TM(BEGID, BEGID, CONT,  BEGID, BEGID, CONT,  SUB,  1,   'M'),
+   TM(BEGID, BEGID, CONT,  BEGID, BEGID, CONT,  SUB,  1,   'N'),
+   TM(BEGID, BEGID, CONT,  BEGID, BEGID, CONT,  SUB,  1,   'O'),
+   TM(BEGID, BEGID, CONT,  BEGID, BEGID, CONT,  SUB,  1,   'P'),
+   TM(BEGID, BEGID, CONT,  BEGID, BEGID, CONT,  SUB,  1,   'Q'),
+   TM(BEGID, BEGID, CONT,  BEGID, BEGID, CONT,  SUB,  1,   'R'),
+   TM(BEGID, BEGID, CONT,  BEGID, BEGID, CONT,  SUB,  1,   'S'),
+   TM(BEGID, BEGID, CONT,  BEGID, BEGID, CONT,  SUB,  1,   'T'),
+   TM(BEGID, BEGID, CONT,  BEGID, BEGID, CONT,  SUB,  1,   'U'),
+   TM(BEGID, BEGID, CONT,  BEGID, BEGID, CONT,  SUB,  1,   'V'),
+   TM(BEGID, BEGID, CONT,  BEGID, BEGID, CONT,  SUB,  1,   'W'),
+   TM(BEGID, BEGID, CONT,  BEGID, BEGID, CONT,  SUB,  1,   'X'),
+   TM(BEGID, BEGID, CONT,  BEGID, BEGID, CONT,  SUB,  1,   'Y'),
+   TM(BEGID, BEGID, CONT,  BEGID, BEGID, CONT,  SUB,  1,   'Z'),
+ 3:(TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  CONT,  DRCT, 0,    0 )), % curly | %
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  SUB,  5,'<ALT>'),  % #176,126 %
+   TM(SPCL,  SPCL,  SPCL,  SPCL,  SPCL,  CONT,  SUB,  5,'<DEL>')   % rubout %
+        );  % end of LOCALMATRIX plit %
+
+
+        %! Define a structure to obtain the appropriate program for a
+           given character + state combination.
+        %
+STRUCTURE  MAT[CHARACTER,STATE]=
+                (@.MAT + 3*.CHARACTER)<.STATE*4, 4>;
+
+MACRO   %! Define the injection code field within the current MATRIX
+           for the current character in CHAR
+        %
+    INJCODE = (.MATRIX + 3*.CHAR + 1)<18,18>&;
+
+MACRO   %! Define the injection count field with the current MATRIX
+           for the current character in CHAR.
+        %
+    INJCNT = (.MATRIX + 3*.CHAR + 1)<0,18>&;
+
+MACRO   %! Define the injection value field within the current MATRIX
+           for the current character in CHAR.
+        %
+    INJVAL = (.MATRIX + 3*.CHAR + 2)<0,36>&;
+
+
+
+%! Define the global routine $CSCAN whose parameters are:
+        LINEIMAGE   - The word address of the first word in the line image
+                      to be scanned.
+        LINELENGTH  - The number of characters in the line image to
+                      be scanned.
+        TRANSMATRIX - The address of the transition matrix specifying programs
+                      for character + state combinations according to the
+                      language of the expected input.  If zero is passed
+                      the default LOCALMATRIX is used.
+%
+
+GLOBAL ROUTINE $CSCAN(LINEIMAGE,LINELENGTH,TRANSMATRIX)=
+  BEGIN
+  LOCAL INPTR,   % A byte-pointer to scan the LINEIMAGE                 %
+        OUTPTR,  % A byte-pointer to the output buffer area             %
+        REMCHR,  % The number of characters remaining to be scanned;
+                    initially set to LINELENGTH, used with LINELENGTH to
+                    determine the original character position of a token 
+                    string in the input line image.
+                   -%
+    MAT MATRIX,  % Address of the character + state program assignments
+                    passed via TRANSMATRIX.
+                   -%
+        STATE,   % Current state of the scanner, also used to assign the
+                   value of token types durring the COLLECT function.
+                   -%
+        CHAR,    % Current character under consideration                %
+        NEXTCHR, % Next character in the line image (look-ahead)        %
+        PC,      % Byte-pointer to current program (program-counter) %
+        TKNCNT,  % Count of number of tokens created (including the
+                    token currently being constructed) zero based.
+                   -%
+    CT$ TOKEN,   % Pointer to token block                               %
+        VALCNT,  % Counter for assigning length and value fields        %
+        BUFSZ,  % Current maximum number of characters allowed in OBUF  %
+        BAGSZ;  % Current maximum number of tokens allowed in token-bag %
+
+  % initialize the scanner %
+  TOKEN  _  $CGTZM(6);          % obtain core for head of token block %
+  TOKEN[CT$COUNT] _ 0;
+  BUFSZ  _  .LINELENGTH + 15;           % initial number of characters %
+  BAGSZ _ (CV$TOKSZ * .BUFSZ / 2 )/ CV$TOKSZ;  % initial number of tokens  %
+  TOKEN[CT$BAG] _ $CGTZM(CV$TOKSZ*.BAGSZ);      % obtain core for bag     %
+  TOKEN[CT$OBUF] _ $CGTZM(.BUFSZ/5 +1)<36,7>;   % obtain core for buffer  %
+  TOKEN[CT$OLEN]  _ 0;
+  TOKEN[CT$IBUF]  _ .LINEIMAGE;
+  TOKEN[CT$ILEN]  _ .LINELENGTH;
+  TOKEN[CT$CURSOR] _ .TOKEN[CT$BAG] - CV$TOKSZ;
+
+  STATE  _ CV$BOL;      % = CV$LOOKING %
+  PC     _ ENTRYPOINT(BOLPGM);
+  REMCHR _ .LINELENGTH;
+  INPTR  _ .LINEIMAGE;
+  OUTPTR _ (.TOKEN[CT$OBUF])<36,7>;
+  TKNCNT _ -1;
+  MATRIX _ IF .TRANSMATRIX EQL 0 
+             THEN LOCALMATRIX<0,0>
+             ELSE (.TRANSMATRIX)<0,0>;
+
+  CHAR    _ " ";
+  NEXTCHR _ SCANI(INPTR);
+  VALCNT  _ 0;
+
+  WHILE 1 DO
+   SELECT SCANI(PC) OF NSET
+
+      0:        $UMESS($USPTR('Ran off end of scanner program'));
+
+   READ:        BEGIN   % obtain next character for consideration %
+                CHAR _ .NEXTCHR;
+                NEXTCHR _ SCANI(INPTR);
+                REMCHR _ .REMCHR -1;
+                IF .REMCHR LSS 0 THEN   % at end of the line image   %
+                  PC _ ENTRYPOINT(EOLPGM) % change program immediately %
+                END;
+
+   DISP:        BEGIN
+                PC _   % dispatch to a program based on transition matrix %
+                      ENTRYPOINT(.MATRIX[.CHAR,.STATE]);
+                IF .MATRIX[.CHAR,.STATE] LSS 0 OR
+                   .MATRIX[.CHAR,.STATE] GTR 12 THEN
+                     $UMESS($USPTR('Invalid Program Identifier'))
+                END;
+
+   INIT:        BEGIN   % initialize a new token %
+                TKNCNT _ .TKNCNT + 1;
+                IF .TKNCNT GEQ .BAGSZ THEN              % get a bigger bag %
+                   BEGIN
+                   LOCAL NEWBAG;
+                   NEWBAG _ $CGTZM((.BAGSZ+5)*CV$TOKSZ);  % five more %
+                   $UMOVE(.BAGSZ*CV$TOKSZ,.TOKEN[CT$BAG],.NEWBAG);
+                   $CFREEM(.TOKEN[CT$BAG]);     % release old bag's core%
+                   TOKEN[CT$BAG] _ .NEWBAG;
+                   BAGSZ _ .BAGSZ + 5
+                   END;
+                TOKEN[CT$CURSOR] _ .TOKEN[CT$BAG] + CV$TOKSZ*.TKNCNT;
+                TOKEN[CT$CHPOS] _ .LINELENGTH - .REMCHR;
+                TOKEN[CT$PTR]   _ .OUTPTR;
+                TOKEN[CT$VALUE] _ 0;
+                TOKEN[CT$LENGTH] _ 0;
+                TOKEN[CT$NXTCH] _ .NEXTCHR;
+                VALCNT  _  0
+                END;
+
+   EMIT:        BEGIN   % finish filling in current token %
+                LOCAL LPTR;
+                LPTR _ .TOKEN[CT$PTR];
+                IF .STATE NEQ CV$PAD  THEN
+                   TOKEN[CT$VALUE] _ $CHASH(.LPTR,.VALCNT,.CSCHN$);
+                TOKEN[CT$LENGTH] _ .VALCNT;
+                TOKEN[CT$TYPE]   _ .STATE
+                END;
+
+   COLLECT:     BEGIN   % store current character %
+                VALCNT _ .VALCNT + 1; % count number of INPUT characters %
+                IF .VALCNT LEQ 5 THEN % include in value field %
+                   (TOKEN[CT$VALUE])<36-7*.VALCNT,7> _ .CHAR;
+                TOKEN[CT$NXTCH] _ .NEXTCHR;
+                IF .TOKEN[CT$OLEN] + .INJCNT + 1 GEQ .BUFSZ THEN
+                   BEGIN                % get a bigger injection buffer%
+                   LOCAL NEWBUF;
+                   NEWBUF _ $CGTZM(.BUFSZ/5 +6);        % increase by 25 chrs %
+                   $UMOVE(.BUFSZ/5+1,.TOKEN[CT$OBUF],.NEWBUF);
+                   $CFREEM(.TOKEN[CT$OBUF]);
+                   TOKEN[CT$OBUF] _ (.NEWBUF)<36,7>;
+                   OUTPTR _ (.NEWBUF)<36,7>;
+                     DECR J FROM .TOKEN[CT$OLEN] TO 1 DO INCP(OUTPTR);
+                   BUFSZ _ .BUFSZ + 25
+                   END;
+                SELECT .INJCODE OF
+                   NSET
+                   CV$DRCT: BEGIN
+                            REPLACEI(OUTPTR,.CHAR);
+                            TOKEN[CT$OLEN] _ .TOKEN[CT$OLEN] + 1
+                            END;
+                   CV$SUB:  IF .STATE NEQ CV$DLIM THEN
+                                BEGIN
+                                LOCAL PTR;
+                                PTR _ (INJVAL)<36,7>;
+                                DECR I FROM .INJCNT TO 1 DO
+                                   COPYII(PTR,OUTPTR);
+                                TOKEN[CT$OLEN] _ .TOKEN[CT$OLEN] + .INJCNT
+                                END
+                            ELSE BEGIN
+                                 REPLACEI(OUTPTR,.CHAR);
+                                 TOKEN[CT$OLEN] _ .TOKEN[CT$OLEN] + 1
+                                 END;
+                   OTHERWISE: $UMESS($USPTR('Invalid Injection Code'))
+                   TESN;
+                END;
+
+   CSTATE:      STATE _ SCANI(PC);  % change state of scanner %
+
+   RETRN:       BEGIN               % finish up scanner execution %
+                TOKEN[CT$CURSOR] _ .TOKEN[CT$BAG];
+                TOKEN[CT$COUNT]  _ .TKNCNT;
+                RETTOKEN       % terminate scanner execution %
+                END;
+
+   CKDLM:       %! Check a delimiter character to decide if it should
+                   be included in the current delimited string token
+                %
+                BEGIN
+                LOCAL THEDELIM;  % value of the character delimiting this
+                                    string. %
+                LOCAL WORKPTR;
+                TOKEN[CT$CURSOR] _ .TOKEN[CT$CURSOR] - CV$TOKSZ;
+                WORKPTR _ .TOKEN[CT$PTR];
+                THEDELIM _ SCANI(WORKPTR);
+                TOKEN[CT$CURSOR] _ .TOKEN[CT$CURSOR] + CV$TOKSZ;
+                IF .CHAR EQL .THEDELIM THEN
+                   IF .CHAR EQL .NEXTCHR THEN
+                        PC _ ENTRYPOINT(INCLDC)
+                   ELSE 0  % do nothing %
+                ELSE PC _ ENTRYPOINT(CONT)
+                END;
+
+   PADCNT:      BEGIN  % Keep track of padding size %
+                VALCNT _ .VALCNT + 1;
+                IF .VALCNT LEQ 5 THEN
+                   (TOKEN[CT$VALUE])<36-7*.VALCNT,7> _ .CHAR;
+                TOKEN[CT$NXTCH] _ .NEXTCHR
+                END;
+
+   DOTTST:      % Check for a dot immed. before a number, incl zero %
+                IF  .MATRIX[.NEXTCHR,CV$NUM]  EQL CONT  THEN
+                   0  % do nothing %
+                ELSE  PC _ ENTRYPOINT(SPCL);
+
+   OTHERWISE:   $UMESS($USPTR('Invalid Program Function'));
+
+   TESN;
+
+
+  END;
+
+
+END
+ELUDOM
+   ;@H,
