@@ -1,0 +1,833 @@
+MODULE GREPT(DOLLAR,ENTRIES=($GRP,$GRPCTRL,$GBRPT,$GWRPT,$GERPT),FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+  BEGIN
+
+  REQUIRE ADEFS.BLI[7,107355];
+  REQUIRE BDEFS.BLI[7,107355];
+  REQUIRE CDEFS.BLI[7,107355];
+  REQUIRE FDEFS.BLI[7,107355];
+  REQUIRE GDEFS.BLI[7,107355];
+  REQUIRE HDEFS.BLI[7,107355];
+  REQUIRE SDEFS.BLI[7,107355];
+  REQUIRE TDEFS.BLI[7,107355];
+  REQUIRE UDEFS.BLI[7,107355];
+  REQUIRE ZDEFS.BLI[7,107355];
+
+
+  UNDECLARE $GRP, $GRPCTRL, $GBRPT,$GWRPT,$GERPT;
+
+  MAP A$ GBTKN$;
+  MAP Z$ ZBSTK$;
+  MAP G$ GGBFP$;
+  MAP G$OPND GGBOP$;
+
+
+  GLOBAL ROUTINE $GRPCTRL(SINCSTE) =
+    BEGIN
+
+    MAP S$ SINCSTE;
+    LOCAL S$ NAMESTE : RINCSTE : RDEFSTE : GPINCSTE ;
+    LOCAL FIRSTIME, LABSAV, RISTP, RGPSTP, FRECP, FINCHAINF, REPTSTP, LASTRGP;
+    LOCAL ENDFELAB, TEMP;
+    LOCAL GF$ FLNODEP;
+
+    ROUTINE GENCALL(ENTRYSTP)=
+      BEGIN
+
+      $GIREC(GV$CALL,4);
+      GGBOP$[0,G$OPVAL] := GV$NORSLT;
+      GGBOP$[1,G$OPTYP] := GV$STP;
+      GGBOP$[1,G$OPVAL] := .ENTRYSTP;
+
+      END;
+
+    ROUTINE NRPARAM(BTYPE,INCSTP)=      %* PROCESS A NUMERIC REPORT PARAMETER *%
+      BEGIN
+
+      LOCAL GTYPE, ITEMSIZE;
+
+      GTYPE := (SELECT .BTYPE OF
+                        NSET
+                    TV$PAGESZ :
+                                 BEGIN
+                                 ITEMSIZE := 3;
+                                 GV$PAGESIZ
+                                 END;
+                    TV$LINEN  :
+                                 BEGIN
+                                 ITEMSIZE := 5;
+                                 GV$LINENO
+                                 END;
+                    TV$PAGEN  :
+                                 BEGIN
+                                 ITEMSIZE := 5;
+                                 GV$PAGENO
+                                 END;
+                    TV$BOTTM  :
+                                 BEGIN
+                                 ITEMSIZE := 3;
+                                 GV$BOTMARG
+                                 END;
+                    TV$FOOTSZ :
+                                 BEGIN
+                                 ITEMSIZE := 3;
+                                 GV$FOOTSIZ
+                                 END;
+                    TV$TOPMAR :
+                                 BEGIN
+                                 ITEMSIZE := 3;
+                                 GV$TOPMARG
+                                 END;
+                    TV$HEADSZ :
+                                 BEGIN
+                                 ITEMSIZE := 3;
+                                 GV$HEADSIZ
+                                 END;
+                        TESN     );
+      IF .ZBSTK$[Z$DATATYP,.ZSTKP$] NEQ ZV$NUMERIC    OR
+         .ZBSTK$[Z$DCNT,.ZSTKP$] NEQ 0           OR
+         .ZBSTK$[Z$ICNT,.ZSTKP$] GTR .ITEMSIZE
+        THEN
+          BEGIN
+          ZBSTK$[Z$ID,.ZSTKP$] := .BTYPE;
+          $GERR(519,.ZSTKP$);
+          END
+        ELSE
+          BEGIN
+          $GICHK(.ZSTKP$);
+          $GNVCHK(.ZSTKP$,.GTYPE,.INCSTP);
+          $GIREC(GV$STORE,5);
+          GGBFP$[G$ICNT]    := .ITEMSIZE;
+          GGBFP$[G$DCNT]    := 0;
+          GGBOP$[0,G$OPTYP] := GV$RIP;
+          GGBOP$[0,G$RITYP] := .GTYPE;
+          GGBOP$[0,G$OPVAL] := .INCSTP;
+          GGBFP$[G$OPND2]   := $GOPND(.ZSTKP$);
+          GGBFP$[G$OPND3]   := GV$ROUND;
+          $GWBUF(.GGBFP$,.GOB1I$);
+          END;
+      $GPOP();
+      END;
+
+
+    ROUTINE SRPARAM(BTYPE,IVALSTP,RPINCSTP)=    %* PROCESS A STRING REPORT PARAMETER *%
+      BEGIN
+
+      LOCAL S$ NAMESTE : INCSTE;
+      LOCAL INCTYPE, INCSTP, GTYPE;
+
+      GTYPE := (SELECT .BTYPE OF
+                        NSET
+                    TV$PAGEDV : GV$PAGEDIV;
+                    TV$PAGETP : GV$TOP;
+                        TESN   );
+      NAMESTE := $SGSTE(.IVALSTP);
+      SELECT .NAMESTE[S$TYPE] OF
+                NSET
+          SV$STLIT:
+              BEGIN
+              INCSTP := .NAMESTE[S$LITINCP];
+              INCTYPE := GV$LIT;
+              INCSTE := $SGSTE(.INCSTP);
+              IF .INCSTE[S$DDTYPE] NEQ SV$SLIT    OR
+                 (.GTYPE EQL GV$TOP   AND   .INCSTE[S$NCHAR] GTR 1)
+                THEN
+                  BEGIN
+                  $GPUSH(.GBTKN$,AV$SZTOK);
+                  ZBSTK$[Z$ID,.ZSTKP$] := .BTYPE;
+                  $GERR(519,.ZSTKP$);
+                  $GPOP();
+                  $SFRNCH(.INCSTE);
+                  RETURN -1;
+                  END;
+              $SFRNCH(.INCSTE);
+              END;
+          SV$NAME:
+              BEGIN
+              INCSTP := .NAMESTE[S$CISTP];
+              IF .INCSTP EQL SV$NULL
+                THEN
+                  BEGIN
+                  $GPUSH(.GBTKN$,AV$SZTOK);
+                  ZBSTK$[Z$ID,.ZSTKP$] := TV$NAME;
+                  ZBSTK$[Z$STP,.ZSTKP$] := .IVALSTP;
+                  $GERR(526,.ZSTKP$);
+                  $GPOP();
+                  RETURN -1;
+                  END;
+              INCTYPE := GV$STP;
+              INCSTE := $SGSTE(.INCSTP);
+              IF .INCSTE[S$DTYP] NEQ SV$SLIT   OR
+                 (.GTYPE EQL GV$TOP   AND   .INCSTE[S$LCHAR] GTR 1)
+                THEN
+                  BEGIN
+                  $GPUSH(.GBTKN$,AV$SZTOK);
+                  ZBSTK$[Z$ID,.ZSTKP$] := .BTYPE;
+                  $GERR(519,.ZSTKP$);
+                  $GPOP();
+                  $SFRNCH(.INCSTE);
+                  RETURN -1;
+                  END;
+              $SFRNCH(.INCSTE);
+              END;
+                TESN;
+      $SFRNCH(.NAMESTE);
+      $GIREC(GV$STORE,5);
+      GGBOP$[0,G$OPTYP] := GV$RIP;
+      GGBOP$[0,G$RITYP] := .GTYPE;
+      GGBOP$[0,G$OPVAL] := .RPINCSTP;
+      GGBOP$[1,G$OPTYP] := .INCTYPE;
+      GGBOP$[1,G$OPVAL] := .INCSTP;
+      GGBFP$[G$OPND3]   := GV$ROUND;
+      $GWBUF(.GGBFP$,.GOB1I$);
+
+      END;
+
+
+  %** GENERATE REPORT CONTROL N-TUPLES  **%
+
+    NAMESTE := $GWVAR(ZV$NUMERIC,1,0);      % CREATE THE FIRST TIME VARIABLE %
+    FIRSTIME := .NAMESTE[S$CISTP];
+    $SFNME(.NAMESTE,3);
+    $GIREC(GV$INIT,4);                      % INIT. THEFIRST TIME VAR. TO 1 %
+    GGBOP$[0,G$OPTYP] := GV$STP;
+    GGBOP$[0,G$OPVAL] := .FIRSTIME;
+    GGBFP$[G$OPND2]   := 1;
+    $GWBUF(.GGBFP$,.GRB1I$);
+    $GIREC(GV$EQ,4);                        % GENERATE A COMPARE OF FIRST TIME VAR. TO 1 %
+    GGBFP$[G$UCNT] := 1;
+    GGBOP$[0,G$OPTYP] := GV$STP;
+    GGBOP$[0,G$OPVAL] := .FIRSTIME;
+    GGBOP$[1,G$OPTYP] := GV$LIT;
+    GGBOP$[1,G$OPVAL] := .GONE$;
+    $GWBUF(.GGBFP$,.GRB1I$);
+    $GIREC(GV$BRCHF,4);                     % GENERATE CONDITIONAL BRANCH TO BYPASS FIRST TIME
+                                              CODE IF THE COMPARE IS FALSE
+                                            %
+    GGBOP$[0,G$OPTYP] := GV$NP;
+    GGBOP$[0,G$NPTYPE] := GV$LOGICAL;
+    GGBOP$[0,G$OPVAL] := .GGFID$ - 2;
+    GGBOP$[1,G$OPTYP] := GV$STP;
+    GGBOP$[1,G$OPVAL] := LABSAV := $GNLAB();
+    $GWBUF(.GGBFP$,.GRB1I$);
+    $GIREC(GV$STORE,4);                     % SET THE FIRST TIME FLAG EQUAL TO 0 %
+    GGBOP$[0,G$OPTYP] := GV$STP;
+    GGBOP$[0,G$OPVAL] := .FIRSTIME;
+    GGBOP$[1,G$OPTYP] := GV$LIT;
+    GGBOP$[1,G$OPVAL] := .SZERO$;
+    GGBFP$[G$OPND3] := GV$ROUND;
+    $GWBUF(.GGBFP$,.GRB1I$);
+    $GIREC(GV$LABEL,3);                     % GENERATE THE LABEL THAT MARKS THE END OF FIRST TIME CODE %
+    GGBOP$[0,G$OPTYP] := GV$STP;
+    GGBOP$[0,G$OPVAL] := .LABSAV;
+    $GWBUF(.GGBFP$,.GRB2I$);
+    IF .SINCSTE NEQ SV$NULL
+      THEN
+        BEGIN
+        FINCHAINF := SV$FALSE;
+        IF .SINCSTE[S$TYPE] EQL SV$RELINC  AND  % DOES THIS FOR EACH RELATE TO A RELATION? %
+           .SINCSTE[S$RNUM] GTR 0
+          THEN
+            BEGIN                               % YES %
+          %**  CHANGE THE LABEL TO BE BRANCHED TO AFTER EACH READ, BECAUSE THERE
+              IS A REPORT ASSOCIATED WITH THE RELATION. IN SUCH CASES A NEW
+              FETCHALL IS GENERATED FOLLOWING THE EOF TEST AND JUST PRECEDING
+              ANY CALLS TO GROUP HEADING ROUTINES.
+          **%
+            ZBSTK$[Z$NEXTLAB,.ZBSTK$[Z$SUCP,.GFEAP$]] := .LABSAV;
+            $GIREC(GV$RESET,4);                 % GENERATE THE RESET FOR CHANGED FLAGS %
+            GGBOP$[0,G$OPVAL] := GV$CHGFLS;
+            GGBOP$[1,G$OPTYP] := GV$STP;
+            GGBOP$[1,G$OPVAL] := .SINCSTE[S$STPX];
+            $GWBUF(.GGBFP$,.GRB3I$);
+            $GIREC(GV$CHGD,3);                  % GENERATE THE TEST AND SET CHANGED FLAGS FOR THE RELATION %
+            GGBOP$[0,G$OPTYP] := GV$STP;
+            GGBOP$[0,G$OPVAL] := .SINCSTE[S$STPX];
+            $GWBUF(.GGBFP$,.GRB3I$);
+            SINCSTE[S$CHGREF] := SV$TRUE;
+            $SFGCH(.SINCSTE);
+            END;
+        END
+      ELSE
+        FINCHAINF := ZV$TRUE;
+
+    $GIREC(GV$EQ,4);
+    GGBFP$[G$UCNT] := 1;
+    GGBOP$[0,G$OPTYP] := GV$STP;
+    GGBOP$[0,G$OPVAL] := .FIRSTIME;
+    GGBOP$[1,G$OPTYP] := GV$LIT;
+    GGBOP$[1,G$OPVAL] := .GONE$;
+    $GWBUF(.GGBFP$,.GRB5I$);
+
+    $GIREC(GV$BRCHT,4);
+    GGBOP$[0,G$OPTYP]  := GV$NP;
+    GGBOP$[0,G$OPVAL]  := .GGFID$ -2;
+    GGBOP$[0,G$NPTYPE] := GV$LOGICAL;
+    GGBOP$[1,G$OPTYP]  := GV$STP;
+    GGBOP$[1,G$OPVAL]  := ENDFELAB := $GNLAB();
+    $GWBUF(.GGBFP$,.GRB5I$);
+
+    $GIREC(GV$STORE,5);                     % GENERATE A STORE OF A  1  INTO THE FIRST TIME VAR.
+                                              TO GO TO AT THE END OF THE FOR EACH 
+                                            %
+    GGBOP$[0,G$OPTYP] := GV$STP;
+    GGBOP$[0,G$OPVAL] := .FIRSTIME;
+    GGBOP$[1,G$OPTYP] := GV$LIT;
+    GGBOP$[1,G$OPVAL] := .GONE$;
+    GGBFP$[G$OPND3] := GV$ROUND;
+    $GWBUF(.GGBFP$,.GRB5I$);
+    IF .FINCHAINF EQL ZV$TRUE
+      THEN
+        BEGIN
+        FLNODEP := .ZBSTK$[Z$FSUBLP,.GFINL$];
+        RISTP := .FLNODEP[GF$RISTP];
+        END
+      ELSE
+        RISTP := .SINCSTE[S$RICSTP];
+    WHILE .RISTP NEQ ZV$NULL
+      DO
+        BEGIN
+        RINCSTE := $SGSTE(.RISTP);
+        IF .RINCSTE[S$TYPE] NEQ SV$RELINC
+          THEN
+            BEGIN
+            RDEFSTE := $SGSTE(.RINCSTE[S$RPDSTP]); % GET THE REPORT'S DEFINITION ENTRY %
+            IF .RDEFSTE[S$USECNT] EQL 1
+              THEN
+                BEGIN
+                %***  REPORT PARAMETER PROCESSING  ***%
+                GRPIF$ := ZV$TRUE;
+                IF .RDEFSTE[S$PLNL] NEQ HV$EMPTY        % LINE LENGTH %
+                  THEN
+                    BEGIN
+                    $GNXSTN(RDEFSTE[S$PLNL],ZV$TRUE);
+                    $GLINE(ZV$RP,.RISTP);
+                    END;
+                IF .RDEFSTE[S$PPGSZ] NEQ HV$EMPTY       % PAGE SIZE %
+                  THEN
+                    BEGIN
+                    $GNXSTN(RDEFSTE[S$PPGSZ],ZV$TRUE);
+                    NRPARAM(TV$PAGESZ,.RISTP);
+                    END;
+                IF .RDEFSTE[S$PLNNM] NEQ HV$EMPTY       % LINE NUMBER %
+                  THEN
+                    BEGIN
+                    $GNXSTN(RDEFSTE[S$PLNNM],ZV$TRUE);
+                    NRPARAM(TV$LINEN,.RISTP);
+                    END;
+                IF .RDEFSTE[S$PPGNM] NEQ HV$EMPTY       % PAGE NUMBER %
+                  THEN
+                    BEGIN
+                    $GNXSTN(RDEFSTE[S$PPGNM],ZV$TRUE);
+                    NRPARAM(TV$PAGEN,.RISTP);
+                    END;
+                IF .RDEFSTE[S$PBTMG] NEQ HV$EMPTY       % BOTTOM MARGIN %
+                  THEN
+                    BEGIN
+                    $GNXSTN(RDEFSTE[S$PBTMG],ZV$TRUE);
+                    NRPARAM(TV$BOTTM,.RISTP);
+                    END;
+                IF .RDEFSTE[S$PFTSZ] NEQ HV$EMPTY       % FOOTING SIZE %
+                  THEN
+                    BEGIN
+                    $GNXSTN(RDEFSTE[S$PFTSZ],ZV$TRUE);
+                    NRPARAM(TV$FOOTSZ,.RISTP);
+                    END;
+                IF .RDEFSTE[S$PHDSZ] NEQ HV$EMPTY       % HEADING SIZE %
+                  THEN
+                   BEGIN
+                   $GNXSTN(RDEFSTE[S$PHDSZ],ZV$TRUE);
+                   NRPARAM(TV$HEADSZ,.RISTP);
+                   END;
+                IF .RDEFSTE[S$PTPMG] NEQ HV$EMPTY       % TOP MARGIN %
+                  THEN
+                    BEGIN
+                    $GNXSTN(RDEFSTE[S$PTPMG],ZV$TRUE);
+                    NRPARAM(TV$TOPMAR,.RISTP);
+                    END;
+                IF .RDEFSTE[S$PDVSTP] NEQ SV$NULL       % PAGE DIVIDER %
+                  THEN
+                    SRPARAM(TV$PAGEDV,.RDEFSTE[S$PDVSTP],.RISTP);
+                IF .RDEFSTE[S$PTPSTP] NEQ SV$NULL       % TOP %
+                  THEN
+                    SRPARAM(TV$PAGETP,.RDEFSTE[S$PTPSTP],.RISTP);
+                GRPIF$ := ZV$FALSE;
+
+                $GIREC(GV$OPEN,3);              % OPEN THE REPORT %
+                GGBOP$[0,G$OPTYP] := GV$STP;
+                GGBOP$[0,G$OPVAL] := .RINCSTE[S$STPX];
+                $GWBUF(.GGBFP$,.GRB1I$);
+                END;
+            IF .RINCSTE[S$RHL] NEQ SV$NULL     % REPORT HEADING %
+              THEN
+                BEGIN
+                $GIREC(GV$STORE,5);
+                GGBOP$[0,G$OPTYP] := GV$RIP;
+                GGBOP$[0,G$RITYP] := GV$INHIBIT;
+                GGBOP$[0,G$OPVAL] := .RINCSTE[S$STPX];
+                GGBOP$[1,G$OPTYP] := GV$LIT;
+                GGBOP$[1,G$OPVAL] := .GONE$;
+                GGBFP$[G$OPND3]   := GV$ROUND;
+                $GWBUF(.GGBFP$,.GRB1I$);
+                GENCALL(.RINCSTE[S$RHL]);
+                $GWBUF(.GGBFP$,.GRB1I$);
+                END;
+            $GIREC(GV$STORE,5);
+            GGBOP$[0,G$OPTYP] := GV$RIP;
+            GGBOP$[0,G$RITYP] := GV$INHIBIT;
+            GGBOP$[0,G$OPVAL] := .RINCSTE[S$STPX];
+            GGBOP$[1,G$OPTYP] := GV$LIT;
+            GGBOP$[1,G$OPVAL] := .SZERO$;
+            GGBFP$[G$OPND3]   := GV$ROUND;
+            $GWBUF(.GGBFP$,.GRB1I$);
+            IF .RINCSTE[S$RFINIL] NEQ SV$NULL   % REPORT FOOTING INITIALIZATION %
+              THEN
+                BEGIN
+                GENCALL(.RINCSTE[S$RFINIL]);
+                $GWBUF(.GGBFP$,.GRB1I$);
+                END;
+            IF .RINCSTE[S$RCGPI] NEQ SV$NULL   AND    % REPORT CONTROL GROUP %
+               (.SINCSTE EQL ZV$NULL  OR  .SINCSTE[S$TYPE] EQL SV$SRCINC)
+              THEN
+                BEGIN
+                $GPUSH(.GBTKN$,AV$SZTOK+4);
+                ZBSTK$[Z$STP,.ZSTKP$] := .RINCSTE[S$STP1];
+                ZBSTK$[Z$SBID,.ZSTKP$] := ZV$RP;
+                ZBSTK$[Z$ID,.ZSTKP$] := TV$NAME;
+                $GERR(549,.ZSTKP$);
+                $GPOP();
+                END
+              ELSE
+                BEGIN
+                RGPSTP := .RINCSTE[S$RCGPI];
+                LASTRGP := SV$NULL;
+                WHILE .RGPSTP NEQ SV$NULL
+                  DO
+                    BEGIN
+                    GPINCSTE := $SGSTE(.RGPSTP);
+                    LASTRGP := .RGPSTP;
+                    IF .GPINCSTE[S$PFTGINIT] NEQ SV$NULL  % GROUP FOOTING INITIALIZATION %
+                      THEN
+                        BEGIN
+                        GENCALL(.GPINCSTE[S$PFTGINIT]);
+                        $GWBUF(.GGBFP$,.GRB1I$);
+                        END;
+                    IF .GPINCSTE[S$PHDG] NEQ SV$NULL      % GROUP HEADING %
+                      THEN
+                        BEGIN
+                        GENCALL(.GPINCSTE[S$PHDGDTL]);
+                        $GWBUF(.GGBFP$,.GRB1I$);
+                        GENCALL(.GPINCSTE[S$PHDG]);
+                        $GWBUF(.GGBFP$,.GRB6I$);
+                        END;
+                    RGPSTP := .GPINCSTE[S$RCGPI];
+                    $SFRNCH(.GPINCSTE);
+                    END;
+                IF .LASTRGP NEQ SV$NULL
+                  THEN
+                    BEGIN
+                    RGPSTP := .LASTRGP;
+                    WHILE .RGPSTP NEQ .RINCSTE[S$STPX]
+                      DO
+                        BEGIN
+                        GPINCSTE := $SGSTE(.RGPSTP);
+                        IF .GPINCSTE[S$PFTGINC] NEQ SV$NULL   % GROUP FOOTING INCREMENTATION %
+                          THEN
+                            BEGIN
+                            GENCALL(.GPINCSTE[S$PFTGINC]);
+                            $GWBUF(.GGBFP$,.GRB3I$);
+            
+                            $GIREC(GV$TEST,5);
+                            GGBFP$[G$UCNT] := 1;
+                            GGBFP$[G$OPND1]   := GV$CHGFLS;
+                            GGBOP$[1,G$OPTYP] := GV$STP;
+                            GGBOP$[1,G$OPVAL] := .GPINCSTE[S$FLDINCP];
+                            GGBOP$[2,G$OPTYP] := GV$STP;
+                            GGBOP$[2,G$OPVAL] := .SINCSTE[S$STPX];
+                            $GWBUF(.GGBFP$,.GRB4I$);
+            
+                            $GIREC(GV$BRCHF,4);
+                            GGBOP$[0,G$OPTYP] := GV$NP;
+                            GGBOP$[0,G$NPTYPE]:= GV$LOGICAL;
+                            GGBOP$[0,G$OPVAL] := .GGFID$ -2;
+                            GGBOP$[1,G$OPTYP] := GV$STP;
+                            GGBOP$[1,G$OPVAL] := LABSAV := $GNLAB();
+                            $GWBUF(.GGBFP$,.GRB4I$);
+
+                            GENCALL(.GPINCSTE[S$PFTGDTL]);
+                            $GWBUF(.GGBFP$,.GRB4I$);
+            
+                            $GIREC(GV$LABEL,3);
+                            GGBOP$[0,G$OPTYP] := GV$STP;
+                            GGBOP$[0,G$OPVAL] := .LABSAV;
+                            $GWBUF(.GGBFP$,.GRB4I$);
+
+           %****  THE FOLLOWING TWO STATEMENTS HAVE BEEN DELETED TO ELIMINATE
+                THE FORCE OF GROUP FOOTINGS AFTER EOF SINCE THE CHANGING FLAGS
+                WILL NOW BE SET UPON DETECTING EOF.
+                            GENCALL(.GPINCSTE[S$PFTGDTL]);
+                            $GWBUF(.GGBFP$,.GRB5I$);
+           ****%
+                            END;
+                        RGPSTP := .GPINCSTE[S$RCGPRED];
+                        $SFRNCH(.GPINCSTE);
+                        END;
+                    END;
+                END;
+            IF .RINCSTE[S$RFINCL] NEQ SV$NULL   % REPORT FOOTING INCREMENTATION  %
+              THEN
+                BEGIN
+                GENCALL(.RINCSTE[S$RFINCL]);
+                $GWBUF(.GGBFP$,.G);
+                END;
+            IF .RINCSTE[S$RFDTLL] NEQ SV$NULL   % REPORT FOOTING DETAIL %
+                THEN
+                  BEGIN
+                  $GIREC(GV$STORE,5);
+                  GGBOP$[0,G$OPTYP] := GV$RIP;
+                  GGBOP$[0,G$RITYP] := GV$INHIBIT;
+                  GGBOP$[0,G$OPVAL] := .RINCSTE[S$STPX];
+                  GGBOP$[1,G$OPTYP] := GV$LIT;
+                  GGBOP$[1,G$OPVAL] := .GONE$;
+                  GGBFP$[G$OPND3]   := GV$ROUND;
+                  $GWBUF(.GGBFP$,.GRB5I$);
+                  GENCALL(.RINCSTE[S$RFDTLL]);
+                  $GWBUF(.GGBFP$,.GRB5I$);
+                  END;
+            $SFRNCH(.RDEFSTE);
+            END;
+        IF .FINCHAINF EQL ZV$TRUE
+          THEN
+            BEGIN
+            FLNODEP := .FLNODEP[GF$SUCP];
+            RISTP := IF .FLNODEP EQL ZV$NULL
+                       THEN
+                         SV$NULL
+                       ELSE
+                         .FLNODEP[GF$RISTP];
+            END
+          ELSE
+            BEGIN
+            RISTP := .RINCSTE[S$RICSTP];
+            $GIREC(GV$CLOSE,3);
+            GGBOP$[0,G$OPTYP] := GV$STP;
+            GGBOP$[0,G$OPVAL] := .RINCSTE[S$STPX];
+            $GWBUF(.GGBFP$,.GRB5I$);
+            END;
+        $SFRNCH(.RINCSTE);
+        END;
+    IF .FINCHAINF EQL ZV$TRUE
+      THEN
+        BEGIN
+        TEMP := .GOB1I$;
+        GOB1I$ := .GRB5I$;
+        $GFINLST(.GFINL$,ZV$TRUE);
+        GOB1I$ := .TEMP;
+        END;
+    $GIREC(GV$LABEL,3);
+    GGBOP$[0,G$OPTYP] := GV$STP;
+    GGBOP$[0,G$OPVAL] := .ENDFELAB;
+    $GWBUF(.GGBFP$,.GRB5I$);
+    FRECP := $GFREC(.GRB2I$);
+    IF .FRECP NEQ 0
+      THEN
+        BEGIN
+        $GMBUF(.GRB2I$,.GOB1I$,.FRECP,$GLREC(.GRB2I$));
+        $GCBUF(.GRB2I$);
+        END;
+    FRECP := $GFREC(.GRB3I$);
+    IF .FRECP NEQ 0
+      THEN
+        BEGIN
+        $GMBUF(.GRB3I$,.GOB1I$,.FRECP,$GLREC(.GRB3I$));
+        $GCBUF(.GRB3I$);
+        END;
+    END;
+
+
+%********
+  PROCESS THE TV$REPORT TOKEN.
+********%
+  GLOBAL ROUTINE $GRP(RPSTKP)=
+    BEGIN
+
+    LOCAL S$ RPNSTE : RPDSTE : RPISTE : RELSTE : RPFNSTE : RPFDSTE;
+    LOCAL STKPTR, FRECP;
+
+    ROUTINE UNAMEDGP(UNGPNODE)=
+      BEGIN
+
+      MAP UDYNARY$ UNGPNODE;            % UNNAMED GROUP COND. NODE %
+      LOCAL PREDNODE;
+      BIND
+        TREEPTR = 0,
+        NXTNODEPTR = 1;
+
+      DO
+        BEGIN
+        $GNXSTN(UNGPNODE[TREEPTR],ZV$TRUE);
+        PREDNODE := .UNGPNODE;
+        UNGPNODE := .UNGPNODE[NXTNODEPTR];
+        $CFREEM(.PREDNODE);
+        END
+      UNTIL .UNGPNODE EQL SV$NULL;
+
+      END;
+
+
+   %*** START OF REPORT PRECESSING  ***%
+    RPNSTE := $SGSTE(.ZBSTK$[Z$STP,.RPSTKP]);
+    IF .RPNSTE[S$IDSTP] NEQ SV$NULL
+      THEN
+        BEGIN
+        $GERR(559,.RPSTKP);
+        $SFRNCH(.RPNSTE);
+        RETURN -1;
+        END;
+    RPISTE := $GNRPI(.RPNSTE);
+    GRPTP$ := ZBSTK$[Z$INCSTP,.RPSTKP] := .RPISTE[S$STPX];
+    IF .GFEAF$ EQL ZV$RESET
+      THEN
+        $GFINAPND(.RPSTKP,GFV$SQOUT);
+    RPDSTE := $SGSTE(.RPNSTE[S$DSTP]);
+    RPISTE[S$USECNT] := RPDSTE[S$USECNT] := .RPDSTE[S$USECNT] + 1;
+    RPDSTE[S$RUSED]  := SV$TRUE;
+    RPFNSTE := $SGSTE(.RPDSTE[S$RPFSTP]);
+    SELECT .RPFNSTE[S$TYPE]  OF             % PROCESS THE REPORT FILE NAME. SET UP THE POINTER  %
+            NSET                            % IN THE REPORT INCARNATION.     %
+      SV$NAME:                              % THE REPORT FILE NAME IS A VARIABLE %
+          BEGIN
+          RPFDSTE := $SGSTE(.RPFNSTE[S$DSTP]);
+          IF .RPFDSTE[S$TYPE] NEQ SV$FIELD
+            THEN
+              $GERR(541,.RPSTKP)
+            ELSE
+              IF .RPFNSTE[S$CISTP] EQL SV$NULL
+                THEN
+                  $GERR(542,.RPSTKP)
+                ELSE
+                  RPISTE[S$RPFSTP] := .RPFNSTE[S$CISTP];
+          $SFRNCH(.RPFDSTE);
+          END;
+      SV$STLIT:                             % THE REPORT FILE NAME IS A LITERAL %
+          RPISTE[S$RPFSTP] := .RPFNSTE[S$LITINCP];
+      OTHERWISE:
+          $GERR(541,.RPSTKP);
+        TESN;
+
+    $SFRNCH(.RPFNSTE);
+    $SFRCH(.RPNSTE);
+    IF .GFEAF$ EQL ZV$SET
+      THEN
+        BEGIN
+        FRECP := $GFREC(.GOB3I$);
+        IF .FRECP NEQ 0
+          THEN
+            $GMBUF(.GOB3I$,.GOB2I$,.FRECP,$GLREC(.GOB3I$));
+        $GCBUF(.GOB3I$);
+        STKPTR := .ZBSTK$[Z$SUCP,.GFEAP$];
+        RELSTE := $SGSTE(.ZBSTK$[Z$INCSTP,.STKPTR]);
+        RPISTE[S$RSISTP] := .RELSTE[S$STPX];    % LINK THE REPORT INCARNATION TO THE PROPER %
+        RPISTE[S$RICSTP] := .RELSTE[S$RICSTP];  % RELATION/SOURCE FILE %
+        RELSTE[S$RICSTP] := .RPISTE[S$STPX];
+        RELSTE[S$RNUM]   := .RELSTE[S$RNUM] + 1;
+        $SFRCH(.RELSTE);
+        END;
+    $SFRCH(.RPISTE);
+    IF .RPDSTE[S$PRPHD] NEQ HV$EMPTY            % REPORT HEADING %
+      THEN
+        $GNXSTN(RPDSTE[S$PRPHD],ZV$TRUE);
+    IF .RPDSTE[S$PRPFT] NEQ HV$EMPTY            % REPORT FOOTING %
+      THEN
+        $GNXSTN(RPDSTE[S$PRPFT],ZV$TRUE);
+    IF .RPDSTE[S$PPGHD] NEQ HV$EMPTY            % PAGE HEADING %
+      THEN
+        $GNXSTN(RPDSTE[S$PPGHD],ZV$TRUE);
+    IF .RPDSTE[S$PPGFT] NEQ HV$EMPTY            % PAGE FOOTING %
+      THEN
+        $GNXSTN(RPDSTE[S$PPGFT],ZV$TRUE);
+    IF .RPDSTE[S$PGPHD] NEQ HV$EMPTY            % UNNAMED GROUP HEADINGS %
+      THEN
+        UNAMEDGP(.RPDSTE[S$PGPHD]);
+    RPDSTE[S$PGPHD] := HV$EMPTY;
+    IF .RPDSTE[S$PGPFT] NEQ HV$EMPTY            % UNNAMED GROUP FOOTINS %
+      THEN
+        UNAMEDGP(.RPDSTE[S$PGPFT]);
+    RPDSTE[S$PGPFT] := HV$EMPTY;
+    $SFRCH(.RPDSTE);
+    GRPTP$ := ZV$NULL;
+    END;
+
+%*****
+  PROCESS THE TV$8BGWRPT TOKEN.
+*****%
+  GLOBAL ROUTINE $GBRPT =
+    BEGIN
+
+    IF .ZBSTK$[Z$SBID,.ZSTKP$] EQL ZV$LBL
+      THEN
+        $GRLAB(.ZSTKP$);
+
+    $GPUSH(.GBTKN$,AV$SZTOK+6);
+    ZBSTK$[Z$ELSELAB,.ZSTKP$] := .GELSL$;
+    ZBSTK$[Z$ELSEFLG,.ZSTKP$] := .GELSF$;
+    ZBSTK$[Z$ELSEP,.ZSTKP$]   := .GELSP$;
+    ZBSTK$[Z$BUF4P,.ZSTKP$]   := .GRB4I$;
+    ZBSTK$[Z$BUF5P,.ZSTKP$]   := .GRB5I$;
+    ZBSTK$[Z$BUF6P,.ZSTKP$]   := .GRB6I$;
+    ZBSTK$[Z$FINLP,.ZSTKP$]   := .GFINL$;
+    ZBSTK$[Z$FSUBLP,.ZSTKP$]  := ZV$NULL;
+    ZBSTK$[Z$CLOSELAB,.ZSTKP$] := ZV$NULL;
+
+    GELSF$ := GFEAF$ := GRPFF$ := GFRCF$ := GRCNF$ := ZV$RESET;
+    GELSP$ := GFINL$ := .ZSTKP$;
+    GRB4I$ := $GNBUF(256);
+    GRB5I$ := $GNBUF(256);
+
+    END;
+
+
+%*****
+  PROCESS THE TV$8WRPT TOKEN.
+*****%
+  GLOBAL ROUTINE $GWRPT =
+    BEGIN
+
+    LOCAL STKPTR, RPSTKP, FRECP;
+
+    STKPTR := .ZSTKP$;
+    UNTIL .ZBSTK$[Z$SBID,.STKPTR] EQL ZV$REL    OR
+          .ZBSTK$[Z$SBID,.STKPTR] EQL ZV$SRC    OR
+          .ZBSTK$[Z$ID,.STKPTR] EQL TV$8BGWRPT
+      DO
+        STKPTR := .ZBSTK$[Z$PREDP,.STKPTR];
+    IF .STKPTR EQL .ZSTKP$
+      THEN
+        IF .BRPSP$ NEQ .BDRPT$
+          THEN
+            BEGIN
+            $GERR(511,.ZSTKP$);                 % REPORT NAME MISSING %
+            RETURN -1;
+            END
+          ELSE
+            BEGIN                               % STACK UNNAMED REPORT %
+            GBTKN$[A$ID]  := TV$NAME;
+            GBTKN$[A$STP] := .BDRPT$;
+            $GNAME();
+            END;
+    RPSTKP := .ZBSTK$[Z$SUCP,.STKPTR];
+    WHILE .RPSTKP NEQ ZV$NULL
+      DO
+        BEGIN
+        IF .ZBSTK$[Z$SBID,.ZSTKP$] EQL ZV$RP
+          THEN
+            $GRP(.RPSTKP)
+          ELSE
+            $GERR(509,.ZSTKP$);
+        RPSTKP := .ZBSTK$[Z$SUCP,.RPSTKP];
+        END;
+    WHILE .ZSTKP$ NEQ .STKPTR
+      DO
+        $GPOP();
+    IF .ZBSTK$[Z$ID,.ZSTKP$] EQL TV$8BGWRPT
+      THEN
+        BEGIN                           % THE LIST IS IN A WRITE REPORT STATEMENT %
+        FRECP := $GFREC(.GOB2I$);       % SO ALL THE CONTROL MECHANISM MUST BE %
+        IF .FRECP NEQ 0                 % EMITTED HERE BECAUSE THERE IS NO TV$EACH TO %
+          THEN                          % TRIGGER IT.    %
+            BEGIN
+            $GMBUF(.GOB2I$,.GOB1I$,.FRECP,$GLREC(.GOB2I$));
+            $GCBUF(.GOB2I$);
+            END;
+        FRECP := $GFREC(.GOB3I$);
+        IF .FRECP NEQ 0
+          THEN
+            BEGIN
+            $GMBUF(.GOB3I$,.GOB1I$,.FRECP,$GLREC(.GOB3I$));
+            $GCBUF(.GOB3I$);
+            END;
+        IF .GRCNF$ EQL ZV$SET
+          THEN
+            BEGIN
+            $GIREC(GV$LABEL,3);                % GEN. END COND. CODE LABEL %
+            GGBOP$[0,G$OPTYP] := GV$STP;
+            GGBOP$[0,G$OPVAL] := .GERCL$;
+            $GWBUF(.GGBFP$,.GOB1I$);
+            GRCNF$ := ZV$RESET;
+            END;
+        $GRPCTRL(SV$NULL);
+        END;
+
+    END;
+
+
+%****
+  PROCESS THE TV$8NDRPT TOKEN.
+*****%
+  GLOBAL ROUTINE $GERPT =
+    BEGIN
+
+    LOCAL LABSAV, FRECP;
+
+    FRECP := $GFREC(.GRB4I$);
+    IF .FRECP NEQ 0
+      THEN
+        $GMBUF(.GRB4I$,.GOB1I$,.FRECP,$GLREC(.GRB4I$));
+    $GRBUF(.GRB4I$);
+    FRECP := $GFREC(.GRB5I$);
+    IF .FRECP NEQ 0
+      THEN
+        $GMBUF(.GRB5I$,.GOB1I$,.FRECP,$GLREC(.GRB5I$));
+    $GRBUF(.GRB5I$);
+
+    IF .ZBSTK$[Z$CLOSELAB,.ZSTKP$] EQL ZV$NULL
+      THEN
+        $GFINLST(.GFINL$,ZV$TRUE)
+      ELSE
+        BEGIN
+        $GIREC(GV$CALL,4);
+        GGBOP$[0,G$OPVAL] := GV$NORSLT;
+        GGBOP$[1,G$OPTYP] := GV$STP;
+        GGBOP$[1,G$OPVAL] := .ZBSTK$[Z$CLOSELAB,.ZSTKP$];
+        $GWBUF(GGBFP$,.GOB1I$);
+
+        $GIREC(GV$BRANCH,3);
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := LABSAV := $GNLAB();
+        $GWBUF(.GGBFP$,.GOB1I$);
+
+        $GIREC(GV$ENTRY,4);
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .ZBSTK$[Z$CLOSELAB,.ZSTKP$];
+        GGBFP$[G$OPND2] := 0;
+        $GWBUF(.GGBFP$,.GOB1I$);
+        $GFINLST(.GFINL$,ZV$TRUE);
+        $GIREC(GV$SEXIT,3);
+        GGBFP$[G$RETURNF] := GV$NORSLT;
+        $GWBUF(.GGBFP$,.GOB1I$);
+
+        $GIREC(GV$LABEL,3);
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .LABSAV;
+        $GWBUF(.GGBFP$,.GOB1I$);
+        END;
+
+    GELSL$ := .ZBSTK$[Z$ELSELAB,.ZSTKP$];
+    GELSF$ := .ZBSTK$[Z$ELSEFLG,.ZSTKP$];
+    GELSP$ := .ZBSTK$[Z$ELSEP,.ZSTKP$];
+    GRB4I$ := .ZBSTK$[Z$BUF4P,.ZSTKP$];
+    GRB5I$ := .ZBSTK$[Z$BUF5P,.ZSTKP$];
+    GRB6I$ := .ZBSTK$[Z$BUF6P,.ZSTKP$];
+    GFINL$ := .ZBSTK$[Z$FINLP,.ZSTKP$];
+
+    $GPOP();
+
+    IF .ZBSTK$[Z$SBID,.ZSTKP$] EQL ZV$LBL
+      THEN
+        $GFLAB(.ZSTKP$);
+
+    END;
+
+
+  END
+ELUDOM
+   RS^
