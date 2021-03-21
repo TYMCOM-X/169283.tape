@@ -1,0 +1,98 @@
+C           SUBROUTINE TO CALCULATE INDIVIDUAL RING CURRENTS.           CCI00110    
+C                                                                       CCI00120    
+        SUBROUTINE CCI
+C                                                                       CCI00140    
+C     CURENT(I) = CURRENT INTO I-TH CERAMIC STACK RING                  CCI00150    
+C     EF(I) = EFFICIENCY OF I-TH RING IN CERAMIC STACK                  CCI00160    
+C     FL = FORCE AT LEFT END OF RING                                    CCI00170    
+C     FR = FORCE AT RIGHT END OF RING                                   CCI00180    
+C     FVC = ARRAY OF FORCES AND VELOCITIES AT RING INTERFACES           CCI00190    
+C     POWLOS(I) = POWER LOST IN I-TH RING IN CERAMIC STACK              CCI00200    
+C     TERM1 = ELECTRICAL POWER INPUT TO RING                            CCI00210    
+C     TERM2 = MECHANICAL POWER AT LEFT END OF RING                      CCI00220    
+C     TERM3 = MECHANICAL POWER AT RIGHT END OF RING                     CCI00230    
+C     TOTEF = TOTAL EFFICIENCY OF CERAMIC STACK                         CCI00240    
+C     TOTI = TOTAL CERAMIC STACK CURRENT                                CCI00250    
+C     TOTPL = TOTAL POWER LOST IN CERAMIC STACK                         CCI00260    
+C     VL = VELOCITY AT LEFT END OF RING                                 CCI00270    
+C     VR = VELOCITY AT RIGHT END OF RING                                CCI00280    
+C                                                                       CCI00290    
+      COMMON /CC    / ACC,ALPHA,BETA,B,PHI,CCS,Z0,ZCC,C0,AKL,ZZ0,ZC0,ZB CCI00300    
+      COMMON /CERAM / S333,G333,E333,NO,RHOCS,CLCS,ACS,LT,Q,CSW         CCI00310    
+      COMMON /CERFV / FVC,E,EC                                          CCI00320    
+      COMMON /CERI  / CURENT,TOTI,POWLOS(32),EF(32),TOTPL,TOTEF         CCI00330    
+      COMMON /EDIT  / SEC(24),T(20),PTYPE(2),MO,IDAY,IYR,IRUN,OUT(4)     CCI00340    
+      COMMON /FREQ  / FREQ,TWOPI                                        CCI00350    
+      COMMON /SW    / LSW(20)                                           CCI00360    
+C                                                                       CCI00370    
+      COMPLEX CURENT(32),FVC(2,33),E,EC,ACC(2,3,2),ALPHA(2,2,2),BETA(2,2CCI00380    
+     1),B(2,2,2),PHI,CCS,Z0,C0,AKL,ZZ0,ZCC(2,2),ZC0,ZB(2,3),S333,G333,E3CCI00390    
+     233,EOVZ0,P,EE,TOTI,FL,FR,VL,VR                                    CCI00400    
+C                                                                       CCI00410    
+      REAL IP,MAG                                                       CCI00420    
+C                                                                       CCI00430    
+      LOGICAL LSW                                                       CCI00440    
+C                                                                       CCI00450    
+      IF(LSW(10))WRITE(6,120)PTYPE(1),FREQ,MO,IDAY,IYR,IRUN              CCI00460    
+      TOTI=(0.,0.)                                                      CCI00470    
+      P=PHI                                                             CCI00480    
+      EOVZ0=E/Z0                                                        CCI00490    
+      K=NO                                                              CCI00500    
+      EE=E                                                              CCI00510    
+      FL=FVC(1,1)                                                       CCI00520    
+      VL=FVC(2,1)                                                       CCI00530    
+      DO 100 I=1,K                                                      CCI00540    
+        FR=FVC(1,I+1)                                                   CCI00550    
+        VR=FVC(2,I+1)                                                   CCI00560    
+        CURENT(I)=P*((VR-VL)+EOVZ0)                                     CCI00570    
+        TOTI=TOTI+CURENT(I)                                             CCI00580    
+        TERM1=DOT(EE,CURENT(I))                                         CCI00590    
+        TERM2=DOT(FL,VL)                                                CCI00600    
+        TERM3=DOT(FR,VR)                                                CCI00610    
+        POWLOS(I)=TERM1-TERM3+TERM2                                     CCI00620    
+        DELP1=1.0                                                       CCI00630    
+        DELP2=1.0                                                       CCI00640    
+        DELM=-1.0                                                       CCI00650    
+        IF(TERM1.LT.0.0)DELP1=0.0                                       CCI00660    
+        IF(TERM2.LT.0.0)DELP2=0.0                                       CCI00670    
+        IF(TERM3.GT.0.0)DELM=0.0                                        CCI00680    
+        EF(I)=1.0-POWLOS(I)/(TERM1*DELP1+TERM2*DELP2+TERM3*DELM)        CCI00690    
+        FL=FR                                                           CCI00700    
+        VL=VR                                                           CCI00710    
+        IF(.NOT.LSW(10))GOTO100                                         CCI00720    
+        X=REAL(CURENT(I))                                               CCI00730    
+        Y=AIMAG(CURENT(I))                                              CCI00740    
+        MAG=SQRT(X*X+Y*Y)                                               CCI00750    
+        IP=0.0                                                          CCI00760    
+        IF(MAG.NE.0.0)IP=57.2957795*ATAN2(Y,X)                          CCI00770    
+        WRITE(6,130)I,MAG,IP,X,Y,POWLOS(I),EF(I)                        CCI00780    
+  100 CONTINUE                                                          CCI00790    
+      X=REAL(TOTI)                                                      CCI00800    
+      Y=AIMAG(TOTI)                                                     CCI00810    
+      MAG=SQRT(X*X+Y*Y)                                                 CCI00820    
+      IP=0.0                                                            CCI00830    
+      IF(MAG.NE.0.0)IP=57.2957795*ATAN2(Y,X)                            CCI00840    
+      TERM1=DOT(EE,TOTI)                                                CCI00850    
+      TERM2=DOT(FVC(1,1),FVC(2,1))                                      CCI00860    
+      TOTPL=TERM1-TERM3+TERM2                                           CCI00870    
+      TOTEF=0.0                                                         CCI00880    
+      DELP1=1.0                                                         CCI00890    
+      DELP2=1.0                                                         CCI00900    
+      DELM=-1.0                                                         CCI00910    
+      IF(TERM1.LT.0.0)DELP1=0.0                                         CCI00920    
+      IF(TERM2.LT.0.0)DELP2=0.0                                         CCI00930    
+      IF(TERM3.GT.0.0)DELM=0.0                                          CCI00940    
+      IF(DELP1.EQ.0.0.AND.DELP2.EQ.0.0.AND.DELM.EQ.0.0)GOTO110          CCI00950    
+      TOTEF=1.0-TOTPL/(TERM1*DELP1+TERM2*DELP2+TERM3*DELM)              CCI00960    
+  110 IF(LSW(10))WRITE(6,140)MAG,IP,X,Y,TOTPL,TOTEF                     CCI00970    
+      RETURN                                                            CCI00980    
+C                                                                       CCI00990    
+  120 FORMAT (1H1///5XA6,27H TRANSDUCER ANALYSIS OUTPUT,10X11HFREQUENCY CCI01000    
+     1=,F8.1,10X4HDATE,I4,1H/,I2,1H/,I2,10X10HRUN NUMBER,A7//7X5HRING ,2CCI01010    
+     27X7HCURRENT,29X5HPOWER,11X10HEFFICIENCY/6X3HNO.,12X3HMAG,9X5HPHASECCI01020    
+     3,9X4HREAL,8X4HIMAG,12X4HLOSS//)                                   CCI01030    
+  130 FORMAT (6XI2,9X1P2E12.4,2X2E12.4,4XE14.6,2XE14.5)                 CCI01040    
+  140 FORMAT (//6X5HTOTAL6X1P2E12.4,2X2E12.4,4XE14.6,2XE14.5)           CCI01050    
+C                                                                       CCI01060    
+      END                                                               CCI01070    
+   
