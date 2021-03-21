@@ -1,0 +1,109 @@
+C
+C     ..................................................................
+C
+C        SUBROUTINE ELI2
+C
+C        PURPOSE
+C           COMPUTES THE GENERALIZED ELLIPTIC INTEGRAL OF SECOND KIND
+C
+C        USAGE
+C           CALL ELI2(R,X,CK,A,B)
+C
+C        DESCRIPTION OF PARAMETERS
+C           R     - RESULT VALUE
+C           X     - UPPER INTEGRATION BOUND (ARGUMENT OF ELLIPTIC
+C                   INTEGRAL OF SECOND KIND)
+C           CK    - COMPLEMENTARY MODULUS
+C           A     - CONSTANT TERM IN NUMERATOR
+C           B     - QUADRATIC TERM IN NUMERATOR
+C
+C        REMARKS
+C           MODULUS K = SQRT(1.-CK*CK).
+C           SPECIAL CASES OF THE GENERALIZED ELLIPTIC INTEGRAL OF
+C           SECOND KIND ARE
+C           F(ATAN(X),K) OBTAINED WITH A=1., B=1.
+C           E(ATAN(X),K) OBTAINED WITH A=1., B=CK*CK.
+C           B(ATAN(X),K) OBTAINED WITH A=1., B=0.
+C           D(ATAN(X),K) OBTAINED WITH A=0., B=1.
+C
+C        SUBROUTINES AND FUNCTION SUBPROGRAMS REQUIRED
+C           NONE
+C
+C        METHOD
+C           DEFINITION
+C           R=INTEGRAL((A+B*T*T)/(SQRT((1+T*T)*(1+(CK*T)**2))*(1+T*T)),
+C                  SUMMED OVER T FROM 0 TO X).
+C           EQUIVALENT IS THE DEFINITION
+C           R=INTEGRAL((A+(B-A)*(SIN(T))**2)/SQRT(1-(K*SIN(T))**2),
+C                  SUMMED OVER T FROM 0 TO ATAN(X)).
+C           EVALUATION
+C           LANDENS TRANSFORMATION IS USED FOR CALCULATION.
+C           REFERENCE
+C           R. BULIRSCH, NUMERICAL CALCULATION OF ELLIPTIC INTEGRALS AND
+C                  ELLIPTIC FUNCTIONS
+C                  HANDBOOK SERIES OF SPECIAL FUNCTIONS
+C                  NUMERISCHE MATHEMATIK VOL. 7, 1965, PP. 78-90.
+C
+C     ..................................................................
+C
+      SUBROUTINE ELI2(R,X,CK,A,B)
+C        TEST ARGUMENT
+      IF(X)2,1,2
+    1 R=0.
+      RETURN
+C        TEST MODULUS
+    2 C=0.
+      D=0.5
+      IF(CK)7,3,7
+    3 R=SQRT(1.+X*X)
+      R=(A-B)*ABS(X)/R+B*ALOG(ABS(X)+R)
+C        TEST SIGN OF ARGUMENT
+    4 R=R+C*(A-B)
+      IF(X)5,6,6
+    5 R=-R
+    6 RETURN
+C        INITIALIZATION
+    7 AN=(B+A)*0.5
+      AA=A
+      R=B
+      ANG=ABS(1./X)
+      PIM=0.
+      ISI=0
+      ARI=1.
+      GEO=ABS(CK)
+C        LANDEN TRANSFORMATION
+    8 R=AA*GEO+R
+      SGEO=ARI*GEO
+      AA=AN
+      AARI=ARI
+C        ARITHMETIC MEAN
+      ARI=GEO+ARI
+C        SUM OF SINE VALUES
+      AN=(R/ARI+AA)*0.5
+      AANG=ABS(ANG)
+      ANG=-SGEO/ANG+ANG
+      PIMA=PIM
+      IF(ANG)10,9,11
+    9 ANG=-1.E-8*AANG
+   10 PIM=PIM+3.1415927
+      ISI=ISI+1
+   11 AANG=ARI*ARI+ANG*ANG
+      P=D/SQRT(AANG)
+      IF(ISI-4)13,12,12
+   12 ISI=ISI-4
+   13 IF(ISI-2)15,14,14
+   14 P=-P
+   15 C=C+P
+      D=D*(AARI-GEO)*0.5/ARI
+      IF(ABS(AARI-GEO)-1.E-4*AARI)17,17,16
+   16 SGEO=SQRT(SGEO)
+C        GEOMETRIC MEAN
+      GEO=SGEO+SGEO
+      PIM=PIM+PIMA
+      ISI=ISI+ISI
+      GOTO 8
+C        ACCURACY WAS SUFFICIENT
+   17 R=(ATAN(ARI/ANG)+PIM)*AN/ARI
+      C=C+D*ANG/AANG
+      GOTO 4
+      END
