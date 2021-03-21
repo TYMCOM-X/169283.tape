@@ -1,0 +1,407 @@
+MODULE FPDAT(DOLLAR,FSAVE,ENTRIES=($FPDAT),TIMING,TIMER=EXTERNAL(SIX12))=
+
+BEGIN
+
+%  Version: 4-12-75 ... /RAF
+
+THIS MODULE CREATES DATE-TEMPLATES FROM DATE-STRINGS.
+
+%
+
+REQUIRE DTDEFS.BLI[7,107355];
+REQUIRE UDEFS.BLI[7,107355];
+REQUIRE FDEFS.BLI[7,107355];
+REQUIRE ADEFS.BLI[7,107355];
+REQUIRE CDEFS.BLI[7,107355];
+REQUIRE SDEFS.BLI[7,107355];
+
+BIND  ITOK = 7,            % NUMBER OF COLUMNS %
+      EROSET = 7,          % ERROR, OFFSET SO THAT ITEMS USED CAN HAVE
+                             AN ERROR MESSAGE USING THE SAME CASE EXPRESSION %
+      BYSZ = 6,            % BYTE SIZE IS 6 BITES %
+      WDBYS = 30,
+      EOS = 6,             % END OF STRING %
+      Y = 0,               % BIND USED FOR INDEX INTO STATE AND OCHR TABLES %
+      M = 1,
+      D = 2,
+      W = 3,
+      Z = 4,
+      ETE = 5,             % BIND FOR PUNCTUATION %
+      INVC = 5,            % INVALID CHARACTER FOUND %
+      DSTL = 6,            % DATE STRING TOO LONG %
+      DSNULL = 11,         % ERROR NULL DATE-STRING %
+      BADZ = 12,           % TWO DTV$##Z'S NEXT TO EACH OTHER %
+      DSO = 10;            % 10 IS THE NUMBER OF SPOTS IN A DATE-TEMP. %
+
+MACRO FM(I1,I2,I3,I4,I5,I6) =         % FOLDS SIX ITEMS INTO ONE WORD %
+
+    I1^30 OR I2^24 OR I3^18 OR I4^12 OR I5^6 OR I6&;
+
+MACRO FLLT(I1,I2,I3,I4,I5,I6,I7,I8,I9) =      % FOLDS NINE ITEMS INTO ONE WORD %
+
+   I1^32 OR I2^28 OR I3^24 OR I4^20 OR I5^16 OR I6^12 OR I7^8 OR I8^4 OR I9&;
+
+STRUCTURE CUSED[ITEM] = CASE .ITEM OF
+              SET
+
+               .CUSED<0,1>;           % YEAR ITEM USED %
+               .CUSED<1,1>;           % MONTH ITEM USED %
+               .CUSED<2,1>;           % DAY OF MONTH ITEM USED %
+               .CUSED<3,1>;           % DAY OF WEEK ITEM USED %
+               .CUSED<1,2>;           % DAY OF MONTH AND MONTH ITEM USED %
+
+              TES;
+
+STRUCTURE FLS[I] =            % FILTER STRUCTURE FLAGS BAD CHARACTERS %
+
+      (.FLS+(.I/9))<32-4*(.I MOD 9),4>;
+
+STRUCTURE FNM[ST,IC] =        % TO ACCESS STATE AND OCHR TABLES %
+
+   (.FNM+(ITOK*.ST+.IC)/BYSZ)<WDBYS-((ITOK*.ST+.IC) MOD BYSZ)*BYSZ,BYSZ>;
+
+%
+    OUTPUT CHARACTER TABLE --
+
+       Y       M       D       W       Z      ETE     EOS
+   --------------------------------------------------------- 
+ 0 ! NONE  ! NONE  ! NONE  ! NONE  ! NONE  ! NONE  ! NONE  !
+   --------------------------------------------------------- 
+ 1 ! NONE  ! Y     ! Y     ! Y     ! Y     ! Y     ! Y     !
+   --------------------------------------------------------- 
+ 2 ! NONE  ! YY    ! YY    ! YY    ! YY    ! YY    ! YY    !
+   --------------------------------------------------------- 
+ 3 ! NONE  ! YYY   ! YYY   ! YYY   ! YYY   ! YYY   ! YYY   !
+   --------------------------------------------------------- 
+ 4 ! ERROR ! YYYY  ! YYYY  ! YYYY  ! YYYY  ! YYYY  ! YYYY  !
+   --------------------------------------------------------- 
+ 5 ! ERROR ! NONE  ! ERROR ! ERROR ! ERROR ! ERROR ! ERROR !
+   --------------------------------------------------------- 
+ 6 ! MM    ! NONE  ! MM    ! MM    ! MM    ! MM    ! MM    !
+   --------------------------------------------------------- 
+ 7 ! MMM   ! ERROR ! MMM   ! MMM   ! MMM   ! MMM   ! MMM   !
+   --------------------------------------------------------- 
+ 8 ! D     ! D     ! NONE  ! D     ! D     ! D     ! D     !
+   --------------------------------------------------------- 
+ 9 ! DD    ! DD    ! NONE  ! DD    ! DD    ! DD    ! DD    !
+   --------------------------------------------------------- 
+10 ! DDD   ! DDD   ! ERROR ! DDD   ! DDD   ! DDD   ! DDD   !
+   --------------------------------------------------------- 
+11 ! ERROR ! ERROR ! ERROR ! NONE  ! ERROR ! ERROR ! ERROR !
+   --------------------------------------------------------- 
+12 ! ERROR ! ERROR ! ERROR ! NONE  ! ERROR ! ERROR ! ERROR !
+   --------------------------------------------------------- 
+13 ! WWW   ! WWW   ! WWW   ! ERROR ! WWW   ! WWW   ! WWW   !
+   --------------------------------------------------------- 
+14 ! ERROR ! NONE  ! NONE  ! ERROR ! NONE  ! ERROR ! ERROR !
+   --------------------------------------------------------- 
+15 ! ERROR ! ERROR ! NONE  ! ERROR ! ERROR ! ERROR ! ERROR !
+   --------------------------------------------------------- 
+16 ! ZZD   ! ZZD   ! ERROR ! ZZD   ! ERROR ! ZZD   ! ZZD   !
+   --------------------------------------------------------- 
+17 ! ZD    ! ZD    ! ERROR ! ZD    ! ERROR ! ZD    ! ZD    !
+   --------------------------------------------------------- 
+18 ! ZM    ! ERROR ! ZM    ! ZM    ! ERROR ! ZM    ! ZM    !
+   --------------------------------------------------------- 
+19 ! PUN   ! PUN   ! PUN   ! PUN   ! PUN   ! PUN   ! PUN   !
+   ---------------------------------------------------------
+%
+
+BIND  FNM OCHR = PLIT (
+
+   FM(DTV$NON ,DTV$NON ,DTV$NON ,DTV$NON ,DTV$NON ,DTV$NON ),
+   FM(DTV$NON ,DTV$NON ,DTV$1Y  ,DTV$1Y  ,DTV$1Y  ,DTV$1Y  ),
+   FM(DTV$1Y  ,DTV$1Y  ,DTV$NON ,DTV$2Y  ,DTV$2Y  ,DTV$2Y  ),
+   FM(DTV$2Y  ,DTV$2Y  ,DTV$2Y  ,DTV$NON ,DTV$3Y  ,DTV$3Y  ),
+   FM(DTV$3Y  ,DTV$3Y  ,DTV$3Y  ,DTV$3Y  ,DTV$ERR ,DTV$4Y  ),
+   FM(DTV$4Y  ,DTV$4Y  ,DTV$4Y  ,DTV$4Y  ,DTV$4Y  ,DTV$ERR ),
+   FM(DTV$NON ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ),
+   FM(DTV$2M  ,DTV$NON ,DTV$2M  ,DTV$2M  ,DTV$2M  ,DTV$2M  ),
+   FM(DTV$2M  ,DTV$3M  ,DTV$ERR ,DTV$3M  ,DTV$3M  ,DTV$3M  ),
+   FM(DTV$3M  ,DTV$3M  ,DTV$1D  ,DTV$1D  ,DTV$NON ,DTV$1D  ),
+   FM(DTV$1D  ,DTV$1D  ,DTV$1D  ,DTV$2D  ,DTV$2D  ,DTV$NON ),
+   FM(DTV$2D  ,DTV$2D  ,DTV$2D  ,DTV$2D  ,DTV$3D  ,DTV$3D  ),
+   FM(DTV$ERR ,DTV$3D  ,DTV$3D  ,DTV$3D  ,DTV$3D  ,DTV$ERR ),
+   FM(DTV$ERR ,DTV$ERR ,DTV$NON ,DTV$ERR ,DTV$ERR ,DTV$ERR ),
+   FM(DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$NON ,DTV$ERR ,DTV$ERR ),
+   FM(DTV$ERR ,DTV$3W  ,DTV$3W  ,DTV$3W  ,DTV$ERR ,DTV$3W  ),
+   FM(DTV$3W  ,DTV$3W  ,DTV$ERR ,DTV$NON ,DTV$NON ,DTV$ERR ),
+   FM(DTV$NON ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$NON ),
+   FM(DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$3DZ ,DTV$3DZ ),
+   FM(DTV$ERR ,DTV$3DZ ,DTV$ERR ,DTV$3DZ ,DTV$3DZ ,DTV$2DZ ),
+   FM(DTV$2DZ ,DTV$ERR ,DTV$2DZ ,DTV$ERR ,DTV$2DZ ,DTV$2DZ ),
+   FM(DTV$2MZ ,DTV$ERR ,DTV$2MZ ,DTV$2MZ ,DTV$ERR ,DTV$2MZ ),
+   FM(DTV$2MZ ,DTV$PUN ,DTV$PUN ,DTV$PUN ,DTV$PUN ,DTV$PUN ),
+   FM(DTV$PUN ,DTV$PUN ,DTV$TER ,DTV$TER ,DTV$TER ,DTV$TER ));
+
+%
+   NEXT STATE TABLE --
+
+       Y       M       D       W       Z      ETE     EOS
+   --------------------------------------------------------- 
+ 0 ! 1     ! 5     ! 8     ! 11    ! 14    ! 19    ! EOS   !
+   --------------------------------------------------------- 
+ 1 ! 2     ! 5     ! 8     ! 11    ! 14    ! 19    ! EOS   !
+   --------------------------------------------------------- 
+ 2 ! 3     ! 5     ! 8     ! 11    ! 14    ! 19    ! EOS   !
+   --------------------------------------------------------- 
+ 3 ! 4     ! 5     ! 8     ! 11    ! 14    ! 19    ! EOS   !
+   --------------------------------------------------------- 
+ 4 ! ERROR ! 5     ! 8     ! 11    ! 14    ! 19    ! EOS   !
+   --------------------------------------------------------- 
+ 5 ! ERROR ! 6     ! ERROR ! ERROR ! ERROR ! ERROR ! ERROR !
+   --------------------------------------------------------- 
+ 6 ! 1     ! 7     ! 8     ! 11    ! 14    ! 19    ! EOS   !
+   --------------------------------------------------------- 
+ 7 ! 1     ! ERROR ! 8     ! 11    ! 14    ! 19    ! EOS   !
+   --------------------------------------------------------- 
+ 8 ! 1     ! 5     ! 9     ! 11    ! 14    ! 19    ! EOS   !
+   --------------------------------------------------------- 
+ 9 ! 1     ! 5     ! 10    ! 11    ! 14    ! 19    ! EOS   !
+   --------------------------------------------------------- 
+10 ! 1     ! 5     ! ERROR ! 11    ! 14    ! 19    ! EOS   !
+   --------------------------------------------------------- 
+11 ! ERROR ! ERROR ! ERROR ! 12    ! ERROR ! ERROR ! ERROR !
+   --------------------------------------------------------- 
+12 ! ERROR ! ERROR ! ERROR ! 13    ! ERROR ! ERROR ! ERROR !
+   --------------------------------------------------------- 
+13 ! 1     ! 5     ! 8     ! ERROR ! 14    ! 19    ! EOS   !
+   --------------------------------------------------------- 
+14 ! ERROR ! 18    ! 17    ! ERROR ! 15    ! ERROR ! ERROR !
+   --------------------------------------------------------- 
+15 ! ERROR ! ERROR ! 16    ! ERROR ! ERROR ! ERROR ! ERROR !
+   --------------------------------------------------------- 
+16 ! 1     ! 5     ! ERROR ! 11    ! ERROR ! 19    ! EOS   !
+   --------------------------------------------------------- 
+17 ! 1     ! 5     ! ERROR ! 11    ! ERROR ! 19    ! EOS   !
+   --------------------------------------------------------- 
+18 ! 1     ! ERROR ! 8     ! 11    ! ERROR ! 19    ! EOS   !
+   --------------------------------------------------------- 
+19 ! 1     ! 5     ! 8     ! 11    ! 14    ! 19    ! EOS   !
+   ---------------------------------------------------------
+%
+
+BIND  FNM NST = PLIT (
+
+   FM(1       ,5       ,8       ,11      ,14      ,19      ),
+   FM(DTV$EOS ,2       ,5       ,8       ,11      ,14      ),
+   FM(19      ,DTV$EOS ,3       ,5       ,8       ,11      ),
+   FM(14      ,19      ,DTV$EOS ,4       ,5       ,8       ),
+   FM(11      ,14      ,19      ,DTV$EOS ,DTV$ERR ,5       ),
+   FM(8       ,11      ,14      ,19      ,DTV$EOS ,DTV$ERR ),
+   FM(6       ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ),
+   FM(1       ,7       ,8       ,11      ,14      ,19      ),
+   FM(DTV$EOS ,1       ,DTV$ERR ,8       ,11      ,14      ),
+   FM(19      ,DTV$EOS ,1       ,5       ,9       ,11      ),
+   FM(14      ,19      ,DTV$EOS ,1       ,5       ,10      ),
+   FM(11      ,14      ,19      ,DTV$EOS ,1       ,5       ),
+   FM(DTV$ERR ,11      ,14      ,19      ,DTV$EOS ,DTV$ERR ),
+   FM(DTV$ERR ,DTV$ERR ,12      ,DTV$ERR ,DTV$ERR ,DTV$ERR ),
+   FM(DTV$ERR ,DTV$ERR ,DTV$ERR ,13      ,DTV$ERR ,DTV$ERR ),
+   FM(DTV$ERR ,1       ,5       ,8       ,DTV$ERR ,14      ),
+   FM(19      ,DTV$EOS ,DTV$ERR ,18      ,17      ,DTV$ERR ),
+   FM(15      ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,16      ),
+   FM(DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,1       ,5       ),
+   FM(DTV$ERR ,11      ,DTV$ERR ,19      ,DTV$EOS ,1       ),
+   FM(5       ,DTV$ERR ,11      ,DTV$ERR ,19      ,DTV$EOS ),
+   FM(1       ,DTV$ERR ,8       ,11      ,DTV$ERR ,19      ),
+   FM(DTV$EOS ,1       ,5       ,8       ,11      ,14      ),
+   FM(19      ,DTV$EOS ,DTV$TER ,DTV$TER ,DTV$TER ,DTV$TER ));
+
+BIND  FLS FLTR = PLIT (       % FILTER TABLE TO FILTER BAD CHARACTERS OUT %
+
+   FLLT(DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ),
+   FLLT(DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ),
+   FLLT(DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ),
+   FLLT(DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,ETE     ,DTV$ERR ,DTV$ERR ,DTV$ERR ),
+   FLLT(DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,ETE     ),
+   FLLT(ETE     ,ETE     ,ETE     ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ),
+   FLLT(DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ),
+   FLLT(DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,D       ,DTV$ERR ,DTV$ERR ,DTV$ERR ),
+   FLLT(DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,M       ,DTV$ERR ,DTV$ERR ,DTV$ERR ),
+   FLLT(DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,W       ,DTV$ERR ,Y       ),
+   FLLT(Z       ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ),
+   FLLT(DTV$ERR ,D       ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ),
+   FLLT(DTV$ERR ,M       ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ,DTV$ERR ),
+   FLLT(DTV$ERR ,DTV$ERR ,W       ,DTV$ERR ,Y       ,Z       ,DTV$ERR ,DTV$ERR ,DTV$ERR ),
+   FLLT(DTV$ERR ,DTV$ERR ,DTV$TER ,DTV$TER ,DTV$TER ,DTV$TER ,DTV$TER ,DTV$TER ,DTV$TER ));
+
+GLOBAL ROUTINE $FPDAT(TOKEN,DT)=         % DATE-TEMPLATE ROUTINE %
+   BEGIN
+      LOCAL STATE,                     % STATE OF STATE TABLE %
+            CUSED USED,               % ITEM USED OR NOT? %
+            INDEX,                    % INDEX INTO USED TABLE %
+            CHAR,                     % CHARACTER FROM DATE STRING %
+            OCHAR,                    % OUTPUT CHARACTER FROM OCHR TABLE %
+            DSBP,                     % DATE STRING BYTE POINTER %
+            NCHAR,                    % NUMBER OF CHARACTERS SCANNED %
+            NCHARO,                   % NUMBER OF CHARACTERS OUT %
+            ACHR,                     % ASCII CHARACTER FROM DATE STRING %
+            LACHR,                    % LAST ASCII CHARACTER FROM DATE STRING %
+            PRSIZE,                   % NUMBER OF PRINTED CHARACTERS IN D.S. %
+            ERROR,                    % ERROR IN DATE %
+            S$ BUF,                   % SYMBOL TABLE NAME %
+            LCHAR;                    % LAST CHARACTER %
+      MAP A$ TOKEN;
+      MAP DT$ DT;                     % DATE-STRING STRUCTURE %
+      LABEL LOOP;                     % LABEL IF ERROR FOUND LEAVE LOOP %
+
+      FUNCTION PLACE=
+         BEGIN
+            IF .OCHAR EQL DTV$NON
+               THEN
+                  RETURN;             % NO OUTPUT %
+            IF .OCHAR EQL DTV$PUN     % PUNCTUATION SELECT IT %
+               THEN
+                  OCHAR := (SELECT .LACHR OF
+                     NSET
+
+                  " ":  DTV$BLK;
+                  ",":  DTV$COM;
+                  "-":  DTV$DSH;
+                  ".":  DTV$DOT;
+                  "/":  DTV$SLSH;
+
+                     TESN);
+            PRSIZE := .PRSIZE + (SELECT .OCHAR OF
+                        NSET
+
+               DTV$4Y:  4;
+               DTV$3Y:  3;
+               DTV$2Y:  2;
+               DTV$2M:  2;
+               DTV$2MZ: 2;
+               DTV$2D:  2;
+               DTV$2DZ: 2;
+               DTV$3D:  3;
+               DTV$3DZ: 3;
+               DTV$3M:  3;
+               DTV$3W:  3;
+               OTHERWISE: 1;
+
+                        TESN);
+
+            DT[DT$CODE,.NCHARO] := .OCHAR;   % PLACE CHARACTER IN D.S. %
+            NCHARO := .NCHARO+1;
+            OCHAR := DTV$NON;                 % CLEAR OCHAR SO TABLES WILL WORK %
+         END;
+
+      .DT< 0,36> := .DT+1< 0,36> := 0;   % ZERO DATE TEMPLATE TO START %
+      BUF := $SGSTE(.TOKEN[A$STP]);   % NAME ENTRY OF TYPE SV$STLIT %
+      DSBP := BUF[S$NAM]<36,7>;       % DATE STRING BYTE POINTER %
+      USED< 0,36> := 0;               % NOTHING USED YET %
+      PRSIZE := 0;                    % NONE YET %
+      NCHARO := NCHAR := CHAR := STATE := 0;    % START WITH ZERO %
+      ERROR := -1;                    % NO ERROR'S YET %
+      INDEX := 0;                     % START WITH ZERO %
+
+LOOP: BEGIN
+         WHILE .CHAR NEQ EOS DO
+            BEGIN
+               IF .NCHARO+1 GTR DSO
+                  THEN
+                     (ERROR := DSTL; LEAVE LOOP);
+               LCHAR := .CHAR;
+               LACHR := .ACHR;
+               IF .BUF[S$NCHAR] EQL .NCHAR
+                  THEN
+                     CHAR := EOS
+                  ELSE
+                     BEGIN
+                        ACHR := SCANI(DSBP);      % GET ASCII CHARACTER %
+                        IF (CHAR := .FLTR[.ACHR]) EQL DTV$ERR
+                           THEN
+                              (ERROR := INVC; LEAVE LOOP);  % INVALID CHARACTER %
+                     END;
+
+                  NCHAR := .NCHAR+1;
+               IF (OCHAR := .OCHR[.STATE,.CHAR]) EQL DTV$ERR
+                  THEN
+                     (IF (((.STATE GEQ 16) OR (.STATE LEQ 18)) AND (.CHAR EQL Z))
+                        THEN
+                           ERROR := BADZ
+                        ELSE
+                           ERROR := .LCHAR;
+                     LEAVE LOOP);
+               IF ((.OCHAR NEQ DTV$NON) AND (.OCHAR NEQ DTV$PUN))
+                  THEN
+                     BEGIN
+                        INDEX := (SELECT .OCHAR OF
+                                 NSET
+
+                           DTV$4Y:    0;
+                           DTV$3Y:    0;
+                           DTV$2Y:    0;
+                           DTV$1Y:    0;
+                           DTV$3M:    1;
+                           DTV$2M:    1;
+                           DTV$2MZ:   1;
+                           DTV$3D:    4;
+                           DTV$3DZ:   4;
+                           DTV$2D:    2;
+                           DTV$2DZ:   2;
+                           DTV$1D:    3;
+                           DTV$3W:    3;
+
+                                 TESN);
+                        IF .USED[.INDEX] NEQ 0
+                           THEN
+                              (IF .INDEX EQL 4
+                                 THEN
+                                    IF .USED[1] NEQ 0
+                                       THEN
+                                          INDEX := 1
+                                       ELSE
+                                          INDEX := 2;
+                               ERROR := .INDEX+EROSET; LEAVE LOOP)
+                           ELSE
+                              USED[.INDEX] := 7777;  % MAKE SURE THAT ALL BITS IN TABLE ARE TURNED ON %
+                        END;
+               STATE := .NST[.STATE,.CHAR];
+               PLACE();
+            END;
+      END;
+
+      IF .BUF[S$NCHAR] EQL 0
+         THEN
+            ERROR := DSNULL;
+      IF .ERROR NEQ -1
+         THEN
+            BEGIN
+               $FERROR(FV$FATAL,.TOKEN,
+                     (CASE .ERROR OF
+                        SET
+
+                     % Y %  450;      % IMPROPER USE OF Y IN DATE PICTURE %
+                     % M %  451;      % IMPROPER USE OF M IN DATE PICTURE %
+                     % D %  452;      % IMPROPER USE OF D IN DATE PICTURE %
+                     % W %  453;      % IMPROPER USE OF W IN DATE PICTURE %
+                     % Z %  454;      % IMPROPER USE OF Z IN DATE PICTURE %
+                  % INVC %  455;      % INVAILD CHARACTER IN DATE PICTURE %
+                  % DSTL %  456;      % MORE THAN TEN DATE SPECIFICATIONS %
+                            457;      % MORE THAN ONE YEAR SPECIFIN %
+                            458;      % MORE THAN ONE MONTH SPECIFICATION %
+                            459;      % MORE THAN ONE DAY OF THE MONTH SPECIFICATION %
+                            460;      % MORE THAN OF DAY OF WEEK SPECIFICATION %
+                % DSNULL %  461;      % NULL DATE PICTURE %
+                  % BADZ %  462;      % NO SEPARATION BETWEEN TWO USES OF Z IN DATE PICTURE %
+
+                        TES),0);
+
+               DT[DT$CODE,0] := DTV$4Y;       % DEFAULT DATE-TEMP %
+               DT[DT$CODE,1] := DTV$2M;
+               DT[DT$CODE,2] := DTV$2D;
+
+               PRSIZE := 8;           % PRINTED CHARACTERS = 8 %
+               NCHARO := 3;
+            END;
+      DT[DT$COUNT] := .NCHARO;                % INSERT COUNT FIELD %
+      DT[DT$PRSIZE] := .PRSIZE;               % PRINTED CHARACTER SIZE %
+      IF ((.USED[3] EQL 0) OR (.ERROR NEQ -1))
+         THEN
+            DT[DT$INOK] := 1;           % INPUT OK %
+      $SFRNCH(.BUF);                          % CLEAN UP SYMBOL TABLE %
+   END;
+
+END ELUDOM
+ X%_È
