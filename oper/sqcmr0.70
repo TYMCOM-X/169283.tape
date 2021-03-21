@@ -1,0 +1,159 @@
+000000 IDENTIFICATION DIVISION.                                         00000010
+       PROGRAM-ID. S0CMR070.                                            00000020
+000020 AUTHOR. S GOGELA.                                                00000030
+000030 ENVIRONMENT DIVISION.                                            00000040
+000040 CONFIGURATION SECTION.                                           00000050
+000050 INPUT-OUTPUT SECTION.                                            00000060
+000060 FILE-CONTROL.                                                    00000070
+000070     SELECT IT ASSIGN TO UT-S-SYS012.                             00000080
+000080     SELECT OT ASSIGN TO UT-S-SYS013.                             00000090
+000090     SELECT CARD-FILE ASSIGN TO UT-S-SYS006.                      00000100
+000100 DATA DIVISION.                                                   00000110
+000110 FILE SECTION.                                                    00000120
+000120 FD  IT                                                           00000130
+000130     RECORDING MODE F                                             00000140
+000140     RECORD CONTAINS 103  CHARACTERS                              00000150
+000150     DATA RECORDS ARE IN-REC                                      00000160
+000160     BLOCK CONTAINS 0 RECORDS                                     00000170
+000170     LABEL RECORDS ARE STANDARD.                                  00000180
+000180 01  IN-REC SYNC.                                                 00000190
+000190     02 RQ-NO   PICTURE 9(2).                                     00000200
+000200     02 FILLER  PICTURE X(2).                                     00000210
+000210     02 MAT-NO.                                                   00000220
+000220       04 H4.                                                     00000230
+000230        06 H2   PICTURE X(2).                                     00000240
+000240        06 FILLER  PICTURE X(2).                                  00000250
+000250       04 FILLER  PICTURE X(2).                                   00000260
+000260     02 FILLER  PICTURE X(93).                                    00000270
+000270 FD  OT                                                           00000280
+000280     RECORDING MODE F                                             00000290
+000290     RECORD CONTAINS 103  CHARACTERS                              00000300
+000300     DATA RECORDS ARE STO                                         00000310
+000310     BLOCK CONTAINS 0 RECORDS                                     00000320
+000320     LABEL RECORDS ARE STANDARD.                                  00000330
+000330 01  STO SYNC.                                                    00000340
+000340     02 FILLER   PICTURE X(103).                                  00000350
+000350 FD  CARD-FILE                                                    00000360
+000360     RECORDING MODE F                                             00000370
+000370     RECORD CONTAINS 80   CHARACTERS                              00000380
+000380     DATA RECORDS ARE CARD                                        00000390
+000390     BLOCK CONTAINS 0 RECORDS                                     00000400
+000400     LABEL RECORDS ARE STANDARD.                                  00000410
+000410 01  CARD SYNC.                                                   00000420
+000420     02 RXQ   PICTURE 9(2).                                       00000430
+000430     02 FILLER  PICTURE X(7).                                     00000440
+000440     02 INF OCCURS 3 TIMES.                                       00000450
+000450       03 A    PICTURE X(4).                                      00000460
+000460       03 FILLER   PICTURE X(2).                                  00000470
+000470       03 A1    PICTURE X.                                        00000480
+000480       03 FILLER   PICTURE X.                                     00000490
+             03 SPCD     PICTURE X.                                     00000500
+             03 FILLER   PICTURE X.                                     00000510
+000490     02 FILLER   PICTURE X(41).                                   00000520
+000500 WORKING-STORAGE SECTION.                                         00000530
+000520 77  R          PICTURE 9(2) VALUE 0.                             00000540
+000530 77  J          PICTURE 9 VALUE 1.                                00000550
+       77  OKX        PICTURE 9 VALUE 0.                                00000560
+       77  OKY        PICTURE 9 VALUE 0.                                00000570
+000540 01  TABLE SYNC.                                                  00000580
+000550     02 TRQ  OCCURS 100 TIMES.                                    00000590
+000560       03 TB  OCCURS 3 TIMES.                                     00000600
+000570         04 H.                                                    00000610
+000580            05 H1   PICTURE X(2).                                 00000620
+000590            05 FILLER  PICTURE X(2).                              00000630
+000600         04 N   PICTURE X.                                        00000640
+               04 SPX PICTURE X.                                        00000650
+000620 PROCEDURE DIVISION.                                              00000660
+000640 BEGIN.                                                           00000670
+000650     OPEN  INPUT  IT                                              00000680
+000660     OPEN  INPUT  CARD-FILE                                       00000690
+000670     OPEN  OUTPUT OT.                                             00000700
+000680 ZERO-TAB.                                                        00000710
+000690     MOVE ALL '0' TO TABLE.                                       00000720
+000700 READ-C.                                                          00000730
+000710     READ CARD-FILE AT END GO TO EOC.                             00000740
+000720     IF A1 (1) NOT = SPACES AND                                   00000750
+000730        A (1) NOT = SPACES MOVE A (1) TO H (RXQ, 1)               00000760
+           MOVE SPCD (1) TO SPX (RXQ, 1)                                00000770
+000740     MOVE A1 (1) TO  N (RXQ, 1).                                  00000780
+000750     IF A1 (2) NOT = SPACES AND                                   00000790
+000760        A (2) NOT = SPACES MOVE A (2) TO H (RXQ, 2)               00000800
+           MOVE SPCD (2) TO SPX (RXQ, 2)                                00000810
+000770     MOVE A1 (2) TO  N (RXQ, 2).                                  00000820
+000780     IF A1 (3) NOT = SPACES AND                                   00000830
+000790        A (3) NOT = SPACES MOVE A (3) TO H (RXQ, 3)               00000840
+           MOVE SPCD (3) TO SPX (RXQ, 3)                                00000850
+000800     MOVE A1 (3) TO  N (RXQ, 3).                                  00000860
+000810     GO TO READ-C.                                                00000870
+000820 EOC.                                                             00000880
+000830     MOVE 0 TO R.                                                 00000890
+           MOVE 0 TO OKX OKY.                                           00000900
+000840     MOVE 1 TO J.                                                 00000910
+000850 READ-I.                                                          00000920
+000860     READ IT AT END GO TO EOP--X.                                 00000930
+000870     IF RQ-NO NOT = R MOVE RQ-NO TO R GO TO WR-REC.               00000940
+000880 TST-1.                                                           00000950
+           IF N (R, J) = '0' GO TO TOTST.                               00000960
+       TST-2.                                                           00000970
+000900     IF N (R, J) NOT = '2' GO TO ON-4.                            00000980
+000910     IF H1 (R, J) = H2 GO TO TX-1.                                00000990
+           IF H2 > H1 (R, J) GO TO TX-5.                                00001000
+       TX-6.                                                            00001010
+           IF SPX (R, J) = '<' GO TO TX-7.                              00001020
+       TX-8.                                                            00001030
+           IF SPX (R, J) = 'N' GO TO TX-7.                              00001040
+           IF SPX (R, J) NOT = ' ' GO TO TX-4.                          00001050
+           IF OKX = 0 GO TO TX-9.                                       00001060
+           IF OKY NOT = 0 GO TO TX-9.                                   00001070
+           ADD 1 TO J.                                                  00001080
+           IF J > 3 GO TO TO-WR.                                        00001090
+           GO TO TST-1.                                                 00001100
+       TX-9.                                                            00001110
+           ADD 1 TO J.                                                  00001120
+           IF J > 3 GO TO TX-3.                                         00001130
+           GO TO TX-2.                                                  00001140
+       TX-5.                                                            00001150
+           IF SPX (R, J) = '>' GO TO TX-7.                              00001160
+           GO TO TX-8.                                                  00001170
+       TX-7.                                                            00001180
+            ADD 1 TO J.                                                 00001190
+           IF J > 3 GO TO TX-10.                                        00001200
+           ADD 1 TO OKX.                                                00001210
+           GO TO TST-1.                                                 00001220
+       TX-10.                                                           00001230
+           IF OKY = 0 GO TO TO-WR.                                      00001240
+           GO TO TX-3.                                                  00001250
+000960 ON-4.                                                            00001260
+000970     IF H (R, J) = H4 GO TO TX-1.                                 00001270
+           IF H4 > H (R, J) GO TO TX-5.                                 00001280
+           GO TO TX-6.                                                  00001290
+000990 TO-WR.                                                           00001300
+           MOVE 1 TO J.                                                 00001310
+           MOVE 0 TO OKX OKY.                                           00001320
+001010 WR-REC.                                                          00001330
+001020     WRITE STO FROM IN-REC.                                       00001340
+001030     GO TO READ-I.                                                00001350
+       TX-1.                                                            00001360
+           IF SPX (R, J) = 'N' GO TO TX-3.                              00001370
+           IF SPX (R, J) = ' ' GO TO TO-WR.                             00001380
+           GO TO TX-4.                                                  00001390
+       TX-3.                                                            00001400
+           MOVE 1 TO J.                                                 00001410
+           MOVE 0 TO OKX OKY.                                           00001420
+           GO TO READ-I.                                                00001430
+       TX-4.                                                            00001440
+            ADD 1 TO OKY.                                               00001450
+            ADD 1 TO J.                                                 00001460
+           IF J > 3 GO TO  TX-3.                                        00001470
+       TX-2.                                                            00001480
+           IF N (R, J) = '0' GO TO TX-3.                                00001490
+           GO TO TST-2.                                                 00001500
+       TOTST.                                                           00001510
+            IF OKY = 0 GO TO TO-WR.                                     00001520
+           GO TO TX-3.                                                  00001530
+001040 EOP--X.                                                          00001540
+001050     CLOSE        IT                                              00001550
+001060     CLOSE        OT                                              00001560
+001070     CLOSE        CARD-FILE.                                      00001570
+001080     GOBACK.                                                      00001580
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
