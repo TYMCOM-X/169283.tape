@@ -1,0 +1,730 @@
+C ANALYSIS OF SETTLEMENTS DUE TO AREAL LOADS
+      BLOCK DATA                                                               1
+      COMMON /ALPHA/ V(16),H(12),T1(48),T2(48),T3(48),T4(48),FJ(12,16)         2
+      EQUIVALENCE (FJ(1,1),T1(1)),(FJ(1,5),T2(1)),(FJ(1,9),T3(1)),(FJ(1,       3
+     113),T4(1))                                                               4
+      DATA V/0.,.25,.5,.75,1.,1.5,2.,2.5,3.,3.5,4.,4.5,5.,5.5,6.,10./          5
+      DATA H/0.,.25,.5,.75,1.,1.25,1.5,2.,2.5,3.,4.,5./                        6
+      DATA T1/4*1.,.5,7*0.,.999,.998,.997,.92,.47,.05,.015,.003,.001,000       7
+     18,.0006,.0004,.97,.93,.89,.78,.43,.12,.055,.01,.0035,.0013,.0012,.       8
+     1001,.89,.84,.77,.65,.38,.18,.092,.023,.0085,.003,.0014,.0011/            9
+      DATA T2/.75,.7,.65,.53,.35,.21,.125,.035,.0145,.0058,.0016,.0013,.      10
+     147,.45,.4,.35,.27,.2,.14,.062,.028,.014,.004,.0016,.32,.3,.28,25,.      11
+     1205,.17,.13,.07,.039,.022,.0072,.003,22,.21,.2,.18,.16,.135,.105,.      12
+     1072,.044,.027,.0105,.0045/                                              13
+      DATA T3/.16,.153,.15,.14,.13,.105,.09,.065,.0445,.0295,.013,.0062,      14
+     1.13,.12,.11,.105,.097,.085,.077,.06,.043,.0305,.015,.0078,.095,.09      15
+     11,.087,.084,.078,07,.065,.054,.04,.0305,.017,.009,.075,.73,.07,.06      16
+     17,.063,.059,.055,.047,.036,.0295,.0175,.0097/                           17
+                                                                              18
+      DATA T4/.06,.058,.057,.055,.053,.05,.045,.041,.033,.0275,.0178,.01      19
+     103,.05,.049,.048,.047,.044,.043,.039,.035,.0295,.025,.017,.0105,.0      20
+     143,.042,.041,.04,.038,.036,.034,.03,.027,.023,.0165,.0107,.015,.01      21
+     149,.0148,.0147,.0145,.014,.0137,.013,.0125,.0115,.01,.00                22
+      END                                                                     23
+      COMMON NAME(25),XR(50)                                                  24
+      COMMON DS(20),WT(20),SP(20),SV(20),PP(20),OP(20),JL(50),XL(50),YL(      25
+     150)                                                                     26
+      COMMON YR(50),HT(50),DL(50),QT(50),JMARK(50),IAR(50)                    27
+      COMMON IP(99),X(99),Y(99),Z(99), KK,JJ,JAR,MM,NM(8),FMIN,TSL            28
+                                                                              29
+      LOGICAL IANS                                                            30
+                                                                              31
+    1 DO 20 I=1,25                                                            32
+   20 NAME(I)=3H                                                              33
+      DO 30 I=1,20                                                            34
+   30 DS(I)=WT(I)=SP(I)=SV(I)=PP(I)=OP(I)=0.                                  35
+      DO 40 I=1,50                                                            36
+      XR(I)=XL(I)=YR(I)=YL(I)=HT(I)=DL(I)=QT(I)=0.                            37
+   40 JL(I)=JMARK(I)=IAR(I)=0                                                 38
+      DO 50 I=1,99                                                            39
+      IP(I)=0                                                                 40
+   50 X(I)=Y(I)=Z(I)=0.                                                       41
+      PROG=6HEP10                                                             42
+                                                                              43
+C  *IO*  DISPLAY 'DAMES & MOORE COMPUTER PROGRAM EP - 10 '
+C  *IO*  DISPLAY 'FOR THE ANALYSIS OF SETTLEMENTS DUE TO AREAL LOADS'
+C  *IO*  DISPLAY
+C  *IO*  DISPLAY 'ALL NOTES REFER TO EP10 TIME SHARING MANUAL'
+CINPUT SUBROUTINE
+      CALL EP10SA                                                             44
+C  *IO*  10 ACCEPT 'DO YOU WISH TO PRINT THE DATA BEFORE PROCESSING ?', IANS
+      ON ESCAPE:1                                                             45
+      IF(.NOT.IANS), GO TO 100                                                46
+      CALL EP10SB                                                             47
+C  *IO*  100ACCEPT 'DO YOU WISH TO START PROCESSING NOW ?', IANS
+      IF(.NOT.IANS), GO TO 200                                                48
+      CALL EP10SC                                                             49
+C  *IO*  200 ACCEPT 'DO YOU WISH TO CHANGE ANY OF YOUR DATA ?',IANS
+      IF(.NOT.IANS), GO TO 300                                                50
+C  *IO*  ACCEPT 'CHANGE ALL DATA ?', IANS
+      IF (IANS) , GO TO 1                                                     51
+  400 CALL EP10SD                                                             52
+      GO TO 10                                                                53
+C  *IO*  300 ACCEPT 'DO YOU WISH TO STORE YOUR INPUT DATA ?', IANS
+      IF(.NOT.IANS), GO TO 350                                                54
+C  *IO*  DISPLAY 'TYPE YOUR FILE NAME (USE YOUR INITIALS AND A 2 DIGIT NUMBER'
+C  *IO*  DISPLAY 'ENCLOSED IN SLASHES - I.E.  /ABC01/'
+      NEG = -99                                                               55
+      WRITE (2,(23A3)) (NAME(I), I=1,23)                                      56
+      WRITE(2,(2I5,2F10.4))KK,JJ,FMIN,TSL                                     57
+      WRITE(2,(6F10.3))(DS(I),WT(I),SP(I),SV(I),PP(I),OP(I),I=1,KK)           58
+      WRITE(2,(I5,7F12.2,I5))(JL(I),XL(I),YL(I),XR(I),YR(I),HT(I),DL(I),      59
+     1QT(I),JMARK(I), I=1,JJ)                                                 60
+      WRITE(2,(50I2))JAR,(IAR(I),I=1,JAR)                                     61
+      WRITE(2,(I6))MM                                                         62
+      WRITE(2,(I5,3F12.2))(IP(I),X(I),Y(I),Z(I),I=1,MM)                       63
+      CLOSE(2)                                                                64
+C  *IO*  350 ACCEPT 'ANOTHER JOB FOLLOWS ?', IANS
+      IF(IANS), GO TO 1                                                       65
+      CALL MONITOR (NAME, PROG, 2,0.0)                                        66
+      STOP                                                                    67
+      END                                                                     68
+C SUBROUTINE EP10SA
+      SUBROUTINE  EP10SA                                                      69
+C PROGRAM EP10 - INPUT SUBROUTINE
+C ANALYSIS OF SETTLEMENT DU@ TO ARE@H L@OO@@S
+      DIMENSION MX(3)                                                         70
+      COMMON /ALPHA/ V(16),H(12),T1(48),T2(48),T3(48),T4(48),FJ(12,16)        71
+      EQUIVALENCE (FJ(1,1),T1(1)),(FJ(1,5),T2(1)),(FJ(1,9),T3(1)),(FJ(1,      72
+     113),T4(1))                                                              73
+      COMMON NAME(25),XR(50)                                                  74
+      COMMON DS(20),WT(20),SP(20),SV(20),PP(20),OP(20),JL(50),XL(50),YL(      75
+     150)                                                                     76
+      COMMON YR(50),HT(50),DL(50),QT(50),JMARK(50),IAR(50)                    77
+      COMMON IP(99),X(99),Y(99),Z(99), KK,JJ,JAR,MM,NM(8),FMIN,TSL            78
+                                                                              79
+      LOGICAL IANS                                                            80
+      DATA MX:STRING /'KEYFILPAP'/                                            81
+      IPU=0                                                                   82
+C  *IO*  3 DISPLAY'INPUT FROM KEYBOARD,FILE OR PAPER TAPE? ',$
+      READ(0,(A3))IGO                                                         83
+      FOR I=1,3:IF(IGO.EQ.MX(I)) GO TO (7,8,9),I                              84
+C  *IO*  DISPLAY 'INPUT MODE NOT VALID , TRY AGAIN'
+      GO TO 3                                                                 85
+      C                                                                       86
+C  *IO*  7  DISPLAY 'ENTER JOB INFORMATION   SEE NOTE NO 1'
+      READ (0,(23A3)) (NAME(I), I=1,23)                                       87
+      PROG=6HEP10                                                             88
+      CALL MONITOR (NAME, PROG, 1,0.0)                                        89
+C  *IO*  DISPLAY'INPUT MINIMUM INFLUENCE VALUE AND SLICE THICKNESS--IF LEFT BLANK'
+C  *IO*  DISPLAY'THE PROG. WILL USE .03 FOR INFLUENCE VALUE AND 1 FOOT THICKNESS : ',$
+      READ(0,(2F10.4))FMIN,TSL                                                90
+      IF(FMIN.LE..0001) FMIN=.03                                              91
+      IF(TSL.LE..001) TSL=1.                                                  92
+C  *IO*  DISPLAY 'SOIL DATA INPUT  SEE NOTE 2'
+C  *IO*  DISPLAY'DEPTH,WEIGHT, PRECONS LEG, VIRG LEG, PRECONS PRESS, OVERCON PRESS'
+C  *IO*  DISPLAY 'BEGIN'
+      I=1                                                                     93
+C  *IO*  150 DISPLAY I, '...', $
+C  *IO*  ACCEPT DS(I), WT(I), SP(I), SV(I), PP(I), OP(I)
+      IF(DS(I).LT.0) GOTO 170                                                 94
+      IF(I.EQ.20) GO TO 160                                                   95
+      I=I+1                                                                   96
+      ON ESCAPE:900                                                           97
+      GOTO 150                                                                98
+C  *IO*  160 DISPLAY 'THAT'S ALL'
+      GO TO 180                                                               99
+  170 I=I-1                                                                  100
+  180 KK=I                                                                   101
+C  *IO*  200 DISPLAY
+C  *IO*  DISPLAY
+C  *IO*  DISPLAY 'LOADED AREA DATA INPUT   SEE NOTE NO 4'
+C  *IO*  220 DISPLAY 'NO,XL,YL,XR,YR,HT,DPTH,LOAD,EXC'
+C  *IO*  DISPLAY 'BEGIN'
+      I=1                                                                    102
+C  *IO*  250 DISPLAY I, '...',$
+C  *IO*  ACCEPT JL(I),XL(I),YL(I),XR(I),YR(I),HT(I),DL(I),QT(I),JMARK(I)
+      IF(JL(I).LT.0) GOTO 270                                                103
+      IF(I.EQ.50) GO TO 260                                                  104
+      I=I+1                                                                  105
+      ON ESCAPE:900                                                          106
+      GO TO 250                                                              107
+C  *IO*  260 DISPLAY 'THAT'S ALL'
+      GO TO 280                                                              108
+  270 I=I-1                                                                  109
+  280 JJ=I                                                                   110
+C  *IO*  300 DISPLAY
+C  *IO*  DISPLAY
+C  *IO*  DISPLAY 'LIST LOADED AREAS TO BE CONSIDERED   SEE NOTE NO 5'
+C  *IO*  DISPLAY 'BEGIN'
+      I=0                                                                    111
+  340 READ(0,(10I5)) (IAR(J), J=I*10+1,(I+1)*10)                             112
+      FOR J=I*10+1,(I+1)*10: IF(IAR(J).GT.50) GO TO 350                      113
+      GO TO 360                                                              114
+C  *IO*  350 DISPLAY 'ITEM',J,'IS GREATER THAN 50'
+C  *IO*  DISPLAY 'RETYPE THIS LINE AND CONTINUE'
+      GO TO 340                                                              115
+  360 FOR J=I*10+1,(I+1)*10:IF(IAR(J).LE.0) GO TO 380                        116
+      I=I+1                                                                  117
+      GO TO 340                                                              118
+  380 JAR=J-1                                                                119
+C  *IO*  400 DISPLAY
+C  *IO*  DISPLAY 'SETTLEMENT POINT DATA INPUT   SEE NOTE NO 6'
+C  *IO*  DISPLAY 'NO,X,Y,Z'
+C  *IO*  DISPLAY 'BEGIN'
+      I=1                                                                    120
+C  *IO*  450 DISPLAY I,'...',$
+C  *IO*  ACCEPT IP(I),X(I),Y(I),Z(I)
+      IF(IP(I).LT.0)GO TO 480                                                121
+      IF(I.EQ.99) GO TO 460                                                  122
+      I=I+1                                                                  123
+      ON ESCAPE:900                                                          124
+      GO TO 450                                                              125
+C  *IO*  460 DISPLAY 'THAT'S ALL'
+      GO TO 490                                                              126
+  480 I=I-1                                                                  127
+  490 MM=I                                                                   128
+  900 RETURN                                                                 129
+    8  IPU=2                                                                 130
+    9  READ(999,(23A3))( NAME(I),I=1,23)                                     131
+      IF(IPU.EQ.0) GO TO 5                                                   132
+      WRITE(1,(23A3))(NAME(I),I=1,23)                                        133
+C  *IO*  ACCEPT 'IS THAT THE ONE?',IANS
+      IF(.NOT.IANS),GO TO 500                                                134
+    5  PROG=6HEP10                                                           135
+      IF(IPU.EQ.0) GO TO 520                                                 136
+      CALL MONITOR (NAME, PROG, 1,0.0)                                       137
+  520 READ(999,(2I5,2F10.4))KK,JJ,FMIN,TSL                                   138
+      IF(FMIN.LE.0.) FMIN=.03                                                139
+      IF(TSL.LE..001) TSL=1.                                                 140
+      READ(999,(6F12.0))(DS(I),WT(I),SP(I),SV(I),PP(I),OP(I),I=1,KK)         141
+  560 READ(999,(I5,7F12.0,I5))(JL(I),XL(I),YL(I),XR(I),YR(I),HT(I),DL(I)     142
+     1,QT(I),JMARK(I),I=1,JJ)                                                143
+      READ(999,(50I2))JAR,(IAR(I),I=1,JAR)                                   144
+      READ(999,(I6))MM                                                       145
+  640 READ(999,(I5,3F12.0))(IP(I),X(I),Y(I),Z(I),I=1,MM)                     146
+      IF(IPU.EQ.0) GO TO 111                                                 147
+      CLOSE (2)                                                              148
+      GO TO 11                                                               149
+  111 CALL MONITOR(NAME,PROG,1,0.0)                                          150
+   11 RETURN                                                                 151
+      END                                                                    152
+C SUBROUTINE EP10SB
+      SUBROUTINE EP10SB                                                      153
+      COMMON /ALPHA/ V(16),H(12),T1(48),T2(48),T3(48),T4(48),FJ(12,16)       154
+      EQUIVALENCE (FJ(1,1),T1(1)),(FJ(1,5),T2(1)),(FJ(1,9),T3(1)),(FJ(1,     155
+     113),T4(1))                                                             156
+      COMMON NAME(25),XR(50)                                                 157
+      COMMON DS(20),WT(20),SP(20),SV(20),PP(20),OP(20),JL(50),XL(50),YL(     158
+     150)                                                                    159
+      COMMON YR(50),HT(50),DL(50),QT(50),JMARK(50),IAR(50)                   160
+      COMMON IP(99),X(99),Y(99),Z(99),KK,JJ,JAR,MM,NM(8),FMIN,TSL            161
+      LOGICAL IANS                                                           162
+      DATA NM:STRING/'HELENDJOBJOBSOILOALISSET'/                             163
+      INDEX=0                                                                164
+C  *IO*  1 ACCEPT'DO YOU WISH TO PRINT ALL INPUT DATA?',IANS
+      IF(.NOT.IANS), GO TO 10                                                165
+      INDEX=1                                                                166
+C  *IO*  DISPLAY
+C  *IO*  DISPLAY
+   10 WRITE(1,15)(NAME(I),I=1,23)                                            167
+   15 FORMAT('DAMES & MOORE PROGRAM EP-10'/'FOR THE ANALYSIS OF SETTLEME     168
+     1NT DUE TO AREAL LOAD'/23A3/)                                           169
+      IF(INDEX.EQ.1) GO TO 100                                               170
+C  *IO*  50 DISPLAY 'WHAT DATA DO YOU WISH TO PRINT ? ', $
+      READ(0,(A3))IGO                                                        171
+      FOR I=1,8:IF(NM(I).EQ.IGO)GOTO(60,500,60,60,100,200,300,400),I         172
+C  *IO*  60 DISPLAY'YOU CAN ASK FOR SOIL DATA, LOAD DATA, LIST OF LOADS ,'
+C  *IO*  DISPLAY'AND SETTLEMENT POINT DATA , OR END PRINTING'
+      GO TO 50                                                               173
+  100 WRITE(1,150)KK,(I,DS(I),WT(I),SP(I),SV(I),PP(I),OP(I),I=1,KK)          174
+  150 FORMAT(//'SOIL  DATA',10X,'TOTAL NO OF SOIL LINES =', I4/'LINE  DE     175
+     1PTH  UNIT WT  -----SLOPE-----   ---PRESSURE-(PSF)--'/' NO    (FT)      176
+     1  (PCF)   REBOUND  VIRGIN   PRECONS.  OVERCONS.'/(I3, 2F8.1, 2F9.3     177
+     1, 2F11.1))                                                             178
+      ON ESCAPE:50                                                           179
+      IF(INDEX.NE.1) GO TO 50                                                180
+  200 WRITE(1,210)JJ                                                         181
+  210 FORMAT(//'LOAD DATA',10X,'TOTAL NO OF AREAL LOADS =',I4/'LOAD          182
+     1  COORDINATES (FT)          HEIGHT   DEPTH  PRESS.'/' NO  LEFT-X       183
+     1LEFT-Y RIGHT-X RIGHT-Y   (FT)    (FT)    (PSF)')                       184
+      DO 290 I=1,JJ                                                          185
+      ON ESCAPE:50                                                           186
+      IF(HT(I).EQ.0)GO TO 250                                                187
+      ASSIGN 220 TO IAD                                                      188
+      IF(JMARK(I).EQ.1)ASSIGN 230 TO IAD                                     189
+      WRITE(1,IAD)JL(I),XL(I),YL(I),XR(I),YR(I),HT(I),DL(I),QT(I)            190
+  220 FORMAT(I3,6F8.2,F9.1)                                                  191
+  230 FORMAT(8.2,F9.1,'EXCAVATION')                                     192
+      GO TO 290                                                              193
+  250 ASSIGN 260 TO IAD                                                      194
+      IF(JMARK(I).EQ.1) ASSIGN 270 TO IAD                                    195
+      WRITE(1,IAD)JL(I),XL(I),YL(I),XR(I),DL(I),QT(I)                        196
+  260 FORMAT(I3,'  OX =',F8.2,' OY =',F8.2,' R =',2F8.2,F9.1)                197
+  270 FORMAT(I3,'  OX =',F8.2,' OY =',F8.2,' R =',2F8.2,F9.1'EXCAVATION'     198
+     1)                                                                      199
+  290 C'E                                                                    200
+      IF(INDEX.NE.1)GO TO 50                                                 201
+  300 WRITE(1,310)(IAR(I),I=1,JAR)                                           202
+  310 FORMAT(//' LIST OF LOAD AREAS TO BE CONSIDERED -'/(14I5))              203
+      IF(INDEX.NE.1)GO TO 50                                                 204
+  400 WRITE(1,450)(IP(I),X(I),Y(I),Z(I),I=1,MM)                              205
+  450 FORMAT(//'SETTLEMENT POINT DATA'/'POINT   COORDINATES (FT)     DEP     206
+     1TH'/'  NO       X         Y        (FT)'/(I4 , 3F10.2))                207
+C  *IO*  DISPLAY
+C  *IO*  DISPLAY
+      IF(INDEX.NE.1)GO TO 50                                                 208
+      ON ESCAPE:500                                                          209
+  500 RETURN                                                                 210
+      END                                                                    211
+      SUBROUTINE EP10SC                                                      212
+      DIMENSION A(50,4),PL(21),DP(50),NL(50),YU(50),FII(50),FV(4)            213
+      DIMENSION FI(50),AX1(50),AX2(50),BY1(50),BY2(50),LL(50),E(4),N(50)     214
+      COMMON /ALPHA/ V(16),H(12),T1(48),T2(48),T3(48),T4(48),FJ(12,16)       215
+      EQUIVALENCE (FJ(1,1),T1(1)),(FJ(1,5),T2(1)),(FJ(1,9),T3(1)),(FJ(1,     216
+     113),T4(1))                                                             217
+      COMMON NAME(25),XR(50)                                                 218
+      COMMON DS(20),WT(20),SP(20),SV(20),PP(20),OP(20),JL(50),XL(50),YL(     219
+     150)                                                                    220
+      COMMON YR(50),HT(50),DL(50),QT(50),JMARK(50),IAR(50)                   221
+      COMMON IP(99),X(99),Y(99),Z(99), KK,JJ,JAR,MM,NM(8),FMIN,TSL           222
+      INTEGER DETAIL                                                         223
+      DETAIL=0                                                               224
+      FOR J=1,JJ: YU(J)=YL(J)+HT(J)                                          225
+      C                                                                      226
+C COMPUTE OVERBURDEN PRESSURE AT LAYER BOUNDARIES
+      C                                                                      227
+      IPR=1                                                                  228
+  460 PL(1)=0.                                                               229
+      NS1=KK+1                                                               230
+      DS(NS1)=9999.                                                          231
+      DO 470 K=2,NS1                                                         232
+  470 PL(K)=PL(K-1)+(DS(K)-DS(K-1))*WT(K-1)                                  233
+      C                                                                      234
+      DO 510 I=1,JAR                                                         235
+      K=IAR(I)                                                               236
+      IF(JMARK(K))510,510,500                                                237
+  500 INDEX=1                                                                238
+      GO TO 520                                                              239
+  510 CONTINUE                                                               240
+      INDEX=0                                                                241
+      C                                                                      242
+  520 WRITE(998,1705)                                                        243
+C LOOP THROUGH ALL SETTLEMENT POINTS
+      DO 1500 JJJ=1,MM                                                       244
+      STOT=0.                                                                245
+      DO 540 J=1,50                                                          246
+  540 FII(J)=DP(J)=NL(J)=0.                                                  247
+      NO=0                                                                   248
+C DEPTH LOOP
+      C                                                                      249
+      DD=Z(JJJ)+0.5*TSL                                                      250
+  620 DPTOT = 0.                                                             251
+C FIND LAYER NUMBER FOR DEPTH DD
+      DO 640 K = 1, KK                                                       252
+      IF (DS(K + 1) - DD) 630,650,630                                        253
+  630 IF((DD-DS(K))/(DS(K+1)-DD))640,650,650                                 254
+  640 CONTINUE                                                               255
+  650 IF (WT(K)) 1470, 1470,660                                              256
+  660 IF(SV(K) + SP(K)) 670,670,700                                          257
+  670 DD = DS(K+1) + 0.5*TSL                                                 258
+      GO TO 620                                                              259
+  700 PNAT = PL(K+1) - (DS(K+1)-DD)*WT(K)                                    260
+      IF (PP(K)) 710,710,720                                                 261
+  710 PRP = OP(K) + PNAT                                                     262
+      GO TO 750                                                              263
+  720 PRP = PP(K)                                                            264
+      C                                                                      265
+C LOAD DO LOOP
+      C                                                                      266
+  750 DO 1320 ISK = 1, JAR                                                   267
+      DO 760 L = 1,4                                                         268
+  760 FV(L) = 0.                                                             269
+      FOR J=1,JJ:IF(JL(J).EQ.IAR(ISK)) GO TO 769                             270
+      WRITE(998,765)IAR(ISK)                                                 271
+  765 FORMAT(10H LOAD NO  ,I3,10H NOT FOUND  ///)                            272
+      GO TO 1600                                                             273
+  769 FI(J)=0.                                                               274
+      N(J)=7                                                                 275
+      IF (NL(J)) 770,770,1320                                                276
+  770 IF (DL(J) - DD) 780, 1320, 1320                                        277
+  780 D = DD - DL(J)                                                         278
+      IF (HT(J)) 1140,1140,790                                               279
+  790 NX = N(J)                                                              280
+      GO TO (1010,1040,1060,1090,1120,1140,800),NX                           281
+  800 AX1(J)=XL(J)-X(JJJ)                                                    282
+      IF(ABS(AX1(J)).LE.0.001) AX1(J)=0.                                     283
+      AX2(J)=XR(J)-X(JJJ)                                                    284
+      IF(ABS(AX2(J)).LE.0.001) AX2(J)=0.                                     285
+      BY1(J)=YL(J)-Y(JJJ)                                                    286
+      IF(ABS(BY1(J)).LE.0.001) BY1(J)=0.                                     287
+      BY2(J)=YU(J)-Y(JJJ)                                                    288
+      IF(ABS(BY2(J)).LE.0.001) BY2(J)=0.                                     289
+      IF(AX1(J))810,830,880                                                  290
+  810 AX1(J)=-AX1(J)                                                         291
+      IF(AX2(J))820,830,950                                                  292
+  820 AX2(J)=-AX2(J)                                                         293
+      GO TO 880                                                              294
+  830 AX1(J)=AX1(J)+AX2(J)                                                   295
+      IF(BY1(J))840,1030,860                                                 296
+  840 BY1(J)=-BY1(J)                                                         297
+      IF(BY2(J))850,1030,1050                                                298
+      C                                                                      299
+  850 BY2(J)=-BY2(J)                                                         300
+  860 IF(BY1(J)-BY2(J))870,1070,1070                                         301
+      C                                                                      302
+  870 U=BY1(J)                                                               303
+      BY1(J)=BY2(J)                                                          304
+      BY2(J)=U                                                               305
+      GO TO 1070                                                             306
+      C                                                                      307
+  880 IF(AX1(J)-AX2(J))890,900,900                                           308
+  890 U=AX1(J)                                                               309
+      AX1(J)=AX2(J)                                                          310
+      AX2(J)=U                                                               311
+  900 IF(BY1(J))910,1100,930                                                 312
+  910 BY1(J)=-BY1(J)                                                         313
+      IF(BY2(J))920,1100,1000                                                314
+      C                                                                      315
+  920 BY2(J)=-BY2(J)                                                         316
+  930 IF(BY1(J)-BY2(J))940,1110,1110                                         317
+      C                                                                      318
+  940 U=BY1(J)                                                               319
+      BY1(J)=BY2(J)                                                          320
+      BY2(J)=U                                                               321
+      GO TO 1110                                                             322
+      C                                                                      323
+  950 IF(BY1(J))960,1080,980                                                 324
+  960 BY1(J)=-BY1(J)                                                         325
+      IF(BY2(J))970,1080,1020                                                326
+      C                                                                      327
+  970 BY2(J)=-BY2(J)                                                         328
+  980 IF(BY1(J)-BY2(J))990,1130,1130                                         329
+      C                                                                      330
+  990 U=BY1(J)                                                               331
+      BY1(J)=BY2(J)                                                          332
+      BY2(J)=U                                                               333
+      GO TO 1130                                                             334
+      C                                                                      335
+C POINT LOCATED AT LEFT OR RIGHT OF AREAL LOAD
+      C                                                                      336
+ 1000 N(J)=1                                                                 337
+      A(J,1)=AX1(J)/BY1(J)                                                   338
+      A(J,2)=AX1(J)/BY2(J)                                                   339
+      A(J,3)=-AX2(J)/BY1(J)                                                  340
+      A(J,4)=-AX2(J)/BY2(J)                                                  341
+      LL(J) = 4                                                              342
+ 1010 E(1)=D/BY1(J)                                                          343
+      E(2)=D/BY2(J)                                                          344
+      E(3)=E(1)                                                              345
+      E(4)=E(2)                                                              346
+      GO TO 1220                                                             347
+      C                                                                      348
+C POINT LOCATED WITHIN AREAL LOAD
+      C                                                                      349
+ 1020 N(J)=1                                                                 350
+      A(J,1)=AX1(J)/BY1(J)                                                   351
+      A(J,2)=AX1(J)/BY2(J)                                                   352
+      A(J,3)=AX2(J)/BY1(J)                                                   353
+      A(J,4)=AX2(J)/BY2(J)                                                   354
+      LL(J) = 4                                                              355
+      GO TO 1010                                                             356
+      C                                                                      357
+C POINT LOCATED AT CORNER OF AREAL LOAD
+      C                                                                      358
+ 1030 BY1(J)=BY1(J) + BY2(J)                                                 359
+      N(J) = 2                                                               360
+      A(J,1)=AX1(J)/BY1(J)                                                   361
+      LL(J) = 1                                                              362
+ 1040 E(1)=D/BY1(J)                                                          363
+      GO TO 1220                                                             364
+      C                                                                      365
+C POINT LOCATED ON LEFT OR RIGHT BOUNDARY OF AREAL LOAD
+      C                                                                      366
+ 1050 N(J) = 3                                                               367
+      A(J,1)=AX1(J)/BY1(J)                                                   368
+      A(J,2)=AX1(J)/BY2(J)                                                   369
+      LL(J) = 2                                                              370
+ 1060 E(1)=D/BY1(J)                                                          371
+      E(2)=D/BY2(J)                                                          372
+      GO TO 1220                                                             373
+      C                                                                      374
+      C                                                                      375
+ 1070 N(J)=3                                                                 376
+      A(J,1)=AX1(J)/BY1(J)                                                   377
+      A(J,2)=-AX1(J)/BY2(J)                                                  378
+      LL(J) = 2                                                              379
+      GO TO 1060                                                             380
+      C                                                                      381
+C POINT LOCATED ON UPPER OR LOWER BOUNDARY OF AREAL LOAD
+      C                                                                      382
+ 1080 BY1(J)=BY1(J)+BY2(J)                                                   383
+      N(J) = 4                                                               384
+      A(J,1)=AX1(J)/BY1(J)                                                   385
+      A(J,2)=AX2(J)/BY1(J)                                                   386
+      LL(J) = 2                                                              387
+ 1090 E(1)=D/BY1(J)                                                          388
+      E(2)=E(1)                                                              389
+      GO TO 1220                                                             390
+      C                                                                      391
+C POINT LOCATED ON EXTENSION OF HORIZONTAL BOUNDARIES OF AREAL LOAD
+      C                                                                      392
+ 1100 BY1(J) = BY1(J)+BY2(J)                                                 393
+      N(J) = 4                                                               394
+      A(J,1) = AX1(J)/BY1(J)                                                 395
+      A(J,2) = -AX2(J)/BY1(J)                                                396
+      LL(J)=2                                                                397
+      GO TO 1090                                                             398
+      C                                                                      399
+C POINT LOCATED NE,NW,SE,SW OF AREAL LOAD
+      C                                                                      400
+ 1110 N(J) = 5                                                               401
+      A(J,1) = AX1(J)/BY1(J)                                                 402
+      A(J,2) = -AX1(J)/BY2(J)                                                403
+      A(J,3) = -AX2(J)/BY1(J)                                                404
+      A(J,4) = AX2(J)/BY2(J)                                                 405
+      LL(J) = 4                                                              406
+ 1120 E(1) = D/BY1(J)                                                        407
+      E(2)=D/BY2(J)                                                          408
+      E(3)=E(1)                                                              409
+      E(4)=E(2)                                                              410
+      GO TO 1220                                                             411
+      C                                                                      412
+C POINT LOCATED IN FRONT OR BEHIND AREAL LOAD
+      C                                                                      413
+ 1130 N(J) = 5                                                               414
+      A(J,1) = AX1(J)/BY1(J)                                                 415
+      A(J,2) = -AX1(J)/BY2(J)                                                416
+      A(J,3) = AX2(J)/BY1(J)                                                 417
+      A(J,4) = -AX2(J)/BY2(J)                                                418
+      LL(J) = 4                                                              419
+      GO TO 1120                                                             420
+      C                                                                      421
+C LOCATE SETTLEMENT POINT WITH RESPECT TO CIRCULAR AREAL LOAD
+      C                                                                      422
+ 1140 N(J) = 6                                                               423
+      CX=(XL(J)-X(JJJ))**2                                                   424
+      CY=(YL(J)-Y(JJJ))**2                                                   425
+      CH=SQRT (CX+CY)/XR(J)                                                  426
+      IF(CH-5.)1150,1180,1180                                                427
+ 1150 DO 1160 JH = 1,12                                                      428
+      JHT = JH                                                               429
+      IF(H(JHT)-CH)1160,1160,1170                                            430
+ 1160 CONTINUE                                                               431
+ 1170 RH=(CH-H(JHT-1))/(H(JHT)-H(JHT-1))                                     432
+      CV=D/XR(J)                                                             433
+      IF(CV-10.)1190,1180,1180                                               434
+ 1180 FI(J) = 0.                                                             435
+      GO TO 1260                                                             436
+ 1190 DO 1200 IV=1,16                                                        437
+      IVT = IV                                                               438
+      IF(V(IVT)-CV)1200,1200,1210                                            439
+                                                                             440
+ 1200 CONTINUE                                                               441
+ 1210 RV=(CV-V(IVT-1))/(V(IVT)-V(IVT-1))                                     442
+      XT1=FJ(JHT-1,IVT-1)                                                    443
+      XT2=FJ(JHT-1,IVT)                                                      444
+      XT3=FJ(JHT,IVT-1)                                                      445
+      XT4=FJ(JHT,IVT)                                                        446
+      P1=XT1+(XT2-XT1)*RV                                                    447
+      P2=XT3+(XT4-XT3)*RV                                                    448
+      FI(J) = P1 + (P2 - P1) * RH                                            449
+      GO TO 1240                                                             450
+      C                                                                      451
+C FIND INFLUENCE VALUE AT DEPTH D
+      C                                                                      452
+ 1220 LB=LL(J)                                                               453
+      DO 1230 L = 1,LB                                                       454
+      AS = A(J,L)**2                                                         455
+      ES=E(L)**2                                                             456
+      T=SQRT (1.+AS+ES)                                                      457
+      XT1=-E(L)+T                                                            458
+      XT2=1.+AS                                                              459
+      AA = A(J,L)*E(L)*(XT2+2.*ES)                                           460
+      BB=(1.+ES)*(AS+ES)*T                                                   461
+      CC=A(J,L)*(XT2-2.*E(L)*XT1)                                            462
+      DF=E(L)*(XT2*XT1-E(L)*XT1**2)                                          463
+      FV(L)=0.1591549*(AA/BB+ATAN (CC/DF))                                   464
+ 1230 FI(J) = FI(J) + FV(L)                                                  465
+      FI(J) = ABS(FI(J))                                                     466
+      C                                                                      467
+C CHECK IF INFLUENCE VALUE DECREASING OR LESS THAN SPECIFIED
+      C                                                                      468
+ 1240 IF(FI(J)-FII(J))1250,1290,1290                                         469
+ 1250 IF(FI(J)-FMIN)1260,1290,1290                                           470
+      C                                                                      471
+C COMPUTE LOAD INCREMENT AT DEPTH D DUE TO AREAL LOAD
+      C                                                                      472
+ 1260 NL(J) = 1                                                              473
+      NO = NO + 1                                                            474
+      IF(NO-JAR)1320,1470,1470                                               475
+ 1290 DP(J) = QT(J)*FI(J)                                                    476
+      DPTOT=DPTOT+DP(J)                                                      477
+      FII(J) = FI(J)                                                         478
+ 1320 CONTINUE                                                               479
+      C                                                                      480
+C CALCULATE SLICE COMPRESSION AT DEPTH D
+      C                                                                      481
+      IF(DPTOT) 1330,1330,1340                                               482
+ 1330 PORN = -1.                                                             483
+      IF(INDEX)1380,1380,1350                                                484
+ 1340 PORN = +1.                                                             485
+      GO TO 1380                                                             486
+ 1350 PTOT=PNAT+DPTOT                                                        487
+      IF(PTOT)1360,1360,1370                                                 488
+ 1360 STS=0.                                                                 489
+      GO TO 1430                                                             490
+ 1370 STS=SP(K)*TSL*  ALOG(PNAT/PTOT) *12*0.4342945                          491
+      GO TO 1430                                                             492
+ 1380 PTOT = PNAT +DPTOT*PORN                                                493
+      IF (PTOT-PRP)1390,1390,1400                                            494
+ 1390 STS=SP(K)*TSL*  ALOG(PTOT/PNAT) *12.*0.4342945                         495
+      GO TO 1430                                                             496
+ 1400 IF(PNAT-PRP)1420,1410,1410                                             497
+ 1410 STS=SV(K)*TSL*  ALOG(PTOT/PNAT) *12.*0.4342945                         498
+      GO TO 1430                                                             499
+ 1420 STS=TSL*12.*0.432945*(SP(K)*ALOG(PRP/PNAT)+SV(K)*ALOG(PTOT/PRP))       500
+ 1430 STS=STS*PORN                                                           501
+      STOT = STOT + STS                                                      502
+      IF(DETAIL.EQ.0) GOTO 1440                                              503
+      WRITE(1,1435) DD,PTOT,STS,STOT,DPTOT                                   504
+ 1435 FORMAT(6F11.3)                                                         505
+ 1440 DD = DD + TSL                                                          506
+      ON ESCAPE:1600                                                         507
+      GO TO 620                                                              508
+ 1470 WRITE(998,1730)IP(JJJ),STOT,X(JJJ),Y(JJJ),Z(JJJ)                       509
+ 1500 CONTINUE                                                               510
+ 1705 FORMAT(//55H POINT  SETTLEMENT     COORDINATES (FT)      DEPTH (FT     511
+     1)  /39H   NO    IN INCHES       X           Y        )                 512
+ 1730 FORMAT(I5,F11.3,3F12.2)                                                513
+ 1600 RETURN                                                                 514
+      END                                                                    515
+C SUBROUTINE EP10SD
+      SUBROUTINE  EP10SD                                                     516
+C PROGRAM EP10SD - REINPUT SUBROUTINE
+C ANALYSIS OF SETTLEMENT DUE TO AREAL LOADS
+      COMMON /ALPHA/ V(16),H(12),T1(48),T2(48),T3(48),T4(48),FJ(12,16)       517
+      EQUIVALENCE (FJ(1,1),T1(1)),(FJ(1,5),T2(1)),(FJ(1,9),T3(1)),(FJ(1,     518
+     113),T4(1))                                                             519
+      COMMON NAME(25),XR(50)                                                 520
+      COMMON DS(20),WT(20),SP(20),SV(20),PP(20),OP(20),JL(50),XL(50),YL(     521
+     150)                                                                    522
+      COMMON YR(50),HT(50),DL(50),QT(50),JMARK(50),IAR(50)                   523
+      COMMON IP(99),X(99),Y(99),Z(99), KK,JJ,JAR,MM,NM(8),FMIN,TSL           524
+      LOGICAL IANS                                                           525
+C  *IO*  10 DISPLAY 'WHAT DATA DO YOU WANT TO CHANGE?',$
+      READ(0,(A3))IGO                                                        526
+      FOR I=1,8: IF(NM(I).EQ.IGO) GO TO (100,...,107)I                       527
+  100 WRITE(1,99)                                                            528
+   99 FORMAT(' YOU CAN CHANGE: JOB ID, SOIL DATA, LOAD DATA, LIST OF ARE     529
+     1AS'/'SETT. POINT DATA OR END CHANGE')                                  530
+      GO TO 10                                                               531
+  101 RETURN                                                                 532
+  102 CONTINUE                                                               533
+C  *IO*  103 DISPLAY'INPUT NEW JOB ID'
+      READ(0,(23A3))(NAME(I),I=1,23)                                         534
+      GO TO 10                                                               535
+C
+C  *IO*  104 ACCEPT'DO YOU WISH TO DELETE ANY SOIL DATA?',IANS
+      IF(.NOT.IANS),GOTO 1041                                                536
+C  *IO*  DISPLAY'INPUT DEPTH TO TOP OF LAYERS TO BE DELETED -NEG DEPTH STOPS DEL'N'
+C  *IO*  1045 ACCEPT DSA
+      IF(DSA.LT.0.),GOTO 1041                                                537
+      FOR I=1,KK:IF(DSA.EQ.DS(I))GOTO 1046                                   538
+C  *IO*  DISPLAY 'DEPTH = ',DSA,'? NO SUCH SOIL LAYER IN FILE'
+      GOTO 1045                                                              539
+C  *IO*  1041 DISPLAY 'INPUT NEW SOIL LINE'
+C  *IO*  1047 ACCEPT DSA,WTA,SPA,SVA,PPA,OPA
+      IF(DSA.LT.0.)GOTO10                                                    540
+      FOR I=1,KK:IF(DSA.EQ.DS(I)) GO TO 2050                                 541
+      FOR I=1,KK: IF(DSA.LT.DS(I)) GO TO 2020                                542
+      IF(KK.LT.20) GO TO 2000                                                543
+C  *IO*  2010 DISPLAY 'CAN'T HAVE MORE THAN 20 LINES'
+      GO TO 10                                                               544
+ 2000 I = KK+1                                                               545
+      GO TO 2040                                                             546
+C COMPRESS SOIL DATA VALUES TO MAKE ROOM
+ 2020 IF(KK.GE.20) GO TO 2010                                                547
+      DO 2040 J=KK,I                                                         548
+      DS(J+1)=DS(J)                                                          549
+      WT(J+1)=WT(J)                                                          550
+      SP(J+1)=SP(J)                                                          551
+      SV(J+1)=SV(J)                                                          552
+      PP(J+1)=PP(J)                                                          553
+      OP(J+1)=OP(J)                                                          554
+ 2040 CONTINUE                                                               555
+      KK=KK+1                                                                556
+C REPLACE SOIL DATA VALUES
+ 2050 DS(I)=DSA                                                              557
+      WT(I)=WTA                                                              558
+      SP(I)=SPA                                                              559
+      SV(I)=SVA                                                              560
+      PP(I)=PPA                                                              561
+      OP(I)=OPA                                                              562
+      GO TO 1047                                                             563
+C DELETE SOIL DATA VALUE & COMPRESS DATA
+ 1046 DO 2080 J=I+1,KK                                                       564
+      DS(J-1)=DS(J)                                                          565
+      WT(J-1)=WT(J)                                                          566
+      SP(J-1)=SP(J)                                                          567
+      SV(J-1)=SV(J)                                                          568
+      PP(J-1)=PP(J)                                                          569
+      OP(J-1)=OP(J)                                                          570
+ 2080 CONTINUE                                                               571
+      KK=KK-1                                                                572
+      GO TO 1045                                                             573
+C  *IO*  105 DISPLAY 'INPUT NEW LOAD DATA - NEG LOAD NO STOPS LIST'
+C  *IO*  1050 ACCEPT I,X1A,Y1A,X2A,Y2A,HTA,DLA,QTA,IMARK
+      IF(I.LT.0) GO TO 10                                                    574
+      FOR NN=1,JJ : IF(I.EQ.JL(NN)) GO TO 2099                               575
+      NN = JJ = JJ+1                                                         576
+      IF(JJ.GT.50) GO TO 2100                                                577
+ 2099 JL(NN)=I                                                               578
+      XL(NN) = X1A                                                           579
+      YL(NN) = Y1A                                                           580
+      XR(NN) = X2A                                                           581
+      YR(NN) = Y2A                                                           582
+      HT(NN) = HTA                                                           583
+      DL(NN) = DLA                                                           584
+      QT(NN) = QTA                                                           585
+      JMARK(NN) = IMARK                                                      586
+      GO TO 1050                                                             587
+C  *IO*  2100 DISPLAY 'CAN'T HAVE MORE THAN 50 LOADED AREAS'
+      GOTO 10                                                                588
+C  *IO*  106 DISPLAY 'INPUT NEW LIST OF LOADED AREAS - NEG LOAD NO STOPS LIST'
+      I=0                                                                    589
+  340 READ(0,(10I5)) (IAR(J), J=I*10+1,(I+1)*10)                             590
+      FOR J=I*10+1,(I+1)*10: IF(IAR(J).GT.50) GO TO 350                      591
+      GO TO 360                                                              592
+C  *IO*  350 DISPLAY 'ITEM',J,'IS GREATER THAN 50'
+C  *IO*  DISPLAY 'RETYPE THIS LINE AND CONTINUE'
+      GO TO 340                                                              593
+  360 FOR J=I*10+1,(I+1)*10:IF(IAR(J).LE.0) GO TO 380                        594
+      I=I+1                                                                  595
+      GO TO 340                                                              596
+  380 JAR=I*10+J-1                                                           597
+                                                                             598
+      GO TO 10                                                               599
+C  *IO*  107 ACCEPT 'DO YOU WISH TO DELETE ANY SETTLEMENT POINT DATA?',IANS
+      IF(.NOT.IANS)GOTO 1071                                                 600
+C  *IO*  DISPLAY 'LIST ALL POINT NOS. TO BE DELETED - NEG NO STOPS LIST'
+C  *IO*  1072 ACCEPT I
+      IF(I.LT.0)GOTO 1071                                                    601
+      FOR J=1,MM:IF(I.EQ.IP(J))GOTO 1073                                     602
+C  *IO*  DISPLAY 'POINT ',I,' ?, NO SUCH NO. IN FILE'
+      GOTO 1072                                                              603
+ 1073 DO 1074 K=J+1,MM                                                       604
+      IP(K-1)=IP(K)                                                          605
+      X(K-1)=X(K)                                                            606
+      Y(K-1)=Y(K)                                                            607
+      Z(K-1)=Z(K)                                                            608
+ 1074 C'E                                                                    609
+      MM=MM-1                                                                610
+      GO TO 1072                                                             611
+C  *IO*  1071 DISPLAY 'INPUT NEW SETTLEMENT POINT DATA - NEG POINT NO STOPS LIST'
+C  *IO*  1070 ACCEPT IPA,XA,YA,ZA
+      IF(IPA.LT.0) GOTO 10                                                   612
+      FOR I=1,MM: IF(IP(I).EQ.IPA) GO TO 1080                                613
+      I=MM=MM+1                                                              614
+      IF(MM.GT.99) GOTO 1090                                                 615
+ 1080 IP(I)=IPA                                                              616
+      X(I)=XA                                                                617
+      Y(I)=YA                                                                618
+      Z(I)=ZA                                                                619
+      GOTO 1070                                                              620
+C  *IO*  1090 DISPLAY 'CAN'T HAVE MORE THAN 99 POINTS'
+      GO TO 10                                                               621
+      END                                                                    622
+                                                                             623
+                                                                                                                                                                                                                          OÍ
