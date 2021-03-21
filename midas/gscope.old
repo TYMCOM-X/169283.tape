@@ -1,0 +1,265 @@
+MODULE GSCOPE(DOLLAR,ENTRIES=($GASCOPE,$GDSCOPE,$GDRPSCOPE),FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+  BEGIN
+
+  REQUIRE ADEFS.BLI[7,107355];
+  REQUIRE GDEFS.BLI[7,107355];
+  REQUIRE SDEFS.BLI[7,107355];
+  REQUIRE ZDEFS.BLI[7,107355];
+
+  UNDECLARE $GASCOPE, $GDSCOPE, $GDRPSCOPE;
+
+%*****
+  THIS ROUTINE ALLOCATES THE NECESSARY ENTRIES TO AFFECT NEW SCOPE FOR EITHER A 
+  RELATION OR SOURCE FILE.
+*****%
+  GLOBAL ROUTINE $GASCOPE(STKPTR)=
+    BEGIN
+
+    LOCAL S$ RSNAMESTE:DEFSTE:ITEMSTE:FINCSTE:FNAMESTE:PINCSTE:RSINCSTE;
+    LOCAL S$ SDFNSTE : SDFDEFSTE : INFNSTE : INFDEFSTE;
+    LOCAL ISTP, RSINCSTP, FINCSTP;
+
+    RSNAMESTE := $SGSTE(.ZBSTK$[Z$STP,.STKPTR]); % GET RELATION/ SOURCE NAME ENTRY %
+    IF .ZBSTK$[Z$SBID,.STKPTR] EQL ZV$SRC
+      THEN                                      % CREATE THE APPROPRIATE INCARNATION ENTRY %
+        BEGIN
+        RSINCSTE:= $GNSI(.RSNAMESTE);            % SOURCE %
+        DEFSTE := $SGSTE(.RSNAMESTE[S$DSTP]);   % SOURCE DEF S.T.E. %
+        SDFNSTE := $SGSTE(.DEFSTE[S$SDFSTP]);   % DATA FILE NAME STE %
+        SELECT .SDFNSTE[S$TYPE]  OF
+                NSET
+          SV$NAME:
+              BEGIN
+              SDFDEFSTE := $SGSTE(.SDFNSTE[S$DSTP]);
+              IF .SDFDEFSTE[S$TYPE] NEQ SV$FIELD
+                THEN
+                  $GERR(544,.STKPTR)
+                ELSE
+                  IF .SDFNSTE[S$CISTP] EQL SV$NULL
+                    THEN
+                      $GERR(545,.STKPTR)
+                    ELSE
+                      RSINCSTE[S$SDFSTP] := .SDFNSTE[S$CISTP];
+              $SFRNCH(.SDFDEFSTE);
+              END;
+          SV$STLIT:
+              RSINCSTE[S$SDFSTP] := .SDFNSTE[S$LITINCP];
+          OTHERWISE:
+              $GERR(544,.STKPTR);
+                TESN;
+        $SFRNCH(.SDFNSTE);
+
+        IF .DEFSTE[S$INFSTP] NEQ SV$NULL
+          THEN
+            BEGIN
+            INFNSTE := $SGSTE(.DEFSTE[S$INFSTP]);
+            SELECT .INFNSTE[S$TYPE]  OF
+                    NSET
+              SV$NAME:
+                  BEGIN
+                  INFDEFSTE := $SGSTE(.INFNSTE[S$DSTP]);
+                  IF .INFDEFSTE[S$TYPE] NEQ SV$FIELD
+                    THEN
+                      $GERR(546,.STKPTR)
+                    ELSE
+                      IF .INFNSTE[S$CISTP] EQL SV$NULL
+                        THEN
+                          $GERR(547,.STKPTR)
+                        ELSE
+                          RSINCSTE[S$INFSTP] := .INFNSTE[S$CISTP];
+                  $SFRNCH(.INFDEFSTE);
+                  END;
+              SV$STLIT:
+                  RSINCSTE[S$INFSTP] := .INFNSTE[S$LITINCP];
+              OTHERWISE:
+                  $GERR(546,.STKPTR);
+                    TESN;
+            $SFRNCH(.INFNSTE);
+            END;
+        $SFRNCH(.DEFSTE);
+        END
+      ELSE
+        BEGIN
+        RSINCSTP := .RSNAMESTE[S$CISTP];
+        RSINCSTE := $GNRI(.RSNAMESTE);           % RELATION %
+        IF .ZBSTK$[Z$INSERTF,.STKPTR] EQL ZV$SET
+          THEN
+            BEGIN
+            RSNAMESTE[S$CISTP] := .RSINCSTP;
+            RSINCSTE[S$AFLG] := SV$FALSE;
+            $SFGCH(.RSINCSTE);
+            END;
+        END;
+    DEFSTE := $SGSTE(.RSNAMESTE[S$DSTP]);        % GET THE DEFINITION ENTRY %
+    ISTP := .DEFSTE[S$ISTP];                     % GET THE STP FOR THE FIRST ITEM ENTRY %
+    PINCSTE := .RSINCSTE;                        % SAVE THE RELATION/SOURCE INCARNATION ENTRY AS
+                                                  THE PRECDEDING INCARNATION ENTR 
+                                                %
+    $SFRNCH(.RSNAMESTE);
+    $SFRNCH(.DEFSTE);
+                                                % SAVE THE RELATION/SOURCE INCARNATION STP%
+    RSINCSTP := ZBSTK$[Z$INCSTP,.STKPTR] := .RSINCSTE[S$STPX];
+    WHILE .ISTP NEQ SV$NULL                     % PROCESS EACH ITEM ATTACHED TO THE RELATION/SOURCE %
+      DO
+        BEGIN
+        ITEMSTE := $SGSTE(.ISTP);                % GET THE ITEM ENTRY %
+        FNAMESTE := $SGSTE(.ITEMSTE[S$STP1]);    % GET TH ITEM'S NAME ENTRY %
+        FINCSTP := .FNAMESTE[S$CISTP];
+        DEFSTE := $SGSTE(.ITEMSTE[S$FDSTP]);     % GET THE ITEM'S DEFINITIPN ENTRY %
+        FINCSTE := $GNFI(.FNAMESTE,.DEFSTE);     % CREATE A FIELD INCARNATION FOR TEH ITEM %
+        $SFRNCH(.DEFSTE);
+        IF .ZBSTK$[Z$INSERTF,.STKPTR] EQL ZV$SET
+          THEN
+            BEGIN
+            FINCSTE[S$AFLG] := SV$FALSE;
+            FNAMESTE[S$CISTP] := .FINCSTP;
+            END;
+        $SFRCH(.FNAMESTE);
+        FINCSTE[S$IESTP] := .ITEMSTE[S$STPX];
+        FINCSTE[S$RSBO]  := .ITEMSTE[S$RSBO];
+        FINCSTE[S$KDFLG] := .ITEMSTE[S$KDFLG];
+        FINCSTE[S$RNSTP] := .RSINCSTP;           % LINK THE FIELD INCARNATION TO ITS RELATION INCARNATION %
+        PINCSTE[S$FISTP] := .FINCSTE[S$STPX];    % LINK THE PRECEDING INCARNATION ENTRY TO THE
+                                                  CURRENT ONE
+                                                %
+        ISTP := .ITEMSTE[S$ISTP];                % GET THE NEXT ITEM'S STP %
+        $SFRNCH(.ITEMSTE);
+        $SFRCH(.PINCSTE);
+        PINCSTE := .FINCSTE;                     % THE XCURRENT FIELD INCARNATION BECOMES THE PREDECESSOR %
+        END;
+    $SFRCH(.PINCSTE);
+    END;
+
+
+%*****
+  THIS ROUTINE DEALLOCATES THE CURRENT SCOPE FOR EITHER A RELATION OR SOURCE FILE.
+  THE ACTIVE FLAG MUST BE TURNED OFF FOR EACH INCARNATION IN THE S$FISTP CHAIN WHEN
+  THIS DONE THE S$CISTP FIELD OF THE RELATED NAME ENTRY MUST BE SET TO POINT TO THE 
+  INCARNATION ENTRY WHICH IS NOW THE  CURRENTLY ACTIVE INCARNATION. THIS CAN BE DONE
+  BY SCANNING THE S$IDSTP CHAIN, STARTING AT THE NAME ENTRY, UNTIL AN ACTIVE
+  INCARNATION IS FOUND OR THE END OF THE CHAIN IS REACHED.
+*****%
+  GLOBAL ROUTINE $GDSCOPE(STKPTR)=
+    BEGIN
+
+    LOCAL S$ RELSTE:CURSTE:NAMESTE:PREDSTE;
+    LOCAL SUCSTP, FISTP, IDSTP;
+
+    LABEL AFLGSRCH, ACTIVESRCH;
+
+    IF .ZBSTK$[Z$ERFL,.STKPTR] EQL AV$TRUE
+      THEN
+        RETURN -1;
+    RELSTE := $SGSTE(.ZBSTK$[Z$INCSTP,.STKPTR]); % GET THE RELATION/SOURCE INCARNATION ENTRY %
+    SUCSTP := .RELSTE[S$FISTP];                  % SET UP ITS FIRST FIELD'S STP AS TEH NEXT OR
+                                                  SUCCESSOR STP 
+                                                %
+    RELSTE[S$AFLG] := SV$FALSE;
+    $SFGCH(.RELSTE);
+    PREDSTE := .RELSTE;
+    IDSTP := .PREDSTE[S$IDSTP];
+  ACTIVESRCH:
+    WHILE .IDSTP NEQ SV$NULL
+      DO
+        BEGIN
+        RELSTE := $SGSTE(.IDSTP);
+        IF .RELSTE[S$AFLG] EQL SV$TRUE
+          THEN
+            BEGIN
+            IDSTP := .RELSTE[S$STPX];
+            $SFRNCH(.RELSTE);
+            LEAVE ACTIVESRCH;
+            END;
+        $SFRNCH(.PREDSTE);
+        PREDSTE := .RELSTE;
+        IDSTP := .PREDSTE[S$IDSTP];
+        END;
+    $SFRNCH(.PREDSTE);
+    NAMESTE := $SGSTE(.ZBSTK$[Z$STP,.STKPTR]);
+    NAMESTE[S$CISTP] := .IDSTP;
+    $SFRCH(.NAMESTE);
+
+    WHILE .SUCSTP NEQ SV$NULL                   % PROCESS EACH OF THE RELATION'S FIELDS %
+      DO
+        BEGIN
+        CURSTE := $SGSTE(.SUCSTP);               % THE NEXT FIELD BECOMES CURRENT %
+        CURSTE[S$AFLG] := SV$FALSE;              % TURN ITS ACTIVE FLAG OFF %
+        $SFGCH(.CURSTE);
+        SUCSTP := .CURSTE[S$FISTP];              % GET THE STP FOR THE NEXT FIELD IN THE RELATION %
+        NAMESTE := $SGSTE(.CURSTE[S$STP1]);      % GET THE FIELD'S NAME ENTR Y %
+        PREDSTE := .CURSTE;                      % THE CURRENT FIELD BECOMES THE PREDECESSOR %
+        FISTP := .PREDSTE[S$IDSTP];              % GET THE STP OF TH NEXT FIELD INCARNATION IN THE 
+                                                  CHAIN OF FIELD INCARNATIONS
+                                                %
+
+     AFLGSRCH:
+        WHILE .FISTP NEQ SV$NULL                %  SEARCH FOR A FIELD INCARNATION WHOSE ACTIVE FLAG
+                                                  IS ON OR RETURN SV$NULL
+                                                %
+          DO
+            BEGIN
+            CURSTE := $SGSTE(.FISTP);
+            IF .CURSTE[S$AFLG] EQL SV$TRUE
+              THEN
+                BEGIN                           % FOUND ONE %
+                FISTP := .CURSTE[S$STPX];        % LINK IT TO THE NAME ENTRY AS THE CURRENTLY ACTIVE
+                                                  INCARNATION FOR THE FIELD
+                                                %
+                $SFRNCH(.CURSTE);
+                LEAVE AFLGSRCH;
+                END;
+            $SFRNCH(.PREDSTE);
+            PREDSTE := .CURSTE;
+            FISTP := .PREDSTE[S$IDSTP];
+            END;
+        NAMESTE[S$CISTP] := .FISTP;
+        $SFRCH(.PREDSTE);
+        $SFRCH(.NAMESTE);
+        END;
+    END;
+
+
+%****
+   DELETE SCOPE FOR REPORTS.
+****%
+  GLOBAL ROUTINE $GDRPSCOPE(FLNODEP)=
+    BEGIN
+
+    LOCAL S$ RPINCSTE : NAMESTE;
+    LOCAL FISTP;
+    LABEL FINDACTIVE;
+    MAP GF$ FLNODEP;
+
+    WHILE .FLNODEP NEQ ZV$NULL
+      DO
+        BEGIN
+        RPINCSTE := $SGSTE(.FLNODEP[GF$RISTP]);
+        RPINCSTE[S$AFLG] := SV$FALSE;
+        $SFGCH(.RPINCSTE);
+        NAMESTE := $SGSTE(.RPINCSTE[S$STP1]);
+        FISTP := .RPINCSTE[S$IDSTP];
+     FINDACTIVE:
+        WHILE .FISTP NEQ SV$NULL
+          DO
+            BEGIN
+            $SFRNCH(.RPINCSTE);
+            RPINCSTE := $SGSTE(.FISTP);
+            IF .RPINCSTE[S$AFLG] EQL SV$TRUE
+              THEN
+                BEGIN
+                FISTP := .RPINCSTE[S$STPX];
+                LEAVE FINDACTIVE;
+                END;
+            FISTP := .RPINCSTE[S$IDSTP];
+            END;
+        NAMESTE[S$CISTP] := .FISTP;
+        $SFRCH(.NAMESTE);
+        $SFRNCH(.RPINCSTE);
+        FLNODEP := .FLNODEP[GF$SUCP];
+        END;
+
+    END;
+
+
+  END
+ELUDOM
