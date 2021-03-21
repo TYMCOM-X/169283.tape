@@ -1,0 +1,294 @@
+
+DOCUMENT  NO. 7603.17
+REPLACING NO. 7603.15
+SOURCE FILE: (PROGBK)370PRO.DOC
+
+
+                3 7 0  B E G I N N I N G  O F  M O N T H
+
+                                A N D
+
+          W E E K L Y   A C C O U N T I N G   P R O C E D U R E S
+
+
+
+
+        General Information
+
+           This document describes operating instructions
+           for updating the 370 detail information in the CAIS database
+           and making various reports from the database.
+           The procedures can be completely performed in the order given
+           but in many cases it will be useful to do one part before
+           another.  A brief description of the major parts will show
+           relevant dependencies:
+
+           a. 1.1   Makes a copy of the file directory for c. and d.
+                Must be run after a new data file (or files) has been
+                loaded into the CAIS directory.
+
+           b. 1.2   Defines all possible data file names (up to
+                a specified cutoff date) for parts c. and d.
+                Must be run only once to define file names for all
+                current computer numbers up to the specified date 
+                (date of last data file or last day of month).
+
+           c. 2.    Session record update.  May be run repeatedly before
+                or after part d. until all data files have been processed.
+                Section 2.5 describes a report procedure that is run only
+                after completion of all session record updates for the
+                current run.
+
+           d. 3.    Storage record update.  May be run repeatedly before
+                or after part c. until all storage data files have been
+                processed.
+
+           e. 4.    System usage graphs.  To be run every monday and at
+                end of month.  Used to produce graphs for weekday
+                usage and monthly usage.
+
+        Anytime the command MAGNUM CAIS is typed, the command
+        DO CHECK.370 should be typed.  Any errors in the procedures
+        or command files will cause an abort.  The missing or bad file
+        should be restored before continuing.
+
+                             START-UP Procedure
+
+
+        Introduction.
+
+           The START-UP consist of two independant steps, MAKDIR and
+           IN.FILE.CNTL. MAKDIR creates a file directory image to the file
+           FILDIR.CTL to be used in a later procedure. 
+           IN.FILE.CNTL creates 370 accounting file names, based on legal host 
+           no., start date of last run and type of file, permanent storage
+           (PS) or session records (SR). Writes all names to a relation
+           in CAIS.
+
+
+
+        Interactive Commands.
+
+           1.0  LOG-IN to 38, GFD to CAIS.
+
+           1.1  -GO (CAIS)MAKDIR <CR>
+
+                ENTER YOUR NAME: Operator Name <CR>
+
+                ENTER YOUR PASSWORD: Password <CR>
+
+                OUTPUT TO: FILDIR.CTL <CR>
+
+                OLD FILE--OK? Y <CR>
+
+                END MAKDIR
+
+
+           1.2  MAGNUM CAIS <CR>
+
+                :DO CHECK.370
+
+                :DO SET.UPD.FILES
+
+                PREVIOUS ACTG. CUTOFF DATE EQUALS   M/D/YY
+
+                ENTER NEW CUTOFF DATE AS (M/D/YY): ENTER DATE <CR>
+
+                END 370 INPUT FILE CONTROL  M/D/YY
+
+
+           NOTE: The new CUTOFF date corresponds to the file name RANGE
+                 to account for. Start date and the new CUTOFF date are
+                 inclusive.
+
+
+
+        Crash-Recovery.
+
+           If the system crashes or the line is lost, the following
+           steps must be implemented in order to insure a sussccessful
+           recovery:
+
+
+                Crash during MAKDIR--> re-run MAKDIR
+
+
+                Crash during SET.UPD.FILES--> perform the following:
+
+                  1.3  :DO SET.UPD.FILES.RESTORE
+
+                  This re-runs step 1.2 above
+
+
+        End START-UP Procedure.
+
+                        SESSION-RECORD Update (SESS.UPD)
+
+
+
+        Introduction.
+
+           SESS.UPD reads the 370 daily session activity file and inserts
+           them to appropriate relations in CAIS. SESS.UPD processes
+           transaction and premimum details.
+
+
+        Interactive Commands.
+
+           2.1  MAGNUM CAIS <CAIS>
+
+                :DO CHECK.370
+
+               NOTE: If running B.O.M Procedures do step 2.2
+                     else do step 2.3
+
+           2.2 :DO SESS.UPD.BOM <CR>       GO TO STEP 2.4
+
+           2.3 :DO SESSION.UPD <CR>
+
+           2.4  If the procedure displays FILE NOT FOUND enter
+                   one of the following:
+
+                   I --> Ignore file during the accounting run. This
+                         will occur if the 370 EXEC program RAWACTG is
+                         not run on a daily basis.
+
+                   S --> Skip file should be used when sess.upd is looking
+                         for a file that has not been transfered from
+                         the 370 to C38.
+
+                   Q --> Quit from any further processing.
+
+
+           NOTE: A response of I will prevent the procedure from looking
+                 for that file again. Ensure that the file NEVER exist 
+                 before entering I.
+
+
+        Crash-Recovery.
+
+           If the system crashes, the procedure ABORTS for any reason,
+           or the line is lost, the following steps must be implemented
+           in order to insure a successful recovery.
+
+
+                Crash during SESSION.UPD --> DO SESS.UPD.RESTORE
+
+                Crash during SESS.UPD.BOM --> DO SESS.UPD.BOM.RESTORE
+
+        If the operator is not going to do the RESTORE operation 
+        immediately, he should do the following to release excess
+        storage.
+
+                RUN SESS.DLT
+
+
+            2.5 :DO COLLECT
+
+                In case of any error during this procedure, repeat
+                the command, DO COLLECT.
+                This procedure writes network information files and does
+                not effect the database.
+
+
+
+        End SESS.UPD Procedure.
+
+                PERMANENT STORAGE And USER VALIDATION (STG.UPD)
+
+
+
+        Intrduction.
+
+           STG.UPD processes 370 Permanent Storage and User Validation
+           files transfered from the 370 to C38. STG.UPD will update all
+           prior storage records based upon update code. It will
+           also add, change or cancel User Validation records.
+
+
+        Interactive Commands.
+
+           3.0  -MAGNUM CAIS <CR>
+
+                :DO CHECK.370
+
+           3.1  :DO STORAGE.UPD
+
+
+           3.3  If the procedure displays FILE NOT FOUND enter
+                one of the following:
+
+                   I --> Ignore file during the accounting run. This
+                         will occur if the 370 EXEC program RAWACTG is
+                         not run on a daily basis.
+
+                   S --> Skip file should be used when stg.upd is looking
+                         for a file that has not been transfered from
+                         the 370 to C38.
+
+                         NOTE: This Command should NEVER be used unless
+                               EXPLICITLY AUTHORIZED!
+
+                   Q --> Quit from any further processing.
+
+
+           NOTE: A response of I will prevent the procedure from looking
+                 for that file again. Ensure that the file NEVER exist 
+                 before entering I.
+
+
+           3.4  List out error file STORAG.ERR
+
+
+        Crash-Recovery.
+
+           If the system crashes or a line is lost, the following
+           steps must be implemented in order to insure a successful
+           recovery.
+
+
+                  3.5  List out error file STORAG.ERR
+
+                       :DO STG.UPD.RESTORE
+
+
+        End STG.UPD Procedure.
+
+                        SYSTEM USAGE PROCEDURES
+
+        Introduction.
+
+           There are two procedures related to recording
+           system usage. These are "COUNT.USE" which is run from
+           a command file "CNT.USE" which counts the system
+           usage by scanning the session records,
+           and "USE.GRAPH" which graphs the usage.
+
+        Interactive Commands
+
+           4.0  -MAGNUM CAIS <CR>
+
+                :DO CNT.USE
+
+           4.1  :RUN USE.GRAPH   (may be run anytime after DO CNT.USE
+                                        if days desired to be graphed
+                                        only go through the next to last day
+                                        counted.)
+
+                Enter Starting Date for period desired (MM/DD/YY):  MM/DD/YY
+
+                Enter no. of days in period: n
+
+                Enter the file name for the REPORT: GPHmmn
+                   where mm is 2 digit month and n is week no. (1 through 5)
+
+        Crash-Recovery.
+
+           If the system crashes, or a line is lost and unable to continue,
+           take the following steps:
+
+                Crash during CNT.USE -->  DO CNT.USE.RESTORE
+
+                Crash during USE.GRAPH --> RUN USE.GRAPH with the last used
+                                                parameters.
+  
