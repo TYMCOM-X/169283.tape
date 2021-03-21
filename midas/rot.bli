@@ -1,0 +1,416 @@
+MODULE ROT(DOLLAR,
+  ENTRIES=($TCRO,$TICNVR,$TSEQO,$TPRNT,$TCNVR,$TESQO,$TPRSL,$TCNVL),
+  FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=BEGIN
+% VERSION L1 %
+% LAST UPDATE, APR. 19,1974, BY VEV %
+
+REQUIRE RMDEFS.BLI[7,107355];
+REQUIRE DVDEFS.BLI[7,107355];
+REQUIRE FPDEFS.BLI[7,107355];
+REQUIRE FDEFS.BLI[7,107355];
+REQUIRE CDEFS.BLI[7,107355];
+REQUIRE KDEFS.BLI[7,107355];
+REQUIRE UDEFS.BLI[7,107355];
+REQUIRE RDEFS.BLI[7,107355];
+
+UNDECLARE  $TCRO, $TICNVR, $TSEQO, $TPRNT, $TCNVR, $TESQO, $TPRSL, $TCNVL;
+
+MAP RB$ RSINK$;
+
+MACRO ERR(X,S)=
+  BEGIN
+  $UOUTL();
+  $UMESS(.RMSG$[S]);
+  $FATAL (X)
+  END&,
+   MIN(A,B)=(IF A LEQ B THEN A ELSE B)&,
+   MAX(A,B)=(IF A GEQ B THEN A ELSE B)&,
+   INC(A)=(A := .A+1)&,
+   DEC(A)=(A := .A-1)&;
+
+GLOBAL ROUTINE $TESQO=
+BEGIN
+   LOCAL CLINE$ LCB;
+   IF .RSINK$[RB$TYPE]
+      THEN IF (LCB := .RSINK$[RB$LCB];
+               .LCB[C$WCNT] NEQ 0 OR .LCB[C$LCBSIZE] NEQ 0)
+         THEN BEGIN
+            IF .LCB[C$WCNT] GTR .LCB[C$LCBCNT]
+               THEN BEGIN
+                  LCB[C$LCBCNT] := .LCB[C$WPTR];
+                  LCB[C$EPTR] := .LCB[C$WPTR]
+                  END;
+            $UPRPT()
+            END
+
+END;
+
+
+GLOBAL ROUTINE $TSEQO(RB) = RSINK$ := .RB;
+
+GLOBAL ROUTINE $TPRSL(CNT, IP, LCB)=
+BEGIN
+
+MAP CLINE$ LCB;
+
+IF .CNT GTR .LCB[C$LCBSIZE] - .LCB[C$LCBCNT]
+   THEN RETURN 0;
+LCB[C$LCBCNT] := .LCB[C$LCBCNT] + .CNT;
+WHILE DEC(CNT) GEQ 0 DO
+   COPYII(IP, LCB[C$EPTR])
+END;
+
+GLOBAL ROUTINE $TPRNT(QP, STADR)=
+BEGIN
+   MAP DDW$I QP;
+
+   IF $TPRSL(.QP[DD$QP], (.STADR)<36,7>, .RSINK$[RB$LCB])
+      THEN RSINK$[RB$CCOL] := .RSINK$[RB$CCOL] + .QP[DD$QP]
+      ELSE ERR(999,RM$ROT1)
+
+END;
+
+% CONVERT FROM NUMERIC TO STRING.
+   FI  : ADDRESS OF FIELD INSTANCE CONTAINING NUMBER
+   QP  : THE QP OR FIRST WORD OF DATA DESCRIPTOR FOR TYPE AND PRSIZE
+   IFP : FORMAT PICTURE WORD OF THE SOURCE FILED
+   SAD : BYTE POINTER TO DESTINATION STRING
+   ISW : TRUE IF THIS IS AN INTERNAL CONVERSION (TO STRING VAR)
+         FALSE IF CONVERSION IS DIRECTLY TO OUTPUT LINE
+   OSIZ: IF INTERNAL CONVERSION, THEN LENGTH OF OUTPUT STRING FOR PADDING
+         OR TRUNCATION PURPOSES
+
+%
+
+ROUTINE CNVR(FI, QP, IFP, SAD, ISW, OSIZ)=
+BEGIN
+
+MAP FP$I IFP, DFI$ FI, DDW$I QP;
+
+REGISTER R[3];          % FOR DOING THE MODS %
+
+LABEL FDECLOOP;
+
+BIND NDIGS = 20, NCHRS = 30;  % SIZES OF INPUT AND OUTPUT %
+
+LOCAL DIGITS[NDIGS],    % ARRAY OF ACTUAL DIGITS FOR NUMBER %
+      DIGP,             % INDEX INTO DIGITS ARRAY %
+      CSTK[NCHRS+4],    % ARRAY OF CHARACTERS FOR OUTPUT %
+      CSP,              % INDEX INTO CSTK %
+      ESP,              % END INDEX INTO CSTK %
+      ERSW,             % ERROR FLAG %
+      SGN,              % SIGN FLAG, TRUE IF NEGATIVE %
+      CMSW,             % COMMA PLACE COUNTER %
+      CH,               % WORKING CHARACTER %
+      CT,               % LOOP COUNTER %
+      FSIGD,            % INDEX INTO DIGITS FOR FIRST NON-ZERO DIGIT %
+      FLOATC;           % NUMBER OF PLACES TO FLOAT %
+
+MACHOP DIVI=#235, IDIVI=#231, DMOVE=#120;
+
+MACRO
+  GCH = .DIGITS[DEC(DIGP)]&,
+  ACH(S) = (CSTK[.ESP] := S; INC(ESP))&,
+  PCH(S) = CSTK[DEC(CSP)] := S&;
+
+ERSW := 0;
+
+DIGP := NDIGS;
+R[0] := 0;
+SGN := 0;
+
+IF .IFP[FP$SP3] AND  % BLANK IF ZERO %
+   % GET THE NUMBER INTO REGISTERS, ADJUST FOR SIGN AND INDICATE ZERONESS %
+   (IF .QP[DD$TYPE] EQL DDV$2WD
+      THEN BEGIN  % DOUBLE PRECISION %
+         DMOVE(R[1],OFFSET(FI),FREG,1);  % DMOVE INDIRECT THRU FI %
+         IF .R[1] LSS 0
+            THEN BEGIN
+               R[1] := NOT(.R[1]);
+               IF .R[2] EQL 0 THEN INC(R[1]);
+               R[2] := (-.R[2]) AND #377777777777;
+               SGN := -1;
+               0  END
+            ELSE .R[1] EQL 0 AND .R[2] EQL 0
+         END
+      ELSE BEGIN  % SINGLE PRECISION %
+         R[1] := 0;
+         R[2] := @@FI;
+         IF .R[2] LSS 0
+            THEN BEGIN
+               R[2] := -.R[2];
+               SGN := -1;
+               0  END
+            ELSE .R[2] EQL 0
+         END)
+   THEN BEGIN  % WE HAVE A ZERO TO BLANK %
+      CSP := NCHRS - .QP[DD$PRSIZE];
+      ESP := NCHRS;
+      CSTK[.CSP] := " ";
+      IF .CSP LSS NCHRS-1
+         THEN $UMOVE(NCHRS-1-.CSP, CSTK[.CSP], CSTK[.CSP+1])
+      END
+   ELSE BEGIN
+        % HERE WE HAVE THE REAL THING.
+          FIRST WE REDUCE THE NUMBER ITERATIVELY MOD 10 AND STORE
+          THE DIGITS INTO DIGITS.  THEN WE FORMAT THE NUMBER BACKWARDS
+          FOLLOWING THE FORMAT PICTURE.
+        %
+      DIGITS[0] := "0";
+      $UMOVE(NDIGS-1, DIGITS[0], DIGITS[1]);   % PRESET DIGITS TO 0 CHARS %
+      WHILE .R[1] NEQ 0
+      DO BEGIN   % DO DBLE PRECISION MODS %
+         DIVI(R[0],10);
+         DIVI(R[1],10);
+         DIGITS[DEC(DIGP)] := R[2] := .R[2] + "0";
+         R[2] := .R[1];
+         R[1] := .R[0];
+         R[0] := 0;
+         END;
+      R[1] := .R[2];
+      WHILE .R[1] NEQ 0
+      DO BEGIN  % NOW WE CAN DO SINGLE PRECISION %
+         IDIVI(R[1],10);
+         DIGITS[DEC(DIGP)] := R[2] := .R[2] + "0";
+         END;
+      FSIGD := .DIGP;
+      DIGP := NDIGS;
+      ESP := CSP := NCHRS;
+
+      IF .SGN
+         THEN IF .IFP[FP$SIGN] EQL FPV$NSC
+            THEN IF .ISW
+               THEN ERR(998,RM$ROT3)
+               ELSE (IFP[FP$SIGN] := FPV$MINUS; ERSW := -1);
+
+   % FLOATING DECIMAL PORTION %
+      CT := .IFP[FP$EI];
+   FDECLOOP:
+      UNTIL DEC(CT) LSS 0
+      DO IF (CH := GCH) EQL "0"
+            THEN PCH(" ")
+            ELSE (PCH(.CH); LEAVE FDECLOOP);
+      UNTIL DEC(CT) LSS 0
+      DO PCH(GCH);
+
+   % FIXED DECIMAL PORTION %
+      CT := .IFP[FP$DI];
+      UNTIL DEC(CT) LSS 0
+      DO PCH(GCH);
+
+   % YE OLDE PERIOD %
+      IF .IFP[FP$SP2]
+         THEN PCH(".");
+
+   % SET UP THE COMMA COUNTER %
+      CMSW := IF .IFP[FP$SP4] THEN 3 ELSE 100;
+
+   % THE FIXED INTEGER PORTION %
+      CT := .IFP[FP$XI];
+      UNTIL DEC(CT) LSS 0
+      DO BEGIN
+         IF DEC(CMSW) LSS 0
+            THEN (PCH(","); CMSW := 2);
+         PCH(GCH)
+         END;
+
+   % THE SIGNIFICANT FLOATING INTEGER PORTION %
+      CT := MIN(.IFP[FP$FI], MAX(.DIGP-.FSIGD, 0));  % NON-ZERO ONLY %
+      FLOATC := .IFP[FP$FI] - .CT;        % THE NUMBER OF FLOATING SPOTS %
+      UNTIL DEC(CT) LSS 0
+      DO BEGIN
+         IF DEC(CMSW) LSS 0
+            THEN (PCH(","); CMSW := 2);
+         PCH(GCH);
+         END;
+
+   % NOW THAT THE FP IS EXHAUSTED ANY MORE CHAR IS AN ERROR %
+      IF .DIGP GTR .FSIGD
+         THEN BEGIN
+            ERSW := -1;
+            UNTIL .DIGP LEQ .FSIGD
+            DO BEGIN
+               IF DEC(CMSW) LSS 0
+                  THEN (PCH(","); CMSW := 2);
+               PCH(GCH);
+               END
+            END;
+
+   % NOW THE FLOATING CHAR GOES IN, IF WE HAVE ONE %
+      CASE .IFP[FP$FS] OF SET
+% BLANK % 0;
+% +     % PCH(IF .SGN THEN "-" ELSE "+");
+% -     % PCH(IF .SGN THEN "-" ELSE " ");
+% $     % BEGIN
+          PCH("$");
+          CASE .IFP[FP$SIGN] OF SET
+   % NSC  %  0;
+   % +    %  PCH(IF .SGN THEN "-" ELSE "+");
+   % -    %  PCH(IF .SGN THEN "-" ELSE " ");
+   % T +  %  0;
+   % T -  %  0;
+   % (    %  0;   % WE CATCH THIS CASE BELOW %
+   % CR   %  0;
+   % DB   %  0
+             TES
+          END;
+% *     % 0
+          TES;
+
+   % IF SIGN CONTROL WAS PARENS IT FLOATS %
+      IF .IFP[FP$SIGN] EQL FPV$PAREN
+         THEN PCH(IF .SGN THEN "(" ELSE " ");
+
+   % NOW WE SUPPRESS LEADING ZEROES WITH BLANKS OR STARS %
+      CH := IF .IFP[FP$FS] EQL FPV$STAR THEN "*" ELSE " ";
+      UNTIL DEC(FLOATC) LSS 0
+      DO BEGIN
+         IF DEC(CMSW) LSS 0
+            THEN (PCH(.CH); CMSW := 2);  % FILL COMMA SPOTS TOO %
+         PCH(.CH)
+         END;
+
+   % IF THE SIGN WASNT FLOATING DO IT NOW %
+      IF .IFP[FP$FI] EQL 0 OR .IFP[FP$FS] EQL FPV$Z OR .IFP[FP$FS] EQL FPV$STAR
+         THEN CASE .IFP[FP$SIGN] OF SET
+% NSC %  0;
+% +   %  PCH(IF .SGN THEN "-" ELSE "+");
+% -   %  PCH(IF .SGN THEN "-" ELSE " ");
+% T + %  ACH(IF .SGN THEN "-" ELSE "+");
+% T - %  ACH(IF .SGN THEN "-" ELSE " ");
+%   ) %  ACH(IF .SGN THEN ")" ELSE " ");
+% CR  %  IF .SGN
+            THEN (ACH("C"); ACH("R"))
+            ELSE (ACH(" "); ACH(" "));
+% DB  %  IF .SGN
+            THEN (ACH("D"); ACH("B"))
+            ELSE (ACH(" "); ACH(" "));
+         TES;
+
+   % FINALLY, A NON-FLOATING DOLLAR, IF ANY %
+      IF .IFP[FP$SP1]
+         THEN PCH("$");
+
+      END;
+
+% NOW WE ADJUST FOR COMPATIBILITY WITH THE OUTPUT FI,
+  PADDING WITH BLANKS OR TRIMMING BLANKS OR ZEROS
+  IF WE ARE PRINTING, WE ADD THE ? MARK CHARS IF AN ERROR OCCURRED
+  AND TEST FOR OUTPUT LINE OVERFLOW
+%
+CT := .ESP - .CSP - .OSIZ;
+IF .ISW
+   THEN IF .CT GTR 0
+      THEN DO
+           IF .CSTK[.CSP] EQL " " OR .CSTK[.CSP] EQL "0"
+              THEN INC(CSP)     % REMOVE A LEADING BLANK OR ZERO %
+              ELSE ERR(997,RM$ROT2)
+         UNTIL DEC(CT) EQL 0
+      ELSE IF .CT LSS .OSIZ
+           THEN DO PCH(" ")
+              UNTIL INC(CT) EQL 0
+      ELSE 0
+   ELSE BEGIN   % WE ARE PRINTING %
+      IF .ERSW
+         THEN (ACH("??"); ACH("??"));
+      IF .ESP - .CSP GTR .OSIZ
+         THEN ERR(999,RM$ROT1);
+      END;
+
+% COPY STRING TO OUTPUT %
+CT := .CSP;
+DO REPLACEI(SAD,.CSTK[.CT])
+UNTIL INC(CT) EQL .ESP;
+
+.ESP - .CSP     % NUMBER OF CHARS IN OUTPUT %
+END;
+
+% PROPER MAGNUM LIBRARY ROUTINES WHICH CALL CNVR
+%
+GLOBAL ROUTINE $TCNVL(FI, QP, FP, LCB)=
+BEGIN
+MAP CLINE$ LCB;
+LOCAL CT;
+
+CT := CNVR(.FI, .QP, .FP, .LCB[C$EPTR], 0, .LCB[C$LCBSIZE]-.LCB[C$LCBCNT]);
+LCB[C$LCBCNT] := .LCB[C$LCBCNT] + .CT;
+$UINCPTR(LCB[C$EPTR], .CT);
+
+END;
+
+GLOBAL ROUTINE $TCNVR(FI, QP, FP)=
+   $TCNVL(.FI, .QP, .FP, .RSINK$[RB$LCB]);
+
+
+GLOBAL ROUTINE $TICNVR(FI, QP, FP, SAD, OSIZ) =
+   CNVR(.FI, .QP, .FP, (.SAD)<36,7>, 1, .OSIZ);
+
+%  OUTPUT LINE WITH C.R., ALSO DO HEADING, FOOTING ETC.
+%
+GLOBAL ROUTINE $TCRO=
+BEGIN
+
+MAP RB$ RSINK$;
+LOCAL KFCB$ FCB,
+      CLINE$ LCB,
+      DFI$ FI,
+      CT;
+
+FCB := .RSINK$[RB$FCB];
+
+IF .RSINK$[RB$PGSZ] NEQ 0
+   THEN IF .RSINK$[RB$LINE] GTR .RSINK$[RB$PGSZ]
+      THEN ERR(991,RM$ROT4)
+      ELSE IF .RSINK$[RB$LINE] EQL 0
+         THEN BEGIN
+            LCB := .RSINK$[RB$LCB];          % SAVE CURRENT LINE CONTROL BLOCK %
+            FCB[K$ODADR] := RSINK$[RB$LCB] := .RSINK$[RB$ALCB];  % USE ALTERNATE LCB %
+            RSINK$[RB$LINE] := .RSINK$[RB$TOPM]+1;
+            IF .RSINK$[RB$PAGE] NEQ 1
+               THEN IF .(.RSINK$[RB$TOP])<29,7> NEQ "?M"
+                     THEN FCB[K$EOPAGE] := 1;
+            IF .RSINK$[RB$PDIV] NEQ RBV$NULL
+               THEN BEGIN           % PRINT PAGE DIV. %
+                  FI := .RSINK$[RB$PDIV];
+                  $TPRNT(.FI[DD$QP],.FI);
+                  END;
+            CT := .RSINK$[RB$TOPM];
+            UNTIL DEC(CT) LSS 0 DO
+               $KWRITE(FCB);               % TOP MARGIN %
+            RSINK$[RB$CCOL] := 1;
+            IF NOT .RSINK$[RB$DPGHDG]       % PAGE HEADER NOT INHIBITED %
+               THEN IF .RSINK$[RB$PHDR] NEQ RBV$NULL
+                      THEN (.RSINK$[RB$PHDR])();       % DO HEADER ROUTINE %
+            RSINK$[RB$LCB] := FCB[K$ODADR] := .LCB      % RESTORE SAVE LCB %
+            END;
+LCB := .FCB[K$ODADR];
+IF .LCB[C$WCNT] GTR .LCB[C$LCBCNT]    % IF WE HAVE TABBED BACKWARDS %
+   THEN BEGIN
+      LCB[C$LCBCNT] := .LCB[C$WCNT];
+      LCB[C$EPTR] := .LCB[C$WPTR]
+      END;
+$KWRITE(FCB);
+RSINK$[RB$CCOL] := 1;
+INC(RSINK$[RB$LINE]);
+
+IF .RSINK$[RB$PGSZ] NEQ 0
+   THEN IF .RSINK$[RB$LINE] EQL .RSINK$[RB$PGSZ]-.RSINK$[RB$BOTM]-.RSINK$[RB$FTSZ]+1
+      THEN BEGIN             % PRINT PAGE FOOTING %
+         IF NOT .RSINK$[RB$DPGHDG]
+            THEN IF .RSINK$[RB$PFTR] NEQ RBV$NULL
+               THEN (.RSINK$[RB$PFTR])();       % DO FOOTING ROUTINE %
+         IF .(.RSINK$[RB$TOP])<29,7> EQL "?M"
+            THEN BEGIN
+               CT := .RSINK$[RB$BOTM];
+               UNTIL DEC(CT) LSS 0 DO
+                  $KWRITE(FCB);       % BOTTOM MARGIN %
+               END;
+         INC(RSINK$[RB$PAGE]);
+         RSINK$[RB$LINE] := 0             % READY FOR TOP OF PAGE %
+         END;
+END;
+
+RM$$$();                %DUMMY CALL TO FORCE READ OF RMSG$%
+
+END ELUDOM
+  
