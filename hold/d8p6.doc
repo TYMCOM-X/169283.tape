@@ -1,0 +1,410 @@
+8.6.1   $KIBUF
+
+A.      Abstract
+
+        $KIBUF does buffer initialization for an existing SKIM file.
+
+B.      Call
+
+        $KIBUF(FCB)
+
+        where FCB is the address of the FCB for the file.
+
+        Value Returned:   none
+
+C.      File Block & Table Structures Accessed
+
+        BT, BTI, FCB, SB, SOB
+
+D.      Routines Called
+
+        $CGTZM, $KPHYR, $KVIRD, $UMOVO, $KPRON
+
+E.      Functional Description
+
+        If the BTI (KBTIX$) has not been initialized, $KIBUF does
+        that first. The SB is read into a buffer and $kpron is
+        calledto lock it into core. The K$SBP entry in the FCB is
+        set to the address of the buffer containing the SB.
+        Next any new or additional buffers are allocated
+        according to the formula of section 8.2.2. If the allocated
+        buffers are non-contiguous with the last group generated,
+        a new BT is created and it is entered in the BTI. The BT ring
+        pointers are adjusted to include the new BT. The entries in 
+        the BTI header are also updated.
+
+F.      Errors detected: none
+
+G.      Global Variables: KBTIX$
+
+8.6.2   $KVIRD
+
+A.      Abstract
+
+        $KVIRD performs a virtual read of one or more consecutive
+        pages of a SKIM file.
+
+B.      Call
+
+        $KVIRD(FCB,PN,NOP)
+
+        where FCB is the address of the FCB for the file
+              PN is the page number of the first page to be read
+              NOP is the number of pages to be read
+
+        Value Returned:  address of buffer containing page PN
+
+C.      File Block & Table Structures accessed
+
+        FCB,BT,BTI
+
+D.      Routines Called
+
+        $KPHYR, $KGBUF
+
+E.      Functional Description
+
+        $KVIRD first searches the BTs for a buffer containing page
+        .PN. If found the buffer address is returned. Otherwise,
+        $KVIRD calls $KGBUF to obtain a buffer. The physical
+        read routine $KPHYR is called to read the page(s) from disk.
+        $KVIRD returns the address of the buffer.
+
+G.      Errors Detected
+
+
+        Internal inconsistency concerning number of pages for
+           page buffer containing page .PN.
+
+8.6.3   $KVIWR
+
+A.      Abstract
+
+        $KVIWR performs a virtual write of one or more pages to a
+        SKIM file.
+
+B.      Call
+
+        $KVIWR(FCB,BA,PN,NOP)
+
+        where FCB is the FCB for the file
+              BA is the buffer address of the page(s) to be written
+              PN is the page number of the first page to be written
+              NOP is the number of pages to be read
+
+        Value Returned: none
+
+C.      File Block & Table structures accessed:
+
+        BT, FCB
+
+D.      Routines Called: $KBTIN
+
+E.      Functional description
+
+        $KVIWR first calls $KBTIN to find the appropriate BT entry.
+        If this entry is found and is consistent with the calling
+        parameters, the "dirty" bit is turned on and $KVIWR returns.
+
+F.      Errors Detected
+
+        a. Internal inconsistensies between calling parameters and
+           BT entry.
+
+        b. BT entry not found. (internal error)
+
+8.6.4   $KGBUF
+
+A.      Abstract
+
+        $KGBUF obtains an empty buffer for a given SKIM file.
+
+B.      Call
+
+        $KGBUF(FCB,PN,NOP)
+
+        where FCB is the address of the FCB for the file
+              PN is the page number of the first page of the file
+                     to which this buffer will be mapped
+              NOP is the number of pages to be obtained and mapped
+
+        Value Returned: Address of buffer
+
+C.      File Block & Table Structures Accessed
+
+        FCB,BT,BTI
+
+D.      Routines Called
+
+        $KPHYW
+
+E.      Functional Description
+
+        $KGBUF searches the BTs for .NOP consecutive unused page
+        buffers. If this search fails the replacement algorithm of
+        section 8.2.3 is exercised. In either case, the address of
+        the buffer is returned. The appropriate entries are made
+        in the BT including setting the age bit.
+
+F.      Global Variables: KBTIX$
+
+G.      Errors Detected
+
+        a. Not enough consecutive buffers (internal error)
+
+        b. .PN greater than any page number in file (internal error).
+
+8.6.5   $KRBUF
+
+A.      Abstract
+
+        $KRBUF releases buffers to the buffer pool.
+
+B.      Call
+
+        $KRBUF(FCB,BA,PN,NOP)
+
+        where FCB is the FCB for the file
+              BA is the buffer address of the page(s) to be written
+              PN is the page number of the first page to be written
+              NOP is the number of pages to be read
+
+        Value Returned: none
+
+C.      File Block & Table structures accessed:
+
+        BT, FCB
+
+D.      Routines Called: $KBTIN
+
+E.      Functional description
+
+        $KRBUF first calls $KBTIN to find the appropriate BT entry.
+        If this entry is found and is consistent with the calling
+        parameters, the "unused" bit is turned on and $KVIWR returns.
+
+F.      Errors Detected
+
+        a. Internal inconsistensies between calling parameters and
+           BT entry.
+
+        b. BT entry not found.
+
+8.6.6   $KFLSH
+
+A.      Abstract
+
+        $KFLSH flushes and releases all current buffers owned by
+        one or all SKIM files.
+
+B.      Call
+
+        $KFLSH(FCB)
+
+        where FCB=0 means flush and release all.
+                 >0 is the address of the FCB for the file.
+
+        Value returned: none.
+
+C.      File Block & Table Structures Accessed
+
+        BTI, BT, FCB
+
+D.      Routines Called
+
+        $KPHYW
+
+E.      Functional Description
+
+        $KFLSH circularly transverses the BT entries and performs
+        the following 2 operations either for the specified file or 
+        all files:
+        1) if the dirty bit is on, the buffer is written to disk
+        2) the unused bit is turned on.
+
+F.      Errors Detected: none
+
+8.6.7   $KPHYR
+
+A.      Abstract
+
+        $KPHYR performs physical reads for a SKIM file.
+
+B.      Call
+
+        $KPHYR(FCB,BA,PN,NOP)
+
+        where FCB is the FCB for the file
+              BA is the buffer abddress
+              PN is the logical page number
+              NOP is the number of pages
+
+
+C.      File Block & Table Structures Accessed
+
+        FCB
+
+D.      Routines Called: $KPNIC
+
+E.      Functional Description
+
+        $KPHYR first calculates the relative block number by the
+        formula BN = .PN*4-3. If BN is different from the value in
+        the right half of the K$USETIOP entry of the FCB, BN is
+        stored into this entry and the entry is executed. $KPHYR
+        next calculates the number of words to be read by the formula
+        N = .NOP*512. N/128 is added to the right half value of the 
+        K$USETIOP entry of the FCB. The K$ICOML entry of the FCB is 
+        set to IOWD N,BA. Finally the K$INOP entry of the FCB is 
+        executed to do the actual physical I-O. If either the USETI
+        or the INPUT operator takes the error exit, the K$STATZOP
+        entry of the FCB is executed to obtain the file status. In
+        this case the appropriate error condition is returned.
+        Otherwise zero is returned.
+
+F.      Errors Detected: none
+
+8.6.8   $KPHYW
+
+A.      Abstract
+
+        $KPHYW performs physical writes for a SKIM file.
+
+B.      Call
+
+        $KPHYW(FCB,BA,PN,NOP)
+
+        where FCB is the FCB for the file
+              BA is the buffer abddress
+              PN is the logical page number
+              NOP is the number of pages
+
+C.      File Block & Table Structures Accessed
+
+        FCB
+
+D.      Routines Called: $KPNIC
+
+E.      Functional Description
+
+        $KPHYW first calculates the relative block number by the
+        formula BN = .PN*4-3. If BN is different from the value in
+        the right half of the K$USETOOP entry of the FCB, BN is
+        stored into this entry and the entry is executed. $KPHYW
+        next calculates the number of words to be written by the
+        formula N = .NOP*512. N/128 is added to the right half value 
+        of the K$USETOOP entry of the FCB. The K$ICOML entry of the 
+        FCB is set to IOWD N,BA. Finally the K$OUTOP entry of the FCB 
+        is executed to do the actual physical I-O. If either the USETO
+        or the OUTPUT operator takes the error exit, the K$STATZOP
+        entry of the FCB is executed to obtain the file status. In
+        this case the appropriate error condition is returned.
+        Otherwise zero is returned.
+
+F.      Errors Detected: none
+
+8.6.9   $KPRON
+
+A.      Abstract
+
+        $KPRON locks a page into core for a given SKIM file.
+
+B.      Call
+
+        $KPRON(FCB,BA,PN,NOP)
+
+        where FCB is the address of the FCB for the file
+              BA is the buffer address
+              PN is the page number of the first page of the file
+                     to which this buffer will be mapped
+              NOP is the number of pages to be obtained and mapped
+
+C.      File Block & Table Structures Accessed
+
+        BT
+
+D.      Routines Called: $KBTIN
+
+E.      Functional description
+
+        $KPRON first calls $KBTIN to find the appropriate BT entry.
+        If this entry is found and is consistent with the calling
+        parameters, the "permanent" bit is turned on and $KVIWR returns.
+
+F.      Errors Detected
+
+        a. Internal inconsistensies between calling parameters and
+           BT entry.
+
+        b. BT entry not found.
+
+8.6.10  $KPROF
+
+A.      Abstract
+
+        $KPROF unlocks a page from core.
+
+B.      Call
+
+        $KPROF(FCB,BA,PN,NOP)
+
+        where FCB is the FCB for the file
+              BA is the buffer address of the page(s) to be written
+              PN is the page number of the first page to be written
+              NOP is the number of pages to be read
+
+        Value Returned: none
+
+C.      File Block & Table structures accessed:
+
+        BT, FCB
+
+D.      Routines Called: $KBTIN
+
+E.      Functional description
+
+        $KPROF first calls $KBTIN to find the appropriate BT entry.
+        If this entry is found and is consistent with the calling
+        parameters, the "permanent" bit is turned off and $KPRON
+        returns.
+
+F.      Errors Detected
+
+        a. Internal inconsistensies between calling parameters and
+           BT entry.
+
+        b. BT entry not found.
+
+8.6.11  $KBTIN
+
+A.      Abstract
+
+        $KBTIN searches the BTs for a given buffer address.
+
+B.      Call
+
+        $KBTIN(BA)
+
+        where BA is the buffer address
+
+        Value Returned:  0 = no such entry.
+                         #0 =>  BT header address (bits 0-17)
+                                BT entry offset (bits 18-35)
+
+C.      File Block & Table Structures Accessed
+
+        BT, BTI
+
+D.      Routines Called: none
+
+E.      Functional Description
+
+        $KBTIN first searches the BTI for the appropriate BT, if
+        any. If found the BT entry address is calculated and returned
+        along with the header address. Otherwise zero is returned.
+
+F.      Errors Detected: none
+
+G.      Global Variables: KBTIX$
+
+ 
