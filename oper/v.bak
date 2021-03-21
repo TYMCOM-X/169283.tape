@@ -1,0 +1,364 @@
+FIND %MESS,E,ERR.VAR:
+GLOBAL QSAV,CSAV,EOF:,%PASS1,EOFLAB,S
+FIND %FIL.ERR,%NXT.SRC,%PASS2,F.VAR(WPF),PROMPT:,NCOPIES,EOF3:,NEWMODE
+FIND C,%PR,%ERR,MAP(0:127),%EVAL,%SET.OLD.EVAL,%INITMAP,F,L,%LIS.LN,PRINTED,PASS.TWO
+FIND %LIS.DEF,%PR.TAB
+GLOBAL TMPLT,OPVL,LSTIFDIR,LSTIFCD,LINE.NUM
+GLOBAL EDIT10,PAGE.NUM,PRINT.LINE,NEW.PAGE
+GLOBAL %NEXTLN,Q
+GLOBAL %THING.GETTER,TOK,VAL,SYMCC,SYMPNT
+GLOBAL PCTR,SYMTAB,LABPNT,SYMN,SYME,SYMD,LABCC
+GLOBAL %PRAE,%PRIF,%P1SCAN,OPTAB
+GLOBAL NAEOPS,NIFOPS,N1WDOPS,NALLOPS
+GLOBAL SWTCH(0:9),OLDIF,%INITPRIF
+GLOBAL %GETLN,BEG.LIT.POOL,END.LIT.POOL,CUR.LIT.ADD
+GLOBAL BEG.IND.POOL,END.IND.POOL,CUR.IND.ADD
+
+FIND SYMBUF(0:SYMBUF.L),A,%SYMPOS,%GETSYM
+
+G: ^OCT 137 _ 3  !VERSION NUMBER
+\\->G
+INITMAP
+!SHOULD NEVER RETURN FROM INITMAP
+EOF: IF ERRNUM#EOFERR THEN GO ERR.VAR ELSE DO  !END OF FILE
+        IF NXTSRC THEN PASS1
+        INC PASS.TWO
+        EOFLAB _ EOF3
+        PASS2
+        END
+
+%PASS1
+GETLN  ! THE FIRST LINE
+C_NCHV Q      ! 1ST CHAR
+WHILE 1=1 THEN DO
+!PR(PCTR,8)  DEBUG
+  IF NCOPIES < 0 THEN P1SCAN ELSE DO    !RPT1 DIRECTIVE
+    NEXTLN
+    QSAV _ Q
+    CSAV _ C
+    WHILE DEC NCOPIES >= 0 THEN [P1SCAN; Q_QSAV; C_CSAV]
+    TOK _ 0   !TO HELP NEXTLN FLUSH THE LINE
+    END
+
+
+
+  NEXTLN
+  END
+
+%P1SCAN
+
+! THE FOLLOWING LABELS ARE BRANCHED TO FROM NOWHERE ELSE
+! BUT THE NEXT 10 OR SO LINES OF CODE
+! X Y Z
+   IF THING.GETTER = STAR THEN RETURN
+   IF TOK = SPACE THEN[LABPNT_0 ; GO X]
+
+   IF TOK # SYM THEN GO Y
+     LABPNT _ SYMPOS(SYMTAB)
+     EIF ^LABPNT=0 THEN [SYMN_1; SYMD_SYME_0]
+     ELSE DO
+       SYMUPK(SYMN,SYME,SYMD,) _ ^LABPNT
+       IF SYME=1=SYMD THEN SYME_0
+       SYMD_1
+     END
+     ^LABPNT _ SYMPCK(SYMN,SYME,SYMD,PCTR)
+   IF THING.GETTER # SPACE THEN GO Y
+X: IF THING.GETTER = SYM THEN GO Z
+
+Y: IF TOK # TERM THEN INC PCTR  !LEAVE 1 WD FOR EVERYTHING ELSE
+
+   RETURN
+
+Z: [BPW-21,5,16]*[,TMPLT,OPVL] _ ^SYMPOS(OPTAB)
+   IF TMPLT > NUM.TMPLTS THEN ERR('$OPTAB BUG$')
+   DO TMPLT OF 0:NUM.TMPLTS
+ 0: INC PCTR  !INVALID OPCODE
+ 1: 2: 3: 4: 5: 6: 7: INC PCTR  !ONE WORD OPCODES
+ 8: 9: 10: 11: PCTR_PCTR+2  !TWO WORD OPCODES
+AE.DIR: PRAE  !PROCESS ARITH EXPESSION DIRECTIVES
+IF.DIR: PRIF  !PROCESS IF DIRECTIVES
+
+END  !DO TMPLT OF
+
+
+
+
+   RETURN
+
+END P1SCAN
+
+
+%PRAE
+  LOCAL Z,I,PCTR.SAV
+  PCTR.SAV _ PCTR
+  IF OPVL > 7 THEN GO NO.PARAM
+  IF THING.GETTER # SPACE THEN ERR('$SPACE EXPECTED$')
+  IF OPVL > NAEOPS THEN ERR('$OPTAB BUG$')
+  IF OPVL # ASC.DIR THEN THING.GETTER  !ASC DIRECTIVE NEEDS C
+NO.PARAM: DO OPVL OF 11   !NUMBER OF AE DIRECTIVES
+1: IF BEG.LIT.POOL # -1 THEN ERR('$SECOND L DIRECTIVE$')
+BEG.LIT.POOL _ PCTR
+   IF (END.LIT.POOL _ PCTR _ EVAL) > OCT 3777 THEN ERR('$L DIR MUST BE IN 1ST 4K$')
+2: IF BEG.IND.POOL #-1 THEN ERR('$SECOND I DIRECTIVE$')
+BEG.IND.POOL _ PCTR
+   IF END.IND.POOL _ PCTR _ EVAL > OCT 777 THEN ERR('$I DIR MUST BE IN 1ST K$')
+ASC.DIR:  Z_0
+         A _ -1
+         WHILE I _ NCHV Q # C THEN DO
+           EIF A = -1 THEN A _ I SHL 8 BOR OCT 100200 !SET BOTH 8TH BITS
+           ELSE DO
+             A _ A BOR I
+             IF PASS.TWO THEN LIS.LN(BOTH) ELSE INC PCTR
+             A _ -1
+             END
+           IF I = CARRET THEN GETLN
+           END
+         IF A # -1 THEN IF PASS.TWO THEN LIS.LN(BOTH) ELSE INC PCTR
+
+E.DIR:  A _ EVAL
+        EIF LABPNT#0 THEN DO
+           EIF PASS.TWO THEN NULL
+           ORIF SYME=0=SYMD THEN SYME_1
+           FIF SYME=1=SYMD THEN SYMD_0
+           ^LABPNT _ SYMPCK(SYMN,SYME,SYMD,A)
+           IF PASS.TWO THEN [SYMCC_LABCC; GETSYM(LABPNT); LIS.DEF]
+        END
+        ELSE ERR('$LABEL REQUIRED$')
+!     ERR('$SYMNO=')   DEBUG
+!     PR(SYMNO,8)      DEBUG
+!     ERR('$VAL =')    DEBUG
+!     PR(SYMVAL(SYMNO),8)  DEBUG
+!     ERR('$')         DEBUG
+6: SWTCH(EVAL)_1  !SWITCH DIRECTIVE
+7: IF A _NCOPIES _ EVAL < 0 THEN ERR('$NEGATIVE PARAMETER$')  !RPT1 DIR
+9: INC LSTIFDIR
+   INC LSTIFCD
+10: INC LSTIFDIR
+11: LSTIFDIR _ LSTIFCD _ 0
+8: SET.OLD.EVAL
+3: PCTR_EVAL
+  IF PCTR < PCTR.SAV THEN ERR('$PROGRAM COUNTER DECREASED$')
+  END
+  RETURN
+END PRAE
+
+%PRIF
+LOCAL %LOGEXP,%STAK,IP
+LOCAL ISTK(STKSIZ),I,J
+
+!       :           :            :            :         :           :
+!       :   (S1)    :   (S2)     :   (S3)     :   (S4)  :   (S5)    :   (S6)
+!       :           :            :            :         :           :
+!       : IF HAS    : IF OR      : IF OR      : ELSE    : NESTED    : NESTED
+!       : NOT BEEN  : ELSEIF     : ELSEIF     : JUST    : IF BEING  : IF BEING
+!       : SEEN SINCE: TRUE JUST  : FALSE      : SEEN    : SKIPPED   : SKIPPED,
+!       : LAST ENDIF: SEEN       : JUST SEEN  :         :           : ELSE JUST
+!       :           :            :            :         :           : SEEN
+!----------------------------------------------------------------------------
+!    IF : STAK, IF  : MUST BE    : STAK,      : MUST BE : STAK,     : STAK,
+!       : TRUE, SET : NESTED     : SET S5     : NESTED  : KEEP      : KEEP
+!       : S2, GO    : DO SAME    : GO SKIP    : DO SAME : SKIPPING  : SKIPPING
+!       : COMPILE   : AS (1)     :            : AS (1)  :           :
+!       : IF FALSE, :            :            :         :           :
+!       : SET S3,   :   (2)      :   (3)      :   (4)   :   (5)     :   (6)
+!       : GO SKIP   :            :            :         :           :
+!------------------------------------------------------------------------
+!ELSEIF : ERROR     :  GO SKIP   : IF TRUE,   : ERROR   : KEEP      : ERROR
+!       :           :            : SET S2,    :         : SKIPPING  :
+!       :           :            : GO COMPILE :         :           :
+!       :           :            : IF FALSE,  :         :           :
+!       :   (7)     :   (8)      : SET S3,    :   (10)  :   (11)    :   (12)
+!       :           :            : GO SKIP    :         :           :
+!------------------------------------------------------------------------
+!  ELSE : ERROR     : SET S6,    : SET S4,    : ERROR   : SET S6,   : ERROR
+!       :           : GO SKIP    : GO COMPILE :         : KEEP      :
+!       :           :            :            :         : SKIPPING  :
+!       :   (13)    :   (14)     :   (15)     :   (16)  :           :   (18)
+!       :           :            :            :         :           :
+!-------------------------------------------------------------------------
+! ENDIF : ERROR     : UNSTAK     : UNSTAK     : UNSTAK  : UNSTAK    : UNSTAK
+!       :           :                         :         :           :
+!       :   (19)    :   (20)     :   (21)     :   (22)  :   (23)    :   (24)
+!       :           :            :            :         :           :
+!-----------------------------------------------------------------------------
+!
+CKIF:  I _ (OPVL-1)*6 + ABS(S)
+!ERR('$I='); PR(I,10); ERR('$')  DEBUG
+  A _ 0  !ZERO OUT A FOR LIS.LN ON ELSE AND ENDIF
+  DO I OF 24
+
+1: 2: 4: STAK
+   NINE: EIF LOGEXP THEN DO
+           S _ 2    !POSITIVE S MEANS COMPILE MODE
+           IF LSTIFDIR AND PASS.TWO THEN LISLN(NOPCTR)
+           RETURN
+           END
+           ELSE S _ -3  !NEGATIVE S SHOWS SKIP OR NON-COMPILE MODE
+
+3: 5: STAK
+      S _ -5
+
+6: STAK
+
+7: 10: 12: 13: 16: 18: 19: ERR('$IF ERR ')
+                           J _ L <== E   !SAVE L BUT CHANGE TO E
+                           PR(I,10)      !PRINT CHART NUMBER
+                           L _ J         !RESTORE L
+                           MESS(E,'$')
+
+8: 14: S _ -2
+
+9: GO NINE
+
+11: NULL
+
+14: S _ -6
+
+15: S _  4  !POSITIVE MEANS COMPILE MODE
+    IF LSTIFDIR AND PASS.TWO THEN LISLN(ALONE)
+    RETURN  !START COMPILING
+
+17: S _ -6
+
+20: 21: 22: 23: 24: IF DEC IP < 1 THEN DO
+                      ERR('$BUG IN PRIF$')
+                      IP_1
+                      END
+                    IF S_ISTK(IP+1) > 0 THEN DO
+                      IF LSTIFDIR AND PASS.TWO THEN LISLN(ALONE)
+                      RETURN
+                      END
+END
+IF LSTIFDIR AND PASS.TWO THEN DO
+  IF S = -3 AND OPVL <3 THEN LISLN(NOPCTR) ELSE LISLN(ALONE)
+!S BEING -3 AND AN IF OR ELSEIF SHOULD PRINT VALUE OF EXPRESSION
+  END
+NEXTLN
+WHILE 1=1 THEN DO
+  IF THING.GETTER = SPACE THEN GO X
+  IF TOK # SYM THEN GO Y
+
+  IF THING.GETTER # SPACE THEN GO Y
+
+X: IF THING.GETTER = SYM THEN DO
+     [BPW-21,5,16]*[,TMPLT,OPVL] _ ^SYMPOS(OPTAB)
+     IF TMPLT = IF.DIR THEN GO CKIF  !IF DIRECTIVE
+     IF OPVL = ASC.DIR AND TMPLT = AE.DIR THEN DO  !ASC DIRECTIVE
+       IF THING.GETTER # SPACE THEN ERR('$SPACE EXPECTED$')
+       WHILE NCHV Q # C THEN NULL
+       IF C=CARRET THEN GETLN
+       END
+     END
+Y: IF LSTIFCD AND PASS.TWO THEN LIS.LN(ALONE)
+   NEXTLN
+  END
+
+%NEXTLN
+
+!THE LABELS M,N, AND O ARE BRANCHED TO ONLY WITHIN NEXTLN
+
+   IF TOK=TERM THEN IF C=EOLIT THEN GO N ELSE RETURN
+M: IF C=CARRET THEN GO N
+   IF C=$; THEN GO O
+   C _ NCHV Q
+   GO M
+N: GETLN
+O: C _ NCHV Q
+   RETURN
+END NEXTLN
+
+%STAK
+  IF INC IP > STKSIZ THEN DO
+    ERR('$IF NESTING MORE THAN 20 DEEP$')
+    IP_STKSIZ
+    END
+  ISTK(IP)_S
+  RETURN
+END STAK
+
+%LOGEXP
+LOCAL TRUTH
+  IF THING.GETTER # SPACE THEN ERR('$SPACE EXPECTED$')
+  INC OLDIF  !IF THIS IS OLD AT ALL
+  THING.GETTER
+  EIF NEWMODE THEN IF A _ EVAL # 0 THEN TRUTH_1 ELSE TRUTH_0
+  ELSE A _ TRUTH _ EVAL BAND 1  !PUT VAL IN A FOR LISLN FOR BOTH MODES
+  DEC OLDIF
+  RETURN TRUTH
+END LOGEXP
+
+%INITPRIF
+IP_1   !IF STACK POINTER
+S_1     !STATE
+OLDIF _ -1  !THIS WILL VARY FROM -1 TO 0 FOR NEW IFS
+RETURN
+END INITPRIF
+
+END PRIF
+
+
+
+%THING.GETTER
+
+LOCAL DVAL,FLAG,P,CCNT
+
+IF TOK _ MAP(C) > SPACE THEN DO  !NOT ALPHANUM OR SPACE
+  IF TOK=COLON THEN DO    !COLON ANYWHERE LIKE ENDLINE
+    WHILE CARRET#NCHV Q#$; THEN NULL
+    TOK _ TERM
+    END
+  C _ NCHV Q
+  RETURN TOK
+  END
+
+DO TOK OF SPACE
+
+NUM: VAL _ DVAL _ FLAG _ 0
+     WHILE MAP(C) = NUM THEN DO
+       C _ C - $0
+       IF C > 7 THEN INC FLAG
+       VAL _ VAL SHL 3 + C
+       DVAL _ DVAL*10 + C
+!      W(L,C+$0)  DEBUG
+       C_NCHV Q
+       END
+     EIF OLDIF>0 THEN VAL _ SWTCH(DVAL)
+     ORIF C=$D THEN DO
+!       W(L,C) DEBUG
+       C_NCHV Q
+       VAL _  DVAL
+       END
+     FIF FLAG THEN ERR('$8 OR 9 FOUND IN AN OCTAL CONSTANT$')
+
+SYM: SYMPNT_P_CHPT(@SYMBUF(1),-1)
+     SYMCC_CPW*SYMBUF.L
+     MOVE SYMBUF.L FROM ALL 0 TO @SYMBUF(1)
+     WHILE MAP(C) < SPACE !ALPHANUMERIC! THEN DO
+        IF SYMCC>0 THEN [NCHV P_C; DEC SYMCC] ; C_NCHV Q
+     END
+     SYMCC_CPW*SYMBUF.L-SYMCC
+     SYMBUF(0)_((SYMCC-1)/CPW)+1
+
+SPACE: WHILE MAP(C_NCHV Q) = SPACE THEN NULL
+!       W(L,$ )  DEBUG
+END  !DO TOK OF SPACE
+
+RETURN TOK
+
+END THING.GETTER
+
+%GETLN
+LOCAL I
+PRINT.LINE_Q_GETLINE(F)
+IF EDIT10 THEN DO
+   IF NEWPAGE_[NCHV Q=$ ] THEN [REPEAT 8 NCHV Q; INC PAGE.NUM]
+   PRINT.LINE_Q; PCHV PRINT.LINE; LINE.NUM_(CHV Q)-$0
+   REPEAT 4 LINE.NUM_10*LINE.NUM+(NCHV Q)-$0; NCHV Q ! IGNORE TAB
+END ELSE INC LINE.NUM
+IF PAGE.NUM=0 THEN NEW.PAGE_PAGE.NUM_1  !FORM FEED AFTER EACH SRC
+PRINTED _ 0  !SET SWITCH TO NOT PRINTED YET STATUS
+! I_F   DEBUG
+! WHILE W(L,NCHV I)#EOLIT THEN NULL   DEBUG
+RETURN
+END GETLN
+END PASS1
