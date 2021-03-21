@@ -1,0 +1,1106 @@
+;**********************************************************
+;
+;       FILE - DICT.MAC
+;       PACKAGE - MAIN DICTIONARY FUNCTIONS
+;       CODED BY JOHN STALLINGS, 1/24/73
+;
+;**********************************************************
+        PAGE
+        INTERN  ADDID,FNDID,HCHECK,ADDSYN,FNDSTG,DELSYN,DELID
+        INTERN  MODID,LSTSYN,READF2,MODDAT
+;
+; VARIABLES AND THINGS
+OLEN:   Z
+XADD:   Z
+ADLEN:  Z
+DBUFF:  Z
+TBUFF:  BLOCK   3
+ADADD:  Z
+EOFRET: Z
+SIDCNT: Z
+DELFLG: Z
+TBID:   Z
+BID2:   Z
+MINID:  Z
+MINLEN: Z
+NENT:   Z
+SID2:   Z
+TABLEN: Z
+TADD:   Z
+TLEN:   Z
+TVAL:   Z
+RLEN:   Z
+INSTG:  Z
+TLAN:   Z
+MAXSID: Z
+NEXT:   Z
+DADD:   Z
+BID:    Z
+HCODE:  Z
+HEAD:   Z
+XENTL=3
+XENTRY: BLOCK   XENTL
+HENTL=2
+HENTRY: BLOCK   HENTL
+PROBE:  Z
+RLAN:   Z
+LANG:   Z
+SID:    Z
+STEP:   Z
+SYNLEN=^D256
+SYNDAT: BLOCK   SYNLEN
+HEADL=5
+SYNSTG=SYNDAT+HEADL
+MAXCHR=SYNLEN-HEADL
+MAXCHR=MAXCHR*5
+SYNCON: SIXBIT  /IMGOOD/
+DATCON: SIXBIT  /LOVELY/
+        BLOCK   2
+IDT1=4
+IDT2=2
+IDT3=1
+IDT:    POINT   3,SYNDAT+1,2
+SYNLNG: POINT   25,SYNDAT+1,27
+WCNT:   POINT   8,SYNDAT+1,35
+SYNBID: POINT   36,SYNDAT+2,35
+SYNID:  POINT   18,SYNDAT+3,17
+SYNMAX: POINT   18,SYNDAT+3,35
+NXTSYN: POINT   36,SYNDAT+4,35
+        PAGE
+;** FUNCTION READF2
+; READS NEXT ACTIVE SUB-FILE TWO ENTRY
+; ARGUMENTS:
+;       R1 = DICT NUMBER
+;       R2 = FATAL ERROR RETURN
+;       R3 = NON-FATAL ERROR RETURN
+;       R4 = NEXT ENTRY NUMBER
+;       R5 = EOF RETURN
+READF2: JSP     16,DINIT        ; INITIALIZE FUNCTION
+
+        MOVEM   4,PROBE         ; SAVE ARGUMENTS
+        MOVEM   5,EOFRET
+
+READF3: MOVE    3,PROBE         ; CALCULATE NEXT ADDRESS
+        AOS     PROBE           ; INCREMENT PROBE
+        IMULI   3,XENTL
+        CAML    3,EOF2(PBLOCK)  ; CHECK FOR PAST EOF
+        JRST    @EOFRET
+
+        MOVEI   1,2             ; READ IN ENTRY
+        MOVEI   2,XENTRY
+        MOVEI   4,XENTL
+        PUSHJ   17,READ
+
+        MOVE    1,XENTRY+1      ; SEE IF ENTRY IS ACTIVE
+        PUSHJ   17,RHEAD
+        JRST    READF3
+
+        MOVE    1,XENTRY        ; RETURN BASIC ID NUMBER
+        MOVE    2,PROBE         ; AND NEXT PROBE NUMBER
+        JRST    RETURN
+        PAGE
+;** FUNCTION ADDID
+; ADDS A BASIC ID TO DICT.
+; ARGUMENTS:
+;       R1 = DICT NUM
+;       R2 = FATAL ERROR RETURN LOCATION
+;       R3 = NON-FATAL ERROR RETURN LOCATION
+;       R4 = STRING ADDRESS OF STRING TO ADD AS BID
+;       R5 = LANGUAGE OF STRING
+;       R6 = ADDRESS OF ASSOCIATED DATA TABLE
+;       R7 = LENGTH OF ASSOCIATED DATA TABLE
+ADDID:  JSP     16,DINIT
+
+        PUSHJ   17,HCHECK       ; SEE IF HASH TABLE FULL
+        ERROR   -105
+
+        MOVEM   5,TLAN          ; SAVE LANGUAGE ARGUMENT
+        MOVEM   6,ADADD         ; SAVE DATA TABLE ADDRESS
+        MOVEM   7,ADLEN         ; SAVE TABLE LENGTH
+
+        ADD     4,[700000000-1] ; CONVERT R4 INTO STRING POINTER
+        MOVEM   4,INSTG
+        MOVE    1,4
+
+        PUSHJ   17,FIND         ; LOOK FOR STRING
+        JRST    .+2             ; NOT DEFINED
+        ERROR   -104
+
+        AOS     HUSED(PBLOCK)   ; INCREMENT NUMBER OF ENTRIES USED
+;                                 IN HASH TABLE.
+
+        AOS     1,MAXBID(PBLOCK); SET UP BID FIELD
+        MOVEM   1,HENTRY+1      ; PUT IT IN HASH ENTRY TOO
+        MOVEM   1,XENTRY        ; AND BINARY TABLE ENTRY
+        DPB     1,SYNBID
+        MOVEM   1,BID           ; SAVE SO WE CAN RETURN IT
+        MOVE    1,SYNCON        ; SET UP HEADER CONSTANT
+        MOVEM   1,SYNDAT
+        MOVEI   1,IDT1          ; DEFINE IDT FIELD
+        DPB     1,IDT
+        MOVE    1,TLAN          ; DEFINE LANGUAGE FIELD
+        DPB     1,SYNLNG
+        MOVEI   1,1             ; DEFINE SYN ID FIELD
+        DPB     1,SYNID
+        MOVEM   1,SID           ; SAVE SO WE CAN RETURN IT
+        DPB     1,SYNMAX        ; DEFINE MAX SYN ID FIELD
+        SETZ    1,
+        DPB     1,NXTSYN        ; DEFINE NEXT SYN FIELD
+
+        PUSHJ   17,FDWRIT       ; WRITE OUT MODIFIED FD
+
+        MOVE    1,INSTG         ; MOVE STRING INTO SYNDAT
+        MOVE    2,[POINT 7,SYNSTG-1,35]
+        SETZ    4,
+        ILDB    3,1
+        IDPB    3,2
+        AOS     4
+        JUMPN   3,.-3
+
+        ADDI    4,4+HEADL*5     ; CALCULATE BLOCK LENGTH
+        IDIVI   4,5
+        DPB     4,WCNT          ; DEFINE WCNT FIELD
+
+        MOVEI   1,1             ; WRITE SYN TO END OF FILE ONE
+        MOVEI   2,SYNDAT
+        MOVE    3,EOF1(PBLOCK)
+        MOVEM   3,XENTRY+1      ; SAVE ADDRESS
+        PUSHJ   17,WRITE
+        SETZM   XENTRY+2        ; BEGIN BY ASSUMING NO DATA TABLE
+        SKIPLE  3,ADLEN         ; NOW SEE IF THERE IS ONE
+        SKIPG   2,ADADD
+        JRST    ADID2
+        MOVE    1,BID           ; PUT BASIC ID IN HEADER
+        MOVEM   1,DATCON+2
+        ADDI    3,3             ; SET UP TOTAL WORD COUNT
+        MOVEM   3,DATCON+1
+        MOVEI   1,1             ; WRITE OUT HEADER
+        MOVEI   2,DATCON
+        MOVE    3,EOF1(PBLOCK)
+        MOVEM   3,XENTRY+2      ; POINT FILE 2 ENTRY TO TABLE DATA
+        AOS     XENTRY+2
+        MOVEI   4,3
+        PUSHJ   17,WRITE
+        MOVE    2,ADADD         ; WRITE OUT DATA
+        ADDI    3,3             ; NEW DISC ADDRESS
+        MOVE    4,ADLEN
+        PUSHJ   17,WRITE
+
+ADID2:  MOVEI   1,2             ; SET UP AND WRITE FILE TWO ENTRY
+        MOVEI   2,XENTRY
+        MOVE    3,EOF2(PBLOCK)
+        MOVEI   4,XENTL
+        PUSHJ   17,WRITE
+
+        MOVE    1,HCODE         ; SET UP AND WRITE FILE THREE ENTRY
+        MOVEM   1,HENTRY
+        MOVEI   1,3
+        MOVEI   2,HENTRY
+        MOVE    3,PROBE
+        IMULI   3,HENTL
+        MOVEI   4,HENTL
+        PUSHJ   17,WRITE
+
+        MOVE    1,BID           ; RETURN BID AND SID
+        MOVE    2,SID
+        JRST    RETURN
+        PAGE
+;** FUNCTION FNDID
+; RETURNS BID, SID, AND LANG FOR A STRING
+; ARGUMENTS:
+;       R1 = DICT NUMBER
+;       R2 = FATAL ERROR RETURN
+;       R3 = NON-FATAL ERROR RETURN
+;       R4 = STRING ADDRESS
+;       R5 = ADDRESS OF WORD FOR STORING LANGUAGE
+;       R6 = ADDRESS OF DOUBLE WORD BUFFER FOR RETURNING ASSOCIATED
+;            DATA TABLE DISC ADDRESS AND LENGTH.
+; RETURNS BID AND SID IN R1 AND R2 REPECTIVELY.
+FNDID:  JSP     16,DINIT
+
+        MOVEM   5,RLAN          ; SAVE LANGUAGE RETURN LOCATION
+        MOVEM   6,DBUFF         ; ADDRESS OF DOUBLE WORD BUFFER
+
+        ADD     4,[700000000-1] ; CREATE BYTE POINTER FROM ADDRESS
+        MOVE    1,4
+
+        PUSHJ   17,FIND         ; GO LOOK FOR STRING
+        ERROR   -108            ; NOT DEFINED
+
+        PUSHJ   17,RDATA        ; READ IN ASSOCIATED TABLE DATA
+
+        MOVE    1,LANG          ; RETURN LANGUAGE
+        SKIPLE  RLAN
+        MOVEM   1,@RLAN
+        MOVE    1,BID           ; RETURN BID AND SID IN REGISTERS
+        MOVE    2,SID
+        JRST    RETURN
+        PAGE
+;** FUNCTION TO ADD A SYN
+; ADDS A SYN TO A BASIC ID
+; ARGUMENTS:
+;       R1 = DICT NUMBER
+;       R2 = FATAL ERROR RETURN
+;       R3 = NON-FATAL ERROR RETURN
+;       R4 = STRING ADDRESS
+;       R5 = BASIC ID TO ADD SYN TO
+;       R6 = LANGUAGE
+ADDSYN: JSP     16,DINIT        ; INITIALIZE FUNCTION
+
+        PUSHJ   17,HCHECK       ; SEE IF HASH TABLE FULL
+        ERROR   -105
+
+        MOVEM   5,BID           ; SAVE BASIC ID
+        MOVEM   6,TLAN          ; SAVE LANGUAGE
+
+        ADD     4,[700000000-1] ; BUILD BYTE POINTER TO STRING
+        MOVE    1,4
+        MOVEM   1,INSTG
+
+        PUSHJ   17,FIND         ; SEE IF STRING DEFINED
+        JRST    .+2
+        ERROR   -104
+
+        MOVE    1,BID           ; FIND HEAD OF BID
+        PUSHJ   17,SEARCH
+        ERROR   -102
+
+        MOVE    3,1             ; PICK UP ADDRESS OF HEAD
+        MOVEI   1,1             ; AND READ IN HEADER TO HEAD OF LIST
+        MOVEI   2,SYNDAT
+        MOVEI   4,HEADL
+        PUSHJ   17,READ
+
+        MOVE    5,SYNDAT        ; PERFORM A FEW ERROR CHECKS
+        CAME    5,SYNCON
+        ERROR   -10
+
+        LDB     5,SYNBID
+        CAME    5,BID
+        ERROR   -10
+
+        LDB     5,IDT
+        TRNN    5,IDT1
+        ERROR   -10
+
+        TRNE    5,IDT2
+        ERROR   -102
+
+        LDB     5,SYNMAX        ; INCREMENT MAX SID
+        ADDI    5,1
+        DPB     5,SYNMAX
+        LDB     5,NXTSYN        ; SAVE NEXT SYN ID
+        PUSH    17,5
+        MOVE    5,EOF1(PBLOCK)  ; POINT IT TO NEW SYN ID
+        ADDI    5,1
+        DPB     5,NXTSYN
+
+        MOVE    5,INSTG         ; MOVE IN NEW STRING
+        MOVE    6,[POINT 7,SYNSTG-1,35]
+        SETZ    7,
+        ILDB    8,5
+        IDPB    8,6
+        AOS     7
+        JUMPN   8,.-3
+
+        ADDI    7,4+HEADL*5     ; CALCULATE WORD COUNT
+        IDIVI   7,5
+
+; HAVING CAREFULLY NOT CHANGED R1-R4, NOW WRITE OUT THE HEADER
+        PUSHJ   17,WRITE
+
+        DPB     7,WCNT          ; STORE NEW WORD COUNT
+        MOVE    4,7             ; SAVE WORD COUNT FOR WRITE
+        SETZ    5,              ; STORE NEW IDT
+        DPB     5,IDT
+        POP     17,5            ; STORE OLD NEXT SYN POINTER
+        DPB     5,NXTSYN
+        MOVE    5,TLAN          ; STORE NEW LANGUAGE
+        DPB     5,SYNLNG
+        LDB     5,SYNMAX        ; SYNID=SYNMAX
+        DPB     5,SYNID
+
+; AGAIN, HAVEING CAREFULLY NOT MESSED UP R1-R4, WRITE OUT
+; NEW SYN ID. R4 ALREADY HAS NEW WORD COUNT. MUST PICK UP
+; NEW DISC ADDRESS.
+        MOVE    3,EOF1(PBLOCK)  ; GET NEW ADDRESS
+        PUSHJ   17,WRITE
+
+        MOVE    1,HCODE         ; SET UP AND WRITE   HASH CODE ENTRY
+        MOVEM   1,HENTRY
+        MOVE    1,BID
+        MOVEM   1,HENTRY+1
+        MOVEI   1,3
+        MOVEI   2,HENTRY
+        MOVE    3,PROBE
+        IMULI   3,HENTL
+        MOVEI   4,HENTL
+        PUSHJ   17,WRITE
+
+        AOS     HUSED(PBLOCK)   ; INCREMENT HASH ENTRIES IN USE
+        PUSHJ   17,FDWRIT       ; AND WRITE OUT FD
+
+        SETZ    1,              ; RETURN ZERO
+        JRST    RETURN
+        PAGE
+;** FUNCTION FNDSTG
+; RETURNS STRING FOR A BASIC ID OR BASIC ID AND SYN ID
+; ARGUMENTS:
+;       R1 = DICT NUMBER
+;       R2 = FATAL ERROR RETURN
+;       R3 = NON-FATAL ERROR RETURN
+;       R4 = BID
+;       R5 = SID
+;       R6 = ADDRESS OF STORAGE WORD FOR STRING LENGTH
+;       R7 = ADDRESS OF STORAGE WORD FOR STRING LANGUAGE
+;       R8 = ADDRESS OF DOUBLE WORD BUFFER FOR RETURNING ASSOCIATED
+;            DATA TABLE DISC ADDRESS AND LENGTH.
+FNDSTG: JSP     16,DINIT        ; INITIALIZE FUNCTION
+
+        MOVEM   4,BID           ; SAVE STORAGE WORD ADDRESSES
+        MOVEM   5,SID
+        MOVEM   6,RLEN
+        MOVEM   7,RLAN
+        MOVEM   10,DBUFF        ; ADDRESS OF DOUBLE WORD BUFFER
+
+        MOVE    1,4             ; GO LOOK FOR BID
+        PUSHJ   17,SEARCH
+        ERROR   -102
+
+        PUSHJ   17,RHEAD        ; READ IN FIRST ACTIVE ELEMENT
+        ERROR   -102
+
+        SKIPGE  SID             ; DO WE CARE ABOUT SID?
+        JRST    FND4            ; NOPE
+        JRST    FND3
+
+FND2:   PUSHJ   17,RNEXT        ; READ NEXT ACTIVE ELEMENT
+        ERROR   -103
+FND3:   LDB     1,SYNBID        ; A LITTLE ERROR CHECK
+        CAME    1,BID
+        ERROR   -10
+        LDB     1,SYNID         ; COMPARE SIDS
+        CAME    1,SID
+        JRST    FND2
+
+FND4:   PUSHJ   17,RDATA        ; READ IN ASSOCIATED DATA
+        PUSHJ   17,FLEN         ; COUNT STRING CHARACTERS
+        SKIPLE  RLEN
+        MOVEM   1,@RLEN         ; RETURN IT
+        LDB     1,SYNLNG        ; RETURN LANGUAGE
+        SKIPLE  RLAN
+        MOVEM   1,@RLAN
+        MOVEI   1,SYNSTG        ; STRING ADDRESS IN R1
+        LDB     2,SYNID         ; SID IN R2
+        JRST    RETURN
+        PAGE
+;** FUNCTION DELSYN
+; DELETES A SYN
+; ARGUMENTS:
+;       R1 = DICT NUMBER
+;       R2 = FATAL ERROR RETURN
+;       R3 = NON-FATAL ERROR RETURN
+;       R4 = BASIC ID
+;       R5 = SYN ID
+;       R6 = DELETE LAST FLAG
+DELSYN: JSP     16,DINIT        ; INITIALIZE FUNCTION
+
+        MOVEM   4,BID           ; SAVE ARGUMENTS
+        MOVEM   5,SID
+        MOVEM   6,DELFLG
+        SETOM   SIDCNT
+
+        MOVE    1,4             ; LOOK FOR BID
+        PUSHJ   17,SEARCH
+        ERROR   -102
+
+        PUSHJ   17,RHEAD        ; READ IN HEAD OF LINKED LIST
+        ERROR   -102
+        JRST    DSYN3
+
+DSYN2:  PUSHJ   17,RNEXT        ; READ IN NEXT ACTIVE ELEMENT
+        ERROR   -103
+DSYN3:  LDB     1,SYNBID        ; A LITTLE ERROR CHECK
+        CAME    1,BID
+        ERROR   -10
+        AOS     SIDCNT
+        LDB     1,SYNID
+        CAME    1,SID
+        JRST    DSYN2
+
+        SKIPE   SIDCNT          ; IS THIS THE FIRST ACTIVE ELEMENT?
+        JRST    DSYN6
+        PUSH    17,DADD         ; SAVE CURRENT ADDRESS
+        PUSHJ   17,RNEXT        ; GO LOOK FOR MORE SIDS.
+        JRST    DSYN4           ; DIDN'T FIND ANY
+        POP     17,DADD         ; RETRIEVE THE ONE WE'RE DELETING
+        MOVE    1,DADD
+        PUSHJ   17,RONE
+        JRST    DSYN6
+
+DSYN4:  SKIPL   DELFLG          ; IS THIS AN ERROR?
+        JRST    DSYN5
+        MOVEI   1,4             ; RETURN SOFT ERROR CODE
+        JRST    RETURN
+
+DSYN5:  MOVEI   1,XENTL         ; ADD XLEN TO DELETABLE WORDS
+        ADDM    1,DCNT1(PBLOCK)
+        PUSHJ   17,CNTDAT       ; ADD WORDS IN ASSOCIATED DATA
+        JFCL    0,              ; IGNORE NON-SKIP RETURN
+
+DSYN6:  LDB     1,IDT           ; TURN ON "DELETED SYN" BIT
+        IORI    1,IDT3
+        DPB     1,IDT
+
+        MOVEI   1,1             ; WRITE OUT MODIFIED HEADER BLOCK
+        MOVEI   2,SYNDAT
+        MOVE    3,DADD
+        MOVEI   4,HEADL
+        PUSHJ   17,WRITE
+
+        LDB     1,WCNT          ; INCREMENT DELETE COUNTS
+        ADDM    1,DCNT1(PBLOCK)
+        AOS     DCNT2(PBLOCK)
+
+        PUSHJ   17,FDWRIT       ; WRITE OUT FD
+
+        SETZ    1,
+        JRST    RETURN
+        PAGE
+;** FUNCTION DELID
+; DELETES A BASIC ID
+; ARGUMENTS:
+;       R1 = DICT NUMBER
+;       R2 = FATAL ERROR RETURN
+;       R3 = NON-FATAL ERROR RETURN
+;       R4 = BASIC ID
+DELID:  JSP     16,DINIT        ; INITIALIZE FUNCTION
+
+        MOVEM   4,BID           ; SAVE ARGUMENT
+
+        MOVE    1,4
+        PUSHJ   17,SEARCH       ; SEARCH FOR BID
+        ERROR   -102
+
+        PUSHJ   17,RHEAD        ; READ IN FIRST ACTIVE ELEMENT
+        ERROR   -102
+
+        LDB     1,SYNBID        ; A LITTLE ERROR CHECK
+        CAME    1,BID
+        ERROR   -10
+
+        LDB     1,IDT           ; TURN ON "DELETED BID" BIT
+        IORI    1,IDT2
+        DPB     1,IDT
+
+        MOVEI   1,1             ; WRITE OUT HEADER BLOCK
+        MOVEI   2,SYNDAT
+        MOVE    3,DADD
+        MOVEI   4,2
+        PUSHJ   17,WRITE
+
+        AOS     DCNT1(PBLOCK)   ; ADD 2 TO WORDS DELETABLE
+        AOS     DCNT1(PBLOCK)
+
+        JRST    DID3
+DID2:   PUSHJ   17,RNEXT        ; READ NEXT ACTIVE ELEMENT
+        JRST    DID4
+DID3:   LDB     1,WCNT          ; PICK UP WORD COUNT
+        ADDM    1,DCNT1(PBLOCK) ; ADD TO NUMBER OF DELETABLE WORDS
+        AOS     DCNT2(PBLOCK)   ; INCREMENT NUMBER DELETABLE SYNS
+        JRST    DID2
+
+DID4:   PUSHJ   17,CNTDAT       ; ADD IN WORDS OF ASSOCIATED DATA
+        JFCL    0,              ; IGNORE NON-SKIP RETURN
+        PUSHJ   17,FDWRIT       ; WRITE OUT FD
+
+        SETZ    1,              ; RETURN ZERO
+        JRST    RETURN
+        PAGE
+;** FUNCTION MODID
+; MODIFIES A SYN ID
+; ARGUMENTS:
+;       R1 = DICT NUMBER
+;       R2 = FATAL ERROR RETURN
+;       R3 = NON-FATAL ERROR RETURN
+;       R4 = STRING ADDRESS
+;       R5 = BASIC ID
+;       R6 = SYN ID
+;       R7 = LANGUAGE
+MODID:  JSP     16,DINIT        ; INITIALIZE FUNCTION
+
+        MOVEM   5,BID2          ; SAVE ARGUMENTS
+        MOVEM   6,SID2
+        MOVEM   7,TLAN
+
+        ADD     4,[700000000-1] ; BUILD BYTE POINTER
+        MOVEM   4,INSTG
+
+        MOVE    1,4             ; LOOK FOR STRING
+        PUSHJ   17,FIND
+        JRST    MOD2            ; NOT FOUND, ALL OK
+
+; STRING FOUND. BUT IF THE MATCH HAS THE SAME BID AND SID AS OUR
+; ARGUMENTS, THEN JUST CHANGE LANGUAGE AND WRITE BACK OUT.
+; OTHERWISE, ERROR: STRING ALREADY DEFINED.
+        MOVE    1,BID
+        MOVE    2,SID
+        CAMN    1,BID2
+        CAME    2,SID2
+        ERROR   -104
+
+        MOVE    1,TLAN          ; CHANGE LANGUAGE
+        DPB     1,SYNLNG
+
+        MOVEI   1,1             ; WRITE HEADER BLOCK
+        MOVEI   2,SYNDAT
+        MOVE    3,DADD
+        MOVEI   4,HEADL
+        PUSHJ   17,WRITE
+
+        SETZ    1,              ; RETURN ZERO
+        JRST    RETURN
+
+MOD2:   PUSHJ   17,HCHECK       ; CHECK FOR HASH TABLE FULL
+        ERROR   -105
+
+        MOVE    1,BID2          ; FIND THE BASIC ID
+        PUSHJ   17,SEARCH
+        ERROR   -102
+
+        PUSHJ   17,RHEAD        ; LOOK FOR FIRST ACTIVE ELEMENT
+        ERROR   -102
+        JRST    MOD4
+
+MOD3:   PUSHJ   17,RNEXT        ; READ NEXT ACTIVE ELEMENT
+        ERROR   -103
+MOD4:   LDB     1,SYNBID        ; A LITTLE ERROR CHECK
+        CAME    1,BID2
+        ERROR   -10
+        LDB     1,SYNID         ; SEE IF WE HAVE FOUND SID
+        CAME    1,SID2
+        JRST    MOD3
+
+        AOS     DCNT2(PBLOCK)   ; INDICATE ANOTHER DELETABLE SYNID
+
+        MOVE    1,INSTG         ; MOVE STRING
+        MOVE    2,[POINT 7,SYNSTG-1,35]
+        SETZ    5,
+        ILDB    3,1
+        IDPB    3,2
+        AOS     5
+        JUMPN   3,.-3
+
+        ADDI    5,4+HEADL*5     ; CALCULATE NUMBER OF WORDS
+        IDIVI   5,5
+
+        LDB     1,WCNT
+        CAMGE   1,5             ; IS NEW SYN BIGGER THAN OLD?
+        JRST    MOD5            ; YES
+
+        SUB     1,5             ; CALCULATE EXTRA WORDS
+        ADDM    1,DCNT1(PBLOCK) ; ADD TO DELETABLE WORDS
+
+        PUSH    17,DADD         ; SAVE OLD ADDRESS FOR NEW SYN
+        JRST    MOD6
+
+MOD5:   ADDM    1,DCNT1(PBLOCK) ; ADD WORD COUNT TO DELETABLE WORDS
+
+        LDB     1,IDT           ; TURN ON "DELETED SYN" BIT
+        IORI    1,IDT3
+        DPB     1,IDT
+
+        LDB     6,NXTSYN        ; PICK UP OLD SYN ID POINTER
+        MOVE    1,EOF1(PBLOCK)  ; REPLACE IT WITH NEW POINTER
+        PUSH    17,1            ; SAVE AS ADDRESS FOR NEW SYN
+        ADDI    1,1
+        D  1,NXTSYN
+
+        MOVEI   1,1             ; WRITE OUT OLD HEADER
+        MOVEI   2,SYNDAT
+        MOVE    3,DADD
+        MOVEI   4,HEADL
+        PUSHJ   17,WRITE
+
+        SETZ    1,              ; SET IDT FIEDL TO ZERO
+        DPB     1,IDT
+
+        DPB     6,NXTSYN
+
+MOD6:   MOVE    1,HCODE         ; SET UP HASH TABLE ENTRY
+        MOVEM   1,HENTRY
+        MOVE    1,BID2
+        MOVEM   1,HENTRY+1
+        AOS     HUSED(PBLOCK)   ; INCREMENT HASH ENTRIES IN USE
+
+        DPB     5,WCNT          ; SET UP NEW WORD COUNT
+
+        MOVE    1,TLAN          ; SET UP NEW LANGUAGE
+        DPB     1,SYNLNG
+
+        MOVEI   1,1             ; WRITE OUT NEW SYN
+        MOVEI   2,SYNDAT
+        POP     17,3
+        MOVE    4,5             ; WORD COUNT STILL IN R5
+        PUSHJ   17,WRITE
+
+        MOVEI   1,3             ; WRITE OUT NEW HASH ENTRY
+        MOVEI   2,HENTRY
+        MOVE    3,PROBE
+        LSH     3,1
+        MOVEI   4,HENTL
+        PUSHJ   17,WRITE
+
+        PUSHJ   17,FDWRIT       ; WRITE OUT FD
+
+        SETZ    1,              ; RETURN ZERO
+        JRST    RETURN
+        PAGE
+;** FUNCTION LSTSYN
+; SCANS A LINKED LIST AND RETURNS A SUB ]SET OF IT
+; ARGUMENTS:
+;       R1 = DICT NUMBER
+;       R2 = FATAL ERROR RETURN
+;       R3 = NON-FATAL ERROR RETURN
+;       R4 = BASIC ID
+;       R5 = TABLE ADDRESS
+;       R6 = TABLE LENGTH
+;       R7 = MAXIMUM STRING LENGTH
+;       R8 = LANGUAGE
+;       R9 = STORAGE WORD FOR NUMBER OF ENTRIES IN TABLE
+LSTSYN: JSP     16,DINIT        ; INITIALIZE FUNCTION
+
+        MOVEM   4,BID           ; SAVE ARGUMENTS
+        MOVEM   5,TADD
+        MOVEM   6,TABLEN
+        MOVEM   7,TLEN
+        MOVEM   10,TLAN
+        MOVEM   11,NENT
+
+        SETZM   TVAL            ; INITIALIZE FUNCTION VALUE
+        SETZM   @NENT           ; INITIALIZE NUMBER ENTRIES IN TABLE
+        HRRZI   1,-1            ; INITIALIZE MIMINUM LENGTH FOUND
+        MOVEM   1,MINLEN
+        SETZM   MINID           ; INITILIZE ID WITH MIN LENGTH
+
+        MOVE    1,4             ; LOOK FOR BID
+        PUSHJ   17,SEARCH
+        ERROR   -102
+
+        PUSHJ   17,RHEAD        ; READ IN FIRST ACTIVE ELEMENT
+        ERROR   -102
+        JRST    LST3
+
+LST2:   PUSHJ   17,RNEXT        ; READ IN NEXT ACTIVE ELEMENT
+        JRST    LST7
+LST3:   LDB     1,SYNBID        ; A LITTLE ERROR CHECK
+        CAME    1,BID
+        ERROR   -10
+
+        SKIPGE  TLAN            ; DO WE CHECK LANGUAGE?
+        JRST    LST4
+        LDB     1,SYNLNG        ; PICK UP LANGUAGE
+        TDNN    1,TLAN
+        JRST    LST2            ; LANGUAGES DON'T MATCH
+
+LST4:   PUSHJ   17,FLEN         ; COUNT CHARACTERS IN STRING
+        LDB     2,SYNID         ; R1 = COUNT, R2 = SYNID
+        CAML    1,MINLEN        ; IS THIS A NEW MINIMUM?
+        JRST    LST5
+        MOVEM   1,MINLEN        ; SAVE ID AND LENGTH
+        MOVEM   2,MINID
+
+LST5:   SKIPG   TLEN            ; LENGTH A REQUIREMENT?
+        JRST    LST6
+        CAMLE   1,TLEN
+        JRST    LST2            ; TOO LONG
+
+LST6:   SKIPLE  TABLEN          ; IS TABLE FULL?
+        JRST    LST61           ; NO
+        MOVEI   1,3             ; INDICATE TABLE OVERFLOW
+        MOVEM   1,TVAL
+        JRST    LST2
+
+LST61:  HRL     2,1             ; SET UP TABLE ENTRY
+        MOVEM   2,@TADD         ; STORE IN TABLE
+
+        AOS     TADD            ; INCREMENT TABLE POINTER
+        AOS     @NENT           ; INCREMENT NUMBER ENTRIES
+        SOS     TABLEN          ; DECREMENT REMAINING SLOTS
+        JRST    LST2
+
+LST7:   MOVE    1,TVAL          ; PICK UP FUNCTION VALUE
+        MOVE    2,MINID         ; AND RETURN MINIMUM
+        CAIG    2,0
+        ERROR   -106            ; NOTHING FOUND..
+        HRL     2,MINLEN
+        JRST    RETURN
+
+        PAGE
+;** SUBROUTINE TO COUNT WORDS IN ASSOCIATED DATA BLOCK AND
+; ADD THOSE TO DELETABLE WORDS IN FILES 1 & 2.
+CNTDAT: SOS     3,XENTRY+2      ; PICK UP ADDRESS
+        JUMPGE  3,.+2           ; IS THERE ANY DATA?
+        POPJ    17,
+        MOVEI   1,1             ; READ IN HEADER TO DATA
+        MOVEI   2,TBUFF
+        MOVEI   4,2
+        PUSHJ   17,READ
+        MOVE    2,TBUFF         ; DO A LITTLE ERROR CHECKING
+        MOVE    1,TBUFF+1
+        CAMN    2,DATCON
+        CAIGE   1,2
+        ERROR   -15
+        AOS     1,DCNT1(PBLOCK)
+        AOS     0(17)           ; SKIP RETURN
+        POPJ    17,
+
+        PAGE
+;** SUBROUTINE TO READ IN ASSOCIATED DATA TABLE
+RDATA:  SKIPG   2,DBUFF         ; SHALL WE READ IN TABLE HEADER?
+        POPJ    17,
+        SOS     3,XENTRY+2      ; SEE IF THERE IS ANY DATA TO READ..
+        JUMPGE  3,RDATA2
+        SETZM   0(2)            ; SHIP BACK TWO ZEROES
+        SETZM   1(2)
+        POPJ    17,
+RDATA2: MOVEI   1,1             ; SET UP READ
+        MOVEI   2,TBUFF
+        MOVEI   4,3
+        PUSHJ   17,READ
+        MOVE    5,DATCON        ; A LITTLE ERROR CHECKING
+        MOVE    4,TBUFF+1
+        CAMN    5,TBUFF
+        CAIGE   4,3
+        ERROR   -15
+        MOVE    1,DBUFF
+        ADDI    3,3             ; NEW DISC ADDRESS
+        SUBI    4,3
+        MOVEM   3,0(1)
+        MOVEM   4,1(1)
+        POPJ    17,
+
+        PAGE
+;** FUNCTION MODDAT
+; MODIFIES AN ASSOCIATED DATA BLOCK
+; ARGUMENTS:
+;       R1 = DICT NUMBER
+;       R2 = FATAL ERROR RETURN
+;       R3 = NON-FATAL ERROR RETURN
+;       R4 = BID
+;       R5 = TABLE ADDRESS
+;       R6 = TABLE LENGTH
+MODDAT: JSP     16,DINIT        ; INITIALIZE FUNCTION
+
+        MOVEM   4,BID           ; SAVE BASIC ID
+        MOVEM   5,ADADD         ; SAVE TABLE ADDRESS
+        MOVEM   6,ADLEN
+
+        MOVE    1,4             ; LOOK FOR BID
+        PUSHJ   17,SEARCH
+        ERROR   -102
+        MOVEM   3,XADD          ; SAVE ADDRESS OF FILE 2 ENTRY
+
+        PUSHJ   17,CNTDAT       ; DELETE OLD DATA BLOCK
+        SETZ    1,              ; IF NO BLOCK, WORD COUNT = 0
+        MOVEM   1,OLEN          ; SAVE WORD COUNT
+        MOVE    5,XENTRY+2      ; SAVE OLD ADDRESS
+        SETZM   XENTRY+2        ; ZERO POINTER TO DATA
+
+        SKIPLE  4,ADLEN
+        SKIPG   2,ADADD         ; DO WE HAVE NEW DATA TO ADD?
+        JRST    MODD3           ; NO
+        MOVE    1,BID           ; PUT BID IN HEADER
+        MOVEM   1,DATCON+2
+        ADDI    4,3             ; TOTAL WORD COUNT
+        MOVEM   4,DATCON+1      ; INTO HEADER
+        MOVE    3,EOF1(PBLOCK)  ; ASSUME WRITE TO END OF FILE 1
+        CAMLE   4,OLEN          ; HOWEVER, IF NEW BLOCK WILL FIT...
+        JRST    MODD2
+        MOVE    3,5             ; USE OLD ADDRESS
+        MOVN    5,4             ; AND "UN-ADD" SOME OF THOSE WORDS
+        ADD     5,OLEN
+        ADDM    5,DCNT1(PBLOCK)
+MODD2:  MOVEM   3,XENTRY+2      ; POINT FILE 2 ENTRY TO DATA
+        AOS     XENTRY+2
+        MOVEI   1,1
+        MOVEI   2,DATCON
+        MOVEI   4,3
+        PUSHJ   17,WRITE        ; WRITE OUT HEADER
+        MOVE    2,ADADD
+        ADDI    3,3             ; NEW DISC ADDRESS
+        MOVE    4,ADLEN
+        PUSHJ   17,WRITE        ; WRITE OUT DATA TABLE
+
+MODD3:  MOVEI   1,2             ; WRITE OUT FILE 2 ENTRY
+        MOVEI   2,XENTRY
+        MOVE    3,XADD          ; TO OLD ADDRESS OF COURSE
+        MOVEI   4,XENTL
+        PUSHJ   17,WRITE
+
+        SETZB   1,2             ; RETURN ZEROES
+        JRST    RETURN
+
+        PAGE
+;** SUBROUTINE FIND
+; THIS SUBROUTINE FINDS A STRING.
+; ARGUMENTS:
+;       R1 = BYTE POINTER FOR STRING
+; RETURNS:
+;       BID = BASIC ID FOR STRING
+;       SID = SYN ID FOR STRING
+;       HEAD = DISC ADDRESS OF HEAD OF SYN LIST
+;       DADD = DISC ADDRESS OF MATCHING SYN
+;       HCODE = HASH CODE FOR STRING
+;       PROBE = HASH TABLE ENTRY NUMBER
+;       LANG = LANGUAGE OF STRING
+; SKIPS IS SUCCESSFUL.
+FIND:   PUSH    17,1            ; SAVE STRING POINTER
+
+        HRLZI   3,-MAXCHR       ; GENERATE HASH CODE
+        SETZ    2,
+
+HASH1:  ILDB    4,1
+        JUMPE   4,HASH2
+        ROT     2,5
+        EQV     2,4
+        AOBJN   3,HASH1
+        ERROR   -101            ; STRING TOO LONG
+
+HASH2:  JUMPGE  2,.+2           ; TAKE ABS VALUE OF HASH CODE
+        MOVN    2,2
+        MOVEM   2,HCODE         ; SAVE HASH CODE
+        IDIV    2,HLEN(PBLOCK)  ; CALCULATE PROBE NUMBER
+        MOVEM   3,PROBE
+        IDIVI   2,^D23          ; CALCULATE STEP SIZE
+        ADDI    3,1
+        MOVEM   3,STEP
+        MOVE    3,PROBE
+
+HASH3:  IMULI   3,HENTL         ; READ IN HASH TABLE ENTRY
+        MOVEI   1,3
+        MOVEI   2,HENTRY
+        MOVEI   4,HENTL
+        PUSHJ   17,READ
+
+        SKIPN   HENTRY+1
+        JRST    HASH5           ; NULL ENTRY = NOT FOUND
+        MOVE    2,HENTRY
+        CAMN    2,HCODE         ; COMPARE HASH CODES
+        JRST    HASH6           ; MISCOMPARE = RE-HASH
+
+HASH4:  MOVE    2,PROBE         ; CALCULATE NEW PROBE
+        ADD     2,STEP
+        IDIV    2,HLEN(PBLOCK)
+        MOVEM   3,PROBE
+        JRST    HASH3           ; GO TRY NEW PROBE
+
+HASH5:  POP     17,1            ; REMOVE STRING POINTER FROM STACK
+        POPJ    17,             ; GO HOME IN DEFEAT
+
+; HASH CODES MATCHED ON PROBE. SEE IF IT POINTS TO A SYN LIST WITH
+; A SYN STRING THAT MATCHES OUR STRING. IF SO, WE'RE DONE. IF NOT,
+; GO RE-HASH.
+HASH6:  MOVE    1,HENTRY+1      ; LOOK UP SYN LIST ADDRESS
+        MOVEM   1,TBID
+        PUSHJ   17,SEARCH
+        JRST    HASH4           ; COULDN'T FIND IT
+
+        MOVEM   1,HEAD          ; SAVE ADDRESS OF HEAD OF LIST
+
+        PUSHJ   17,RHEAD        ; READ IN HEAD OF LIST
+        JRST    HASH4           ; HEAD NO GOOD
+        JRST    HASH71
+
+HASH7:  PUSHJ   17,RNEXT        ; READ NEXT ELEMENT IN LINKED LIST
+        JRST    HASH4           ; END OF LIST. GO RE-HASH
+
+HASH71: LDB     1,SYNBID        ; CHECK BID NUMBER
+        CAME    1,TBID
+        ERROR   -10
+
+        MOVE    1,0(17)         ; RETRIEVE OUR STRING POINTER
+        MOVE    2,[POINT 7,SYNSTG-1,35]; STRING POINTER FOR LIST
+
+HASH8:  ILDB    3,1             ; COMPARE STRINGS
+        ILDB    4,2
+        JUMPE   3,HASH9
+        JUMPE   4,HASH7
+        CAME    3,4
+        JRST    HASH7
+        JRST    HASH8
+HASH9:  JUMPN   4,HASH7
+
+        MOVE    1,TBID          ; SET UP BID NUMBER
+        MOVEM   1,BID
+        LDB     2,SYNID         ; PICK UP SYN ID
+        MOVEM   2,SID
+        LDB     2,SYNLNG        ; PICK UP LANGUAGE
+        MOVEM   2,LANG
+
+        POP     17,1            ; REMOVE STRING POINTER FROM STACK
+        AOS     0(17)           ; SET UP SKIP RETURN
+        POPJ    17,
+        PAGE
+;** SUBROUTINE TO READ HEAD OF LINKED LIST
+; R1 = DISC ADDRESS
+; SKIPS IF LIST CONTAINS ANY ACTIVE SYNS.
+; READS LIST UNTIL END FOUND OR ACTIVE SYN FOUND.
+; RETURNS:
+; DADD = DISC ADDRESS OF ACTIVE ELEMENT
+; SYNMAX = MAX SYN ID USED BY LIST
+; NEXT = ADDRESS OF NEXT ELEMENT IN LIST
+RHEAD:  PUSHJ   17,RONE         ; READ IN ELEMENT
+
+        LDB     1,IDT           ; SEE IF IT IS HEAD OF LIST
+        TRNN    1,IDT1
+        ERROR   -10
+
+        TRNE    1,IDT2          ; IS BASIC ID DELETED?
+        POPJ    17,
+
+        LDB     2,SYNMAX        ; PICK UP MAX SID USED
+        MOVEM   2,MAXSID
+
+        LDB     2,NXTSYN        ; PICK UP ADDRESS OF NEXT LINK
+        SUBI    2,1
+        MOVEM   2,NEXT
+
+        TRNN    1,IDT3          ; IS THIS ELEMENT DELETED?
+        JRST    RHEAD2
+        PUSHJ   17,RNEXT        ; YES, READ NEXT ACTIVE ELEMENT
+        POPJ    17,             ; NO MORE ACTIVE ELEMENTS
+
+RHEAD2: AOS     0(17)           ; SKIP RETURN
+        POPJ    17,
+        PAGE
+;** SUBROUTINE TO READ NEXT(!!) ACTIVE ELEMENT IN A LIST
+; SKIPS IF ELEMENT FOUND.
+; RETURNS:
+; DADD = DISC ADDRESS OF ELEMENT
+; NEXT = ADDRESS OF NEXT ELEMENT IN LIST
+RNEXT:  MOVE    1,NEXT          ; PICK UP ADDRESS OF NEXT ELEMENT
+        JUMPGE  1,.+2           ; CHECK FOR END OF LIST
+        POPJ    17,
+
+        PUSHJ   17,RONE         ; READ IN ELEMENT
+
+        LDB     1,NXTSYN        ; PICK UP ADDRESS OF NEXT ELEMENT
+        SUBI    1,1
+
+        LDB     2,IDT           ; CHECK FOR "NOT HEAD OF LIST"
+        TRNE    2,IDT1
+        ERROR   -10
+
+        TRNE    2,IDT3          ; CHECK FOR ELEMENT DELETED
+        JRST    RNEXT+1         ; GO READ NEXT ELEMENT
+
+        MOVEM   1,NEXT          ; SAVE NEXT ADDRESS
+
+        AOS     0(17)           ; SKIP RETURN
+        POPJ    17,
+        PAGE
+;** SUBROUTINE USED BY RHEAD AND RNEXT TO READ AN ELEMENT
+; IN A LINKED LIST. PRELIMINARY ERROR CHECKING IS DONE.
+; DISC ADDRESS SAVED IN CELL DADD.
+RONE:   MOVEM   1,DADD          ; SAVE ADDRESS
+        MOVE    3,1             ; SET UP DISC READ OF TWO WORDS
+        MOVEI   1,1             ; FROM SUB-FILE ONE.
+        MOVEI   2,SYNDAT        ; INTO BUFFER SYNDAT
+        MOVEI   4,HEADL         ; HEADER ONLY
+        PUSHJ   17,READ
+
+        MOVE    4,SYNDAT        ; CHECK HEADER CONSTANT
+        CAME    4,SYNCON
+        ERROR   -10
+
+        LDB     4,WCNT          ; PICK UP TOTAL WORD COUNT
+        SUBI    4,HEADL         ; SUBTRACT HEADLOR WORDS WE READ
+        JUMPG   4,.+2           ; THERE MUST BE MORE
+        ERROR   -10
+        ADDI    2,HEADL         ; INCREMENT CORE ADDRESS BY HEADL
+        ADDI    3,HEADL         ; INCREMENT DISC ADDRESS BY HEADL
+        PUSHJ   17,READ
+
+        POPJ    17,
+        PAGE
+;** SUBROUTINE TO SEARCH SUB-FILE TWO FOR A BID.
+; R1 = BID
+; RETURNS:
+; R1 = DISC ADDRESS ON FILE ONE OF LINKED LIST
+; SKIPS IF SUCCESSFUL.
+; NO REGISTERS PRESERVED.
+SEARCH: MOVE    2,EOF2(PBLOCK)  ; GET LENGTH OF FILE TWO
+        IDIVI   2,XENTL
+        SUBI    2,1
+        JUMPGE  2,.+2   ; ANY ENTRIES TO CHECK?
+        POPJ    17,
+
+        PUSH    17,1            ; -3(17) = TEST VALUE TO MATCH
+        PUSH    17,[0]          ; -2(17) = LOWER LIMIT OF SEARCH
+        PUSH    17,2            ; -1(17) = UPPER LIMIT OF SEARCH
+        PUSH    17,[0]          ; 0(17) = CURRENT PROBE NUMBER
+
+; NEXT PROBE = (LOWER LIMIT) + ( (UPPER LIMIT)-(LOWER LIMIT) )/2
+SRCH1:  MOVE    3,-1(17)        ; GET UPPER LIMIT
+        SUB     3,-2(17)        ; SUBTRACT LOWER LIMIT
+        LSH     3,-1            ; DIVIDE BY TWO
+        ADD     3,-2(17)        ; ADD IN LOWER LIMIT
+        MOVEM   3,0(17)         ; SAVE AS CURRENT PROBE
+
+        IMULI   3,XENTL         ; DISC ADDRESS = PROBE VALUE * XENTL
+        MOVEI   1,2             ; SUB-FILE TWO
+        MOVEI   2,XENTRY        ; INTO BUFFER XENTRY
+        MOVEI   4,XENTL         ; TWO WORDS
+        PUSHJ   17,READ         ; READ IN PROBE
+
+        MOVE    1,-3(17)        ; GET TEST VALUE
+        CAME    1,XENTRY        ; SEE IF EQUAL TO PROBE
+        JRST    SRCH2
+
+        POP     17,1            ; REDUCE STACK
+        POP     17,1
+        POP     17,1
+        POP     17,1
+        MOVE    1,XENTRY+1      ; PICK UP DISC ADDRESS
+        AOS     0(17)           ; SKIP RETURN
+        POPJ    17,
+
+SRCH2:  CAMG    1,XENTRY        ; IS TEST VALUE GREATER?
+        JRST    SRCH3
+        MOVE    1,0(17)         ; MOVE LOWER LIMIT UP
+        ADDI    1,1
+        MOVEM   1,-2(17)
+        CAMG    1,-1(17)        ; IF LIMITS OVERLAP THEN FAIL
+        JRST    SRCH1
+        JRST    SRCH4
+
+SRCH3:  MOVE    1,0(17)         ; MOVE UPPER LIMIT DOWN
+        SUBI    1,1
+        MOVEM   1,-1(17)
+        CAML    1,-2(17)        ; IF LIMITS OVERLAP THEN FAIL
+        JRST    SRCH1
+
+SRCH4:  POP     17,1            ; RETURN CURRENT PROBE
+        POP     17,2            ; RESTORE STACK
+        POP     17,2
+        POP     17,2
+        POPJ    17,             ; RETURN
+        PAGE
+;** SUBROUTINE TO CHECK FOR HASH TABLE FULL
+HCHECK: MOVE    2,HLEN(PBLOCK)  ; PICK UP HASH TABLE LENGTH
+        MULI    2,^D95          ; CHECK FOR 95% FULL
+        DIVI    2,^D100
+        CAMLE   2,HUSED(PBLOCK)
+        AOS     0(17)
+        POPJ    17,
+        PAGE
+;** SUBROUTINE TO COUNT CHARACTERS IN STRING IN SYNDAT
+FLEN:   MOVE    2,[POINT 7,SYNSTG-1,35]
+        SETZ    1,
+FLEN2:  ILDB    3,2
+        JUMPN   3,.+2
+        POPJ    17,
+        AOS     1
+        JRST    FLEN2
+    g@W
