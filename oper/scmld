@@ -1,0 +1,124 @@
+      SUBROUTINE SCMLD                                                  CMLD0050
+C     LOCAL SUBROUTINE OF SLNK9                                         CMLD0060
+C     STRESS PROGRAMMING SYSTEM FOR IBM 1130                            CMLD0070
+C     DIMENSION AND COMMON STATEMENTS WHICH MUST APPEAR IN ALL ROUTINES CMLD0080
+C     FILLER TO RESERVE SPACE FOR STFLIK TABLE OF 25 20-DIGIT           CMLD0090
+C     DISC CONTROL FIELDS SIMILAR TO DIM ENTRIES OF MONITOR I           CMLD0100
+      DIMENSION NSYSF(6)                                                CMLD0110
+      DIMENSION NPRBF(6)                                                CMLD0120
+      DIMENSION NARRF(36)                                               CMLD0130
+      DIMENSION  JMIN(250),JPLS(250),MTYP(250)                                  
+C     SCRATCH AREA                                                      CMLD0170
+      DIMENSION A(40),B(40),C(10),D(10)                                 CMLD0180
+      DIMENSION FACT(6),NNT(6)                                          CMLD0190
+C     MAIN PROGRAM HAS UNPACKED JLX,NLI,NPAIR                           CMLD0200
+C     NPAIR=NUMBER OF INDEPENDENT LOADING CONDITIONS                    CMLD0210
+C     TO BE COMBINED                                                    CMLD0220
+C     SYSTEM PARAMETERS  -  14 WORDS                                    CMLD0230
+      COMMON NTMP,KCUR,NAVAL,NOVER,ISOLV,ISUCC,ISCAN,ITRAC,NSYSF        CMLD0240
+C     PROBLEM PARAMETERS  -  32 WORDS                                   CMLD0250
+      COMMON NJ,NB,NDAT,NFJS,NLDS,NLDSI,ID,NCORD,JF,NSQ,IMETH,NMR,NJR,  CMLD0260
+     1IBETA,IYOUN,ISHEA,GSHEA,EYOUN,FILL1,FILL2, IPZER,ISTRS,NPRBF              
+C     PLATE PARAMETERS                                                  $MLD0274
+      COMMON IPLAT,NPLAT,KPLA1,KPLAT,KTHI1,KTHIK                        $MLD0276
+C     ARRAY CODEWORDS  40 PAIRS = 80 WORDS                              CMLD0280
+      COMMON KNAM1,KNAME,KXY1,KXYZ,KJRE1,KJREL,MEGA1,MEGAZ,KMEM1,KMEMB, CMLD0290
+     1KBET1,KBETA,KYON1,KYOUN,KSHE1,KSHEA,KMRE1,KMREL,KMEG1,KMEGA,      CMLD0300
+     2KMKS1,KMKST,KROT1,KROTE,KPPL1,KPPLS,KPMN1,KPMNS,LOAD1,LOADS,      CMLD0310
+     3KLIN1,KLINT,MLOA1,MLOAD,JLOA1,JLOAD,KDIA1,KDIAG,KOFD1,KOFDG,      CMLD0320
+     4KPPR1,KPPRI,KSTA1,KSTAT                                           CMLD0330
+      COMMON NARRF                                                      CMLD0340
+      COMMON JMIN,JPLS,MTYP                                             CMLD0350
+      COMMON A,B,C,D,JLX,NLI,NPAIR,IPRIN                                CMLD0360
+C     LOADS(JLX) IS IN A- 4 FILE RECORDS - SAVE                         CMLD0370
+C     A(1)=HEADER WORD                                                  CMLD0380
+C     A(2-19)=LOADING TITLE                                             CMLD0390
+C     A(20)=EXTERNAL LOADING NUMBER (FLOATING PT.)                      CMLD0400
+C     A(21)=MULTIPLICATION FACTOR                                       CMLD0410
+C     A(22),A(23) LIKEWISE, ETC.                                        CMLD0420
+C     LOOP ON NUMBER OF PAIRS, UNPACK LOADING CONDITION                 CMLD0430
+C     AND FACTOR- NEED A(40),B(10),C(10) IN COMMON                      CMLD0440
+      DO 100 NP=1,NPAIR                                                 CMLD0450
+      I=2*NP+18                                                         CMLD0460
+      LDG=A(I)                                                          CMLD0470
+C     CONVERT TO INTERNAL LOADING                                       CMLD0480
+      CALL SDATA (KLIN1,KLINT,LDG,A,NNT(NP),1,1)                        CMLD0490
+      I=2*NP+19                                                         CMLD0500
+100   FACT(NP)=A(I)                                                     CMLD0510
+C     COMBINE DISPLACEMENTS IN C                                        CMLD0520
+      DO 202 J=1,NJ                                                     CMLD0530
+      DO 200 I=1,JF                                                     CMLD0540
+200   C(I)=0.0                                                          CMLD0550
+      DO 201 NP=1,NPAIR                                                 CMLD0560
+      F=FACT(NP)                                                        CMLD0570
+      ML=(NNT(NP)-1)*NJ                                                 CMLD0580
+      CALL SDATA(KPPR1,KPPRI,ML+J,B,JKL,-1,0)                           CMLD0590
+      DO 203 I=1,JF                                                     CMLD0600
+203   C(I)=C(I)+F*B(I)                                                  CMLD0610
+201   CONTINUE                                                          CMLD0620
+      LDG=(NLI-1)*NJ+J                                                  CMLD0630
+      CALL SDATA(KPPR1,KPPRI,LDG,C,JKL,-2,0)                            CMLD0640
+202   CONTINUE                                                          CMLD0650
+C     COMBINE REACTIONS AND STATICS CHECK IN C                          CMLD0660
+      DO 300 J=1,NJ                                                     CMLD0670
+      DO 301 I=1,JF                                                     CMLD0680
+301   C(I)=0.0                                                          CMLD0690
+      DO 302 NP=1,NPAIR                                                 CMLD0700
+      F=FACT(NP)                                                        CMLD0710
+      ML=(NNT(NP)-1)*NJ                                                 CMLD0720
+      CALL SDATA(KSTA1,KSTAT,ML+J,B,JKL,-1,0)                           CMLD0730
+      DO 303 I=1,JF                                                     CMLD0740
+303   C(I)=C(I)+F*B(I)                                                  CMLD0750
+302   CONTINUE                                                          CMLD0760
+      LDG=(NLI-1)*NJ+J                                                  CMLD0770
+      CALL SDATA(KSTA1,KSTAT,LDG,C,JKL,-2,0)                            CMLD0780
+300   CONTINUE                                                          CMLD0790
+      IF(NB)600,600,310                                                         
+  310 CONTINUE                                                                  
+C     COMBINE END FORCES IN SEPARATE LOOPS TO MINIMIZE SEEK             CMLD0800
+C     COMBINE MINUS END FORCES IN C                                     CMLD0810
+      DO 400 J=1,NB                                                     CMLD0820
+      DO 401 I=1,JF                                                     CMLD0830
+401   C(I)=0.0                                                          CMLD0840
+      DO 402 NP=1,NPAIR                                                 CMLD0850
+      F=FACT(NP)                                                        CMLD0860
+      ML=(NNT(NP)-1)*NB+J                                               CMLD0870
+      CALL SDATA(KPMN1,KPMNS,ML,B,JKL,-1,0)                             CMLD0880
+      DO 403 I=1,JF                                                     CMLD0890
+403   C(I)=C(I)+F*B(I)                                                  CMLD0900
+402   CONTINUE                                                          CMLD0910
+      LDG=(NLI-1)*NB+J                                                  CMLD0920
+      CALL SDATA(KPMN1,KPMNS,LDG,C,JKL,-2,0)                            CMLD0930
+400   CONTINUE                                                          CMLD0940
+C     COMBINE PLUS END FORCES IN C                                      CMLD0950
+      DO 500 J=1,NB                                                     CMLD0960
+      DO 501 I=1,JF                                                     CMLD0970
+501   C(I)=0.0                                                          CMLD0980
+      DO 502 NP=1,NPAIR                                                 CMLD0990
+      F=FACT(NP)                                                        CMLD1000
+      ML=(NNT(NP)-1)*NB+J                                               CMLD1010
+      CALL SDATA(KPPL1,KPPLS,ML,B,JKL,-1,0)                             CMLD1020
+      DO 503 I=1,JF                                                     CMLD1030
+503   C(I)=C(I)+F*B(I)                                                  CMLD1040
+502   CONTINUE                                                          CMLD1050
+      LDG=(NLI-1)*NB+J                                                  CMLD1060
+      CALL SDATA(KPPL1,KPPLS,LDG,C,JKL,-2,0)                            CMLD1070
+500   CONTINUE                                                          CMLD1080
+  600 IF(IPLAT)700,700,605                                                      
+  605 IF(ISTRS)700,700,610                                                      
+  610 DO 680 J=1,IPLAT                                                          
+      DO 615 I=1,JF                                                             
+  615 C(I)=0.0                                                                  
+      DO 620 NP=1,NPAIR                                                         
+      F=FACT(NP)                                                                
+      ML=(NNT(NP)-1)*IPLAT+J                                                    
+      CALL SDATA(KTHI1,KTHIK,ML,B,JKL,-1,0)                                     
+      DO 630 I=1,JF                                                             
+  630 C(I)=C(I)+F*B(I)                                                          
+  620 CONTINUE                                                                  
+      LDG=(NLI-1)*IPLAT+J                                                       
+      CALL SDATA(KTHI1,KTHIK,LDG,C,JKL,-2,0)                                    
+  680 CONTINUE                                                                  
+  700 RETURN                                                            CMLD1090
+      END                                                               CMLD1100
+    
