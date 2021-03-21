@@ -1,0 +1,995 @@
+MODULE FILIO(DOLLAR,ENTRIES=($COPEN),FSAVE,TIMING,
+                             TIMER=EXTERNAL(SIX12))=
+
+BEGIN
+
+
+REQUIRE UDEFS.BLI[7,107355];
+REQUIRE CDEFS.BLI[7,107355];
+REQUIRE FDEFS.BLI[7,107355];
+
+UNDECLARE $COPEN;
+
+FORWARD $COPEN;
+
+
+%  BASIC MONITOR LEVEL IO CALLS
+%
+
+MACHOP
+  CALLI=#047,
+  NOP=#300,
+  XCT=#256;
+
+BIND
+   CHPWD=5,
+   CHSIZE=7,
+   WDSIZE=36,
+   PUSHJMP=#260,
+   OPENUUO=#050,
+   INUUO=#056,
+   OUTUUO=#057,
+   INBF=#064,
+   OUTBF=#065,
+   GETSTS=#062,
+   STATZ=#063,
+   CLOSEUUO=#070,
+   RELEAS=#071,
+   LOOKUPUUO=#076,
+   ENTERUUO=#077,
+   USETI=#074,
+   USETO=#075;
+
+%       SOME USEFUL MACROS:
+%
+MACRO
+   ERRMSG(S,CODE)=
+      BEGIN
+      $UOUTM(FTLMS$<WDSIZE,CHSIZE>,.CTERM$);
+      $UOUTM($USPTR(S),.CTERM$);
+      $FATAL(CODE)
+      END&,
+   COPYBUF=$UMOVE(.FCB[C$BSIZE],.FCB[C$IPTR]+1,.FCB[C$OPTR]+1)&,
+   DECP(P)=(IF (P_.P+CHSIZE^30) LSS 0 THEN P_.P+(WDSIZE-CHSIZE)^30-1; .VREG)&,
+   MIN(A,B)=(IF A LEQ B THEN A ELSE B)&,
+   BETWEEN(C,A,B)=(C GEQ A AND C LEQ B)&,
+   MAKEOP(OP,REG,ADDR)=(OP^27+REG^23+ADDR<0,0>)&,
+   INC(A)=(A_.A+1)&,
+   DEC(A)=(A_.A-1)&,
+   GETC=
+      IF (FCB[C$ICOUNT]_.FCB[C$ICOUNT]-1) LEQ 0
+         THEN BEGIN
+            LOCAL T;
+            T_SCANI(FCB[C$IPTR]);
+            INBUF(.FCB);
+            .T
+            END
+         ELSE SCANI(FCB[C$IPTR])&;
+
+%       NEEDED THINGS FOR BUFFER RINGS:
+%
+BIND
+   FLINK=0,
+   USEBIT=1;
+
+STRUCTURE BUF[FIELD]=CASE .FIELD OF SET
+%FLINK%   (@.BUF)<0,18>;
+%USEBIT%  (@.BUF)<35,1>
+   TES;
+
+
+ROUTINE FCBDMPER=$CFCBD();      % DUMMY TO CAUSE LOADING OF $CFCBD %
+
+ROUTINE PANIC(FCB)=
+   BEGIN
+   MAP CFILECB$ FCB;
+   LOCAL CODE;
+   IF .FCB[C$EXCEPT] EQL 0
+      THEN FCB[C$EXCEPT]_$CIOAB<0,0>;
+   CODE_IFSKIP XCT(0,FCB[C$STATZOP])
+                   THEN CV$EOF
+                   ELSE CV$IOERR;
+   (.FCB[C$EXCEPT])(.FCB,.CODE);
+   IF .FCB[C$EXCEPT] EQL 0
+      THEN FCB[C$EXCEPT]_$CIOAB
+   END;
+
+
+
+ROUTINE INBUF(FCB)=
+   BEGIN
+   MAP CFILECB$ FCB;
+   IF .FCB[C$EOFBIT]
+      THEN PANIC(.FCB);
+   IFSKIP XCT(0,FCB[C$INOP])
+      THEN
+         IFSKIP XCT(0,FCB[C$STATZOP])
+            THEN FCB[C$EOFBIT]_1
+            ELSE PANIC(.FCB)
+      ELSE INC(FCB[C$ICP])
+   END;
+
+
+ROUTINE OUTBUF(FCB)=
+   BEGIN
+   MAP CFILECB$ FCB;
+   IFSKIP XCT(0,FCB[C$OUTOP])
+      THEN PANIC(.FCB)
+      ELSE CASE SIGN(INC(FCB[C$OCP])-.FCB[C$MAXCP])+1 OF SET
+                  0;   % IN MIDDLE OF FILE %
+                  FCB[C$WLB]_1;  % IN THE LAST BLOCK %
+                  INC(FCB[C$MAXCP])   % CREATED NEW BLOCK %
+                  TES
+   END;
+
+ROUTINE SCP(FCB,CURSOR,CODE)=
+   BEGIN
+   MAP CFILECB$ FCB;
+
+   FUNCTION ZONK(S)=
+      BEGIN
+         BIND
+            DISP=(.CURSOR-1) MOD .FCB[C$ITEMPW],
+            WORDS=(((.CURSOR-1)/.FCB[C$ITEMPW]) MOD .FCB[C$BSIZE])+1,
+            BN=.CURSOR/.FCB[C$ITEMPW]/.FCB[C$BSIZE],
+            DELBN=BN-(CASE .S OF SET .FCB[C$ICP]; .FCB[C$OCP] TES);
+         (CASE .S OF SET
+            BEGIN
+               IF DELBN NEQ 0
+                  THEN
+                     CASE
+                        IF BETWEEN(DELBN,1,.FCB[C$NB]-1)
+                           THEN
+                              BEGIN
+                              LOCAL BUF Q;
+                              Q_.FCB[C$ICBUF];
+                              DECR R FROM DELBN TO 1
+                              DO Q_.Q[FLINK];
+                              .Q[USEBIT]
+                              END
+                           ELSE 0
+                        OF SET
+                           DECR R FROM DELBN TO 1
+                           DO (XCT(0,FCB[C$INOP]); NOP());
+                           BEGIN
+                           FCB[C$ICP]_BN+1;
+                           XCT(0,FCB[C$USETIOP]);
+                           IFSKIP XCT(0,FCB[C$INOP])
+                              THEN PANIC(.FCB)
+                              ELSE .VREG
+                           END
+                        TES;
+               FCB[C$IPTR]
+            END;
+            BEGIN
+               IF DELBN NEQ 0
+                  THEN BEGIN
+                     IF NOT .FCB[C$DIRTY]
+                        THEN FCB[C$OPTR]_.FCB[C$OCBUF]+1;
+                     FCB[C$OCP]_BN+1;
+                     XCT(0,FCB[C$USETOOP]);
+                     IF .FCB[C$OCP] GTR .FCB[C$MAXCP]
+                        THEN (FCB[C$MAXCP]_.FCB[C$OCP]; FCB[C$WLB]_1)
+                  END;
+               FCB[C$OPTR]
+            END
+         TES)_((CASE .S OF SET .FCB[C$ICBUF]; .FCB[C$OCBUF] TES)+WORDS+1)
+            <36-DISP*.FCB[C$ISIZE],.FCB[C$ISIZE]>;
+         (CASE .S OF SET FCB[C$ICOUNT]; FCB[C$OCOUNT] TES)_.FCB[C$BSIZE]-WORDS
+      END;
+
+   IF .CODE NEQ CV$OUTPUT
+      THEN ZONK(CV$INPUT);
+   IF .CODE NEQ CV$INPUT
+      THEN ZONK(CV$OUTPUT);
+
+   IF .FCB[C$TYPE] EQL CV$UPDATE
+      THEN COPYBUF
+      ELSE .VREG
+   END;
+
+
+ROUTINE SCPU(FCB,CURSOR)=
+   BEGIN
+   MAP CFILECB$ FCB;
+   IF (.CURSOR AND #177) NEQ 0
+      THEN (.FCB[C$EXCEPT])(.FCB,CV$BDCURS);
+   BEGIN
+      BIND
+         BLN=1+.CURSOR/.FCB[C$BSIZE];
+      IF .FCB[C$TYPE] NEQ CV$OUTPUT
+         THEN
+            BEGIN
+            FCB[C$ICP]_BLN;
+            XCT(0,FCB[C$USETIOP])
+            END;
+      IF .FCB[C$TYPE] NEQ CV$INPUT
+         THEN
+            BEGIN
+            FCB[C$OCP]_BLN;
+            XCT(0,FCB[C$USETOOP]);
+            IF .FCB[C$OCP] GTR .FCB[C$MAXCP]
+               THEN
+                  BEGIN
+                  FCB[C$MAXCP]_.FCB[C$OCP];
+                  FCB[C$WLB]_1
+                  END
+               ELSE .VREG
+            END
+      END
+   END;
+
+
+ROUTINE RC(FCB)=
+   BEGIN
+   MAP CFILECB$ FCB;
+   GETC
+   END;
+
+
+ROUTINE RBU(FCB)=
+   BEGIN
+   MAP CFILECB$ FCB;
+   IF (.FCB[C$DCNT] AND #177) NEQ 0
+      THEN (.FCB[C$EXCEPT])(.FCB,CV$BDCNT);
+   FCB[C$COML]<18,18>_-.FCB[C$DCNT];
+   FCB[C$COML]<0,18>_.FCB[C$DADR]-1;
+   IFSKIP XCT(0,FCB[C$INOP])
+      THEN PANIC(.FCB)
+      ELSE FCB[C$ICP]_.FCB[C$ICP]+.FCB[C$DCNT]^(-7)
+   END;
+
+
+ROUTINE RB(FCB)=
+   BEGIN
+   MAP CFILECB$ FCB;
+   LOCAL CNT,ADR,QR;
+   CNT_.FCB[C$DCNT];
+   ADR_.FCB[C$DADR];
+   WHILE .CNT GTR 0 DO
+      BEGIN
+      IF .FCB[C$EOFBIT]
+         THEN
+            BEGIN
+            FCB[C$DCNT]_.ADR-.FCB[C$DADR];
+            RETURN
+            END;
+      QR_MIN(.CNT,.FCB[C$ICOUNT]);
+      $UMOVE(.QR,.FCB[C$IPTR]+1,.ADR);
+      IF BEGIN
+         FCB[C$IPTR]_.FCB[C$IPTR]+.QR;
+         FCB[C$ICOUNT]_.FCB[C$ICOUNT]-.QR
+         END LEQ 0
+         THEN INBUF(.FCB);
+      ADR_.ADR+.QR;
+      CNT_.CNT-.QR
+      END
+   END;
+
+
+ROUTINE RCUP(FCB)=
+   BEGIN
+   MAP CFILECB$ FCB;
+   LOCAL T;
+   T_GETC;
+   IF DEC(FCB[C$OCOUNT]) LEQ 0
+      THEN SCP(.FCB,.FCB[C$ICP]*.FCB[C$ITEMPW]*.FCB[C$BSIZE],CV$INPUT);
+   .T
+   END;
+
+
+ROUTINE RBUP(FCB)=
+   BEGIN
+   MAP CFILECB$ FCB;
+   RB(.FCB);
+   SCP(.FCB,(.FCB[C$ICP]+1)*.FCB[C$BSIZE]-.FCB[C$ICOUNT],CV$INPUT)
+   END;
+
+
+ROUTINE WC(FCB)=
+   BEGIN
+   MAP CFILECB$ FCB;
+   REPLACEI(FCB[C$OPTR],.(.FCB[C$DADR])<0,7>);
+   IF DEC(FCB[C$OCOUNT]) LEQ 0
+      THEN OUTBUF(.FCB)
+   END;
+
+
+ROUTINE WCUP(FCB)=
+   BEGIN
+   MAP CFILECB$ FCB;
+   WC(.FCB); FCB[C$DIRTY]_1;
+   IF NOT .FCB[C$WLB]
+      THEN BEGIN
+         IF DEC(FCB[C$OCOUNT]) LSS 0
+            THEN IFSKIP XCT(0,FCB[C$OUTOP])
+               THEN PANIC(.FCB)
+               ELSE BEGIN
+                  COPYBUF;
+                  REPLACEI(FCB[C$OPTR],.(.FCB[C$DADR])<0,7>);
+                  DEC(FCB[C$OCOUNT]); INC(FCB[C$OCP])
+               END;
+         INCP(FCB[C$OPTR])
+      END
+   END;
+
+
+ROUTINE WBU(FCB)=
+   BEGIN
+   MAP CFILECB$ FCB;
+   IF (.FCB[C$DCNT] AND #177) NEQ 0
+      THEN (.FCB[C$EXCEPT])(.FCB,CV$BDCNT);
+   FCB[C$COML]<18,18>_-.FCB[C$DCNT];
+   FCB[C$COML]<0,18>_.FCB[C$DADR]-1;
+   IFSKIP XCT(0,FCB[C$OUTOP])
+      THEN PANIC(.FCB)
+   ELSE IF (FCB[C$OCP]_.FCB[C$OCP]+.FCB[C$DCNT]^(-7)) GEQ .FCB[C$MAXCP]
+      THEN (FCB[C$MAXCP]_.FCB[C$OCP]; FCB[C$WLB]_1)
+   END;
+
+
+ROUTINE WB(FCB)=
+   BEGIN
+   MAP CFILECB$ FCB;
+   LOCAL CNT,ADR,QR;
+   CNT_.FCB[C$DCNT];
+   ADR_.FCB[C$DADR];
+   WHILE .CNT GTR 0
+   DO
+      BEGIN
+      QR_MIN(.FCB[C$OCOUNT],.CNT);
+      $UMOVE(.QR,.ADR,.FCB[C$OPTR]+1);
+      IF BEGIN
+         FCB[C$OPTR]_.FCB[C$OPTR]+.QR;
+         FCB[C$OCOUNT]_.FCB[C$OCOUNT]-.QR
+         END EQL 0
+         THEN OUTBUF(.FCB);
+      ADR_.ADR+.QR;
+      CNT_.CNT-.QR
+      END
+   END;
+
+
+ROUTINE WBUP(FCB)=
+   BEGIN
+   MAP CFILECB$ FCB;
+   WB(.FCB);
+   SCP(.FCB,(.FCB[C$OCP]+1)*.FCB[C$BSIZE]-.FCB[C$OCOUNT],CV$OUTPUT)
+   END;
+
+
+ROUTINE RL(FCB)=
+   BEGIN
+   MAP CFILECB$ FCB;
+   LOCAL CLINE$ LP;
+   LP_.FCB[C$DADR];
+   LP[C$BPTR]_LP[C$TEXT]<WDSIZE,CHSIZE>;
+   IF .FCB[C$SEQF]
+     THEN
+        BEGIN
+        LOCAL
+           TP,         % WORD PTR TO LINE BUFFER %
+           WCNT,       % NO OF WORDS TO MOVE %
+           BPTR,       % POINTER TO IO BUFFER (WORKING) %
+           LIMIT,      % MAX NUMBER OF WORDS LEFT TO SCAN %
+           TCNT;       % TOTAL NUMBER OF WORDS MOVED %
+
+        % TRIML TRIMS THE LINE BY MERELY COMPUTING THE CHARACTER COUNT
+          SO AS TO NOT INCLUDE THE CARRIAGE RETURN.  WE ASSUME
+          THAT THAT THE LINE IN THE FILE ENDS WITH A CR,LF AND STRING
+          OF NULLS TO FILL OUT THE LAST WORD.
+        %
+        FUNCTION TRIML=
+           BEGIN
+           LOCAL
+              TCCNT,   % TOTAL COUNT %
+              PTR,    % BYTE PTR TO BUFFER %
+              CNT;    % RESIDUAL COUNT FOR LENGTH OF LINE %
+           PTR_(.BPTR-1)<WDSIZE-CHSIZE,CHSIZE>;    % FIRST PLACE A NULL CAN BE %
+           CNT_CHPWD-1;
+           UNTIL SCANI(PTR) EQL "?0" OR .CNT EQL 0
+           DO CNT_.CNT-1;
+           TCCNT_.TCNT*CHPWD-.CNT-2;
+           PTR_LP[C$EPTR]_(LP[C$TEXT]+.TCCNT/CHPWD)
+                         <WDSIZE-(.TCCNT MOD CHPWD)*CHSIZE,CHSIZE>;
+           REPLACEI(PTR,"?M");
+           FCB[C$DCNT]_.TCCNT
+           END;
+
+        IF @.FCB[C$IPTR] EQL ASCII '     '+1
+           THEN
+              BEGIN      % FOUND A PAGE MARK %
+              IF (FCB[C$ICOUNT]_.FCB[C$ICOUNT]-CHPWD) LEQ 0
+                 THEN INBUF(.FCB);
+              FCB[C$IPTR]_.FCB[C$IPTR]+1;
+              IF NOT .FCB[C$EOFBIT]
+                 THEN
+                    BEGIN   % SKIP SECOND WORD %
+                    IF (FCB[C$ICOUNT]_.FCB[C$ICOUNT]-CHPWD) LEQ 0
+                       THEN INBUF(.FCB);
+                    FCB[C$IPTR]_.FCB[C$IPTR]+1
+                    END;
+              IF .FCB[C$EOFBIT]
+                 THEN
+                    BEGIN
+                    LOCAL PTR;
+                    PTR_.FCB[C$IPTR]<0,18>;
+                    (.PTR)<0,36>_ASCII '99999'+1;
+                    PTR_.PTR+1;
+                    (.PTR)<0,36>_ASCII '?M?J?0?0?0';
+                    FCB[C$ICOUNT]_2*CHPWD
+                    END;
+              LP[C$PAGNO]_.LP[C$PAGNO]+1;
+              LP[C$PAGCHG]_1
+              END
+           ELSE LP[C$PAGCHG]_0;   % RESET PAGE CHANGED FLAG %
+
+        LP[C$SEQNO]_@.FCB[C$IPTR];
+        IF (FCB[C$ICOUNT]_.FCB[C$ICOUNT]-CHPWD) LEQ 0
+           THEN
+              BEGIN
+              INBUF(.FCB);
+              IF .FCB[C$EOFBIT]
+                 THEN
+                    BEGIN
+                    LOCAL PTR;
+                    PTR_LP[C$EPTR]_.LP[C$BPTR];
+                    REPLACEI(PTR,"?M");
+                    RETURN FCB[C$DCNT]_0
+                    END
+              END;
+        FCB[C$IPTR]_.FCB[C$IPTR]+1;
+
+        TCNT_0;
+        TP_LP[C$TEXT]<0,0>;
+        WHILE 1
+        DO
+           BEGIN       % BASIC LOOP TO MOVE REST OF BUFFER OR LINE %
+                       % WHICHEVER IS SMALLER %
+           BPTR_.FCB[C$IPTR]<0,18>;
+           LIMIT_.FCB[C$ICOUNT]/CHPWD;
+           DO
+              BEGIN    % SCAN FOR SEQUENCE NO. WORD %
+              BPTR_.BPTR+1;
+              LIMIT_.LIMIT-1
+              END
+           UNTIL .LIMIT LEQ 0 OR @@BPTR;
+           WCNT_.FCB[C$ICOUNT]/CHPWD-.LIMIT;
+           TCNT_.TCNT+.WCNT;
+           $UMOVE(.WCNT,.FCB[C$IPTR],.TP);
+
+           IF .LIMIT NEQ 0
+              THEN
+                 BEGIN
+                 FCB[C$IPTR]<0,18>_.BPTR;
+                 FCB[C$ICOUNT]_.LIMIT*CHPWD;
+                 RETURN TRIML()
+                 END
+              ELSE
+                 BEGIN
+                 INBUF(.FCB);
+                 FCB[C$IPTR]_.FCB[C$IPTR]+1;
+                 IF .FCB[C$EOFBIT] OR @.FCB[C$IPTR]
+                    THEN RETURN TRIML();
+                 TP_.TP+.WCNT
+                 END
+           END
+        END
+     ELSE
+        BEGIN
+        LOCAL
+           CHAR,       % TEMPORARY CHAR %
+           P,          % WORKING POINTER TO DEST. %
+           CNT;        % TRANSMITTED COUNT %
+        LABEL SCANULLS;
+
+        LP[C$PAGCHG]_0;
+        LP[C$SEQNO]_.LP[C$SEQNO]+1;
+        P_.LP[C$BPTR];
+        CNT_0;
+        UNTIL (IF (CHAR_GETC) EQL "?L"
+                       THEN
+                          BEGIN
+                          LP[C$PAGNO]_.LP[C$PAGNO]+1;
+                          LP[C$SEQNO]_LP[C$PAGCHG]_1;
+                          CHAR_GETC
+                          END
+                       ELSE .CHAR)
+           EQL "?M"
+        DO
+           BEGIN
+           REPLACEI(P,.CHAR);
+           CNT_.CNT+1
+           END;
+        LP[C$EPTR]_.P;
+        REPLACEI(P,.CHAR);      % GET THE CR AFTER THE LINE %
+        GETC;
+      SCANULLS:
+        BEGIN
+        UNTIL SCANI(FCB[C$IPTR]) NEQ "?0"
+        DO IF DEC(FCB[C$ICOUNT]) LEQ 0
+           THEN
+              BEGIN
+              INBUF(.FCB);
+              IF .FCB[C$EOFBIT]
+                 THEN LEAVE SCANULLS
+              END;
+        DECP(FCB[C$IPTR])
+        END;
+        FCB[C$DCNT]_.CNT
+        END
+   END;
+
+
+ROUTINE WL(FCB)=
+   BEGIN
+   MAP CFILECB$ FCB;
+   LOCAL
+      CLINE$ LP,       % POINTER TO SOURCE LINE %
+      PTR,             % WORKING PTR TO LINE TEXT %
+      CNT,             % WORKING COUNTER FOR LINE MOVEMENT %
+      ADR,             % WORKING ADDRESS %
+      WC;              % INTERMEDIATE COUNT %
+
+   LP_.FCB[C$DADR];
+   PTR_.LP[C$EPTR];
+   REPLACEI(PTR,"?M");
+   REPLACEI(PTR,"?J");
+   DECR I FROM .(PTR)<30,6>/CHSIZE TO 0
+   DO REPLACEI(PTR,"?0");
+   ADR_LP[C$TEXT]<0,0>-.LP[C$ISSEQ];
+   CNT_.PTR<0,18>-.ADR;
+   IF .LP[C$PAGCHG]
+      THEN
+         BEGIN
+         FCB[C$OPTR]_.FCB[C$OPTR]+1;
+         IF .LP[C$ISSEQ]
+            THEN
+               BEGIN
+               (.FCB[C$OPTR])<0,36>_ASCII '     '+1;
+               IF (FCB[C$OCOUNT]_.FCB[C$OCOUNT]-CHPWD) LEQ 0
+                  THEN OUTBUF(.FCB);
+               FCB[C$OPTR]_.FCB[C$OPTR]+1;
+               (.FCB[C$OPTR])<0,36>_ASCII '?M?M?L?0?0'
+               END
+            ELSE (.FCB[C$OPTR])<0,36>_ASCII '?L?0?0?0?0';
+         IF (FCB[C$OCOUNT]_.FCB[C$OCOUNT]-CHPWD) LEQ 0
+            THEN OUTBUF(.FCB)
+         END;
+
+   UNTIL .CNT EQL 0
+   DO
+      BEGIN
+      WC_MIN(.CNT,.FCB[C$OCOUNT]/CHPWD);
+      $UMOVE(.WC,.ADR,.FCB[C$OPTR]+1);
+      ADR_.ADR+.WC;
+      FCB[C$OPTR]_.FCB[C$OPTR]+.WC;
+      IF (FCB[C$OCOUNT]_.FCB[C$OCOUNT]-.WC*CHPWD) LEQ 0
+         THEN OUTBUF(.FCB);
+      CNT_.CNT-.WC
+      END
+   END;
+
+
+ROUTINE ER(FCB)=
+   BEGIN
+   MAP CFILECB$ FCB;
+   (.FCB[C$EXCEPT])(.FCB,CV$ILIOOP)
+   END;
+
+
+ROUTINE TEOF(FCB,CODE)=
+   BEGIN
+   MAP CFILECB$ FCB;
+   IF .CODE NEQ CV$EOF
+      THEN $CIOAB(.FCB,.CODE);
+   FCB[C$IPTR]_(.FCB[C$ICBUF]+2)<WDSIZE,CHSIZE>;
+   (.FCB[C$IPTR])<0,36>_'?M?J?0?0?0';
+   FCB[C$ICOUNT]_CHPWD;
+   FCB[C$EXCEPT]_$CIOAB<0,0>
+   END;
+
+GLOBAL ROUTINE $COPEN(FIDT,PARAM,NBUFS)=
+   BEGIN
+
+%  FIDT IS A POINTER TO THE FILE ID TABLE WHICH BASICALLY IS THE EXTENDED
+   LOOKUP OR ENTER BLOCK FOR DISC FILES.
+   THE SINGLE EXCEPTION IS THAT THE -1TH ENTRY OF FIDT IS THE DEVICE
+   NAME IN SIXBIT FOR THE OPEN UUO.  IF 0 IT DEFAULTS TO DISK.
+
+   PARAM IS THE WORD SPECIFYING THE ACCESS STRUCTURE TO THE FILE AND IS
+   PACKED FROM THE BASIC FORMS OF TYPE, ORGANIZATION AND MODE.  OPEN
+   ENCODES THESE PARAMETERS INTO A 'FILE STRUCTURE CODE'(FSC) WHICH IS USED
+   TO ACCESS THE VARIOUS TABLES WHICH SPECIFY WHAT ROUTINES ARE USED FOR
+   WHAT OPERATIONS.  SINCE THE ENCODINGS ARE MESSY THE VARIOUS VALUES ARE:
+
+  FSC    TYPE     ORG   MODE     BUF?   CFSC    RR   WR   SCPR
+  ------------------------------------------------------------
+   0:    INPUT    CHAR  SEQUEN   UNBUF (INVALID)
+   1:    OUTPUT   CHAR  SEQUEN   UNBUF (INVALID)
+   2:    UPDATE   CHAR  SEQUEN   UNBUF (INVALID)
+   3:    FDX      CHAR  SEQUEN   UNBUF (INVALID)
+   4:    INPUT    LINE  SEQUEN   UNBUF (INVALID)
+   5:    OUTPUT   LINE  SEQUEN   UNBUF (INVALID)
+   6:    UPDATE   LINE  SEQUEN   UNBUF (INVALID)
+   7:    FDX      LINE  SEQUEN   UNBUF (INVALID)
+   8:    INPUT    BLOCK SEQUEN   UNBUF  0       RBU  X    X
+   9:    OUTPUT   BLOCK SEQUEN   UNBUF  1       X    WBU  X
+  10:    UPDATE   BLOCK SEQUEN   UNBUF (INVALID)
+  11:    FDX      BLOCK SEQUEN   UNBUF (INVALID)
+  12:    INPUT    CHAR  DIRECT   UNBUF (INVALID)
+  13:    OUTPUT   CHAR  DIRECT   UNBUF (INVALID)
+  14:    UPDATE   CHAR  DIRECT   UNBUF (INVALID)
+  15:    FDX      CHAR  DIRECT   UNBUF (INVALID)
+  16:    INPUT    LINE  DIRECT   UNBUF (INVALID)
+  17:    OUTPUT   LINE  DIRECT   UNBUF (INVALID)
+  18:    UPDATE   LINE  DIRECT   UNBUF (INVALID)
+  19:    FDX      LINE  DIRECT   UNBUF (INVALID)
+  20:    INPUT    BLOCK DIRECT   UNBUF  2       RBU  X    SCPU
+  21:    OUTPUT   BLOCK DIRECT   UNBUF  3       X    WBU  SCPU
+  22:    UPDATE   BLOCK DIRECT   UNBUF  4       RBU  WBU  SCPU
+  23:    FDX      BLOCK DIRECT   UNBUF  5       RBU  WBU  SCPU
+  24:    INPUT    CHAR  SEQUEN   BUF    6       RC   X    X
+  25:    OUTPUT   CHAR  SEQUEN   BUF    7       X    WC   X
+  26:    UPDATE   CHAR  SEQUEN   BUF   (INVALID)
+  27:    FDX      CHAR  SEQUEN   BUF   (INVALID)
+  28:    INPUT    LINE  SEQUEN   BUF    8       RL   X    X
+  29:    OUTPUT   LINE  SEQUEN   BUF    9       X    WL   X
+  30:    UPDATE   LINE  SEQUEN   BUF   (INVALID)
+  31:    FDX      LINE  SEQUEN   BUF   (INVALID)
+  32:    INPUT    BLOCK SEQUEN   BUF    10      RB   X    X
+  33:    OUTPUT   BLOCK SEQUEN   BU11      X    WB   X
+  34:    UPDATE   BLOCK SEQUEN   BUF   (INVALID)
+  35:    FDX      BLOCK SEQUEN   BUF   (INVALID)
+  36:    INPUT    CHAR  DIRECT   BUF    12      RC   X    SCP
+  37:    OUTPUT   CHAR  DIRECT   BUF    13      X    WC   SCP
+  38:    UPDATE   CHAR  DIRECT   BUF    14      RCUP WCUP SCP
+  39:    FDX      CHAR  DIRECT   BUF    15      RC   WC   SCP
+  40:    INPUT    LINE  DIRECT   BUF    16      RL   X    SCP
+  41:    OUTPUT   LINE  DIRECT   BUF    17      X    WL   SCP
+  42:    UPDATE   LINE  DIRECT   BUF   (INVALID)
+  43:    FDX      LINE  DIRECT   BUF   (INVALID)
+  44:    INPUT    BLOCK DIRECT   BUF    18      RB   X    SCP
+  45:    OUTPUT   BLOCK DIRECT   BUF    19      X    WB   SCP
+  46:    UPDATE   BLOCK DIRECT   BUF    20      RBUP WBUP SCP
+  47:    FDX      BLOCK DIRECT   BUF    21      RB   WB   SCP
+
+  NBUFS DETERMINES THE NUMBER OF BUFFERS ALLOCATED FOR THE IO
+  OPERATIONS.  IF ZERO, THEN THE DATA MODE IS UNBUFFERED.
+
+   EXCEPTIONAL CONDITIONS ARE HANDLED THROUGH A USER REPLACABLE
+   ROUTINE IN THE C$EXCEPT ENTRY OF THE FCB.  IT IS CALLED WITH TWO
+   PARAMETERS - THE FCB AND AN ERROR CODE VALUE.  A DEFAULT ROUTINE
+   WHICH ABORTS IS AUTOMATICALLY USED.
+   THE ERROR-CODE VALUES PASSED ARE:
+        ILLEGAL OPERATION    =  CV$ILIOOP
+        END OF FILE          =  CV$EOF
+        OTHER I/O ERROR      =  CV$IOERR
+        BAD CURSOR VALUE     =  CV$BDCURS
+        BAD COUNT VALUE      =  CV$BDCNT
+
+
+   "CFSC" IS "COMPRESSED FILE STRUCTURE CODE".  THE VALUE OF CFSC
+   IS USED TO ACCESS TABLES OF I/O ROUTINE NAMES.
+
+
+RR   =  READ ELEMENT ROUTINE
+WR   =  WRITE ELEMENT ROUTINE
+SCPR =  SET CURSOR POSITION ROUTINE
+ 
+"X" UNDER AN I/O ROUTINE COLUMN INDICATES THAT CONTROL WILL
+PASS TO INTERNAL ROUTINE ER WHICH INVOKES
+THE USERS EXCP ROUTINE WITH AN ERROR CODE OF "CV$ILIOOP".
+
+
+PARAM <== MODE+ORGANIZATION+TYPE
+  WHERE MODE IS ONE OF
+        SEQUENTIAL ACCESS = CV$SEQUEN
+        DIRECT ACCESS     = CV$DIRECT
+  ORGANIZATION IS ONE OF
+        CHARACTER  = CV$CHAR
+        LINE       = CV$LINE
+        BLOCK      = CV$BLOCK
+  AND TYPE IS ONE OF
+        INPUT   = CV$INPUT
+        OUTPUT  = CV$OUTPUT
+        UPDATE  = CV$UPDATE
+        FDX     = CV$FDX
+THESE VALUES ARE DEFINED WITH NAMES IN UNVRSL.BLI,  WHERE
+THE ERROR CODES FOR THE OPEN ROUTINE ARE ALSO BOUND TO NAMES.
+
+OPEN RETURNS EITHER A POINTER TO THE FILE-CONTROL-BLOCK CREATED
+             OR     AN ERROR CODE  <  ZERO :
+                        ILLEGAL MODE    = CV$ILMOD
+                        NO CHANNEL AVAIL= CV$NOCHN
+                        LOOKUP FAILED   = CV$LKFAL
+                        ENTER FAILED    = CV$ENTFAL
+                        INIT  FAILED    = CV$INTFAL
+                        BAD FIDT        = CV$BDFIDT
+%
+
+%       STRUCTURE DEFINITIONS FOR THE TABLES RELATING MODES TO ROUTINES
+%
+!  LONG BYTE VECTOR
+STRUCTURE LBYTEVEC[I,J]=[I*(J-1)/36+1] (.LBYTEVEC+.I/(36/I))<36-(.I MOD (36/I)+1)*I,I>;
+
+!  COMPRESSED AND MAPPED TABLE WITH 3-BIT VECTOR INDEX
+STRUCTURE COMTAB[I]=
+   (.COMTAB+2+.((.COMTAB+.I/12)<33-3*(.I MOD 12),3>))<0,36>;
+
+
+% THE FOLLOWING MACRO DOES THE ENCODING OF PARAM
+%
+MACRO
+   ENC7X5(A,B,C,D,E,FF,G)=A^31+B^26+C^21+D^16+E^11+FF^6+G^1&,
+   ENC12X3(A,B,C,D,E,FF,G,H,I,J,K,L)=
+      A^33+B^30+C^27+D^24+E^21+FF^18+G^15+H^12+I^9+J^6+K^3+L&,
+   ENCODE(A,B,C,D)=CV$NMODE*CV$NORG*CV$NTYPE*A +
+                            CV$NORG*CV$NTYPE*B +
+                                    CV$NTYPE*C +
+                                             D&;
+
+%  THE FOLLOWING BINDS IMPLEMENT THE TABLES DEFINING THE VARIOUS ROUTINES
+   TO BE CALLED TO ELABORATE THE IO OPERATIONS FOR VARIOUS FILE STRUCTURES.
+   IN EACH CASE, THE INDEX IS THE COMPRESSED FILE STRUCTURE CODE (CFSC).
+%
+BIND
+%READ ELEMENT ROUTINE%
+   RRS=PLIT(
+      ENC12X3(1,0,1,0,1,1,2,0,3,0,4,0),
+      ENC12X3(2,0,5,2,3,0,4,0,6,4,0,0),
+      ER,   % 0 %
+      RBU,  % 1 %
+      RC,   % 2 %
+      RL,   % 3 %
+      RB,   % 4 %
+      RCUP, % 5 %
+      RBUP),% 6 %
+%WRITE ELEMENT ROUTINE%
+   WRS=PLIT(
+      ENC12X3(0,1,0,1,1,1,0,2,0,3,0,4),
+      ENC12X3(0,2,5,2,0,3,0,4,6,4,0,0),
+      ER,   % 0 %
+      WBU,  % 1 %
+      WC,   % 2 %
+      WL,   % 3 %
+      WB,   % 4 %
+      WCUP, % 5 %
+      WBUP),% 6 %
+%SET CURSOR POSITION ROUTINES%
+   SCPRS=PLIT(
+      ENC12X3(0,0,1,1,1,1,0,0,0,0,0,0),
+      ENC12X3(2,2,2,2,2,2,2,2,2,2,0,0),
+      ER,   % 0 %
+      SCPU, % 1 %
+      SCP), % 2 %
+%MAPPING VECTOR FOR FSC TO CFSC%
+   MFSC=PLIT(ENC7X5(0,0,0,0,0,0,0),
+             ENC7X5(0,1,2,0,0,0,0),
+             ENC7X5(0,0,0,0,0,0,3),
+             ENC7X5(4,5,6,7,8,0,0),
+             ENC7X5(9,10,0,0,11,12,0),
+             ENC7X5(0,13,14,15,16,17,18),
+             ENC7X5(0,0,19,20,21,22,0));
+
+
+MAP LBYTEVEC MFSC[5,32], CEXFIDT$ FIDT,
+    COMTAB RRS:WRS:SCPRS;
+
+LOCAL CFSC,DATMODE, CFILECB$ FCB;
+
+EXTERNAL JOBHCU,JOBJDA;
+
+%  THE FOLLOWING ROUTINE GETS RID OF THINGS WE HAVE SET UP IF
+   IT IS DISCOVERED WE HAVE TO ABORT THE OPEN
+%
+   FUNCTION CLEANUP=
+      BEGIN
+      LOCAL INST;
+      INST_MAKEOP(RELEAS,.FCB[C$CHNL],0);
+      XCT(0,INST);   % DO A RELEASE UUO %
+      $CFREEM(.FCB)
+      END;
+
+
+   IF .FIDT GEQ #400000
+      THEN RETURN CV$BDFIDT;    % NO FIDS IN HISEG AS MONITOR WRITES IN EM %
+
+   IF .CRSTD$ NEQ SIXBIT 'JORDAN'
+      THEN $CRESET();
+
+   FCB_$CGTZM(CV$FCBS);      %POINT TO FILE CONTROL BLOCK %
+
+   IF .FIDT[C$DEVICE] EQL SIXBIT 'TTY' OR
+      .FIDT[C$NAME] EQL SIXBIT 'TERMIN' OR
+      .FIDT[C$NAME] EQL SIXBIT 'TERMI ' OR
+      .FIDT[C$NAME] EQL SIXBIT 'TERM  ' OR
+      .FIDT[C$NAME] EQL SIXBIT 'TER   ' OR
+      .FIDT[C$NAME] EQL SIXBIT 'TE    ' OR
+      .FIDT[C$NAME] EQL SIXBIT 'T     '
+      THEN
+         BEGIN
+         IF .CTERM$ NEQ 0
+            THEN
+               BEGIN
+               $CFREEM(.FCB);
+               RETURN .CTERM$
+               END;
+         FCB[C$TYPE]_CV$FDX;
+         FCB[C$ORG]_CV$LINE/#10;
+         FCB[C$MODE]_CV$SEQUEN/#100;
+         FCB[C$RR]_$CGLED;
+         FCB[C$WR]_$CTYPL;
+         FCB[C$SCPR]_ER;
+         FCB[C$INOP]_FCB[C$OUTOP]_FCB[C$STATZOP]_FCB[C$USETIOP]_
+            FCB[C$USETOOP]_MAKEOP(PUSHJMP,0,ER);
+         FCB[C$EXCEPT]_$CIOAB<0,0>;
+         FCB[C$TERM]_1;
+         RETURN FCB[C$EXISTS]_.FCB
+         END;
+
+   FCB[C$P]_.PARAM;
+   FCB[C$NB]_.NBUFS;
+   CFSC_.MFSC[ENCODE((.FCB[C$NB] GTR 0),.FCB[C$MODE],.FCB[C$ORG],.FCB[C$TYPE])]-1;
+   IF .CFSC EQL -1
+      THEN
+         BEGIN
+         $CFREEM(.FCB);
+         RETURN CV$ILMOD
+         END;
+   FCB[C$RR]_.RRS[.CFSC];
+   FCB[C$WR]_.WRS[.CFSC];
+   FCB[C$SCPR]_.SCPRS[.CFSC];
+
+   DATMODE_IF .FCB[C$ORG] EQL CV$CHAR/#10 OR .FCB[C$ORG] EQL CV$LINE/#10
+              THEN 0
+           ELSE IF .FCB[C$NB] EQL 0
+              THEN #15
+           ELSE #10;
+
+   FCB[C$CHNL]_       %AVOID CHANNEL ZERO DUE TO GETSEGS%
+              IF .JOBHCU LSS 15
+                      THEN .JOBHCU+1
+              ELSE DECR S FROM 14 TO 1
+                 DO IF @(JOBJDA+.S) EQL 0 THEN EXITLOOP .S;
+   IF .FCB[C$CHNL] LSS 0
+      THEN
+         BEGIN
+         $CFREEM(.FCB);
+         RETURN CV$NOCHN
+         END;
+
+   IF .FIDT[C$DEVICE] EQL 0
+      THEN FIDT[C$DEVICE] _ SIXBIT 'DSK';
+
+%   SAVE USER FIDT INFO %
+   $UMOVE(MIN(8,.FIDT[C$ARGCNT]+2),.FIDT,FCB[C$FCBFIDT]);
+
+   BEGIN        % WE NOW OPEN THE ASSIGNED CHANNEL %
+   LOCAL PBLOCK[3],INST;
+   REGISTER RG;
+   PBLOCK[0]_.DATMODE;
+   PBLOCK[1]_.FIDT[C$DEVICE];
+   PBLOCK[2]<18,18>_ IF .FCB[C$TYPE] NEQ CV$INPUT
+                        THEN FCB[C$OBUFH]
+                        ELSE 0;
+   PBLOCK[2]< 0,18>_ IF .FCB[C$TYPE] NEQ CV$OUTPUT
+                        THEN FCB[C$IBUFH]
+                        ELSE 0;
+   INST_MAKEOP(OPENUUO,.FCB[C$CHNL],PBLOCK);
+   IFSKIP XCT(0,INST)
+      THEN 0
+      ELSE
+         BEGIN
+         $CFREEM(.FCB);
+         RETURN CV$NOPEN
+         END;
+   FCB[C$BSIZE]_BEGIN
+                RG_PBLOCK<0,0>;
+                CALLI(RG,#101);    % DEVSIZE UUO %
+                NOP();
+                .RG<0,18>-3
+                END;
+
+   IF .FCB[C$BSIZE] LSS 0
+      THEN
+         BEGIN
+         CLEANUP();
+         RETURN CV$ILMOD
+         END
+   END;
+
+   IF .FCB[C$TYPE] NEQ CV$OUTPUT
+      THEN
+         BEGIN
+         LOCAL INST;
+         INST_MAKEOP(LOOKUPUUO,.FCB[C$CHNL],FIDT[C$ARGCNT]);
+         IFSKIP XCT(0,INST)
+            THEN 0
+            ELSE
+               BEGIN
+               CLEANUP();
+               RETURN CV$LKFAL
+               END
+         END;
+
+   IF .FCB[C$TYPE] NEQ CV$INPUT
+      THEN
+         BEGIN
+         LOCAL INST;
+         INST_MAKEOP(ENTERUUO,.FCB[C$CHNL],FIDT[C$ARGCNT]);
+         IFSKIP XCT(0,INST)
+            THEN 0
+            ELSE
+               BEGIN
+               CLEANUP();
+               RETURN CV$ENTFAL
+               END
+         END;
+
+   IF .FCB[C$NB] GTR 0
+      THEN
+         BEGIN
+         FUNCTION GENBF(SIDE)=
+            BEGIN
+            LOCAL T,K,INST;
+            EXTERNAL JOBFF;
+            T_@JOBFF;
+            JOBFF_K_$CGETM((.FCB[C$BSIZE]+3)*.FCB[C$NB]);
+            INST_MAKEOP((INBF+.SIDE),.FCB[C$CHNL],.FCB[C$NB]);
+            XCT(0,INST);     % INBUF OR OUTBUF UUO FOR BUFFER ALLOCATION %
+            JOBFF_.T;
+            .K
+            END;
+
+         IF .FCB[C$TYPE] NEQ CV$OUTPUT
+            THEN FCB[C$IBUFL]_GENBF(CV$INPUT);
+         IF .FCB[C$TYPE] NEQ CV$INPUT
+            THEN FCB[C$OBUFL]_GENBF(CV$OUTPUT)
+         END;
+
+   FCB[C$MAXCP]_.FIDT[C$WRDCNT]/.FCB[C$BSIZE]+1;
+
+   FCB[C$INOP]_MAKEOP(INUUO,.FCB[C$CHNL],(IF .FCB[C$NB] EQL 0
+                                             THEN FCB[C$COML]
+                                             ELSE 0));
+   FCB[C$OUTOP]_.FCB[C$INOP] OR 1^27;
+   FCB[C$STATZOP]_MAKEOP(STATZ,.FCB[C$CHNL],#740000);
+   FCB[C$USETIOP]_MAKEOP(USETI,.FCB[C$CHNL],0);
+   FCB[C$USETOOP]_.FCB[C$USETIOP] OR 1^27;
+   FCB[C$WLB]_.FCB[C$TYPE] EQL CV$OUTPUT;
+   FCB[C$ISIZE]_IF .DATMODE EQL 0 THEN CHSIZE ELSE WDSIZE;
+   FCB[C$ITEMPW]_WDSIZE/.FCB[C$ISIZE];
+   FCB[C$EXCEPT]_IF .FCB[C$ORG] EQL CV$LINE/#10
+                    THEN TEOF<0,0>
+                    ELSE $CIOAB<0,0>;
+
+        %
+        READ AHEAD IF INPUT, OR DO THE INITIALIZATION OF 
+        THE OUTBUFFERS IF OUTPUT.
+        %
+   IF .FCB[C$NB] GTR 0
+      THEN
+         BEGIN
+         IF .FCB[C$TYPE] NEQ CV$OUTPUT
+            THEN
+               BEGIN
+               INBUF(.FCB);
+               IF .FCB[C$ORG] EQL CV$LINE/#10
+                  THEN
+                     BEGIN
+                     FCB[C$IPTR]_.FCB[C$IPTR]+1;
+                     FCB[C$SEQF]_.(.FCB[C$IPTR])<0,1>;
+                     IF NOT .FCB[C$SEQF]
+                        THEN FCB[C$IPTR]_.FCB[C$IPTR]-1
+                     END
+               END;
+         IF .FCB[C$TYPE] NEQ CV$INPUT
+            THEN XCT(0,FCB[C$OUTOP])
+         END;
+
+   FCB[C$EXISTS]_.FCB   %SET FLAG THAT FILE-CONTROL-BLOCK EXISTS%
+   END;
+
+END ELUDOM
+3z,Ë
