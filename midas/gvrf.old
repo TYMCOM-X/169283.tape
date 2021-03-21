@@ -1,0 +1,402 @@
+MODULE GVRF(DOLLAR,ENTRIES=($GVRF,$GHVAL),TIMING,TIMER=EXTERNAL(SIX12))=
+  BEGIN
+
+  REQUIRE ADEFS.BLI[7,107355];
+  REQUIRE CDEFS.BLI[7,107355];
+  REQUIRE FDEFS.BLI[7,107355];
+  REQUIRE FPDEFS.BLI[7,107355];
+  REQUIRE GDEFS.BLI[7,107355];
+  REQUIRE SDEFS.BLI[7,107355];
+  REQUIRE TDEFS.BLI[7,107355];
+  REQUIRE UDEFS.BLI[7,107355];
+  REQUIRE ZDEFS.BLI[7,107355];
+
+  UNDECLARE $GVRF, $GHVAL;
+
+  MAP G$ GGBFP$;
+  MAP A$ GBTKN$;
+  MAP G$OPND GGBOP$;
+  MAP Z$ ZBSTK$;
+
+%****
+  GENERATE A MAXIMUM VALUE FOR THE FIELD BEING VERIFIED AND STACK IT'S LOW VALUE.
+****%
+  GLOBAL ROUTINE $GHVAL(FDEFSTE)=
+    BEGIN
+
+    MAP S$ FDEFSTE;
+    LOCAL NAMEB[3];
+    LOCAL SNAM$ NAMEP;
+    LOCAL ICNT, TYPE, SIZE, NAMBLKLEN;
+    LOCAL S$ NAMESTE:INCSTE;
+
+    NAMEP := NAMEB;
+    ICNT := .FDEFSTE[S$INTD];
+    GDMAX$ := .FDEFSTE[S$DECD];
+    GMVAL$ := 0;
+    NAMEB[0] := NAMEB[1] := 0;
+    NAMEB[2] := 9999999999;
+    SIZE := .ICNT + .GDMAX$;
+    IF .SIZE GTR 10
+      THEN
+        BEGIN
+        TYPE := SV$DWLIT;
+        SIZE := .SIZE - 10;
+        NAMBLKLEN := 3;
+        END
+      ELSE
+        BEGIN
+        TYPE :=  SV$SWLIT;
+        NAMBLKLEN := 2;
+        END;
+
+                                                % CALCULATE THE LARGEST ABSOLUTE VALUE THAT WILL
+                                                 FIT INTO THE FIELD INQUESTION, USING THE NO. OF 
+                                                 INTEGER AND DECIMAL PLACES IN THE FIELD.
+                                                %
+    INCR I FROM 1 TO .SIZE
+      DO
+        GMVAL$ := .GMVAL$*10+9;
+
+                                                % SET "TYPE" EQUAL TO THE APPROPRIATE LITERAL
+                                                  TYPE BASED ON THE MAX. VALUE CALCULATED.
+                                                %
+    NAMEP[S$NID] := .ICNT;                       % INIT. THE NAME BLOCK %
+    NAMEP[S$NDP] := .GDMAX$;
+    NAMEP[S$DDTYPE] :=
+        IF .TYPE EQL SV$SWLIT
+          THEN
+            SV$SINGD
+          ELSE
+            SV$DBLD;
+    NAMEB[1] := .GMVAL$;
+    NAMESTE := $SLKUP(.NAMEP,.NAMBLKLEN);
+    IF .NAMESTE EQL 0                           % DOES AN ENTRY EXIST FOR THE LITERAL? %
+      THEN
+        BEGIN                                   % NO! SET UP A AME AND LITERAL INCARNATION ENTRY %
+        NAMESTE := $SGVSTS(.TYPE,.NAMBLKLEN);
+        INCSTE := $SGVSTS(SV$LIE,.NAMBLKLEN);
+        (NAMESTE[S$NAME])[0] := (INCSTE[S$NAME])[0] := .NAMEB[0];
+        (NAMESTE[S$NAME])[1] := (INCSTE[S$NAME])[1] := .NAMEB[1];
+        IF .NAMBLKLEN EQL 3
+          THEN
+            (NAMESTE[S$NAME])[2] := (INCSTE[S$NAME])[2] := .NAMEB[2];
+        NAMESTE[S$STP1] := INCSTE[S$STP1] := .NAMESTE[S$STPX];
+        NAMESTE[S$LITINCP] := .INCSTE[S$STPX];
+        NAMESTE[S$IDSTP] := NAMESTE[S$CISTP] := SV$NULL;
+        INCSTE[S$DDBT] := SV$NONE;
+        $SFNME(.NAMESTE,.NAMBLKLEN);
+        GMVAL$ := .INCSTE[S$STPX];
+        $SFRCH(.INCSTE);
+        END
+      ELSE
+        BEGIN                                   % YES! GET THE STP FOR THE LITERAL INCARNATION
+                                                  FOR THE MAXIMUM ABSOLUTE VALUE.
+                                                %
+        NAMESTE := $SGSTE(.NAMESTE);
+        GMVAL$ := .NAMESTE[S$LITINCP];
+        $SFRNCH(.NAMESTE);
+        END;
+
+    .GMVAL$
+
+    END;
+
+
+%*****
+  GENERATE A RANGE CHECK.
+*****%
+  GLOBAL ROUTINE RANGECHK(FDEFSTE)=
+    BEGIN
+
+    MAP S$ FDEFSTE;
+    LOCAL FP$I PICTURE;
+    LOCAL HIGHVAL, ICNT, DCNT;
+
+    HIGHVAL := $GHVAL(.FDEFSTE);
+    ICNT := .FDEFSTE[S$INTD];
+    DCNT := .FDEFSTE[S$DECD];
+
+    IF .FDEFSTE[S$DTYP] EQL SV$DLIT
+      THEN
+        BEGIN
+        $GIREC(GV$POSRCHK,4);
+        GGBOP$[1,G$OPDTYP] := GV$DATE;
+        END
+      ELSE
+        BEGIN
+        PICTURE := .FDEFSTE[S$FP];
+        IF .PICTURE[FP$SIGN] EQL FPV$NSC
+          THEN
+            $GIREC(GV$POSRCHK,4)
+          ELSE
+            $GIREC(GV$ABSRCHK,4);
+        GGBOP$[1,G$OPDTYP] := GV$NUMERIC;
+        END;
+    GGBFP$[G$ICNT] := .ICNT;
+    GGBFP$[G$DCNT] := .DCNT;
+    GGBFP$[G$UCNT] := 1;
+    GGBOP$[0,G$OPTYP] := GV$LIT;
+    GGBOP$[0,G$OPVAL] := .HIGHVAL;
+    GGBOP$[1,G$OPTYP] := GV$PARAM;
+    GGBOP$[1,G$OPICNT] := .ICNT;
+    GGBOP$[1,G$OPDCNT] := .DCNT;
+    GGBOP$[1,G$OPVAL] := 0;
+    $GWBUF(.GGBFP$,.GOB1I$);
+    $GPUSH(.GBTKN$,AV$SZTOK+4);                 % STACK THE RESULT OF THE RANGE CHECK %
+    ZBSTK$[Z$ID,.ZSTKP$] := TV$NAME;
+    ZBSTK$[Z$SBID,.ZSTKP$] := ZV$LRSLT;
+    ZBSTK$[Z$INCSTP,.ZSTKP$] := .GGBFP$[G$ID];
+    ZBSTK$[Z$DATATYP,.ZSTKP$] := ZV$LOGICAL;
+    ZBSTK$[Z$RSLTYP,.ZSTKP$] := GV$LOGICAL;
+    END;
+
+
+  GLOBAL ROUTINE $GVRF(NAMSTP) =
+    BEGIN
+
+    LOCAL GRT$ NODE;
+    LOCAL BRLABEL, NEWROUTF;
+    LOCAL S$ DEFSTE : NAMESTE : VCSTE;
+    LABEL THISFIELD;
+
+
+    ROUTINE VENTRY(DEFSTE)=
+      BEGIN
+      MAP S$ DEFSTE;
+
+      $GIREC(GV$ENTRY,5);
+      GGBOP$[0,G$OPTYP] := GV$STP;
+      GGBOP$[0,G$OPVAL] := .DEFSTE[S$VERFSTP];
+      GGBFP$[G$OPND2]   := 1;
+      GGBOP$[2,G$OPTYP] := GV$PARAM;
+      GGBOP$[2,G$OPVAL] := 0;
+      IF .DEFSTE[S$DTYP] EQL SV$SLIT
+        THEN
+          BEGIN
+          GGBOP$[2,G$OPDTYP]  := GV$STRING;
+          GGBOP$[2,G$OPNCHAR] := .DEFSTE[S$LCHAR];
+          END
+        ELSE
+          BEGIN
+          GGBOP$[2,G$OPDTYP] :=
+                IF .DEFSTE[S$DTYP] EQL SV$DLIT
+                  THEN
+                    GV$DATE
+                  ELSE
+                    GV$NUMERIC;
+          GGBOP$[2,G$OPICNT] := .DEFSTE[S$INTD];
+          GGBOP$[2,G$OPDCNT] := .DEFSTE[S$DECD];
+          END;
+
+      $GWBUF(.GGBFP$,.GOB1I$);
+      END;
+
+
+    ROUTINE NEWVNAME(DEFSTE)=
+      BEGIN
+      MAP S$ DEFSTE;
+      LOCAL SNAM$ VNAMPTR;
+      LOCAL CNT, VAL, CURSOR;
+      LOCAL VNAMCHAR[4];
+
+      VNAMPTR := $CGTZM(3);
+      VNAMPTR[S$NCHAR] := 4;
+      VNAMPTR[S$NAM][0] :=
+                IF .DEFSTE[S$DTYP] EQL SV$DLIT
+                  THEN
+                    '#DAT '
+                  ELSE
+                    '#LAB ';
+      VNAMPTR[S$NAM][1] := '     ';
+
+      VAL := .DEFSTE[S$INTD];
+      CURSOR := VNAMPTR[S$NAM]<8,7>;
+      INCR I FROM 0 TO 1
+        DO
+          BEGIN
+          CNT := 0;
+          DO
+            BEGIN
+            VNAMCHAR[.CNT] := .VAL MOD 10;
+            VAL := .VAL/10;
+            CNT := .CNT + 1;
+            END
+          UNTIL .VAL EQL 0;
+          INCR J FROM 0 TO .CNT-1
+            DO
+              REPLACEI(CURSOR,.VNAMCHAR[.J]+"0");
+          REPLACEI(CURSOR,"N");
+          VNAMPTR[S$NCHAR] := .VNAMPTR[S$NCHAR] + .CNT + 1;
+          VAL := .DEFSTE[S$DECD];
+          END;
+
+      .VNAMPTR
+
+      END;
+
+
+    ROUTINE CHKVNAME(DEFSTE) =
+      BEGIN
+      MAP S$ DEFSTE;
+      LOCAL S$ VNAMESTE;
+      LOCAL VNAMPTR, VNAMSTP, NEWVRF;
+
+      VNAMPTR := NEWVNAME(.DEFSTE);
+      VNAMSTP := $SLKUP(.VNAMPTR,3);
+      IF .VNAMSTP EQL 0
+        THEN
+          BEGIN
+          VNAMESTE := $SGVSTS(SV$LABEL,3);
+          VNAMESTE[S$STP1]   := .VNAMESTE[S$STPX];
+          VNAMESTE[S$NAME][0] := .(.VNAMPTR)[0];
+          VNAMESTE[S$NAME][1] := .(.VNAMPTR)[1];
+          VNAMESTE[S$NAME][2] := .(.VNAMPTR)[2];
+          VNAMSTP := .VNAMESTE[S$STPX];
+          $SFNME(.VNAMESTE,3);
+          VNAMESTE := $SGSTE(.VNAMSTP);
+          $GNLI(.VNAMESTE);
+          DEFSTE[S$VERFSTP] := .VNAMESTE[S$CISTP];
+          $SFRNCH(.VNAMESTE);
+          $CFREEM(.VNAMPTR);
+          VENTRY(.DEFSTE);
+          IF .DEFSTE[S$DTYP] NEQ SV$SLIT
+            THEN
+              RANGECHK(.DEFSTE);
+          NEWVRF := GV$TRUE;
+          END
+        ELSE
+          BEGIN
+          VNAMESTE := $SGSTE(.VNAMSTP);
+          DEFSTE[S$VERFSTP] := .VNAMESTE[S$CISTP];
+          $SFRNCH(.VNAMESTE);
+          NEWVRF := GV$FALSE;
+          END;
+      $SFGCH(.DEFSTE);
+ 
+      .NEWVRF
+
+      END;
+
+
+    %*****
+      START OF VERIFY PROCESSING.
+    *****%
+    NAMESTE := $SGSTE(.NAMSTP);
+    IF .NAMESTE[S$TYPE] NEQ SV$NAME   OR
+       .NAMESTE[S$DSTP] EQL SV$NULL
+      THEN
+        BEGIN
+        $SFRNCH(.NAMESTE);
+        RETURN;
+        END;
+    DEFSTE  := $SGSTE(.NAMESTE[S$DSTP]);
+    IF .DEFSTE[S$VERFSTP] NEQ SV$NULL           % HAS THE VERIFY ROUTINE ALREADY BEEN
+                                                  GENERATED?
+                                                %
+      THEN                                      % YES! %
+        BEGIN
+        $SFRNCH(.NAMESTE);
+        $SFRNCH(.DEFSTE);
+        RETURN;
+        END;
+    IF .DEFSTE[S$TYPE] EQL SV$FIELD
+      THEN
+        IF .DEFSTE[S$VRF] EQL SV$TRUE
+          THEN
+  THISFIELD:BEGIN
+            IF .DEFSTE[S$VCSTP] EQL SV$NULL   % ANY USER VERIFY CODE? %
+              THEN                      % NO  %
+                BEGIN
+                IF .DEFSTE[S$DTYP] EQL SV$SLIT
+                  THEN
+                    BEGIN
+                    $GPUSH(.GBTKN$,3);
+                    ZBSTK$[Z$STP,.ZSTKP$] := .DEFSTE[S$STP1];
+                    $GERR(572,.ZSTKP$);
+                    $GPOP();
+                    LEAVE THISFIELD;
+                    END
+                  ELSE
+                    NEWROUTF := CHKVNAME(.DEFSTE);
+                IF .NEWROUTF EQL ZV$FALSE
+                  THEN
+                    LEAVE THISFIELD;
+                END
+              ELSE                              % PROCESS USER VERIFY CODE AS WELL AS STANDARD CODE %
+                BEGIN
+                VCSTE := $SGSTE(.DEFSTE[S$VCSTP]);
+                DEFSTE[S$VERFSTP] := VCSTE[S$VERFSTP] := $GNLAB();
+                VENTRY(.DEFSTE);
+                $SFGCH(.DEFSTE);
+                GVCDB$ := .VCSTE;
+                GVCDC$ := 0;
+                GVCDL$ := .VCSTE[S$CNSTL];
+                DO
+                  BEGIN
+                  $UZERO(ZV$MAXENTRY,.GBTKN$);
+                  $GNEXT(.GBTKN$);
+                  NODE := $GSRCH(.GBTKN$[A$ID]);
+                  IF .NODE EQL -1
+                    THEN
+                      BEGIN
+                      $UOUTM(FTLMS$<36,7>,0);
+                      $UAPSZ($USPTR('*** TOKEN VALUE : '));
+                      $UAPDC(.GBTKN$[A$ID]);
+                      $UOUTL();
+                      $FATAL(#067);
+                      END;
+                  IF .GBTKN$[A$ID] EQL TV$NAME
+                    THEN
+                      IF .GBTKN$[A$STP] NEQ .DEFSTE[S$STP1]
+                        THEN
+                          BEGIN
+                          $GERR(537,.GBTKN$-1);
+                          LEAVE THISFIELD;
+                          END;
+                  (.NODE[G$RTROUT])();
+                  END
+                UNTIL .GVCDC$ GEQ .GVCDL$  AND  .GNAEP$ EQL 0;
+                $SFRCH(.VCSTE);
+
+                IF .DEFSTE[S$DTYP] NEQ SV$SLIT
+                  THEN
+                    BEGIN
+                    RANGECHK(.DEFSTE);
+                    GBTKN$[A$ID] := TV$AND;
+                    $GBOOL();
+                    END;
+                END;
+
+            $GIREC(GV$BRCHT,4);
+            (GGBFP$[G$OPNDN])[0] := $GOPND(.ZSTKP$);
+            GGBOP$[1,G$OPTYP] := GV$STP;
+            GGBOP$[1,G$OPVAL] := BRLABEL := $GNLAB();
+            $GWBUF(.GGBFP$,.GOB1I$);
+            $GPOP();
+            $GIREC(GV$SEXIT,3);
+            GGBFP$[G$RETURNF] := GV$RESULT;
+            GGBFP$[G$RESULT]  := GV$FALSE;
+            $GWBUF(.GGBFP$,.GOB1I$);
+            $GIREC(GV$LABEL,3);
+            GGBOP$[0,G$OPTYP] := GV$STP;
+            GGBOP$[0,G$OPVAL] := .BRLABEL;
+            $GWBUF(.GGBFP$,.GOB1I$);
+            $GIREC(GV$SEXIT,3);
+            GGBFP$[G$RETURNF] := GV$RESULT;
+            GGBFP$[G$RESULT]  := GV$TRUE;
+            $GWBUF(.GGBFP$,.GOB1I$);
+            IF .GEXRP$ NEQ ZV$NULL            % WAS THERE AN EXTENDED RESULT? %
+              THEN                            % YES, CLEAR IT FROM THE STACK %
+                BEGIN
+                $GPOP();
+                GEXRP$ := ZV$NULL;
+                END;
+            END;
+    $SFRNCH(.NAMESTE);
+    $SFRNCH(.DEFSTE);
+    END;
+
+
+  END
+ELUDOM
