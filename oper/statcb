@@ -1,0 +1,130 @@
+      SUBROUTINE STATCB
+C  LINK STATC
+      REAL   TITLE(70),CODE(80)                                               2
+      DIMENSION V(3)                                                          3
+C                  DIMENSION TO APPROPRIATE SIZE                              4
+C                  A IS DIMENSIONED TO (ND*(ND+1))/2                          5
+C                  D IS DIMENSIONED TO THE LARGER OF NVPR, ND                 6
+      DIMENSION XMAT(31375),D(250),F(250),IFSP(250),DMY(250),NS1(250)         7
+C   ********************************************************************      8
+      COMMON IN,IOUT,NOUTP,IFPLT,NEXEC,NERR,NNT,NEQ,IFEQ(3),IFUNA,            9
+     1       IFUPD(3),NREC(4),NFN(4),NS(10),NSTAT(600),TITLE,CODE            10
+     1      ,IDMY(8),RDMY(34)                                                11
+      COMMON/FILES/IDTFL,IPRCM,ITERM
+      ND=250
+      NVPR=40                                                                13
+      IF(NEQ-ND)5,5,340                                                      14
+C                  GET STIFFNESS MATRIX FROM FILE                            15
+    5 IFSPD=0                                                                16
+      NV=(NEQ*(NEQ+1))/2                                                     17
+      IF(NERR)10,10,20
+   10 CALL VRDWT(XMAT,NV,NFN(3),NVPR,D,-1)                                   18
+C                  READ STATIC DEFORMATION INFORMATION                       19
+   20 NEQT=NEQ                                                               20
+      DO 30 I=1,NEQ                                                          21
+      D(I)=0.0                                                               22
+      F(I)=0.0                                                               23
+   30 IFSP(I)=0                                                              24
+   40 IF(ITERM)43,43,41
+   41 WRITE(IOUT,45)
+   45 FORMAT('+ -'$)
+   43 READ(IN,50)CODE
+   50 FORMAT(80A1)                                                           26
+      IF(IPRCM)46,46,47
+   47 CALL EBLNK(CODE,80,IEND)
+      WRITE(IPRCM,48)(CODE(II),II=1,IEND)
+   48 FORMAT(1X,80A1)
+   46 CONTINUE
+      CALL DCODA(NCD,IPOS,CODE,80,1)                                         29
+      IF(NCD-6)70,120,70                                                     30
+   70 IF(NCD-4)80,130,80                                                     31
+   80 IF(NCD-19)90,170,90                                                    32
+   90 WRITE(IOUT,110)                                                        33
+  110 FORMAT( 2X,'----- PRECEEDING COMMAND NOT RECOGNIZED -----')            34
+      GO TO 40
+C                  READ FORCE-MOMENT COMPONENTS                              36
+  120 CALL GETRL(V,3,3,NF,CODE,80,IN,IPRCM)
+      IF(NF)40,40,125                                                        38
+  125 NOR=V(1)                                                               39
+      IF(NSTAT(NOR))320,126,320                                              40
+  126 CALL NBEQ(NF,NOR,NDUM1,NDUM2,NSTAT)                                    41
+      F(NF)=F(NF)+V(2)                                                       42
+      GO TO 120                                                              43
+C                  READ DISPLACEMENT COMPONENT SPECIFICATION                 44
+  130 IFSPD=1                                                                45
+  150 CALL GETRL(V,3,3,NF,CODE,80,IN,IPRCM)
+      IF(NF)40,40,152                                                        47
+  152 NOR=V(1)                                                               48
+      IF(NSTAT(NOR))320,154,320                                              49
+  154 CALL NBEQ(NF,NOR,NDUM1,NDUM2,NSTAT)                                    50
+      IFSP(NF)=1                                                             51
+      D(NF)=V(2)                                                             52
+      DO 160 I=1,NEQ                                                         53
+      NV=NFND1(I,NF)                                                         54
+  160 F(I)=F(I)-XMAT(NV)*V(2)                                                55
+      GO TO 150                                                              56
+C                  REMOVE SPECIFIED COORDINATES                              57
+  170 IF(NERR)171,171,360
+  171 IF(IFSPD)172,200,172                                                   58
+  172 NCT=0                                                                  59
+      DO 190 IC=1,NEQ                                                        60
+      IF(IFSP(IC)-1)174,190,174                                              61
+  174 NCT=NCT+1                                                              62
+      NS1(NCT)=IC                                                            63
+      F(NCT)=F(IC)                                                           64
+      DO 180 I=1,NCT                                                         65
+      NCOL=NS1(I)                                                            66
+      NV=NFND1(I,NCT)                                                        67
+      NOLD=NFND1(IC,NCOL)                                                    68
+  180 XMAT(NV)=XMAT(NOLD)                                                    69
+  190 CONTINUE                                                               70
+      NEQT=NCT                                                               71
+C                  COMPUTE AND OUTPUT RESULTS                                72
+  200 CALL EBLNK(TITLE,70,IEND)
+      WRITE(IOUT,60)(TITLE(I),I=1,IEND)
+   60 FORMAT(/10X,70A1/)
+      WRITE(IOUT,220)                                                        74
+  220 FORMAT(/9X,'STATIC DEFORMATION SOLUTION')                              75
+      CALL SIMQ2(F,XMAT,NEQT,1,1.E-6,IER,DMY)                                76
+      IF(IER)300,222,222                                                     77
+  222 IF(IFSPD)245,245,224                                                   78
+  224 JJ=NEQT+1                                                              79
+      DO 240 I=1,NEQ                                                         80
+      J=NEQ-I+1                                                              81
+      IF(IFSP(J)-1)226,230,226                                               82
+  226 JJ=JJ-1                                                                83
+      F(J)=F(JJ)                                                             84
+      GO TO 240                                                              85
+  230 F(J)=D(J)                                                              86
+  240 CONTINUE                                                               87
+  245 WRITE(IOUT,250)                                                        88
+  250 FORMAT(/5X,'DISPLACEMENT COMPONENTS'/)                               890
+      WRITE(IOUT,260)(F(I),I=1,NEQ)                                          90
+  260 FORMAT(1X,6E12.4)
+C                  COMPUTE AND OUTPUT NODAL FORCES FOR DISPLACEMENT INPUTS   92
+      IF(IFSPD)270,360,270                                                   93
+  270 NV=(NEQ*(NEQ+1))/2                                                     94
+      CALL VRDWT(XMAT,NV,NFN(3),NVPR,D,-1)                                   95
+      DO 280 I=1,NEQ                                                         96
+      D(I)=0.0                                                               97
+      DO 280 K=1,NEQ                                                         98
+      NV=NFND1(I,K)                                                          99
+  280 D(I)=D(I)+XMAT(NV)*F(K)                                               100
+      WRITE(IOUT,290)                                                       101
+  290 FORMAT(/5X,'FORCE COMPONENTS'/)
+      WRITE(IOUT,260)(D(I),I=1,NEQ)
+      GO TO 360                                                             104
+  300 WRITE(IOUT,310)                                                       105
+  310 FORMAT(////5X,'THE SYSTEM STIFFNESS MATRIX IS SINGULAR')              106
+      GO TO 360                                                             107
+  320 WRITE(IOUT,330)NOR
+  330 FORMAT(2X,'----- SOLUTION CANCELLED, COMP',I4,' HAS BEEN SPECIFIE
+     1D -----')
+      GO TO 360                                                             110
+  340 WRITE(IOUT,350)NS                                                     111
+  350 FORMAT(2X,'----- SOLUTION CANCELLED, MORE THAN',I4,'EQUATIONS ---
+     1--')
+  360 NEXEC=0                                                               113
+      RETURN
+      END                                                                   115
+ 
