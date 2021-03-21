@@ -1,0 +1,347 @@
+PROCEDURE ATM.COM.RPT % EXT: ATMREP  MAG: NCXC5K.M#2 %
+% Original version:  1975.04.10  / Dale Jordan (DALE) %
+% CURRENT VERSION    1976.04.09  / STEVE ALBANESE  (SALBANESE) %
+%
+Changes:
+    1976.04.09 - Changed Reserve payments to print only as a monthly
+                 value (see line 19).
+%
+BEGIN
+%  THIS PROCEDURE CREATES THE ATM'S COMMISSION REPORT
+   FROM THE YATM RELATION AND OTHERS AND FORMATS IT FOR OUTPUT
+
+   THE USER IS PROMPTED FOR THE FILE NAME FOR THE REPORTS WHEN
+   EXECUTION BEGINS.
+%
+
+FIELD
+   NFSIZE AS 'NN',           % NUMBER OF POSITIONS TO TAB WHEN NO MONTH FIGURE %
+   PERIOD.D AS DATE 'MMM YYYY',         % PERIOD FOR WHICH BATCH IS RUN %
+   PREV.MO SAME AS MO.PROCESSED,        % KEY FOR RETRIEVING PREV MONTH %
+   PREV.YR SAME AS YR.PROCESSED,        % KEY FOR RETRIEVING PREV YEAR  %
+   PERIOD.M AS DATE 'MMM',              % PERIOD FOR PRINTOUT ON STATMT %
+   P.PERIOD.M SAME AS PERIOD.M,         % PREVIOUS PERIOD MONTH NAME    %
+
+%  THE FOLLOWING FIELDS ARE THE FIELDS OF YATM PREFIXED WITH P. TO
+   REPRESENT THE PREVIOUS MONTH VALUES
+%
+   P.M.BASE.REV.Q         SAME AS M.BASE.REV.Q,
+   P.Y.BASE.REV.Q         SAME AS Y.BASE.REV.Q,
+   P.M.NEW.REV.Q          SAME AS M.NEW.REV.Q,
+   P.Y.NEW.REV.Q          SAME AS Y.NEW.REV.Q,
+   P.M.REV.BEF.ADJ        SAME AS M.REV.BEF.ADJ,
+   P.Y.REV.BEF.ADJ        SAME AS Y.REV.BEF.ADJ,
+   P.M.REV.ADJ            SAME AS M.REV.ADJ,
+   P.Y.REV.ADJ            SAME AS Y.REV.ADJ,
+   P.M.INCENT.BASE        SAME AS M.INCENT.BASE,
+   P.Y.INCENT.BASE        SAME AS Y.INCENT.BASE,
+   P.TOT.INCENT.ERND      SAME AS TOT.INCENT.ERND,
+   P.M.INCENT.ERND.Y      SAME AS M.INCENT.ERND.Y,
+   P.TOT.NROQ.BONUS       SAME AS TOT.NROQ.BONUS,
+   P.M.NROQ.BONUS.Y       SAME AS M.NROQ.BONUS.Y,
+   P.COM.EARNED           SAME AS COM.EARNED,
+   P.PREV.COM.EARNED      SAME AS PREV.COM.EARNED,
+   P.M.RESERVE.PMT        SAME AS M.RESERVE.PMT,
+   P.Y.RESERVE.PMT        SAME AS Y.RESERVE.PMT,
+   P.RESERVE              SAME AS RESERVE,
+   P.COM.THIS.MO          SAME AS COM.THIS.MO,
+   P.M.COM.ADJ            SAME AS M.COM.ADJ,
+   P.Y.COM.ADJ            SAME AS Y.COM.ADJ,
+   P.DRAW.AMOUNT          SAME AS DRAW.AMOUNT,
+   P.M.RECV.DRAW.USED      SAME AS M.RECV.DRAW.USED,
+   P.Y.RECV.DRAW.USED      SAME AS Y.RECV.DRAW.USED,
+   P.M.NONR.DRAW.USED      SAME AS M.NONR.DRAW.USED,
+   P.Y.NONR.DRAW.USED      SAME AS Y.NONR.DRAW.USED,
+   P.M.DRAW.RECVRY        SAME AS M.DRAW.RECVRY,
+   P.Y.DRAW.RECVRY        SAME AS Y.DRAW.RECVRY,
+   P.M.COM.PAYABLE        SAME AS M.COM.PAYABLE,
+   P.Y.COM.PAYABLE        SAME AS Y.COM.PAYABLE,
+%
+   THE FOLLOWING FIELDS ARE THE COMPUTED VALUES
+   APPEARING ON THE REPORT.
+%
+   M.TQ         SAME AS M.BASE.REV.Q,
+   P.M.TQ       SAME AS M.TQ,
+   Y.TQ         SAME AS M.TQ,
+   P.Y.TQ       SAME AS Y.TQ,
+
+   M.TSR        SAME AS M.BASE.REV.Q,
+   Y.TSR        SAME AS M.TSR,
+   P.M.TSR      SAME AS M.TSR,
+   P.Y.TSR      SAME AS Y.TSR,
+
+   Y.NR         SAME AS M.BASE.REV.Q,
+   P.Y.NR       SAME AS Y.NR,
+
+   Y.NROQ       SAME AS M.BASE.REV.Q,
+   P.Y.NROQ     SAME AS Y.NROQ,
+
+   Y.PCQ        AS 'ZZZN.NNN',
+   P.Y.PCQ      SAME AS Y.PCQ,
+
+   Y.PC.NROQ    SAME AS Y.PCQ,
+   P.Y.PC.NROQ  SAME AS Y.PCQ,
+
+   TOT.EARNED   SAME AS M.BASE.REV.Q,
+   P.TOT.EARNED SAME AS TOT.EARNED
+
+REPORT TO 'ATM.RPT'
+   PAGE.SIZE 58
+   PAGE.TOP @FF
+   REPORT.HEADING
+      PRINT @SKIP TO 28, @TAB TO 30,
+            "ATM Commission Report",@CR,
+            @TAB TO 34,
+            "for ", PERIOD.D, @CR, PAGE.TOP
+
+%  PAGE.FOOTING
+      PRINT
+      @TAB TO 18, "*** This report brought to you courtesy of MAGNUM ***",
+      @SKIP 3
+
+
+  HERE WE START THE EXECUTION PROPER
+%
+LET NFSIZE = 13        % THIS MUST CHANGE IF THE PICTURE OF M.BASE.REV.Q DOES %
+LET HOUSE.ACCOUNT = 90000     % CHECK FOR HOUSE ACCT EMPLOYEE NUMBERS. %
+
+TYPE "ATM Commission Report Procedure",@CR,@CR,
+     "Enter the month and year for the run as YY,MM: "
+ACCEPT YR.PROCESSED, MO.PROCESSED
+
+LET PERIOD.D, PERIOD.M  =
+       ((YR.PROCESSED * 100 + MO.PROCESSED) AS '4C') AS DATE 'YYMM'
+IF MO.PROCESSED = 1
+   THEN BEGIN
+      LET PREV.MO = 12
+      LET PREV.YR = YR.PROCESSED - 1
+      END
+   ELSE BEGIN
+      LET PREV.MO = MO.PROCESSED - 1
+      LET PREV.YR = YR.PROCESSED
+      END
+LET P.PERIOD.M = ((PREV.YR * 100 + PREV.MO) AS '5C') AS DATE 'YYMM'
+
+% WITH ALL THE PRELIMINARIES TAKEN CARE OF LETS GO
+%
+FOR EACH YATM VIA (YR.PROCESSED, MO.PROCESSED)  WRITE REPORT
+   BEGIN
+
+   % GET THE PREVIOUS PERIOD INSTANCES INTO THEIR P. FIELDS, OR ELSE
+     USE THE DEFAULTS IF THERE IS NO PREVIOUS ONE.
+   %
+
+   SELECT YATM VIA (YR.PROCESSED, MO.PROCESSED = PREV.MO, SALESNUM.5N, EMPLOYE.NUM)
+      THEN BEGIN
+         MOVE M.BASE.REV.Q         TO P.M.BASE.REV.Q
+         MOVE Y.BASE.REV.Q         TO P.Y.BASE.REV.Q
+         MOVE M.NEW.REV.Q          TO P.M.NEW.REV.Q
+         MOVE Y.NEW.REV.Q          TO P.Y.NEW.REV.Q
+         MOVE M.REV.BEF.ADJ        TO P.M.REV.BEF.ADJ
+         MOVE Y.REV.BEF.ADJ        TO P.Y.REV.BEF.ADJ
+         MOVE M.REV.ADJ            TO P.M.REV.ADJ
+         MOVE Y.REV.ADJ            TO P.Y.REV.ADJ
+         MOVE M.INCENT.BASE        TO P.M.INCENT.BASE
+         MOVE Y.INCENT.BASE        TO P.Y.INCENT.BASE
+         MOVE TOT.INCENT.ERND      TO P.TOT.INCENT.ERND
+         MOVE M.INCENT.ERND.Y      TO P.M.INCENT.ERND.Y
+         MOVE TOT.NROQ.BONUS       TO P.TOT.NROQ.BONUS
+         MOVE M.NROQ.BONUS.Y       TO P.M.NROQ.BONUS.Y
+         MOVE COM.EARNED           TO P.COM.EARNED
+         MOVE PREV.COM.EARNED      TO P.PREV.COM.EARNED
+         MOVE M.RESERVE.PMT        TO P.M.RESERVE.PMT
+         MOVE Y.RESERVE.PMT        TO P.Y.RESERVE.PMT
+         MOVE RESERVE              TO P.RESERVE
+         MOVE COM.THIS.MO          TO P.COM.THIS.MO
+         MOVE M.COM.ADJ            TO P.M.COM.ADJ
+         MOVE Y.COM.ADJ            TO P.Y.COM.ADJ
+         MOVE DRAW.AMOUNT          TO P.DRAW.AMOUNT
+         MOVE M.RECV.DRAW.USED      TO P.M.RECV.DRAW.USED
+         MOVE Y.RECV.DRAW.USED      TO P.Y.RECV.DRAW.USED
+         MOVE M.NONR.DRAW.USED      TO P.M.NONR.DRAW.USED
+         MOVE Y.NONR.DRAW.USED      TO P.Y.NONR.DRAW.USED
+         MOVE M.DRAW.RECVRY        TO P.M.DRAW.RECVRY
+         MOVE Y.DRAW.RECVRY        TO P.Y.DRAW.RECVRY
+         MOVE M.COM.PAYABLE        TO P.M.COM.PAYABLE
+         MOVE Y.COM.PAYABLE        TO P.Y.COM.PAYABLE
+         END
+      ELSE MOVE DEFAULT TO
+            P.M.BASE.REV.Q,
+            P.Y.BASE.REV.Q,
+            P.M.NEW.REV.Q,
+            P.Y.NEW.REV.Q,
+            P.M.REV.BEF.ADJ,
+            P.Y.REV.BEF.ADJ,
+            P.M.REV.ADJ,
+            P.Y.REV.ADJ,
+            P.M.INCENT.BASE,
+            P.Y.INCENT.BASE,
+            P.TOT.INCENT.ERND,
+            P.M.INCENT.ERND.Y,
+            P.TOT.NROQ.BONUS,
+            P.M.NROQ.BONUS.Y,
+            P.COM.EARNED,
+            P.PREV.COM.EARNED,
+            P.M.RESERVE.PMT,
+            P.Y.RESERVE.PMT,
+            P.RESERVE,
+            P.COM.THIS.MO,
+            P.M.COM.ADJ,
+            P.Y.COM.ADJ,
+            P.DRAW.AMOUNT,
+            P.M.RECV.DRAW.USED,
+            P.Y.RECV.DRAW.USED,
+            P.M.NONR.DRAW.USED,
+            P.Y.NONR.DRAW.USED,
+            P.M.DRAW.RECVRY,
+            P.Y.DRAW.RECVRY,
+            P.M.COM.PAYABLE,
+            P.Y.COM.PAYABLE
+
+   % NOW WE DO THE NECESSARY COMPUTATIONS FOR THE REPORT
+   %
+
+   SELECT CATM VIA SALESNUM.5N
+      THEN BEGIN
+
+         LET M.TQ = M.BASE.REV.Q + M.NEW.REV.Q
+         LET Y.TQ = Y.BASE.REV.Q + Y.NEW.REV.Q
+         LET P.M.TQ = P.M.BASE.REV.Q + P.M.NEW.REV.Q
+         LET P.Y.TQ = P.Y.BASE.REV.Q + P.Y.NEW.REV.Q
+      
+         LET M.TSR = M.REV.BEF.ADJ + M.REV.ADJ
+         LET Y.TSR = Y.REV.BEF.ADJ + Y.REV.ADJ
+         LET P.M.TSR = P.M.REV.BEF.ADJ + P.M.REV.ADJ
+         LET P.Y.TSR = P.Y.REV.BEF.ADJ + P.Y.REV.ADJ
+      
+         LET Y.NR = Y.TSR - Y.BASE.REV.Q
+         LET P.Y.NR = P.Y.TSR - P.Y.BASE.REV.Q
+      
+         IF Y.TSR > Y.TQ
+            THEN LET Y.NROQ = Y.TSR - Y.TQ
+            ELSE LET Y.NROQ = 0
+         IF P.Y.TSR > P.Y.TQ
+            THEN LET P.Y.NROQ = P.Y.TSR - P.Y.TQ
+            ELSE LET P.Y.NROQ = 0
+      
+         IF Y.NR <= 0 OR Y.NEW.REV.Q = 0
+            THEN LET Y.PCQ = 0
+            ELSE LET Y.PCQ = 100 * Y.NR / Y.NEW.REV.Q
+         IF P.Y.NR <= 0 OR P.Y.NEW.REV.Q = 0
+            THEN LET P.Y.PCQ = 0
+            ELSE LET P.Y.PCQ = 100 * P.Y.NR / P.Y.NEW.REV.Q
+      
+         IF Y.TQ <= 0 OR Y.NEW.REV.Q = 0
+            THEN LET Y.PC.NROQ = 0
+            ELSE LET Y.PC.NROQ = (PC.N.R.O.Q * (Y.NROQ / Y.NEW.REV.Q)) * 100
+         IF P.Y.TQ <= 0 OR P.Y.NEW.REV.Q = 0
+            THEN LET P.Y.PC.NROQ = 0
+            ELSE LET P.Y.PC.NROQ=(PC.N.R.O.Q * (P.Y.NROQ/P.Y.NEW.REV.Q)) * 100
+      
+         LET TOT.EARNED = COM.EARNED - PREV.COM.EARNED
+         LET P.TOT.EARNED = P.COM.EARNED - P.PREV.COM.EARNED
+      
+         % NOW TO PRINT THE HEADER LINES
+         %
+      
+         PRINT
+            @TAB TO 28, PERIOD.D AS DATE 'YYYY',
+            " AREA TECHNICAL MANAGER CHART",@CR,@CR,
+            "Area: ",GROUP.NAME(IAREA VIA AREA.2N
+                (ISP VIA SALESNUM.5N)),@CR
+
+      SELECT IEMPL VIA EMPLOYE.NUM THEN
+        PRINT "Area Technical Manager: ", TRIM(E.FIRST.NAME),
+          " ", TRIM(E.LAST.NAME),@CR
+
+      PRINT "Area Number: ", AREA.2N(ISP VIA SALESNUM.5N),@CR
+
+         PRINT
+            "Incentive Base:  ", INCENT.BASE.Q, @TAB TO 60,
+            "NROQ Factor: ", PC.N.R.O.Q, @CR, @CR,
+            @TAB TO 33, "MON", @TAB TO 39, P.PERIOD.M, @TAB TO 46,
+            "YTD", @TAB TO 59, "MON", @TAB TO 65, PERIOD.M, @TAB TO 72,
+            "YTD", @CR, @CR
+
+
+
+
+
+        % ZERO OUT ALL PAID FIELDS IF IT IS A HOUSE ACCOUNT %
+
+        IF EMPLOYE.NUM GT HOUSE.ACCOUNT THEN
+          LET P.M.INCENT.ERND.Y, M.INCENT.ERND.Y,
+              P.M.NROQ.BONUS.Y, M.NROQ.BONUS.Y,
+              P.COM.EARNED, COM.EARNED,
+              P.PREV.COM.EARNED, PREV.COM.EARNED,
+              P.TOT.EARNED, TOT.EARNED,
+              P.RESERVE, RESERVE,
+              P.COM.THIS.MO, COM.THIS.MO,
+              P.M.RESERVE.PMT, P.Y.RESERVE.PMT,
+              P.Y.RECV.DRAW.USED, Y.RECV.DRAW.USED,
+              P.Y.NONR.DRAW.USED, Y.NONR.DRAW.USED,
+              P.Y.DRAW.RECVRY, Y.DRAW.RECVRY,
+              P.Y.COM.ADJ, Y.COM.ADJ,
+              P.M.COM.PAYABLE, M.COM.PAYABLE = 0
+
+         % NOW WE LET IT ROLL FOR THE BODY OF THE REPORT
+         %
+   PRINT
+      " 1 Base                   ",
+         P.M.BASE.REV.Q, P.Y.BASE.REV.Q, M.BASE.REV.Q, Y.BASE.REV.Q, @CR,
+      " 2 NRQ                    ",
+         P.M.NEW.REV.Q, P.Y.NEW.REV.Q, M.NEW.REV.Q, Y.NEW.REV.Q, @CR,
+      " 3 TQ                     ",
+         P.M.TQ, P.Y.TQ, M.TQ, Y.TQ, @CR,
+      " 4 Revenue before Adj.    ",
+         P.M.REV.BEF.ADJ, P.Y.REV.BEF.ADJ, M.REV.BEF.ADJ, Y.REV.BEF.ADJ, @CR,
+      " 5 Adjustment             ",
+         P.M.REV.ADJ, P.Y.REV.ADJ, M.REV.ADJ, Y.REV.ADJ, @CR,
+      " 6 Total Service Revenue  ",
+         P.M.TSR, P.Y.TSR, M.TSR, Y.TSR, @CR,
+      " 7 Incentive Base         ",
+         P.M.INCENT.BASE, P.Y.INCENT.BASE, M.INCENT.BASE, Y.INCENT.BASE, @CR,
+      " 8 New Revenue            ",
+          @TAB NFSIZE, P.Y.NR, @TAB NFSIZE, Y.NR, @CR,
+      " 9 NROQ (6-3, not < 0)    ",
+          @TAB NFSIZE, P.Y.NROQ, @TAB NFSIZE, Y.NROQ, @CR,
+      "10 % Quota (8/2)          ",
+          @TAB 2*NFSIZE-8, P.Y.PCQ, @TAB 2*NFSIZE-8, Y.PCQ, @CR,
+      "11 % NROQ (F*(9/2))       ",
+          @TAB 2*NFSIZE-8, P.Y.PC.NROQ, @TAB 2*NFSIZE-8, Y.PC.NROQ, @CR,
+
+       @TAB TO 42, "Commissions and Bonuses", @CR,
+
+      "12 YTD Incentive (7*10)   ",
+          @TAB NFSIZE, P.M.INCENT.ERND.Y, @TAB NFSIZE, M.INCENT.ERND.Y, @CR,
+      "13 YTD NROQ Bonus (7*11)  ",
+          @TAB NFSIZE, P.M.NROQ.BONUS.Y, @TAB NFSIZE, M.NROQ.BONUS.Y, @CR,
+      "14 Total Earned YTD       ",
+          @TAB NFSIZE, P.COM.EARNED, @TAB NFSIZE, COM.EARNED, @CR,
+      "15 Less Total Paid YTD    ",
+          @TAB NFSIZE, P.PREV.COM.EARNED, @TAB NFSIZE, PREV.COM.EARNED, @CR,
+      "16 Total Earned this Month",
+          @TAB NFSIZE, P.TOT.EARNED, @TAB NFSIZE, TOT.EARNED, @CR,
+      "17 Reserve                ",
+          @TAB NFSIZE, P.RESERVE, @TAB NFSIZE, RESERVE, @CR,
+      "18 Comm. this Month       ",
+          @TAB NFSIZE, P.COM.THIS.MO, @TAB NFSIZE, COM.THIS.MO, @CR,
+      "19 Reserve Payment        ",
+         @TAB NFSIZE, P.M.RESERVE.PMT, @TAB NFSIZE, M.RESERVE.PMT,  @CR,
+      "   Recov. Draw            ",
+         @TAB NFSIZE, P.M.RECV.DRAW.USED, @TAB NFSIZE, M.RECV.DRAW.USED, @CR,
+      "   Nonrecov. Draw         ",
+         @TAB NFSIZE, P.M.NONR.DRAW.USED, @TAB NFSIZE, M.NONR.DRAW.USED, @CR,
+      "   Draw Recovery          ",
+         @TAB NFSIZE, P.M.DRAW.RECVRY, @TAB NFSIZE, M.DRAW.RECVRY, @CR,
+      "   Adjustment             ",
+         @TAB NFSIZE, P.M.COM.ADJ, @TAB NFSIZE, M.COM.ADJ, @CR,
+      "   Net Paid               ",
+         @TAB NFSIZE, P.M.COM.PAYABLE, @TAB NFSIZE, M.COM.PAYABLE, @CR,
+         PAGE.TOP
+
+         END
+   END
+
+END % OF PROCEDURE ATM.COM.RPT %
+   
