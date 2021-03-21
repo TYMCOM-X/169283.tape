@@ -1,0 +1,87 @@
+MODULE RCLSE(DOLLAR,ENTRIES=($RCLSE),FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+
+BEGIN
+
+REQUIRE RCDEFS.BLI[7,107355];
+REQUIRE RSDEFS.BLI[7,107355];
+REQUIRE CDEFS.BLI[7,107355];
+REQUIRE RDEFS.BLI[7,107355];
+REQUIRE KDEFS.BLI[7,107355];
+REQUIRE BTDEFS.BLI[7,107355];
+REQUIRE SBDEFS.BLI[7,107355];
+REQUIRE STDEFS.BLI[7,107355];
+UNDECLARE $RCLSE;
+
+MACRO INC(NAME)= (NAME_.NAME+1)&;
+
+MACRO DEC(NAME)= (NAME_.NAME-1)&;
+
+GLOBAL ROUTINE $RCLSE(RCB)=
+
+   BEGIN
+   MAP RCB$ RCB;
+   LOCAL RCB$ RC;
+   LOCAL RSB$ RSB;
+   LOCAL KFCB$ FCB;
+   LOCAL KSOB$ SOB;
+   LOCAL KSB$ SB;
+   LOCAL ST$ ST;
+   LOCAL NOP;
+
+   RSB_.RCB[RC$RSB];
+   FCB_.RCB[RC$FCB];
+   SOB_.RCB[RC$SOBP];
+   IF .RSB[RS$CREATE]
+      THEN
+         BEGIN
+         RSB[RS$CREATE]_0;
+         ST_.RCB[RC$SCONTRL];
+         $KSORT(.FCB,1,.SOB,.ST);
+         IF .SOB[K$SDUPLICATES]
+            THEN
+               BEGIN
+               SOB[K$SDUPLICATES]_0;
+               $KLEAR(.FCB,.ST,.RCB);
+               END;
+         $KBLDI(.FCB,.ST);
+         $CFREE(.ST);
+         RCB[RC$SCONTRL]_0;
+         END;
+   $CFREE(.RCB[RC$RIGHT]);
+   RCB[RC$RIGHT]_0;
+   IF DEC(RSB[RS$REF]) EQL 0
+      THEN
+         BEGIN
+         IF .FCB[K$CLOSER] EQL $KFLSH<0,0> AND (.RCB[RC$MODE] EQL RCV$OUTPUT
+                                            OR  .RCB[RC$MODE] EQL RCV$UPDATE)
+            THEN
+               BEGIN
+               $KFLSH(.FCB);
+               SB_$KVIRD(.FCB,SBV$SBPN,SBV$SBSZ);
+               SB[SB$ABNORMAL]_0;
+               $KACWR(.FCB,.SB,SBV$SBPN,SBV$SBSZ);
+               $KRBUF(.FCB,.SB,SBV$SBPN,SBV$SBSZ);
+               FCB[K$CLOSER]_0;
+               END;
+         $KLOSE(.FCB);
+         DEC(KBTIX$[BT$OFILS]);
+         END;
+   IF (RC_.RCB[RC$LAST]) NEQ 0
+      THEN
+         BEGIN
+         RC[RC$NEXT]_.RCB[RC$NEXT];
+         RSB[RS$RCB]_.RC;
+         END;
+   IF (RC_.RCB[RC$NEXT]) NEQ 0
+      THEN
+         BEGIN
+         RC[RC$LAST]_.RCB[RC$LAST];
+         RSB[RS$RCB]_.RC;
+         END;
+   IF .RCB[RC$LAST] EQL 0 AND .RC EQL 0
+      THEN RSB[RS$RCB]_0
+      ELSE RCB[RC$LAST]_RCB[RC$NEXT]_0;
+   $CFREE(.SOB[K$SSPBP]);
+   $CFREE(.SOB);
+   END;
+END ELUDOM
