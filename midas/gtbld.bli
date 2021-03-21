@@ -1,0 +1,544 @@
+MODULE GBUILD(STACK,DOLLAR,FSAVE,TIMING,TIMER=EXTERNAL(SIX12)) =
+  BEGIN
+  REQUIRE CDEFS.BLI[7,107355];
+  REQUIRE KDEFS.BLI[7,107355];
+  REQUIRE TDEFS.BLI[7,107355];
+  REQUIRE UDEFS.BLI[7,107355];
+
+  BIND TKNSTUFFSIZE = 236;
+
+  BIND TKNSTUFF = PLIT(
+         TKNINFO NAMES
+         TV$LT      ,'LT      ','$GROP ',
+         TV$LE      ,'LE      ','$GROP ',
+         TV$EQ      ,'EQ      ','$GEQ  ',
+         TV$NE      ,'NE      ','$GROP ',
+         TV$DELETE  ,'DELETE  ','$GDEL ',
+         TV$INSERT  ,'INSERT  ','$GUPD ',
+         TV$ALTER   ,'ALTER   ','$GUPD ',
+         TV$BEGIN   ,'BEGIN   ','$GBEGN',
+         TV$END     ,'END     ','$GEND ',
+         TV$PROCDR  ,'PROCDR  ','$GPROC',
+         TV$ALL     ,'ALL     ','$GALL ',
+         TV$USING   ,'USING   ','$GUSNG',
+         TV$TRUNC   ,'TRUNC   ','$GTOKN',
+         TV$NAME    ,'NAME    ','$GNAME',
+         TV$STRING  ,'STRING  ','$GLIT ',
+         TV$INTLIT  ,'INTLIT  ','$GLIT ',
+         TV$DECLIT  ,'DECLIT  ','$GLIT ',
+         TV$DTLIT   ,'DTLIT   ','$GLIT ',
+         TV$CCLIT   ,'CCLIT   ','$GLIT ',
+         TV$BLANK   ,'BLANK   ','$GTOKN',
+         TV$8BGDEL  ,'8BGDEL  ','$GBDEL',
+         TV$8BGALT  ,'8BGALT  ','$GBUPD',
+         TV$8USNGL  ,'8USNGL  ','$GUSNG',
+         TV$8USNGS  ,'8USNGS  ','$GUSNG',
+         TV$9CR     ,'9CR     ','$GTOKN',
+         TV$GE      ,'GE      ','$GROP ',
+         TV$GT      ,'GT      ','$GROP ',
+         TV$8BGADD  ,'8BGADD  ','$GBASG',
+         TV$8BGSUB  ,'8BGSUB  ','$GBASG',
+         TV$8BGASS  ,'8BGASS  ','$GBASG',
+         TV$ADD     ,'ADD     ','$GADD ',
+         TV$SUBTRA ,'SUBTRA  ','$GSUB ',
+         TV$LET     ,'LET     ','$GLET ',
+         TV$8BGIF   ,'8BGIF   ','$GBIF ',
+         TV$IF      ,'IF      ','$GIF  ',
+         TV$THEN    ,'THEN    ','$GTHEN',
+         TV$ELSE    ,'ELSE    ','$GELSE',
+         TV$8NDIF   ,'8NDIF   ','$GEIF ',
+         TV$PLUS    ,'PLUS    ','$GAOP ',
+         TV$MINUS   ,'MINUS   ','$GAOP ',
+         TV$STAR    ,'STAR    ','$GAOP ',
+         TV$SLASH   ,'SLASH   ','$GAOP ',
+         TV$8UMINUS ,'8UMINUS ','$GUOP ',
+         TV$NOT     ,'NOT     ','$GUOP ',
+         TV$8EXT    ,'8EXT    ','$GEXT ',
+         TV$AND     ,'AND     ','$GBOOL',
+         TV$OR      ,'OR      ','$GBOOL',
+         TV$8BGIN   ,'8BGIN   ','$GBIN ',
+         TV$IN      ,'IN      ','$GIN  ',
+         TV$CHANGD  ,'CHANGD  ','$GCHGD',
+         TV$ILLEGL  ,'ILLEGL  ','$GILGL',
+         TV$8BGWLDO ,'8BGWLDO ','$GBWL ',
+         TV$8WLDO   ,'8WLDO   ','$GWLDO',
+         TV$8NDWLDO ,'8NDWLDO ','$GEWDO',
+         TV$8BGDOWL ,'8BGDOWL ','$GBWL ',
+         TV$8DOWL   ,'8DOWL   ','$GDOWL',
+         TV$8NDDOWL ,'8NDDOWL ','$GEDOW',
+         TV$8BGACC  ,'8BGACC  ','$GBACC',
+         TV$ACCEPT  ,'ACCEPT  ','$GACC ',
+         TV$8BGSEL  ,'8BGSEL  ','$GBSEL',
+         TV$SELECT  ,'SELECT  ','$GSEL ',
+         TV$8NDSEL ,'8NDSEL  ','$GESEL',
+         TV$8BGFORE,'8BGFORE ','$GBFE ',
+         TV$8NDFORE ,'8NDFORE ','$GEFE ',
+         TV$SOURCE  ,'SOURCE  ','$GSRCE',
+         TV$8BGCOND ,'8BGCOND ','$GBCND',
+         TV$CONDIT  ,'CONDIT  ','$GCOND',
+         TV$8NDILST ,'8NDILST ','$GEINL',
+         TV$LINE    ,'LINE    ','$GNOOP',
+         TV$REPORT  ,'REPORT  ','$GRP  ',
+         TV$SORTED  ,'SORTED  ','$GSORT',
+         TV$EACH    ,'EACH    ','$GEACH',
+         TV$REPRTHD ,'REPRTHD ','$GRPHD',
+         TV$PAGEHD  ,'PAGEHD  ','$GPGHD',
+         TV$PAGEFT  ,'PAGEFT  ','$GPGFT',
+         TV$REPRTFT ,'REPRTFT ','$GRPFT',
+         TV$GROUPHD ,'GROUPHD ','$GGPHD',
+         TV$GROUPFT ,'GROUPFT ','$GGPFT',
+         TV$8NDRPC  ,'8NDRPC  ','$GERPC',
+         TV$8BGFRCE ,'8BGFRCE ','$GBFRC',
+         TV$FORCE   ,'FORCE   ','$GFRCE',
+         TV$FINISH  ,'FINISH  ','$GFIN ',
+         TV$REPEAT  ,'REPEAT  ','$GRPET',
+         TV$VIA     ,'VIA     ','$GVIA ',
+         TV$8QUAL    ,'8QUAL    ','$GQUAL',
+         TV$8BGWHR  ,'8BGWHR  ','$GBWHR',
+         TV$WHERE   ,'WHERE   ','$GWHR ',
+         TV$OF      ,'OF      ','$GOF  ',
+         TV$AS      ,'AS      ','$GAS  ',
+         TV$8TABTO  ,'8TABTO  ','$GFORM',
+         TV$9TAB    ,'9TAB    ','$GFORM',
+         TV$8SKIPTO ,'8SKIPTO ','$GFORM',
+         TV$9SKIP   ,'9SKIP   ','$GFORM',
+         TV$TO      ,'TO      ','$GTO  ',
+         TV$PAGEDV  ,'PAGEDV  ','$GRITM',
+         TV$BOTTM   ,'BOTTM   ','$GRITM',
+         TV$FOOTSZ  ,'FOOTSZ  ','$GRITM',
+         TV$LINEN   ,'LINEN   ','$GRITM',
+         TV$PAGEN   ,'PAGEN   ','$GRITM',
+         TV$PAGESZ  ,'PAGESZ  ','$GRITM',
+         TV$TOPMAR  ,'TOPMAR  ','$GRITM',
+         TV$PAGETP  ,'PAGETP  ','$GRITM',
+         TV$HEADSZ  ,'HEADSZ  ','$GRITM',
+         TV$8BGPRNT ,'8BGPRNT ','$GBPRN',
+         TV$8NDOLST ,'8NDOLST ','$GEOL ',
+         TV$PRINT   ,'PRINT   ','$GPRNT',
+         TV$8BGTYPE ,'8BGTYPE ','$GBTYP',
+         TV$8BGABT  ,'8BGABT  ','$GBTYP',
+         TV$ABORT   ,'ABORT   ','$GABRT',
+         TV$TYPE    ,'TYPE    ','$GPRNT',
+         TV$COUNT   ,'COUNT   ','$GCNT ',
+         TV$SUM     ,'SUM     ','$GSUM ',
+         TV$AVG     ,'AVG     ','$GAVG ',
+         TV$MIN     ,'MIN     ','$GMIN ',
+         TV$MAX     ,'MAX     ','$GMAX ',
+         TV$DATE    ,'DATE    ','$GTOKN',
+         TV$TODAY   ,'TODAY    ','$GTDAY',
+         TV$TIME    ,'TIMEY    ','$GTIME',
+         TV$TRIM    ,'TRIM    ','$GTRIM',
+         TV$NOTHNG  ,'NOTHNG  ','$GNTHG',
+         TV$9FF     ,'9FF     ','$GOHOH',
+         TV$FOR     ,'FOR     ','$GFOR ',
+         TV$DEFAULT ,'DEFAULT ','$GDFLT',
+         TV$KEY     ,'KEY     ','$GTOKN',
+         TV$8PIC    ,'8PIC    ','$GTOKN',
+         TV$8BGRPET ,'8BGREPT ','$GTOKN',
+         TV$8VLST   ,'8VLST   ','$GEVTL',
+         TV$ROUND   ,'ROUND   ','$GTOKN',
+         TV$ASCEND  ,'ASCEND  ','$GSORD',
+         TV$DESCEN  ,'DESCEN  ','$GSORD',
+         TV$8BGFIN  ,'8BGFIN  ','$GTOKN',
+         TV$FIELD   ,'FIELD   ','$GOHOH',
+         TV$RELATN  ,'RELATN  ','$GOHOH',
+         TV$CALL    ,'CALL    ','$GOHOH',
+         TV$SINGLE  ,'SINGLE  ','$GOHOH',
+         TV$BITS    ,'BITS    ','$GOHOH',
+         TV$INIT    ,'INIT    ','$GOHOH',
+         TV$FROM    ,'FROM    ','$GOHOH',
+         TV$POSITN  ,'POSITN  ','$GOHOH',
+         TV$FIXED   ,'FIXED   ','$GOHOH',
+         TV$INVALD  ,'INVALD  ','$GOHOH',
+         TV$TERMIN  ,'TERMIN  ','$GOHOH',
+         TV$CNTRLD  ,'CNTRLD  ','$GCTRL',
+         TV$ERRORS  ,'ERRORS  ','$GOHOH',
+         TV$PROCDRS ,'PROCDRS ','$GOHOH',
+         TV$GROUP   ,'GROUP   ','$GOHOH',
+         TV$MODIFY  ,'MODIFY  ','$GOHOH',
+         TV$DO      ,'DO      ','$GOHOH',
+         TV$CREATE  ,'CREATE  ','$GOHOH',
+         TV$JOIN    ,'JOIN    ','$GOHOH',
+         TV$DEFINE  ,'DEFINE  ','$GOHOH',
+         TV$DOUBLE  ,'DOUBLE  ','$GOHOH',
+         TV$WITH    ,'WITH    ','$GOHOH',
+         TV$SAME    ,'SAME    ','$GOHOH',
+         TV$THOSE   ,'THOSE   ','$GOHOH',
+         TV$FORM    ,'FORM    ','$GOHOH',
+         TV$NO      ,'NO      ','$GOHOH',
+         TV$BACKUP  ,'BACKUP  ','$GOHOH',
+         TV$HEADNGS ,'HEADNGS ','$GOHOH',
+         TV$SCHEMA  ,'SCHEMA  ','$GOHOH',
+         TV$PARMTR  ,'PARMTR  ','$GOHOH',
+         TV$WRITE   ,'WRITE   ','$GOHOH',
+         TV$RELEASE ,'RELEASE ','$GOHOH',
+         TV$MOVE    ,'MOVE    ','$GOHOH',
+         TV$WHILE   ,'WHILE   ','$GOHOH',
+         TV$TRANSF  ,'TRANSF  ','$GOHOH',
+         TV$RETURN  ,'RETURN  ','$GOHOH',
+         TV$RELATNS ,'RELATNS ','$GOHOH',
+         TV$FLOAT   ,'FLOAT   ','$GOHOH',
+         TV$INTO    ,'INTO    ','$GOHOH',
+         TV$ON      ,'ON      ','$GOHOH',
+         TV$FREE    ,'FREE    ','$GOHOH',
+         TV$CHANGE  ,'CHANGE  ','$GOHOH',
+         TV$TOTALS  ,'TOTALS  ','$GOHOH',
+         TV$EDIT    ,'EDIT    ','$GOHOH',
+         TV$FULL    ,'FULL    ','$GOHOH',
+         TV$RUN     ,'RUN     ','$GOHOH',
+         TV$FORMAT  ,'FORMAT  ','$GOHOH',
+         TV$INPUT   ,'INPUT   ','$GOHOH',
+         TV$BINARY  ,'BINARY  ','$GOHOH',
+         TV$APPEND  ,'APPEND  ','$GOHOH',
+         TV$DIRECTY ,'DIRECTY ','$GOHOH',
+         TV$IS      ,'IS      ','$GAS  ',
+         TV$DATA    ,'DATA    ','$GOHOH',
+         TV$BY      ,'BY      ','$GOHOH',
+         TV$GIVING  ,'GIVING  ','$GOHOH',
+         TV$PROMPT  ,'PROMPT  ','$GOHOH',
+         TV$SEPAR   ,'SEPAR   ','$GOHOH',
+         TV$REPORTS ,'REPORTS ','$GOHOH',
+         TV$PROMPTD ,'PROMPTD ','$GOHOH',
+         TV$CHECK   ,'CHECK   ','$GOHOH',
+         TV$ENTER   ,'ENTER   ','$GOHOH',
+         TV$LIST    ,'LIST    ','$GOHOH',
+         TV$RESTORE ,'RESTORE ','$GOHOH',
+         TV$EXCL    ,'EXCL    ','$GOHOH',
+         TV$AMP     ,'AMP     ','$GOHOH',
+         TV$PERIOD  ,'PERIOD  ','$GOHOH',
+         TV$QMARK   ,'QMARK   ','$GOHOH',
+         TV$RBRACK  ,'RBRACK  ','$GOHOH',
+         TV$LCURL   ,'LCURL   ','$GOHOH',
+         TV$EOF     ,'EOF     ','$GOHOH',
+         TV$DBLQT   ,'DBLQT   ','$GOHOH',
+         TV$SINQT   ,'SINQT   ','$GOHOH',
+         TV$AT      ,'AT      ','$GOHOH',
+         TV$CARET   ,'CARET   ','$GOHOH',
+         TV$VBAR    ,'VBAR    ','$GOHOH',
+         TV$CR      ,'CR      ','$GOHOH',
+         TV$DOLLAR  ,'DOLLAR  ','$GOHOH',
+         TV$LPAREN  ,'LPAREN  ','$GOHOH',
+         TV$COMMA   ,'COMMA   ','$GOHOH',
+         TV$COLON   ,'COLON   ','$GOHOH',
+         TV$LBRACK  ,'LBRACK  ','$GOHOH',
+         TV$UNDER   ,'UNDER   ','$GOHOH',
+         TV$RCURL   ,'RCURL   ','$GOHOH',
+         TV$PERCENT ,'PERCENT ','$GOHOH',
+         TV$RPAREN  ,'RPAREN  ','$GOHOH',
+         TV$SEMCOL  ,'SEMCOL  ','$GOHOH',
+         TV$BSLASH  ,'BSLASH  ','$GOHOH',
+         TV$ACCGR   ,'ACCGR   ','$GOHOH',
+         TV$NULL    ,'NULL    ','$GOHOH',
+         TV$SAVE    ,'SAVE    ','$GOHOH',
+         TV$BUILD   ,'BUILD   ','$GOHOH',
+         TV$8BGAE   ,'8BGAE   ','$GOHOH',
+         TV$8NDAE   ,'8NDAE   ','$GOHOH',
+         TV$8BGSRT  ,'8BGSRT  ','$GBSRT',
+         TV$8BGVLST ,'8BGVLST ','$GBVTL',
+         TV$ERROR   ,'ERROR   ','$GOHOH',
+         TV$8TREE   ,'8TREE   ','$GOHOH',
+         TV$VERIFY  ,'VERIFY  ','$GOHOH',
+         TV$LABEL   ,'LABEL   ','$GLABL',
+         TV$8SORTEDON,'8SORTEDON','$GSORT',
+         TV$8BGWRPT ,'8BGWRPT ','$GBRPT',
+         TV$8NDWRPT ,'8NDWRPT ','$GERPT',
+         TV$8WRPT   ,'8WRPT   ','$GWRPT',
+         TV$8COUNTN ,'8COUNTN ','$GCNTN',
+         TV$8BGINS  ,'8BGINS  ','$GBUPD');
+  GLOBAL JVECTOR[(TKNSTUFFSIZE+1) * 5];
+
+  BIND
+    TKNVALUE = 0,
+    LLINK    = 1,
+    RLINK    = 2,
+    JVDISP   = 3;
+  STRUCTURE BTREE[FIELD] = CASE .FIELD OF
+      SET
+    (@.BTREE)<27,9>;    %TOKEN VALUE %
+    (@.BTREE)<18,9>;    % LEFT LINK   %
+    (@.BTREE)<9,9>;     % RIGHT LINK   %
+    (@.BTREE)<0,9>;     % JVECTOR DISP %
+      TES;
+
+  GLOBAL BTREE GROOT$;
+  GLOBAL BTREE GNEXT$;
+
+  GLOBAL BTREE NODE;
+  LOCAL JVSTART;
+
+  BIND NULLPTR = 0;
+
+  LOCAL LOWER, UPPER, I, J;
+
+  BIND
+    LOWBOUND = 0,
+    UPRBOUND = 1;
+  STRUCTURE PAIR[FIELD] = CASE .FIELD OF
+      SET
+    (@.PAIR)<18,18>;    % LOWER BOUND %
+    (@.PAIR)<0,18>;     % UPPER BOUND %
+      TES;
+
+  LOCAL PAIR HEAD;
+  LOCAL TOP;
+  LOCAL STACK[15];
+  LOCAL KFCB$ OUTF:OUTFR;
+
+% THIS ROUTINE CREATES A NEW NODE IN THE BINARY TREE %
+  ROUTINE INSERT(J) =
+    BEGIN
+    LOCAL I;
+
+   %*
+    $UAPSZ($USPTR('INSERT '));
+    $UAPSC(JVECTOR[.J*5+1]<36,7>,8);
+    $UOUTL();
+   *%
+    GNEXT$[TKNVALUE] _ .JVECTOR[.J*5];
+    GNEXT$[LLINK] _ GNEXT$[RLINK] _ NULLPTR;
+    GNEXT$[JVDISP] _ .J;
+   %**
+    $UAPDC(.GNEXT$[TKNVALUE]);
+    $UAPSZ($USPTR(','));
+    $UAPDC(.GNEXT$[LLINK]);
+    $UAPSZ($USPTR(','));
+    $UAPDC(.GNEXT$[RLINK]);
+    $UAPSZ($USPTR(','));
+    $UAPDC(.GNEXT$[JVDISP]);
+    $UOUTL();
+   **%
+    I _ .GNEXT$;
+    GNEXT$ _ .GNEXT$ + 1;
+
+    .I
+    END;
+
+% THIS ROUTINE DETERMINES IF A NODE EXISTS, FOR THE SPECIFIED VALUE, AND
+  IF NOT IT REQUESTS THAT ONE BE CREATED.
+%
+  ROUTINE FIND(PTR) =
+    BEGIN
+    LOCAL I, J;
+
+    I _ .PTR * 5;
+   %***
+    $UAPSZ($USPTR('FIND  '));
+    $UAPSC(JVECTOR[.I+1]<36,7>,8);
+    $UOUTL();
+   ***%
+    NODE _ .GROOT$;
+    WHILE .JVECTOR[.I] NEQ .NODE[TKNVALUE]
+      DO
+        BEGIN
+       %***
+        $UAPSZ($USPTR('NODE:  '));
+                $UAPDC(.NODE[TKNVALUE]);
+                $UAPSZ($USPTR(','));
+                $UAPDC(.NODE[LLINK]);
+                $UAPSZ($USPTR(','));
+                $UAPDC(.NODE[RLINK]);
+                $UAPSZ($USPTR(','));
+                $UAPDC(.NODE[JVDISP]);
+                $UOUTL();
+       ***%
+        IF .JVECTOR[.I] LSS .NODE[TKNVALUE]
+          THEN
+            IF .NODE[LLINK] NEQ NULLPTR
+              THEN
+                NODE _ .NODE[LLINK] + .GROOT$
+              ELSE
+                BEGIN
+                J _ INSERT(.PTR);
+                NODE[LLINK] _ .J - .GROOT$;
+                NODE _ .J;
+               %*****
+                $UAPDC(.NODE[TKNVALUE]);
+                $UAPSZ($USPTR(','));
+                $UAPDC(.NODE[LLINK]);
+                $UAPSZ($USPTR(','));
+                $UAPDC(.NODE[RLINK]);
+                $UAPSZ($USPTR(','));
+                $UAPDC(.NODE[JVDISP]);
+                $UOUTL();
+               *****%
+                END
+          ELSE
+            IF .NODE[RLINK] NEQ NULLPTR
+              THEN
+                NODE _ .NODE[RLINK] + .GROOT$
+              ELSE
+                BEGIN
+                J _ INSERT(.PTR);
+                NODE[RLINK] _ .J - .GROOT$;
+                NODE _ .J;
+               %**
+                $UAPDC(.NODE[TKNVALUE]);
+                $UAPSZ($USPTR(','));
+                $UAPDC(.NODE[LLINK]);
+                $UAPSZ($USPTR(','));
+                $UAPDC(.NODE[RLINK]);
+                $UAPSZ($USPTR(','));
+                $UAPDC(.NODE[JVDISP]);
+                $UOUTL();
+               **%
+                END;
+        END;
+    END;
+
+%***
+  START OF PROCESSING
+***%
+
+  $CRESET();
+  GROOT$ _ GNEXT$ _ JVSTART _ $CGTZM(TKNSTUFFSIZE+1);
+  $UZERO(TKNSTUFFSIZE*5,JVECTOR);
+%
+   COPY AND SORT THE TABLE OF TOKEN MNEMONICS AND ASSOCIATED SEMANTIC
+   ROUTINE NAMES.
+%
+  $UMOVE(5,TKNINFO,JVECTOR);
+  $UMESS($USPTR('MOVE TKNINFO TO JVECTOR'));
+  INCR A FROM 1 TO TKNSTUFFSIZE - 1
+    DO
+      BEGIN
+      I _ 0;
+      J _.A * 5;
+      WHILE .TKNINFO[.J] GTR .JVECTOR[.I] AND .JVECTOR[.I] NEQ 0
+        DO
+          I _ .I + 5;
+      DECR B FROM .A * 5 TO .I
+        DO 
+          $UMOVE(1, JVECTOR[.B], JVECTOR[.B +5]);
+      $UMOVE(5, TKNINFO[.J], JVECTOR[.I]);
+      END;
+  $UMESS($USPTR('MOVE COMPLETED'));
+%*****
+  INCR I FROM 0 TO (TKNSTUFFSIZE - 1) * 5 BY 5
+    DO
+      BEGIN
+      $UAPDC(.JVECTOR[.I]);
+      $UAPSZ($USPTR(','));
+      $UAPSC(JVECTOR[.I+1]<36,7>,8);
+      $UAPSZ($USPTR(','));
+      $UAPSC(JVECTOR[.I+3]<36,7>,6);
+      $UOUTL();
+      END;
+*****%
+  I _ TKNSTUFFSIZE/2;
+  INSERT(.I);
+  J _ (TKNSTUFFSIZE - .I)/2 + .I;
+  INSERT(.J);
+  GROOT$[RLINK] _ 1;
+  TOP _ HEAD _ STACK;
+  HEAD[LOWBOUND] _ .J;
+  HEAD[UPRBOUND] _ TKNSTUFFSIZE;
+  HEAD _ .HEAD + 1;
+  HEAD[LOWBOUND] _ .I;
+  HEAD[UPRBOUND] _ .J;
+  LOWER _ -1;
+  UPPER _ .I;
+
+%  BUILD THE TREE  %
+  $UMESS($USPTR('START BUILDING THE TREE'));
+  WHILE .TOP - 1 LEQ .HEAD
+    DO
+      BEGIN
+      I _ (.LOWER + .UPPER)/2;
+      FIND(.I);
+      IF .UPPER - .I GTR 1
+        THEN  % STACK (I,UPPER)  %
+          BEGIN
+          HEAD _ .HEAD + 1;
+          HEAD[LOWBOUND] _ .I;
+          HEAD[UPRBOUND] _ .UPPER;
+          END;
+      IF .I - .LOWER LSS 2
+        THEN  %  POP (LOW,UPR)  %
+          BEGIN
+          LOWER _ .HEAD[LOWBOUND];
+          UPPER _ .HEAD[UPRBOUND];
+          HEAD _ .HEAD - 1;
+          END
+        ELSE
+          UPPER _ .I;
+      END;
+  $UMESS($USPTR('TREE FINISHED'));
+
+%  TRANSFORM THE TREE INTO IT'S BLISS EQUIVALENT  %
+  OUTF _ $KCRFCB(SIXBIT 'BTTREE', SIXBIT 'BLI', 0,KV$OUTPUT,$KSQLN,0);
+  $UOUTI(.OUTF);        % DIRECT OUTPUT FROM UOUT TO OUTF %
+  $UAPSZ($USPTR('MODULE BTTREE(DOLLAR,ENTRIES=($GBTRE),FSAVE,TIMING,TIMER=EXTERNAL(SIX12)) ='));
+  $UOUTL();
+  $UMESS($USPTR('  BEGIN'));
+  $UMESS($USPTR('  REQUIRE GDEFS.BLI[7,107355];'));
+                                                 %EXTERNAL DECLARATIONS
+                                                  FOR ROUTINE NAMES AND
+                                                  MACRO AND STRUCTURE
+                                                  FOR BINARY TREE.
+                                                 %
+  $UMESS($USPTR('  UNDECLARE GTTRE$, $GBTRE;'));
+  $UMESS($USPTR('  BIND STREE = PLIT(GTTRE$ GLOBALLY NAMES'));
+  OUTFR _ $KCRFCB(SIXBIT 'BRTREE', SIXBIT 'BLI', 0,KV$OUTPUT,$KSQLN,0);
+  $UOUTI(.OUTFR);       % DIRECT OUTPUT TO OUTFR %
+  $UAPSZ($USPTR('MODULE BRTREE(DOLLAR,ENTRIES=($GRTRE),FSAVE,TIMING,TIMER=EXTERNAL(SIX12)) ='));
+  $UOUTL();
+  $UMESS($USPTR('  BEGIN'));
+  $UMESS($USPTR('  REQUIRE GDEFS.BLI[7,107355];'));
+                                                 %EXTERNAL DECLARATIONS
+                                                  FOR ROUTINE NAMES AND
+                                                  MACRO AND STRUCTURE
+                                                  FOR BINARY TREE.
+                                                 %
+  $UMESS($USPTR('  UNDECLARE GRTRE$, $GRTRE;'));
+  $UMESS($USPTR('  BIND RTREE = PLIT(GRTRE$ GLOBALLY NAMES'));
+  INCR X FROM .GROOT$ TO .GNEXT$ - 1 BY 1
+    DO
+      BEGIN
+      NODE _ .X;
+      $UOUTI(.OUTF);    % OUTPUT NOW TO OUTF %
+      $UAPSZ($USPTR('    GM$TN('));
+      $UAPN(.NODE[TKNVALUE],10,1);              % TOKEN VALUE     %
+      $UAPSZ($USPTR(','''));
+      I _ .NODE[JVDISP] * 5;
+      $UAPSC(JVECTOR[.I + 1]<36,7>,5);          % TOKEN MNEMONIC  %
+        % NOTE:
+           THIS BYTE POINTER ACTUALLY POINTS TO THE LEFT OF THE BYTE
+           THAT IS TO BE MOVED.
+        %
+      $UAPSZ($USPTR(''','''));
+      $UAPSC(JVECTOR[.I+2]<36,7>,2);
+      $UAPSZ($USPTR(''','));
+      $UAPN(.NODE[LLINK],10,1);
+      $UAPSZ($USPTR(','));
+      $UAPN(.NODE[RLINK],10,1);                 % RIGHT LINK INDEX %
+      $UAPSZ($USPTR('),'));
+      $UOUTL();
+      $UOUTI(.OUTFR);   % OUTPUT NOW TO OUTFR %
+      $UAPSZ($USPTR('    GM$RN('));
+      $UAPN(.NODE[TKNVALUE],10,1);              % TOKEN VALUE     %
+      $U$USPTR(','));
+      $UAPN(.NODE[LLINK],10,1);
+      $UAPSZ($USPTR(','));
+      $UAPN(.NODE[RLINK],10,1);                 % RIGHT LINK INDEX %
+      $UAPSZ($USPTR(','));
+      $UAPSC(JVECTOR[.I + 3]<36,7>,6);          % ROUTINE NAME     %
+      $UAPSZ($USPTR('),'));
+      $UOUTL();
+      END;
+  $UOUTI(.OUTF);        % OUTPUT NOW TO OUTF AGAIN %
+  $UAPN(0,10,1);
+  $UMESS($USPTR('    );'));
+  $UMESS($USPTR('  GLOBAL ROUTINE $GBTRE = 0;'));
+  $UMESS($USPTR('  END'));
+  $UMESS($USPTR('ELUDOM'));
+  $KFREEFCB(OUTF);
+  $UOUTI(.OUTFR);       % AND FINALLY TO OUTFR AGAIN %
+  $UAPN(0,10,1);
+  $UMESS($USPTR('    );'));
+  $UMESS($USPTR('  GLOBAL ROUTINE $GRTRE = 0;'));
+  $UMESS($USPTR('  END'));
+  $UMESS($USPTR('ELUDOM'));
+  $KFREEFCB(OUTFR);
+  END
+ELUDOM
+  h4pB
