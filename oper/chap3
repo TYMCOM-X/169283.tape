@@ -1,0 +1,554 @@
+
+
+CHAPTER 3 - LOADING USER PROGRAMS
+
+
+3.l  MEMORY PROTECTION AND RELOCATION
+
+Each user program is run with the processor in a special mode
+known as the user mode, in which the program must operate within
+an assigned area in core.  In user mode, certain operations
+are illegal.  Every user has an assigned area in core; there-
+fore the rest of core is unavailable to him.  He cannot gain
+access to the protected area for either storage ore retrieval
+of information.
+
+The assigned area of each user may be divided into two segments.
+If this is the case, the low segment is unique for a given user
+and can be used for any purpose.  The high segment may be used
+by a single user or it may be shared by many users.  If the
+high segment is shared by other users, the program is a
+reentrant program.  The monitor can write-protect the high 
+segment so that the user cannot alter its contents.  This is
+done, for example, when the high segment is a pure procedure
+to be used reentrantly by many users.  One high pure segment 
+may be used with any number of low impure segments.  (Refer
+to Chapter l for the distinctions between pure and impure seg-
+ments.)  Any user program which attempts to write in a write-
+protected high segment is aborted and receives an error
+message.  If the monitor defines two segments but does not
+write protect the high segments, the user has a two-segment
+non-reentrant program (refer to Paragraph 4.4.2).
+
+The timesharing monitor defines the size and position of a 
+user's area by specifying protection and relocation addresses
+for the low and high segment.  The protection address is the
+maximum relative address the user can reference.  The relocation
+address is the absolute core address of the first location
+in the segment, as seen by the monitor in the hardware.  The
+monitor defines these addresses by loading four 8-bit registers
+(two 8-bit registers in a PDP-l0 with the KTl0 option instead
+of the KTl0A option), each of which correspond to the left
+eight bits of an l8-bit PDP-l0 address.  Thus, segments always
+contain a multiple of l024 words.
+
+In user mode, the PDP-l0 hardware automatically relocates 
+user addresses by adding the contents of the memory relocation
+register in the central processor to the high-order eight
+bits of the user address before the address is sent to memory.
+The address before the addition is the relative address and
+after the addition is the absolute address.  To determine 
+whether a relative address is legal, its eight high-order
+bits are compared with the contents of the memory protection
+register.  If the eight high-order bits of the relative
+address are greater then the contents of the memory
+protection register, the memory protection flag is set in
+the central processor, and control traps to the monitor, which
+aborts the user program and prints an error message on the 
+user's console, unless the user program has instructed the 
+monitor to pass such interrupts to itself for error-handling.
+(Refer to APRENB UUO, Paragraph 4.3.3.l.)
+
+Systems with the KTl0 option have only the low pair of 
+protection and relocation registers.  The user program is
+always non-reentrant and the assigned area comprises only 
+the low segment.
+
+When the monitor schedules a user's program to run, the 
+memory protection and relocation registers are set to the
+bounds of the user's allocated core area and the central 
+processor is switched to user mode.
+
+To take advantage of the fast accumulators, memory addresses
+0-l7 are not relocated and all users have access to the
+    8
+accumulators.  Therefore, relative locations 0-l7  cannot be
+                                                 8
+referenced by a user's program.  The monitor saves the user's
+accumulators in this area when the user's program is not 
+running and while the monitor is servicing a UUO from the
+user.  Refer to the PDP-l0 System Reference Manual for a more
+complete description of the relocation and protection hardware.
+
+
+3.l.l  Memorh Parity Error Recovery
+
+The memory parity error recovery code allows the machine to run
+with PARITY STOP up, thereby gaining l0% more CPU speed than
+with PARITY STOP enabled.  This procedure differentiates between
+user mode and executive mode when a parity error occurs.  If
+the machine was in user mode, the current job is stopped, and
+the word causing bad parity is rewritten with good parity.
+The following message is typed on the user's console:
+
+   ?ERROR IN JOB n
+   ?MEM PAR AT USER pppppp; BAD WORD dddddddddd
+    AT USER adr = ABX. xxxxxx
+
+and the following message is typed simultaneously on devide OPR
+interrupting any current typeout:
+
+   ?USER MODE PAR ERROR AT ABS LOC xxxxxx FOR JOB n
+
+where
+
+             n is the job number of the current job
+        pppppp is the user PC when the parity error occurred
+    dddddddddd is the bad data word read (expressed in octal)
+           adr is the user address of the bad word
+        xxxxxx is the absolute address of the bad word
+
+If the machine was in executive mode when the parity error
+occurred, recovery is not attempted since a monitor routine
+has read bad data.  The following message (with no carriag      
+return, line feed following) is typed on CTY and the machine
+HALTS:
+
+   EXEC PARITY ERROR STOP
+
+At this point, the operator must depress the PARITY STOP key
+and hit CONTINUE.  The machine should stop almost immediately
+with a memory failure.  If the parity error is not reproducible
+on a memory scan, the following message is typed on the CTY
+on the same line as the previous message and the machine
+HALTS with the PC at 777777:
+
+   ----SPURIOUS
+
+System reload is required after an executive mode memory parity
+failure.
+
+The algorithm for determining the bad memory location in both
+executive and user mode is to scan core from location 20
+                                                        8
+through location C(MEMSIZ).  In both modes, the parity error
+is detected at APR interrupt level.  For executive mode, the
+memory scan when CONTINUE is hit runs at APR level.  For
+user mode a clock level interrupt is requested, and the memory
+scan and subsequent typeouts are processed at this level.
+The following two counters are kept for user mode parity 
+analysis:
+
+   PARTOT - the total number of user mode parity errors since
+            system was loaded.
+
+   PARSPR - the number of errors for which recovery failed
+            (no parity error on memory scan) and the job was
+            not stopped.
+
+Also, the counters PARPC, PARADR, and PARWRD contain the user PC,
+the absolute location, and the bad data word, respectively,
+of the most recent user mode memory parity error.
+
+
+
+3.2  USER'S CORE STORAGE
+
+A user's core stroage consists of blocks of memory, the sizes 
+of which are an integral multiple of l024   (2000 ) words.  In a
+                                         l0      8
+non-reentrant monitor, the user's core storage is a single
+contiguous block of memory.  After relocation, the first address
+in a block is a multiple of 2000 .  The relative user and
+                                8
+relocated address configurations are shown in Figure 3-l, where
+P , R , P , and R  are the protection and relocation address,
+ L   L   H       H
+respecitvely, for the low and high segments as derived from
+the 8-bit registers loaded by the monitor.  If the low segment
+is more than half the maximum memory capacity (P   400000),
+                                                L-
+the high segment starts at the first location after the low
+segment (at P  + 2000).  the high segment is limited to l28K.
+             L
+
+Two methods are available to the user for loading his core
+area.  aThe simplest way is to load a core image stored on a
+retrievable device (refer to RUN and GET, Chapter 2).  The
+other method is to use the relocatable binary loader to link-
+load binary files.  The user may then write the core image
+on a retrievable device for future use (refer to SAVE,
+Chapter 2).
+
+
+3.2.l  Job Data Area
+
+The first l40 octal locations of the user's core area are always
+allocated to the job data area (refer to Table 30l).  Location
+in this area is given mnemonic assignemtns where the first
+three characters are JOB.  The job data area provides storage
+for specific information of interest to both the monitor
+and the user.  Some locations, such as JOBSA and JOBDDT, are
+set by the user's program for use by the monitor.  Other locations,
+such as JOBREL, are set by the monitor and are used by the
+users program.  In particular, the right half of JOBREL
+contains the highest legal address set by the monitor
+when the user's core allocation changes.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                 Figure 3-l  User's Core Area
+
+
+
+
+
+                          TABLE 3-l
+                   JOB DATA AREA LOCATIONS
+                 (FOR USER-PROGRAM REFERENCE)
+
+
+
+           Octal
+ Name     Location                       Description
+-----------------------------------------------------------------------
+
+JOBUUO      40         User's location 40(8). Used for processing user
+                       UUOs (00l through 037) and storing op code and
+                       effective address.
+
+JOB4l       4l         User's location 4l(8). Contains beginning
+                       address of the user's programmed operator
+                       service routine (usually a JSR or PUSHJ).
+
+JOBERR      42         Left half:  Unused.
+                       Right half: Accumulated error count from one
+                       CUSP to the next. CUSPs should be written to
+                       look at the right half only.
+
+JOBREL      44         Left half:  0
+                       Right half: The highest relative core location
+                       available to the user. (i.e., the contents of
+                       the memory protection register when this user
+                       is running.)
+
+JOBBLT      45         Three consecutive locations when the LOADER
+                       puts a BLT instruction and a CALLIUUO to
+                       move the program down on top of itself.
+                       These locations are destroyed on every
+                       executive UUO by the executive pushdown list.
+
+JOBDDT      74         Contain the starting address of DDT.  If
+                       contents are 0, DDT has not been loaded.
+
+JOBCN6      l06        Six temporary locations used by CHAIN CUSP
+                      (refer to Timehsring Handbook) after it
+                       releases all I/O channels.  JOBCN6 is
+                       defined to be in JOBJDA.
+
+JPBPFI      ll4        All user I/O must be to locations greater
+          (value)      than JOBPFI
+
+JOBHRL      ll5        Left half: First relative free location in
+                      the high segment (relative to high segment
+                      origin so it is the same as the high segment
+                       length.)  Set by the LOADER and subsequent
+                      GETs, even if there is no file to initialize
+                       the low segment. The left half is a relative
+                       quantity because the high segment can appear
+                       at different user origins at the same time.
+                       The SAVE command uses this quantity to know
+                       how much to write from the high segment.
+                       Right half: Highest legal user address in the
+                       high segment.  Set by the monitor every time
+                       starts to run or does a CORE or REMPA UUO.
+                       The word is   40l777 unless there is no high
+                       segment, in which case it will be zero. The
+                       proper way to test if a high segment exists
+                       is to test this word for a non-zero value.
+
+JOBSYM      ll6        Contains a pointer to the symbol table
+                       created by linking loader.
+                       Left half: Negative of the length of the
+                       symbol table.
+                       Right half: Lowest address used by the 
+                       symbol table.
+
+JOBUSY      ll7        Contains a pointer to the undefined symbol
+                       table created by linking loader. Not used
+                      by DDT.
+
+JOBSA       l20        Left half: First free location in low segment
+                       (Set by loader).
+                       Right half:  Starting address of the user's
+        -              program.
+
+JOBFF       l2l        Left half:  0
+                       Right half: Addres of the first free
+                       location following the low segment.  Set
+                       to C(JOBSA)LH by RESET UUO.
+
+JOBREN      l24        Left half:  unused.
+                       Right half: REENTER starting address.
+                       Set by user or by loader and used by
+                       REENTER command as an alternate entry point.
+
+JOBAPR      l25        Left half:  0
+                       Right half:  Set by user program to trap
+                       address when user in enabled to handle
+                       APR traps such as illegal memory, pushdown
+                       overflow, arithmetic overflow, and clock.  
+                       See CALL APRENB UUO.
+
+JOBCNI      l26        Contains state of APR as stored by 
+                       CONI APR when a user-enable APR trap
+                       occurs.
+
+JOBTPC      l27        Monitor stores PC of next instruction to be
+                      executed when a user-enabled APR trap occurs.
+
+JOBOPC      l30        The previous contents of the job's last user
+                       mode program counter are stored here by monitor
+                       on execution of a DDT, REENTER, START or 
+                       CSTART command. After a user program HALT
+                       instruction followed by a START, DDT,
+                       CSTART or REENTER command, JOBOPC contains
+                      the address of the HALT. To proceed at
+                       the address specified by the effective
+                       address, it is necessary for the user or his
+                       program to recompute the effective address
+                      of the HALT instruction and to use this
+                       address to start.  Similarly, after an error
+                       during execution of a UUO followed by a
+                       START, DDT, CSTART or REENTER command, 
+                       JOBOPC points to the address of the UUO.
+                       For example, in DDT to continue after a
+                       HALT, type
+                         JOBOPC/l0000,,30l0  JRST @ $Q$X
+
+JOBCHN      l3l        Left half: 0 or address of the first loca-
+                      tion after first FORTRAN IV loaded program.
+                       Right half: Address of first location after
+                      first FORTRAN IV Block Data.
+
+JOBCOR      l33        Left half: Highest location in low segment
+                      loaded with non-zero data. No low file
+                       written on SAVE or SSAVE if less than 
+                       l40. Set by the LOADER.
+                       Right half: User argument on last SAVE or
+                       GET command. Set by the monitor.
+
+JOBVER      l37        Left half: 0 or the patch number of the 
+                       installation that made the last modification
+                       to the program.
+                       Right half: Program version number in octal.
+                       The number is never converted to decimal.
+                       After a GET, R, or RUN command, an E
+                       command can be used to find the version
+                       number. (DEC always distributes CUSPs with
+                      the left half = 0, so customers making mod-
+                       ifications to CUSPs should change only the
+                      left half. The right half will remain as a
+                      record of the DEC version.)
+
+JOBDA       l40        The value of this symbol is the first location
+                       available to the user.
+
+
+NOTE:  Only those JOBDAT locations of significant importance to the
+user are given in this table.  JOBDAT locations not listed
+include those which are used by the monitor and those which are
+unused at present.  User programs should not refer to any locations
+not listed above since such locations are subject to change.
+
+
+JOBDAT is loaded automatically, if needed, during the loader's
+library search for undefined global references and the values
+are assigned to the mnemonics.  JOBDAT exists as a .REL file on
+device SYS for loading with user programs that symbolically
+refer to the locations.  User programs should reference
+locations by the assigned mnemonics, which must be declared
+as EXTERN references to the assembler.  All mnemonics in this
+manual with a JOB prefix refer to locations in the job data area.
+
+
+3.2.2  Loading Relocatable Binary Files
+
+The relocatable binary loader (LOADER), which resides in the system
+file, is started by the command
+
+     R LOADER core
+
+where core is an optional argument (see Figure 3-2).  (Refer to
+the LOADER deocumentation in the PDP-l0 Reference Handbook for
+a description of the loader command string.)
+
+The loader is reentrant; therefore, its instructions exist in the
+high segment.  In loading two segments, both segments are data
+with respect to the loader and must exist in the low segment
+during load time.  Therefore, the following loader variables
+must exist for each segment:
+
+a.  Offset (the number of locations a program must be moved toward
+   zero before it can be executed).
+
+b.  Program origin (the location assigned by the loader to 
+    relocatable zero of a program).
+
+c.  Location counter (the register that indicates the location
+    of the next instruction to be interpreted).
+
+
+3.2.2.l  H-Switch - A program written to be reentrant can be
+loaded into one st instead of two by use of the H switch
+(/H).  The H switch is used only when a two segment program is
+to be loaded into one segment.
+
+If a user wants to load a program in which the low segment is
+longer than 400000 octal words, he uses the switch NNNNNNH,
+whivh changes the origin of the high segment from its initial
+-etting of 400,000 to NNNNNN where NNNNNN is larger.  If
+NNNNNN is missing, the loader loads everything into the low
+segment.
+
+It is not known before load time whether a reentrant program is
+not going into the high segment; therefore, the core executed
+(including the monitor UUOs) is the same for either case.
+
+
+  
+
+(INSERT FIGURE 3-2 HERE)
+
+
+
+Modifications to the H switch
+
+a.  Cause all following files to be loaded into the high-segment
+    (/lH) and,
+
+b.  Reset the loader to load high segment code in the high segment
+    and low segment code  into the low segment (/-H).
+
+
+3.2.2.2  HISEG Pseudo-Op - After loading, a relocatable sub-
+program assembled by MACRO is put entirely in either the 
+user low segment or the user high segment.  To indicate that
+a subprogram is to be loaded into the high segment, the HISEG
+pseudo-op is used.  although the HISEG pseudo-op can appear
+anywhere in the program, the best position is at the beginning,
+because a reader wants to know that the program is destined 
+for the high segment.  Near the beginning of the binary output,
+MACRO generates code that tells the loader to load subprograms
+into the high segment.  The loader loads programs in any order.
+
+
+3.2.2.3  Vestigial Job Data Area - A few constant data in 
+the job data area may be loaded by a two-segment, one-file
+program without using instructions on a GET command (JOB4l,
+JOBREN, JOBVER) and some locations are loaded by the monitor
+on a GET (JOBSA, JOBCOR, JOBHRL).  The vestigial job data area
+(the first l0 locations of the high segment) is reserved for these
+low segment constants; therefore, a high segment program is 
+loaded into 4000l0 instead of 400000 (refer to Table 3-2).
+With the vestigial job data area in the high segment, the
+loader automatically loads the constant data into the job data
+area without requiring a low file on a GET, R, or RUN
+command, or a TUN UUO.  SAVE will write a low file for a
+two-segment program only if the LH of JOBCOR is l40  or
+                                                      8
+greater.  The vestigial job data area locations are referenced
+by the monitor only, not by user programs.
+
+
+                            TABLE 3-2
+                VESTIGIAL JOB DATA AREA LOCATIONS
+
+
+              Octal
+Sumbol      Location*               Description
+------      ---------               -----------
+
+JOBHSA          0            A copy of COBSA
+
+JOBH4l          l            A copy of JOB4l
+
+JOBHCR          2            A copy of JOBCOR
+
+JOBHRN          3            LH: restores the LF of JOBHRL
+                             RH: restores the RH of JOBREN
+
+JOBHVR          4            A copy of JOBVER
+       
+                5
+
+                6            Reserved for future use
+
+                7    
+
+JOBHDA          l0           First location not used by vestigial
+                             job data area.
+
+
+*  Relative to origin of high segment, usually 400000 .
+                                                     8
+
+
+3.2.2.4  Completion of Loading - The new program code is loaded
+upward from an offset above the resident loader.  The program
+origin (i.e., the first location loaded) is l40(8), unless the
+user changes the origin by the assembler LOC pseudo-instruction.
+After completion of the loading but before exiting, the loader
+does the following:
+
+a.  Sets the LH of JOBSA and the RH of JOBFF to the address of
+    the first location above the new code area (i.e., the program
+   break).  The RH of JOBSA is set to the program starting
+    address.  This value is the last non-zero address of the 
+    assembler END pseudo-instruction to be loaded, or zero.
+   It is used by the RUN and START commands.  The LH of
+    JOBFF is zero.
+
+b.  Sets the LH of JOBHRL to the new highest relative user address
+    (relative to the high segment origin) in high segment, or 
+    zero if no high segment.
+
+c.  Sets the LH of JOBCOR to the highest location in the low
+    segment that is loaded with non-zero data.
+
+d.  Uses REMAP UUO to take the top part of the low segment
+    that contains the user's high segment, and replaces the loader
+    high segment.
+
+e.  May move symbols and reduce core, if DDT was loaded.
+
+f.  Calls EXIT or starts up program.
+
+If DDT was loaded by the D switch in the loader command
+string, the RH of JOBDDT is set by the loader to the starting
+address of DDT and the LH is zero.  A new switch, /K implemented
+for use with DDT, moves core back to the absolute minimum needed.
+A /nK moves core back to nK, unless n is less than the minimum
+core, in which case the minimum core is assigned.  The /D
+switch is used to imply /B/K.
+
+
+
+    V@A
