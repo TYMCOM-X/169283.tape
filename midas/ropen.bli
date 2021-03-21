@@ -1,0 +1,173 @@
+MODULE ROPEN(DOLLAR,ENTRIES=($ROPEN),FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+
+BEGIN
+
+REQUIRE RCDEFS.BLI[7,107355];
+REQUIRE RSDEFS.BLI[7,107355];
+REQUIRE UDEFS.BLI[7,107355];
+REQUIRE CDEFS.BLI[7,107355];
+REQUIRE RDEFS.BLI[7,107355];
+REQUIRE KDEFS.BLI[7,107355];
+REQUIRE STDEFS.BLI[7,107355];
+REQUIRE SBDEFS.BLI[7,107355];
+REQUIRE BTDEFS.BLI[7,107355];
+UNDECLARE $ROPEN;
+
+MACRO
+   CREATEFCB(NAME,FEXT,USER,DIRECTN,MODERTN,MPB)=
+      BEGIN
+      LOCAL KFCB$ FCB, KFIDT$ FIDT;
+      FCB_$CGTZM(KV$FCBS);
+      FIDT_$CGTZM(KV$DFIDTS);
+      FIDT[K$DEVICE]_ SIXBIT 'DSK';
+      FIDT[K$ARGCNT]_KV$DARGCNT;
+      FIDT[K$USER]_USER;
+      FIDT[K$NAME]_NAME;
+      FIDT[K$FWEXT]_FEXT;
+      FCB[K$FIDPTR]_.FIDT;
+      FCB[K$MODPB]_MPB;
+      FCB[K$DRCT]_DIRECTN;
+      FCB[K$BLKSIZ]_.RSB[RS$DBSIZ];
+      IF $KOFCB(.FCB,MODERTN<0,0>) NEQ .FCB
+         THEN $KOPFL(.FCB);
+      .FCB
+      END&;
+
+MACRO
+   CRINFCB(NAME,FEXT,USER,DIRECTN,MODERTN,MPB)=
+      BEGIN
+      LOCAL KFCB$ FCB, KFIDT$ FIDT,MODER;
+      FCB_$CGTZM(KV$FCBS);
+      FIDT_$CGTZM(KV$DFIDTS);
+      FIDT[K$DEVICE]_ SIXBIT 'DSK';
+      FIDT[K$ARGCNT]_KV$DARGCNT;
+      FIDT[K$USER]_USER;
+      FIDT[K$NAME]_NAME;
+      FIDT[K$FWEXT]_FEXT;
+      FCB[K$FIDPTR]_.FIDT;
+      FCB[K$MODPB]_MPB;
+      FCB[K$DRCT]_DIRECTN;
+      FCB[K$BLKSIZ]_.RSB[RS$DBSIZ];
+      IF (MODER_$KOFCB(.FCB,MODERTN<0,0>)) NEQ .FCB
+         THEN IF .MODER EQL KV$LKFAL
+            THEN
+               BEGIN
+               FCB[K$DRCT]_KV$FDX;
+               IF $KOFCB(.FCB,MODERTN<0,0>) NEQ .FCB
+                  THEN $KOPFL(.FCB)
+               END
+            ELSE $KOPFL(.FCB);
+      .FCB
+      END&;
+
+MACRO INC(NAME)= (NAME_.NAME+1)&;
+
+GLOBAL ROUTINE $ROPEN(RCB)=
+
+   BEGIN
+   MAP RCB$ RCB;
+   LOCAL RCB$ RC;
+   LOCAL RSB$ RSB;
+   LOCAL KFCB$ FCB;
+   LOCAL KSOB$ SOB;
+   LOCAL ST$ ST;
+   LOCAL KSB$ SB;
+   LOCAL DFI$ DFI;
+   LOCAL FIDT,NAME,NLOC,N;
+
+   RSB_.RCB[RC$RSB];
+   SOB_$CGTZM(KV$SOBSZ);
+   SOB[K$SNKEY]_.RSB[RS$XCT];
+   SOB[K$SNFIELD]_.RSB[RS$DCT];
+   SOB[K$SDESCR]_.RSB+RSV$FDOFFSET;
+   SOB[K$SKSIZ]_.RSB[RS$KEYL];
+   SOB[K$SISIZ]_.RSB[RS$LBS];
+   SOB[K$SINSBUF]_RCB[RC$RIGHT]_$CGETM(.SOB[K$SISIZ]);
+   SOB[K$SDBMENT]_.RSB[RS$DBMENT];
+   SOB[K$SIBMENT]_.RSB[RS$IBMENT];
+   SOB[K$SSPBP]_$CGETM(KV$SPSZ);
+   RCB[RC$SOBP]_.SOB;
+   RCB[RC$STATE]_RCV$ST0;
+   IF (RC_.RSB[RS$RCB]) NEQ 0
+      THEN
+         BEGIN
+         RCB[RC$LAST]_.RC;
+         RCB[RC$NEXT]_.RC[RC$NEXT];
+         RC[RC$NEXT]_.RCB;
+         END;
+   RSB[RS$RCB]_.RCB;
+   IF INC(RSB[RS$REF]) EQL 1
+      THEN
+         BEGIN
+         IF (NAME_.RSB[RS$FILE]) EQL 0
+            THEN
+               BEGIN
+               NAME_.(.RSB[RS$NAME])<0,36>;
+               RSB[RS$FILE]_NLOC_$CGETM(1);
+               (.NLOC)<0,36>_.NAME;
+               END
+            ELSE NAME_.(.NAME)<0,36>;
+         FCB_RCB[RC$FCB]_RSB[RS$FCB]_(IF .RCB[RC$MODE] EQL RCV$READ OR
+         .RCB[RC$MODE] EQL RCV$SORTED THEN CRINFCB(.NAME,SIXBIT 'SKM',0,
+         KV$INPUT,$KSKIN<0,0>,.SOB) ELSE CREATEFCB(.NAME,SIXBIT 'SKM',0,
+         KV$FDX,$KSKIN<0,0>,.SOB));
+
+         SB_$KVIRD(.FCB,SBV$SBPN);  % READ IN SB %
+         IF .SB[SB$ABNORMAL]
+            THEN
+               BEGIN
+               $UAPSZ($USPTR('The last change to relation '));
+               DFI_.RSB[RS$NAME];
+               $UAPSC((.RSB[RS$NAME])<36,7>,.DFI[DD$QP]);
+               $UMESS($USPTR(' terminated abnormally.'));
+               $UMESS($USPTR(' Recovery is being attempted. Please stand by.'));
+               FCB[K$SBP]_.SB;
+               $KRCVR(.FCB);
+               $UMESS($USPTR('Recovery complete.'));
+               $UOUTL();
+               END;
+
+         IF .RCB[RC$MODE] EQL RCV$OUTPUT AND .SB[SB$NINS] EQL 0
+            THEN
+               BEGIN
+               RSB[RS$CREATE]_1;
+               $RSSRT(.RCB);
+               RETURN
+               END;
+         IF .RCB[RC$MODE] EQL RCV$OUTPUT OR .RCB[RC$MODE] EQL RCV$UPDATE
+            THEN
+               BEGIN
+               SB[SB$ABNORMAL]_1;   %  SET ABNORMAL FLAG  %
+               $KACWR(.FCB,.SB,SBV$SBPN);
+               END;
+         END
+      ELSE   %  RELATION OPEN ELSEWHERE  %
+         BEGIN
+         FCB_RCB[RC$FCB]_.RSB[RS$FCB];
+         IF .RSB[RS$CREATE] AND .RCB[RC$MODE] NEQ RCV$OUTPUT
+            THEN
+               BEGIN
+               RSB[RS$CREATE]_0;
+               ST_.RC[RC$SCONTRL];
+               $KSORT(.FCB,1,.SOB,.ST);
+               IF .SOB[K$SDUPLICATES]
+                  THEN
+                     BEGIN
+                     SOB[K$SDUPLICATES]_0;
+                     $KLEAR(.FCB,.ST,.RCB);
+                     END;
+               $KBLDI(.FCB,.ST);
+               $CFREE(.RC[RC$SCONTRL]);
+               RC[RC$SCONTRL]_0;
+               END;
+         IF (.RCB[RC$MODE] EQL RCV$OUTPUT OR .RCB[RC$MODE] EQL RCV$UPDATE)
+            AND .FCB[K$DRCT] EQL KV$INPUT
+            THEN
+               BEGIN
+               $KRIBW(.FCB);
+               IF .KBTIX$[BT$OFILS] EQL 1
+                  THEN $KALBF(2*.FCB[K$BLKSIZ]);
+               END;
+         END;
+   END;
+END ELUDOM
