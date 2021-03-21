@@ -1,0 +1,299 @@
+PROCEDURE PRD.SALNO.ADJ % EXT: PRD.ADJ  MAG: C05JD9.M#2 %
+%
+        This procedure Cross References Salesman NO. to an
+        adjustment relation for the Product run.
+
+Current Version:     1976.03.29   / Steve Albanese (SALBANESE)
+%
+BEGIN
+
+FIELDS
+        ANSWER SAME AS RESPONSE,
+        PART1.CHECK AS 'N',
+        REC.CNT SAME AS TRANS.NUM,
+        NEW.INV.NUM SAME AS INV.NUM
+
+
+FORMAT PRD.INVREG.FMT
+        @CR, "******************************",
+        @CR, "SALES DISTRICT:", DISTRICT.3N,
+        @CR, " FROM.SALESNUM:", SALESNUM.5N,
+        @CR, "         MODEL:", MODEL.NUM,
+        @CR, "       SER.NUM:", SERIAL.NUM,
+        @CR, "     TRANS.NUM:", TRANS.NUM,
+        @CR, "  CREDIT/DEBIT:", PRD.SIGN,
+        @CR, "      CUST NUM:", CUS.NUM,
+        @CR, "     CUST DIST:", CUS.DIST.NUM,
+        @CR, "   INVOICE NUM:", INV.NUM,
+        @CR, "     TRANSTYPE:", PRD.TRANS.TYPE,
+        @CR, "          COST:", PRD.COST,
+        @CR, "       REVENUE:", PRD.REVENUE,
+        @CR, "     COMM RATE:", PRD.COM.RATE,
+        @CR, "      COMM AMT:", PRD.COM.AMT,
+        @CR, "******************************",@CR
+
+
+% Start of PART1.  ************************************ %
+
+TYPE @CR, "Procedure ADJ.TRANS: Adjust transactions. VER: 7603.02", @CR
+      DO
+        BEGIN
+        TYPE 'Enter year and month processed as YY,MM : '
+        ACCEPT YR.PROCESSED, MO.PROCESSED
+        TYPE 'Year and month entered are ',YR.PROCESSED, ',' , MO.PROCESSED,
+                '.  OK? '
+        ACCEPT RESPONSE
+        END
+      WHILE RESPONSE # 'Y' AND 'y' AND 'YES' AND 'yes'
+LET PART1.CHECK = 0
+TYPE @CR,"Process Undefined Saleman numbers: "
+ACCEPT ANSWER
+
+IF ANSWER="Y" OR "y" THEN
+BEGIN
+
+% Process each undefined SALESNUM. %
+LET PART1.CHECK = 1
+FOR EACH UNDEF.SALESNUM  IF SALESNUM.5N<12000 THEN
+  BEGIN
+  TYPE @CR," Is ", SALESNUM.5N, " valid? "
+  ACCEPT ANSWER
+
+  IF ANSWER="Y" OR "y" THEN
+    BEGIN
+    % Insert salesnum into TRANS.ADJ.SALESNUMS. %
+    MOVE SALESNUM.5N/100 TO DISTRICT.3N TRUNC
+    SELECT TRANS.ADJ.SALESNUMS VIA KEY THEN
+      NOTHING
+    ELSE
+      INSERT INTO TRANS.ADJ.SALESNUMS 
+
+    TYPE @TAB TO 5, "Transfer ALL trans of ",SALESNUM.5N,
+                        " to another salesnum? "
+    ACCEPT ANSWER
+
+    IF ANSWER="Y" OR "y" THEN
+      BEGIN
+      TYPE @TAB TO 5, "Enter new salesnum: "
+      ACCEPT NEW.SALESNUM.5N
+      LET CUS.DIST.NUM TRUNC = NEW.SALESNUM.5N / 100
+      LET AREA.2N = DISTRICT.3N / 10
+      % Gather all trans from PRD.INVREG for this undefined
+        salesnum and put into relation PRD.TRANS.ADJ.  %
+      FOR EACH PRD.INVREG VIA (AREA.2N, DISTRICT.3N, SALESNUM.5N)
+          BEGIN
+          SELECT PRD.TRANS.ADJ VIA KEY THEN
+            TYPE @TAB TO 5, 'Transfered', @CR
+          ELSE
+            BEGIN
+            INSERT INTO PRD.TRANS.ADJ
+            TYPE @TAB TO 5, "Transfered.", @CR
+            END
+          END
+      END       % end IF ANSWER="Y"..... %
+  ELSE
+
+    BEGIN
+    TYPE @TAB TO 5, 'Transfer by MODEL,SERIAL NO? '
+    ACCEPT ANSWER
+    IF ANSWER = 'Y' OR 'y' THEN
+       SOME.TRANS1:
+         BEGIN
+         TYPE @TAB TO 5, "TO.SALESNUM: "
+         ACCEPT NEW.SALESNUM.5N
+       
+         IF NEW.SALESNUM.5N=99999 THEN FINISH SOME.TRANS1
+         LET CUS.DIST.NUM TRUNC = NEW.SALESNUM.5N / 100
+         LET AREA.2N = DISTRICT.3N / 10
+       
+         MOVE.TRANS1:
+             BEGIN
+             TYPE @TAB TO 10, "Enter MODEL.NUM,SERIAL.NUM: "
+             ACCEPT MODEL.NUM, SERIAL.NUM
+         
+             IF MODEL.NUM="0" THEN FINISH MOVE.TRANS1
+         
+             FOR EACH PRD.INVREG VIA (AREA.2N, DISTRICT.3N,SALESNUM.5N,MODEL.NUM,
+                                                                         SERIAL.NUM)
+               BEGIN
+               TYPE PRD.INVREG.FMT
+               SELECT PRD.TRANS.ADJ VIA KEY THEN
+                 TYPE @TAB TO 5, 'Transfered.', @CR
+               ELSE
+                 BEGIN
+                 INSERT INTO PRD.TRANS.ADJ
+                 TYPE @TAB TO 10, "Transfered.", @CR
+                 END
+               END
+         
+             REPEAT MOVE.TRANS1
+             END % end MOVE.TRANS1 %
+       
+          REPEAT SOME.TRANS1
+         END % end SOME.TRANS1 %
+
+      ELSE
+         BEGIN
+         TYPE @TAB TO 5, 'Transfer by Invoice:', @CR, @CR
+         GET.TO.SNO1:
+             BEGIN
+             TYPE @TAB TO 5, 'Enter TO.SALESNUM: '
+             ACCEPT NEW.SALESNUM.5N
+             IF NEW.SALESNUM.5N = 99999 THEN FINISH GET.TO.SNO1
+
+             GET.INVNUM1:
+                 BEGIN
+                 TYPE @TAB TO 5, 'Enter Invoice No: '
+                 ACCEPT NEW.INV.NUM
+                 IF NEW.INV.NUM = 99999 THEN FINISH GET.INVNUM1
+
+                 LET DISTRICT.3N  = SALESNUM.5N / 100
+                 LET AREA.2N      = DISTRICT.3N / 10
+                 LET CUS.DIST.NUM = NEW.SALESNUM.5N / 100
+
+                 FOR EACH PRD.INVREG VIA (AREA.2N, DISTRICT.3N, SALESNUM.5N)
+                     IF INV.NUM = NEW.INV.NUM THEN
+                        SELECT PRD.TRANS.ADJ VIA KEY THEN
+                          TYPE @TAB TO 5, 'Transfered.', @CR
+                        ELSE
+                          BEGIN
+                          TYPE @TAB TO 5, 'Transfered.', @CR
+                          INSERT INTO PRD.TRANS.ADJ
+                          END
+                REPEAT GET.INVNUM1
+                END % GET.INVNUM %
+
+             REPEAT GET.TO.SNO1
+            END % GET.TO.SNO1 %
+
+        END % Transfer by Invoice: %
+      END % Of Transfer by SERIAL,MODEL %
+
+  END   % FOR VALIDATION %
+
+ END   % end FOR EACH UNDEF.SALESNUM  %
+
+END     % end IF PART1.... %
+
+% Start of PART2.  ****************************** %
+
+
+PART2: BEGIN
+IF PART1.CHECK = 1 THEN FINISH PART2
+TYPE @CR,@CR,"Enter FROM.SALESNUM: "
+ACCEPT SALESNUM.5N
+
+IF SALESNUM.5N=99999 THEN FINISH PART2
+
+MOVE SALESNUM.5N/100 TO DISTRICT.3N TRUNC
+SELECT TRANS.ADJ.SALESNUMS VIA KEY THEN
+  NOTHING
+ELSE
+  INSERT INTO TRANS.ADJ.SALESNUMS
+
+TYPE @TAB TO 5, "Transfer ALL trans of ", SALESNUM.5N,
+                " to another salesnum? "
+ACCEPT ANSWER
+
+IF ANSWER="Y" OR "y" THEN
+  BEGIN
+  TYPE @TAB TO 5, "Enter TO.SALESNUM: "
+  ACCEPT NEW.SALESNUM.5N
+  LET CUS.DIST.NUM TRUNC = NEW.SALESNUM.5N /100
+  LET AREA.2N TRUNC = DISTRICT.3N /10
+  % Gather all trans from PRD.INVREG for this FROM.SALESNUM and
+    put into relation PRD.TRANS.ADJ.  %
+  FOR EACH PRD.INVREG VIA (AREA.2N, DISTRICT.3N, SALESNUM.5N)
+    SELECT PRD.TRANS.ADJ VIA KEY THEN
+        TYPE @TAB TO 10, 'Transfered', @CR
+    ELSE
+      BEGIN
+      INSERT INTO PRD.TRANS.ADJ
+      TYPE @TAB TO 10, "INSERTED.",@CR
+      END
+  END
+
+ELSE    % Change part of trans to new salesnums.  %
+    BEGIN
+    TYPE @TAB TO 5, 'Transfer by MODEL,SERIAL NO? '
+    ACCEPT ANSWER
+    IF ANSWER = 'Y' OR 'y' THEN
+       SOME.TRANS:
+         BEGIN
+         TYPE @TAB TO 5, "TO.SALESNUM: "
+         ACCEPT NEW.SALESNUM.5N
+       
+         IF NEW.SALESNUM.5N=99999 THEN FINISH SOME.TRANS
+         LET CUS.DIST.NUM TRUNC = NEW.SALESNUM.5N / 100
+         LET AREA.2N = DISTRICT.3N / 10
+       
+         MOVE.TRANS:
+             BEGIN
+             TYPE @TAB TO 10, "Enter MODEL.NUM,SERIAL.NUM: "
+             ACCEPT MODEL.NUM, SERIAL.NUM
+         
+             IF MODEL.NUM="0" THEN FINISH MOVE.TRANS
+         
+             FOR EACH PRD.INVREG VIA (AREA.2N, DISTRICT.3N,SALESNUM.5N,MODEL.NUM,
+                                                                         SERIAL.NUM)
+               BEGIN
+               TYPE PRD.INVREG.FMT
+               SELECT PRD.TRANS.ADJ VIA KEY THEN
+                 TYPE @TAB TO 5, 'Transfered.', @CR
+               ELSE
+                 BEGIN
+                 INSERT INTO PRD.TRANS.ADJ
+                 type @tab to 5, "Transfered", @CR
+                 END
+               END
+         
+             REPEAT MOVE.TRANS
+             END % end MOVE.TRANS %
+       
+           REPEAT SOME.TRANS
+         END % end SOME.TRANS %
+      ELSE  % If answer = Y %
+         BEGIN
+         TYPE @TAB TO 5, 'Transfer by Invoice:', @CR, @CR
+         GET.TO.SNO:
+             BEGIN
+             TYPE @TAB TO 5, 'Enter TO.SALESNUM: '
+             ACCEPT NEW.SALESNUM.5N
+             IF NEW.SALESNUM.5N = 99999 THEN FINISH GET.TO.SNO
+
+             GET.INVNUM:
+                 BEGIN
+                 TYPE @TAB TO 5, 'Enter Invoice No: '
+                 ACCEPT NEW.INV.NUM
+                 IF NEW.INV.NUM = 99999 THEN FINISH GET.INVNUM
+
+                 LET DISTRICT.3N  = SALESNUM.5N / 100
+                 LET AREA.2N      = DISTRICT.3N / 10
+                 LET CUS.DIST.NUM = NEW.SALESNUM.5N / 100
+
+                 FOR EACH PRD.INVREG VIA (AREA.2N, DISTRICT.3N, SALESNUM.5N)
+                     IF INV.NUM = NEW.INV.NUM THEN
+                        SELECT PRD.TRANS.ADJ VIA KEY THEN
+                          TYPE @TAB TO 5, 'Transfered.', @CR
+                        ELSE
+                          BEGIN
+                          TYPE @TAB TO 5, 'Transfered.', @CR
+                          INSERT INTO PRD.TRANS.ADJ
+                          END
+                REPEAT GET.INVNUM
+                END % GET.INVNUM %
+
+             REPEAT GET.TO.SNO
+            END % GET.TO.SNO %
+
+        END % Transfer by Invoice: %
+      END % Of Transfer by SERIAL,MODEL %
+
+
+REPEAT PART2    % Loop around PART2 %
+
+END     % end PART2 %
+
+
+END     % end of procedure ADJ.TRANS %
+  
