@@ -1,0 +1,361 @@
+!16 MAR 73    NIMS2.SIM   *MH
+GLOBAL %AC.NET.MASTER
+FIND MAST.Q
+FIND PREV.PTR
+FIND SCRIPT.Q
+
+FIND %Q.DELETE
+FIND %B.ECHO
+FIND %R.FAST.VALUE
+FIND %R.P.CDR
+FIND %L.P.CDR
+FIND %R.P.CAR
+FIND %R.P.CDDR
+FIND %R.C.B.F.TEXT.P
+
+FIND %R.RCB
+FIND %PUTLINE
+FIND %GET.NUMBER
+FIND %STR.COMP
+FIND %GET.CMND
+
+
+
+FIND %FM.R.C.B        !******DEBUG********
+FIND %FM.LIST
+FIND %FM.PTR          !******DEBUG********
+FIND %FM.FR.INT       !******DEBUG********
+FIND %FM.ELMT         !******DEBUG********
+FIND %OUT.MAP         !******DEBUG********
+FIND %OUT.BUF         !******DEBUG********
+FIND %OUT.B.S         !******DEBUG********
+
+FIND %R.P.L.DATA
+FIND %L.P.L.DATA
+FIND %P.REPLACD
+FIND %C.ELMTS
+FIND %PUNT
+FIND %Q.POST
+FIND %G.ELMT
+FIND %AUDIT
+FIND %SET.FAST
+FIND %TIME
+
+FIND P.Q.AREA
+FIND STORE(0)
+
+
+FIND  AUD.FN
+FIND  ACCTG.CMNDS.FN
+!
+
+
+
+FIND %ENCODE.CMND
+FIND %OUT.RKD
+FIND %R.ELMT
+FIND %FM.STRING
+FIND %FM.INT
+FIND %BLD.CMD
+FIND %BLD.ARG
+
+
+
+
+
+%AC.NET.MASTER
+
+!THE ACCOUNTING NET MASTER PROGRAM.  THE PURPOSE OF THIS PROGRAM IS TO
+!CONTROL ACCOUNTING FILE MOVEMENT FROM THE 940'S TO THE PDP-10
+!WHERE ALL THE ACCOUNTING PROBLEMS ARE BEING CENTRALIZED.
+!THE MASTER TAKES ITS COMMANDS FROM THE ACCTG.CMNDS FILE, IN ORDER TO
+!DIRECT DATA SHIPMENTS.
+
+
+!MASTER COMMANDS (FROM ACCTG.CMNDS FILE)
+DEF NIL.M.CMND AS 0
+DEF END.M.CMND AS 1
+DEF COMMENT.M.CMND AS 2
+DEF MSG.M.CMND AS 3
+DEF SET.AUDIT.M.CMND AS 4
+DEF MILESTONE.M.CMND AS 5
+DEF SEND.SLAVE.M.CMND AS 6
+DEF MAX.M.CMND AS 6
+
+LOCAL %DO.S.CMD
+LOCAL %DO.M.CMD
+
+
+
+LOCAL NUM
+LOCAL BLD.BUF
+LOCAL C.B.PTR
+LOCAL CMD.BLK
+LOCAL PTR
+LOCAL S.C.B.PTR
+LOCAL STRING
+LOCAL STRING.TEMP
+LOCAL BUF.LIST
+LOCAL SENDER
+LOCAL APP.ECHO.P
+LOCAL OLD.PTR
+!
+
+
+
+PROC.INPUT.Q:  NULL
+
+!PROCESS MASTER.Q.    
+!THE MASTER.Q IS A LIST OF RECORD CONTROL BLOCK POINTERS.  EACH R.C.B.
+!REPRESENTS AN INPUT FOR THE MASTER TO PROCESS.   THE R.C.B CONTAINS
+!A FREE TEXT PREDICATE; IF FALSE, THE RECORD REPRESENTED
+!IS A NET SLAVE COMMAND ADDRESSED TO THE MASTER.
+!THE INPUT MAY BE A STRING OF COMMANDS.    
+!THE ECHOR COMMAND GETS SPECIAL HANDLING SINCE IT IS USED
+!AS A SIGNAL (A POSITIVE ACKNOWLEDGEMENT THAT A STRING OF COMMANDS HAS
+!BEEN PROCESSED BY A SLAVE SOMEWHERE)  TO PROCESS THE NEXT MASTER
+!COMMAND OF A SCRIPT (FROM THE ACCTG.CMNDS.FILE).
+!THE ECHO DATA CONTAINS A CODE TO IDENTIFY THE SCRIPT CONTROL BLOCK 
+!(OR  S.C.B).
+
+IF C.B.PTR _ R.P.CDR(MAST.Q)    = E.O.L   THEN  GO PROC.SCRIPT.Q
+
+PUTLINE(AUD.FN,CHPT('MASTER.Q ENTRY--R.C.B FOLLOWS:$'))
+OUT.R.C.B(AUD.FN,C.B.PTR)                 !*****DEBUG*****
+!HOOK(RCBDUMP)
+
+         IF R.C.B.F.TEXT.P(C.B.PTR) = TRUE            &
+              THEN &
+                   AUDIT(A.FREE.TEXT,C.B.PTR)    !SEND FREE TEXT TO!&
+                                                 !AUDIT FILE!&
+              ELSE &
+                DO      !NOT FREE TEXT MEANS WE HAVE COMMAND
+                        !ENCODE THE COMMAND
+
+             WHILE CMD.BLK  _  ENCODE.CMND(C.B.PTR) # 0 &
+                THEN  DO.S.CMD     !PERFORM DO CASE ON SLAVE CMNDS
+
+!HOOK(CBLK)
+         END      !END OF NOT FREE TEXT
+
+
+    L.P.CDR(MAST.Q,R.P.CDR(C.B.PTR))
+!   R.RCB(C.B.PTR)                       DELETE PROCESSED RCB!
+    R.ELMT(C.B.PTR)                     !DELETE PROCESSED ELMT
+                                                  !FROM MASTER.Q
+GO PROC.INPUT.Q
+!
+!NOW PROCESS THE SCRIPT.Q ENTRIES (EACH ENTRY POINTS TO A 
+!SCRIPT CONTROL BLOCK -- S.C.B) THAT ARE WAITING FOR THE NEXT COMMAND.
+!A SCRIPT IS WAITING FOR A COMMAND IF IT IS NOT WAITING FOR A 
+!ECHOR SIGNALLING THE END OF THE PREVIOUS SLAVE COMMAND SEQUENCE SENT.
+!A SCRIPT IS WAITING FOR A COMMAND IF THE S.C.B.ECHO.DATA FIELD FOR
+!THIS SCRIPT IS NIL (ZERO).
+!WHEN SUCH A SCRIPT IS FOUND, COMMANDS ARE TAKEN FROM THE 'ACCMND'
+!FILE AND PROCESSED.  MASTER COMMANDS ARE PROCESSED UNTIL A
+!'SEND SLAVE' COMMAND IS ENCOUNTERED THAT REQUIRES ACKNOWLEDGEMENT
+!BEFORE PROCEEDING TO THE NEXT SLAVE COMMAND SEQUENCE.  THIS
+!ACKNOWLEDGEMENT IS EFFECTED BY APPENDING AN ECHO COMMAND ONTO THE
+!SLAVE COMMAND SEQUENCE, SO THAT COMPLETION OF THE COMMAND SEQUENCE WILL
+!BE SIGNALLED BY AN ECHOR RETURNING HERE TO THE MASTER.Q.
+
+
+PROC.SCRIPT.Q:               NULL
+
+PTR _ SCRIPT.Q
+SCRIPT.TOP: NULL
+OLD.PTR _ PTR <== R.P.CDR(PTR)
+IF  PTR = E.O.L   THEN   RETURN  TRUE
+         S.C.B.PTR  _   R.P.CAR(PTR)
+IF S.C.B.PTR=E.O.L  THEN DO
+   PUNT(HARD,'S.C.B.PTR=E.O.L$',0)
+  END
+         IF R.S.C.B.ECHO.DATA(S.C.B.PTR) # 0       &
+              THEN      &
+                DO      !SCRIPT WAITING ON INPUT
+                   IF (TIME-R.S.C.B.TIME(S.C.B.PTR)) > ECHOR.WAIT.TIME &
+                        THEN !GO BACK TO CRASH MILESTONE RESTART!&
+                            DO
+                             SETCP(ACCTG.CMNDS.FN,         &
+                                  R.S.C.B.CRASH.MILESTONE.CP(S.C.B.PTR))
+                             MSG('RESET TO CRASH.MILESTONE.CP$')
+                           END
+              END               &
+              ELSE      !GET NEXT COMMAND!&
+                   DO
+                        IF  DO.M.CMD=FALSE THEN RETURN FALSE
+                   END       !END OF 'ELSE' GET NEXT COMMAND
+
+GO  SCRIPT.TOP
+RETURN TRUE
+!
+
+
+
+
+
+%DO.S.CMD
+                   !DO CASE ON SLAVE COMMANDS TO BE PROCESSED BY MASTER
+
+        AUDIT(A.AUDIT.MSG,CHPT('MASTER RECEIVED FOLLOWING SLAVE CMD:'))
+        AUDIT(A.SLAVE.CMND,C.B.PTR)
+
+              IF 0>R.CMD.CODE(CMD.BLK)>MAX.CMND   &
+                THEN  &
+                  DO
+                    PUNT(HARD,'SLAVE.CMND OUT OF BOUNDS BEFORE DO CASE$',0)
+                 END
+              DO  R.CMD.CODE(CMD.BLK)  OF   0:MAX.CMND
+
+                   R.TEXT.CMND:             &
+                                  !RECEIVE FREE TEXT COMMAND ! &
+                        AUDIT(A.FREE.TEXT,C.B.PTR)
+
+                   ECHOR.CMND:    NULL !ECHO-REPLY COMMAND
+                        !THE ECHOR DATA WHOULD BE IN THE FORM:
+                        !    ECHOR INTEGER1,INTEGER2
+                        !WHERE INTEGER1 IS THE S.C.B.ID  AND
+                        !WHERE INTEGER2 IS THE S.C.B.ECHO.SEQ NUMBER
+                        !      WITHIN THE SCRIPT
+
+                        IF R.NUMARG(CMD.BLK) # 2   OR     &
+                           R.ARGTYP(CMD.BLK,1) # PRS.T.INT    &
+                             THEN  &
+                               DO
+                        BAD.ECHOR: &
+                                  PUNT(HARD,'MISMATCHED ECHO',0)
+                              END
+
+                        IF R.ARGTYP(CMD.BLK,2) # PRS.T.INT  &
+                             THEN   &
+                                  GO BAD.ECHOR
+
+                        !SEARCH THE SCRIPT.Q FOR A
+                        !SCRIPT ID THAT MATCHES THE FIRST
+                        !ECHOR PARAM (INTEGER1 ABOVE)
+
+MSG('SEARCH SCRIPT.Q FOR MATCHING ECHOR DATA$')  !******DEBUG***
+!HOOK(ECHOSRCH)
+
+
+                        PTR  _   SCRIPT.Q
+                        WHILE  PTR # E.O.L       &
+                             THEN &
+                               DO
+                                  S.C.B.PTR  _   R.P.CAR(PTR)
+                                 IF R.S.C.B.ID(S.C.B.PTR)  =    &
+                                            R.ARGVAL(CMD.BLK,1)        &
+                                       THEN  &
+                                            GO GOT.GOOD.S.C.B.PTR
+                                  PTR  _   R.P.CDR(PTR)
+                              END
+
+                        NOT.FOUND: &
+                             PUNT(HARD,'SCRIPT C.B NOT FOUND',0)
+
+                        GOT.GOOD.S.C.B.PTR:  &
+                             IF R.S.C.B.ECHO.DATA(S.C.B.PTR) # &
+                                  R.ARGVAL(CMD.BLK,2)  &
+                                  THEN  &
+                                       PUNT(HARD,'MISMATCHED ECHO',0)
+                             L.S.C.B.ECHO.DATA(S.C.B.PTR,0)
+                                  !THIS SCRIPT IS NOW NOT WAITING ON
+                                  !INPUT.  CAN GET NEXT CMND FROM
+                                  !ACCTG.CMNDS FILE
+                   OTHER.CMNDS.GO.HERE: NULL
+              END       !END OF DO CASE ON SLAVE COMMANDS PROCESSED
+                        !BY MASTER
+
+RETURN
+END DO.S.CMD
+!
+%DO.M.CMD       !GET A MASTER COMMANDAND PROCESSIT
+                    LOCAL TEMP
+                    TEMP _ R.S.C.B.CURR.CMND.CP(S.C.B.PTR)
+                    L.S.C.B.CURR.CMND.CP(S.C.B.PTR,CP(ACCTG.CMNDS.FN)-1)
+                    L.S.C.B.PREV.CMND.CP(S.C.B.PTR,TEMP)
+                        STRING  _   GET.CMND
+
+                        IF 0>(NUM_NCHV(STRING)-$0)>MAX.M.CMND  &
+                         THEN  &
+                           DO
+                             MSG('MASTER CMND OUT OF BOUNDS$')
+                          END
+                        DO NUM OF NIL.M.CMND:MAX.M.CMND
+                        !DO CASE ON MASTER COMMANDS
+
+                        NIL.M.CMND:         &
+                             PUNT(HARD,'INVALID MASTER COMMAND',0)
+
+                        END.M.CMND:         &
+                             !END OF SCRIPT--REMOVE SCRIPT CTL BLK!&
+                             R.ELMT(SCB.PTR)
+                             Q.DELETE(PTR _ OLD.PTR)
+
+                        COMMENT.M.CMND:          &
+                             NULL      !COMMENT IN FILE ONLY
+
+                        MSG.M.CMND:         &
+                             AUDIT(A.AUDIT.MSG,STRING)
+
+                        SET.AUDIT.M.CMND:        &
+                             SET.FAST(AUDIT.LEVEL,S.V.T.INT,&
+                                      NCHV(STRING)-$0)
+                             IF 0 > (R.FAST.VALUE(AUDIT.LEVEL))&
+                                  >=  MAX.AUDIT.LEVEL      &
+                             THEN      &
+                               DO
+                                  AUDIT(A.AUDIT.MSG,     &
+                                    CHPT('AUDIT LEVEL OUT OF BOUNDS'))
+                       SET.FAST(AUDIT.LEVEL,S.V.T.INT,INIT.AUDIT.LEVEL)
+                             END
+
+                        MILESTONE.M.CMND:        &
+                             AUDIT(A.MILESTONE,STRING)
+                             L.S.C.B.CRASH.MILESTONE.CP(S.C.B.PTR, &
+                                       CP(ACCTG.CMNDS.FN)-1)
+
+                        SEND.SLAVE.M.CMND:       &
+                           L.S.C.B.CURR.ADDRESSEE(S.C.B.PTR, &
+                                       GET.NUMBER(@STRING))
+                             SENDER  _   GET.NUMBER(@STRING)
+                             APP.ECHO.P  _   GET.NUMBER(@STRING)
+                        STRING.TEMP _ STRING
+                        PCHV(STRING.TEMP)      !BACK UP 1 TO CATCH NULL
+                                               !SLAVE CMND
+                        WHILE NCHV(STRING.TEMP) # CARRET THEN NULL
+                        CHV(STRING.TEMP) _ E.O.LIT
+                        NCHV(STRING)        !BUMP STRING FOR FMSTRING
+                             BUF.LIST  _   FM.STRING(EOL,STRING)
+                             IF APP.ECHO.P            &
+                                  THEN      &
+                                    DO      !APPEND ';ECHO ID,ECHO.DATA'
+                                            !TO SLAVE CMND SEQUENCE
+                                   LOCAL TMP
+                                   TMP _ R.S.C.B.ECHO.SEQ(S.C.B.PTR)+1
+                                   L.S.C.B.ECHO.SEQ(S.C.B.PTR,TMP)
+                                   L.S.C.B.ECHO.DATA(S.C.B.PTR,TMP)
+DEF STR.OUT(X) AS FM.STRING(BUF.LIST, CHPT(X))
+                                IF APP.ECHO.P = 2 &
+                                THEN &
+                                DO
+                                STR.OUT(',') !APPEND LAST 2 SBLKS ARGS
+                                FM.FR.INT(BUF.LIST,R.SCB.ID(SCB.PTR))
+                                STR.OUT(',')
+                                FM.FR.INT(BUF.LIST,TMP)
+                                END &
+                                ELSE &
+                                B.ECHO(BUF.LIST,R.SCB.ID(SCB.PTR),TMP)
+                                  END
+                             C.B.PTR  _   OUT.RKD(BUF.LIST,     &
+                                     R.S.C.B.CURR.ADDRESSEE(S.C.B.PTR),&
+                                       SENDER,&
+                                       TRUE,TRUE)
+
+                             L.S.C.B.TIME(S.C.B.PTR,TIME)
+                        END       !END OF DO CASE ON MASTER COMMANDS
+RETURN TRUE
+END DO.M.CMD
+
+END AC.NET.MASTER
+   
