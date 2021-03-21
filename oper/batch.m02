@@ -1,0 +1,816 @@
+TITLE   BATCH - VERSION A7.00
+SUBTTL  LAST UPDATE   8/6/72   W.E. MOZET
+
+        AC=0
+        A=1
+        B=2
+        C=3
+        D=4
+        WD=5
+        E=6
+        DCH=7
+        BP=10
+        BP1=11
+        FX=12
+        FPPN=13
+        G=14
+        CH=15
+        FLAG=16
+        P=17
+
+START:  RESET
+        MOVE    P,PDL
+        TTCALL  3,[ASCIZ/
+PERIPHERAL PROCESSING REQUEST - VERSION A7.00
+/]
+        TTCALL  3,[ASCIZ/
+HAVE YOU DECLARED YOUR UFD AND, OR FILE(S) ACCORDINGLY? (Y,N,?): /]
+ST:     SETZ    CH,
+        TTCALL  4,CH
+        CAIN    CH,"Y"
+        JRST    BEGIN
+        CAIN    CH,"N"
+        JRST    NO
+        CAIN    CH,"?"
+        JRST    QUES
+        TTCALL  11,
+        TTCALL  3,[ASCIZ/
+PLEASE RESPOND WITH (Y,N,?): /]
+        JRST    ST
+QUES:   TTCALL  3,MSG
+        JRST    BEGIN
+MSG:    ASCIZ/
+*NOTE*  DUE TO SYSTEM SECURITY, IF YOU DESIRE FILE MANIPULATION IT
+        WILL BE NECESSARY FOR YOU TO DECLARE YOUR FILE DIRECTORY
+        AND, OR FILE(S) ACCORDINGLY.  FOR DETAILED INSTRUCTIONS
+        PLEASE TYPE  FDC  FOLLOWED BY A CARRIAGE RETURN.
+/
+BEGIN:  MOVSI   A,-3            ;COUNTER FOR FIRST THREE CHAR. ONLY
+        MOVE    BP,[POINT 7,WD]
+        SETZB   CH,WD
+        TTCALL  11,             ;CLEAR TTY INPUT BUFFER
+        TTCALL  3,[ASCIZ/
+: /]
+        TTCALL  4,CH            ;GET FIRST CHARACTER
+        CAIN    CH,"Q"
+        JRST    EXIT
+        CAIN    CH,"?"
+        JRST    HELP
+        CAIN    CH,15
+        JRST    INVAL
+        IDPB    CH,BP           ;DEPOSIT CHAR. - INCREMENT POINTER
+        TTCALL  4,CH            ;GET NEXT CHARACTER
+        AOBJN   A,.-4           ;INCREMENT CHAR. COUNTER - FALL THROUGH
+                                ;IF ZERO
+        CAIN    CH,15
+        JRST    .+3
+        TTCALL  4,CH            ;CLEAR TTY INPUT BUFFER
+        JRST    .-3
+        TTCALL  11,
+        SKIPL   COMCNT
+        MOVNS   COMCNT          ;COUNTER CONTAINING NO. OF COMMANDS
+        HRL     A,COMCNT
+        HLRI    A,
+        CAMN    WD,COMLST(A)    ;CHECK FOR VALID COMMAND
+        JRST    VALID(A)        ;FOUND IT
+        AOBJN   A,.-2           ;NOT FOUND - INCREMENT COUNTER
+        JRST    INVAL
+HELP:   TTCALL  3,HELMSG
+        JRST    BEGIN
+HELMSG: ASCIZ/
+VALID COMMANDS:
+
+     HELP OR ?        REPRINTS THIS LIST
+     CAPABILITIES     DESCRIBES PROGRAM CAPABILITIES
+     INSTRUCTIONS     HOW TO EXECUTE THE PROGRAM
+     CREDITS          THOSE RESPONSIBLE FOR WRITING THIS PROGRAM
+     CHARGES          ADDITIONAL COST - IF ANY
+     FDC              DESCRIBES FILE DIRECTORY AND FILE STATUS
+     RUN              BEGINS EXECUTION
+     QUIT OR Q        QUITS TO EXEC
+
+ANY OF THESE COMMANDS MAY BE SHORTENED TO THE FIRST THREE CHARACTERS.
+
+/
+INS:    TTCALL  3,INSMSG
+        JRST    BEGIN
+INSMSG: ASCIZ/
+INSTRUCTIONS:
+
+     AFTER TYPING "RUN" FOLLOWED BY A CARRIAGE RETURN THE
+PROGRAM WILL TYPE THE COMPUTER NUMBER, DATE AND TIME.  THE PROGRAM
+WILL THEN ASK THE FOLLOWING:
+
+QUESTION               REPLY                          TERMINATING CHAR.
+
+COMPANY NAME           NAME OF THE COMPANY            CARRIAGE RETURN
+USER NAME              USER NAME UNDER WHICH          CARRIAGE RETURN
+                       REQUESTED WORK IS LOCATED
+PROJECT CODE           PROJECT CODE                   CARRIAGE RETURN
+TELEPHONE NO. (EXT)    TELEPHONE NUMBER (AREA CODE    CARRIAGE RETURN
+                       AND EXTENSION IF APPLICABLE)
+REQUESTED BY           NAME OF THE INDIVIDUAL         CARRIAGE RETURN
+                       REQUESTING THIS WORK
+RECEIVED BY            YOUR NAME IF DIFFERENT         CARRIAGE RETURN
+                       THAN ABOVE ENTRY
+DESCRIPTION OF WORK    FREE FORM DESCRIPTION OF       CONTROL D
+                       WHAT IS TO BE DONE
+DELIVERY INSTRUCTIONS  ADDRESS FOR DISPATCHING        CONTROL D
+                       FINISHED WORK (ENTRY ALSO IN
+                       FREE FORM)
+
+NOTE:  A CONTROL "A" (TYMEX) OR A RUBOUT (PDP) MAY BE USED TO DELETE
+       CHARACTERS UP TO BUT NOT INCLUDING THE LAST CARRIAGE RETURN.
+
+/
+CAP:    TTCALL  3,CAPMSG
+        JRST    BEGIN
+CAPMSG: ASCIZ/
+CAPABILITIES:
+
+     CREATES A REQUEST FOR BATCH PROCESSING IN A FILE ACCESSABLE
+BY COMPUTER CENTER PERSONNEL.  THE PROGRAM ASKS CERTAIN QUESTIONS,
+AND THEN ALLOWS THE USER TO DESCRIBE THE WORK TO BE DONE IN FREE
+FORM, AS WELL AS ALLOWING HIM TO ENTER DELIVERY INSTRUCTIONS IN
+FREE FORM.
+
+/
+CRE:    TTCALL  3,[ASCIZ/
+CREDITS:
+
+WRITTEN BY  TYMSHARE, INC. - W.E. MOZET
+
+/]
+        JRST    BEGIN
+CHA:    TTCALL  3,[ASCIZ/
+CHARGES:
+
+NO PREMIUM CHARGE
+
+/]
+        JRST    BEGIN
+INVAL:  TTCALL  3,[ASCIZ/
+INVALID COMMAND - PLEASE RE-ENTER
+
+/]
+        JRST    BEGIN
+FDC:    TTCALL  3,FDCMSG
+        JRST    BEGIN
+FDCMSG: ASCIZ/
+FILE AND FILE DIRECTORY STATUS:
+
+        WORK                            F.D. AND FILE STATUS
+
+TAPE TO DISC - NEW FILE         F.D. - PUBLIC (ALL QUESTIONS YES)
+TAPE TO DISC - OLD FILE         F.D. - PUBLIC (ALL QUESTIONS YES)
+                                FILE - PUBLIC (ALL QUESTIONS YES)
+DISC TO TAPE                    F.D. - PUBLIC, SHARABLE, LISTABLE
+                                FILE - PUBLIC, READ
+DISC TO PRINTER                 F.D. - PUBLIC, SHARABLE, LISTABLE
+                                FILE - PUBLIC, READ
+DISC TO TAPE - ALL FILES        F.D. - PUBLIC, SHARABLE, LISTABLE
+                                FILE - PUBLIC, READ
+
+(FILE) - WHERE FILE IS ACTUAL FILE NAME
+F.D. STATUS - SET BY TYPING  FDC  IN EXEC. FOLLOWED BY A C.R.
+FILE STATUS - SET BY TYPING  DEC  IN EXEC. FOLLOWED BY A C.R.
+
+/
+RUN:    MOVE    BP,[POINT 7,IOBUFF+1]
+        TTCALL  3,[ASCIZ/
+COMPUTER NUMBER   /]
+        MOVEI   WD,11           ;DATA BLOCK NUMBER
+        CALLI   WD,41           ;MOVE DATA FROM MONITOR
+        JRST    SYSERR
+        AND     WD,[477777700000]
+        TTCALL  3,WD            ;OUTPUT SYSTEM NUMBER
+        PUSHJ   P,CRLF
+        PUSHJ   P,IOSTR         ;DEPOSIT SYS. NO. IN IOBUFF
+        PUSHJ   P,CRLF
+        TTCALL  3,[ASCIZ/
+DATE AND TIME     /]
+        CALLI   B,14            ;GET DATE FROM MONITOR
+        IDIVI   B,^D31
+        EXCH    B,C             ;YEAR AND MONTH IN C, DAY IN B
+        MOVE    D,C             ;SAVE CONTENTS OF C
+        AOJ     B,              ;ADD ONE TO DAY
+        PUSHJ   P,DECPNT        ;CONVERT TO DECIMAL AND PRINT
+        MOVE    C,D
+        SETZ    B,
+        DIVI    B,^D12
+        EXCH    B,C             ;MONTH IN B, YEAR -64 IN C
+        IMULI   B,2
+        TTCALL  3,MONTH(B)      ;PRINT THE MONTH
+        MOVE    WD,MONTH(B)
+        PUSHJ   P,IOSTR
+        MOVEI   B,^D64(C)       ;OBTAIN YEAR
+        PUSHJ   P,DECPNT        ;CONVERT TO DECIMAL AND PRINT
+        MOVEI   A,40
+        IDPB    A,BP
+        IDPB    A,BP
+        TTCALL  3,[ASCIZ/  /]
+        CALLI   B,22            ;RECOVER TIME IN MILISECS.
+        IDIVI   B,^D3600        ;CHANGE TO MINUTES
+        IDIVI   B,^D60          ;HRS. IN B, MINS. IN C
+        MOVE    D,C             ;SAVE CONTENTS OF C
+        PUSHJ   P,DECPNT        ;CONVERT TO DECIMAL AND PRINT
+        TTCALL  3,[ASCIZ/:/]
+        MOVEI   A,":"
+        IDPB    A,BP
+        MOVE    B,D
+        PUSHJ   P,DECPNT        ;CONVERT TO DECIMAL AND PRINT
+        PUSHJ   P,CRLF
+        SETZ    CH,
+        PUSHJ   P,GETNAM
+        JUMPN   FLAG,ONE
+YORN:   TTCALL  3,[ASCIZ/
+
+INHOUSE (Y OR N): /]
+        TTCALL 4,CH
+        CAIN    CH,131
+        JRST    .+5
+        CAIN    CH,116
+        JRST    .+7
+        TTCALL  11,
+        JRST    YORN
+        SETZ    FLAG,
+        MOVEI   AC,1
+        MOVEM   AC,TEMP+1
+        JRST    .+6
+        MOVEI   FLAG,2
+        SETZM   TEMP+1
+        JRST    .+3
+ONE:    MOVEI   AC,1
+        MOVEM   AC,TEMP+1
+        MOVE    AC,FLAG
+        ADDI    AC,60
+        IDPB    AC,BP
+        TTCALL  11,
+        TTCALL  1,[15]
+        TTCALL  15,[12]
+        JUMPE   FLAG,HERE
+        TTCALL  3,[ASCIZ/COMPANY NAME      /]
+        PUSHJ   P,INPUT
+        TTCALL  3,[ASCIZ/USER NAME         /]
+        PUSHJ   P,INPUT1
+HERE:   TTCALL  3,[ASCIZ/PROJECT CODE      /]
+        PUSHJ   P,INPUT
+        TTCALL  3,[ASCIZ/PHONE NO. (EXT.)  /]
+        PUSHJ   P,INPUT
+        TTCALL  3,[ASCIZ/REQUESTED BY      /]
+        PUSHJ   P,INPUT
+        SKIPE   TEMP+1
+        JRST    HERE1
+        TTCALL  3,[ASCIZ/RECEIVED BY       /]
+        PUSHJ   P,INPUT
+HERE1:  TTCALL  1,[12]
+        TTCALL  3,[ASCIZ/
+DESCRIPTION OF WORK
+
+/]
+        PUSHJ   P,FREEIN
+        TTCALL  1,[12]
+        TTCALL  3,[ASCIZ/
+DELIVERY INSTRUCTIONS
+
+/]
+        PUSHJ   P,FREEIN
+        PUSHJ   P,EOFCH
+        MOVEM   BP,TEMP         ;SAVE BYTE POINTER
+        SETZ    FLAG,           ;FLAG - ON FOR PPRTMP, OFF FOR PPRNUM
+        MOVSI   D,^D-10
+RETRY:  MOVEI   DCH,1
+        OPEN    DCH,OPNFIL
+        JRST    DCHERR
+        MOVE    FX,FILNAM+1     ;SAVE FILE EXT.
+        MOVE    FPPN,FILNAM+3   ;SAVE PPN
+        LOOKUP  DCH,FILNAM
+        JRST    LOKERR
+        MOVEM   FX,FILNAM+1     ;RESTORE FILE EXT.
+        MOVEM   FPPN,FILNAM+3   ;RESTORE PPN
+        SETZM   FILNAM+2
+        ENTER   DCH,FILNAM
+        JRST    BUSY            ;CAN'T OPEN - PROBABLY BUSY
+        OUTBUF  DCH,1           ;SET UP OUTPUT BUFFER
+        INBUF   DCH,1           ;SET UP INPUT BUFFER
+        INPUT   DCH,            ;INPUT BLOCK
+        STATZ   DCH,740000      ;CHECK STATUS
+        JRST    BADFI
+        OUTPUT  DCH,            ;DUMMY OUTPUT TO CLEAR BUFFER
+        MOVEI   G,1
+        HRLI    G,(USETO DCH,)
+        XCT     G
+PPRNUM: MOVSI   E,-5            ;READ FIRST FIVE CHARACTERS
+        SETZB   CH,WD
+        MOVE    BP,[POINT 7,WD]
+        MOVE    BP1,BP          ;SAVE BYTE POINTER
+        ILDB    CH,IBUF+1       ;GET CHARACTER
+        IDPB    CH,BP           ;DEPOSIT CHARACTER
+        AOBJN   E,.-2
+        MOVEM   WD,IOBUFF       ;REQUEST NUMBER
+        CAME    WD,MAX
+        JRST    .+2
+        JRST    RESET
+        PUSHJ   P,OCTCNT
+EOF:    MOVSI   E,-3            ;NO. OF CHARS. IN EOF ROUTINE
+        SETZ    CH,
+        MOVE    BP,[POINT 7,EOFROU]
+        ILDB    CH,BP
+        IDPB    CH,OBUF+1
+        AOBJN   E,.-2
+        OUTPUT  DCH,            ;OUTPUT TO FILE
+        STATZ   DCH,740000      ;CHECK STATUS
+        JRST    BADFI
+        CLOSE   DCH,
+        RELEASE DCH,            ;RELEASE DISC CHANNEL
+        AOJ     FLAG,           ;TURN ON FLAG
+        MOVSI   D,^D-10
+RETRY1: MOVEI   DCH,1
+        OPEN    DCH,OPNFI
+        JRST    DCHERR
+        LOOKUP  DCH,FINAM
+        JRST    LOKERR
+        HLRE    G,FINAM+3       ;IF NEGATIVE THEN WORD COUNT
+        JUMPG   G,SKIP          ;IF POSITIVE THEN BLOCK NUMBER
+        MOVNS   G               ;MAKE POSITIVE
+        LSH     G,-7            ;CONVERT TO BLOCK NUMBER
+        ADDI    G,1             ;NUMBERING STARTS AT ONE
+SKIP:   MOVE    A,G             ;SAVE BLOCK NUMBER
+        MOVEM   FX,FINAM+1      ;RESTORE FILE EXT.
+        MOVEM   FPPN,FINAM+3    ;RESTORE PPN
+        SETZM   FINAM+2
+        ENTER   DCH,FINAM
+        JRST    BUSY
+RENTER: OUTBUF  DCH,1           ;SET UP OUTPUT BUFFER
+        INBUF   DCH,1           ;SET UP INPUT BUFFER
+        HRLI    G,(USETI DCH,)  ;FORM USETI INSTRUCTION
+        XCT     G               ;INDEX LAST BLOCK
+        INPUT   DCH,            ;INPUT LAST BLOCK
+        STATZ   DCH,740000      ;CHECK STATUS
+        JRST    BADFI
+        SKIPN   IBUF+2
+        JRST    CKBLK
+        OUTPUT  DCH,            ;DUMMY OUTPUT TO CLEAR BUFFER
+        MOVE    G,A             ;RESTORE BLOCK NUMBER
+        HRLI    G,(USETO DCH,)  ;FORM USETO INSTRUCTION
+        XCT     G               ;OUTPUT TO LAST BLOCK
+        PUSHJ   P,GETCHR
+        CAIE    CH,32
+        PUSHJ   P,PUTCHR
+        CAIE    CH,32
+        JRST    .-4
+        MOVE    BP,[POINT 7,IOBUFF]
+        PUSHJ   P,NEWCHR        ;NEW DATA
+        CAIE    CH,32
+        PUSHJ   P,PUTCHR
+        CAIE    CH,32
+        JRST    .-4
+        PUSHJ   P,PUTCHR
+        OUTPUT  DCH,
+        STATZ   DCH,740000
+        JRST    BADFI
+        CLOSE   DCH,
+        RELEASE DCH,
+        SETZ    CH,
+        CAIN    FLAG,2
+        JRST    END
+        AOJ     FLAG,
+        MOVSI   D,^D-10
+RETRY2: MOVEI   DCH,1
+        OPEN    DCH,OPENFI
+        JRST    DCHERR
+        LOOKUP  DCH,FINAME
+        JRST    LOKERR
+        HLRE    G,FINAME+3      ;IF NEGATIVE THEN WORD COUNT
+        JUMPG   G,SKIP2         ;IF POSITIVE THEN BLOCK NUMBER
+        MOVNS   G               ;MAKE POSITIVE
+        LSH     G,-7            ;CONVERT TO BLOCK NUMBER
+        ADDI    G,1             ;FIRST BLOCK STARTS AT ONE
+SKIP2:  MOVE    A,G             ;SAVE BLOCK NUMBER
+        MOVEM   FX,FINAME+1     ;RESTORE FILE EXT.
+        MOVEM   FPPN,FINAME+3   ;RESTORE PPN
+        SETZM   FINAME+2
+        ENTER   DCH,FINAME
+        JRST    BUSY
+        JRST    RENTER
+END:    TTCALL  1,[12]
+        TTCALL  3,[ASCIZ/
+REQUEST COMPLETED      PPR #/]
+        MOVE    WD,IOBUFF
+        TTCALL  3,WD
+        TTCALL  3,[ASCIZ/
+
+THANK YOU,     **TYMSHARE, INC.**
+/]
+        JRST    EXIT+3
+SYSERR: TTCALL  3,SYSMSG
+        JRST    EXIT+3
+SYSMSG: ASCIZ/
+
+UNABLE TO OBTAIN SYSTEM NUMBER - PLEASE CONTACT OPERATIONS
+/
+DECPNT: IDIVI   B,12
+        ADDI    B,60            ;CONVERT TO ASCII
+        TTCALL  1,B
+        MOVE    WD,B
+        LSH     WD,1            ;DROP SIGN BIT
+        PUSHJ   P,IOSTR         ;DEPOSIT DATE AND TIME IN IOBUFF
+        ADDI    C,60            ;CONVERT TO ASCII
+        TTCALL  1,C
+        MOVE    WD,C
+        LSH     WD,1            ;DROP SIGN BIT
+        PUSHJ   P,IOSTR         ;DEPOSIT DATE AND TIME IN IOBUFF
+        POPJ    P,
+IOSTR:  MOVSI   E,-5            ;CHARACTER COUNT
+        MOVE    BP1,[POINT 7,WD]
+        ILDB    A,BP1           ;LOAD FIRST CHARACTER
+        JUMPE   A,.+2           ;CHECK FOR NON ZERO CHARACTER
+        IDPB    A,BP            ;DEPOSIT DATA IN IOBUFF
+        AOBJN   E,.-3           ;FALL THROUGH IF ALL CHAR. CHECKED
+        POPJ    P,
+INPUT:  TTCALL  4,CH            ;CHARACTER INPUT - LINE MODE
+        CAIN    CH,12
+        JRST    INPUT
+        CAIN    CH,15
+        JRST    .+3
+        IDPB    CH,BP           ;DEPOSIT DATA IN IOBUFF
+        JRST    INPUT
+        TTCALL  0,CH            ;CLEAR TTY INPUT BUFFER
+        PUSHJ   P,CRLF
+        POPJ    P,
+FREEIN: TTCALL  4,CH
+        CAIN    CH,12
+        JRST    FREEIN
+        CAIN    CH,15
+        JRST    EOL
+        CAIN    CH,4            ;CHECK FOR CONTROL D
+        JRST    .+3
+        IDPB    CH,BP           ;DEPOSIT DATA IN IOBUFF
+        JRST    FREEIN
+        LDB     CH,BP
+        CAIN    CH,12
+        JRST    .+5
+        PUSHJ   P,CRLF
+        TTCALL  1,[15]
+        TTCALL  1,[12]
+        POPJ    P,
+        MOVEI   AC,30
+        IDPB    AC,BP
+        POPJ    P,
+EOL:    IDPB    CH,BP
+        TTCALL  0,CH
+        IDPB    CH,BP
+        JRST    FREEIN
+CKBLK:  SUBI    A,1             ;INPUT PREVIOUS BLOCK IN ORDER TO REMOVE EOF CHARACTER
+        MOVE    G,A
+        JRST    RENTER+2
+MONTH:  ASCIZ /-JAN-/
+        ASCIZ /-FEB-/
+        ASCIZ /-MAR-/
+        ASCIZ /-APR-/
+        ASCIZ /-MAY-/
+        ASCIZ /-JUN-/
+        ASCIZ /-JUL-/
+        ASCIZ /-AUG-/
+        ASCIZ /-SEP-/
+        ASCIZ /-OCT-/
+        ASCIZ /-NOV-/
+        ASCIZ /-DEC-/
+COMLST: ASCIZ /RUN/
+        ASCIZ /HEL/
+        ASCIZ /INS/
+        ASCIZ /CAP/
+        ASCIZ /CRE/
+        ASCIZ /CHA/
+        ASCIZ /FDC/
+COMCNT: .-COMLST
+VALID:  JRST    RUN
+        JRST    HELP
+        JRST    INS
+        JRST    CAP
+        JRST    CRE
+        JRST    CHA
+        JRST    FDC
+CRLF:   MOVEI   AC,15
+        IDPB    AC,BP           ;DEPOSIT CR. IN IOBUFF
+        MOVEI   AC,12
+        IDPB    AC,BP           ;DEPOSIT LF. IN IOBUFF
+        MOVEI   AC,30
+        IDPB    AC,BP           ;CONTROL X USED FOR END OF STRING
+        POPJ    P,
+EOFCH:  MOVEI   AC,20
+        IDPB    AC,BP
+        MOVEI   AC,32
+        IDPB    AC,BP           ;END OF FILE CHARACTER
+        POPJ    P,
+OCTCNT: SETZB   C,CH
+        MOVE    BP,BP1          ;RESTORE BYTE POINTER
+        MOVSI   E,-2
+        ILDB    CH,BP
+        IDPB    CH,OBUF+1
+        AOBJN   E,.-2
+        SETZ    CH,
+        ILDB    CH,BP
+        SUBI    CH,60           ;CONVERT TO NUMBER
+        IMULI   CH,144          ;CONVERT TO OCTAL
+        ADD     C,CH            ;STORE OCTAL NUMBER
+        SETZ    CH,
+        ILDB    CH,BP
+        SUBI    CH,60           ;CONVERT TO NUMBER
+        IMULI   CH,12           ;CONVERT TO OCTAL
+        ADD     C,CH            ;STORE OCTAL NUMBER
+        SETZ    CH,
+        ILDB    CH,BP
+        SUBI    CH,60           ;CONVERT TO NUMBER
+        ADD     C,CH
+        ADDI    C,1             ;ADD ONE TO PPR NUMBER
+        SETZB   D,CH
+        CAIGE   C,^D10
+        JRST    FOR
+        CAIGE   C,^D100
+        PUSHJ   P,FOR1
+        PUSHJ   P,DECNT
+        POPJ    P,
+RESET:  MOVEM   WD,IOBUFF
+        MOVE    WD,NEW
+        SETZ    CH,
+        MOVSI   E,-5
+        ILDB    CH,BP1          ;GET CHARACTER
+        IDPB    CH,OBUF+1       ;DEPOSIT CHARACTER
+        AOBJN   E,.-2
+        JRST    EOF
+DECNT:  IDIVI   C,12
+        PUSH    P,D             ;SAVE REMAINDER
+        JUMPE   C,.+2           ;ALL DIGITS FORMED
+        PUSHJ   P,DECNT         ;NO
+        POP     P,C             ;YES
+        ADDI    C,60            ;CONVERT TO ASCII
+        IDPB    C,OBUF+1        ;DEPOSIT CHARACTER
+        POPJ    P,
+FOR:    MOVEI   AC,60
+        IDPB    AC,OBUF+1
+        IDPB    AC,OBUF+1
+        JRST    RESET-2
+FOR1:   MOVEI   AC,60
+        IDPB    AC,OBUF+1
+        POPJ    P,
+GETNAM: HRROI   A,-22
+        GETTAB  A,              ;RETURN FIRST SIX CHARACTERS OF USER NAME
+        JRST    NONAME
+        MOVE    B,[POINT 7,NAME]
+        SETZM   NAME
+        SETZM   NAME+1
+        SETZM   NAME+2
+        MOVE    BP1,[POINT 6,A]
+        MOVSI   E,-6
+        ILDB    CH,BP1
+        JUMPE   CH,STAT
+        ADDI    CH,40           ;CONVERT TO 7 BIT ASCII
+        IDPB    CH,BP           ;DEPOSIT IN IOBUFF
+           CH,B
+        AOBJN   E,.-5
+        HRROI   A,-21
+        GETTAB  A,              ;RETURN LAST SIX CHARACTERS OF USER NAME
+        JRST    NONAME
+        CAIN    A,0
+        JRST    STAT
+        MOVE    BP1,[POINT 6,A]
+        MOVSI   E,-6
+        ILDB    CH,BP1
+        JUMPE   CH,STAT
+        ADDI    CH,40           ;CONVERT TO 7 BIT ASCII
+        IDPB    CH,BP           ;DEPOSIT IN IOBUFF
+        IDPB    CH,B
+        AOBJN   E,.-5
+STAT:   HRROI   A,6
+        GETTAB  A,              ;CHECK TO SEE IF INHOUSE
+        JRST    NOSTAT
+        TRNN    A,40000         ;SKIP IF INHOUSE
+        JRST    .+3
+        SETZ    FLAG,
+        JRST    .+2
+        MOVEI   FLAG,1
+        PUSHJ   P,CRLF
+        POPJ    P,
+INPUT1: MOVSI   E,^D-12
+        SETZM   USRNAM
+        SETZM   USRNAM+1
+        SETZM   USRNAM+2
+        SETZM   USRNA
+        SETZM   USRNA+1
+        MOVE    BP1,[POINT 7,USRNAM]
+        MOVE    B,BP1
+        TTCALL  4,CH
+        CAIN    CH,15
+        JRST    .+10
+        IDPB    CH,BP1
+        AOBJN   E,.-4
+        TTCALL  0,CH
+        CAIN    CH,15
+        JRST    .+3
+        TTCALL  11,
+        JRST    TOLONG
+        TTCALL  0,CH
+        MOVE    AC,NAME
+        CAME    AC,USRNAM
+        JRST    NEWNAM
+        MOVE    AC,NAME+1
+        CAME    AC,USRNAM+1
+        JRST    NEWNAM
+        MOVE    AC,NAME+2
+        CAME    AC,USRNAM+2
+        JRST    NEWNAM
+        ILDB    CH,B
+        CAIN    CH,0
+        JRST    .+3
+        IDPB    CH,BP           ;DEPOSIT IN IOBUFF
+        JRST    .-4
+        PUSHJ   P,CRLF
+        POPJ    P,
+NEWNAM: MOVE    BP1,[POINT 6,USRNA]
+        MOVE    G,[POINT 7,USRNAM]
+        MOVSI   E,-5
+        ILDB    CH,G
+        JUMPE   CH,.+4
+        SUBI    CH,40           ;CONVERT TO 6 BIT
+        IDPB    CH,BP1
+        AOBJN   E,.-4
+        SKIPN   USRNAM+1
+        JRST    LOKNAM
+        MOVSI   E,-5
+        ILDB    CH,G
+        JUMPE   CH,.+4
+        SUBI    CH,40
+        IDPB    CH,BP1
+        AOBJN   E,.-4
+        SKIPN   USRNAM+2
+        JRST    LOKNAM
+        MOVSI   E,-2
+        ILDB    CH,G
+        JUMPE   CH,LOKNAM
+        SUBI    CH,40
+        IDPB    CH,BP1
+        AOBJN   E,.-4
+LOKNAM: MOVEI   DCH,1
+        OPEN    DCH,DUMMY
+        JRST    DCHERR
+        MOVEI   A,3             ;NUMBER OF WORDS
+        HRRZI   B,USRNA
+        HRLZI   C,(SIXBIT/A/)   ;DUMMY FILE NAME
+        HRLZI   D,(SIXBIT/B/)
+        LOOKUP  DCH,A
+        JFCL                    ;NOP
+        CAIN    B,USRNA         ;SKIP IF VALID USER NAME
+        JRST    BADNAM
+        MOVE    BP1,[POINT 7,USRNAM]
+        MOVSI   E,-5
+        ILDB    CH,BP1
+        JUMPE   CH,FIN
+        IDPB    CH,BP          ;DEPOSIT IN IOBUFF
+        AOBJN   E,.-3
+        SKIPN   USRNAM+1
+        JRST    FIN
+        MOVSI   E,-5
+        ILDB    CH,BP1
+        JUMPE   CH,FIN
+        IDPB    CH,BP
+        AOBJN   E,.-3
+        SKIPN   USRNAM+2
+        JRST    FIN
+        MOVSI   E,-2
+        ILDB    CH,BP1
+        JUMPE   CH,FIN
+        IDPB    CH,BP
+        AOBJN   E,.-3
+FIN:    PUSHJ   P,CRLF
+        POPJ    P,
+DUMMY:  0
+        SIXBIT /DSK/
+        XWD 0,0
+BADNAM: RELEASE DCH,
+        TTCALL  11,
+        TTCALL  3,[ASCIZ/
+INVALID USER NAME
+
+/]
+        TTCALL  3,[ASCIZ/USER NAME         /]
+        JRST    INPUT1
+TOLONG: TTCALL  11,
+        TTCALL  3,[ASCIZ/
+USER NAME TOO LONG
+
+/]
+        TTCALL  3,[ASCIZ/USER NAME         /]
+        JRST    INPUT1
+NONAME: TTCALL  3,[ASCIZ/
+UNABLE TO DETERMINE YOUR USER NAME - PLEASE CONTACT OPERATIONS
+/]
+        CALLI   12
+NOSTAT: TTCALL  3,[ASCIZ/
+UNABLE TO DETERMINE YOUR LOGIN STATUS - PLEASE CONTACT OPERATIONS
+/]
+        CALLI   12
+EOFROU: BYTE    (7)32,15,12     ;CR. LF. AND EOF CHARACTER
+DCHERR: TTCALL  3,[ASCIZ/
+DATA CHANNEL ERROR - PLEASE CONTACT OPERATIONS
+/]
+        JRST    EXIT+3
+LOKERR: TTCALL  3,[ASCIZ/
+DATA FILE MISSING - PLEASE CONTACT OPERATIONS
+/]
+        RELEASE DCH,            ;RELEASE DISC CHANNEL
+        JRST    EXIT+3
+BUSY:   AOBJP   D,OPNERR        ;ATTEMPT TO OPEN FILE TEN TIMES
+        MOVEI   B,^D10
+        CALLI   B,31            ;GO TO SLEEP FOR 10 SECONDS
+        JUMPE   FLAG,FI
+        CAIN    FLAG,1
+        JRST    FIONE
+        MOVEM   FX,FINAME+1     ;RESTORE FILE EXT.
+        SETZM   FINAME+2
+        MOVEM   FPPN,FINAME+3   ;RESTORE PPN
+        JRST    RETRY2
+FI:     MOVEM   FX,FILNAM+1     ;RESTORE FILE EXT.
+        SETZM   FILNAM+2
+        MOVEM   FPPN,FILNAM+3   ;RESTORE PPN
+        JRST    RETRY
+FIONE:  MOVEM   FX,FINAM+1      ;RESTORE FILE EXT.
+        SETZM   FINAM+2
+        MOVEM   FPPN,FINAM+3    ;RESTORE PPN
+        JRST    RETRY1
+OPNERR: TTCALL  3,[ASCIZ/
+UNABLE TO OPEN FILE - PLEASE CONTACT OPERATIONS
+/]
+        RELEASE DCH,            ;RELEASE DISC CHANNEL
+        JRST    EXIT+3
+BADFI:  TTCALL  3,[ASCIZ/
+DATA FILE FORMAT INCORRECT - PLEASE CONTACT OPERATIONS
+/]
+        CLOSE   DCH,            ;CLOSE FILE
+        RELEASE DCH,            ;RELEASE DISC CHANNEL
+        JRST    EXIT+3
+GETCHR: SOSGE   IBUF+2          ;SKIP IF BUFFER NOT EMPTY
+        JRST    .+3
+        ILDB    CH,IBUF+1       ;GET CHARACTER
+        POPJ    P,
+        TTCALL  3,[ASCIZ/
+EOF FLAG MISSING - PLEASE CONTACT OPERATIONS
+/]
+        JRST    GETCHR-3
+NO:     TTCALL  3,[ASCIZ/
+FOR DETAILED INSTRUCTIONS PLEASE TYPE  FDC  FOLLOWED BY A C.R..
+/]
+        JRST    BEGIN
+PUTCHR: SOSGE   OBUF+2          ;SKIP IF BUFFER NOT FULL
+        JRST    .+3
+        IDPB    CH,OBUF+1       ;DEPOSIT CHARACTER
+        POPJ    P,
+        OUTPUT  DCH,            ;OUTPUT BLOCK
+        STATZ   DCH,340000
+        JRST    BADFI
+        IDPB    CH,OBUF+1
+        SOS     OBUF+2
+        POPJ    P,
+NEWCHR: ILDB    CH,BP           ;DATA FROM IOBUFF
+        POPJ    P,
+OPNFI:  0
+        SIXBIT /DSK/
+        XWD OBUF,IBUF
+FINAM:  SIXBIT /PPRTMP/
+        SIXBIT /DAT/
+        0
+        XWD 1,2
+OPNFIL: 0
+        SIXBIT /DSK/
+        XWD OBUF,IBUF
+FILNAM: SIXBIT /PPRNUM/
+        SIXBIT /DAT/
+        0
+        XWD 1,2
+OPENFI: 0
+        SIXBIT /DSK/
+        XWD OBUF,IBUF
+FINAME: SIXBIT /PPRHLD/
+        SIXBIT /DAT/
+        0
+        XWD 1,2
+OBUF:   BLOCK 3
+IBUF:   BLOCK 3
+EXIT:   TTCALL  4,CH
+        CAIE    CH,15
+        JRST    .-2
+        TTCALL  11,
+        CALLI   0,12
+NEW:    ASCIZ /31000/
+MAX:    ASCIZ /31999/
+TEMP:   BLOCK 2
+NAME:   BLOCK 3
+USRNAM: BLOCK 3
+USRNA:  BLOCK 2
+PDL:    XWD -50,.               ;PUSH DOWN LIST
+        BLOCK 50
+IOBUFF: BLOCK 500
+        VAR
+        LIT
+        END START
+ `*GP¯
