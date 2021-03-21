@@ -1,0 +1,603 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                             SLS MANUAL
+
+                        SPECIAL SAIL FEATURES
+
+
+                              SECTION 1
+                   SPECIAL CONSOLE FEATURES (SLS)
+
+INTRODUCTION
+
+1-1.  There exists a mode of operation of SAIL programs  (referred to
+as SLS)  which allows  direct on-line  execution of  SAIL statements.
+All  statements  described  in  other  sections  of  this  manual are
+accepted  when operating  in  SLS mode.  In  addition, a  new  set of
+statements has been added, legal at any time, but more  applicable to
+the on-line mode. These statements cause changes in the states of:
+
+  1)  Your display screen
+  2)  The (in core) compiled representation of programs
+  3)  The (disk-resident) text representations of same.
+
+These statements are intended  to be replacements for  the previously
+disjoint  processes of  text editing,  program patching,  and program
+debugging.  They  also  provide  control   and  information-gathering
+facilities heretofore unavailable.
+
+
+
+THE SLS ENVIRONMENT
+
+1-2.  When you use SLS, you are the (proud) owner and controller of a
+"pamphlet"  of display  "pages". You  may specify  that any  of these
+pages be displayed on your  physical console at any time. A  page may
+well exceed the  size limits of the  display screen, so you  are also
+given  the facility  for  moving the  current page  under  the screen
+"window". Below is a brief  introduction to the pages contained  in a
+standard SLS pamphlet.
+
+
+
+SLS (Edit-Debug) Page
+
+1-3.  This  page  is  used  by the  text  editing  and  the debugging
+portions of the SLS system.  On it is contained the names  and values
+of variables  in which  you have expressed  interest.  Below  this is
+displayed a fragment  of one of the  text files representing  part of
+the  current  program.  A  symbolic  representation  of  the  current
+"program counter"  is also  displayed here.  This  is the  page which
+will likely endure your disbelieving scrutiny most of the time.
+SPECIAL CONSOLE FEATURES (SLS)                                    1-4
+
+User Page
+
+1-4.  All console communications resulting from explicit  program I/O
+requests  will be  routed to  the User  Page. This  is the  only page
+available  to  a  program  which  is  running  with  the  SLS feature
+deactivated. You  can arrange  to switch  automatically to  this page
+whenever  console I/O  requests are  being serviced.  If this  is not
+done, you will  have to execute a  special statement in order  to see
+what your program has been up to.
+
+
+
+Status Page
+
+1-5.  This page contains frequently updated global  information about
+your job. Among those things listed here are:
+
+  1)  File information -- the names, channel numbers, and  data modes
+       of each open file, as well as an estimate of the percentage of
+       the  file  which  has  been  processed  (input  only)  and, if
+       feasible,  a  fragment  of the  file  surrounding  the current
+       input/output position.
+
+  2)  Timing information  -- your total  run time, the  percentage of
+       the cycles  which you are  receiving, your current  run state,
+       etc.
+
+  3)  A speedometer -- an eye-catching, provocative graphic indicator
+       of your current rate of processing.
+
+  4)  Program  information --  the names  of the  program, procedure,
+       block,  and nearest  symbolic address  in which  your  code is
+       currently executing.
+
+  5)  Function Stack  (Backtrace) -- a  list of the  system push-down
+       stack in <functionname> ( <argumentlist> ) form.
+
+Some of this information  will be updated when certain  SAIL routines
+are executed (e.g., I/O  status information). Others will  be updated
+when your job's status changes (on swap-out,  swap-in, re-scheduling,
+etc.).  You can always request a complete update of this page.
+
+
+
+Raid Page
+
+1-6.  The machine-language debugging program, RAID, is given  its own
+page  to avoid  cluttering  any of  the  others.  It  is  possible to
+
+
+                                  2
+SPECIAL CONSOLE FEATURES (SLS)                                    1-6
+
+overlay  a screenful  of any  other page  on the  RAID page,  if such
+interaction is desired.
+
+
+
+History Page
+
+1-7.  Certain  SAIL operations  cause  log entries  to be  made  in a
+history file.  Such an operation  is the queueing or activation  of a
+message procedure.  The History Page  can be used to see any  part of
+your  history  file.   This  page  will,  in  general,   occupy  many
+screensful  (sic). Special  formatting is  automatically  provided to
+expand the entries from this file and to make them readable.
+
+
+
+Notes Page
+
+1-8.  The Notes Page can be  used to store memos to yourself.   It is
+basically a display of a special Notes text file, and may be examined
+using  text-editing statements,  as with  all other  pages.  However,
+some special numbering and  indenting features are provided  for easy
+maintenance of information on this page.
+
+
+
+USING SLS
+
+1-9.  To  use  this  system, simply  arrange  to  have  your programs
+compiled in such a way that the SLS system can manage  them properly,
+then enter "SLS mode".  The system initially believes that there is a
+"super block" (footnote) surrounding all the separate  programs which
+have been loaded, and that you are adding statements to the top level
+of  this  block.   As  each  (top  level)  statement  is  parsed, the
+resulting object code is placed in core and executed.
+
+More details follow in  the section which describes the  semantics of
+SLS statements, but first the syntax must be presented.
+
+
+
+Sls Syntax Notational Conventions
+
+1-10. The SLS  statements make  heavy use of  a few  special "pseudo-
+variables", which  appear often in  the BNF. The  DISPL array  can be
+considered to be a two-dimensional array, each row of  which contains
+two  entries.   The first  entry  is always  string-valued,  and will
+contain  the  name or  some  other identification  of  some variable,
+
+
+                                  3
+SPECIAL CONSOLE FEATURES (SLS)                                   1-10
+
+expression, triple, etc.  We  will call all such  entities variables,
+for simplicity.  The second entry contains the external (ASCII) value
+of that variable, in a form appropriate to its data type.   These two
+entries, by virtue of their presence in DISPL, occupy one row  of the
+current  SLS page.   There are  as many  rows in  DISPL as  there are
+variables  displayed  on   the  screen.   The   pseudo-variable  THIS
+represents the "current" variable -- the one occupying the  DISPL row
+most recently changed.  An arrow  marks the place of this row  on the
+SLS page. The function NEXT computes a new value for THIS. It decides
+which of  the currently displayed  rows should be  replaced by  a new
+value.  The function VARIABLENAMEDBY computes a location  in memory
+to  be  changed.  This  location   is  the  one  whose  name   is  in
+DISPL[NAME,THIS].   This function  may decide  that no  such location
+(e.g., the DISPL entry  represents an expression), or that  to change
+it would be illegal  (it is a constant).  The  other pseudo-variables
+will be explained in the paragraphs pertaining to them.
+
+Most SLS  statements can  be expressed in  either of  two forms  -- a
+shorthand  version,  useful  for console  commands;  and  an expanded
+version, which represents  more accurately what is  really happening,
+and which is more amenable to inclusion in text files. In  all cases,
+the shorthand will  first be expanded to  the longer form  before the
+construct is parsed.  In the  BNF description of the SLS  syntax, the
+symbol  ::::  is  used  to denote  the  equivalence  of  a shorthand
+construct (on the left) and  its expanded form.  This symbol  is only
+used when both constructs  will have exactly the same  function.  The
+symbol :::: indicates  that the shorthand  form on the  left behaves
+approximately  as if  it were  expressed as  shown in  the right-hand
+form.  In these cases, however, the shorthand forms  directly trigger
+special  SLS routines,  and are  the only  means for  achieving these
+results.
+
+
+
+SLS SYNTAX SKIP 1
+location                ::= compound label
+                        ::= CURRENT
+                        ::= . :::: CURRENT
+                        ::= location expression
+                        ::= dog eared location
+
+compound label          ::= empty
+                        ::= label
+                        ::= block name & >cpd1<
+                        ::= program name : >cpd2<
+                        ::= corner bender >cpd3<
+
+dog eared location      ::= BEND dog eared identifier
+
+
+                                  4
+SPECIAL CONSOLE FEATURES (SLS)                                   1-11
+
+corner bender           ::= BEND dog eared identifier =
+
+location expression     ::= compound label @PM
+                             something I dont know yet
+
+statement               ::= previously defined SAIL statement
+                        ::= sls statement
+
+sls statement           ::= environment statement
+                        ::= display statement
+                        ::= conditioning statement
+                        ::= breakpoint statement
+                        ::= editing statement
+                        ::= page switching statement
+
+environment statement   ::= FIND location
+                        ::= /F location :::: FIND location
+                        ::= IN location
+                        ::= /I location :::: IN location
+                        ::=  :::: ENTER CONSTRUCT(CURRENT);
+                        ::=  :::: NEXT CONSTRUCT(CURRENT);
+                        ::= _ :::: LEAVE CONSTRUCT(CURRENT);
+                        ::= ^ :::: PREVIOUS CONSTRUCT(CURRENT);
+
+display statement       ::= value display
+                        ::= display store
+                        ::= change displayed value
+                        ::= display step
+
+value display           ::= expression :::: DISPL[THIS_NEXT]_
+                             expression
+
+display store           ::= restricted expr _ :::: restricted expr
+                             _DISPL[THIS]
+
+change displayed value  ::= _ expression ::::
+                             VARIABLE NAMED BY(DISPL[THIS])_ variable
+
+display step            ::= > ::::
+                             DISPL[THIS_NEXT]_NEXT VARIABLE(DISPL[THIS]);
+                        ::= < ::::
+                             DISPL[THIS_PREV]_PREV VARIABLE(DISPL[THIS]);
+                        ::= /> :::: THIS_NEXT;
+                        ::= /< :::: THIS _ PREV;
+
+conditioning statement  ::= AT location DO statement
+                        ::= PULL location
+
+breakpoint statement    ::= break statement
+
+                                  5
+SPECIAL CONSOLE FEATURES (SLS)                                   1-11
+
+                        ::= unconditional break
+                        ::= remove unconditionally
+
+break statement         ::= BREAK { WITH display list~
+
+unconditional break     ::= /B :::: AT CURRENT DO BREAK;
+                        ::= location /B :::: AT location DO BREAK;
+
+display list            ::= variable { , variable ~*
+
+remove unconditionally  ::= B :::: PULL CURRENT;
+                        ::= location B :::: PULL location ;
+
+editing statement       ::= ??
+
+page switching command  ::= DISPLAY PAGE
+                        ::= /D :::: DISPLAY PAGE
+
+page switching          ::= /D/U :::: /D USER PAGE
+                        ::= /D/G :::: /D SLS PAGE
+                        ::= /D/S :::: /D STATUS PAGE
+                        ::= /D/H :::: /D HISTORY PAGE
+                        ::= /D/R :::: /D RAID PAGE
+                        ::= /D/N :::: /D NOTES PAGE
+
+
+
+
+SEMANTICS
+
+
+
+Environment Statements
+
+1-13. An   <environmentstatement>   establishes   two   things:  the
+"current" (.) location, and whether statements are to be  executed as
+they are typed,  or simply included in  the appropriate text  file at
+that location.  The IN  statement implies the former, while  the FIND
+statement puts  you in  edit-only mode.  I  have no  idea at  all for
+getting   out  of   edit-only   mode  once   one  is   in   it.   The
+"environmentstepstatements" "", "_", etc. do not change  the edit-
+only characteristics of the current environment, but simply  move the
+CURRENT location in the indicated direction.
+
+
+
+
+
+
+
+                                  6
+SPECIAL CONSOLE FEATURES (SLS)                                   1-13
+
+Locations
+
+1-13. There  is  a  standard syntax  for  establishing  the  point of
+interest in a section of  source text, whether the interest  is based
+on a  desire to alter  the code  at that point,  to set  a breakpoint
+there, to examine the extent of lossage, or some combination of these
+things. A <compoundlabel>  (the program name  and block name  of the
+block containing a label) may always be mentioned in order to qualify
+the  scope of  the label's  name.  To  avoid continuous  reference to
+these  awkword  terms,  you  may command  SLS  to  "dog-ear"  a given
+location to make  it easier to find  next time (the  BEND construct).
+Thus,  having said  "AT  BEND readit  =  SYMTAB:MAKENEWONE&MKNEW DO
+BREAK;",  I  can  easily  remove  the  Condition  by  execution "PULL
+readit".  This does not in  any way increase the resale value  of the
+book you've mutilated (doesn't remove the alias location name); later
+you may condition this location in some other way with something like
+`AT  readit DO  CALL(0,"EXIT")'  with almost  regrettable  ease.  the
+identifier (reserved) CURRENT refers to the "current" location.  This
+location    is     determined    by     the    execution     of    an
+<environmentstatement>,    a    <conditioningstatement>,    or    a
+<breakpointstatement>.  It may be abbreviated by the symbol ".".
+
+Whenever a  <location> is executed,  the portion of  text surrounding
+that location in your source file is displayed on the SLS page.
+
+The  formation of  a <compoundidentifier>  is similar  to that  of a
+<compoundlabel>.   Compound  Identifiers   are  used  to   refer  to
+variables  in  parts  of  the  program  not  covered  by  the current
+environment.   They   may  not  be   used  to  create   more  complex
+expressions; their only use is in the <displaystatements> below.
+
+
+
+Display Statements
+
+1-14. These statements provide a convenient way to inspect and change
+the  values  of  SAIL variables,  arrays,  sets,  and  triples.  Each
+statement  has some  special effects  beyond those  suggested  by the
+syntax.  In  particular,  the  execution  of  any  statement,  either
+directly  from  the  console,  or  as  a  result  of  single-stepping
+statements, will cause changes on the SLS-page to reflect the results
+of the statement  execution.  In each case,  the system will  make an
+attempt to decide the  appropriate amount and content  of information
+to be shown.
+
+The <valuedisplay> statement simply causes the name and value of the
+indicated variable to be displayed on the screen. The <displaystore>
+statement  causes DISPL[VALUE,THIS]  to  be stored  in  the indicated
+
+
+                                  7
+SPECIAL CONSOLE FEATURES (SLS)                                   1-14
+
+variable.   As   always,   the   types   must   be    miscible.   The
+<changedisplayedvalue> statement causes  the value of  the variable
+named in DISPL[NAME,THIS]  to be changed  to that of  the expression.
+The change is effected on the screen and in memory.
+
+To  provide  a  little motivation  for  these  choices,  consider the
+following example:
+
+        INIVAL; " I think I want to initialize VAL2 to this number"
+        VAL2_;  " Now that I've seen it, I know I do"
+
+
+The effect  has been  to split the  statement "VAL2_INIVAL"  into two
+phases: the fetch and the store, with a hiatus in between for careful
+examination.  Conversely, in this example:
+
+        VAL2;  " Did I initialize this thing?"
+        _INIVAL; " It appears not"
+
+
+the procedure is reversed, again with pleasant effect.
+
+
+
+Display Step
+
+1-15. Once an element of  an array, set, or  one of a set  of triples
+has  been  displayed  on the  screen,  the  <displaystep> statements
+provide a convenient  method for seeing the  next one (if  any).  The
+">" character expands to  a statement which causes this  next element
+to be named and displayed.  The "<" character causes a backup  of one
+element. For arrays,  the "NEXT" operation  is the obvious  one.  The
+">"  statement will  display succeeding  elements in  a set  while it
+lasts, although the order of appearance cannot be controlled;  and if
+you have displayed, for instance, SONHARRY, each application  of ">"
+will retrieve another  of HARRY's sons  until that prolific  soul has
+spoken his last.
+
+The "/>" and "/<" statements are simpler in their mode  of operation.
+They simply change the value of "THIS", and thus the position  of the
+arrow on  the screen, and  the locus of  operations of all  the other
+display statements.
+
+These  operations were  stolen almost  without change  from  the RAID
+assembly-language debugging program  (footnote), because I  like them
+and would hate to lose them.
+
+
+
+
+                                  8
+SPECIAL CONSOLE FEATURES (SLS)                                   1-16
+
+Conditioning Statement
+
+1-16. This statement  provides a  method of  temporarily conditioning
+the operation of  other statements in a  program.  It may be  used to
+advise  a function  of some  extraordinary condition  (bug)  which it
+ought to be on the alert for, or simply to change its operation for a
+while.  A common statement to be found in the range of a Conditioning
+statement is the BREAK statement. For example,
+
+AT SYMTAB:MAKENEWONE&MKNEW DO
+   IF LENGTH(INPUT)<3 THEN BREAK WITH LINE,"*TOO SHORT*",BRCHAR;
+
+
+
+
+Break Statements
+
+1-17. When  the  Break  statement  is  executed,  all  the  variables
+mentioned in  the <displaylist>  are displayed as  if they  had been
+reqd by <valuedisplay> statements. Then SLS control is given to
+the user.  The  environment (see 1-13) is  set to the block  in which
+the BREAK occurs, and SLS is prepared to accept  top-level statements
+conditioned by that environment.   It is possible to PROCEED  or STEP
+into the  statements following the  BREAK statement.   This statement
+may, like  any SLS  statement, appear  in a  text file  as part  of a
+program, but it is normally the target of a <conditioningstatement>.
+
+The unconditional  breakpoint and  breakpoint removal  statements are
+bows  to  the  durability of  certain  Digital  Debugging Techniques.
+Their meanings should be clear from the syntax and from the folklore.
+
+
+
+Location Step Statements
+
+1-18. These  statements  provide  for  text   manipulations  features
+similar to those provided by the Display Step statements for variable
+examination. "" moves the  text pointer one level "deeper"  into the
+program  structure.  What  I mean  is that  if you  are pointed  at a
+block, you will now be pointed at the first declaration  or statement
+of the block. If you are pointed at a conditional statement, you will
+be pointed at the Boolean expression.
+
+
+
+
+
+
+
+
+                                  9
+SPECIAL CONSOLE FEATURES (SLS)                                   1-18
+
+GAG PAGE EXAMPLE
+
+1-19.
+
+VARIABLES:
+
+*RESULT         {E1, E3, ...            SET
+*STIN           "INPUT S ...            STRING
+
+ I             3                       INTEGER INDEX (2) ('101,"A")
+ LHBIT          262144                  INTEGER  ('1,,0)
+ STOUT          ... PUT STRING"         STRING (CONSTANT)
+
+
+
+
+
+
+
+
+
+
+
+
+SYMTAB.SAI 29700/6
+ LOCATION  SYMTAB: MAKENEWONE&MKNEW [1,3,1]
+
+PAGE 6
+
+        BEGIN "MAKE NEW ONE"
+            INTEGER ARRAY PROTO[1:RECORDSIZE];
+  MKNEW:    DELETE(ITM);                                /readin\
+            ITM_NEW(PROTO);
+                       ^
+            STARTCODE
+                MOVE 3,ITM;
+                MOVE '14,DATM;
+                MOVEM '14,T1; MOVEM '14,SYMBUF;
+            END;
+            INCOR[1,RINGREC]_T1; 
+        END "MAKE NEW ONE";
+
+
+
+
+
+
+
+
+
+                                 10
+SPECIAL CONSOLE FEATURES (SLS)                                   1-19
+
+STATUS PAGE
+
+1-20.
+
+LOCATION  SYMTAB: MAKENEWONE& MKNEW [1,3,1]
+
+
+TEXT FILE: SYMTAB.SAI, LINE 29700/6
+
+
+
+
+FILE      MODE  CHAN  WHERE OPENED  PROGRESS  .....DATA.....
+
+
+TEXT.DAT  IN-CHAR 1  SYMTAB:INIT&   500/10 50% ...THE CURRENT LINE
+                                                                ^
+WORDS.DAT OUT-BIN 2  SAIL:TOTAL&    WD 1250    254000000254
+
+
+
+
+
+
+RUN STATUS   .................O....................................
+
+STATE     TOTAL TIME      %YOURS       SIZE
+
+IN CORE    3M  42S         10%      35K LOW  8K HIGH
+RUNNING
+
+      FUNCTION STACK (BACKTRACE)
+
+(TOP)   GETRECORD(56);
+        ENTSYM("A1",305463490,-1);
+(BASE)  SYMTAB
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                 11
+                                                                                                                                                                                                                                                                                                                                      i  =q
