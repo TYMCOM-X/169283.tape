@@ -1,0 +1,302 @@
+MODULE GQUAL(DOLLAR,ENTRIES=($GQUAL,$GFCHSTK,$GBWHR,$GWHR,$GOF),FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+  BEGIN
+
+  REQUIRE ADEFS.BLI[7,107355];
+  REQUIRE GDEFS.BLI[7,107355];
+  REQUIRE SDEFS.BLI[7,107355];
+  REQUIRE TDEFS.BLI[7,107355];
+  REQUIRE ZDEFS.BLI[7,107355];
+
+  UNDECLARE $GQUAL, $GFCHSTK, $GBWHR, $GWHR, $GOF;
+
+  MAP A$ GBTKN$;
+  MAP G$ GGBFP$;
+  MAP G$OPND GGBOP$;
+  MAP Z$ ZBSTK$;
+
+%*****
+  GENERATE FETCH OR FETCH NULL FOR THE FIELDS IN THE STACK.
+*****%
+  GLOBAL ROUTINE $GFCHSTK(FETCHTYP,BUFIX)=
+    BEGIN
+ 
+    LOCAL S$ FNAMESTE : FINCSTE;
+    LOCAL FLDPTR, FIELDCNT, SIZE, RINCSTP, ERRFLG;
+
+    LABEL NEXTFLD;
+
+    ERRFLG := ZV$RESET;
+    RINCSTP := .ZBSTK$[Z$INCSTP,.ZSTKP$];
+    FIELDCNT := .GBTKN$[A$SBID] - 1;
+    FLDPTR := .ZSTKP$;
+    INCR I FROM 1 TO .FIELDCNT
+      DO
+        FLDPTR := .ZBSTK$[Z$PREDP,.FLDPTR];
+    WHILE .FIELDCNT GTR 0
+      DO
+        BEGIN
+        IF .FIELDCNT GTR GV$MAXGREC - 3
+          THEN
+            SIZE := GV$MAXGREC
+          ELSE
+            SIZE := .FIELDCNT + 3;
+        $GIREC(.FETCHTYP,.SIZE);
+        GGBFP$[G$OPND1] := $GOPND(.ZSTKP$);
+        INCR I FROM 1 TO .SIZE - 3
+          DO
+  NEXTFLD:  BEGIN
+            IF .ZBSTK$[Z$SBID,.FLDPTR] NEQ ZV$FLD
+              THEN
+                BEGIN
+                $GERR(529,.FLDPTR);
+                ERRFLG := ZV$SET;
+                FLDPTR := .ZBSTK$[Z$SUCP,.FLDPTR];
+                LEAVE NEXTFLD;
+                END;
+            IF .ZBSTK$[Z$INCSTP,.FLDPTR] EQL ZV$NULL
+              THEN
+                BEGIN
+                FNAMESTE := $SGSTE(.ZBSTK$[Z$STP,.FLDPTR]);
+                IF .FNAMESTE[S$CISTP] EQL SV$NULL
+                  THEN
+                    BEGIN
+                    $GERR(527,.FLDPTR);
+                    ERRFLG := ZV$SET;
+                    $SFRNCH(.FNAMESTE);
+                    FLDPTR := .ZBSTK$[Z$SUCP,.FLDPTR];
+                    LEAVE NEXTFLD;
+                    END
+                  ELSE
+                    ZBSTK$[Z$INCSTP,.FLDPTR] := .FNAMESTE[S$CISTP];
+                $SFRNCH(.FNAMESTE);
+                END;
+            FINCSTE := $SGSTE(.ZBSTK$[Z$INCSTP,.FLDPTR]);
+            IF .FINCSTE[S$RNSTP] NEQ .RINCSTP
+              THEN
+                BEGIN
+                $GERR(527,.FLDPTR);
+                ERRFLG := ZV$SET;
+                END
+              ELSE
+                BEGIN
+                (GGBFP$[G$OPNDN])[.I] := $GOPND(.FLDPTR);
+                .FINCSTE[S$REALIZED] := SV$TRUE;
+                $SFGCH(.FINCSTE);
+                END;
+            $SFRNCH(.FINCSTE);
+            FLDPTR := .ZBSTK$[Z$SUCP,.FLDPTR];
+            END;
+        IF .ERRFLG EQL ZV$RESET
+          THEN
+            $GWBUF(.GGBFP$,.BUFIX);
+        FIELDCNT := .FIELDCNT - .SIZE + 3;
+        END;
+
+    .ERRFLG
+    
+    END;
+
+
+%*****
+  PROCESS THE TV$8QUAL TOKEN
+*****%
+  GLOBAL ROUTINE $GQUAL =
+    BEGIN
+
+    LOCAL S$ RINCSTE;
+    LOCAL LABSAV, BUFIX;
+
+    IF .ZBSTK$[Z$ERFL,.ZSTKP$] EQL AV$TRUE
+      THEN
+        BEGIN
+        $GPOP();
+        RETURN -1;
+        END;
+    RINCSTE := $SGSTE(.ZBSTK$[Z$INCSTP,.ZSTKP$]);
+    IF .RINCSTE[S$REALIZED] NEQ SV$TRUE
+      THEN
+        BEGIN
+        BUFIX := IF .GFEAF$ EQL ZV$SET   AND   .GRPTP$ EQL ZV$NULL
+                   THEN
+                     .GOB2I$
+                   ELSE
+                     .GOB1I$;
+        $GFCHSTK(GV$FETCH,.BUFIX);
+        END;
+    $SFRNCH(.RINCSTE);
+%****  THE FOLLOWING CONDITIONAL RELATES TO THE ALLOWANCE OF A WHERE IN ANY
+      QUALIFIED RELATION RATHER THAN THE CURRENT RESTRICTION OF ITS USE IN
+      FOR EACH STATEMENTS.
+    IF .ERRCONDF EQL ZV$RESET  AND  .GELSF$ EQL ZV$SET
+      THEN
+        BEGIN
+        $GIREC(GV$BRANCH,3);
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := LABSAV := $GNLAB();
+        $GWBUF(.GGBFP$,.BUFIX);
+
+        $GIREC(GV$LABEL,3);
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .GELSL$;
+        $GWBUF(.GGBFP$,.BUFIX);
+
+        $GFCHSTK(GV$FETCHN);
+
+        $GIREC(GV$LABEL,3);
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .LABSAV;
+        $GWBUF(.GGBFP$,.BUFIX);
+        GELSF$ := ZV$RESET;
+        END;
+****%
+
+    $GDSCOPE(.ZSTKP$);
+    $GPOP();
+    END;
+
+
+%*****
+  PROCESS THE TV$8BGWHR TOKEN
+*****%
+  GLOBAL ROUTINE $GBWHR =
+    BEGIN
+
+    LOCAL S$ INCSTE;
+    LOCAL FRECP;
+
+    FRECP := $GFREC(.GOB3I$);
+    IF .FRECP NEQ 0
+      THEN
+        $GMBUF(.GOB3I$,.GOB2I$,.FRECP,$GLREC(.GOB3I$));
+    $GCBUF(.GOB3I$);
+    GOB1I$ := .GOB2I$;
+    $GPUSH(.GBTKN$,3);
+    END;
+
+
+
+%*****
+  PROCESS THE TV$WHERE TOKEN.
+*****%
+  GLOBAL ROUTINE $GWHR =
+    BEGIN
+
+    LOCAL FRECPTR;
+
+    IF .ZBSTK$[Z$SBID,.ZSTKP$] NEQ ZV$LRSLT
+      THEN
+        $GERR(528,.ZSTKP$)
+      ELSE
+        BEGIN
+        IF .GELSF$ EQL ZV$RESET
+          THEN
+            BEGIN
+            GELSF$ := ZV$SET;
+            GELSL$ := $GNLAB();
+            END;
+        FRECPTR := $GFREC(.GOB3I$);
+        IF .FRECPTR NEQ 0
+          THEN
+            BEGIN
+            $GMBUF(.GOB3I$,.GOB2I$,.FRECPTR,$GLREC(.GOB3I$));
+            $GCBUF(.GOB3I$);
+            END;
+        $GIREC(GV$BRCHF,4);
+        GGBFP$[G$OPND1] := $GOPND(.ZSTKP$);
+        GGBOP$[1,G$OPTYP] := GV$STP;
+        GGBOP$[1,G$OPVAL] := .GELSL$;
+        $GWBUF(.GGBFP$,.GOB1I$);
+        WHILE .ZBSTK$[Z$ID,.ZSTKP$] NEQ TV$8BGWHR
+          DO
+            $GPOP();
+        $GPOP();
+        END;
+    GEXRP$ := ZV$NULL;
+    GOB1I$ := 0;
+    ZBSTK$[Z$QUALFLG,.ZSTKP$] := ZBSTK$[Z$WHEREFLG,.ZSTKP$] := ZV$TRUE;  % QUAL FLAG USED BY DELETE %
+    END;
+
+
+%*****
+  PROCESS THE TV$OF TOKEN.
+*****%
+  GLOBAL ROUTINE $GOF =
+    BEGIN
+
+    LOCAL S$ RNAMESTE : RDEFSTE :RINCSTE : FNAMESTE : ITEMSTE : FINCSTE : PREDSTE;
+    LOCAL FLDPTR, RINCSTP, FINCSTP, FNAMESTP, NEXTSTP, FNUM;
+
+    LABEL FINDFLD;
+
+    FINCSTP := SV$NULL;
+    IF .ZBSTK$[Z$SBID,.ZSTKP$] NEQ ZV$REL  AND  % IS THE TOP ENTRY A RELATION? %
+       .ZBSTK$[Z$SBID,.ZSTKP$] NEQ ZV$SRC       % IS IT A SOURCE ? %
+      THEN
+        $GERR(548,.ZSTKP$)                      % NO, ERROR %
+      ELSE
+        BEGIN                                   % DETERMINE IF STK2 IS A FIELD IN THE RELATION/SOURCE %
+        FLDPTR := .ZBSTK$[Z$PREDP,.ZSTKP$];
+        IF .ZBSTK$[Z$SBID,.FLDPTR] NEQ ZV$FLD
+          THEN
+            BEGIN
+            $GERR(529,.FLDPTR);
+            $GEOPD(.FLDPTR,ZV$NUMERIC);
+            END
+          ELSE
+            BEGIN
+            FNAMESTP := .ZBSTK$[Z$STP,.FLDPTR];
+            PREDSTE := $SGSTE(.ZBSTK$[Z$DEFSTP,.ZSTKP$]);
+            NEXTSTP := .PREDSTE[S$ISTP];
+   FINDFLD: DO                                  % LOCATE THE ITEM ENTRY FOR THE FIELD %
+              BEGIN
+              $SFRNCH(.PREDSTE);
+              ITEMSTE := $SGSTE(.NEXTSTP);
+              IF .ITEMSTE[S$STP1] EQL .FNAMESTP     % IS THIS THE ONE? %
+                THEN
+                  BEGIN                         % YES %
+                  RNAMESTE := $SGSTE(.ZBSTK$[Z$STP,.ZSTKP$]);
+                  RINCSTP := .RNAMESTE[S$CISTP];
+                  $SFRNCH(.RNAMESTE);
+                  IF .RINCSTP EQL SV$NULL       % IS THERE AN ACTIVE SCOPE FOR THE RELATION/SOURCE? %
+                    THEN
+                      BEGIN                     % NO, ERROR %
+                      $GERR(526,.ZBSTK$[Z$PREDP,.ZSTKP$]);
+                      $GPOP();
+                      $GICHK(.ZSTKP$);
+                      FINCSTP := .ZBSTK$[Z$INCSTP,.ZSTKP$];
+                      LEAVE FINDFLD;
+                      END
+                    ELSE
+                      BEGIN                     % THERE IS AN ACTIVE SCOPE FOR THE RELATION/SOURCE %
+                      RINCSTE := $SGSTE(.RINCSTP);
+                      FINCSTP := .RINCSTE[S$FISTP];
+                      $SFRNCH(.RINCSTE);
+                      FNUM := .ITEMSTE[S$RSBO];  % GET THE RELATIVE POSITION OF THE FIELD %
+                      INCR I FROM 1 TO .FNUM    % LOCATE THE APPROPRIATE FIELD INCARNATION %
+                        DO
+                          BEGIN
+                          FINCSTE := $SGSTE(.FINCSTP);
+                          FINCSTP := .FINCSTE[S$FISTP];
+                          $SFRNCH(.FINCSTE);
+                          END;
+                      ZBSTK$[Z$INCSTP,.FLDPTR] := .FINCSTP;
+                      LEAVE FINDFLD;
+                      END;
+                  END;
+              PREDSTE := .ITEMSTE;
+              NEXTSTP := .PREDSTE[S$ISTP];
+              END
+            UNTIL .NEXTSTP EQL SV$NULL;
+            IF .FINCSTP EQL SV$NULL
+              THEN
+                $GERR(527,.FLDPTR);
+            $SFRNCH(.ITEMSTE);
+            END;
+        END;
+    $GPOP();                                    % CLEAR THE RELATION/SOURCE NAME ENTRY %
+    END;
+
+
+  END
+ELUDOM
+  
