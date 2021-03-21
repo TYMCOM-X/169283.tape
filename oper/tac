@@ -1,0 +1,111 @@
+C                                                                       TAC00120    
+C     VERSION OF AUGUST 1971 INCORPORATING THE FOLLOWING CHANGES -      TAC00130    
+C                                                                       TAC00140    
+C          1) MOUNTING EFFECTS                                          TAC00150    
+C          2) NON-CERAMIC LOSSES                                        TAC00160    
+C          3) A 31-MODE CERAMIC CYLINDER MODEL                          TAC00170    
+C          4) SEVERAL FREQUENCY SWEEP SUBROUTINES                       TAC00180    
+C          5) ADDITIONAL CHOICES OF BOUNDARY CONDITIONS                 TAC00190    
+C          6) SUBROUTINES TO FIND RESONANCE/ANTI-RESONANCE              TAC00200    
+C          7) A SUBROUTINE TO CALCULATE A FREE-FIELD LOAD AT EACH FREQ. TAC00210    
+C          8) A SEARCH ROUTINE TO CALCULATE PERFORMANCE PARAMETERS      TAC00220    
+C             FOR ALL ELEMENTS IN AN ARRAY.                             TAC00230    
+C                                                                       TAC00240    
+C                                                                       TAC00260    
+      COMMON /ABCD  / ABCD,FOC,ZOC                                      TAC00270    
+      COMMON /AZ    / A,Z,ZSW                                           TAC00280    
+      COMMON /CC    / ACC,ALPHA,BETA,B,PHI,CCS,Z0,ZCC,C0,AKL,ZZ0,ZC0,ZB TAC00290    
+      COMMON /CERAM / S333,G333,E333,NO,RHOCS,CLCS,ACS,LT,Q,CSW         TAC00300    
+      COMMON /CERFV / FVC,E,EC                                          TAC00310    
+      COMMON /CERI  / CURENT,TOTI,POWLOS(32),EF(32),TOTPL,TOTEF         TAC00320    
+      COMMON /CERST / STC                                               TAC00330    
+      COMMON /CNTROL/ N(12),IE,IBC                                      TAC00340    
+      COMMON /COMPOZ/ AC,ZC                                             TAC00350    
+      COMMON /DELTA / DELTAF,FMIN,FMAX                                  TAC00360    
+      COMMON /EDIT  / SEC(24),T(20),PTYPE(2),MO,IDAY,IYR,IRUN,OUT(4)     TAC00370    
+      COMMON /FREQ  / FREQ,TWOPI                                        TAC00380    
+      COMMON /FV    / FV,ZT,ZH,BFVSW,FVSW                               TAC00390    
+      COMMON /PARAM / K(10,12),RHO(10,12),CL(10,12),AL(10,12),AR(10,12),TAC00400    
+     1C(10,12,2)                                                        TAC00410    
+      COMMON /POWER / POWER                                             TAC00420    
+      COMMON /ST    / ST                                                TAC00430    
+      COMMON /SW    / LSW(20)                                           TAC00440    
+      COMMON /TOT   / ATOT,TSW                                          TAC00450    
+      COMMON /TUNE  / NTUNE,KTUNE(10),RLCT(4,10),IABCD                  TAC00460    
+      COMMON /TUNEB / BS(4,10,2)                                        TAC00470    
+      COMMON /YC    / IC,YC                                             TAC00480    
+      COMMON /COM90 / RHS,XHS                                           TAC00490    
+      COMMON /COM91 / OD,BARE                                           TAC00500    
+      COMMON /COM92 / FM,YM,FN,YN,CUT,NPRINT                            TAC00510    
+      COMMON /COM93 / AREA,RADIUS                                       TAC00520    
+      COMMON /COM94 / SPEAK,TPEAK                                       TAC00530    
+      COMMON /COM95 / ZIN,YIN,EIN,IIN                                   TAC00540    
+      COMMON /COM96 / LTP,LTM                                           TAC00550    
+      COMMON /COM97 / MODE                                              TAC00560    
+      COMMON /COM98 / ALL                                               TAC00570    
+C                                                                       TAC00580    
+      LOGICAL LSW,ALL                                                   TAC00590    
+C                                                                       TAC00600    
+      COMPLEX S333,G333,E333,FV(2,11,12),ZT,ZH,         A(4,10,12),Z(4,1TAC00610    
+     10,12),POWER(2),ATOT(6,2),ABCD(2,2),FOC,ZOC,ALPHA(2,2,2),BETA(2,2),TAC00620    
+     2B(2,2,2),PHI,CCS,Z0,C0,AKL,ZZ0,AC(2,2,12),ZC(2,2,12),ZCC(2,2),ZC0,TAC00630    
+     3ST(2,10,12),FVC(2,33),STC(2,32),CURENT(32),ZB(2,3),IC,YC,E,TOTI,ACTAC00640    
+     4C(2,3,2),EC,EIN,IIN,ZIN,YIN,SPEAK,TPEAK,BS                        TAC00650    
+C                                                                       TAC00660    
+      REAL LTP,LTM                                                      TAC00670    
+C                                                                       TAC00680    
+C***********************************************************************TAC00690    
+C*                                                                     *TAC00700    
+C*    DATA INPUT SECTION OF PROGRAM.                                   *TAC00710    
+C*                                                                     *TAC00720    
+C***********************************************************************TAC00730    
+C                                                                       TAC00740    
+  100 CALL ING                                                          TAC00750    
+      IESAVE=IE                                                         TAC00760    
+C                                                                       TAC00770    
+C***********************************************************************TAC00780    
+C*                                                                     *TAC00790    
+C*    SPECIAL ANALYSIS SECTION OF PROGRAM.                             *TAC00800    
+C*                                                                     *TAC00810    
+C***********************************************************************TAC00820    
+C                                                                       TAC00830    
+      IF(LSW(12))CALL YSWEEP                                            TAC00840    
+      IF(LSW(14))CALL FINDFM                                            TAC00850    
+      IF(LSW(14).AND.LSW(15))CALL FINDFN                                TAC00860    
+      IF(LSW(16))CALL RESP                                              TAC00870    
+      IF(LSW(17))CALL SEARCH                                            TAC00880    
+      IF(LSW(12).OR.LSW(14).OR.LSW(15).OR.LSW(16).OR.LSW(17))GOTO100    TAC00890    
+C                                                                       TAC00900    
+C***********************************************************************TAC00910    
+C*                                                                     *TAC00920    
+C*    COMPLETE ANALYSIS SECTION OF PROGRAM.                            *TAC00930    
+C*                                                                     *TAC00940    
+C***********************************************************************TAC00950    
+C                                                                       TAC00960    
+      FREQ=FMIN                                                         TAC00970    
+      DO 110 I=1,11                                                     TAC00980    
+        IF(LSW(I))GOTO120                                               TAC00990    
+  110 CONTINUE                                                          TAC01000    
+      GOTO100                                                           TAC01010    
+  120 IF(LSW(13))CALL FFZH                                              TAC01020    
+      CALL COMPZA                                                       TAC01030    
+      DO 130 IE=1,2                                                     TAC01040    
+        IF(MODE.EQ.31)CALL COMP31                                       TAC01050    
+        IF(MODE.EQ.33)CALL COMPCC                                       TAC01060    
+        CALL TOTAL                                                      TAC01070    
+  130 CONTINUE                                                          TAC01080    
+      IE=IESAVE                                                         TAC01090    
+      CALL BEGIN                                                        TAC01100    
+      CALL FOCZOC                                                       TAC01110    
+      CALL ADMIT                                                        TAC01120    
+      CALL CCFV                                                         TAC01130    
+      CALL CFV                                                          TAC01140    
+      CALL CST                                                          TAC01150    
+      CALL CCI                                                          TAC01160    
+      CALL CCST                                                         TAC01170    
+      IF(FREQ.GE.FMAX)GOTO100                                           TAC01180    
+      FREQ=FREQ+DELTAF                                                  TAC01190    
+      GOTO120                                                           TAC01200    
+C                                                                       TAC01210    
+      END                                                               TAC01220    
+    
