@@ -1,0 +1,1148 @@
+
+
+CHAPTER 8 - REAL-TIME PROGRAMMING
+
+
+Privileged jobs may for various reasons desire to be locked in
+core, that is, to never be considered for swapping or shuffling.
+Some examples of these jobs are as follows:
+
+Real-time jobs           These jobs require immediate access to
+                         the processor in response to an interrupt
+                         from an I/O device.
+
+Display jobs             The display must be refreshed from a
+                         display buffer in the user's core area
+                         in order to keep the display picture
+                         flicker-free.
+
+Batch                    Batch throughput may be enhanced by 
+                         locking the Batch control CUSP in core.
+
+Performance analysis     Jobs monitoring the activities of the
+                         system need to be locked in core so that
+                         when they are entered to gather data,
+                         they are aware of their state and therefore,
+                         can record activities of the monitor indep-
+                         endent of the monitor.
+
+
+8.l  DEFINITIONS
+
+In swapping and non-swapping systems, unlocked jobs can occupy
+only the physical core not occupied by locked jobs.  Therefore,
+locked jobs and timesharing jobs contend with one another for
+physical core memory.  In order to control this contention,
+the system manager is provided with a number of system para-
+meters as described below.
+
+Total User Core is the physical core which can be used to locked
+and unlocked jobs.  This value is equal to total physical core
+minus the monitor size.
+
+CORMIN is the guaranteed amount of contiguous core which a single
+unlocked job can have.  This value is a constant system parameter
+and is defined by the system manager at monitor generation time
+using MONGEN.  It can be changed at monitor startup time using
+the ONCE ONLY dialogue.  This value can range from 0 to Total
+User Core.
+
+CORMAX is the largest contiguous size that an unlocked job can
+be.  It is a time-varying system parameter and is reduced
+from its initial setting as jobs are locked in core.  In order
+to satisfy the guaranteed size of CORMIN, the monitor never
+allows a job to be locked in core if this action would
+result in CORMAX becoming less than CORMIN.  The initial setting
+of CORMAX is defined at monitor generation time using MONGEN
+and can be changed at monitor startup time using the ONCE ONLY
+dialogue.  CORMAX can range from CORMIN to Total User Core.
+A guaranteed amount of core available for locked jobs can be
+made by setting the initial value of CORMAX to less than
+Total User Core.
+
+
+
+8.2  LOCK AC, OR CALLI AC,60
+
+This UUO provides a mechanism for locking jobs in user memory.
+When this UUO is executed by a privileged user program 
+(privileges are granted by the system manager), it results
+in the job being locked in the optimal position in memory
+(at an extemity of user core).
+
+A job may be locked in core if all of the following are true:
+
+a.  The job is privileged (privileges set from the accounting
+    file ACCT.SYS by LOGIN).
+
+b.  The job, when locked, would not prevent another job
+    from expanding to the guaranteed limit, CORMIN.
+
+c.  The job, when locked, would not prevent an existing job 
+    from running.  Note that unlocked jobs can exceed CORMIN.
+
+The call is:
+
+   LOCK AC,         ;or CALLI AC,60
+   error return     ;AC contains an error code
+   normal return
+
+On a normal return, the job is locked in core.  If there is
+a high segment, the LH of AC contains its absolute address,
+shifted right nine bits.  If there is no high segment, the
+LH of AC contains zero.  The RH of AC contains the absolute
+address of the low segment, shifted right nine bits.
+
+On an error return, the job is not locked in core and AC contains
+an error code indicating the condition that prevented the job
+from being locked.  The error codes are as follows:
+
+   Error Code                  Explanation
+
+       l            The job does not have locking privileges.
+
+       2            If the job were locked in core, it would not
+                    be possible to run the largest existing non-
+                    locked job.  (Applies only to swapping 
+                    systems).
+
+       3            If the job were locked in core, it would not
+                    be possible to meet the guaranteed largest
+                    size for an unlocked job, that is, CORMAX
+                    would be less than CORMIN.
+
+Note:  When the job is locked in core, the CORE UUO and the CORE
+       command with a non-zero argument cannot be satisified and,
+       therefore, always gives an erroneous response.  The program
+       should determine the amount of core needed for the execution
+       and request this amount before executing the LOCK UUO.
+
+Although memory fragmentation is minimized by both the LOCK UUO
+and the shuffler, the locking algorithm always allows job 
+locking, even though severe fragmentation may take place, as
+long as:
+
+l.  All existing jobs can continue to run, and
+2.  At least CORMIN is available as a contiguous space (see
+    Figure 8-lE).
+
+Therefore, it is important that system managers use caution when
+granting locking privileges.  The following are guidelines for
+minimizing fragmentation when using the LOCK UUO.
+
+
+8.2.l  Non-Swapping Systems
+
+a.  Any number of jobs can be locked in core without fragmentation
+    occurring if the jobs are initiated immediately after the
+    monitor is loaded.
+
+b.  During normal timehsaring, a job is locked at the top of
+    user core if the hole at the top of core is large enough
+    to contain the job.  Otherwise, the job is locked as low
+    in core as possible.
+
+c.  Locking a job in core never makes the system fail, but it
+    is possible that all of available core will not be utilized
+    in some mixes of jobs.
+
+
+8.2.2  Swapping Systems
+
+a.  There is no memory fragmentation if no more than two jobs
+    are locked in core.
+
+b.  There is no fragmentation if the locked jobs do not relinquish
+    their locked status (i.e., no job terminates that has issued
+    a LOCK UUO).  In general, jobs with locking privileges should
+    be production jobs.
+
+c.  If a job issuing a LOCK UUO is to be debugged and production
+    jobs with locking privileges are to be run, the job to be
+    debugged should be initiated and locked in core first, since
+    it will be locked at the top of core.  Then, the production
+    jobs should be initiated since they will all be locked at
+    the bottom of core.  This procedure reserves the space at
+    the top of core for the job being degugged and guarantees
+    that there is no fragmentation as it locks and unlocks.
+
+d.  With a suitable setting of CORMIN and the initial setting
+    of CORMAX in relation to Total User Core, the system manager
+    can establish a policy which guarantees:
+
+    l)  A maximum size for any unlocked job (CORMIN).
+
+    2)  A minimum amount of total lockable core for all jobs
+        (Total User Core - CORMAX), and
+
+    3)  The amount of core which locked and unlocked jobs can
+        contend for on a first-come-first-serve basis (Total
+        User Core - initial CORMAX + CORMIN).
+
+
+8.2.3  Core Allocation Resource
+
+Since the routines that lock jobs in core use the swapping
+and core allocation routines, they are considered a sharable
+resource.  This resource is the semipermanent core allocation
+resource (mnemonic=CA).  When a job issues a LOCK UUO and the
+system is currently engaged in executing a LOCK UUO for another
+job, the job eneters the queue associated with the core allocation
+resource.  Since a job may share a queue with other jobs and
+since swapping and shuffling may be required to position the
+job to where it is to be locked, the actual execution time
+needed to complete the process of locking a job might be on the
+order of seconds.
+
+When it has been established that a job can be locked, the low
+segment number and the high segment number (if any) are stored
+as flags to activate the locking routines when the swapper and
+shuffler are idle.  The ideal position for the locked job is
+also stored as a goal for the locking routines.  In swapping
+systems, the ideal position is always achieved guaranteeing
+minimum fragmentation.  In non-swapping systems, minimum 
+fragmentation is achieved only if the ideal position does not
+contain an active segment (see Figure 8-l).
+
+In swapping systems, after the job is locked in core, the locking
+routine determines the size of the new largest contiguous region
+available to unlocked jobs.  This value will be greater or
+equal to CORMIN.  If this region is less than the old value
+of CORMAX, then CORMAX is set equal to the size of the new
+reduced region.  Otherwise, CORMAX remains set to its old value.
+
+
+
+8.2.4  Unlocking Jobs
+
+A job relinquishes its locked status when either the user 
+program executes an EXIT or RESET UUO, or the monitor performs
+an implicit RESET for the user.  Implicit RESETs occur when
+
+a.  The user program issues a RUN UUO, or
+b.  The user types any of the following monitor commands:
+    R, RUN, GET, SAVE, SSAVE, CORE 0, and any CUSP-invoking
+    command.
+
+When the job is unlocked, it becomes a candidate for swapping
+and shuffling.  CORMAX is increased to reflect the new size
+of the largest contiguous region available to unlocked jobs.
+However, CORMAX is never set to a greater value than its
+initial setting.
+
+
+
+(Figure 8-l)
+
+
+
+8.3  RTTRP AC, OR CALLI AC,57
+
+The real-time trapping UUO is used by timehsaring users to
+dynamically connect real-time devices to the priority interrupt
+system, to respond to these devices at interrupt level, to
+remove the devices from the interrupt system, and to change 
+the PI level to which the devices are associated.  The 
+RTTRP UUO can be called from UUO level or from interrupt level.
+This is a privileged UUO that requires the job to have real-
+time privileges (granted by LOGIN) and to be locked in core
+(accomplished by LOCK UUO).  These real-time privileges are
+assigned by the system manager and obtained by the monitor
+from ACCT.SYS.  The privilege bits required are:
+
+a.  PVLOCK - allows the job to be locked in core.
+b.  PVRTT - allows the RTTRP UUO to be executed.
+
+WARNING:  Improper use of features of the RTTRP UUO can cause
+          the system to hang.  Since design goals of this
+          UUO were to give the user as much flexibility as
+          possible, some system integrity had to be sacrificed.
+          The most common errors are protected against since
+          user programs run in user mode with all ACs saved.
+
+Real-time jobs control devices in one of two ways:  block mode
+or single mode.  In block mode, an entire block of data is read
+before the user's interrupt program is run.  In single mode, the
+user's interrupt program is run every time the device interrupts.
+Furthermore, there are two types of block mode:  fast block
+mode and normal block mode.  These differ in response times.
+The response time to read a block of data in fast block mode is
+6.5 us per work and in normal block mode, l4.6 us per word.
+(This is the CPU time to complete each data transfer).  In all
+modes, the response time measured from the receipt of the real-
+time device interrupt to the start of the user control program
+is l00 us.
+
+The RTTRP UUO allows a real-time job to either put a BLKI or
+BLKO instruction directly on a PI level (block mode) or add
+a device to the front of the monitor PI channel CONSO skip chain
+(single mode).  When an interrupt occurs from the real-time
+device in single mode or at the end of a block of data in 
+block mode, the monitor saves the current state of the machine
+(the ACs, APR flags, protection-relocation register, UUO trap
+addresses 40 and 4l, and the reserved instruction trap addressed
+60 and 6l), sets the new protection-relocation register and APR
+flags, and traps to the user's interrupt routine.  The user
+services his device and then returns control to the monitor
+to restore the previous state of the machine and to dismiss
+the interrupt.
+
+In fast block mode the monitor places the BLKI/BLKO instruction
+directly in the PI trap location followed by a JSR to the 
+context switcher.  This action requires that the PI channel be
+dedicated to the real-time job during any transfers.  In normal
+block mode the monitor places the BLKI/BLKO instruction directly
+after the real-time device's CONSO instruction in the CONSO
+skip chain as follows:
+
+    CONSO     DEV,BITS
+    JRST      NXT DEV
+    BLKI      DEV, POINTR
+    JRST      (CONTEXT SWITCHER)
+    JEN        CH, PI
+
+Any number of real-time devices using either single mode or normal
+block mode can be placed on any available PI channel.  The average
+extra overhead for each real-time device on the same channel
+is 5.5 us per interrupt.
+
+The call is:
+
+    MOVEI AC, RTBLK      ;AC contains address of data block.
+    RTTRP AC,            ;or CALLI AC,57; put device on PI level.
+    error return         ;AC contains an error code.
+    normal return        ;PI is set up properly.
+
+The data block depends on the mode used.  In single mode the 
+data block is:
+
+RTBLK:   XWD PICHL,TRPADR     ;PI channel (l-6) and trap address.
+         EXP APRTRP           ;APR enable bits and APR trap address.
+         CONSO DEV, BITS      ;CONSO chain instruction.
+         0                    ;no BLKI/BLKO instruction.
+
+The data block in fast block mode is:
+
+RTBLK:   XWD PICHL, TRPADR    ;PI and trap address when BLKO done.
+         EXP APRTRP           ;APR trap conditions
+         BLKO DEV, BLKADR     ;BLKI or BLKO instructions
+         0                    ;BLKADR points to the IOWD of
+                              ;block to be sent.
+
+The data block in normal block mode is:
+
+RTBLK:   XWD PICHL, TRPADR    ;channel and trap address.
+         EXP APRTRP           ;APR trap address.
+         CONSO DEV,  BITMSK   ;control bit mask from user area.
+         BLKI DEV, BLKADR     ;BLKI instruction.
+
+
+
+8.3.l  Data Block Mnemonics
+
+The following mnemonics are used in describing the data block
+associated with the RTTRP UUO.
+
+
+8.3.l.l  PICHL - PICHL is the PI level on which the device is
+to be placed.  Levels l-6 are legal depending on the system
+donfiguration.  If PICHL = 0, the device is removed from all
+levels.  When a device is placed on a PI level, normally all 
+other occurrences of the device on any PI level are removed.
+If the user desires the same device on more than one PI level
+simultaneously (i.e., a data level and an error level), he can
+issue the RTTRP UUO with PICHL negative.  This indicates to
+the system that any other occurrence of this device (on any
+PI level) is not to be removed.  Note that this addition to a 
+PI level counts as a real-time device occupying one of the
+possible real-time device slots.
+
+
+8.3.l.2  TRPADR - TRPADR is the location trapped to by the real-
+time interrupt (JRST TRPADR).  Before the trap occurs, all ACs
+are saved by the monitor and can be overwritten without concern
+for their contents.
+
+
+8.3.l.3  APRTRP - APRTRP is the trap location for all APR traps.
+When an APR trap occurs, the monitor simulates a JSR APRTRP.
+The user gains control from an APR trap on the same PI level
+that his real-time device is on.  The monitor always traps to the
+user program on illegal memory references, non-existent memory
+rererences, and push-down overflows.  This allows the user to
+properly turn off his real-time device if needed.  The monitor
+also traps on the conditions specified by the APRENB UUO (see
+Paragraph 4.3.3.l).  No APR errors are detected if the interrupt
+routine is on a PI level higher than or equal to the APR
+interrupt level.
+
+
+8.3.l.4  DEV - DEV is the real-time device code.
+
+
+8.3.l.5  BITS - BITS is the bit mask of all interrupt bits of
+the real-time device and must not contain any other bits.
+If the user desires control of this bit mask from his user
+area, he may specify one level of indirection in the CONSO
+instruction (no indexing), i.e., CONSO DEV,  MASK where MASK 
+is the location in the user area of the bit mask.  MASK must 
+not have any bits set in the indirect or index fields.
+
+
+8.3.l.6  BLKADR - BLKADR is the address in the user's area
+of the BLKI/BLKO pointer word.  Before returning to the user,
+the monitor adds the proper relocation factor to the right
+half of the pointer word.  Data can only be read into the low
+segment above the protected job data area, i.e., above location
+ll4.  Since the pointer word is in the user's area, the user can
+set up a new pointer word when the word count goes to 0 at
+interrupt level.  This allows fast switching between buffers.
+When the user desires to set up his own pointer word, the right
+half of the word must be set up as an absolute address instead
+of a relative address.  The job's relocation value is returned
+from both the LOCK UUO and the first RTTRP UUO executed for
+setting the BLKI/BLKO instruction.  If this pointer word does
+not contain a legal address,a portion of the system might be
+overwritten.  A check should be made to determine if the 
+negative word count in the left half of the pointer word is too
+large.  If the word count extends beyond the user's own area,
+the device may cause a non-existent memory interrupt, or may
+overwrite a timesharing job.  If all of the above precautions
+are taken, this method of setting up the pointer word is
+much faster and more flexible than issuing the RTTRP UUO at
+interrupt level.
+
+
+
+8.3.2  Interrupt Level Use of RTTRP
+
+The format of the RTTRP UUO at interrupt level is similar to
+the format at user level except for two restrictions:
+
+a.  AC l6 and AC l7 cannot be used in the UUO call (i.e.,
+    CALLI l6,57 is illegal at interrupt level).
+
+b.  All ACs are overwritten when the UUO is executed at
+    interrupt level.  Therefore, the user must save any
+    desired ACs before issuing the RTTRP UUO.  This restriction
+    is used to save time at interrupt level.
+
+CAUTION:  If an interrupt  routine executes a RTTRP UUO
+          which affects the device currently being serviced, no
+          additional UUOs of any kind (including RTTRP) can
+          be executed during the remainder of the interrupt.
+          At this point, any subsequent UUO dismisses the
+          interrupt.
+
+
+8.3.3  RTTRP Returns
+
+On a normal return, the job is given user IOT privileges.  These
+privileges allow the user to execute all restricted instructions
+including the necessary I/O instructions to control his device.
+
+The IOT privilege must be used with caution since improper use
+of the I/O instructions could halt the system (i.e., CONO APR,
+0, CONO PI,0, or HALT).  Note that a user can obtain just the
+user IOT privilege by issuing the RTTRP UUO with PICHL = 0
+(see Paragraph 8.3.l.l).
+
+An error return is not given to the user until RTTRP scans the
+entire data block to find as many errors as possible.  On
+return, AC may contain the following error codes.
+
+   Code      Value                Meaning
+   ----      -----                -------
+
+Bit 26=l     l000       Device already in use by another job.
+
+Bit 27=l      400       Illegal AC used during RTTRP UUO at
+                        interrupt level.
+
+Bit 28=l      200       Job not locked in core, or not privileged.
+
+Bit 29=l      l00       System limit for real-time devices exceeded.
+
+Bit 30=l       40       Illegal format of CONSO, BLKO or BLKI.
+
+Bit 3l=l       20       BLKADR or pointer word illegal.
+
+Bit 32=l       l0       Error address out of bounds.
+
+Bit 33=l        4       Trap address out of bounds.
+
+Bit 34=l        2       PI channel not currently available for
+                        BLKI/BLKO's.
+
+Bit 35=l        l       PI channel not available (restricted use
+                        by system.
+
+
+8.3.4  Restrictions
+
+l)  Devices may be chained onto any PI channel that is not used
+    for BLKI/BLKO instructions by the system or by other real-
+    time users using fast block mode.  This includes the 
+    APR channel.  Normally PI levels l and 2 are reserved by the
+    system for magnetic tapes and DECtapes.  PI level 7 is always
+    reserved for the system.
+
+2)  Each device must be chained onto a PI level before the user
+    program issues the CONO DEV, PIA to set the device onto
+    the interrupt level.  Failure to observe this rule or
+    failure to set the device on the same PI level that was
+    specified in the RTTRP UUO could hang the system.
+
+3)  If the CONSO bit mask is set up and one of the corresponding
+    flags in a device is on, but the device has not been physically
+    put on its proper PI level, a trap may occur to the user's
+    interrupt service routine.  This occurs because there is a
+    CONSO skip chain for each PI level, and if another
+    device interrupts whose CONSO instruction is further down
+    the chain than that of the real-time device, the CONSO
+    associated with the real-time device is executed.  If one
+    of the hardware device flags is set and the corresponding
+    bit in the CONSO bit mask is set, the CONSO skips and a
+    trap occurs to the user program even though the real-time
+    device was not causing the interrupt on that channel.  To
+    avoid this situation the user can keep the CONSO bit
+    mask in his user area (see Paragraph 8.3.l.5).  This
+    procedure allows the user to chain a device onto the
+    interrupt level, keeping the CONSO bit mask zero until
+    the device is actually put on the proper PI level with a
+    CONO instruction.  This situation never arises if the device
+    flags are turned off until the CONO DEV,PIA can be executed.
+
+4)  The user should guard against putting programs on high
+    priority interrupt levels which execute for long periods
+    of time.  These programs could cause real-time programs at
+    lower levels to lose data.
+
+5)  The user program must not change any locations in the
+    protected job data area (locations 20-ll4) since the user
+    is running at interrupt level and full context switching is
+    not performed.
+
+6)  If the user is using the BLKI/BLKO feature, he must restore
+    the BLKI/BLKO pointer word before dismissing any end-of-
+    block interrupts.  This is accomplished with another
+    RTTRP UUO or by directly modifying the absolute pointer
+    word supplied by the first RTTRP UUO.  Failure to reset the
+    pointer word could cause the device to overwrite all of
+    memory.
+
+
+8.3.5  Removing Devices form a PI Channel
+
+When PICHL = 0 in the data block (see Paragraph 8.3.l.l), the
+device specified in the CONSO instruction is removed from the
+interrupt system.  If the user removes a device from a PI
+chain, he must also remove the device from the PI level
+(CONO DEV,0).
+
+A RESET, EXIT, or RUN UUO from the timesharing levels removes
+all devices from the interrupt levels (see Paragraph 8.2).
+This UUO causes a CONO DEV,0 to be executed before the device
+is removed.  Monitor command which issue implicit RESETS also
+remove real-time devices (e.g., R, RUN, GET, CORE 0, SAVE,
+SSAVE).
+
+
+8.3.6  Dismissing the Interrupt
+
+The user program must always dismiss the interrupt in order
+to allow monitor to properly restore the state of the machine.
+The interrupt may be dismissed with any UUO other than the
+RTTRP UUO or any instruction which traps to absolute location
+60.  The standard method of dismissing the interrupt is with
+a UJEN instruction (op code l00).  This instruction gives
+the fastest possible dismissal by trapping to location 60.
+
+
+
+8.3.7  Examples
+
+                           Example l
+                          Single Mode
+
+          TITLE RTSNGL - PAPER TAPE READ TEST USING CONSO CHAIN
+
+          PIOFF=400            ;turn PI system off
+9          PION=200             ;turn PI system on
+          TAPE=400             ;no more tape in reader if tape=0
+          BUSY=20              ;device is busy reading
+          DONE=l0              ;a character has been read
+
+PDATA:    Z                    ;location where data is read into
+
+PTRTST:   RESET                ;reset the program
+          LOCK                 ;lock the job in core
+          JRST FAILED          ;lock UUO failed
+          SETZM PTRCSO         ;make sure CONSO bits are zero
+          SETZM DONFLG         ;initiate done flag
+          MOVEI RTBLK          ;get address of real-time data block
+          RTTRP                ;put real-time device on the PI level
+          JRST FAILED          ;RTTRP UUO failed
+          MOVEI l,DONE         ;set up CONSO bit mask
+          HLRZ 2,RTBLK         ;get PI number from RTBLK
+          TRO 2,BUSY           ;set up CONO bits to start tape going
+          CONO PI,PIOFF        ;guard against any interrupts
+          MOVEM l,PTRCSO       ;store CONSO bit mask
+          CONO PTR,(2)         ;turn PTR on
+          CONO PI,PION         ;allow interrupts again
+          MOVEI 5              ;set up to sleep for 5 seconds
+          CALLI 3l             ;sleep
+          SKIPN DONFLG         ;have we finished reading the tape
+          JRST .-3             ;no go back to sleep
+          EXIT
+
+RTBLK:    XWD 5,TRPADR         ;PI CHANNEL AND TRAP ADDRESS
+          EXP APRTRP           ;APR error trap address
+          CONSO PTR,  PTRCSO   ;indirect CONSO bit mask=PTRCSO
+          Z                    ;no BLKI/O instruction
+
+PTRCSO:   Z                    ;CONSO bit mask
+DONFLG:   Z                    ;PI level to user level comm.
+RTBLKl    Z                    ;data block to remove PTR
+          Z                    ;from PI channel
+          CONSO PTR,0 
+          Z
+
+TRPADR:   CONSO PTR,TAPE       ;end of tape?
+          JRST TDONE           ;yes, go stop job
+          DATAI PTR,PDATA      ;read in data word
+          UJEN                 ;dismiss the interrupt
+
+APRTRP:   Z                    ;APR ERROR TRAP ADDRESS
+TDONE:    MOVEI RTBLKl         ;set up to remove PTR
+          CONO PTR,0           ;take device off hardware PI level
+          RTTRP                ;remove from software PI level
+          JFCL                 ;ignore errors
+          SETOM DONFLG         ;mark that read is over
+          SETZM PTRCSO         ;clear CONSO bit mask
+          UJEN                 ;dismiss the interrupt
+
+FAILED:   TTCALL 3,(ASCIZ/RTTRP UUO FAILED/)
+          EXIT
+
+          END PTRTST
+
+
+                         Example 2
+                      Fast Block Mode
+
+
+          TITLE RTFBLK - PAPER TAPE READ TEST IN BLKI MODE
+
+          TAPE=400             ;no more tape in reader if tape=0
+          BUSY=20              ;device is busy reading
+          DONE=l0              ;a character has been read
+
+BLKTST:   RESET                ;reset the program
+          LOCK                 ;lock the job in core
+          JRST FAILED          ;lock UUO failed
+          SETZM DONFLG         ;initialize done flag
+          MOVEI RTBLK          ;get address of real-time data block
+          RTTRP                ;put real-time device on PI level
+          JRST FAILED          ;RTTRO UUO failed
+          HLRZ 2,RTBLK         ;get PI number from RTBLK
+          TRO 2,BUSY           ;set up CONO bits to start tape going
+          CONO PTR,(2)         ;turn PTR on
+          MOVEI 5              ;set up to sleep for 5 seconds
+          CALLI 3l             ;sleep
+          SKIPN DONFLG         ;have we finished reading the tape
+          JRST .-3             ;no go back to sleep
+          EXIT
+
+RTBLK:    XWD 6,TRPADR         ;PI channel and trap address
+          EXP APRTRP           ;APR error trap address
+          BLKI PTR,POINTR      ;read a block at a time
+          Z
+
+POINTR:   IOWD 5,TABLE         ;pointer for BLKI instruction
+OPOINT:   IOWD 5,TABLE         ;original pointer word for BLKI
+TABLE:    BLOCK 5              ;table area for data being read
+DONFLG:   Z                    ;PI level to user level comm.
+RTBLKI:   Z                    ;data block to remove PTR
+          Z                    ;from PI channel
+          CONSO PTR,0
+          Z
+
+TRPADR:   CONSO PTR,TAPE       ;end of tape?
+          JRST TDONE           ;yes, go stop job
+          MOVE OPOINT          ;get original pointer word
+          MOVEM POINTR         ;restore BLKI pointer word
+          UJEN                 ;dismiss the interrupt
+
+APRTRP:   Z                    ;APR error trap address
+TDONE:    MOVEI RTBLKl         ;set up to remove PTR
+          CONO PTR,0           ;take device off hardware PI level
+          RTTRP                ;remove from software PI level
+          JFCL                 ;ignore errors
+          SETOM DONFLG         ;mark that read is over
+          UJEN                 ;dismiss the interrupt
+
+FAILED:   TTCALL 3,(ASCIZ/RTTRP UUO FAILED/)
+          EXIT
+
+          END BLKTST
+
+
+                          Example 3
+                       Normal Block Mode
+
+
+          TITLE RTNBLK - PAPER TAPE READ TEST IN BLKI MODE
+
+          TAPE=400             ;no more tape in reader if tape=0
+          BUSY=20              ;device is busy reading
+          DONE=l0              ;a character has been read
+
+BLKTST:   RESET                ;IO reset
+          LOCK                 ;lock the job in core
+          JRST FAILED          ;lock UUO failed
+          MOVEI RTBLKI         ;get address of real-time block
+          RTTRP                ;get user IOT privilege
+          JRST FAILED          ;UUO failed
+          CONO PTR,0           ;clear all PTR flags
+          SETZM DONFLG         ;initialize don flag
+          MOVEI RTBLK          ;get address of real-time data block
+          RTTRP                ;put real-time device on PI level
+          JRST FAILED          ;RTTRP UUO failed
+          MOVE POINTR          ;get relocated pointer word for later
+          MOVEM OPOINT         ;store for interrupt level use
+          HLRZ 2,RTBLK         ;get PI number from RTBLK
+          TRO 2,BUSY           ;set up CONO bits to start tape going
+          CONO PTR,(2)         ;turn PTR on
+          MOVEI 5              ;set up to sleep for 5 seconds
+          SLEEP
+          SKIPN DONFLG         ;have we finished reading the tape
+          JRST .-3             ;no go back to sleep
+          EXIT
+
+RTBLK:    XWD 6,TRPADR         ;PI channel and trap address
+          EXP APRTRP           ;APR error trap address
+          CONSO PTR,DONE       ;wait only for done flag
+          BLKI PTR,POINTR      ;read a block at a time
+
+POINTR:   IOWD 5,TABLE         ;pointer for BLKI instruction
+OPOINT:   Z
+TABLE:    BLOCK 5              ;table area for data being read
+DONFLG:   Z                    ;PI level to user level comm.
+RTBLKl:   Z                    ;data block to remove PTR
+          Z                    ;fron PI channel
+          CONSO PTR,0
+          Z
+
+TRPADR:   CONSO PTR,TAPE       ;end of tape?
+          JRST TDONE           ;yes, go stop job
+          MOVE OPOINT        ;get original pointer word
+          MOVEM POINTR         ;store in pointer location
+          UJEN                 ;dismiss the interrupt
+
+APRTRP:   Z                    ;APR error trap address
+TDONE:  movei rtblkl         ;set up to remove PTR
+          CONO PTR,0           ;take device off hardware PI level
+          RTTRP                ;remove from software5PI level
+          JFCL                 ;ignore errors
+          SETOM DONFLG         ;mark that read is over
+          UJEN                 ;dismiss the interrupt
+
+FAILED:   TTCALL 3,(ASCIZ/RTTRP UUO FAILED/)
+          EXIT
+
+          END BKJTST
+
+
+
+
+8.3.8  FORTRAN Usage of Real-Time Trapping
+
+Real-time library subroutines allow FORTRAN programs to
+connect real-time devices to the priority interrupt system.
+These subroutines provide the FORTRAN-oriented user the flex-
+ibility needed to write real-time code without the requirement
+of learning assembly language coding and hardware peculiarities.
+At present these subroutines are not reentrant and cannot be
+called from two PI levels simultaneously.  If this is a require-
+ment, then a different routine must be called at each level.
+
+To enter the same subroutine from two or more PI levels
+simultaneously, the following MACRO program can be used:
+
+         TITLE       SUBl
+         ENTRY       SUBl, SUB2
+         EXTERN      SUB
+ SUBl:   Z
+         JRST        SUB+l
+
+ SUB2:   Z
+         JRST        SUB+l
+         END
+
+For each PI level which needs the subroutine SUB, a new ENTRY
+point must be made.  In the example above, three different PI
+levels could be active simultaneously using the three different
+CALLS to the same routine (CALL SUB, CALL SUBl, and CALL SUB2).
+This technique can be used for any routine which is reentrant
+except for the FORTRAN CALL sequence.  All of the real-time
+subroutines except for CONECT and DISCON meet this requirement.
+
+The real-time subroutines and their functions are as follows:
+
+
+8.3.8.l  LOCK - The LOCK subroutine locks the job in core.
+This routine must be called before any other routines can be
+executed.  The call is:
+
+    CALL LOCK
+
+
+8.3.8.2  RTINIT - The RTINIT subroutine initializes all the
+internal tables controlling the real-time device specified.
+The call is:
+
+    CALL RTINIT (unit, dev, PI, TRPADR, MASK)
+
+where
+
+    unit is the real-time device unit number (starting at l).
+    dev is the device code for the real-time device.
+    PI is the PI level on which the device is to be placed.
+    TRPADR is the address in the FORTRAN program where real-time
+           interrupts are to trap.  This address is loaded by
+           ASSIGN l00 to TRPADR.
+    MASK is the mask of all interrupting flags for the real-time
+         device.  This mask is set by RTSTRT (see Paragraph
+         8.3.8.5) and should be zero when the real-time device
+         is inactive.
+
+
+8.3.8.3  CONECT - The CONECT subroutine indicates to the system
+that the real-time device specified is to be connected to the
+indicated PI level and the trap address for trapping is to be
+set up.  The call is:
+
+   CALL CONECT (unit, mode)
+
+where:
+
+   unit is the real-time device unit number
+
+   Mode is -l for writing blocks of data
+            0 for a trap on each device interrupt.
+           +l for reading blocks of data
+
+
+8.3.8.4  DISCON - The DISCON subroutine disconnects the real-
+time device from the PI level.  The call is:
+
+    CALL DISCON (unit)
+
+where:
+
+    unit is the real-time device unit number.
+
+
+8.3.8.5  RTSTRT - The RTSTRT subroutine starts the real-time
+device with a CONO DEV, START and can also be used to stop the
+device and zero the CONSO mask (i.e., CALL RTSTRT (unit, 0,0)).
+This is the preferred method for stopping the device.  The call
+is:
+
+    CALL RTSTRT (unit, start, intmsk)
+
+where:
+
+    unit is the real-time device unit number
+    start is the flags necessary to start the device (CONO DEV,START)
+    intmsk is the mask of all interrupting bits.  These bits are
+      loaded into MASK (refer to Paragraph 8.3.8.2).
+
+
+8.3.8.6  BLKRW - The BLKRW subroutine sets up the size and the
+starting address of the block of data.  The call is:
+
+    CALL BLKRW (unit, count, adr)
+
+where:
+
+    unit is the real-time device unit number.
+    count is the number of words to beead or written.
+    adr is the array from which the data is transferred
+       depending on the MODE setting.
+
+After the specified number of words are read or written, a trap
+occurs to the interrupt trap routine.  A new count and starting
+address must be set up each time the present one is
+exhausted.
+
+
+8.3.8.7  RTREAD - the RTREAD subroutine reads a single word
+of data from the real-time device (DATAI DEV, ADR).  The call is:
+
+    CALL RTREAD (unit, adr)
+
+where:
+
+    unit is the real-time device unit number.
+    adr is the address of the data to be read.
+
+
+8.3.8.8  RTWRIT - The RTWRIT subroutine sends a single word of
+data to the real-time device (DATAO DEV, ADR).  The call is:
+
+    CALL RTWRIT (unit, adr)
+
+where:
+
+    unit is the real-time device unit number.
+    adr is the address of the data word to be sent to the real-
+       time device.
+
+
+8.3.8.9  STATO - The STATO subroutine sends an argument to the
+status register of the device.  The call is:
+
+    CALL STATO (unit, adr)
+
+where:
+
+    unit is the real-time device unit number.
+    adr is the location of the status bits to be sent to the
+       real-time device (CONO DEV,   ADR).
+
+
+8.3.8.l0  STATI - The STATI subroutine reads the current status
+bits into a specified location.  The call is:
+
+    CALL STATI (unit adr)
+
+where:
+
+    unit is the real-time device unit number.
+    adr is the location in which the device status bits are to
+       be read (CONO DEV, ADR).
+
+
+8.3.8.ll  RTSLP - The RTSLP subroutine causes the background
+portion of the FORTRAN program to sleep for a specified number
+of seconds (maximum of 60).  The call is:
+
+    CALL RTSLP (time)
+
+where:
+
+    time is the sleep interval in seconds.
+
+RTSLP is called from the timesharing level causing the program
+to sleep for the specified amount of time.  When the sleep
+interval reaches zero, the program checks to see if RTWAKE has
+been called at interrupt level.  If RTWAKE has been called, RTSLP
+returns to the calling program.  If RTWAKE has not been called,
+the background portion of the job goes back to sleep again.
+
+
+
+8.3.8.l2  RTWAKE - The RTWAKE subroutine activates the background
+portion of the FORTRAN program.  This subroutine is called at
+interrupt level.  The call is:
+
+    CALL RTWAKE
+
+
+
+8.3.8.l3 Example - The following is an example of a FORTRAN
+real-time program.
+
+       IMPLICIT INTEGER (A-Z)
+       DIMENSION A (l00)
+
+   C   LOCK THE JOB IN CORE
+       CALL LOCK
+
+   C   20 IS THE BEGINNING OF THE REAL-TIME SECTION
+   C   THE PI LEVEL OF THE REAL-TIME JOB IS 5
+   C   THE DEVICE CODE IS OCTAL l04
+     ASSIGN 20 TO TRPADR
+       UNIT = l
+       PI = 5
+       DEV = "l04
+       MASK = 0
+
+   C   INITIALIZE REAL-TIME DEVICE
+       CALL RTINIT (UNIT, DEV, PI, TRPADR, MASK)
+
+       MODE = 0
+
+   C   CONNECT DEVICE TO PI LEVEL
+       CALL CONECT (UNIT, MODE)
+
+       CONO = "25
+       CONSO = "l0
+
+   C   START REAL-TIME DEVICE
+       CALL RTSTRT (UNIT, CONO, CONSO)
+
+   C   SLEEP FOR FIVE SECONDS, THEN CHECK FOR A RTWAKE CALL
+   C   AT INTERRUPT LEVEL
+   l0  CALL RTSLP (5)
+
+       CALL EXIT
+
+   C   INTERRUPT LEVEL SECTION
+   C   HAS THE READER RUN OUT OF PAPER TAPE?
+   20  CALL STATI (UNIT, J)
+
+       IF (J-"400.GE.0) GO TO 2l
+
+   C   YES, THERE IS NO MORE TAPE, SO WAKE UP
+   C   BACKGROUND PORTION OF JOB
+
+       CALL RTSTRT (UNIT 0,0)
+       CALL DISCON (UNIT)
+       CALL RTWAKE
+       CALL DISMISS
+
+   C   THERE IS STILL PAPER TAPE IN THE
+   C   READER, READ ANOTHER CHARACTER.
+   2l  CALL RTREAD (UNIT,X)
+       CALL DISMIS
+       END
+
+
+
+8.4  DIRECT USER I/O
+
+In special cases, the RTTRP UUO does not offer a fast enough res-
+ponse to real-time interrupts.  These special cases can always
+be solved by putting a device service routine into the monitor.
+However, some of the fast response requirements can be met with
+the TRPSET feature.  In order to achieve fast response to interrupts,
+the TRPSET feature turns off timesharing during its use.  This
+limits the class of problems to be solved to cases where
+the user wants to transfer data in short bursts at predefined
+times.  Therefore, since the data transfers are short, the time
+during which timesharing is stopped is also short, and the
+pause probably will not be noticed by the timesharing users.
+
+
+8.4.l  TRPSET AC, or CALLI AC,25
+
+This privileged UUO allows the user program to gain control of
+the interrupt locations.  If the user does not have the TRPSET
+privileges, an error return to the next location after the
+CALL is always given, and the user remains in user mode.  Time-
+sharing is turned back on.  If the user has the TRPSET privileges,
+the central processor is placed in user I/O mode.  If AC contains
+zero, timesharing is turned on if it was turned off.  If the LH
+of AC is within the range 40 through 57, all other jobs are
+stopped from being scheduled and the specified executive PI
+location (40-57) is patched to trap directly to the user.  In
+this case, the monitor moves the contents of the relative
+location specified in the right half of AC, adds the job
+relocation address to the address field, and stores it in the
+specified executive PI location.
+
+Thus, the user can set up a priority interrupt trap into his
+relocated core area.  Upon a normal return, AC contains the
+previous contents of the address specified by LH of AC, so that
+the user program may restore the original contents of the PI
+location when the user is through using this UUO.  If the LH
+of AC is not within the range 40 through 57, an error return is
+given just as if the user did not have the privileges.  The
+call is:
+
+    MOVE AC,(XWD N, ADR)
+    TRPSET AC,
+    error return
+    normal return
+     .
+     .
+     .
+ADR:  JSR TRAP            ;instruction to be stored in exec PI  
+                          ;location after relocation added to it.
+TRAP: 0                   ;here on interrupt from exec.
+
+The monitor assumes that user location ADR contains either a
+JSR U or BLKI U, where U is a user address; consequently, the
+monitor adds the job relocation to the contents of location U to
+make it an absolute IOWD.  Therefore, a user should reset the
+contents of U before every TRPSET call.
+
+A RESET UUO returns the user to normal user mode.  The following
+instruction sequence is used to place the real-time device RTD
+on channel 3.
+
+INT 46:     BLKI RTD,INBLOK        ;relocation constant for user 
+                                   ;is added
+INT 47:     JRR XITINT             ;to RH when instructions 
+            .                      ;are placed into 46 and 47.
+START:      MOVEI AC,INT46
+            HRLI AC,46
+            TRPSET AC,
+            JRST EXITR             ;error return
+            AOBJN AC, .+l          ;normal return
+            XCT .-3
+            JRST EXITR             ;error return
+            .                      ;normal return
+            .
+XITINT:    0                       ;PC saved
+            ...                    ;interrupt dismiss routine
+
+If the interrupt occurs while some other part of the user's program
+is running, the user may dismiss from the interrupt routine with
+a JEN   XITINT.  However, if the machine is in executive mode,
+a JEN instruction issued in user mode does not work because of
+memory relocation.  This is solved by a call to UJEN (opcode l00).
+This UUO causes the monitor to dismiss the interrupt from
+executive mode.  In this case, the address field of the UJEN
+instruction is the user location when the return PC is stored
+(i.e., UJEN XITINT).  The following sequence enables the user
+program to decide whether it can issue a JEN to save time or
+dismiss the interrupt with a UUO call.
+
+XITINT:   0                        ;PC with bits in LH
+
+          JRST l,.+l               ;essential instruction.
+                                   ;returns machine to user mode.
+          MOVEM AC, SAVEAC         ;save accumulator AC
+            .                      ;service interrupt here
+            .
+            .
+
+          MOVE AC, XITINT          ;get PC with bits
+          SETZM EFLAG
+
+          TLNN AC, l0000           ;was machine in user mode at entry?
+          SETOM EFLAG              ;no
+          MOVE AC, SAVEAC          ;RESTORE saved AC
+          SKIPE EFLAG
+          UJEN XITINT              ;not in user mode at entry
+          JEN   XITINT
+
+SAVEAC:   0
+
+EFLAG:    0
+
+Upon entering the routine from absolute 47 with a JSR to XITINT +
+REL (where REL is the relocation constant), the exeuctive mode
+flip-flop is set.  The first executed instruction in the user's
+routine must, therefore, reset the user mode flag, thereby
+enabling relocation and protection.  The user must proceed with
+caution when changing channel interrupt chains under time-
+sharing, making certain that the real-time job can coexist 
+with other timesharing jobs.
+
+
+8.4.2  UJEN (Op Code l00)
+
+This op code dismisses a user I/O mode interrupt if one is in
+progress.  If the interrupt is from user mode, a JRST l2, 
+instruction dismisses the interrupt.  If the interrupt came from
+executive mode, however, this operator is used to dismiss the
+interrupt.  The monitor restores all accumulators, and executes
+JEN   U where user location U contains the program counter as
+stored by a JSR instruction when the interrupt occurred.
+
+  9H
