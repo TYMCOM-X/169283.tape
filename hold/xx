@@ -1,0 +1,887 @@
+      INTEGER IT(14,100),IC(4)
+       IB=1H 
+       IM=1H-
+      REAL K2,KH,K2C
+      DIMENSION TL(23),TG(23),K2(23),KH(23),H2O(23),H2OV(25),CO2(23)    
+      DIMENSION CG(4),SE(3),ALON(5),DEBIT(2),PE(23),DG(2)       
+       DIMENSION RAP(23)
+      COMMON TL,TG,K2,KH,H2O,H2OV,CO2,CO,CH4,H2,DEBIT,M,CG,CL,PE,ALON,SE
+     1,H2OE,TE,BY,EFEC,RAP,IT   
+       COMMON/TCO2/CO2AV(24)    
+       DATA P100/1.3/,P101/1.05/
+        CALL IFILE(22,'DONBP')
+       DO 99 I=1,24     
+ 99    CO2AV(I)=0.      
+       RAP( 4)=99999.   
+       RAP( 8)=99999.   
+       RAP(16)=99999.   
+       RAP(19)=99999.   
+       RAP(23)=99999.   
+       CO2(8)=0.
+       TG(8)=0. 
+       TL(19)=0.
+       NMN=0    
+ 100   CONTINUE 
+      SE(1)=4.9 
+      SE(2)=2.85
+      SE(3)=8.50
+      ALON(1)=4.70      
+      ALON(2)=4.55      
+      ALON(3)=1.31      
+      ALON(4)=5.25      
+      ALON(5)=3.50      
+      PE(9)=1.14
+      PE(19)=1.38       
+      DO 142 MM=10,16   
+      PE(MM)=PE(9)      
+  142 CONTINUE  
+      DO 143 MM=17,18   
+      PE(MM)=PE(19)     
+  143 CONTINUE  
+       READ(22,1)TL(4),TL(8),TG(19),TG(16),PE(1) 
+       READ(22,1)CK2,CKH,CH2O,BY  
+       READ(22,1)(DEBIT(I),I=1,2) 
+       READ(22,1)H2,CO,CH4,CO2(20),CO2(16)
+       READ(22,1)CG(1),CG(2),CG(3),CL,CG(4)       
+ 1     FORMAT(5F)
+    2 FORMAT(2X,3(2X,E10.3))    
+    3 FORMAT(2X,5(2X,F9.3))     
+    4 FORMAT(2X,5(2X,E10.3))    
+       DO 141 MM=2,8    
+       PE(MM)=PE(1)     
+ 141   CONTINUE 
+      TG(18)=TG(19)     
+      TL(2)=TL(4)       
+      TL(3)=TL(4)       
+      K2(16)=CK2*DEBIT(1)       
+      KH(16)=CKH*DEBIT(1)       
+      H2O(16)=CH2O*DEBIT(1)     
+       DO 59 K=9,15     
+      CO2(K)=CO2(16)    
+      TG(K)=TG(16)      
+   59 CONTINUE  
+      DO 51 K=5,8       
+      TL(K)=TL(8)       
+      K2(K)=CK2*DEBIT(2)
+      KH(K)=CKH*DEBIT(2)
+      H2O(K)=CH2O*DEBIT(2)      
+   51 CONTINUE  
+      K2(19)=K2(8)      
+      KH(19)=KH(8)      
+      F = DEBIT(2)/DEBIT(1)     
+      DO 58 K=2,4       
+      K2(K)=K2(5)+K2(16)*(1.-F) 
+      KH(K)=KH(5)+KH(16)*(1.-F) 
+      H2O(K)=H2O(5)+H2O(16)*(1.-F)      
+   58 CONTINUE  
+      DO 144 MM=20,23   
+      PE(MM)=PE(1)      
+      TL(MM)=TL(4)      
+      K2(MM)=K2(2)      
+      KH(MM)=KH(2)      
+      H2O(MM)=H2O(2)    
+  144 CONTINUE  
+ 54    LLL=1    
+       M1=51    
+       N1=100   
+       DO 80 M=1,14
+       DO 80 I=1,N1
+ 80    IT(M,I)=IB     
+       YMAX1=1. 
+       YMIN1=0. 
+       YMIN2=60.
+       YMAX2=160.       
+       PAS1=(YMAX1-YMIN1)/M1    
+       PAS2=(YMAX2-YMIN2)/M1    
+       X1=2.    
+       X2=500.  
+       X3=2000. 
+       X4=200.  
+       CALL DEBVAP      
+ 52    NMN=NMN+1
+       WRITE(5,22)
+ 22    FORMAT(1H1,20X,18HLA DECARBONATATION,////)
+       CALL VAPOR1      
+       A=CO2(20)
+       CO2(20)=0.       
+421    WRITE(5,7123)
+       READ(5,9191)ITER
+9191   FORMAT (I)
+7123   FORMAT(1H ,'COMBIEN D ITERATIONS ',/)
+       IF (ITER.LE.0)GO TO 55
+       IP=0
+ 42    CALL VAPOR       
+       M=LLL    
+       IF(M.GT.N1)GO TO 45      
+       CALL VTAB(YMAX1,YMAX2,PAS1,PAS2,M1,X1,X2,X3,X4)  
+ 45   K2C=K2(8) 
+       IP=IP+1
+      H2O(4)=H2O(5)+H2O(16)*(1.-F)      
+      KH(4)=KH(5)+KH(16)*(1.-F) 
+      K2(4)=K2(5)+K2(16)*(1.-F) 
+       CO2AV(20)=A-CO2(20)      
+       CO2(20)=CO2(20)*2.       
+      DO  46 M=20,22    
+      CALL TRANS
+ 46    CONTINUE 
+      CO2(1)=CO2(23)    
+      H2OV(1)=H2OV(23)  
+      TG(1)=TG(23)      
+      PE(1)=PE(23)      
+      DO 40 M =1,3      
+      CALL TRANS
+   40 CONTINUE  
+      K2(23)=K2(1)      
+      KH(23)=KH(1)      
+      H2O(23)=H2O(1)    
+      TL(23)=TL(1)      
+      H2OV(5)=H2OV(4)   
+      CO2(5)=CO2(4)     
+      TG(5)=TG(4)       
+      DO 41 M=5,7       
+      CALL TRANS
+   41 CONTINUE  
+      DO 47 M=9,15      
+      CALL TRANS
+   47 CONTINUE  
+      DO 49 M=17,18     
+      CALL TRANS
+   49 CONTINUE  
+C     TEST SUR LA CONVERGENCE MATHEMATIQUE      
+      K2(8)=K2(19)+CO2(19)      
+      KH(8)=KH(19)-2.*CO2(19)   
+      H2O(8)=H2O(19)-H2OV(19)   
+      CO2(16)=CO2(17)   
+      H2OV(16)=H2OV(17) 
+      TL(4)=(1.-F)*TL(16)+F*TL(5)       
+      TG(16)=TG(17)     
+      PE(17)=PE(16)     
+      PE(5)=PE(4)       
+       LLL=LLL+1
+       IF(IP.GE.ITER)GO TO 421
+       GO TO 42
+C     TEST SUR LE FONCTIONNEMENT DE L'UNITE     
+ 55   A=ABS(K2C-K2(8))  
+       IP=LLL-1
+      IF(A/K2(8)-0.01)53,54,54  
+   53 A=CO2(8)/(H2+CO+CH4+CO2(8)+H2OV(8))       
+       REF=H2OV(9)+H2OV(8)-H2OV(20)     
+       F303=H2OV(20)-H2OV(8)    
+       WRITE(5,19)     F303,REF 
+ 19    FORMAT(//5X,12HEAU PAR F303,1H=,2X,F8.2,5X,1H-,/
+     2,5X,6HREFLUX,6X,1H=, 2X,F8.2,5X,1H-,///)
+ 23    FORMAT(1H ,1H*,5X,2HK2  ,5X,1H*,4X,F8.2,1X,8HKMOLES/H,4X,1H*/    
+     11H*,5X,2HKH  ,5X,1H*,4X,F8.2,5X,1H-,7X,1H*/   
+     21H*,4X,4HH2OL,4X,1H*,4X,F8.2,5X,1H-,7X,1H*/   
+     31H*,5X,1HT,   6X,1H*,4X,F8.2,1X,8HDEGRES C,4X,1H*/    
+     440(1H*))      
+ 24    FORMAT(1H1,40(1H*)/,1H*,9X,8HSOLUTION,1X,4HFINE,16X,1H*/    
+     1,40(1H*))      
+ 25    FORMAT(1H1,40(1H*)/,1H*,9X,8HSOLUTION,1X,6HTOTALE,14X,1H*/  
+     1,40(1H*))      
+ 26    FORMAT(1H1,40(1H*)/,1H*,9X,8HSOLUTION,1X,13H1/2 REGENEREE,  
+     17X,1H*/ ,40(1H*))      
+       REF =K2(16)*(1.-F)       
+       F303=KH(16)*(1.-F)       
+       VKH19=H2O(16)*(1.-F)     
+       WRITE(5,7)       
+       WRITE(5,8)       
+       WRITE(5,6)CO2(20),       CO2(4),CO2(8),CO2(9),CO2(16),CO2(19)    
+       WRITE(5,14)H2OV(20),H2OV(4),H2OV(8),H2OV(9),H2OV(16),H2OV
+     1(19)      
+       WRITE(5,9)TG(20),      TG(4),TG(8),TG(9),TG(16),TG(19)   
+       WRITE(5,15)      
+       WRITE(5,9  )TL(20),      TL(4),TL(8),TL(9),TL(16),TL(19) 
+      WRITE(5,10) DEBIT(1),DEBIT(2),DEBIT(1),DEBIT(1),DEBIT(2)  
+       WRITE(5,11)K2(20),      K2(4),K2(8),K2(9),K2(16),K2(19)  
+       WRITE(5,12)KH(20),      KH(4),KH(8),KH(9),KH(16),KH(19)  
+       WRITE(5,13)H2O(20),       H2O(4),H2O(8),H2O(9),H2O(16),H2O(19)   
+       WRITE(5,15)      
+ 5     FORMAT(1H1,105(1H*))     
+ 6     FORMAT(1H ,'* CO2   KMOL/H'6(1XF8.2),' *')
+ 7    FORMAT(' *'7X'UNITES   ENTREE    SEMI    SORTIE   ENTREE   SEMI'
+     15X'FOND   *')
+ 8     FORMAT(1H ,'*'14X' ABSORB    REGEN   ABSORB   DESORPT  REGEN',
+     13X'DESORPT *')
+ 9     FORMAT(1H ,'* TEMP  DEG.C ',6(1XF8.2),' *')
+ 10    FORMAT(1H ,'* DEB L M3/H  ',9X,5(1X,F8.2),' *')
+ 11    FORMAT(1H ,'* K2CO3 KMOL/H',6(1XF8.2),' *')
+ 12    FORMAT(1H ,'* KHCO3 KMOL/H',6(1XF8.2),' *')
+ 13    FORMAT(1H ,'* H20   KMOL/H',6(1X,F8.2),' *')
+ 14    FORMAT(1H ,'* H2OV  KMOL/H',6(1X,F8.2),' *')
+ 15    FORMAT(/)
+       WRITE(5,72)A     
+      IF(A-0.001)56,57,57       
+ 57    VKH19=KH(19)*22.4/DEBIT(2)       
+       WRITE(5,70)      
+       GO TO 60 
+   56 WRITE(5,71)       
+   70 FORMAT(' L UNITE EST INCAPABLE DE DECARBONATER CORRECTEMENT LE ',
+     1'GAZ'/' SORTANT DES CONVERTISSEURS.IL FAUT MODIFIER SON REGIME.')
+   71 FORMAT(1H ,32HL'UNITE FONCTIONNE CORRECTEMENT.)   
+ 72    FORMAT(1H0,4HTAUX,1X,2HDE,1X,6HCO2(8),1X,1H=,F7.5)       
+ 60   WRITE(5,115)      
+ 114   FORMAT(1H0,2F12.8,7F12.6)
+ 115   FORMAT(1H0,1X,40(1H*)//,10H RESULTATS,1X,2HDE,1X,7HL UNI
+     1TE,1X,8HBENFIELD,1X,10HSTABILISEE/////)
+ 116   FORMAT(1H0,118(1H*))     
+ 117   FORMAT(' NI  TEMP.L TEMP.G  H2OV    CO2    K2     KH    H2OL  ',
+     1' PE    ENGOR  FRACT')
+ 118   FORMAT(1H ,3X,2(' DEG.C '),5(' KMOL/H'),'  BARS    RAP   RAP')
+ 119   FORMAT(/)
+       WRITE(5,117)     
+       WRITE(5,118)     
+       WRITE(5,119)     
+       DO 404 I=20,23   
+       FRACT=2.*KH(I)/(2.*KH(I)+K2(I))  
+      WRITE(5,113)I,TL(I),TG(I),H2OV(I),CO2(I),K2(I),KH(I),H2O(I)       
+     1,PE(I),RAP(I),FRACT       
+  404 CONTINUE  
+       DO 405 I=1,19    
+       FRACT=2.*KH(I)/(2.*KH(I)+K2(I))  
+      WRITE(5,113)I,TL(I),TG(I),H2OV(I),CO2(I),K2(I),KH(I),H2O(I)       
+     1,PE(I),RAP(I),FRACT       
+       IF(I.EQ.8)WRITE(5,119)   
+ 405   CONTINUE 
+ 113   FORMAT(1H ,I2,1X,6(F7.1),F8.1,F7.3,2(F6.3))
+       WRITE(5,119)     
+       FRACT=YMAX1      
+       A=0.2    
+       WRITE(5,82)      
+       LLL=0
+ 407   CONTINUE 
+       LLL=LLL+1
+5001   FORMAT(///4X,'  .00       .20       .40       .60       .80'
+     1 '      1.00',/,4X,'0-',5('I---------'),'I')
+       GO TO (5901,5902,5903,5904,5905),LLL
+5901   IC(1)=1
+       IC(2)=2
+        WRITE(5,5001)
+       CALL COURBE(2,IT,IC,IP)
+        GO TO 6000
+5902   IC(1)=3
+       IC(2)=4
+       IC(3)=5
+        WRITE(5,5001)
+       CALL COURBE(3,IT,IC,IP)
+       GO TO 6000
+5903   IC(1)=6
+       IC(2)=7
+       IC(3)=8
+        WRITE(5,5002)
+5002    FORMAT(///6X,'.60       .80      1.00      1.20      1.40',
+     1 6X'1.60',/,4X,'0-',5('I---------'),'I')
+       CALLCOURBE(3,IT,IC,IP)
+       GO TO 6000
+5904   IC(1)=9
+       IC(2)=10
+       IC(3)=11
+        WRITE(5,5002)
+       CALL COURBE(3,IT,IC,IP)
+       GO TO 6000
+5905   IC(1)=12
+       IC(2)=13
+       IC(3)=14
+        WRITE(5,5001)
+       CALL COURBE(3,IT,IC,IP)
+6000   CONTINUE
+       GO TO (431,432,433,434,439),LLL
+ 431   WRITE(5,435)X1,X2
+ 435   FORMAT(1H0,1X,7HCO2(8):,5X,11HCOURBE EN *,3X,1H,,3X,9HORDONNEES,
+     11X,12HA MULTIPLIER,1X,3HPAR,F5.0,1X,8HKMOLES/H/,2X,7HCO2(9):,8
+     2X,1H-,3X,1H-,2X,1H+,3X,1H,,7X,1H-,5X,1H-,5X,1H-,7X,1H-,F6.0,5X,1H-
+     3) 
+       WRITE(5,89)H2,CO,CO2(20),CH4,H2OE,TE,BY  
+       WRITE(5,91)      
+       FRACT=YMAX1      
+       GO TO 407
+ 432   WRITE(5,436)X3,X4,X3     
+ 436   FORMAT(1H0,1X,7HKH(4) :,5X,11HCOURBE EN *,3X,1H,,3X,9HORDONNEES,
+     11X,12HA MULTIPLIER,1X,3HPAR,F6.0,1X,8HKMOLES/H/,2X,7HKH(19):,8
+     2X,1H-,3X,1H-,2X,1H+,3X,1H,,7X,1H-,5X,1H-,5X,1H-,7X,1H-,F7.0,5X,1H-
+     3      /,2X,7HKH(20):,8
+     4X,1H-,3X,1H-,2X,1HO,3X,1H,,7X,1H-,5X,1H-,5X,1H-,7X,1H-,F7.0,5X,1H-
+     5) 
+       WRITE(5,89)H2,CO,CO2(20),CH4,H2OE,TE,BY  
+       FRACT=YMAX2      
+       A=20.    
+       WRITE(5,92)      
+       GO TO 407
+ 433   WRITE(5,437)YMAX1,YMAX1,YMAX1    
+ 437   FORMAT(1H0,1X,7HTL(19):,5X,11HCOURBE EN *,3X,1H,,3X,9HORDONNEES,
+     11X,12HA MULTIPLIER,1X,3HPAR,F3.0,1X,8HDEGRES C/,2X,7HTL(20):,8
+     2X,1H-,3X,1H-,2X,1H+,3X,1H,,7X,1H-,5X,1H-,5X,1H-,7X,1H-,F4.0,5X,1H-
+     3      /,2X,7HTL(4) :,8
+     4X,1H-,3X,1H-,2X,1HO,3X,1H,,7X,1H-,5X,1H-,5X,1H-,7X,1H-,F4.0,5X,1H-
+     5) 
+       WRITE(5,89)H2,CO,CO2(20),CH4,H2OE,TE,BY  
+       WRITE(5,93)      
+       FRACT=YMAX2      
+       GO TO 407
+ 434   WRITE(5,438)YMAX1,YMAX1,YMAX1    
+ 438   FORMAT(1H0,1X,7HTG(9) :,5X,11HCOURBE EN *,3X,1H,,3X,9HORDONNEES,
+     11X,12HA MULTIPLIER,1X,3HPAR,F3.0,1X,8HDEGRES C/,2X,7HTG(8) :,8
+     2X,1H-,3X,1H-,2X,1H+,3X,1H,,7X,1H-,5X,1H-,5X,1H-,7X,1H-,F4.0,5X,1H-
+     3      /,2X,7HTG(20):,8
+     4X,1H-,3X,1H-,2X,1HO,3X,1H,,7X,1H-,5X,1H-,5X,1H-,7X,1H-,F4.0,5X,1H-
+     5) 
+       WRITE(5,89)H2,CO,CO2(20),CH4,H2OE,TE,BY  
+       FRACT=YMAX1      
+       A=0.2    
+       WRITE(5,94)      
+       GO TO 407
+ 439   A=X3*10. 
+       WRITE(5,440)A,A,A
+ 440   FORMAT(1H0,1X, 6HH2O(8) ,7X,1H:,5X,11HCOURBE EN *,3X,1H,,3X,    
+     1 9HORDONNEES,1X,12HA MULTIPLIER,1X,3HPAR,1X,F6.0,1X,8HKMOLES/H/  
+     2 ,2X,7HH2O(20),6X,1H:, 8X,1H-,3X,1H-,2X,1H+,3X,1H,,7X,1H-,5X, 
+     3 1H-,5X,1H-,7X,1H-,F7.0,5X,1H-/   
+     4 ,2X,14HH2O(16)*(1-F):,8X,1H-,3X,1H-,2X,1H+,3X,1H,,7X,1H-,5X, 
+     5 1H-,5X,1H-,7X,1H-,F7.0,5X,1H-)   
+       WRITE(5,89)H2,CO,CO2(20),CH4,H2OE,TE,BY  
+ 89    FORMAT(1H0,1X 3HH2=,F8.2,1X,4HKM/H,2X,3HCO=,F4.1,1X,4HKM/H,2X,8HC
+     1O2(20)=,F6.1,1X,4HKM/H,2X,4HCH4=,F5.1,1X,4HKM/H/2X,5HH2OE=,F7.1,1X
+     2,4HKM/H,2X,3HTE=,F6.1,1X,6HDEGRES,2X,4HB-P=,F6.3) 
+ 82    FORMAT(1H1,2X,6HDEBITS,1X,2HDE,1X,3HCO2,1X,2HEN,1X,6HSORTIE,1X, 
+     11H:/,2X,10HABSORPTION,1X,8HCO2(8):*,/,2X,12HREGENERATION,1X,  
+     28HCO2(9):+)       
+ 91    FORMAT(1H1, 2X,6HDEBITS,1X,9HCARBONATE,1X,5HACIDE,1X,1H:/,2X,
+     117HSEMI-REGENERATION, 1X,7HKH(4):*,/,2X,4HFOND,1X,   
+     212HREGENERATION,1X,8HKH(19):+,/,2X,4HFOND,1X,10HABSORPTION,  
+     31X,8HKH(20):O)    
+ 92    FORMAT(1H1, 2X,10HEVOLUTIONS,1X,12HTEMPERATURES,1X,8HLIQUIDES,1X,
+     11H:,/,2X,4HFOND,1X,12HREGENERATION,1X,8HTL(19):*,/,2X,4HFOND,  
+     21X,10HABSORPTION,1X,8HTL(20):+,/,2X,17HSEMI-REGENERATION,1X, 
+     37HTL(4):O)
+ 93    FORMAT(1H1,2X,10HEVOLUTIONS,1X,12HTEMPERATURES,1X,3HGAZ,1X,1H:/ 
+     12X,4HTETE,1X,12HREGENERATION,1X,7HTG(9):*,/,2X,4HTETE,1X,    
+     210HABSORPTION,1X,7HTG(8):+,/,2X,4HFOND,1X,10HABSORPTION,1X,  
+     38HTG(20):O)       
+ 94    FORMAT(1H1,2X,6HDEBITS,1X,9HSOLUTIONS,1X,1H:,/,2X,4HFINE,1X,       
+     1 8HH2O(8):*,/,2X,6HTOTALE,1X,9HH2O(20):+,/,2X,
+     2 13H1/2 REGENEREE,1X,15HH2O(16)*(1-F):O)  
+       M=200    
+       CALL VTAB2(YMAX1,YMAX2,PAS1,PAS2,M1,X1,X2,X3,X4)  
+       WRITE(5,89)H2,CO,CO2(20),CH4,H2OE,TE,BY  
+       LLL=6    
+       READ(22,1)H2OE,TE,BY,EFEC 
+       READ(22,1)(DEBIT(I),I=1,2) 
+       READ(22,1)H2,CO,CH4,CO2(20)
+      GO TO 52  
+ 101   CONTINUE 
+      END       
+       SUBROUTINE COURBE(N,IT,IC,IP)
+       INTEGER IT(14,100),IC(4),X(51),I1(4)
+       DIMENSION IVAL(0/9)
+       DATA IVAL/1HH,1H*,1HA,1HB,1HC,1H+,1HD,1HE,1HO,1HF/
+       IB=1H 
+       DO 10 I=1,51
+10     X(I)=IB
+       DO 50 K=1,IP
+       IMAX=0
+       DO 25J=1,N
+       I1(J)=IT(IC(J),K)/10
+       IA=IT(IC(J),K)-I1(J)*10
+       I1(J)=51-I1(J)
+       IF(I1(J).GT.IMAX)IMAX=I1(J)
+       X(I1(J))=IVAL(IA)
+       IZ=K-10*(K/10)
+       IF (IZ.EQ.0) GO TO 48
+       WRITE(5,1000)(X(I),I=1,IMAX)
+        GO TO 49
+48     WRITE(5,1001)K,(X(I),I=1,IMAX)
+49     CONTINUE
+       DO 40 J=1,N
+40     X(I1(J))=IB
+50     CONTINUE
+       WRITE(5,1100)
+1000   FORMAT(1H ,5X,'.',51A1)
+1001   FORMAT(1H ,I5,'-',51A1)
+1100   FORMAT(////)
+       RETURN
+       END
+      SUBROUTINE TRANS  
+      REAL K2,KH,LMC0,LMC1      
+      DIMENSION TL(23),TG(23),K2(23),KH(23),H2O(23),H2OV(25),CO2(23)    
+      DIMENSION CG(4),SE(3),ALON(5),DEBIT(2),PE(23)
+       DIMENSION RAP(23)
+      COMMON TL,TG,K2,KH,H2O,H2OV,CO2,CO,CH4,H2,DEBIT,M,CG,CL,PE,ALON,SE
+     1,H2OE,TE,BY,EFEC,RAP      
+       COMMON/TCO2/CO2AV(24)    
+      DATA RHOL/1.24E+03/,D1/1.25E+01/,D2/2.42E-03/     
+ 999   FORMAT(1H ,20X,13HPASSAGE TRANS,I5)      
+ 998   FORMAT(1H ,7HVALEURS,4(F15.5,5X))
+      IF(M-19)100,101,101       
+  101 S=SE(1)   
+      CG1=CG(1) 
+      DEB=DEBIT(1)      
+      ALONG=ALON(1)/3.  
+      P=PE(M)   
+      AAA=1.0   
+      I=M       
+      J=M+1     
+      GO TO 13  
+  100 IF(M-3)1,1,2      
+    1 S=SE(1)   
+      CG1=CG(1) 
+      DEB=DEBIT(1)      
+      ALONG=2.*ALON(1)/3.       
+      P=PE(M)   
+      AAA=1.0   
+      I=M       
+      J=M+1     
+      GO TO 13  
+    2 IF(M-8)6,7,7      
+    6 S=SE(2)   
+      CG1=CG(2) 
+      DEB=DEBIT(2)      
+      ALONG=ALON(2)     
+      P=PE(M)   
+      AAA=1.0   
+      I=M       
+      J=M+1     
+      GO TO 13  
+    7 REF=H2OV(9)-H2OV(20)+H2OV(8)      
+      K2(9)=K2(20)      
+      KH(9)=KH(20)      
+       PTT=TG(9)
+       TT=PTT+0.4
+       CAA=9.65*CO2(9)+8.1*H2OV(9)      
+       H2OV9=H2OV(9)
+      DO 4 I=1,60       
+      TT=TT-0.4 
+      PVS1=(TT/PTT)
+       PVS1=PVS1*PVS1
+       PVS1=PVS1*PVS1
+      H2OS=H2OV9*PVS1
+       S1=H2OV9-H2OS
+       CHAL=9.35E+03*S1
+       CAB=9.65*CO2(9)+8.1*H2OS 
+      TTT=(CAA*PTT+1.368E+03*REF+CHAL)/(CAB+18.*(REF+S1))
+      TTB=ABS(TT-TTT)   
+      IF(TTB/TT-0.01)3,4,4      
+    4 CONTINUE  
+ 3     H2O(9)=H2O(20)+REF       
+      CS=0.72*RHOL*DEBIT(1)     
+       TL(9)=(18.*REF*TT+CS*TL(20))/(CS+18.*REF)
+    9 IF(M-12)11,11,12  
+   11 S=SE(3)   
+      CG1=CG(3) 
+      ALONG=ALON(3)     
+      DEB=DEBIT(1)      
+      P=PE(M)   
+      J=M       
+      I=M+1     
+      AAA=0.0   
+      GO TO 13  
+   12 IF(M-15)18,18,19  
+   18 S=SE(3)   
+      CG1=CG(3) 
+      DEB=DEBIT(1)      
+      ALONG=ALON(4)     
+      P=PE(M)   
+      AAA=0.0   
+      J=M       
+      I=M+1     
+      GO TO 13  
+   19 F=DEBIT(2)/DEBIT(1)       
+      K2(17)=K2(16)*F   
+      KH(17)=KH(16)*F   
+      H2O(17)=H2O(16)*F 
+      TL(17)=TL(16)     
+      S=SE(3)   
+      CG1=CG(4) 
+      DEB=DEBIT(2)      
+      ALONG=ALON(5)     
+      P=PE(M)   
+      AAA=0.0   
+      J=M       
+      I=M+1     
+   13 AL=K2(J)+KH(J)+H2O(J)     
+      GAZ=CO+H2+CH4     
+      GAZM=2.*H2+16.*CH4+28.*CO 
+      DG1=CO2(I)+H2OV(I)+AAA*GAZ      
+      GM=44.*CO2(I)+18.*H2OV(I)+AAA*GAZM
+      ALM=RHOL*DEB      
+      ANBMU=D1*P/(273.1+TG(I))  
+      RHOG=ANBMU*GM/DG1       
+      BBL=0.03*ALM      
+       S2=3600.*S
+      BL=BBL/S2
+      DDG=GM/S2
+       DPP=10.**BL      
+       DP=DPP*(DDG*DDG)/RHOG    
+      DP=ALONG*DP/760.  
+      IF(J-20)403,400,400       
+  403 IF(J-9)400,401,401
+  400 PE(J)=PE(J-1)-DP  
+      P=PE(J)   
+      GO TO 402 
+  401 PE(I)=P+DP
+      P=PE(I)   
+  402 CONTINUE  
+      U=D2*DG1/(S*ANBMU)      
+      A=AL/DG1
+      B=RHOG/RHOL       
+      BB = SQRT(B)      
+      D=A*B     
+      CC=SQRT(BB)       
+      CCC = SQRT(CC)    
+      E = 1.144-1.75*CCC-ALOG10(D)      
+      UE = 10.**(E/2.)  
+       RAP(M)=U/UE      
+       IF(RAP(M)-1.)89,90,90    
+ 90    IF(M.EQ.9)WRITE(6,91)RAP(M)      
+ 91    FORMAT(1H ,27HIL Y A MENACE D ENGORGEMENT,5X,5HRAP =,F8.4)       
+ 89    RAPT=RAP(M)*RAP(M)
+       RAPT=RAPT*RAPT
+       RAPT=RAPT*RAPT
+      RAPP = 1+RAPT     
+      FRACT = 2.*KH(J)/(2.*KH(J)+K2(J)) 
+      ST = 0.0120 -1.15E-05*(TL(J)-75)  
+      FRAC2=FRACT*FRACT
+      PCO2E=0.05*FRAC2/(ST*(1.-FRACT)*(185.-TL(J)))     
+      PCO2=CO2(I)*P/DG1       
+      GMC0=GM/(900.*S)  
+      GMC1=SQRT(GMC0)   
+      GMC=SQRT(GMC1)    
+      LMC0=ALM/(2700.*S)
+      LMC1=SQRT(LMC0)   
+      RHO=RHOL/RAPP     
+      DIF2=SQRT(LMC1/RHO)
+      DIF=(RHOG/RAPP)**(0.6666666666)
+      CTG=(CG1*GMC)/DIF 
+      CTL = (CL*DIF2)
+      IF(FRACT)84,84,85 
+   84 PENTE=0.0 
+      GO TO 86  
+   85 PENTE =(PCO2E/P)/FRACT    
+   86 COEF1 = CTG+(PENTE*DG1*CTL)/AL  
+      COEFF = GM/(44.*(P*COEF1))
+       COEFF=COEFF*EFEC 
+       ST=1.+ALONG*COEFF*P/DG1
+       ST=1./ST 
+       CO2(I)=0.5*(CO2(I)+CO2AV(I) )
+       CO2AV(I)=CO2(I)  
+       CO2(J)=CO2(I)*ST+(1.-ST)*DG1/P*PCO2E   
+       DCO2=CO2(I)-CO2(J)       
+      K2(I)=K2(J)-DCO2  
+      KH(I)=KH(J)+2.*DCO2         IF(CO2(J))80,81,81
+   80 CO2(J)=0.0
+      DCO2=CO2(I)       
+      KH(I)=KH(J)+2.*DCO2       
+      K2(I)=K2(J)-DCO2  
+       IF(K2(I))88,88,81
+ 88    WRITE(6,71)      
+   71 FORMAT(1H ,113HL'UNITE EST INCAPABLE DE DECARBONATER CORRECTEMENT 
+     1LE GAZ SORTANT DES CONVERTISSEURS.IL FAUT MODIFIER SON REGIME.)   
+   81 IF(KH(I))82,83,83 
+   82 KH(I)=0.0 
+      DCO2=-KH(J)/2.    
+      CO2(J)=CO2(I)-DCO2
+      K2(I)=K2(J)-DCO2  
+   83 H2OV(J)=H2OV(I)   
+       CHAL1=6.35E+03*DCO2
+       CA=6.9*H2+7.*CO+9.25*CH4
+       CA1=CA*AAA
+       CV1=9.65*CO2(I)+8.1*H2OV(I)+CA1
+       CV20=9.65*CO2(J)+CA1
+       CS=0.72*ALM
+70     XXX=H2OV(I)-H2OV(J)
+      DG2=DG1-DCO2-XXX
+      H2O(I)=H2O(J)-DCO2 +XXX
+      CHAL=CHAL1+ 9.35E+03*XXX
+      CV2=CV20+8.1*H2OV(J)
+      TS=(CS*TL(J)+CV1*TG(I)+CHAL)/(CS+CV2) 
+      PVS=(TS/100.)
+       PVS=PVS*PVS
+       PVS=PVS*PVS
+      PH2O = H2OV(J)*P/DG2    
+      IF(PH2O - PVS)5,5,60      
+   60 H2OV(J)=PVS*DG2/P       
+      GO TO 70  
+    5 TL(I)=TS  
+      TG(J)=TS  
+      RETURN    
+      END       
+       SUBROUTINE CALVAP(H2OE,TE,ZK,PV,TEXT,BY,H2OS,TS) 
+      REAL K2,KH
+      DIMENSION TL(23),TG(23),K2(23),KH(23),H2O(23),H2OV(25),CO2(23)    
+      DIMENSION CG(4),SE(3),ALON(5),DEBIT(2),PE(23),DG(2)       
+      COMMON TL,TG,K2,KH,H2O,H2OV,CO2,CO,CH4,H2,DEBIT,M,CG,CL,PE,ALON,SE
+       TS=TE    
+       IF(H2OE.EQ.0.)GO TO 300  
+       C=1.-BY  
+       CAP=(6.9*H2+9.25*CH4+9.65*CO2(20)+7.0*CO)*C      
+       DO 100 I=1,120   
+       TS=TS-0.5
+      PVS=(TS/100.0)**4 
+      H2OS=(H2+CO+CH4+CO2(20))*(PVS/(PV-PVS))*C 
+       IF(H2OS.GE.H2OE)H2OS=H2OE
+      A=(CAP+8.1*H2OE)*TE+9.35E+03*(H2OE-H2OS)  
+      B=(CAP+8.1*H2OS)*TS+ZK*((TE+TS)/2.-TEXT)  
+       IF(TS.LT.TEXT)GO TO 200  
+       IF(A.GE.B)GO TO 200      
+  100 CONTINUE  
+ 200   CONTINUE 
+       RETURN   
+ 300   H2OS=H2OE
+       RETURN   
+       END      
+       SUBROUTINE CULVAP(H2OE1,TE1,PV,H2OS,TS)  
+      REAL K2,KH
+      DIMENSION TL(23),TG(23),K2(23),KH(23),H2O(23),H2OV(25),CO2(23)    
+      DIMENSION CG(4),SE(3),ALON(5),DEBIT(2),PE(23),DG(2)       
+      COMMON TL,TG,K2,KH,H2O,H2OV,CO2,CO,CH4,H2,DEBIT,M,CG,CL,PE,ALON,SE
+     1,H2OE,TE,BY       
+       H2OE2=H2OE*BY    
+      CAP =6.9*H2+9.25*CH4+9.65*CO2(20)+7.0*CO  
+       A=(CAP*BY+8.1*H2OE2)*TE+(CAP*(1.-BY)+8.1*H2OE1)*TE1      
+       TS=TE1-0.5       
+       DO 100 I=1,120   
+       TS=TS+0.5
+      PVS=(TS/100.0)**4 
+      H2OS=(H2+CO+CH4+CO2(20))*(PVS/(PV-PVS))   
+       IF(H2OS.GT.H2OE)H2OS=H2OE
+       QVAP=H2OS-H2OE1-H2OE2    
+       B=(CAP+8.1*H2OS)*TS+9.35E+03*QVAP
+       IF(B.GE.A)GO TO 200      
+ 100   CONTINUE 
+ 200   CONTINUE 
+       RETURN   
+       END      
+       SUBROUTINE DEBVAP
+      REAL K2,KH
+      DIMENSION TL(23),TG(23),K2(23),KH(23),H2O(23),H2OV(25),CO2(23)    
+      DIMENSION CG(4),SE(3),ALON(5),DEBIT(2),PE(23),DG(2)       
+      COMMON TL,TG,K2,KH,H2O,H2OV,CO2,CO,CH4,H2,DEBIT,M,CG,CL,PE,ALON,SE
+     1,H2OE,TE,BY,EFEC  
+       COMMON /A/ZK,PV,TEXT,TEXT1,PV1,ZK1
+       M=-1     
+       READ(22,1)H2OE,TE,ZK,PV,TEXT     
+       READ(22,1)TEXT1,PV1,ZK1,EFEC     
+1      FORMAT(5F)
+       RETURN   
+       END
+       SUBROUTINE VAPOR1
+      REAL K2,KH
+      DIMENSION TL(23),TG(23),K2(23),KH(23),H2O(23),H2OV(25),CO2(23)    
+      DIMENSION CG(4),SE(3),ALON(5),DEBIT(2),PE(23),DG(2)       
+      COMMON TL,TG,K2,KH,H2O,H2OV,CO2,CO,CH4,H2,DEBIT,M,CG,CL,PE,ALON,SE
+     1,H2OE,TE,BY,EFEC  
+       COMMON /A/ZK,PV,TEXT,TEXT1,PV1,ZK1
+       H2OE1=H2OE*(1.-BY)       
+       CALL CALVAP(H2OE1,TE,ZK,PV,TEXT,BY,H2OS1,TS1)    
+       CALL CULVAP(H2OS1,TS1,PV,H2OS,TS)
+       F308=H2OE-H2OS   
+       CALL CALVAP(H2OS,TS,ZK1,PV1,TEXT1,0.,H2OV(20),TG(20))    
+       QE=H2OS-H2OV(20) 
+       DEB=DEBIT(1)-DEBIT(2)    
+       WRITE(5,23)H2,CO,CO2(20),CH4,H2OE,TE,BY,DEBIT(2),DEB
+       WRITE(5,231)TL(8)
+       WRITE(5,25)EFEC  
+       WRITE(5,24)TS,H2OS,F308,QE       
+ 23    FORMAT(1H0,8HDONNEES://,2X,7H-CHARGE,1X,7HGAZEUSE, 
+     11X,1HA,1X,8HL ENTREE//,5X,6H-H2  =,F9.2,1X,8HKM
+     2OLES/H/,5X,6H-CO  =,F9.2,5X,1H-/,5X,6H-CO2 =,F9.2,5X,1H-/
+     3,5X,6H-CH4 =,F9.2,5X,1H-/,5X,6H-H2OE=,F9.2,5X,1H-//,
+     42X,   12H-TEMPERATURE,1X,8HD ENTREE//,5X,6H-T
+     5E  =  ,F9.2,1X,8HDEGRES C//       
+     5,2X,12H-BY-PAS C309//,5X,6H-BP  =,F9.4//   
+     6,2X,7H-DEBITS/,/,5X,9H-SOLUTION,1X,4HFINE,11X
+     7,1H=,F7.2,1X,4HM3/H/,5X,9H-SOLUTION,1X,14HSEMI-REGENEREE,1X,1H
+     8=,F7.2,2X,1H-//)
+231    FORMAT(1H ,
+     92X,7H-ALLURE,1X,3HDES,1X,16HAEROREFRIGERANTS//
+     1,5X,10H-ABSORBEUR,4X,1H:,1X,4H100%,2X,1H,2X,11HTEMPERATURE,1X
+     2,1H=,F6.1,1X,8HDEGRES C/,5X,13H-REGENERATEUR,1X,1H:,3X,1H-,3X,
+     31H,14X,1H=,      4X,   //
+     4,2X,11H-EFFICACITE,1X,2HDE,1X,15HDECARBONATATION,1X,7HMAXIMUM,
+     51X,7HDESIREE/     
+     6,/,5X,7H-CO2(8),1X,6HSORTIE,1X,1H/,1X,3HGAZ,1X,
+     75HTOTAL,1X,1H=,1X,5H0.001)
+ 25    FORMAT(1H ,5X,19H-EFFICACITE ECHANGE,8X,1H=,F6.3)       
+ 24    FORMAT(1H1,10HRESULTATS://
+     1,2X,6HSORTIE,1X,9HCHAUDIERE,1X,4HC309,//
+     2,5X,2HTS,8X,1H=,4X,F8.2,1X,8HDEGRES C,/
+     35X,4HH2OV,6X,1H=,4X,F8.2,1X,8HKMOLES/H,/
+     4//2X,'VAPEUR CONDENSEE',//
+     6,5X,3HEAU,1X,3HPAR,1X,4HF308,1H=,4X,F8.2,1X,8HKMOLES/H,/
+     7,5X,3HEAU,1X,3HPAR,1X,4HF304,1H=,4X,F8.2,5X,1H-,///)
+       T=(TS-TG(20))/9.35E+03   
+       H2OV(25)=QE+(6.9*H2+7.0*CO+9.25*CH4+9.65*CO2(20)+8.1*H2OS)*T+QE* 
+     1TG(20)/9.35E+03   
+       IF(M.NE.-1)GO TO 300     
+      DO 40 K=9,18      
+      H2OV(K)=H2OV(25)  
+   40 CONTINUE  
+       H2OV(24)=H2OV(25)
+ 300   RETURN   
+       END      
+      SUBROUTINE VAPOR  
+      REAL K2,KH
+      DIMENSION TL(23),TG(23),K2(23),KH(23),H2O(23),H2OV(25),CO2(23)    
+      DIMENSION CG(4),SE(3),ALON(5),DEBIT(2),PE(23),DG(2)       
+      COMMON TL,TG,K2,KH,H2O,H2OV,CO2,CO,CH4,H2,DEBIT,M,CG,CL,PE,ALON,SE
+      FRACT=2.*KH(19)/(2.*KH(19)+K2(19))
+      FRAC2=FRACT**2    
+      PCO2E=1.50E-02*FRAC2/(1.-FRACT)   
+       TT=TL(19)
+       QQ=0.    
+ 302   IF(TT-113.)300,301,301   
+ 300   QQ=QQ+10.
+       CS=0.72*DEBIT(2)*1.24*10**3      
+       CHAL=9.35E+03*QQ 
+       TT=(CS*TL(19)+CHAL)/CS   
+       GO TO 302
+ 301   H2OV(19)=H2OV(25)-QQ     
+       IF(H2OV(19).LT.1.)H2OV(19)=1.    
+      CO2(19)=H2OV(19)*PCO2E/(PE(19)-PCO2E)     
+       IF(M.EQ.-1 )CO2(18)=CO2(19)      
+       RETURN   
+      END       
+       SUBROUTINE VTAB(YMAX1,YMAX2,PAS1,PAS2,M1,X1,X2,X3,X4)    
+      INTEGER IT(14,100)
+       REAL K2,KH       
+      DIMENSION TL(23),TG(23),K2(23),KH(23),H2O(23),H2OV(25),CO2(23)    
+      DIMENSION CG(4),SE(3),ALON(5),DEBIT(2),PE(23),DG(2)       
+       DIMENSION RAP(23)
+      COMMON TL,TG,K2,KH,H2O,H2OV,CO2,CO,CH4,H2,DEBIT,M,CG,CL,PE,ALON,SE
+     1,H2OE,TE,BY,EFEC,RAP,IT   
+       I1=(YMAX1-CO2(8)/X1)/PAS1
+       I2=(YMAX1-CO2(9)/X2)/PAS1
+       I3=0     
+       I4=0     
+       CALL VLIM(I1,I2,I3,I4,M1,IVAL1,IVAL2,IVAL3,IVAL4)
+       IT(1,M)=I1*10+IVAL1
+       IT(2,M)=I2*10+IVAL2
+       I1=(YMAX1-KH(4)/X3)/PAS1 
+       I2=(YMAX1-KH(19)/X4)/PAS1
+       I3=(YMAX1-KH(20)/X3)/PAS1
+       CALL VLIM(I1,I2,I3,I4,M1,IVAL1,IVAL2,IVAL3,IVAL4)
+       IT(3,M)=I3*10+IVAL3
+       IT(4,M)=I2*10+IVAL2
+       IT(5,M)=I1*10+IVAL1
+       I1=(YMAX2-TL(19))/PAS2   
+       I2=(YMAX2-TL(20))/PAS2   
+       I3=(YMAX2-TL(4))/PAS2    
+       CALL VLIM(I1,I2,I3,I4,M1,IVAL1,IVAL2,IVAL3,IVAL4)
+       IT(6,M)=I3*10+IVAL3
+       IT(7,M)=I2*10+IVAL2
+       IT(8,M)=I1*10+IVAL1
+       I1=(YMAX2-TG(9))/PAS2    
+       I2=(YMAX2-TG(8))/PAS2    
+       I3=(YMAX2-TG(20))/PAS2   
+       CALL VLIM(I1,I2,I3,I4,M1,IVAL1,IVAL2,IVAL3,IVAL4)
+       IT(9,M)=I3*10+IVAL3
+       IT(10,M)=I2*10+IVAL2
+       IT(11,M)=I1*10+IVAL1
+       I1=(YMAX1-H2O(8)/X3/10.)/PAS1    
+       I2=(YMAX1-H2O(20)/X3/10.)/PAS1   
+       I3=(YMAX1-H2O(16)*(1.-DEBIT(2)/DEBIT(1))/X3/10.)/PAS1    
+       CALL VLIM(I1,I2,I3,I4,M1,IVAL1,IVAL2,IVAL3,IVAL4)
+       IT(12,M)=I3*10+IVAL3
+       IT(13,M)=I2*10+IVAL2
+       IT(14,M)=I1*10+IVAL1
+ 50    RETURN   
+       END      
+       FUNCTION ILIM(I,M)       
+       IF(I.LT.1)I=M+I  
+       ILIM=I+1 
+       IF(ILIM.GT.M)ILIM=M      
+       RETURN   
+       END      
+       SUBROUTINE VLIM(I1,I2,I3,I4,M1,IVAL1,IVAL2,IVAL3,IVAL4)  
+       IVAL2=5  
+       IVAL1=1  
+      I1=ILIM(I1,M1)    
+       I2=ILIM(I2,M1)   
+       IF(I1.EQ.I2)IVAL1=2      
+       IF(I3.EQ.0)GO TO 10      
+       IVAL3=8  
+       I3=ILIM(I3,M1)   
+       IF(I2.EQ.I3)IVAL2=6      
+       IF(I1.EQ.I3)IVAL1=3      
+       IF(I4.EQ.0)GO TO 10      
+       IVAL4=0
+       I4=ILIM(I4,M1)   
+       IF(I3.EQ.I4)IVAL3=9      
+       IF(I2.EQ.I4)IVAL2=7      
+       IF(I1.EQ.I4)IVAL1=4      
+ 10    RETURN   
+       END      
+       SUBROUTINE VTAB2(YMAX1,YMAX2,PAS1,PAS2,M1,X1,X2,X3,X4)    
+      INTEGER IT(14,100),IVAL(0/9),IC(4),III(4),IN(25),X(51)
+       DATA IVAL/1HH,1H*,1HA,1HB,1HC,1H+,1HD,1HE,1HO,1HF/
+       DATA  IM/1H-/,IB/1H /
+       DATA IN/3H20-,3H  .,3H  .,3H23-,3H 1-,3H  .,3H  .,3H 4-,3H  .,
+     1 3H  .,3H  .,3H 8-,3H   ,3H   ,3H   ,3H 9-,3H  .,3H  .,3H12-,
+     2 3H  .,3H  .,3H15-,3H  .,3H  .,3H18-/
+       REAL K2,KH       
+      DIMENSION TL(23),TG(23),K2(23),KH(23),H2O(23),H2OV(25),CO2(23)    
+      DIMENSION CG(4),SE(3),ALON(5),DEBIT(2),PE(23),DG(2)       
+       DIMENSION RAP(23)
+      COMMON TL,TG,K2,KH,H2O,H2OV,CO2,CO,CH4,H2,DEBIT,M,CG,CL,PE,ALON,SE
+     1,H2OE,TE,BY,EFEC,RAP,IT   
+       WRITE(5,85)      
+ 85    FORMAT(1H1,37X,6HPROFIL,1X,2HEN,1X,4HLONG,1X,3HDES,1X,   
+     112HTEMPERATURES,1X,2HET,1X,14HCONCENTRATIONS/     
+     2,23X, 9HABSORBEUR  ,17X,12HCO2:+ , TL:*,1X,16H, KH:O , 
+     3FRACT:H,14X,12HREGENERATEUR)      
+       DO 87 I=1,4
+       DO 87 J=1,25
+       IT(I,J)=0
+ 87    CONTINUE 
+       DO 47 I=1,23     
+       I1=(YMAX1-TL(I)/X4)/PAS1 
+       I2=(YMAX1-CO2(I)/X2)/PAS1
+       I3=(YMAX1-KH(I)/X3)/PAS1 
+       I4=(YMAX1- 2.*KH(I)/(2.*KH(I)+K2(I)))/PAS1       
+       CALL VLIM(I1,I2,I3,I4,M1,IVAL1,IVAL2,IVAL3,IVAL4)
+       M=I+4    
+       IF(I.GT.8)M=I+6  
+       IF(I.GT.19)M=I-19
+       IT(1,M)=I1*10+IVAL1
+       IT(2,M)=I2*10+IVAL2
+       IT(3,M)=I3*10+IVAL3
+       IT(4,M)=I4*10+IVAL4
+ 47    CONTINUE 
+       FRACT=YMAX1      
+       M=0      
+       DO 999 I=1,4
+       IC(I)=I
+ 999   CONTINUE
+       IP=25
+ 5     FORMAT(1H0,2X,7H TL   :,5X,11HCOURBE EN *,3X,1H,,3X,9HORDONNEES,
+     11X,12HA MULTIPLIER,1X,3HPAR,F6.0,1X,8HDEGRES C/,2X,7H CO2  :,8
+     2X,1H-,3X,1H-,2X,1H+,3X,1H,,7X,1H-,5X,1H-,5X,1H-,7X,1H-,F7.0,1X,   
+     38HKMOLES/H    /,2X,7H KH   :,8
+     4X,1H-,3X,1H-,2X,1HO,3X,1H,,7X,1H-,5X,1H-,5X,1H-,7X,1H-,F7.0,5X,1H-
+     5      /,2X,7H FRACT:,8
+     6X,1H-,3X,1H-,2X,1HH,3X,1H,,7X,1H-,5X,1H-,5X,1H-,7X,1H-,F7.0,5X,1H-
+     7) 
+       DO 10 I=1,51
+10     X(I)=IB
+       DO 50 K=1,IP
+        IF(K.NE.14)GO TO 45
+        WRITE(5,1200)
+1200    FORMAT(1H ,6X,51('-'))
+        GO TO 50
+45      IMAX=0
+        DO 25 J=1,N
+       III(J)=IT(IC(J),K)/10
+       IA=IT(IC(J),K)-III(J)*10
+       III(J)=51-III(J)
+       IF(III(J).GT.IMAX)IMAX=III(J)
+25     X(III(J))=IVAL(IA)
+       WRITE(5,1000)IN(K),(X(I),I=1,IMAX)
+       DO 40 J=1,N
+40     X(III(J))=IB
+50     CONTINUE
+       WRITE(5,1100)
+       WRITE(5,5)X4,X2,X3,YMAX1
+1000   FORMAT(1H ,3X,A3,51A1//)
+1100   FORMAT(////)
+       RETURN
+       END
+ I@tÿ
