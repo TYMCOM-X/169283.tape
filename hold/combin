@@ -1,0 +1,94 @@
+PROCEDURE FRONT %COMMAND PROCESS%
+BEGIN
+        FIELD   ICOMM AS '6C',
+                IRET AS '6N',
+                ICK1 AS '6C',
+                ICK2 AS '6C',
+                ICK3 AS '6C',
+                ICK4 AS '6C',
+                ICK5 AS '6C',
+                ICK6 AS '6C',
+                ICK7 AS '6C',
+                PRT AS '5N',
+                VARNAM AS '7C',
+                TSR  AS '6N'
+        SOURCE VIN FROM 'TERMINAL' FREE FORM
+        INPUT VARNAM, CONDITIONAL ON VARNAM 
+                BEGIN
+                'ORIG   ': ORIG
+                'LOC    ': LOC
+                'CLASS  ': CLASS
+                'SOFT   ': SOFT
+                'VERSION': VERSION
+                'DESC   ': DESC
+                'DESC1  ': DESC1
+                'IDATE  ': IDATE
+                'INQA   ': INQA
+                'QAS    ': QAS
+                'QAMDATE': QAMDATE
+                'QAPROGN': QAPROGN
+                'PRIOR  ': PRIOR
+                'QAREM  ': QAREM
+                'OUTQA  ': OUTQA
+                'MSR    ': MSR
+                '       ': TSR
+                END
+        LET ICK1='ADD'
+        LET ICK2='UPDATE'
+        LET ICK3='REPORT'
+        LET ICK4='DELETE'
+        LET ICK5='QUIT'
+        LET ICK7=' '
+LAB001: BEGIN
+                TYPE ' PLEASE ENTER A MSR COMMAND',@CR
+                ACCEPT ICOMM
+                LET IRET = 1
+                IF ICOMM = ICK1 THEN WHILE IRET = 1 DO
+%PROCEDURE MAJADD   ADD TO THE TSRMSR BASE%
+LAB100: BEGIN
+        LET PRT =1
+LAB011: BEGIN
+        TYPE PRT,':'
+        ACCEPT MSR,PRIOR,IDATE,CLASS,SOFT,VERSION,ORIG,LOC,DESC,DESC1
+        IF MSR < 1 THEN FINISH LAB011 ELSE BEGIN
+        INSERT INTO MAJORDER
+        LET PRT=PRT+1
+        REPEAT LAB011
+        END
+        END
+        LET IRET=0
+        END
+        END
+        ELSE    IF ICOMM = ICK2 THEN WHILE IRET = 1 DO
+% PROCEDURE UPDATE  ALTER ROUTINE%
+LAB200: BEGIN
+LAB201:  BEGIN
+        TYPE "INPUT THE DESIRED MSR NUMBER TO BE ALTERED - ",@CR
+        ACCEPT MSR
+                SELECT MAJORDER VIA MSR THEN BEGIN
+        LET TSR=12
+LAB202:    BEGIN
+        FOR EACH VIN BEGIN
+        TYPE TSR,MSR,@CR
+        IF TSR < 1 THEN FINISH LAB202 ELSE BEGIN
+        TYPE MSR,PRIOR,IDATE,CLASS,SOFT,VERSION,ORIG,LOC,@CR,
+                INQA,QAS,OUTQA,QAMDATE,QAPROGN,QAREM,@CR,
+                DESC,DESC1,@CR
+        REPEAT LAB202
+        END
+           END
+        ALTER MAJORDER
+        REPEAT LAB201
+        END
+        END
+        LET IRET=0
+END
+        ELSE    IF ICOMM = ICK3 THEN TYPE 'REPORT' ELSE
+                IF ICOMM = ICK4 THEN TYPE 'DELETE' ELSE
+                IF ICOMM = ICK5 THEN FINISH LAB001 ELSE
+                IF ICOMM = ICK7 THEN TYPE 'NULL  ' ELSE
+                TYPE 'INVALID COMMAND - ADD,UPDATE,REPORT,DELETE,',
+                'BLANK,QUIT',@CR
+                REPEAT LAB001
+        END
+END
