@@ -1,0 +1,512 @@
+      PROGRAM GENFIT(INPUT,OUTPUT,TAPE5=INPUT,TAPE6=OUTPUT,TAPE25,TAPE27        
+     1)                                                                         
+      COMMON /BLK1/ NTAPE,CMSC,CENT,ISA,NCSM,NPLOT,NSP(10)                      
+      NTAPE=27                                                                  
+      READ (5,10) NSETS,NPLOT,NCSM                                              
+10    FORMAT(13I2)                                                              
+      IF(NPLOT.GT.0) CALL START                                                 
+      IF (NPLOT.GT.0) CALL PLOT(0.,1.,-3)                                       
+      NSTK=0                                                                    
+      DO 20 J=1,NSETS                                                           
+      CALL READLD                                                               
+20    CALL MINLSQ                                                               
+10 1  IF(NPLOT GT.0) CALL ENPLOT(3.)                                            
+      END                                                                       
+      SUBROUTI5E DPINVS(N,K,ISIG)                                               
+C DOUBLE PRECISION MARTIX INVERSION AND EQUATION SOLVING WITH SELECTIVE         
+C PIVOTING                                                                      
+C A=ORIGINAL MATRIX, AINV = INVERSE, N = NUMBER OF ROWAS OF A. B = CON          
+C STANTS OF SIMULTANEOUS EQUATIONS. SOLUTION REMAINS IN B                       
+C 2 OF -1,0, 1= INDICATES SOLVE EQUATIONS, INVERT A, BOTH, RE2P5CTIVELY         
+      COMMON A(10,10),AINV(10,10),B(10)                                         
+      ISIG=0                                                                    
+      IF(K.LT.0) GO TO 20                                                       
+      DO 15 I=1,N                                                               
+      DO 15 J=1,N                                                               
+      IF(I.EQ.J)   GO TO 10                                                     
+      AINV(I,J)=0.                                                              
+      GO TO 15                                                                  
+10    AINV(I,J)=1.                                                              
+15    CONTINUE                                                                  
+20    DO 65 L=1,N                                                               
+      C=0.                                                                      
+C DETERMINE MAX ABS OF VARIABLE TO BE ELIMINATED                                
+      DO 25 J=L,N                                                               
+      X= ABS(A(J,L))                                                            
+      IF (X.LE.C) GO TO 25                                                      
+      C=X                                                                       
+      J1=J                                                                      
+25    CONTINUE                                                                  
+C J1 IS ROW HAVING GREATEST ABS,C IS THIS VALUE                                 
+26    IF((C-1.E-10).LE.0.) GO TO 120                                            
+C INTERCHANGE ROWS L AND J1 IF THEY ARE NOT THE SAME                            
+      IF(J1.EQ.L) GO TO 40                                                      
+      DO 28 J=L,N                                                               
+      HOLD=A(L,J)                                                               
+      A(L,J)=A(J1,J)                                                            
+28    A(J1,J)=HOLD                                                              
+      IF (K.LT.0) GO TO 35                                                      
+      DO 32 J=1,N                                                               
+      HOLD = AINV(L,J)                                                          
+      AINV(L,J)=AINV(J1,J)                                                      
+32    AINV(J1,J) = HOLD                                                         
+      IF(K.EQ.0) GO TO 40                                                       
+35    HOLD=B(L)                                                                 
+      B(L)=B(J1)                                                                
+      B(J1)=HOLD                                                                
+40    CONTINUE                                                                  
+C ZERO ALL ELEMENTS IN THE LTH COLUMN BUT THE PIVOTAL ELEMENT                   
+      DO 60 I=1,N                                                               
+      IF(I.EQ.L) GO TO 60                                                       
+      Z=A(I,L)/A(L,L)                                                           
+      DO 45 J=L,N                                                               
+45    A(I,J)=A(I,J) - Z*A(L,J)                                                  
+      IF(K.LT.0) GO TO 55                                                       
+      DO 50 J=1,N                                                               
+50    AINV(I,J) = AINV(I,J) - Z*AINV(L,J)                                       
+      IF(K.EQ.0) GO TO 60                                                       
+55    B(I)=B(I)-Z*B(L)                                                          
+60    CONTINUE                                                                  
+65    CONTINUE                                                                  
+C DIVIDE BY DIAGONAL ELEMENTS                                                   
+68    DO 95 L=1,N                                                               
+      Z=A(L,L)                                                                  
+      DO 70 J=L,N                                                               
+70    A(L,J) = A(L,J)/Z                                                         
+      IF(K.LT.0) GO TO 80                                                       
+      DO 75 J=1,N                                                               
+75    AINV(L,J) = AINV(L,J)/Z                                                   
+      IF(K.EQ.0) GO TO 95                                                       
+80    B(L)=B(L)/Z                                                               
+95    CONTINUE                                                                  
+      GO TO 150                                                                 
+120   ISIG=-1.                                                                  
+      WRITE(6,130)                                                              
+130   FORMAT(///20X,42H MATRIX IS SINGULAR, NO INVERSE OBTAINABLE ///)          
+150   RETURN                                                                    
+      END                                                                       
+      FUNCTION SQEK(PADIN)                                                      
+      DIMENSION PADIN(40),HOLD(40),FS(500)                                      
+      COMMON A(10,10),AA(10,10),B(10),EB,EM,ITS(5),NIT(5,10),NITSET             
+      COMMON Y(50 ),IG(50 ),P(10),E(10),IT,N1,N,ALABL(12,15),NL,                
+     1 NHD,M,WIG(50 ),MO(5,4),MSET(10),PAR(10),NPAR,ALABP(6,10)                 
+     2 ,XD(50)                                                                  
+      SQEK=0.0                                                                  
+      DO 2 J=1,NPAR                                                             
+      HOLD(J)=P(J)                                                              
+2     P(J)=PADIN(J)                                                             
+      CALL FYTEM(FS,N1,N)                                                       
+      DO 1 J=N1,N                                                               
+      X=Y(J)-FS(J)                                                              
+1     SQEK=SQEK + X*X*WIG(J)                                                    
+      DO 3 J=1,NPAR                                                             
+3     P(J)=HOLD(J)                                                              
+      RETURN                                                                    
+      END                                                                       
+      SUBROUTINE READLD                                                         
+C SUBROUTINE FOR READING IN UP TO 500 CHANNELS OF DATA                          
+C DATA WRITTEN ON CARDS,8 POINTS TO A CARD, FORMAT 8F7.0                        
+C MAX OF 40 PARAMETERS                                                          
+C MAX OF 5 ITERATION SEQUENCES                                                  
+C MAX OF 20 PARAMETERS TO BE VARIED                                             
+      COMMON A(10,10),AA(10,10),B(10),EB,EM,ITS(5),NIT(5,10),NITSET             
+      COMMON Y(50 ),IG(50 ),P(10),E(10),IT,N1,N,ALABL(12,15),NL,                
+     1 NHD,M,WIG(50 ),MO(5,4),MSET(10),PAR(10),NPAR,ALABP(6,10)                 
+     2 ,XD(50)                                                                  
+      COMMON /BLK1/ NTAPE,CMSC,CENT,ISA,NCSM,NPLOT,NSP(10)                      
+      DIMENSION RW(10)                                                          
+      N1=1                                                                      
+      WRITE (6,119)                                                             
+119   FORMAT (1H1)                                                              
+      READ(5,94)(P(JL),JL=1,10)                                                 
+94    FORMAT(10F7.0)                                                            
+      DO 93 NLL=1,10                                                            
+      E(NLL)=.01                                                                
+      IF(ABS(P(NLL)).LT.1.0E-06) GO TO 95                                       
+93    CONTINUE                                                                  
+95    NPAR=NLL-1                                                                
+      NTEST=0                                                                   
+      DO 30 NL=1,5                                                              
+      READ(5,31) (MO(NL,J),J=1,4),ITS(NL),(NIT(NL,I),I=1,10)                    
+31    FORMAT(4I1,38I2)                                                          
+      IF(MO(NL,4).GE.1) NTEST=1                                                 
+      IF(ITS(NL).EQ.0) GO TO 32                                                 
+30    CONTINUE                                                                  
+32    NITSET=NL-1                                                               
+      DO 33 J=1,NITSET                                                          
+      DO 34 K=1,10                                                              
+      IF(NIT(J,K).EQ.0) GO TO 35                                                
+34    CONTINUE                                                                  
+35    MSET(J)=K-1                                                               
+33    CONTINUE                                                                  
+65    DO 70 I=1,50                                                              
+70    IG(I)=0                                                                   
+86    IGN=0                                                                     
+      READ (5,97) NHD                                                           
+97    FORMAT(I2)                                                                
+      DO 930 JL=1,NHD                                                           
+930   READ(5,931) (ALABL(I,JL),I=1,8)                                           
+931   FORMAT (8A10)                                                             
+      READ (5,97) NDAT                                                          
+      DO 932 JK=1,50                                                            
+932   Y(JK)=0.0                                                                 
+      DO 933 J =1,NDAT                                                          
+933   READ(5,934) XD(JK),Y (JK),WIG(JK)                                         
+934   FORMAT(10F7.0)                                                            
+C ZERO TEST FOR BEGIN,END,IGNORED CHANNELS/FIND COUNT MAXIMUM                   
+106   EM=Y(1)                                                                   
+      EB=Y(1)                                                                   
+      DO 111 N=1,NDAT                                                           
+      IF(Y(N).GT.EM) EM=Y(N)                                                    
+      IF(Y(N).LT.EB) EB=Y(N)                                                    
+111   CONTINUE                                                                  
+112   N=NDAT                                                                    
+      WRITE (6,9351)                                                            
+9351  FORMAT(1H )                                                               
+      DO 935 I=1,NHD                                                            
+935   WRITE(6,121) (ALABL(J,I),J=1,8)                                           
+121   FORMAT(1H ,8A10//)                                                        
+      WRITE(6,996)                                                              
+996   FORMAT(/@ ESTIMATES@)                                                     
+      WRITE(6,997)(NL,P(NL),NL=1,NPAR)                                          
+997   FORMAT(/1X,5(@P(@I2@)=@E10.4@,  @))                                       
+      WRITE (6,802) NPAR                                                        
+802   FORMAT(@  NO. OF PARAMETERS=@,I3)                                         
+      DO 800 J=1,NITSET                                                         
+      MMM=MSET(J)                                                               
+800   WRITE(6,801) (MO(J,K),K=1,4),ITS(J),(NIT(J,K),K=1,MMM)                    
+801   FORMAT(@  OPTIONS=@,4I1,@  NO. OF ITERATIONS=@,I2,                        
+     1 @  PARAMETERS TO BE VARIED=@,18I3)                                       
+      WRITE(6,45)                                                               
+45    FORMAT(1H ,//,@ ORIGINAL DATA@)                                           
+      WRITE(6,47)(XD(J),J=1,N)                                                  
+      WRITE(6,46)(Y(J),J=1,N)                                                   
+47    FORMAT(@  T-  @10F8.0)                                                    
+46    FORMAT(@ QS-  @10F8.3)                                                    
+      RETURN                                                                    
+      END                                                                       
+      SUBROUTINE MINLSQ                                                         
+      COMMON A(10,10),AA(10,10),B(10),EB,EM,ITS(5),NIT(5,10),NITSET             
+      COMMON Y(50 ),IG(50 ),P(10),E(10),IT,N1,N,ALABL(12,15),NL,                
+     1 NHD,M,WIG(50 ),MO(5,4),MSET(10),PAR(10),NPAR,ALABP(6,10)                 
+     2 ,XD(50)                                                                  
+      COMMON /BLK1/ NTAPE,CMSC,CENT,ISA,NCSM,NP10,NSP(10)                       
+      DIMENSION Y2(102),SPLOT(120),IC(40),PAD(40)                               
+      DIMENSION FS(102),FSP(102),PSI(102),C(40),Z(2,102)                        
+      DIMENSION NRMX(5),XP(100,2),YP(100,2)                                     
+      DIMENSION YAR(50 ),YAR2(50 ),XAR(50 ),TEXT(6),ERR(10)                     
+      COMMON /PRPT/ XP,YP                                                       
+      DATA PD/1H./,STAR/1H*/,BLANK/1H / ,ZO/1H0/                                
+      DATA AXS/1H+/                                                             
+C N1 = FIRST CHANNEL USED                                                       
+C  N = LAST CHANNEL USED                                                        
+C  M = NO. OF PARAMETERS IN FIT                                                 
+C SET CONVERGENCE TESTORS TO ZERO                                               
+      DO 10 J=1,40                                                              
+10    IC(J)=0                                                                   
+C SET WEIGHTING FACTORS TO ZERO FOR IGNORED CHANNELS , ONE FOR GOOD             
+      WRITE (6,800) N1,N,NITSET                                                 
+800   FORMAT(@  START N1,N,NITSET=@,3I6)                                        
+      DO 12 J=N1,N                                                              
+      IF(WIG(J).LT.1.0E-06) WIG(J) = 1.0                                        
+12    WIG(J) = 1./WIG(J)**2                                                     
+      NPTST=NP10                                                                
+      JNIT=0                                                                    
+700   JNIT=JNIT+1                                                               
+      IF(JNIT.GT.NITSET) GO TO 1000                                             
+      M=MSET(JNIT)                                                              
+      WRITE(6,799) M                                                            
+799   FORMAT( @  M=@,I6)                                                        
+      IT=ITS(JNIT)                                                              
+C NOIT KEEPS TRACK OF NO. OF ITERATIONS                                         
+      NOIT=0                                                                    
+C FILL LEAST SQUARES MATRIX                                                     
+170   DO 200 J=1,M                                                              
+  O 201 K=J,M                                                              
+      A(J,K)=0.0                                                                
+201   A(K,J)=0.0                                                                
+200   C(J)=0.0                                                                  
+      CALL FYTEM(FS,N1,N)                                                       
+      DO 291 J=N1,N                                                             
+291   PSI(J)=Y(J)-FS(J)                                                         
+      J=0                                                                       
+2051  J=J+1                                                                     
+      IF(J.GT.M) GO TO 205                                                      
+      DO 206 K=J,M                                                              
+      KDO=NIT(JNIT,K)                                                           
+      DP=P(KDO)*E(KDO)                                                          
+      P(KDO) = P(KDO) + DP                                                      
+      CALL FYTEM(FSP,N1,N)                                                      
+      P(KDO) = P(KDO) - DP                                                      
+      DO 207 I=N1,N                                                             
+      Z(2,I)=(FSP(I)-FS(I))/DP                                                  
+      IF(K.EQ.J) Z(1,I)=Z(2,I)                                                  
+207   A(J,K)=A(J,K) + Z(1,I)*Z(2,I)                                             
+206   A(K,J)=A(J,K)                                                             
+      DO 2061 I=N1,N                                                            
+2061  C(J) = C(J) + PSI(I)*Z(1,I)*WIG(I)                                        
+      GO TO 2051                                                                
+205   CONTINUE                                                                  
+      DO 210 J=1,M                                                              
+210   B(J)=C(J)                                                                 
+C LEAST SQUARES MATRIX READY FOR SOLUTION                                       
+      CALL DPINVS(M,+1,ISIG)                                                    
+      WRITE (6,811) ISIG                                                        
+811   FORMAT(@  DPINVS CALLED, ISIG=@,I3)                                       
+      NOIT=NOIT+1                                                               
+      IF(ISIG.EQ.0) GO TO 220                                                   
+      IF(JNIT.GT.1 .AND. NOIT.LT.2) GO TO 700                                   
+      GO TO 999                                                                 
+C DO CHECKS ON VALUES OF ITERATION                                              
+220   DC=0.0                                                                    
+      DO 224 J=1,M                                                              
+224   DC=DC+C(J)*B(J)                                                           
+      IF(DC.GT.0) GO TO 226                                                     
+      DO 225 J=1,M                                                              
+225   B(J)=-B(J)                                                                
+226   J=0                                                                       
+      WRITE(6,880) NPAR                                                         
+880   FORMAT(@  NO. OF PARAMETERS=@,I3)                                         
+      IF(NPAR.GT.63) RETURN                                                     
+881   J=J+1                                                                     
+      IF(J.GT.NPAR) GO TO 882                                                   
+      PAD(J)=P(J)                                                               
+      GO TO 881                                                                 
+882   CONTINUE                                                                  
+      DO 2281 J=1,M                                                             
+      JDO=NIT(JNIT,J)                                                           
+2281  PAD(JDO)=PAD(JDO)+B(J)                                                    
+      Y0=SQEK(P)                                                                
+      YT=SQEK(PAD)                                                              
+      YC=YT                                                                     
+      IF(YT.LT=Y0) GO TO 240                                                    
+      NDIV=1                                                                    
+      NBST=1                                                                    
+2293  NDIV=NDIV+1                                                               
+      DO 229 J=1,M                                                              
+      JDO=NIT(JNIT,J)                                                           
+229   PAD(JDO)=P(JDO)+B(J)/NDIV                                                 
+      IF(NDIV.7T.9) GO TO 2298                                                  
+      Y1=SQEK(PAD)                                                              
+      IF(Y1.GT.YC) GO TO 2296                                                   
+      YC=Y1                                                                     
+      NBST=NDIV                                                                 
+2296  CONTINUE                                                                  
+      IF(Y1.GT.Y0) GO TO 2293                                                   
+2298  ALPHA=1./NBST                                                             
+      DO 230 J=1,M                                                              
+      JDO=NIT(JNIT,J)                                                           
+230   PAD(JDO)=P(JDO)+ALPHA*B(J)                                                
+      YT=SQEK(PAD)                                                              
+      IF(YT.GT.Y0) WRITE(6,231)                                                 
+231   FORMAT(/1X,@INDICATED DIVERGENCE@/)                                       
+240   DO 250 J=1,NPAR                                                           
+250   P(J)=PAD(J)                                                               
+C CALCULATE ERRORS                                                              
+      Y0=SQRT( YT/(N-N1-M) )                                                    
+      DO 2401 K=1,M                                                             
+2401  ERR(K)=Y0 * SQRT(AA(K,K))                                                 
+      SER=2HTH                                                                  
+      IF(JNIT.EQ.1) SER=2HST                                                    
+      IF(JNIT.EQ.2) SER=2HND                                                    
+      IF(JNIT.EQ.3) SER=2HRD                                                    
+      WRITE  (6,213) JNIT,SER,NOIT                                              
+213   FORMAT(//1H ,I2,A2,@ ITERATION SERIES, ITERATION NO.@,I3)                 
+      DO 2141 J=1,NPAR                                                          
+      DO 2132 K=1,M                                                             
+      IF(J.EQ.5IT(JNIT,K)) KZ=K                                                 
+2132  IF(J.EQ. NIT(JNIT,K)) JDO=J                                               
+      IF(J.EQ.JDO) C(J)=ERR(KZ)                                                 
+2141  IF(J.NE.JDO) C(J)=0.                                                      
+      WRITE(6,996)                                                              
+996   FORMAT(//@ ***VALUES***@)                                                 
+      WRITE(6,997)(NL,P(NL),NL=1,NPAR)                                          
+997   FORMAT(1X,5(@ P(@I2@)=@E10.4@, @))                                        
+214   FORMAT (1H ,5X,I2,2X,6A6,@NEW VALUE=@,F12.6,5X,@EST.VAR.=@,F12.6)         
+2142  FORMAT(1H ,5X,I2,2X,6A6,9X,@=@,F12.6)                                     
+      WRITE (6,2131) Y0                                                         
+2131  FORMAT(@        NORMALIZED SQUARE ERROR=@,F12.8)                          
+      IF(NOIT.GE.IT) GO TO 254                                                  
+      DO 222 J=1,M                                                              
+      JDO=NIT(JNIT,J)                                                           
+222   IF(ABS(B(JDO)/P(JDO)).GT.E(JDO)) GO TO 170                                
+      WRITE (6,252)                                                             
+252   FORMAT(1H ,@CONVERGENCE CRITERION MET@)                                   
+      GO TO 999                                                                 
+254   WRITE(6,255)                                                              
+255   FORMAT(1H ,@MAXIMUM NO. OF ITERATIONS SPECIFIED@)                         
+999   CONTINUE                                                                  
+      WRITE(6,998)                                                              
+998   FORMAT(//@ ***STD. DEVIATIONS***@)                                        
+      WRITE(6,997)(NL,C(NL),NL=1,NPAR)                                          
+      IF(MO(JNIT,1).GE.1.OR.MO(JNIT,4).EQ.1.OR.                                 
+     1 MO(JNIT,3).EQ.1)  GO TO 9010                                             
+901   IF(MO(JNIT,1).GE.1) GO TO 910                                             
+      IF(NPTST.EQ.0) GO TO 700                                                  
+      GO TO 10001                                                               
+9010  CALL FYTEM(Y2,N1,N)                                                       
+910   NMO=MO(JNIT,1)                                                            
+      IL=1                                                                      
+      CALL FYTEM(Y2,N1,IL)                                                      
+      NRMX(1)=N                                                                 
+      NRMX(2)=100                                                               
+      DO 920 J=1,N                                                              
+      XP(J,1)=XD(J)                                                             
+920   YP(J,1)=Y(J)                                                              
+      DO 922 J=1,100                                                            
+      XP(J,2)=XD(1) + (XD(N)-XD(1))/99.*(J-1)                                   
+922   YP(J,2)=Y2(J)                                                             
+      WRITE(6,2929)                                                             
+2929  FORMAT(1H1)                                                               
+      CALL PPLTS(2,XQ,YQ,NRMX,NROW)                                             
+      WRITE(6,2929)                                                             
+      IF(NPTST.EQ.0) GO TO 700                                                  
+10001 IF(MO(JNIT,4).LT.1.AND.MO(JNIT,3).NE.1) GO TO 700                         
+C NORMALIZE DATA FOR CALCOMP PLOTTING                                           
+      THIS=Y2(1)                                                                
+      DO 949 J=1,100                                                            
+949   IF(Y2(J).GT.THIS) THIS=Y2(J)                                              
+      CALL SCALE(YAR,5.,N,1)                                                    
+      DO 783 J=N1,N                                                             
+      YAR(J) =(YAR(J) -YAR(N+1))/YAR(N+2)                                       
+783   YAR2(J)=(YAR2(J)-YAR(N+1))/YAR(N+2)                                       
+      WRITE (6,9501)                                                            
+9501  FORMAT(1H ,@ PLOTTER OUTPUT TAPE PRODUCED@)                               
+730   CONTINUE                                                                  
+C WRITE Y AXIS                                                                  
+      CALL AXIS(0.,0.,18HRELATIVE INTENSITY,18,5.0,90.,YAR(N+1),YAR(N+2)        
+     1 )                                                                        
+740   CONTINUE                                                                  
+790   CONTINUE                                                                  
+      CALL SCA3E(XAR,8.,N,1)                                                    
+      CALL AXIS(0.,0.,15HVELOCITY MM/SEC,-15,8.,0.,XAR(N +1),XAR(N +2))         
+      DO 954 J=1,N                                                              
+954   XAR(J)=(XAR(J)-XAR(N +1))/XAR(N +2)                                       
+C PLOT DATA                                                                     
+      DO 955 J=N1,N                                                             
+      IF(IG(J).EQ.1) GO TO 955                                                  
+      IF(YAR(J).GT.4.95.OR.YAR(J).LT.0.05) GO TO 955                            
+      CALL SYMBOL(XAR(J),YAR(J),.07,1,0.,-1)                                    
+955   CONTINUE                                                                  
+C PLOT FIT                                                                      
+      CALL PLOT(XAR(N1),YAR2(N1),3)                                             
+      N1A=N1+1                                                                  
+      DO 956 J=N1A,N                                                            
+956   CALL PLOT(XAR(J),YAR2(J),2)                                               
+C WRITE RUN NO. ON PLOT                                                         
+      DO 957 KW=1,6                                                             
+957   TEXT(KW)=ALABL(KW,1)                                                      
+      CALL SYMBOL(0.,5.1,.15,TEXT,0.,60)                                        
+C DRAW LINES TO CLOSE GRAPH                                                     
+      CALL PLOT(0.0,5.0,3)                                                      
+      CALL PLOT(8.,5.,2)                                                        
+      CALL PLOT(8.0,0.0,2)                                                      
+      NPLOT=MO(JNIT,4)                                                          
+      GO TO 700                                                                 
+1000  CONTINUE                                                                  
+      RETURN                                                                    
+      END                                                                       
+      SUBROUTINE FYTEM(FYT,N1PD,NPD)                                            
+      COMMON A(10,10),AA(10,10),B(10),EB,EM,ITS(5),NIT(5,10),NITSET             
+      COMMON Y(50 ),IG(50 ),P(10),E(10),IT,N1,N,ALABL(12,15),NL,                
+     1 NHD,M,WIG(50 ),MO(5,4),MSET(10),PAR(10),NPAR,ALABP(6,10)                 
+     2 ,XD(50)                                                                  
+      COMMON /BLK1/ NTAPE,CMSC,CENT,ISA,NCSM,NPLOT,NSP(10)                      
+      DIMENSION FYT(102) ,TP(102)                                               
+      DIMENSION C(10),RO(10),EN(10),Q0(10),QS(10)                               
+      DATA SF/10.14/,QM/.19/,RP2/.398/,RP4/.36/,ESQ/1.16E+05/,EK/.69502/        
+      PI=4.0*ATAN(1.0)                                                          
+      ANG=P(7)*PI/360.                                                          
+      AL2=ABS(TAN(ANG)**2-1.)                                                   
+      ALP=SQRT(AL2)*2.*SQRT(3.)                                                 
+      A2=3.*AL2                                                                 
+      ANORM=.5/(1+AL2)                                                          
+      CE=P(3)*2.*(1./.529167)                                                   
+      RO(1)=5./(CE*P(5))                                                        
+      DO 3 K=1,4                                                                
+      M1=(-1)**(K+1)                                                            
+      M2=(-1)**(K+2)                                                            
+      ZK=K+1                                                                    
+      C(K) = ((1-M1)/ZK + ALP*(1-M2)/(ZK+1.) + A2*(1-M1)/(ZK+2.))*ANORM         
+      IF(K.EQ.1) GO TO 3                                                        
+      RO(K)= RO(K-1)*(EK+3.)/(CE*P(5))                                          
+3     CONTINUE                                                                  
+      TH=ACOS(1./SQRT(3.)) + P(2)*PI/180.                                       
+      D=P(5)                                                                    
+      A3=(1.+3.*C(1)*RO(1)+(7.5*C(2)-1.5)*RO(2) + (10.*C(3) - 3.*C(1)           
+     1 )*RO(3) + (4.5*C(4) - 1.5*C(2))*RO(4))/D**3                              
+      A5=(1.+5.*C(1)*RO(1)+(17.5*C(2) - 2.5)*RO(2) + (40.*C(3) -10.*C(1)        
+     1 )*RO(3) + (72.5*C(4) - 30.*C(2) + 2.5)*RO(4))/D**5                       
+      Q=-2.                                                                     
+      Z=P(4)+2.  $  D3=1./D**3  $  D5=1./D**5                                   
+      SO=P(6)*P(1)/4.8                                                          
+      CTH= COS(TH)                                                              
+      STH= SIN(TH)                                                              
+      F20 = -6.*Q*(3.*CTH**2 - 1.)*A3*ESQ*RP2/14.                               
+      F20=F20- 6.*Z*(3.*CTH**2 - 1.)*D3*ESQ*RP2/14.                             
+      F40= -2.*Q*(35.*CTH**4 - 30.*CTH**2 + 3.)*A5*ESQ*RP4/56.                  
+      F40=F40-2.*Z*(35.*CTH**4 - 30.*CTH**2 + 3.)*D5*ESQ*RP4/56.                
+      F43= -10.*Q*STH**3*CTH*A5*ESQ*RP4/4.                                      
+      F43=F43 - 10.*Z*STH**3*CTH*D5*ESQ*RP4/4.                                  
+      E0P = 2.*F20 + 6.*F40                                                     
+      E1P =    F20 - 4.*F40                                                     
+      E2P =-2.*F20 +    F40                                                     
+      DQ10= -5.*ESQ*Q*RP4*A5/3.                                                 
+      TH=P(2)*PI/180.                                                           
+      QSL = (4.36E-05)*SF*QM*A3/A5*DQ10*TH/RP4                                  
+      EN(1) = E0P                                                               
+      Q0(1) = -1.                                                               
+      IF(NPD.NE.1) GO TO 13                                                     
+      K=1                                                                       
+      WRITE(6,11) E0P,E1P,E2P,F43,QSL                                           
+11    FORMAT(//@ E0P=@,F8.1,@, E1P=@,F8.1,@, E2P=@,F8.1,@, F43=@,               
+     1 F8.1,@, QSL=@,F8.4)                                                      
+      WRITE(6,15) K,EN(1),Q0(1)                                                 
+15    FORMAT(//@ I     EN(I)   Q.S.(I)    GSQ       ASQ       BSQ@//1X,         
+     1 I1,F10.0,F10.4)                                                          
+13    CONTINUE                                                                  
+      DO 65 K=2,6                                                               
+      NN=K-4                                                                    
+      LL = NN                                                                   
+      IF(NN.EQ.0) LL=1                                                          
+      X = 3.*NN**2*SO*(3.*SO - 2.*(E1P-E2P)/LL)                                 
+      D = SQRT(1. + (X+4.*F43**2)/(E1P-E2P)**2)                                 
+      GSQ=(D-1.)/(D+1.)                                                         
+      EN(K) = (E2P - GSQ*E1P)/(1. - GSQ) + NN*SO/2.                             
+      D = (E1P - E2P)*(1. + GSQ)                                                
+      ASQ = ((E1P - E2P) - 1.5*NN*SO*(1. - GSQ))/ D                             
+      BSQ = 1. - ASQ                                                            
+      Q0(K) = ASQ - BSQ/2.                                                      
+      IF(NPD.NE.1) GO TO 65                                                     
+      WRITE(6,16) K,EN(K),Q0(K),GSQ,ASQ,BSQ                                     
+16    FORMAT(1X,I1,F10.0,4F10.4)                                                
+65    CONTINUE                                                                  
+      EMIN = EN(1)                                                              
+      DO 72 K=2,6                                                               
+72    IF(EN(K).LT.EMIN) EMIN = EN(K)                                            
+      DO 73 K=1,6                                                               
+73    EN(K) = EN(K) - EMIN                                                      
+      NND=N                                                                     
+      IF(NPD.EQ.1) NND=100                                                      
+      DO 50 I=1,NND                                                             
+      TK= -EK*(XD(1) + (XD(N) - XD(1))/99.*(I-1))                               
+      IF(NPD.NE.1) TK = -EK*XD(I)                                               
+      Z=0.                                                                      
+      IF(EN(1)/TK.GT.-10.) Z= EXP(EN(1)/TK)*5.                                  
+      FYT(I)= Z*Q0(1)                                                           
+      TP(I) =-TK/EK                                                             
+      DO 90 LL=2,6                                                              
+      IF(EN(LL)/TK.GT.-10.) Z = Z + 2.*EXP(EN(LL)/TK)                           
+90    IF(EN(LL)/TK.GT.-10.) FYT(I) =FYT(I) + 2.*EXP(EN(LL)/TK)*Q0(LL)           
+      FYT(I) =P(1)*FYT(I)/Z + QSL                                               
+50    FYT(I) = ABS(FYT(I))                                                      
+      IF(NPD.NE.1) RETURN                                                       
+      WRITE(6,110)                                                              
+110   FORMAT(//1X,5(20H     TEMP.     Q.S.  )/)                                 
+      DO 120 K=1,20                                                             
+120   WRITE(6,125) TP(K),FYT(K),TP(K+20),FYT(K+20),TP(K+40),FYT(K+40),          
+     1 TP(K+60),FYT(K+60),TP(K+80),FYT(K+80)                                    
+125   FORMAT(1X,5(F10.2,F10.4))                                                 
+      RETURN                                                                    
+      END                                                                       
+   : ;{
