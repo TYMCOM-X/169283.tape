@@ -1,0 +1,99 @@
+C:
+C:  PROCEDURE TO TRANSLATE SMAS.DAT FOR FURTHER PROCESSING
+        REAL DUR
+        INTEGER IDATE(1000)
+        DIMENSION IMAGE(24)
+C:    ----------------------------------------------------------
+C:
+C:    READ CALENDAR IN
+        INPCAL = 23
+      CALL IFILE(INPCAL, 'CALNDR')
+      NDATES = 0
+500   READ(INPCAL,4030,END = 520,ERR = 5010) KDATE, K
+4030      FORMAT(I6, I5)
+C:
+      NDATES = NDATES + 1
+      IDATE(K) = KDATE
+      GO TO 500
+520   CONTINUE
+      ENDFILE(INPCAL)
+C:
+C:    COMPUTE POWER OF TWO FOR FUTURE BINARY SEARCH
+      IPOWER = 1
+525   IF(IPOWER.GT.NDATES) GO TO 530
+      IPOWER = IPOWER + IPOWER
+      GO TO 525
+530   IPOWER = IPOWER/2
+C:    ---------------------------------------------------------
+C:
+        MAININ = 20
+        MAINOU = 21
+        CALL IFILE(MAININ,'SMAS')
+        CALL OFILE(MAINOU,'SCRATC')
+        IN = 0
+10      READ(MAININ,1001,END=1000,ERR=5020) I,J,DUR,INDICA,KDATE
+1001            FORMAT(T12,I4,T22,I4,T34,F5.1,T40,A1,T42,I6)
+        IN = IN + 1
+C:
+C:  TRANSLATE DURATION FROM WEEKS TO DAYS
+C:
+        IDUR = INT(DUR * 5.0 + 0.5)
+C:
+C:  LOOKUP ACTUAL DATE (IF ANY) & TRANSLATE
+C:
+        IDAY = 0
+      IF(INDICA .NE. 'A') GO TO 95
+C:
+C:    BEGIN BINARY SEARCH
+      INC = IPOWER
+      II = IPOWER
+65    IF(INC.LE.0) GO TO 90
+      IF(KDATE.LT.IDATE(II)) GO TO 75
+      IF (KDATE.GT.IDATE(II)) GO TO 85
+C:   FOUND IT
+        IDAY = II
+      GO TO 95
+75    INC = INC/2
+      II = II - INC
+	      GO TO 65
+85    INC = INC/2
+      II = II + INC
+        IF(II.GT.NDATES) GO TO 75
+      GO TO 65
+90    TYPE 1006, IN,  I, J, KDATE
+1006            FORMAT(' ACTUAL FINISH DATE NOT FOUND ON CALENDAR.',
+     1'   NEXT NEAREST DATE USED FOR...',
+     2 'REC.NO. ',I5,' I=',I5,' J=',I5,' DATE: ',I6)
+        DO 92 II = 1, NDATES
+                IF(IDATE(II).GT.KDATE) GO TO 93
+92              CONTINUE
+                II = NDATES
+93      IDAY = II
+C
+        TYPE 1007, IDATE(II)
+1007            FORMAT('   DATE REPLACED BY: ',I6)
+95    CONTINUE
+C:
+200     CONTINUE
+C:  
+C:  WRITE TO SCRATCH FILE
+C:
+        WRITE(MAINOU)I,J,IDUR,INDICA,IDAY
+
+C:
+        GO TO 10
+1000    ENDFILE(MAININ)
+        ENDFILE(MAINOU)
+        STOP
+5010    CONTINUE
+        TYPE 5011, NDATES, KDATE, K
+5011            FORMAT(' BAD INPUT AFTER',I4,' DATES',/,
+     1     ' CURRENT VALUES: KDATE=',I6,' K=',I5)
+        STOP
+5020    CONTINUE
+        TYPE 5021, IN, IMAGE
+5021            FORMAT(' BAD INPUT AFTER',I4,' MAIN RECORDS',/
+     1,24A5)
+        GO TO 10
+
+        END
