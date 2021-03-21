@@ -1,0 +1,1436 @@
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 1
+
+
+  		      C **********************************************************
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 2
+
+
+  		      C * NAME:     SMOVEA                                       *
+  		      C * PURPOSE:  STORES THE LOCATION OF THE BEGINNING         *
+  		      C *           OF A LINE                                    *
+  		      C * USAGE:    CALL SMOVEA(X,Y)                             *
+  		      C *           X  VIRTUAL X                                 *
+  		      C *           Y  VIRTUAL Y                                 *
+  		      C *           TEKTRONIX V3 1-16-73                         *
+  		      C **********************************************************
+  		      C *    THIS ROUTINE WILL DIVIDE A LINE INTO SEGMENTS FOR PLOTING
+  		            SUBROUTINE SMOVEA(X,Y)
+  		            COMMON /SEGCOM/XOLD,YOLD
+  		            XOLD=X
+  		            YOLD=Y
+  		            CALL MOVEA(X,Y)
+  		            RETURN
+  		            END
+
+GLOBAL DUMMIES
+
+X     	30		Y     	31		
+
+COMMON
+
+XOLD  	/SEGCOM/+0	YOLD  	/SEGCOM/+1	
+
+SUBPROGRAMS
+
+MOVEA 	
+
+SCALARS
+
+SMOVEA	32		XOLD  	0		X     	30		YOLD  	1		Y     	31	
+
+ SMOVEA
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 3
+
+
+  		      C **********************************************************
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 4
+
+
+  		      C * NAME:     SDRAWA                                       *
+  		      C * PURPOSE:  DIVIDE A LONG LINE INTO SHORT SEGMENTS       *
+  		      C *           AND DRAWA IT.  DIVISION OCCURS ONLY WHEN     *
+  		      C *           NEEDED AND ONLY IN POLAR COORDINATES         *
+  		      C * USAGE:    CALL SMOVEA(X,Y)                             *
+  		      C *           X  VIRTUAL X                                 *
+  		      C *           Y  VIRTUAL Y                                 *
+  		      C *           TEKTRONIX V3 1-16-73                         *
+  		      C **********************************************************
+  		            SUBROUTINE SDRAWA(X,Y)
+  		            COMMON /SEGCOM/ XOLD,YOLD
+  		            COMMON /COMEXT/KEYCON,FACX,FACY,PAR1,PAR2,PAR3,PAR4,PAR5,PAR6
+  		            KEY=KEYCON
+  		            IF(KEYCON .LT. 1)KEY=5
+  		            IF(KEYCON .GT. 4)KEY=4
+  		      C *    LINEAR LOG POLAR USER ERROR
+  		            GO TO (100, 100, 200, 400, 100),KEY
+  		      C *    ERROR LINEAR LOG
+  		      100   CALL DRAWA(X,Y)
+  		            XOLD=X
+  		            YOLD=Y
+  		            RETURN
+  		      C *    POLAR
+  		      200   DX=X-XOLD
+  		            DY=Y-YOLD
+  		            XSTEP=SIGN(5.*.01745/FACX,DX)
+  		            IF(ABS(DX*.75) .LT. ABS(XSTEP)) GO TO 100
+  		            FRAC=DY/DX
+  		            NSEG=(DX/XSTEP)+.9999
+  		            XOUT=XOLD
+  		      300   IF(NSEG .LT. 2) GO TO 100
+  		            XOUT=XOUT+XSTEP
+  		            YOUT=YOLD+(XOUT-XOLD)*FRAC
+  		            CALL DRAWA(XOUT,YOUT)
+  		            NSEG=NSEG-1
+  		            GO TO 300
+  		      C *    USER SEGMENTATION
+  		      400   CALL USDRAW(X,Y)
+  		            GO TO 100
+  		            END
+
+CONSTANTS
+
+0	175545300406	1	200777745622	
+
+GLOBAL DUMMIES
+
+X     	145		Y     	146		
+
+COMMON
+
+XOLD  	/SEGCOM/+0	YOLD  	/SEGCOM/+1	KEYCON	/COMEXT/+0	FACX  	/COMEXT/+1	FACY  	/COMEXT/+2
+PAR1  	/COMEXT/+3	PAR2  	/COMEXT/+4	PAR3  	/COMEXT/+5	PAR4  	/COMEXT/+6	PAR5  	/COMEXT/+7
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 5
+
+
+PAR6  	/COMEXT/+10	
+
+SUBPROGRAMS
+
+DRAWA 	SIGN  	ABS   	INT   	USDRAW	
+
+SCALARS
+
+SDRAWA	151		KEY   	152		KEYCON	0		X     	145		Y     	146	
+XOLD  	0		YOLD  	1		DX    	153		DY    	154		XSTEP 	155	
+FACX  	1		FRAC  	156		NSEG  	157		XOUT  	160		YOUT  	161	
+FACY  	2		PAR1  	3		PAR2  	4		PAR3  	5		PAR4  	6	
+PAR5  	7		PAR6  	10		
+
+ SDRAWA
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 6
+
+
+  		      C **********************************************************
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 7
+
+
+  		      C * NAME:     REVCOT                                       *
+  		      C * PURPOSE:  CONVERT VIRTUAL COORDINATES TO SCREEN        *
+  		      C *           COORDINATES AND PLOT                         *
+  		      C * USAGE:    CALL REVCOT(IX,IY,X,Y)                       *
+  		      C *           IX SCREEN  X                                 *
+  		      C *           IY SCREEN  Y                                 *
+  		      C *           X  VIRTUAL X                                 *
+  		      C *           Y  VIRTUAL Y                                 *
+  		      C *           TEKTRONIX V1 4-7-71 DP                       *
+  		      C *           TEKTRONIX V3 1-16-73                         *
+  		      C **********************************************************
+  		      C ROUTINE---BG-0200.05-01   REVCOT
+  		            SUBROUTINE REVCOT(IX,IY,X,Y)
+  		            COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+  		           1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+  		           2 KTBLSZ, KHORZT(10), KVERTT(10),
+  		           3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+  		           4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+  		           5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+  		            COMMON /COMEXT/KEYCON,FACX,FACY,PAR1,PAR2,PAR3,PAR4,PAR5,PAR6
+  		      C
+  		            E=2.7182818284
+  		            DX=FLOAT(IX-KMINSX)/FACX
+  		            DY=FLOAT(IY-KMINSY)/FACY
+  		            KEY=KEYCON
+  		            IF(KEYCON .LT. 1)KEY=5
+  		            IF(KEYCON .GT. 4)KEY=4
+  		      C *       LINEAR LOG POLAR USER ERROR
+  		            GO TO(300, 400, 500, 600, 100  ),KEY
+  		      C *    ERROR
+  		      100   X=IX
+  		            Y=IY
+  		      C *    EXIT POINT
+  		      200   CALL PCLIPT(X,Y)
+  		            RETURN
+  		      C *    LINEAR
+  		      300   X=DX+TMINVX
+  		            Y=DY+TMINVY
+  		            GO TO 200
+  		      C *    LOG SCALES
+  		      400   KEYL=PAR1
+  		            X=DX+TMINVX
+  		            Y=DY+TMINVY
+  		            IF(KEYL .NE. 2)X=E**(DX+PAR2)
+  		            IF(KEYL .NE. 1)Y=E**(DY+PAR3)
+  		            GO TO 200
+  		      C *    POLAR
+  		      500   DX=IX-PAR3
+  		            DY=IY-PAR4
+  		            X=ATAN2(DY,DX)/FACX+PAR1
+  		            Y=SQRT(DY*DY+DX*DX)/FACY+PAR2
+  		            GO TO 200
+  		      C *    USER CONVERSION
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 8
+
+
+  		      600   CALL UREVCT(IX,IY,X,Y)
+  		            GO TO 200
+  		            END
+
+CONSTANTS
+
+0	202533741242	
+
+GLOBAL DUMMIES
+
+IX    	210		IY    	211		X     	212		Y     	213		
+
+COMMON
+
+KBAUDR	/TKTRNX/+0	KERROR	/TKTRNX/+1	KGRAFL	/TKTRNX/+2	KHOMEY	/TKTRNX/+3	KKMODE	/TKTRNX/+4
+KHORSZ	/TKTRNX/+5	KVERSZ	/TKTRNX/+6	KITALC	/TKTRNX/+7	KSIZEF	/TKTRNX/+10	KLMRGN	/TKTRNX/+11
+KRMRGN	/TKTRNX/+12	KTBLSZ	/TKTRNX/+13	KHORZT	/TKTRNX/+14	KVERTT	/TKTRNX/+26	KBEAMX	/TKTRNX/+40
+KBEAMY	/TKTRNX/+41	KMOVEF	/TKTRNX/+42	KPCHAR	/TKTRNX/+43	KDASHT	/TKTRNX/+47	KMINSX	/TKTRNX/+50
+KMINSY	/TKTRNX/+51	KMAXSX	/TKTRNX/+52	KMAXSY	/TKTRNX/+53	TMINVX	/TKTRNX/+54	TMINVY	/TKTRNX/+55
+TMAXVX	/TKTRNX/+56	TMAXVY	/TKTRNX/+57	TREALX	/TKTRNX/+60	TREALY	/TKTRNX/+61	TIMAGX	/TKTRNX/+62
+TIMAGY	/TKTRNX/+63	TRCOSF	/TKTRNX/+64	TRSINF	/TKTRNX/+65	TRSCAL	/TKTRNX/+66	KEYCON	/COMEXT/+0
+FACX  	/COMEXT/+1	FACY  	/COMEXT/+2	PAR1  	/COMEXT/+3	PAR2  	/COMEXT/+4	PAR3  	/COMEXT/+5
+PAR4  	/COMEXT/+6	PAR5  	/COMEXT/+7	PAR6  	/COMEXT/+10	
+
+SUBPROGRAMS
+
+FLOAT 	PCLIPT	INT   	EXP3.4	ATAN2 	SQRT  	UREVCT	
+
+SCALARS
+
+REVCOT	215		E     	216		DX    	217		IX    	210		KMINSX	50	
+FACX  	1		DY    	220		IY    	211		KMINSY	51		FACY  	2	
+KEY   	221		KEYCON	0		X     	212		Y     	213		TMINVX	54	
+TMINVY	55		KEYL  	222		PAR1  	3		PAR2  	4		PAR3  	5	
+PAR4  	6		KBAUDR	0		KERROR	1		KGRAFL	2		KHOMEY	3	
+KKMODE	4		KHORSZ	5		KVERSZ	6		KITALC	7		KSIZEF	10	
+KLMRGN	11		KRMRGN	12		KTBLSZ	13		KBEAMX	40		KBEAMY	41	
+KMOVEF	42		KDASHT	47		KMAXSX	52		KMAXSY	53		TMAXVX	56	
+TMAXVY	57		TREALX	60		TREALY	61		TIMAGX	62		TIMAGY	63	
+TRCOSF	64		TRSINF	65		TRSCAL	66		PAR5  	7		PAR6  	10	
+
+ARRAYS
+
+KHORZT	14		KVERTT	26		KPCHAR	43		
+
+ REVCOT
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 9
+
+
+  		      C **********************************************************
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 10
+
+
+  		      C * NAME:     DWINDO                                       *
+  		      C * PURPOSE:  DATA WINDOW                                  *
+  		      C *           SET UP VIRTUAL SPACE LIMITS AND CALCULATE    *
+  		      C *           TRANSFORMATION SCALE                         *
+  		      C * USAGE:    CALL DWINDO(XMIN,XMAX,YMIN,YMAX)             *
+  		      C *            XMIN  LEFT LIMIT OF DATA WINDOW             *
+  		      C *            XMAX  RIGHT LIMIT OF DATA WINDOW            *
+  		      C *            YMIN  LOWER LIMITS OF DATA WINDOW           *
+  		      C *            YMAX  UPPER LIMITS OF DATA WINDOW           *
+  		      C *           TEKTRONIX V3 1-16-73                         *
+  		      C **********************************************************
+  		            SUBROUTINE DWINDO(XMIN,XMAX,YMIN,YMAX)
+  		            COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+  		           1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+  		           2 KTBLSZ, KHORZT(10), KVERTT(10),
+  		           3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+  		           4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+  		           5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+  		            COMMON /COMEXT/KEYCON,FACX,FACY,PAR1,PAR2,PAR3,PAR4,PAR5,PAR6
+  		      C
+  		      C *   SET UP TCOMMON
+  		            TMINVX=XMIN
+  		            TMAXVX=XMAX
+  		            TMINVY=YMIN
+  		            TMAXVY=YMAX
+  		            KEYCON=1
+  		            CALL RESCAL
+  		            RETURN
+  		            END
+
+GLOBAL DUMMIES
+
+XMIN  	33		XMAX  	34		YMIN  	35		YMAX  	36		
+
+COMMON
+
+KBAUDR	/TKTRNX/+0	KERROR	/TKTRNX/+1	KGRAFL	/TKTRNX/+2	KHOMEY	/TKTRNX/+3	KKMODE	/TKTRNX/+4
+KHORSZ	/TKTRNX/+5	KVERSZ	/TKTRNX/+6	KITALC	/TKTRNX/+7	KSIZEF	/TKTRNX/+10	KLMRGN	/TKTRNX/+11
+KRMRGN	/TKTRNX/+12	KTBLSZ	/TKTRNX/+13	KHORZT	/TKTRNX/+14	KVERTT	/TKTRNX/+26	KBEAMX	/TKTRNX/+40
+KBEAMY	/TKTRNX/+41	KMOVEF	/TKTRNX/+42	KPCHAR	/TKTRNX/+43	KDASHT	/TKTRNX/+47	KMINSX	/TKTRNX/+50
+KMINSY	/TKTRNX/+51	KMAXSX	/TKTRNX/+52	KMAXSY	/TKTRNX/+53	TMINVX	/TKTRNX/+54	TMINVY	/TKTRNX/+55
+TMAXVX	/TKTRNX/+56	TMAXVY	/TKTRNX/+57	TREALX	/TKTRNX/+60	TREALY	/TKTRNX/+61	TIMAGX	/TKTRNX/+62
+TIMAGY	/TKTRNX/+63	TRCOSF	/TKTRNX/+64	TRSINF	/TKTRNX/+65	TRSCAL	/TKTRNX/+66	KEYCON	/COMEXT/+0
+FACX  	/COMEXT/+1	FACY  	/COMEXT/+2	PAR1  	/COMEXT/+3	PAR2  	/COMEXT/+4	PAR3  	/COMEXT/+5
+PAR4  	/COMEXT/+6	PAR5  	/COMEXT/+7	PAR6  	/COMEXT/+10	
+
+SUBPROGRAMS
+
+RESCAL	
+
+SCALARS
+
+DWINDO	37		TMINVX	54		XMIN  	33		TMAXVX	56		XMAX  	34	
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 11
+
+
+TMINVY	55		YMIN  	35		TMAXVY	57		YMAX  	36		KEYCON	0	
+KBAUDR	0		KERROR	1		KGRAFL	2		KHOMEY	3		KKMODE	4	
+KHORSZ	5		KVERSZ	6		KITALC	7		KSIZEF	10		KLMRGN	11	
+KRMRGN	12		KTBLSZ	13		KBEAMX	40		KBEAMY	41		KMOVEF	42	
+KDASHT	47		KMINSX	50		KMINSY	51		KMAXSX	52		KMAXSY	53	
+TREALX	60		TREALY	61		TIMAGX	62		TIMAGY	63		TRCOSF	64	
+TRSINF	65		TRSCAL	66		FACX  	1		FACY  	2		PAR1  	3	
+PAR2  	4		PAR3  	5		PAR4  	6		PAR5  	7		PAR6  	10	
+
+ARRAYS
+
+KHORZT	14		KVERTT	26		KPCHAR	43		
+
+ DWINDO
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 12
+
+
+  		      C **********************************************************
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 13
+
+
+  		      C * NAME:     LWINDO                                       *
+  		      C * PURPOSE:  LOGRITHMIC WINDOW                            *
+  		      C *           SETS UP LIMITS OF LOGRITHMIC WINDOW AND      *
+  		      C *           CALCULATES SCALE FACTORS AND OFFSETS         *
+  		      C * USAGE:    CALL LWINDO(XMIN,XMAX,YMIN,YMAX,KEY)         *
+  		      C *            XMIN  LEFT LIMIT OF DATA WINDOW             *
+  		      C *            XMAX  RIGHT LIMIT OF DATA WINDOW            *
+  		      C *            YMIN  LOWER LIMITS OF DATA WINDOW           *
+  		      C *            YMAX  UPPER LIMITS OF DATA WINDOW           *
+  		      C *            KEY   INDICATES WHICH AXIS WILL BE LOG      *
+  		      C *              1     X AXIS                              *
+  		      C *              2     Y AXIS                              *
+  		      C *              3     BOTH                                *
+  		      C *       NOTE:LIMITS OF WINDOW ARE ACTUAL DATA LIMITS     *
+  		      C *            NOT THE LOGS OF THE DATA LIMITS             *
+  		      C *           TEKTRONIX V3 1-16-73                         *
+  		      C **********************************************************
+  		            SUBROUTINE LWINDO(XMIN,XMAX,YMIN,YMAX,KEY)
+  		            COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+  		           1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+  		           2 KTBLSZ, KHORZT(10), KVERTT(10),
+  		           3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+  		           4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+  		           5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+  		            COMMON/COMEXT/KEYCON,FACX,FACY,PAR1,PAR2,PAR3,PAR4,PAR5,PAR6
+  		      C
+  		      C *    KEY = 1 X LOG
+  		      C *          2 Y LOG
+  		      C *          3 BOTH LOG
+  		      C
+  		            PAR1=KEY
+  		            IF(KEY .EQ. 2) GO TO 100
+  		      C *    SETUP X LOG CONVERSION
+  		            PAR2=ALOG(XMIN)
+  		      C
+  		      100   IF(KEY .EQ. 1) GO TO 200
+  		      C *    SETUP Y LOG CONVERSION
+  		            PAR3=ALOG(YMIN)
+  		      C
+  		      C *    WRAPUP
+  		      200   CALL DWINDO(XMIN,XMAX,YMIN,YMAX)
+  		            KEYCON=2
+  		            CALL RESCAL
+  		            RETURN
+  		            END
+
+GLOBAL DUMMIES
+
+XMIN  	56		XMAX  	57		YMIN  	60		YMAX  	61		KEY   	62	
+
+COMMON
+
+KBAUDR	/TKTRNX/+0	KERROR	/TKTRNX/+1	KGRAFL	/TKTRNX/+2	KHOMEY	/TKTRNX/+3	KKMODE	/TKTRNX/+4
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 14
+
+
+KHORSZ	/TKTRNX/+5	KVERSZ	/TKTRNX/+6	KITALC	/TKTRNX/+7	KSIZEF	/TKTRNX/+10	KLMRGN	/TKTRNX/+11
+KRMRGN	/TKTRNX/+12	KTBLSZ	/TKTRNX/+13	KHORZT	/TKTRNX/+14	KVERTT	/TKTRNX/+26	KBEAMX	/TKTRNX/+40
+KBEAMY	/TKTRNX/+41	KMOVEF	/TKTRNX/+42	KPCHAR	/TKTRNX/+43	KDASHT	/TKTRNX/+47	KMINSX	/TKTRNX/+50
+KMINSY	/TKTRNX/+51	KMAXSX	/TKTRNX/+52	KMAXSY	/TKTRNX/+53	TMINVX	/TKTRNX/+54	TMINVY	/TKTRNX/+55
+TMAXVX	/TKTRNX/+56	TMAXVY	/TKTRNX/+57	TREALX	/TKTRNX/+60	TREALY	/TKTRNX/+61	TIMAGX	/TKTRNX/+62
+TIMAGY	/TKTRNX/+63	TRCOSF	/TKTRNX/+64	TRSINF	/TKTRNX/+65	TRSCAL	/TKTRNX/+66	KEYCON	/COMEXT/+0
+FACX  	/COMEXT/+1	FACY  	/COMEXT/+2	PAR1  	/COMEXT/+3	PAR2  	/COMEXT/+4	PAR3  	/COMEXT/+5
+PAR4  	/COMEXT/+6	PAR5  	/COMEXT/+7	PAR6  	/COMEXT/+10	
+
+SUBPROGRAMS
+
+FLOAT 	ALOG  	DWINDO	RESCAL	
+
+SCALARS
+
+LWINDO	63		PAR1  	3		KEY   	62		PAR2  	4		XMIN  	56	
+PAR3  	5		YMIN  	60		XMAX  	57		YMAX  	61		KEYCON	0	
+KBAUDR	0		KERROR	1		KGRAFL	2		KHOMEY	3		KKMODE	4	
+KHORSZ	5		KVERSZ	6		KITALC	7		KSIZEF	10		KLMRGN	11	
+KRMRGN	12		KTBLSZ	13		KBEAMX	40		KBEAMY	41		KMOVEF	42	
+KDASHT	47		KMINSX	50		KMINSY	51		KMAXSX	52		KMAXSY	53	
+TMINVX	54		TMINVY	55		TMAXVX	56		TMAXVY	57		TREALX	60	
+TREALY	61		TIMAGX	62		TIMAGY	63		TRCOSF	64		TRSINF	65	
+TRSCAL	66		FACX  	1		FACY  	2		PAR4  	6		PAR5  	7	
+PAR6  	10		
+
+ARRAYS
+
+KHORZT	14		KVERTT	26		KPCHAR	43		
+
+ LWINDO
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 15
+
+
+  		      C **********************************************************
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 16
+
+
+  		      C * NAME:     PWINDO                                       *
+  		      C * PURPOSE:  POLAR WINDOW                                 *
+  		      C *           SET UP POLAR SPACE LIMITS AND CALCULATE      *
+  		      C *           TRANSFORMATION SCALE                         *
+  		      C * USAGE: CALL PWINDO(THETA1,THETA2,ANGSUP,RMIN,RMAX,RSUP)*
+  		      C *            THETA1  LOWER ANGLE LIMIT IN RADIANS        *
+  		      C *            THETA2  UPPER ANGLE LIMIT IN RADIANS        *
+  		      C *            ANGSUP  ANGLE IN RADIANS TO BE SUBTRACTED   *
+  		      C *                    FROM ALL INCOMING ANGLES            *
+  		      C *            RMIN    MINIMUM RADIUS                      *
+  		      C *            RMAX    MAXIMUM RADIUS                      *
+  		      C *            RSUP    AMOUNT TO BE SUBTRACTED FROM EACH   *
+  		      C *                    INCOMING RADIUS                     *
+  		      C **********************************************************
+  		            SUBROUTINE PWINDO(THETA1,THETA2,ANGSUP,RMIN,RMAX,RSUP)
+  		            COMMON /COMEXT/ KEYCON,FACX,FACY,PAR1,PAR2,PAR3,PAR4,PAR5,PAR6
+  		      C
+  		            PAR1=ANGSUP
+  		            PAR2=RSUP
+  		            CALL DWINDO(THETA1,THETA2,RMIN,RMAX)
+  		            KEYCON=3
+  		            CALL RESCAL
+  		            RETURN
+  		            END
+
+GLOBAL DUMMIES
+
+THETA1	45		THETA2	46		ANGSUP	47		RMIN  	50		RMAX  	51	
+RSUP  	52		
+
+COMMON
+
+KEYCON	/COMEXT/+0	FACX  	/COMEXT/+1	FACY  	/COMEXT/+2	PAR1  	/COMEXT/+3	PAR2  	/COMEXT/+4
+PAR3  	/COMEXT/+5	PAR4  	/COMEXT/+6	PAR5  	/COMEXT/+7	PAR6  	/COMEXT/+10	
+
+SUBPROGRAMS
+
+DWINDO	RESCAL	
+
+SCALARS
+
+PWINDO	53		PAR1  	3		ANGSUP	47		PAR2  	4		RSUP  	52	
+THETA1	45		THETA2	46		RMIN  	50		RMAX  	51		KEYCON	0	
+FACX  	1		FACY  	2		PAR3  	5		PAR4  	6		PAR5  	7	
+PAR6  	10		
+
+ PWINDO
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 17
+
+
+  		      C **********************************************************
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 18
+
+
+  		      C * NAME:     VWINDO                                       *
+  		      C * PURPOSE:  DATA WINDOW                                  *
+  		      C *           SET UP VIRTUAL SPACE LIMITS AND CALCULATE    *
+  		      C *           TRANSFORMATION SCALE                         *
+  		      C * USAGE:    CALL VWINDO(XMIN,XRANGE,YMIN,YRANGE)         *
+  		      C *            XMIN  LEFT LIMIT OF DATA WINDOW             *
+  		      C *            XRANGE  EXTENT OF DATA WINDOW               *
+  		      C *            YMIN  LOWEITS OF DATA WINDOW           *
+  		      C *            YRANGE  EXTENT OF DATA WINDOW               *
+  		      C *           TEKTRONIX V3 1-16-73                         *
+  		      C **********************************************************
+  		      C
+  		            SUBROUTINE VWINDO(XMIN,XRANGE,YMIN,YRANGE)
+  		            XMAX=XMIN+XRANGE
+  		            YMAX=YMIN+YRANGE
+  		            CALL DWINDO(XMIN,XMAX,YMIN,YMAX)
+  		            RETURN
+  		            END
+
+GLOBAL DUMMIES
+
+XMIN  	40		XRANGE	41		YMIN  	42		YRANGE	43		
+
+SUBPROGRAMS
+
+DWINDO	
+
+SCALARS
+
+VWINDO	44		XMAX  	45		XMIN  	40		XRANGE	41		YMAX  	46	
+YMIN  	42		YRANGE	43		
+
+ VWINDO
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 19
+
+
+  		      C **********************************************************
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 20
+
+
+  		      C * NAME:     SWINDO                                       *
+  		      C * PURPOSE:  SCREEN WINDOW                                *
+  		      C *           SET UP SCREEN SPACE LIMITS AND CALCULATE     *
+  		      C *           TRANSFORMATION SCALE                         *
+  		      C * USAGE:    CALL SWINDO(IXMIN,IXRNGE,IYMIN,IYRNGE)       *
+  		      C *            IXMIN  LEFT LIMIT OF SCREEN WINDOW          *
+  		      C *            IXRNGE  EXTENT OF SCREEN WINDOW             *
+  		      C *            IYMIN  LOWER LIMITS OF SCREEN WINDOW        *
+  		      C *            IYRNGE  EXTENT OF SCREEN WINDOW             *
+  		      C *           TEKTRONIX V3 1-16-73                         *
+  		      C **********************************************************
+  		            SUBROUTINE SWINDO(MINX,LENX,MINY,LENY)
+  		            MAXX=MINX+LENX
+  		            MAXY=MINY+LENY
+  		            CALL TWINDO(MINX,MAXX,MINY,MAXY)
+  		            RETURN
+  		            END
+
+GLOBAL DUMMIES
+
+MINX  	40		LENX  	41		MINY  	42		LENY  	43		
+
+SUBPROGRAMS
+
+TWINDO	
+
+SCALARS
+
+SWINDO	44		MAXX  	45		MINX  	40		LENX  	41		MAXY  	46	
+MINY  	42		LENY  	43		
+
+ SWINDO
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 21
+
+
+  		      C **********************************************************
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 22
+
+
+  		      C * NAME:     TWINDO                                       *
+  		      C * PURPOSE:  SCREEN WINDOW                                *
+  		      C *           SET UP VIRTUAL SPACE LIMITS AND CALCULATE    *
+  		      C *           TRANSFORMATION SCALE                         *
+  		      C * USAGE:    CALL TWINDO(IXMIN,IXMAX,IYMIN,IYMAX)         *
+  		      C *            IMIN  LEFT LIMIT OF SCREEN WINDOW           *
+  		      C *            IMAX  RIGHT LIMIT OF SCREEN WINDOW          *
+  		      C *            IMIN  LOWER LIMITS OF SCREEN WINDOW         *
+  		      C *            IMAX  UPPER LIMITS OF SCREEN WINDOW         *
+  		      C *           TEKTRONIX V3 1-16-73                         *
+  		      C **********************************************************
+  		            SUBROUTINE TWINDO(MINX,MAXX,MINY,MAXY)
+  		            COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+  		           1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+  		           2 KTBLSZ, KHORZT(10), KVERTT(10),
+  		           3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+  		           4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+  		           5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+  		            COMMON /COMEXT/KEYCON,FACX,FACY,PAR1,PAR2,PAR3,PAR4,PAR5,PAR6
+  		      C
+  		      C *   SET UP TCOMMON
+  		            KMINSX=MINX
+  		            KMAXSX=MAXX
+  		            KMINSY=MINY
+  		            KMAXSY=MAXY
+  		            CALL RESCAL
+  		            RETURN
+  		            END
+
+GLOBAL DUMMIES
+
+MINX  	31		MAXX  	32		MINY  	33		MAXY  	34		
+
+COMMON
+
+KBAUDR	/TKTRNX/+0	KERROR	/TKTRNX/+1	KGRAFL	/TKTRNX/+2	KHOMEY	/TKTRNX/+3	KKMODE	/TKTRNX/+4
+KHORSZ	/TKTRNX/+5	KVERSZ	/TKTRNX/+6	KITALC	/TKTRNX/+7	KSIZEF	/TKTRNX/+10	KLMRGN	/TKTRNX/+11
+KRMRGN	/TKTRNX/+12	KTBLSZ	/TKTRNX/+13	KHORZT	/TKTRNX/+14	KVERTT	/TKTRNX/+26	KBEAMX	/TKTRNX/+40
+KBEAMY	/TKTRNX/+41	KMOVEF	/TKTRNX/+42	KPCHAR	/TKTRNX/+43	KDASHT	/TKTRNX/+47	KMINSX	/TKTRNX/+50
+KMINSY	/TKTRNX/+51	KMAXSX	/TKTRNX/+52	KMAXSY	/TKTRNX/+53	TMINVX	/TKTRNX/+54	TMINVY	/TKTRNX/+55
+TMAXVX	/TKTRNX/+56	TMAXVY	/TKTRNX/+57	TREALX	/TKTRNX/+60	TREALY	/TKTRNX/+61	TIMAGX	/TKTRNX/+62
+TIMAGY	/TKTRNX/+63	TRCOSF	/TKTRNX/+64	TRSINF	/TKTRNX/+65	TRSCAL	/TKTRNX/+66	KEYCON	/COMEXT/+0
+FACX  	/COMEXT/+1	FACY  	/COMEXT/+2	PAR1  	/COMEXT/+3	PAR2  	/COMEXT/+4	PAR3  	/COMEXT/+5
+PAR4  	/COMEXT/+6	PAR5  	/COMEXT/+7	PAR6  	/COMEXT/+10	
+
+SUBPROGRAMS
+
+RESCAL	
+
+SCALARS
+
+TWINDO	35		KMINSX	50		MINX  	31		KMAXSX	52		MAXX  	32	
+KMINSY	51		MINY  	33		KMAXSY	53		MAXY  	34		KBAUDR	0	
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 23
+
+
+KERROR	1		KGRAFL	2		KHOMEY	3		KKMODE	4		KHORSZ	5	
+KVERSZ	6		KITALC	7		KSIZEF	10		KLMRGN	11		KRMRGN	12	
+KTBLSZ	13		KBEAMX	40		KBEAMY	41		KMOVEF	42		KDASHT	47	
+TMINVX	54		TMINVY	55		TMAXVX	56		TMAXVY	57		TREALX	60	
+TREALY	61		TIMAGX	62		TIMAGY	63		TRCOSF	64		TRSINF	65	
+TRSCAL	66		KEYCON	0		FACX  	1		FACY  	2		PAR1  	3	
+PAR2  	4		PAR3  	5		PAR4  	6		PAR5  	7		PAR6  	10	
+
+ARRAYS
+
+KHORZT	14		KVERTT	26		KPCHAR	43		
+
+ TWINDO
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 24
+
+
+  		      C **********************************************************
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 25
+
+
+  		      C *            GRAPHIC TRANSFORM ROUTINES
+  		      C **********************************************************
+  		      C **********************************************************
+  		      C * NAME:     V2ST                                         *
+  		      C * PURPOSE:  TRANSFORMS VIRTUAL DISPLAY VECTORS FOR       *
+  		      C *           OUTPUT TO THE SCREEN                         *
+  		      C * USAGE:    CALL V2ST(I,X,Y)                             *
+  		      C *           I =0  POINT OR MOVE                          *
+  		      C *             =1  BRIGHT VECTOR                          *
+  		      C *           X    VIRTUAL X-COORDINATE                    *
+  		      C *           Y    VIRTUAL Y-COORDINATE                    *
+  		      C *           TEKTRONIX V1 4-7-71 DP                       *
+  		      C *           TEKTRONIX V3 1-16-73                         *
+  		      C **********************************************************
+  		      C ROUTINE---BG-0170.05-01   V2ST
+  		            SUBROUTINE V2ST(I,X,Y)
+  		            DIMENSION BUFIN(4),BFOUT(4)
+  		            COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+  		           1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+  		           2 KTBLSZ, KHORZT(10), KVERTT(10),
+  		           3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+  		           4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+  		           5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+  		            EQUIVALENCE (BUFIN(1),XS),(BUFIN(2),YS),(BUFIN(3),XE),
+  		           1(BUFIN(4),YE)
+  		            EQUIVALENCE (BFOUT(1),CXS),(BFOUT(2),CYS),(BFOUT(3),CXE),
+  		           1            (BFOUT(4),CYE)
+  		            XE=X
+  		            YE=Y
+  		      C * POINT OR MOVE
+  		            IF(I .EQ. 0) GO TO 10
+  		      C * BRIGHT VECTOR
+  		            XS=TIMAGX
+  		            YS=TIMAGY
+  		      C * CLIP VECTOR
+  		            CALL CLIPT(BUFIN,BFOUT)
+  		      C * ON SCREEN?
+  		            IF(KERROR .EQ. 1) GO TO 110
+  		      C * ARE WE AT START POINT?
+  		            IF(CXS .EQ. TREALX .AND. CYS .EQ. TREALY) GO TO 120
+  		      C * MOVE BEAM TO START POINT
+  		            MODE=KKMODE
+  		            CALL VECMOD
+  		            CALL WINCOT(CXS,CYS,IX,IY)
+  		            CALL MODCHK(IX,IY)
+  		            KKMODE=MODE
+  		            GO TO 120
+  		      C * POINT OR MOVE
+  		      10    CALL PCLIPT(XE,YE)
+  		      C * OFF SCREEN?
+  		            IF(KERROR .EQ. 1) GO TO 110
+  		            CXE=XE
+  		            CYE=YE
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 26
+
+
+  		      C * CONVERT TO SCREEN COORDINATES AND PLOT
+  		      120   CALL WINCOT(CXE,CYE,IX,IY)
+  		            CALL MODCHK(IX,IY)
+  		      C * SAVE POSITION  ABS AND IMAGINARY
+  		            TREALX=CXE
+  		            TREALY=CYE
+  		      110   TIMAGX=X
+  		            TIMAGY=Y
+  		            RETURN
+  		            END
+
+GLOBAL DUMMIES
+
+I     	121		X     	122		Y     	123		
+
+COMMON
+
+KBAUDR	/TKTRNX/+0	KERROR	/TKTRNX/+1	KGRAFL	/TKTRNX/+2	KHOMEY	/TKTRNX/+3	KKMODE	/TKTRNX/+4
+KHORSZ	/TKTRNX/+5	KVERSZ	/TKTRNX/+6	KITALC	/TKTRNX/+7	KSIZEF	/TKTRNX/+10	KLMRGN	/TKTRNX/+11
+KRMRGN	/TKTRNX/+12	KTBLSZ	/TKTRNX/+13	KHORZT	/TKTRNX/+14	KVERTT	/TKTRNX/+26	KBEAMX	/TKTRNX/+40
+KBEAMY	/TKTRNX/+41	KMOVEF	/TKTRNX/+42	KPCHAR	/TKTRNX/+43	KDASHT	/TKTRNX/+47	KMINSX	/TKTRNX/+50
+KMINSY	/TKTRNX/+51	KMAXSX	/TKTRNX/+52	KMAXSY	/TKTRNX/+53	TMINVX	/TKTRNX/+54	TMINVY	/TKTRNX/+55
+TMAXVX	/TKTRNX/+56	TMAXVY	/TKTRNX/+57	TREALX	/TKTRNX/+60	TREALY	/TKTRNX/+61	TIMAGX	/TKTRNX/+62
+TIMAGY	/TKTRNX/+63	TRCOSF	/TKTRNX/+64	TRSINF	/TKTRNX/+65	TRSCAL	/TKTRNX/+66	
+
+EQUIVALENCE
+
+YE    	127		XE    	126		YS    	125		XS    	124		BUFIN 	124	
+CYE   	133		CXE   	132		CYS   	131		CXS   	130		BFOUT 	130	
+
+SUBPROGRAMS
+
+CLIPT 	VECMOD	WINCOT	MODCHK	PCLIPT	
+
+SCALARS
+
+V2ST  	134		XE    	126		X     	122		YE    	127		Y     	123	
+I     	121		XS    	124		TIMAGX	62		YS    	125		TIMAGY	63	
+KERROR	1		CXS   	130		TREALX	60		CYS   	131		TREALY	61	
+MODE  	135		KKMODE	4		IX    	136		IY    	137		CXE   	132	
+CYE   	133		KBAUDR	0		KGRAFL	2		KHOMEY	3		KHORSZ	5	
+KVERSZ	6		KITALC	7		KSIZEF	10		KLMRGN	11		KRMRGN	12	
+KTBLSZ	13		KBEAMX	40		KBEAMY	41		KMOVEF	42		KDASHT	47	
+KMINSX	50		KMINSY	51		KMAXSX	52		KMAXSY	53		TMINVX	54	
+TMINVY	55		TMAXVX	56		TMAXVY	57		TRCOSF	64		TRSINF	65	
+TRSCAL	66		
+
+ARRAYS
+
+BUFIN 	124		BFOUT 	130		KHORZT	14		KVERTT	26		KPCHAR	43	
+
+ V2ST
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 27
+
+
+  		      C **********************************************************
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 28
+
+
+  		      C * NAME:     WINCOT                                       *
+  		      C * PURPOSE:  CONVERT VIRTUAL COORDINATES TO SCREEN        *
+  		      C *           COORDINATES                                  *
+  		      C * USAGE:    CALL WINCOT(X,Y,IX,IY)                       *
+  		      C *           X  VIRTUAL X                                 *
+  		      C *           Y  VIRTUAL Y                                 *
+  		      C *           IX  SCREEN X                                 *
+  		      C *           IY  SCREEN Y                                 *
+  		      C *           TEKTRONIX V1 4-7-71 DP                       *
+  		      C *           TEKTRONIX V3 1-16-73                         *
+  		      C **********************************************************
+  		      C ROUTINE---BG-0200.05-01   WINCOT
+  		            SUBROUTINE WINCOT(X,Y,KDISX,KDISY)
+  		            COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+  		           1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+  		           2 KTBLSZ, KHORZT(10), KVERTT(10),
+  		           3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+  		           4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+  		           5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+  		            COMMON /COMEXT/KEYCON,FACX,FACY,PAR1,PAR2,PAR3,PAR4,PAR5,PAR6
+  		            DATA PHI/3.14159/
+  		      C
+  		      C *    CHECK FOR PERMITTED VALUE OF CONVERSION KEY
+  		      C *    DEFAULT IS LINEAR,ERROR IS NONE
+  		            DX=X-TMINVX
+  		            DY=Y-TMINVY
+  		            KEY=KEYCON
+  		            IF(KEYCON .LT. 1)KEY=5
+  		            IF(KEYCON .GT. 4)KEY=4
+  		      C *    BRANCH TO PROPER SECTION
+  		      C
+  		      C *      LINEAR LOG POLAR USER ERROR
+  		            GO TO(500,300,600,700,100),KEY
+  		      C       ERROR
+  		      100   KDISX=X
+  		            KDISY=Y
+  		      C *    EXIT POINT
+  		      200   RETURN
+  		      C
+  		      C *    LOG TRANSFORM
+  		      300   KEYL=PAR1
+  		            IF(KEYL .EQ. 2) GO TO 400
+  		      C *    SETUP X LOG TRANSFORM
+  		            DX=ALOG(X)-PAR2
+  		      C
+  		      400   IF(KEYL .EQ. 1) GO TO 500
+  		      C *    SETUP Y LOG TRANSFORM
+  		            DY=ALOG(Y)-PAR3
+  		      C *    CONVERT LNER
+  		      500   KDISX=DX*FACX+KMINSX
+  		            KDISY=DY*FACY+KMINSY
+  		      C *    GO TO EXIT
+  		            GO TO 200
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 29
+
+
+  		      C
+  		      C *    POLAR TRANSFORMATION
+  		      600   A=(X-PAR1)*FACX
+  		            R=(Y-PAR2)*FACY
+  		            KDISX=R*COS(A)+PAR3
+  		            KDISY=R*SIN(A)+PAR4
+  		      C *    GO TO EXIT
+  		            GO TO 200
+  		      C
+  		      C *    USER TRANSFORMATION IN USE
+  		      700   CALL USECOT(X,Y,KDISX,KDISY)
+  		      C *    GO TO EXIT
+  		            GO TO 200
+  		            END
+
+GLOBAL DUMMIES
+
+X     	172		Y     	173		KDISX 	174		KDISY 	175		
+
+COMMON
+
+KBAUDR	/TKTRNX/+0	KERROR	/TKTRNX/+1	KGRAFL	/TKTRNX/+2	KHOMEY	/TKTRNX/+3	KKMODE	/TKTRNX/+4
+KHORSZ	/TKTRNX/+5	KVERSZ	/TKTRNX/+6	KITALC	/TKTRNX/+7	KSIZEF	/TKTRNX/+10	KLMRGN	/TKTRNX/+11
+KRMRGN	/TKTRNX/+12	KTBLSZ	/TKTRNX/+13	KHORZT	/TKTRNX/+14	KVERTT	/TKTRNX/+26	KBEAMX	/TKTRNX/+40
+KBEAMY	/TKTRNX/+41	KMOVEF	/TKTRNX/+42	KPCHAR	/TKTRNX/+43	KDASHT	/TKTRNX/+47	KMINSX	/TKTRNX/+50
+KMINSY	/TKTRNX/+51	KMAXSX	/TKTRNX/+52	KMAXSY	/TKTRNX/+53	TMINVX	/TKTRNX/+54	TMINVY	/TKTRNX/+55
+TMAXVX	/TKTRNX/+56	TMAXVY	/TKTRNX/+57	TREALX	/TKTRNX/+60	TREALY	/TKTRNX/+61	TIMAGX	/TKTRNX/+62
+TIMAGY	/TKTRNX/+63	TRCOSF	/TKTRNX/+64	TRSINF	/TKTRNX/+65	TRSCAL	/TKTRNX/+66	KEYCON	/COMEXT/+0
+FACX  	/COMEXT/+1	FACY  	/COMEXT/+2	PAR1  	/COMEXT/+3	PAR2  	/COMEXT/+4	PAR3  	/COMEXT/+5
+PAR4  	/COMEXT/+6	PAR5  	/COMEXT/+7	PAR6  	/COMEXT/+10	
+
+SUBPROGRAMS
+
+INT   	ALOG  	FLOAT 	COS   	SIN   	USECOT	
+
+SCALARS
+
+WINCOT	177		PHI   	200		DX    	201		X     	172		TMINVX	54	
+DY    	202		Y     	173		TMINVY	55		KEY   	203		KEYCON	0	
+KDISX 	174		KDISY 	175		KEYL  	204		PAR1  	3		PAR2  	4	
+PAR3  	5		FACX  	1		KMINSX	50		FACY  	2		KMINSY	51	
+A     	205		R     	206		PAR4  	6		KBAUDR	0		KERROR	1	
+KGRAFL	2		KHOMEY	3		KKMODE	4		KHORSZ	5		KVERSZ	6	
+KITALC	7		KSIZEF	10		KLMRGN	11		KRMRGN	12		KTBLSZ	13	
+KBEAMX	40		KBEAMY	41		KMOVEF	42		KDASHT	47		KMAXSX	52	
+KMAXSY	53		TMAXVX	56		TMAXVY	57		TREALX	60		TREALY	61	
+TIMAGX	62		TIMAGY	63		TRCOSF	64		TRSINF	65		TRSCAL	66	
+PAR5  	7		PAR6  	10		
+
+ARRAYS
+
+KHORZT	14		KVERTT	26		KPCHAR	43		
+
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 30
+
+
+ WINCOT
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 31
+
+
+  		      C **********************************************************
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 32
+
+
+  		      C * NAME:     RESCAL                                       *
+  		      C * PURPOSE:  THIS ROUTINE CALCULATES THE TRANSFORMATION   *
+  		      C *           SCALE FACTORS USING THE INFORMATION          *
+  		      C *           STORED IN COMMON                             *
+  		      C * USAGE:    CALL RESCAL                                  *
+  		      C *           TEKTRONIX V1 4-7-71 DP                       *
+  		      C *           TEKTRONIX V3 1-16-73                         *
+  		      C **********************************************************
+  		      C ROUTINE---BG-0200.05-01   WINCOT
+  		            SUBROUTINE RESCAL
+  		            COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+  		           1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+  		           2 KTBLSZ, KHORZT(10), KVERTT(10),
+  		           3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+  		           4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+  		           5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+  		            COMMON /COMEXT/KEYCON,FACX,FACY,PAR1,PAR2,PAR3,PAR4,PAR5,PAR6
+  		            REAL COST(4),SINT(4)
+  		            DATA COST,SINT/1.,0.,-1.,0.,0.,1.,0.,-1./
+  		      C
+  		            KEY=KEYCON
+  		            IF(KEYCON .LT. 1)KEY=5
+  		            IF(KEYCON .GT. 4)KEY=4
+  		      C *    BRANCH TO PROPER SECTION AND RETURN
+  		      C
+  		      C *       LINIER LOG POLAR USER ERROR
+  		            GO TO (100,200,300,400,500),KEY
+  		      C
+  		      C *    LINIER
+  		      100   FACX=FLOAT(KMAXSX-KMINSX)/(TMAXVX-TMINVX)
+  		            FACY=FLOAT(KMAXSY-KMINSY)/(TMAXVY-TMINVY)
+  		            RETURN
+  		      C
+  		      C *    LOGRITHMIC
+  		      200   KEYL=PAR1+.001
+  		            IF(KEYL .NE. 2)FACX=(KMAXSX-KMINSX)/(ALOG(TMAXVX)-ALOG(TMINVX))
+  		            IF(KEYL .NE. 1)FACY=(KMAXSY-KMINSY)/(ALOG(TMAXVY)-ALOG(TMINVY))
+  		            RETURN
+  		      C
+  		      C *    POLAR SCALING
+  		      C
+  		      C *    FIND SCREEN RANGE
+  		      300   PID2=3.14159*.5
+  		            AMIN=TMINVX+PAR1
+  		            AMAX=TMAXVX+PAR1
+  		            RMIN=TMINVY+PAR2
+  		            RMAX=TMAXVY+PAR2
+  		            TRANGX=KMAXSX-KMINSX
+  		            TRANGY=KMAXSY-KMINSY
+  		      C *    FIND X COMPONET OF FOUR CORNERS
+  		            F12X=COS(AMIN)
+  		            F34X=COS(AMAX)
+  		            F12Y=SIN(AMIN)
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 33
+
+
+  		            F34Y=SIN(AMAX)
+  		            P1X=RMIN*F12X
+  		            P2X=RMAX*F12X
+  		            P3X=RMIN*F34X
+  		            P4X=RMAX*F34X
+  		      C *    FIND MIN AND MAX OF X COMPONET
+  		            XMIN=AMIN1(P1X,P2X,P3X,P4X)
+  		            XMAX=AMAX1(P1X,P2X,P3X,P4X)
+  		      C *    FIND Y COMPONETS OF CORNORS
+  		            P1Y=RMIN*F12Y
+  		            P2Y=RMAX*F12Y
+  		            P3Y=RMIN*F34Y
+  		            P4Y=RMAX*F34Y
+  		      C *    FIND MIN AND MAX OF Y COMPONETS
+  		            YMIN=AMIN1(P1Y,P2Y,P3Y,P4Y)
+  		            YMAX=AMAX1(P1Y,P2Y,P3Y,P4Y)
+  		      C
+  		      C *    CHECK LIMITS OF ARCS
+  		            NQUAD=TMINVX/PID2
+  		            IF(TMINVX .LT. 0)NQUAD=NQUAD-1
+  		            ANGRAD=NQUAD*PID2
+  		            DO 310 I=1,5
+  		            IF(ANGRAD .LT. AMIN) GO TO 310
+  		            IF(ANGRAD .GT. AMAX) GO TO 320
+  		            FCOS=COST(I)
+  		            PX1=RMAX*FCOS
+  		            PX2=RMIN*FCOS
+  		            FSIN=SINT(I)
+  		            PY1=RMAX*FSIN
+  		            PY2=RMIN*FSIN
+  		            XMAX=AMAX1(XMAX,PX1,PX2)
+  		            XMIN=AMIN1(XMIN,PX1,PX2)
+  		            YMAX=AMAX1(YMAX,PY1,PY2)
+  		            YMIN=AMIN1(YMIN,PY1,PY2)
+  		      310   ANGRAD=ANGRAD+PID2
+  		      C *    FIND SCALE FACTORS
+  		            CALL ANMODE
+  		      320    FACY=AMIN1(TRANGX/(XMAX-XMIN),TRANGY/(YMAX-YMIN))
+  		            FACX=1.
+  		            PAR3=KMINSX-FACY*XMIN
+  		            PAR4=KMINSY-FACY*YMIN
+  		            RETURN
+  		      C
+  		      C *    USER FUNCTION
+  		      400   CALL URSCAL
+  		            RETURN
+  		      C
+  		      C *    NO SCALE
+  		      500   FACX=1.
+  		            FACY=1.
+  		            RETURN
+  		            END
+
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 34
+
+
+CONSTANTS
+
+0	167406111564	1	201622077174	
+
+COMMON
+
+KBAUDR	/TKTRNX/+0	KERROR	/TKTRNX/+1	KGRAFL	/TKTRNX/+2	KHOMEY	/TKTRNX/+3	KKMODE	/TKTRNX/+4
+KHORSZ	/TKTRNX/+5	KVERSZ	/TKTRNX/+6	KITALC	/TKTRNX/+7	KSIZEF	/TKTRNX/+10	KLMRGN	/TKTRNX/+11
+KRMRGN	/TKTRNX/+12	KTBLSZ	/TKTRNX/+13	KHORZT	/TKTRNX/+14	KVERTT	/TKTRNX/+26	KBEAMX	/TKTRNX/+40
+KBEAMY	/TKTRNX/+41	KMOVEF	/TKTRNX/+42	KPCHAR	/TKTRNX/+43	KDASHT	/TKTRNX/+47	KMINSX	/TKTRNX/+50
+KMINSY	/TKTRNX/+51	KMAXSX	/TKTRNX/+52	KMAXSY	/TKTRNX/+53	TMINVX	/TKTRNX/+54	TMINVY	/TKTRNX/+55
+TMAXVX	/TKTRNX/+56	TMAXVY	/TKTRNX/+57	TREALX	/TKTRNX/+60	TREALY	/TKTRNX/+61	TIMAGX	/TKTRNX/+62
+TIMAGY	/TKTRNX/+63	TRCOSF	/TKTRNX/+64	TRSINF	/TKTRNX/+65	TRSCAL	/TKTRNX/+66	KEYCON	/COMEXT/+0
+FACX  	/COMEXT/+1	FACY  	/COMEXT/+2	PAR1  	/COMEXT/+3	PAR2  	/COMEXT/+4	PAR3  	/COMEXT/+5
+PAR4  	/COMEXT/+6	PAR5  	/COMEXT/+7	PAR6  	/COMEXT/+10	
+
+SUBPROGRAMS
+
+FLOAT 	INT   	ALOG  	COS   	SIN   	AMIN1 	AMAX1 	ANMODE	URSCAL	
+
+SCALARS
+
+RESCAL	421		KEY   	422		KEYCON	0		FACX  	1		KMAXSX	52	
+KMINSX	50		TMAXVX	56		TMINVX	54		FACY  	2		KMAXSY	53	
+KMINSY	51		TMAXVY	57		TMINVY	55		KEYL  	423		PAR1  	3	
+PID2  	424		AMIN  	425		AMAX  	426		RMIN  	427		PAR2  	4	
+RMAX  	430		TRANGX	431		TRANGY	432		F12X  	433		F34X  	434	
+F12Y  	435		F34Y  	436		P1X   	437		P2X   	440		P3X   	441	
+P4X   	442		XMIN  	443		XMAX  	444		P1Y   	445		P2Y   	446	
+P3Y   	447		P4Y   	450		YMIN  	451		YMAX  	452		NQUAD 	453	
+ANGRAD	454		I     	455		FCOS  	456		PX1   	457		PX2   	460	
+FSIN  	461		PY1   	462		PY2   	463		PAR3  	5		PAR4  	6	
+KBAUDR	0		KERROR	1		KGRAFL	2		KHOMEY	3		KKMODE	4	
+KHORSZ	5		KVERSZ	6		KITALC	7		KSIZEF	10		KLMRGN	11	
+KRMRGN	12		KTBLSZ	13		KBEAMX	40		KBEAMY	41		KMOVEF	42	
+KDASHT	47		TREALX	60		TREALY	61		TIMAGX	62		TIMAGY	63	
+TRCOSF	64		TRSINF	65		TRSCAL	66		PAR5  	7		PAR6  	10	
+
+ARRAYS
+
+KHORZT	14		KVERTT	26		KPCHAR	43		COST  	464		SINT  	470	
+
+ RESCAL
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 35
+
+
+  		      C *    THIS FILE WILL SATISFY ALL CALL IN TCS RELEASE 3
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 36
+
+
+  		            SUBROUTINE USDRAW(X,Y)
+  		            RETURN
+  		            END
+
+GLOBAL DUMMIES
+
+X     	16		Y     	17		
+
+SCALARS
+
+USDRAW	20		X     	16		Y     	17		
+
+ USDRAW
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 37
+
+
+  		            SUBROUTINE URSCAL
+  		            COMMON /COMEXT/KEYCON,FACX,FACY,PAR1,PAR2,PAR3,PAR4,PAR5,PAR6
+  		            FACX=1.
+  		            FACY=1.
+  		            RETURN
+  		            END
+
+COMMON
+
+KEYCON	/COMEXT/+0	FACX  	/COMEXT/+1	FACY  	/COMEXT/+2	PAR1  	/COMEXT/+3	PAR2  	/COMEXT/+4
+PAR3  	/COMEXT/+5	PAR4  	/COMEXT/+6	PAR5  	/COMEXT/+7	PAR6  	/COMEXT/+10	
+
+SCALARS
+
+URSCAL	17		FACX  	1		FACY  	2		KEYCON	0		PAR1  	3	
+PAR2  	4		PAR3  	5		PAR4  	6		PAR5  	7		PAR6  	10	
+
+ URSCAL
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 38
+
+
+  		      C
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 39
+
+
+  		            SUBROUTINE USECOT(X,Y,IX,IY)
+  		            IX=X
+  		            IY=X
+  		            RETURN
+  		            END
+
+GLOBAL DUMMIES
+
+X     	31		Y     	32		IX    	33		IY    	34		
+
+SUBPROGRAMS
+
+INT   	
+
+SCALARS
+
+USECOT	35		IX    	33		X     	31		IY    	34		Y     	32	
+
+ USECOT
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 40
+
+
+  		      C
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 41
+
+
+  		            SUBROUTINE UREVCT(IX,IY,X,Y)
+  		            X=IX
+  		            Y=IY
+  		            RETURN
+  		            END
+
+GLOBAL DUMMIES
+
+IX    	31		IY    	32		X     	33		Y     	34		
+
+SUBPROGRAMS
+
+FLOAT 	
+
+SCALARS
+
+UREVCT	35		X     	33		IX    	31		Y     	34		IY    	32	
+
+ UREVCT
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 42
+
+
+  		      C **********************************************************
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 43
+
+
+  		      C * NAME:        SVSTAT                                    *
+  		      C * PURPOSE:     SAVE STATUS                               *
+  		      C * USAGE:       CALL SVSTAT(ARRAY)                        *
+  		      C *              ARRAY - 60 WORD REAL ARRAY                *
+  		      C *                IN WHICH TERMINAL STATUS IS STORED      *
+  		      C **********************************************************
+  		      C ROUTINE---DA-0420.05-01   SVSTAT
+  		            SUBROUTINE SVSTAT(RARRAY)
+  		            COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+  		           1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+  		           2 KTBLSZ, KHORZT(10), KVERTT(10),
+  		           3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+  		           4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+  		           5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+  		            COMMON /COMEXT/KEYCON,FACX,FACY,PAR1,PAR2,PAR3,PAR4,PAR5,PAR6
+  		            COMMON /SAVEIT/ SAVING(9)
+  		            DIMENSION RARRAY(55),IB(44),RB(11),EB(8)
+  		            EQUIVALENCE (IB(1),KBAUDR),(RB(1),TMINVX)
+  		            EQUIVALENCE (IEB,KEYCON),(EB(1),FACX)
+  		      C *
+  		      C *   COPY TERMINAL STATUS AREA INTO GIVEN SAVE ARRAY    **
+  		      C *
+  		            DO 100 I=1,44
+  		      100   RARRAY(I)=IB(I)
+  		            DO 101 I=1,11
+  		      101   RARRAY(I+44)=RB(I)
+  		      102   SAVING(1)=IEB
+  		            DO 104 I=1,8
+  		      104   SAVING(I+1)=EB(I)
+  		            RETURN
+  		            END
+
+
+GLOBAL DUMMIES
+
+RARRAY	50		
+
+COMMON
+
+KBAUDR	/TKTRNX/+0	KERROR	/TKTRNX/+1	KGRAFL	/TKTRNX/+2	KHOMEY	/TKTRNX/+3	KKMODE	/TKTRNX/+4
+KHORSZ	/TKTRNX/+5	KVERSZ	/TKTRNX/+6	KITALC	/TKTRNX/+7	KSIZEF	/TKTRNX/+10	KLMRGN	/TKTRNX/+11
+KRMRGN	/TKTRNX/+12	KTBLSZ	/TKTRNX/+13	KHORZT	/TKTRNX/+14	KVERTT	/TKTRNX/+26	KBEAMX	/TKTRNX/+40
+KBEAMY	/TKTRNX/+41	KMOVEF	/TKTRNX/+42	KPCHAR	/TKTRNX/+43	KDASHT	/TKTRNX/+47	KMINSX	/TKTRNX/+50
+KMINSY	/TKTRNX/+51	KMAXSX	/TKTRNX/+52	KMAXSY	/TKTRNX/+53	TMINVX	/TKTRNX/+54	TMINVY	/TKTRNX/+55
+TMAXVX	/TKTRNX/+56	TMAXVY	/TKTRNX/+57	TREALX	/TKTRNX/+60	TREALY	/TKTRNX/+61	TIMAGX	/TKTRNX/+62
+TIMAGY	/TKTRNX/+63	TRCOSF	/TKTRNX/+64	TRSINF	/TKTRNX/+65	TRSCAL	/TKTRNX/+66	KEYCON	/COMEXT/+0
+FACX  	/COMEXT/+1	FACY  	/COMEXT/+2	PAR1  	/COMEXT/+3	PAR2  	/COMEXT/+4	PAR3  	/COMEXT/+5
+PAR4  	/COMEXT/+6	PAR5  	/COMEXT/+7	PAR6  	/COMEXT/+10	SAVING	/SAVEIT/+0	IB    	/TKTRNX/+0
+RB    	/TKTRNX/+54	IEB   	/COMEXT/+0	EB    	/COMEXT/+1	
+
+SUBPROGRAMS
+
+FLOAT 	
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 44
+
+
+
+SCALARS
+
+SVSTAT	51		I     	52		IEB   	0		KBAUDR	0		KERROR	1	
+KGRAFL	2		KHOMEY	3		KKMODE	4		KHORSZ	5		KVERSZ	6	
+KITALC	7		KSIZEF	10		KLMRGN	11		KRMRGN	12		KTBLSZ	13	
+KBEAMX	40		KBEAMY	41		KMOVEF	42		KDASHT	47		KMINSX	50	
+KMINSY	51		KMAXSX	52		KMAXSY	53		TMINVX	54		TMINVY	55	
+TMAXVX	56		TMAXVY	57		TREALX	60		TREALY	61		TIMAGX	62	
+TIMAGY	63		TRCOSF	64		TRSINF	65		TRSCAL	66		KEYCON	0	
+FACX  	1		FACY  	2		PAR1  	3		PAR2  	4		PAR3  	5	
+PAR4  	6		PAR5  	7		PAR6  	10		
+
+ARRAYS
+
+KHORZT	14		KVERTT	26		KPCHAR	43		SAVING	0		RARRAY	50	
+IB    	0		RB    	54		EB    	1		
+
+ SVSTAT
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 45
+
+
+  		      C **********************************************************
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 46
+
+
+  		      C * NAME:        RESTAT                                    *
+  		      C * PURPOSE:     RESTORE STATUS                            *
+  		      C * USAGE:       CALL RESTAT(ARRAY)                        *
+  		      C *              ARRAY - 54 WORD REAL ARRAY                *
+  		      C *                   IN WHICH PREVIOUS TERMINAL STATUS    *
+  		      C *                   HAS BEEN STORED                      *
+  		      C **********************************************************
+  		      C ROUTINE---DA-1120.05-01 4010 RESTAT
+  		            SUBROUTINE RESTAT(RARRAY)
+  		            COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+  		           1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+  		           2 KTBLSZ, KHORZT(10), KVERTT(10),
+  		           3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+  		           4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+  		           5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+  		            COMMON /COMEXT/KEYCON,FACX,FACY,PAR1,PAR2,PAR3,PAR4,PAR5,PAR6
+  		            COMMON /SAVEIT/ SAVING(9)
+  		            DIMENSION RARRAY(55),IB(44),RB(11),EB(8)
+  		            EQUIVALENCE (IEB,KEYCON),(EB(1),FACX)
+  		            EQUIVALENCE (IB(1),KBAUDR),(RB(1),TMINVX)
+  		      C *
+  		      C *  COPY GIVEN STATUS INTO TUS COMMON **
+  		            DO 100 I=1,44
+  		      100   IB(I)=RARRAY(I)
+  		            DO 101 I=1,11
+  		      101   RB(I)=RARRAY(I+44)
+  		      102   IEB=SAVING(1)
+  		            DO 104 I=1,8
+  		      104   EB(I)=SAVING(I+1)
+  		      C *  SAVE GIVEN MOVE FLAG & MODE **
+  		            MOVE=KMOVEF
+  		            MODE=KKMODE+1
+  		            KGL=KGRAFL
+  		      C *  MOVE TO GIVEN BEAM LOCATION; FORCE ENTRY TO A/N TO RESET FOR MOVE
+  		            IY=KBEAMY
+  		            CALL ANMODE
+  		            KBEAMY=IY
+  		            CALL MOVABS(KBEAMX,KBEAMY)
+  		      C *  ENTER GIVEN MODE  **
+  		            GO TO (200,300,400,500,300),MODE
+  		      200   CALL ANMODE
+  		            GO TO 600
+  		      300   IF(MOVE) 350,600,350
+  		      C *   PRIME FOR MOVE  **
+  		      350   CALL VECMOD
+  		            GO TO 600
+  		      400   CALL PNTMOD
+  		      600   KGRAFL=KGL
+  		      500   RETURN
+  		            END
+
+
+GLOBAL DUMMIES
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 47
+
+
+
+RARRAY	112		
+
+COMMON
+
+KBAUDR	/TKTRNX/+0	KERROR	/TKTRNX/+1	KGRAFL	/TKTRNX/+2	KHOMEY	/TKTRNX/+3	KKMODE	/TKTRNX/+4
+KHORSZ	/TKTRNX/+5	KVERSZ	/TKTRNX/+6	KITALC	/TKTRNX/+7	KSIZEF	/TKTRNX/+10	KLMRGN	/TKTRNX/+11
+KRMRGN	/TKTRNX/+12	KTBLSZ	/TKTRNX/+13	KHORZT	/TKTRNX/+14	KVERTT	/TKTRNX/+26	KBEAMX	/TKTRNX/+40
+KBEAMY	/TKTRNX/+41	KMOVEF	/TKTRNX/+42	KPCHAR	/TKTRNX/+43	KDASHT	/TKTRNX/+47	KMINSX	/TKTRNX/+50
+KMINSY	/TKTRNX/+51	KMAXSX	/TKTRNX/+52	KMAXSY	/TKTRNX/+53	TMINVX	/TKTRNX/+54	TMINVY	/TKTRNX/+55
+TMAXVX	/TKTRNX/+56	TMAXVY	/TKTRNX/+57	TREALX	/TKTRNX/+60	TREALY	/TKTRNX/+61	TIMAGX	/TKTRNX/+62
+TIMAGY	/TKTRNX/+63	TRCOSF	/TKTRNX/+64	TRSINF	/TKTRNX/+65	TRSCAL	/TKTRNX/+66	KEYCON	/COMEXT/+0
+FACX  	/COMEXT/+1	FACY  	/COMEXT/+2	PAR1  	/COMEXT/+3	PAR2  	/COMEXT/+4	PAR3  	/COMEXT/+5
+PAR4  	/COMEXT/+6	PAR5  	/COMEXT/+7	PAR6  	/COMEXT/+10	SAVING	/SAVEIT/+0	IEB   	/COMEXT/+0
+EB    	/COMEXT/+1	IB    	/TKTRNX/+0	RB    	/TKTRNX/+54	
+
+SUBPROGRAMS
+
+INT   	ANMODE	MOVABS	VECMOD	PNTMOD	
+
+SCALARS
+
+RESTAT	113		I     	114		IEB   	0		MOVE  	115		KMOVEF	42	
+MODE  	116		KKMODE	4		KGL   	117		KGRAFL	2		IY    	120	
+KBEAMY	41		KBEAMX	40		KBAUDR	0		KERROR	1		KHOMEY	3	
+KHORSZ	5		KVERSZ	6		KITALC	7		KSIZEF	10		KLMRGN	11	
+KRMRGN	12		KTBLSZ	13		KDASHT	47		KMINSX	50		KMINSY	51	
+KMAXSX	52		KMAXSY	53		TMINVX	54		TMINVY	55		TMAXVX	56	
+TMAXVY	57		TREALX	60		TREALY	61		TIMAGX	62		TIMAGY	63	
+TRCOSF	64		TRSINF	65		TRSCAL	66		KEYCON	0		FACX  	1	
+FACY  	2		PAR1  	3		PAR2  	4		PAR3  	5		PAR4  	6	
+PAR5  	7		PAR6  	10		
+
+ARRAYS
+
+KHORZT	14		KVERTT	26		KPCHAR	43		SAVING	0		RARRAY	112	
+IB    	0		RB    	54		EB    	1		
+
+ RESTAT
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 48
+
+
+  		      C **********************************************************
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 49
+
+
+  		      C * NAME:     INITT                                        *
+  		      C * PURPOSE:  TO INITIALIZE TERMINAL AND SET COMMON        *
+  		      C *           VARIABLES                                    *
+  		      C * USAGE:    CALL INITT(IBAUD)                            *
+  		      C *           IBAUD  BAUD RATE IN CHARACTERS/SEC.          *
+  		      C *           TEKTRONIX V1 4-7-71 DP                       *
+  		      C **********************************************************
+  		      C ROUTINE---DA-1010.05-01 4010 INITT
+  		            SUBROUTINE INITT(IBAUD)
+  		            COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+  		           1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+  		           2 KTBLSZ, KHORZT(10), KVERTT(10),
+  		           3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+  		           4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+  		           5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+  		            COMMON /COMEXT/KEYCON,FACX,FACY,PAR1,PAR2,PAR3,PAR4,PAR5,PAR6
+  		            KEYCON=1
+  		            FACX=1.
+  		            FACY=1.
+  		            KBAUDR=IBAUD
+  		            KMINSX=0
+  		            KMAXSX=1023
+  		            KMINSY=0
+  		            KMAXSY=780
+  		      C * 4010 HOME POSITION
+  		            KHOMEY=767
+  		      C * CHARACTER HORIZONTAL SIZE
+  		            KHORSZ=14
+  		            DO 100 I=1,10
+  		            KHORZT(I)=0
+  		      100   KVERTT(I)=0
+  		            KITALC=0
+  		            KLMRGN=0
+  		            KRMRGN=1010
+  		            KSIZEF=0
+  		            KTBLSZ=10
+  		      C * CHARACTER VERTICAL SIZE
+  		            KVERSZ=22
+  		            TMINVX=0.
+  		            TMAXVX=1023.
+  		            TMINVY=0.
+  		            TMAXVY=780.
+  		            TRCOSF=1.
+  		            TRSINF=0.
+  		            TRSCAL=1.
+  		            CALL ANMODE
+  		            CALL NEWPAG
+  		            RETURN
+  		            END
+
+CONSTANTS
+
+0	212777400000	
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 50
+
+
+
+GLOBAL DUMMIES
+
+IBAUD 	74		
+
+COMMON
+
+KBAUDR	/TKTRNX/+0	KERROR	/TKTRNX/+1	KGRAFL	/TKTRNX/+2	KHOMEY	/TKTRNX/+3	KKMODE	/TKTRNX/+4
+KHORSZ	/TKTRNX/+5	KVERSZ	/TKTRNX/+6	KITALC	/TKTRNX/+7	KSIZEF	/TKTRNX/+10	KLMRGN	/TKTRNX/+11
+KRMRGN	/TKTRNX/+12	KTBLSZ	/TKTRNX/+13	KHORZT	/TKTRNX/+14	KVERTT	/TKTRNX/+26	KBEAMX	/TKTRNX/+40
+KBEAMY	/TKTRNX/+41	KMOVEF	/TKTRNX/+42	KPCHAR	/TKTRNX/+43	KDASHT	/TKTRNX/+47	KMINSX	/TKTRNX/+50
+KMINSY	/TKTRNX/+51	KMAXSX	/TKTRNX/+52	KMAXSY	/TKTRNX/+53	TMINVX	/TKTRNX/+54	TMINVY	/TKTRNX/+55
+TMAXVX	/TKTRNX/+56	TMAXVY	/TKTRNX/+57	TREALX	/TKTRNX/+60	TREALY	/TKTRNX/+61	TIMAGX	/TKTRNX/+62
+TIMAGY	/TKTRNX/+63	TRCOSF	/TKTRNX/+64	TRSINF	/TKTRNX/+65	TRSCAL	/TKTRNX/+66	KEYCON	/COMEXT/+0
+FACX  	/COMEXT/+1	FACY  	/COMEXT/+2	PAR1  	/COMEXT/+3	PAR2  	/COMEXT/+4	PAR3  	/COMEXT/+5
+PAR4  	/COMEXT/+6	PAR5  	/COMEXT/+7	PAR6  	/COMEXT/+10	
+
+SUBPROGRAMS
+
+ANMODE	NEWPAG	
+
+SCALARS
+
+INITT 	75		KEYCON	0		FACX  	1		FACY  	2		KBAUDR	0	
+IBAUD 	74		KMINSX	50		KMAXSX	52		KMINSY	51		KMAXSY	53	
+KHOMEY	3		KHORSZ	5		I     	76		KITALC	7		KLMRGN	11	
+KRMRGN	12		KSIZEF	10		KTBLSZ	13		KVERSZ	6		TMINVX	54	
+TMAXVX	56		TMINVY	55		TMAXVY	57		TRCOSF	64		TRSINF	65	
+TRSCAL	66		KERROR	1		KGRAFL	2		KKMODE	4		KBEAMX	40	
+KBEAMY	41		KMOVEF	42		KDASHT	47		TREALX	60		TREALY	61	
+TIMAGX	62		TIMAGY	63		PAR1  	3		PAR2  	4		PAR3  	5	
+PAR4  	6		PAR5  	7		PAR6  	10		
+
+ARRAYS
+
+KHORZT	14		KVERTT	26		KPCHAR	43		
+
+ INITT
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 51
+
+
+  		      C **********************************************************
+TRANS.F4	F40	V26(10)	15-MAY-73	15:30	PAGE 52
+
+
+  		      C * NAME:     GENFLG                                       *
+  		      C * PURPOSE:  TO TEST THE GENERAL CONDITION FLAG........   *
+  		      C * USAGE:    IF(GENFLG(0)) GO TO 100                      *
+  		      C **********************************************************
+  		            LOGICAL FUNCTION GENFLG(ITEM)
+  		            COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+  		           1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+  		           2 KTBLSZ, KHORZT(10), KVERTT(10),
+  		           3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+  		           4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+  		           5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+  		            LOGICAL GENFLG
+  		            GENFLG=KERROR .EQ. ITEM
+  		            RETURN
+  		            END
+
+GLOBAL DUMMIES
+
+ITEM  	26		
+
+COMMON
+
+KBAUDR	/TKTRNX/+0	KERROR	/TKTRNX/+1	KGRAFL	/TKTRNX/+2	KHOMEY	/TKTRNX/+3	KKMODE	/TKTRNX/+4
+KHORSZ	/TKTRNX/+5	KVERSZ	/TKTRNX/+6	KITALC	/TKTRNX/+7	KSIZEF	/TKTRNX/+10	KLMRGN	/TKTRNX/+11
+KRMRGN	/TKTRNX/+12	KTBLSZ	/TKTRNX/+13	KHORZT	/TKTRNX/+14	KVERTT	/TKTRNX/+26	KBEAMX	/TKTRNX/+40
+KBEAMY	/TKTRNX/+41	KMOVEF	/TKTRNX/+42	KPCHAR	/TKTRNX/+43	KDASHT	/TKTRNX/+47	KMINSX	/TKTRNX/+50
+KMINSY	/TKTRNX/+51	KMAXSX	/TKTRNX/+52	KMAXSY	/TKTRNX/+53	TMINVX	/TKTRNX/+54	TMINVY	/TKTRNX/+55
+TMAXVX	/TKTRNX/+56	TMAXVY	/TKTRNX/+57	TREALX	/TKTRNX/+60	TREALY	/TKTRNX/+61	TIMAGX	/TKTRNX/+62
+TIMAGY	/TKTRNX/+63	TRCOSF	/TKTRNX/+64	TRSINF	/TKTRNX/+65	TRSCAL	/TKTRNX/+66	
+
+SCALARS
+
+GENFLG	27		KERROR	1		ITEM  	26		KBAUDR	0		KGRAFL	2	
+KHOMEY	3		KKMODE	4		KHORSZ	5		KVERSZ	6		KITALC	7	
+KSIZEF	10		KLMRGN	11		KRMRGN	12		KTBLSZ	13		KBEAMX	40	
+KBEAMY	41		KMOVEF	42		KDASHT	47		KMINSX	50		KMINSY	51	
+KMAXSX	52		KMAXSY	53		TMINVX	54		TMINVY	55		TMAXVX	56	
+TMAXVY	57		TREALX	60		TREALY	61		TIMAGX	62		TIMAGY	63	
+TRCOSF	64		TRSINF	65		TRSCAL	66		
+
+ARRAYS
+
+KHORZT	14		KVERTT	26		KPCHAR	43		
+
+ GENFLG
+  e@}œ
