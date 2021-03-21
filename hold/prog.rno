@@ -1,0 +1,660 @@
+^^
+.left margin 0
+.right margin 132
+.spacing 1
+.paper size 58,132
+.nofill
+.nojustify
+routine__table : SPARSE ARRAY identifier OF
+    (line__context:context ; symbol__context:context ;
+    symbol__table : SPARSE ARRAY identifier OF
+        (symbol__type:(integer,real,double,complex,logical,string) ;
+        symbol__size:integer ;
+        display__mode:(declared,ascii,octal) ;
+        element__address:SPARSE POWERSET address ;
+        address__function:function ;
+        symbol__value__check:value__check)   )
+.skip 1
+.test page 5
+ORDERED TYPE context = SPARSE ARRAY line__key OF statement
+.skip 1
+TYPE statement = (
+    statement__flow__check:ARRAY check OF SPARSE POWERSET flow__index ;
+    statement__value__check:value__check)
+.skip 1
+.test page 11
+TYPE value__entry = (value__ident:symbol__ident ; old__value:symbol__value)
+.skip 1
+TYPE value__check = ARRAY check OF SPARSE POWERSET value__entry
+.skip 1
+value__check__set:ARRAY check OF SPARSE POWERSET (
+    value__entry__set:SPARSE POWERSET value__entry ;
+    value__statement:SPARSE POWERSET statement)
+.skip 1
+all__value__check:value__check
+.skip 1
+all__value__routine:ARRAY check OF identifier
+.skip 1
+.test page 9
+TYPE flow__entry = (icount,count:integer ; owner:integer ;
+    flow__variable:SPARSE POWERSET symbol__ident)
+.skip 1
+flow__check__set:ARRAY check OF
+    SPARSE ARRAY flow__index OF SPARSE POWERSET flow__entry
+.skip 1
+all__flow__check:ARRAY check OF SPARSE POWERSET flow__entry
+.skip 1
+all__flow__routine:ARRAY check OF identifier
+.skip 1
+.test page 5
+current__routine:identifier
+.skip 1
+next__active,step__active:logical
+.skip 1
+next__counter,step__counter:integer
+.skip 1
+.test page 5
+TYPE check = (break,trace)
+.skip 1
+TYPE symbol__ident = (ident__name:identifier ; ident__address:address ;
+    identification:string)
+.page
+.fill
+0)#All the statements about flow breaks or value breaks are also true for
+flow traces and value traces.
+.skip 1
+0*)#In all of the following, let i:check.
+.skip 2
+1)#These are assertions about all statements in all routines.
+.skip 1
+1*)# For all d:identifier#in#domain(routine__table), for all l:line__key
+in domain(routine__table[d].symbol__context), let s#=#symbol__context[l].
+.skip 1
+.left margin 2
+a)#There is at most one flow break at each statement.
+.skip 1
+a*)#size(s.statement__flow__check[i]) = 0 or 1
+.skip 1
+b)#Every flow break at a statement is in the flow break set.
+.skip 1
+b*)#If a#in#s.statement__flow__check[i] then a#in#domain(flow__check__set[i]).
+.skip 1
+c)#All the variables to be displayed at a flow break come from the symbol
+table of only one routine which is in the same line number context as the
+statement with the flow break.
+.skip 1
+c*)#There exists one and only one r:identifier#in#domain(routine__table)
+such that routine__table[d].line__context#=#routine__table[r].line__context
+and if a#in#s.statement__flow__check[i] and b#in#flow__check__set[i,a] then
+for all c#in#b.flow__variable,
+c.ident__name#in#domain(routine__table[r].symbol__table) and
+c.ident__address#in#symbol__table[c.ident__name].element__address.
+.skip 1
+d)#Every value break at a statement is in the value break set and that
+element refers to the statement.
+.skip 1
+d*)#If a#in#s.statement__value__check[i] then there exists one and only one
+b#in#value__check__set[i] such that a#in#b.value__entry__set and
+s#in#b.value__statement.
+.skip 1
+e)#All the variables to be checked at a value break are in the symbol table
+of only one routine with the same line number context as the statement
+with the value break and the value break is in the set of value
+breaks for the variable in the symbol table.
+.skip 1
+e*)#There exists one and only one r:identifier#in#domain(routine__table)
+such that routine__table[d].line__context#=#routine__table[r].line__context
+and for all a#in#s.statement__value__check[i],
+a.value__ident.ident__name#in#domain(routine__table[r].symbol__table),
+a.value__ident.ident__address in
+symbol__table[a.value__ident.ident__name].element__address and
+a#in#symbol__table[a.value__ident.ident__name].symbol__value__check[i].
+.left margin 0
+.skip 2
+2)#Every flow break in the flow break set is on at least one statement.
+.skip 1
+2*)#For all a:flow__index#in#domain(flow__check__set[i]), there exists
+r:identifier#in#domain(routine__table) such that there exists
+l:line__key#in#domain(routine__table[r].line__context) such that
+a#in#line__context[l].statement__flow__check[i].
+.skip 2
+3)#A flow break is only on statements in only one line number context.
+.skip 1
+3*)#For all a:flow__index#in#domain(flow__check__set[i]),
+for all r1,r2:identifier#in#domain(routine__table),
+for all l1,l2:line__key such that l1#in#domain(routine__table[r1].line__context)
+and l2#in#domain(routine__table[r2].line__context),
+if a#in#line__context[l1].statement__flow__check[i] and
+a#in#line__context[l2].statement__flow__check[i] then
+routine__table[r1].line__context#=#routine__table[r2].line__context.
+.skip 2
+4)#All statements in a routine's symbol context are in its line number
+context.
+.skip 1
+4*)#For all r:identifier#in#domain(routine__table),
+if l:line__key#in#domain(routine__table[r].symbol__context) then
+l#in#domain(routine__table[r].line__context) and
+symbol__context[l]#=#line__context[l].
+.skip 2
+5)#Each statement in a routine's line number context is in only one
+routine's symbol context. These routines have the same line number context.
+.skip 1
+5*)#For all r1:identifier#in#domain(routine__table),
+if l:line__key#in#domain(routine__table[r1].line__context) then there exists
+one and only one r2:identifier#in#domain(routine__table) such that
+l#in#domain(routine__table[r2].symbol__context),
+routine__table[r1].line__context[l]#=#routine__table[r2].symbol__context[l] and
+routine__table[r1].line__context#=#routine__table[r2].line__context.
+.skip 2
+6)#These are assertions about all value breaks.
+.skip 1
+6*)#For all b#in#value__check__set[i].
+.skip 1
+.left margin 2
+a)#All the variables to be checked at a value break are in only one routine.
+.skip 1
+a*)#there exists one and only one r:identifier#in#domain(routine__table)
+such that for all a:value__entry#in#b.value__entry__set,
+a.value__ident.ident__name#in#domain(routine__table[r].symbol__table) and
+a.value__ident.ident__address in
+symbol__table[a.value__ident.ident__name].element__address.
+.skip 1
+b)#All the variables to be checked at a value break are referenced by all
+the statements associated with the value break.
+.skip 1
+b*)#If s#in#b.value__statement then there exists r:identifier
+in domain(routine__table) and a l:line__key in
+in domain(routine__table[r].line__context) such that s#=#line__context[l] and
+b.value__entry__set is a subset of s.statement__value__check[i].
+.skip 1
+c)#A value break has only one reference to each variable instance.
+.skip 1
+c*)#There does not exist a1,a2:value__entry#in#b.value__entry__set such that
+a1.value__ident.ident__name#=#a2.value__ident.ident__name,
+a1.value__ident.ident__address#=#a2.value__ident.ident__address and
+not a1#=#a2.
+.skip 2
+.left margin 0
+7)#All the variables to be checked at the all value break are in only
+one routine.
+.skip 1
+7*)#There exists one and only one r:identifier#in#domain(routine__table)
+such that for all a:value__entry#in#all__value__check[i]
+a.value__ident.ident__name#in#domain(routine__table[r].symbol__table) and
+a.value__ident.ident__address in
+symbol__table[a.value__ident.ident__name].element__address.
+.skip 2
+8)#The all value break has only one reference to each variable instance.
+.skip 1
+8*)#There does not exist a1,a2:value__entry#in#all__value__check[i] such that
+a1.value__ident.ident__name#=#a2.value__ident.ident__name,
+a1.value__ident.ident__address#=#a2.value__ident.ident__address and
+not a1#=#a2.
+.skip 2
+9)#Two value breaks do not refer to the same variable instance.
+.skip 1
+9*)#There does not exist b1,b2#in#value__check__set[i] such that not b1#=#b2 and
+there exists a1:value__entry#in#b1.value__entry__set and
+a2:value__entry#in#b2.value__entry__set such that a1#=#a2.
+.skip 2
+10)#There is at most one all flow break.
+.skip 1
+10*)#size(all__flow__check[i]) = 0 or 1.
+.skip 2
+11)#A statement is in only one routine and in that routine its line key is
+unique.
+.skip 1
+11*)#If s:statement then there exists one and only one
+r:identifier#in#domain(routine__table) and one and only one
+l:line__key#in#domain(routine__table[r].symbol__context) such that
+s#=#routine__table[r].symbol__context[l]. define two functions
+routine(statement)#=#identifier and line(statement)#=#line__key
+such that routine(s)#=#l and line(s)#=#l.
+.page
+^&STM UUO\&
+.skip 2
+.nofill
+.nojustify
+old__routine:identifier,initially '.MAIN.';
+.skip 1
+procedure stm(s:statement) ;
+ begin
+.skip 1
+  heading:logical; test:ARRAY check OF logical ;
+  heading='false' ; for i:check do test[i]='false' ;
+.skip 1
+  if next__active
+   then
+    begin
+    decr(next__counter) ;
+    if next__counter<= 0
+     then
+      begin
+      display__heading ;
+      test['break']='true'
+      end
+    end ;
+.skip 1
+  if step__active
+   then
+    begin
+    display__heading ;
+    decr(step__counter) ;
+    if step__counter<=0 then test['break']='true'
+    end ;
+.skip 1
+  for i:check do
+   begin
+   for x in all__flow__check[i] do test[i] or=check__flow(x)
+   for x in s.statement__flow__check[i] do
+    test[i] or=check__flow(flow__check__set[i,x]) ;
+   for x in all__value__check[i] do test[i] or=check__value(x) ;
+   for x in s.statement__value__check[i] do test[i] or=check__value(x)
+  end ;
+.skip 1
+  if test['break'] then execute__debugger(s) ;
+  return ;
+.skip 2
+  function check__flow(x:flow__entry):logical ;
+   begin
+.skip 1
+   decr(x.count) ;
+   if x.count>0 then return 'false' ;
+   x.count=x.icount ;
+.skip 1
+   display__heading ;
+   for y in x.flow__variables do display__variable(y) ;
+   return 'true'
+   end check__flow ;
+.skip 2
+  function check__value(x:value__entry):logical ;
+   begin
+.skip 1
+   if value(x.value__ident)#x.old__value then return 'false' ;
+   x.old__value=value(x.value__ident) ;
+.skip 1
+   display__heading ;
+   display__variable(x.value__ident) ;
+   return 'true'
+   end check__value ;
+.skip 2
+  procedure display__heading ;
+   begin
+   if not heading
+    then
+     begin
+     if old__routine#routine(s)
+      then
+       begin
+       display__name(routine(s)) ; old__routine=routine(s)
+       end ;
+     display__line__key(line(s)) ;
+     heading='true'
+     end ;
+   return
+   end display__heading
+ end stm
+.fill
+.justify
+.page
+^&Flow Break and Trace Commands\&
+.skip 2
+.nofill
+.nojustify
+scan__line__addresses(x:SPARSE POWERSET statement):logical
+scan__line__address(x:statement):logical
+scan__variables(x:SPARSE POWERSET symbol__ident):logical
+scan__variable(x:symbol__ident):logical
+scan__variable__names(x:identifier):logical
+scan__routine(x:identifier):logical
+scan__string(x:string):logical
+scan__integer(x:integer):logical
+.skip 1
+procedure flow__set__command(i:check) ;
+ begin
+ all:logical ; fe:flow__entry ; fi:flow__index ; cnt:integer ;
+ stmt:SPARSE POWERSET statements ; vars:SPARSE POWERSET symbol__ident ;
+.skip 1
+ all=scan__string('ALL') ;
+ if not all then scan__line__addresses(stmt) ;
+ if not scan__variables(vars) then vars=empty__set ;
+ if scan__string('@') then scan__integer(cnt) else cnt=1 ;
+.skip 1
+ if all
+  then
+.skip 1
+   begin
+   if not empty(all__flow__check[i]) then clear(all__flow__check[i]) ;
+   append(all__flow__check[i],flow__entry(cnt,cnt,1,vars) ;
+   end
+.skip 1
+  else
+.skip 1
+   begin
+   fe=flow__entry(cnt,cnt,0,vars) ;
+   fi=new__flow__index ;
+   for s:statement in stmt do
+    begin
+    incr(fe.owner) ;
+    clear__flow(s,i) ;
+    append(s.statement__flow__check[i],fi)
+    end
+   flow__check__set[i,fi]=fe
+   end
+.skip 1
+ return
+ end flow__set__command ;
+.skip 2
+procedure no__flow__command(i:check) ;
+ begin
+ stmt:SPARSE POWERSET statement ;
+.skip 1
+ if scan__string('ALL')
+  then
+.skip 1
+   begin
+   if not empty(all__flow__check[i]) then from all__flow__check[i]
+   end
+.skip 1
+  else
+.skip 1
+   if scan__line__address(stmt)
+    then for s:statement in stmt do clear__flow(s,i)
+.skip 1
+   else for r:identifier in domain(routine__table) do
+    for l:line__key in domain(routine__table[r].symbol__context) do
+     clear__flow(routine__table[r].symbol__context[l],i) ;
+.skip 1
+ return
+ end no__flow__command ;
+.skip 2
+procedure clear__flow(s:statement,i:check) ;
+ begin
+ fi:flow__index ;
+ if not empty(s.statement__flow__check[i])
+  then
+   begin
+   fi from s.statement__flow__check[i] ;
+.skip 1
+   decr(flow__check__set[i,fi].owner) ;
+   if flow__check__set[i,fi].owner=0 then flow__check__set[i]=empty__set ;
+   end ;
+.skip 1
+ return
+ end clear__flow ;
+.skip 2
+procedure list__flow__command(i:check) ;
+ begin
+ stmt:SPARSE POWERSET statement ;
+.skip 1
+ if scan__string('ALL')
+  then
+.skip 1
+   begin
+   if not empty(all__flow__check[i])
+    then
+     begin
+     display__name(all__flow__routine[i]) ;
+     display__flow__variable__names(flow__check__set[i,fi].flow__variable)
+     end
+   end
+.skip 1
+  else
+.skip 1
+   if scan__line__address(stmt)
+    then for s:statement in stmt do
+     for fi:flow__index in s.statement__flow__check[i] do
+      begin
+      display__line__key(line(s)) ;
+      display__flow__variable__names(flow__check__set[i,fi].flow__variable)
+      end
+.skip 1
+    else for r:identifier in domain(routine__table) do
+     with routine__table[r] do
+      begin
+      begin__routine ;
+      for l:line__key in domain(symbol__context) do
+       with symbol__context[l] do
+        if not empty(statement__flow__check[i])
+         then for nfi:flow__index in statement__flow__check[i] do next__line(nfi)
+         else no__line ;
+      end__routine 
+      end ;
+ return ;
+.skip 1
+procedure display__flow__variable__names(x:SPARSE POWERSET symbol__ident) ;
+ begin
+ for y:symbol__ident in x do display__string(y.identification)
+ return
+ end display__flow__variable__names ;
+.skip 2
+         If a flow check is defined for a range, only the beginning
+         and ending line keys for the range are displayed. If a flow
+         check is defined for a sequence of line keys without
+         intervening flow checks, the variables and @-counter are
+         only displayed once for the sequence. The routine name
+         heads any flow checks defined in the routine. ;
+.skip 1
+ begin
+  bs,es:statement ; heading,check,range:logical ; fi:flow__index ;
+  name:identifier ;
+.skip 1
+  procedure begin __routine(r:identifier) ;
+   begin
+   heading=check=range='false' ; name=r ;
+   return
+   end begin__routine ;
+.skip 1
+  procedure next__line(nfi:flow__index) ;
+   begin
+   if not check
+    then begin__check
+    else
+     if nfi=fi
+      then if range then extend__range else begin__range
+      else
+       begin
+       end__check ; begin__check
+       end ;
+   return
+   end next__line ;
+.skip 1
+  procedure no__line ;
+   begin
+   if check and range then end__range ;
+   return
+   end no__line ;
+.skip 1
+  procedure end__routine ;
+   begin
+   if check then end__check ;
+   return
+   end end__routine ;
+.skip 1
+  procedure begin__check
+   begin
+   if not heading
+    then
+     begin
+     display__name(name) ;
+     heading='true'
+     end ;
+   fi=nfi ; check='true' ;
+   begin__range ;
+   return
+   end begin__check ;
+.skip 1
+  procedure begin__range ;
+   begin
+   bs=es=s ; range='true' ;
+   return
+   end begin__range ;
+.skip 1
+  procedure extend__range ;
+   begin
+   es=s ;
+   return
+   end extend__range ;
+.skip 1
+  procedure end__range ;
+   begin
+   display__line__address(bs) ;
+   if bs#es
+    then
+     begin
+     display__character(':') ;
+     display__line__address(es)
+     end ;
+   range='false' ;
+   return
+   end end__range ;
+.skip 1
+  procedure end__check ;
+   begin
+   if range then end__range ;
+   display__flow__variable__names(flow__check__set[i,f].flow__variables) ;
+   if flow__check__set[i,f].icount>1
+    then
+     begin
+     display__string('@ ') ;
+     display__integer(flow__check__set[i,f].icount)
+     end ;
+   check='false' ;
+   return
+   end end__check ;
+.skip 1
+  end
+.skip 1
+end list__flow__command ;
+.skip 2
+.page
+^&Value Break and Trace\&
+.skip 1
+procedure value__set__command(i:check) ;
+ begin
+ stmt:SPARSE POWERSET statement ;
+ vars:SPARSE POWERSET symbol__ident ;
+ valset:SPARSE POWERSET value__entry ;
+ valent:value__entry ; all:logical ;
+.skip 1
+ with routine__table[current__routine] do
+  begin
+  if not scan__variables(vars) then error ;
+  all=scan__string('ALL') ;
+  if not all then if not scan__line__addresses(stmt)
+    then stmt=range(symbol__context) ;
+.skip 1
+  for x:symbol__ident in vars do
+   begin
+   valent=value__entry(x,value(x)) ;
+   append(valset,valset) ;
+   append(symbol__table[x.ident__name].symbol__value__check[i],valent) ;
+.skip 1
+   for y in value__check__set[i] do
+    begin
+    remove(valent,y.value__entry__set) ;
+    if empty(y.value__entry__set) then remove(y,value__check__set)
+    end
+   remove(valent,all__value__check[i]) ;
+.skip 1
+   if all then append(all__value__check[i],valent)
+   end
+.skip 1
+  if not all
+   then
+    begin
+    for x:statement in stmt do
+     append(x.statement__value__check[i],valent) ;
+    append(value__check__set[i],(valent;stmt))
+    end
+.skip 1
+  end ;
+  return
+ end value__set__command ;
+.skip 2
+procedure list__value__command(i:check) ;
+ begin
+ vars:SPARSE POWERSET symbol__ident ;
+.skip 1
+ if scan__variables(vars)
+  then for x:symbol__ident in vars do
+        for y in value__check__set[i] do
+         for z:value__entry in y.value__entry__set do
+          if x=z.value__ident
+           then
+            begin
+            display__string(z.value__ident.identification) ;
+            for s:statement in y.value__statement do
+             display__line__address(line(s))
+            end
+  else
+   for y in value__check__set[i] do
+    begin
+    for z:value__entry in y.value__entry__set do
+     display__string(z.value__ident.identification) ;
+    foratement in y.value__statement do
+     display__line__address(line(s))
+    end ;
+.skip 1
+ return
+ end list__value__command ;
+.skip 2
+.page
+^&Debug Context Commands\&
+.skip 1
+procedure debug__command ;
+ begin
+ r:identifier ; s:statement ;
+ if scan__identifier(r)
+  then current__routine=r
+  else
+   if scan__line__address(s)
+    then current__routine=routine(s)
+    else current__routine='.main.' ;
+ return
+ end debug__command ;
+.skip 1
+procedure list__debug__command ;
+ begin
+ display__identifier(current__routine) ;
+ return
+ end list__debug__command ;
+.skip 2
+.page
+^&Execution Commands\&
+.skip 1
+procedure go__command ;
+ begin
+ s:statement ;
+ if not scan__line__address(s)
+  then
+   begin
+   current__routine='.MAIN.' ;
+   s=first(routine__table[current__routine].symbol__context)
+   end ;
+ start__at(s) ;
+ return
+ end go command ;
+.skip 1
+procedure continue__command ;
+ begin
+ return__to__STM ;
+ return
+ end continue__command ;
+.skip 1
+procedure next__command ;
+ begin
+ if not scan__integer(next__counter) then next__counter=1 ;
+ next__active='true' ;
+ continue__command ;
+ return
+ end next__command ;
+.skip 1
+procedure step__command ;
+ begin
+ if not scan__integer(step__counter) then step__counter=1 ;
+ step__active='true' ;
+ continue__command ;
+ return
+ end step__command ;
+  X@'
