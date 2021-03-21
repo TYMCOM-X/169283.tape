@@ -1,0 +1,1854 @@
+C     UPDATED FOR MIDAS PROJECT 27 JUL 74  DEJ
+C
+C     NODE FORMAT AND ORGANIZATION CHANGES
+C     MAIN PROGRAM
+C         BUILDS SYNTAX TREE FROM BNF FORM
+C         OF SYNTAX
+C#####
+      IMPLICIT INTEGER(A-Z)
+      DATA PHI/-1/,SIGMA/0/
+      COMMON /SCN/S(6),NP
+      COMMON /INP/C(20),CRDNUM
+      COMMON NI,NXT,NXT1,VAL(001700),DEF(001700),ALT(001700),
+     X   NIT,INTAB(000100),MINTN(000100),
+     X   SUC(001700),ACTION(001700),FAIL(001700),TYPEND(001700),
+     X   NDINFO(001700),NVALIX(000525),IXNVAL,
+     X   AN(7,000500),IAN,RNAME(2,000100),RNI,NVAL(4,000550),
+     X   NAME(6,000525),DEFD(000525),DEFVAL(000525),NTYPE(000525),
+     X   ZREDCE,ZNOSAV,ZBACK,ZRESCN,ZSSAVE,  ZUP,ZAPPND,ZNEW,ZADD,
+     X   ZTERM,ZNTERM,ZNULL,ZCRETE,ZANY,ZJUMP,ZERR,
+     X     ZACT,ZINTL,ZNTANY,ZPRODH
+C#####
+C*****
+C
+C
+C       Description of global variables
+C       
+C       There are five sets of arrays for the data needed
+C       by this set of programs.  The arrays in each set
+C       can be distinguished by the dimension on the
+C       array.  The current bounds, the name of the variable
+C       used to keep track of the space used (next available
+C       subscript), and the meaning for that set of arrays are:
+C       
+C               001700  NXT  Number of nodes allowed in graph
+C               000500  IAN  Number of different actions and errors
+C               000100  RNI  Number of different semantic routine names
+C               000525  NI   Number of terminals and non-terminals
+C               000550  IXNVAL  Number of different symbolic values
+C                               (note; this index points to last used
+C                               entry, not next available)
+C               000100  NIT     Number of different integer lists
+C                               (note: index points to last used)
+C       
+C       the arrays in each set will now be described.
+C       
+C       1) Graph nodes
+C       
+C               TYPEND  Has a 'Z' value for type of node (eg. null,
+C                               terminal, integer list, etc.)
+C               VAL     Has an index into the terminals and non-terms
+C                               set of arrays.  This is the terminal
+C                               or non-terminal for this node.
+C                               if -9999, no longer being used
+C               DEF     The DEF field for a non-terminal, negative of
+C                               the symbolic value value for a
+C                               terminal.
+C                               Special types referencing terminals or
+C                               nonterminals are handled similarly.
+C               ALT     Alternative node index, except for jump node
+C               SUC     Successor node index, except for jump node
+C       
+C               ACTION  Index to action set of arrays for success
+C                               action for this graph node
+C               FAIL    Index to fail set of arrays for failure
+C                               action for this graph node (changed
+C                               to error graph node index during
+C                               construction of error nodes)
+C               NDINFO  Misc. node information:  bits for backup,
+C                               rescan, and semantics save.
+C       
+C       2) Action and error information
+C       
+C               AN      One entry for each different action or error
+C                               specification.  fields have different
+C                               meanings depending on whether entry
+C                               for an action or an error.
+C                       ACTION type entry:
+C                               AN(1,*) has the integer table index
+C                               AN(2,*) has semantic routine name index
+C                               AN(3,*) has symbolic value index for alt
+C                               AN(4,*) has type of tree action (up,etc)
+C                                       and also terminals and non-terms
+C                                       index for the non-terminal for
+C                                       which this node is an 
+C                                       alternative if new action
+C                               AN(5,*) =2 to specify action type
+C                               AN(6,*) has subid (index to symbolic val array)
+C                               AN(7,*) assigned node index in graph
+C                       ERROR type entry:
+C                               AN(1,*) has index to terminals and
+C                                       non-terms array for error
+C                                       production
+C                               AN(2,*) first four chars of error number
+C                               AN(3,*) second four chars of error num
+C                               AN(4,*) last four chars of error number
+C                               AN(5,*) =1 to specify error action type
+C                               AN(6,*) has index to NTERM for lkfor field
+C                               AN(7,*) assigned node index in graph
+C       
+C               INTAB   One entry for each distinct integer list, of the
+C                       compacted integers
+C       
+C               MINTN   Corresponding to intab containing the node index
+C                       of the developed integer node
+C       
+C       3) Semantic routine names
+C       
+C               RNAME   Contains eight characters of semantic routine
+C                               name, four in each rname(1,*) and
+C                               rname(2,*)
+C       
+C       4) Terminals and non-terminals - One entry for <NULL>,
+C               <CREATE>, and <ANY> and one entry for each terminal
+C               or non-terminal defined.
+C       
+C               NAME    24 characters for terminal or non-terminal,
+C                               4 in each of 6 first subscripts
+C               DEFD    =1 if has been defined
+C                       =0 if not yet defined
+C               DEFVAL  If terminal, is negative of symbolic value
+C                               value.  If non-terminal, is index
+C                               into graph node where production
+C                               starts (if already defined).  if
+C                               non-terminal not yet defined, is
+C                               head of chain of graph nodes (through
+C                               DEF field) of references to this name.
+C               NTYPE   Has 'Z' value identifying type of this symbol
+C       
+C               NVALIX  Has index to symbolic value array for
+C                               symbolic value for this symbol
+C       
+C       5) symbolic values
+C       
+C               NVAL    NVAL(1,*), NVAL(2,*), NVAL(3,*) have
+C                               12 characters of symbolic value,
+C                               4 characters each.  NVAL(4,*)
+C                               has, in binary, symbolic value value
+C       
+C               'Z' values describe:
+C       
+C               1) Node options:  backup, rescan, save semantics
+C               2) Tree action types: up, append, new, add
+C               3) Node type:  terminal, non-terminal, jump, etc.
+C       
+C       Some standard (and useful) values are initialized into
+C               the beginning of some of these arrays at the
+C               beginning of execution.
+C
+C*****
+        DOUBLE PRECISION FILENAME
+        TYPE 1
+1       FORMAT(' SYNTAX INPUT FILE: '$)
+        ACCEPT 2, FILENAME
+2       FORMAT(A10)
+        OPEN(20,FILENAME,INPUT)
+      TYPE 3
+3     FORMAT(' BLISS OUTPUT FILE: '$)
+      ACCEPT 2, FILENAME
+      OPEN(10,FILENAME,OUTPUT)
+      TYPE 4
+ 4    FORMAT(' BLISS SYMBOLIC VALUE FILE: '$)
+      ACCEPT 2, FILENAME
+      OPEN(12,FILENAME,OUTPUT)
+C
+C
+C       BITS TO LEFT OF ZPRODH ARE USED IN NDINFO FOR VAL REFERENCE
+C
+      ZPRODH=32
+      ZREDCE=16
+      ZNOSAV=8
+      ZBACK=4
+      ZRESCN=2
+      ZSSAVE=1
+      ZUP=2
+      ZAPPND=3
+      ZNEW=4
+      ZADD=5
+      ZTERM=1
+      ZNTERM=2
+      ZNULL=3
+      ZCRETE=4
+      ZANY=5
+      ZJUMP=6
+      ZNTANY=7
+      ZERR=8
+      ZACT=9
+      ZINTL=10
+      RNI=2
+      RNAME(1,1)='0'
+      RNAME(2,1)=' '
+      RNAME(1,2)=0
+      NP=6
+      DO 6 I=1,NP
+      DO 6 J=1,4
+ 6    NAME(I,J)=BLANK
+      NAME(1,1)='<NUL'
+      NAME(2,1)='L>'
+      DEFD(1)=1
+      DEFVAL(1)=0
+      DATA ZROBLK/'0'/
+      IXNVAL=1
+      NVAL(1,1)=ZROBLK
+      NVAL(2,1)=BLANK
+      NVAL(3,1)=BLANK
+      NVAL(4,1)=0
+      NTYPE(1)=ZNULL
+      NAME(1,2)='<CRE'
+      NAME(2,2)='ATE>'
+      DEFD(2)=1
+      DEFVAL(2)=0
+      NTYPE(2)=ZCRETE
+      NAME(1,3)='<ANY'
+      NAME(2,3)='>'
+      DEFD(3)=1
+      DEFVAL(3)=0
+      NTYPE(3)=ZANY
+      NAME(1,4)='<NOT'
+      NAME(2,4)='ANY>'
+      DEFD(4)=1
+      DEFVAL(4)=0
+      NTYPE(4)=ZNTANY
+C
+      DO 5 I=1,001700
+      DATA BLANK/' '/
+      FAIL(I)=0
+ 5    ACTION(I)=0
+      IAN=1
+      DO 8 I=1,000500
+      DO 8 J=1,7
+ 8    AN(J,I)=0
+      NI=5
+      NIS=1
+      NXT=2
+      NIT=1
+      INTAB(1)=100000000
+C
+C     MAIN PROCESSING BEGINS
+C
+      CALL BUILD
+      K=0
+      DO 20 I=1,NI-1
+      IF (DEFD(I).NE.0) GOTO 15
+      WRITE(5,11) (NAME(J,I),J=1,6)
+11    FORMAT(1X,6A4, ' UNDEFINED')
+      K=1
+      GOTO 20
+15    J=DEFVAL(I)
+      NDINFO(J)=NDINFO(J).OR.ZPRODH.OR.ZPRODH*I*2
+20    CONTINUE
+      IF (K.NE.0) STOP
+80    CALL RD0
+      CALL RD1
+      CALL RD2
+      CALL RD3
+      CALL RD4
+      CALL RD5
+      CALL REDUCE
+      CALL ADDACT
+      CALL BLIOUT
+      STOP
+      END
+C
+      SUBROUTINE BUILD
+C
+C     THIS SUBROUTINE READS THE SOURCE FILE AND DOES BASIC SYNTAX
+C     ANALYSIS AND BUILDS THE VARIOUS DATA STRUCTURES
+C
+C#####
+      IMPLICIT INTEGER(A-Z)
+      DATA PHI/-1/,SIGMA/0/
+      COMMON /SCN/S(6),NP
+      COMMON /INP/C(20),CRDNUM
+      COMMON NI,NXT,NXT1,VAL(001700),DEF(001700),ALT(001700),
+     X   NIT,INTAB(000100),MINTN(000100),
+     X   SUC(001700),ACTION(001700),FAIL(001700),TYPEND(001700),
+     X   NDINFO(001700),NVALIX(000525),IXNVAL,
+     X   AN(7,000500),IAN,RNAME(2,000100),RNI,NVAL(4,000550),
+     X   NAME(6,000525),DEFD(000525),DEFVAL(000525),NTYPE(000525),
+     X   ZREDCE,ZNOSAV,ZBACK,ZRESCN,ZSSAVE,  ZUP,ZAPPND,ZNEW,ZADD,
+     X   ZTERM,ZNTERM,ZNULL,ZCRETE,ZANY,ZJUMP,ZERR,
+     X     ZACT,ZINTL,ZNTANY,ZPRODH
+C#####
+      DATA EXCLMN/'!'/
+      DATA PRI/'*PRI'/,PRO/'*PRO'/,BKSLH/"561004020100/
+     X                ,EQUAL/'=   '/,DEFEQU/'::= '/
+C
+      CALL SCAN
+      IF(S(1).NE.'TERM'.OR.S(2).NE.'INAL'.OR.S(3).NE.'S  ')
+     X     CALL ERROR ('NO PROD')
+C     READ AND COLLECT PRIMITAVES
+ 10   CALL SCAN
+      IF (S(1).NE.EXCLMN) GOTO 14
+      CALL SETVAL
+      GOTO 23
+ 14   DO 15 I=1,NP
+ 15   NAME(I,NI)=S(I)
+      DEFD(NI)=1
+      NTYPE(NI)=ZTERM
+      DEFVAL(NI)=-9876
+      NVALIX(NI)=1
+      CALL SCAN
+      IF (S(1).EQ.EXCLMN) GOTO 17
+      NI=NI+1
+      IF (NI.GT.000525) CALL ERROR ('NI TOO BIG')
+      GOTO 20
+ 17   CALL SETVAL
+      DEFVAL(NI)=-NVAL(4,NVALIX(NI))
+      NI=NI+1
+      IF (NI.GT.000525) CALL ERROR ('NI TOO BIG')
+ 23   CALL SCAN
+ 20   IF (S(1).EQ.BKSLH) GOTO 10
+      IF (.NOT.(S(1).EQ.'PROD'.AND.S(2).EQ.'UCTI'.AND.S(3).EQ.'ONS'))
+     X        CALL ERROR ('BAD PRIM ')
+C     ENTER HEAD PRODUCTION
+      VAL(1)=NI
+      DEF(1)=2
+      SUC(1)=SIGMA
+      ALT(1)=PHI
+      TYPEND(1)=ZNTERM
+      NDINFO(1)=0
+      NAME(1,NI)=0
+C     ENTER PRODUCTION
+ 50   CALL SCAN
+      IF (S(1).EQ.'ENDS'.AND.S(2).EQ.'YN') RETURN
+      CALL SRCHTB(I,T)
+      IF (T.EQ.0) GOTO 70
+C     NOT IN NAME TABLE
+      DEFD(I)=1
+      DEFVAL(I)=NXT
+      GOTO 100
+C     NAME IN TABLE
+ 70   IF (DEFD(I).EQ.1) CALL ERROR ('DUP NAME')
+      J=DEFVAL(I)
+      DEFD(I)=1
+      DEFVAL(I)=NXT
+      NTYPE(I)=ZNTERM
+      IF (J.EQ.0) GOTO 100
+C
+C       DO THE FIXUPS FOR PREVIOUS REFERENCES TO THIS NONTERMINAL
+C
+ 75   K=DEF(J)
+      DEF(J)=NXT
+      J=K
+      IF (J.NE.0)GOTO 75
+C     ENTRY IN, ITS INDEX IS IN I (IF NEEDED)
+ 100  CALL SCAN
+      DEFIND=I
+      NVALIX(NI)=1
+      IF (S(1).NE.EXCLMN) GOTO 103
+      CALL SCAN
+      CALL SRNVAL(NM,T)
+      IF (T.EQ.1) CALL ERROR('UNDEF NONTERM VAL')
+      NVALIX(I)=NM
+      CALL SCAN
+      IF (S(1).NE.EXCLMN) CALL ERROR('! MISSING')
+      CALL SCAN
+ 103  IF (S(1).EQ.DEFEQU) GOTO 105
+      CALL ERROR ('::= ERROR')
+ 105  SAVEDI=NXT
+C     COLLECT DEFINITION PART
+ 110  CALL SCAN
+      IF (S(1).NE.BKSLH) GOTO 112
+      SUC(NXT-1)=SIGMA
+      ALT(SAVEDI)=NXT
+      CALL SCAN
+      IF(S(1).NE.BKSLH) GOTO 120
+      ALT(SAVEDI)=PHI
+      GOTO 50
+C     CHECK FOR ACTION SPECIFICATION
+ 112  IF (S(1).NE.EXCLMN) GOTO 130
+      CALL ACTN(NXT-1,SAVEDI,DEFIND)
+      GOTO 110
+ 120  SAVEDI=NXT
+C     HAVE CONSTRUCT, SEARCH
+ 130  CALL SRCHTB(I,T)
+      IF (T.EQ.0) GOTO 150
+C     NOT IN TABLE
+      DEFVAL(I)=NXT
+      VALDEF=0
+      GOTO 170
+C     NAME FOUND
+ 150  IF (DEFD(I).EQ.1) GO TO 160
+C     FOUND BUT UNDEFINED
+      VALDEF=DEFVAL(I)
+      DEFVAL(I)=NXT
+      GOTO 170
+C     FOUND AND DEFINED
+ 160  VALDEF=DEFVAL(I)
+C     ENTER NEW CONSTRUCTION
+ 170  VAL(NXT)=I
+      DEF(NXT)=VALDEF
+      ALT(NXT)=PHI
+      SUC(NXT)=NXT+1
+      TYPEND(NXT)=NTYPE(I)
+      NDINFO(NXT)=0
+      NXT=NXT+1
+      IF (NXT.GT.001700) CALL ERROR('NXT TOO BIG')
+      GOTO 110
+      END
+C
+      SUBROUTINE RD0
+C
+C     THIS SUBROUTINE ELIMINATES TRIVIAL NON-TERMINALS
+C       I.E. THOSE WITH FORM A ::= B ! UP 1 ! \ \
+C
+C#####
+      IMPLICIT INTEGER(A-Z)
+      DATA PHI/-1/,SIGMA/0/
+      COMMON /SCN/S(6),NP
+      COMMON /INP/C(20),CRDNUM
+      COMMON NI,NXT,NXT1,VAL(001700),DEF(001700),ALT(001700),
+     X   NIT,INTAB(000100),MINTN(000100),
+     X   SUC(001700),ACTION(001700),FAIL(001700),TYPEND(001700),
+     X   NDINFO(001700),NVALIX(000525),IXNVAL,
+     X   AN(7,000500),IAN,RNAME(2,000100),RNI,NVAL(4,000550),
+     X   NAME(6,000525),DEFD(000525),DEFVAL(000525),NTYPE(000525),
+     X   ZREDCE,ZNOSAV,ZBACK,ZRESCN,ZSSAVE,  ZUP,ZAPPND,ZNEW,ZADD,
+     X   ZTERM,ZNTERM,ZNULL,ZCRETE,ZANY,ZJUMP,ZERR,
+     X     ZACT,ZINTL,ZNTANY,ZPRODH
+C#####
+      WRITE(5,1)
+1     FORMAT(' TRIVIAL NON-TERMINALS BEING ELIMINATED')
+
+      DO 100 I=1,NI-1
+      IF (NTYPE(I).NE.ZNTERM) GOTO 100
+      J=DEFVAL(I)
+      IF (ALT(J).NE.PHI) GOTO 100
+      IF (SUC(J).NE.SIGMA) GOTO 100
+      IF (ACTION(J).EQ.0) GOTO 50
+      K=ACTION(J)
+      IF (AN(2,K).NE.0) GOTO 100
+      IF (AN(3,K).NE.0) GOTO 100
+      IF (AN(4,K).NE.ZUP) GOTO 100
+      IF (AN(6,K).NE.0) GOTO 100
+C
+C     WE HAVE ONE
+C     DETERMINE IF IT IS USED IN ERRORS OR NOTANYS
+C
+50    NOKILL=0
+      DO 55 K=1,IAN-1
+      IF (AN(5,K).EQ.2) GOTO 55
+      IF (AN(1,K).NE.I) GOTO 55
+      NOKILL=-1
+      GOTO 60
+55    CONTINUE
+60    DO 75 K=1,NXT-1
+      IF (DEF(K).NE.J) GOTO 75
+      IF (TYPEND(K).EQ.ZNTANY) NOKILL=-1
+      IF (TYPEND(K).NE.ZNTERM) GOTO 75
+C
+C     HERE IS A REFERENCE TO J
+C     REPLACE IT WITH J (EXCEPT FOR ALT,SUC AND ACTION FIELDS)
+C
+      MASK=ZBACK.OR.ZRESCN
+      NDINFO(K)=NDINFO(K).OR.(NDINFO(J).AND.MASK)
+      TYPEND(K)=TYPEND(J)
+      VAL(K)=VAL(J)
+      DEF(K)=DEF(J)
+      IF (FAIL(J).NE.0) FAIL(K)=FAIL(J)
+75    CONTINUE
+C
+C
+      L=VAL(J)
+      IF (NOKILL.EQ.0) VAL(J)=-9999
+      WRITE(5,99) (NAME(K,I),K=1,6),(NAME(K,L),K=1,6)
+99    FORMAT(5X,6A4,' REPLACED BY ',6A4)
+C
+100   CONTINUE
+      RETURN
+      END
+C
+      SUBROUTINE RD1
+C     THIS ROUTINE PERFORMS FACTORING REDUCTIONS ON THE
+C        SYNTAX GRAPH
+C     RULES MUST BE SORTED SO LONGEST
+C        OCCURRANCES APPEAR FIRST IN ALTERNATIVES
+C        WITH LEFT RECURSIVE DEFINITIONS LAST IN
+C        ALTERNATIVES
+C
+C#####
+      IMPLICIT INTEGER(A-Z)
+      DATA PHI/-1/,SIGMA/0/
+      COMMON /SCN/S(6),NP
+      COMMON /INP/C(20),CRDNUM
+      COMMON NI,NXT,NXT1,VAL(001700),DEF(001700),ALT(001700),
+     X   NIT,INTAB(000100),MINTN(000100),
+     X   SUC(001700),ACTION(001700),FAIL(001700),TYPEND(001700),
+     X   NDINFO(001700),NVALIX(000525),IXNVAL,
+     X   AN(7,000500),IAN,RNAME(2,000100),RNI,NVAL(4,000550),
+     X   NAME(6,000525),DEFD(000525),DEFVAL(000525),NTYPE(000525),
+     X   ZREDCE,ZNOSAV,ZBACK,ZRESCN,ZSSAVE,  ZUP,ZAPPND,ZNEW,ZADD,
+     X   ZTERM,ZNTERM,ZNULL,ZCRETE,ZANY,ZJUMP,ZERR,
+     X     ZACT,ZINTL,ZNTANY,ZPRODH
+C#####
+      WRITE(5,22)
+ 22   FORMAT(' FACTORING REDUCTION BEING PERFORMED')
+      NXT1=NXT-1
+      DO 50 I=1,NXT1
+      IF(ALT(I).LE.SIGMA.OR.VAL(I).LE.0) GOTO 50
+ 5    T1=ALT(I)
+      IF(.NOT.(VAL(I).EQ.VAL(T1).AND.TYPEND(I).EQ.TYPEND(T1))) GOTO 50
+      IF(ACTION(I).NE.ACTION(T1).OR.
+     X  ((NDINFO(I).AND.(ZPRODH-1)).NE.(NDINFO(T1).AND.(ZPRODH-1))))
+     X   WRITE(5,33) CACT,CACT2,I,ALT(I),(NAME(KI,VAL(I)),KI=1,6)
+ 33   FORMAT(' **ILLEGAL ',A4,A2,' FACTOR',2I4,2X,6A4)
+      IF(SUC(T1).EQ.SIGMA)GOTO 20
+      J=SUC(I)
+      IF(J.EQ.PHI) GOTO 30
+ 10   IF(ALT(J).EQ.SIGMA) GOTO 30
+      IF(ALT(J).EQ.PHI) GOTO 15
+      J=ALT(J)
+      GOTO 10
+C     HAVE FOUND WHERE TO LINK IN
+ 15   T1=ALT(I)
+      ALT(J)=SUC(T1)
+      VAL(T1)=-9999
+      ALT(I)=ALT(T1)
+      IF (ALT(I).LE.SIGMA) GOTO 50
+      GOTO 5
+C     NO SUCCESSOR
+ 20   J=SUC(I)
+ 25   IF(ALT(J).EQ.PHI) GOTO 27
+      J=ALT(J)
+      GOTO 25
+ 27   ALT(J)=SIGMA
+C     SHOULD REALLY CHECK TO MAKE SURE NOT DESTROY ACTION
+      DATA CACT/'ACTI'/,CACT2/'ON'/,CFAIL/'FAIL'/,
+     X   BLK/' '/
+      T1=ALT(I)
+      ACTION(I)=ACTION(T1)
+      IF(FAIL(I).NE.FAIL(T1))
+     X   WRITE(5,33) CFAIL,BLK,I,ALT(I)
+      FAIL(I)=FAIL(T1)
+      VAL(T1)=-9999
+      ALT(I)=ALT(T1)
+      GOTO 50
+C     SHORTER ALTERNATIVE BEFORE LONGER ONE
+ 30   WRITE(5,11)I
+ 11   FORMAT(' **ERROR-SHORTER ALTERNATIVE FIRST ',I4)
+      GOTO 50
+ 50   CONTINUE
+      RETURN
+      END
+C
+      SUBROUTINE RD2
+C
+C     TRANSFORMATION OF SYMMETRIC RIGHT RECURSION TO ITERATION
+C       (REALLY TO WHAT THE EQUIVALENT LEFT RECURSION IS REDUCED TO)
+C
+C     PRODUCTIONS OF FORM    A ::= B C A \ B \ \ ARE EXPECTED
+C     TO BE TRANSFORMED TO   A ::= B C (WITH SIGMA ALT) A
+C     BY RD1
+C
+C#####
+      IMPLICIT INTEGER(A-Z)
+   TA PHI/-1/,SIGMA/0/
+      COMMON /SCN/S(6),NP
+      COMMON /INP/C(20),CRDNUM
+      COMMON NI,NXT,NXT1,VAL(001700),DEF(001700),ALT(001700),
+     X   NIT,INTAB(000100),MINTN(000100),
+     X   SUC(001700),ACTION(001700),FAIL(001700),TYPEND(001700),
+     X   NDINFO(001700),NVALIX(000525),IXNVAL,
+     X   AN(7,000500),IAN,RNAME(2,000100),RNI,NVAL(4,000550),
+     X   NAME(6,000525),DEFD(000525),DEFVAL(000525),NTYPE(000525),
+     X   ZREDCE,ZNOSAV,ZBACK,ZRESCN,ZSSAVE,  ZUP,ZAPPND,ZNEW,ZADD,
+     X   ZTERM,ZNTERM,ZNULL,ZCRETE,ZANY,ZJUMP,ZERR,
+     X     ZACT,ZINTL,ZNTANY,ZPRODH
+C#####
+        DIMENSION A(6)
+
+        WRITE(5,1)
+1       FORMAT(' SYMMETRIC RIGHT RECURSIONS BEING REDUCED')
+C
+        DO 100 I=1,NI-1
+        IF (NTYPE(I).NE.ZNTERM) GOTO 100
+        J=DEFVAL(I)
+        IF (ALT(J).NE.PHI) GOTO 100
+        J1=J
+10      IF (SUC(J1).EQ.SIGMA) GOTO 100
+        J1=SUC(J1)
+        IF (ALT(J1).EQ.SIGMA) GOTO 50
+        IF (ALT(J1).NE.PHI) GOTO 100
+        GOTO 10
+C
+C       WE ARE NOW AT C.  LEAVE J1 AND GO LOOK FOR A
+C
+50      J2=J1
+55      IF(SUC(J2).EQ.SIGMA) GOTO 60
+        J2=SUC(J2)
+        GOTO 55
+60      IF (VAL(J2).NE.I) GOTO 100
+        IF (J2.EQ.J1) GOTO 65
+C
+C       C IS NOT NULL, SO CHECK IF A REDUCTION OK.
+C       BASICALLY, ITS ACTION CANT DO ANYTHING EXCEPT APPEND
+C
+        IF (ACTION(J1).EQ.0) GOTO 65
+        K=ACTION(J1)
+        IF (AN(2,K).NE.0) GOTO 100
+        IF (AN(3,K).NE.0) GOTO 100
+        IF (AN(4,K).NE.ZAPPND) GOTO 100
+        IF (AN(6,K).NE.0) GOTO 100
+C
+C       OK.  THIS IS ONE
+C
+65      IF (J1.EQ.SUC(J)) GOTO 70
+        WRITE(5,2) (NAME(K,I),K=1,6)
+2       FORMAT(' BSTB DOESNT KNOW HOW TO REDUCE ',6A4)
+        GOTO 100
+C
+C       SET UP J2 TO LOOK LIKE J EXCEPT ITS ACTION FIELD
+C       IS CHANGED FROM UP TO APPEND OR NEW TO ADD
+C
+70      TYPEND(J2)=TYPEND(J)
+        VAL(J2)=VAL(J)
+        DEF(J2)=DEF(J)
+        ALT(J2)=SIGMA
+        SUC(J2)=J1
+        FAIL(J2)=FAIL(J)
+        NDINFO(J2)=NDINFO(J).AND.(ZPRODH-1)
+        K=ACTION(J)
+        ACTION(J2)=K
+        IF (K.EQ.0) GOTO 74
+        DO 71 I1=1,6
+71      A(I1)=AN(I1,K)
+        IF (A(4).EQ.ZUP) A(4)=ZAPPND
+        IF ((A(4).AND.15).EQ.ZNEW) A(4)=ZADD
+        DO 725 K=1,IAN-1
+        DO 720 I1=1,6
+        IF (AN(I1,K).NE.A(I1)) GOTO 725
+720     CONTINUE
+C
+C       FOUND A DUPLICATE ACTION, USE IT
+C
+        ACTION(J2)=K
+        GOTO 74
+725     CONTINUE
+C
+C       NOT IN, PUT IT IN
+C
+        DO 726 I1=1,6
+726     AN(I1,IAN)=A(I1)
+        ACTION(J2)=IAN
+        IAN=IAN+1
+        IF (IAN.GT.000500) CALL ERROR('IAN TOO BIG')
+C
+C       MAKE J1 A REDUCTION NODE AND ADD NOSAVES UP TO J2
+C
+74      NDINFO(J1)=NDINFO(J1).OR.ZREDCE
+75      NDINFO(J1)=NDINFO(J1).OR.ZNOSAV
+        IF (J1.EQ.J2) GOTO 80
+        J1=SUC(J1)
+        GOTO 75
+C
+C
+C
+80      WRITE(5,3)(NAME(K,I),K=1,6)
+3       FORMAT(5X,6A4,' REDUCED')
+C
+100     CONTINUE
+        RETURN
+        END
+C
+      SUBROUTINE RD3
+C#####
+      IMPLICIT INTEGER(A-Z)
+      DATA PHI/-1/,SIGMA/0/
+      COMMON /SCN/S(6),NP
+      COMMON /INP/C(20),CRDNUM
+      COMMON NI,NXT,NXT1,VAL(001700),DEF(001700),ALT(001700),
+     X  NIT,INTAB(000100),MINTN(000100),
+     X   SUC(001700),ACTION(001700),FAIL(001700),TYPEND(001700),
+     X   NDINFO(001700),NVALIX(000525),IXNVAL,
+     X   AN(7,000500),IAN,RNAME(2,000100),RNI,NVAL(4,000550),
+     X   NAME(6,000525),DEFD(000525),DEFVAL(000525),NTYPE(000525),
+     X   ZREDCE,ZNOSAV,ZBACK,ZRESCN,ZSSAVE,  ZUP,ZAPPND,ZNEW,ZADD,
+     X   ZTERM,ZNTERM,ZNULL,ZCRETE,ZANY,ZJUMP,ZERR,
+     X     ZACT,ZINTL,ZNTANY,ZPRODH
+C#####
+      DIMENSION STACK(50)
+      WRITE(5,302)
+ 302  FORMAT(' LEFT RECURSIONS BEING REDUCED')
+      DO 350 I=1,NI-1
+      IF (NTYPE(I).NE.ZNTERM) GOTO 350
+      J=DEFVAL(I)
+      IF (VAL(J).EQ.I) GOTO 349
+310   J1=J
+      J=ALT(J)
+      IF(J.EQ.PHI.OR.J.EQ.SIGMA) GOTO 350
+      IF (VAL(J).NE.I) GOTO 310
+      IF (ALT(J).NE.PHI) GOTO 349
+C
+C     FOUN US A LEFT RECURSIVE PRODUCTION WITH LEFT PART LAST
+C
+      VAL(J)=-9999
+      ALT(J1)=PHI
+      J=SUC(J)
+      IF (J.EQ.SIGMA) GOTO 350
+C
+C     ITS NONTRIVIAL, SO SET UP ALL HEADS TO COME TO J EVENTUALLY
+C
+      DEPTH=0
+      J1=DEFVAL(I)
+320   K=J1
+322   IF(ALT(K).EQ.PHI) GOTO 330
+      IF(ALT(K).NE.SIGMA) GOTO 324
+      ALT(K)=J
+      GOTO 330
+324   DEPTH=DEPTH+1
+      STACK(DEPTH)=K
+      K=ALT(K)
+      GOTO 322
+330   IF (SUC(K).EQ.SIGMA) GOTO 335
+      K=SUC(K)
+      GOTO 322
+335   SUC(K)=J
+      IF (DEPTH.EQ.0) GOTO 338
+      K=STACK(DEPTH)
+      DEPTH=DEPTH-1
+      GOTO 330
+338   J1=ALT(J1)
+      IF (J1.NE.PHI) GOTO 320
+C
+C     NOW WE SET UP THE TAIL TO LOOP BACK TO J
+C
+      J1=J
+340   K=J1
+341   IF (SUC(K).EQ.SIGMA) GOTO 345
+      K=SUC(K)
+342   IF (ALT(K).EQ.PHI) GOTO 344
+      IF (ALT(K).NE.SIGMA) GOTO 343
+      ALT(K)=J
+      GOTO 345
+343   DEPTH=DEPTH+1
+      STACK(DEPTH)=K
+      K=ALT(K)
+      GOTO 342
+344   NDINFO(K)=NDINFO(K).OR.ZNOSAV
+      IF (ALT(K).EQ.PHI) ALT(K)=SIGMA
+      GOTO 341
+345   SUC(K)=J
+      IF (DEPTH.EQ.0) GOTO 346
+      K=STACK(DEPTH)
+      DEPTH=DEPTH-1
+      GOTO 344
+346   NDINFO(J1)=NDINFO(J1).OR.ZREDCE.OR.ZNOSAV
+      IF (ALT(J1).EQ.SIGMA) GOTO 348
+      IF (ALT(J1).EQ.PHI) GOTO 347
+      J1=ALT(J1)
+      GOTO 340
+347   ALT(J1)=SIGMA
+      WRITE(5,3470)(NAME(K,I),K=1,6)
+3470  FORMAT(5X,6A4,' REDUCED')
+      GOTO 350
+C
+C
+348   WRITE(5,312) (NAME(K,I),K=1,6)
+312   FORMAT(' **ERROR - DEGENERATE LEFT RECURSION ',6A4)
+      GOTO 350
+349   WRITE(5,311) (NAME(K,I),K=1,6)
+311   FORMAT(' **ERROR - LEFT RECURSIVE ALTERN NOT LAST ',6A4)
+C
+350   CONTINUE
+      RETURN
+      END
+C
+      SUBROUTINE RD4
+C
+C     REDUCTION OF ORDINARY RIGHT RECURSION OF THE FORM
+C               A ::= B \ C A  WITH ACTIONS LIMITED TO UP
+C               INTO THE FORM (C ! APPEND !)*  B ! APPEND !
+C
+C#####
+      IMPLICIT INTEGER(A-Z)
+      DATA PHI/-1/,SIGMA/0/
+      COMMON /SCN/S(6),NP
+      COMMON /INP/C(20),CRDNUM
+      COMMON NI,NXT,NXT1,VAL(001700),DEF(001700),ALT(001700),
+     X   NIT,INTAB(000100),MINTN(000100),
+     X   SUC(001700),ACTION(001700),FAIL(001700),TYPEND(001700),
+     X   NDINFO(001700),NVALIX(000525),IXNVAL,
+     X   AN(7,000500),IAN,RNAME(2,000100),RNI,NVAL(4,000550),
+     X   NAME(6,000525),DEFD(000525),DEFVAL(000525),NTYPE(000525),
+     X   ZREDCE,ZNOSAV,ZBACK,ZRESCN,ZSSAVE,  ZUP,ZAPPND,ZNEW,ZADD,
+     X   ZTERM,ZNTERM,ZNULL,ZCRETE,ZANY,ZJUMP,ZERR,
+     X     ZACT,ZINTL,ZNTANY,ZPRODH
+C#####
+      DIMENSION INTS(9), A(6), STACK(50)
+C
+C
+      WRITE(5,1)
+1     FORMAT(' RIGHT RECURSIONS BEING REDUCED')
+C
+C
+      DO 100 I=1,NI-1
+      IF (NTYPE(I).NE.ZNTERM) GOTO 100
+      J=DEFVAL(I)
+      IF (ALT(J).EQ.PHI.OR.ALT(J).EQ.SIGMA) GOTO 100
+C
+C     CHECK NOT INFINITELY RECURSIVE
+C
+      IF (VAL(J).EQ.I) GOTO 98
+      J1=J
+15    J1=ALT(J1)
+      IF (VAL(J1).EQ.I) GOTO 98
+      IF (.NOT.(ALT(J1).EQ.PHI.OR.ALT(J1).EQ.SIGMA)) GOTO 15
+      IF (ALT(J1).EQ.SIGMA) GOTO 100
+C
+C     HAVE FOUND LAST ALTERNATIVE
+C
+20    J2=J1
+      J1=SUC(J1)
+      IF (VAL(J1).EQ.I.AND.SUC(J1).NE.SIGMA) GOTO 100
+      IF (ALT(J1).EQ.SIGMA.OR.ALT(J1).EQ.PHI) GOTO 25
+      J1=ALT(J1)
+      GOTO 20
+25    IF (SUC(J1).NE.SIGMA) GOTO 20
+      IF (VAL(J1).NE.I) GOTO 100
+C
+C     LAST REFERENCE IS RECURSIVE, VERIFY ACTION IS ALLOWABLE
+C
+      K=ACTION(J1)
+      IF (K.EQ.0) GOTO 40
+      IF (AN(2,K).NE.0) GOTO 100
+      IF (AN(3,K).NE.0) GOTO 100
+      IF (AN(4,K).NE.ZUP) GOTO 100
+      IF (AN(6,K).NE.0) GOTO 100
+      IF (FAIL(J1).NE.0) GOTO 100
+C
+C     OK. THIS IS ONE.  WE FIX UP J1'S PREDECESSOR J2 TO LOOP BACK TO
+C     THE TOP, COPYING J1'S ACTION TO J2 IF NECESSARY
+C
+40    IF (ACTION(J2).EQ.0) GOTO 50
+      WRITE(5,2)(NAME(K,VAL(J2)),K=1,6),(NAME(K,I),K=1,6)
+2     FORMAT(' ACTION ON ',6A4,' PREVENTS REDUCTION OF ',6A4)
+      GOTO 100
+50    IF (K.EQ.0) GOTO 70
+C
+C     IN FIXING UP THE ACTION WE DELETE UP 1, AND CHANGE OTHER UPS TO
+C     APPENDS, ELIMINATING 1 FROM THE INTEGER LIST.
+C
+      INTG=INTAB(AN(1,K))
+      IF (INTG.EQ.INTAB(1)) GOTO 70
+      DO 51 L=9,1,-1
+      INTS(L)=MOD(INTG,10)
+51    INTG=INTG/10
+      DO 52 L=1,9
+      IF (INTS(L).GT.0) INTS(L)=INTS(L)-1
+52    CONTINUE
+      INTG=0
+      DO 53 L=1,9
+53    INTG=INTG*10+INTS(L)
+      DO 54 L=1,6
+54    A(L)=0
+      A(5)=2
+      DO 55 L=1,NIT
+      IF (INTG.EQ.INTAB(L)) GOTO 56
+55    CONTINUE
+      NIT=NIT+1
+      IF (NIT.GE.000100) CALL ERROR('TOO MANY INTEGER LISTS')
+      A(1)=NIT
+      INTAB(NIT)=INTG
+      GOTO 57
+56    A(1)=L
+57    A(4)=ZAPPND
+      DO 60 LI=1,IAN-1
+      DO 59 LJ=1,6
+      IF (AN(LJ,LI).NE.A(LJ)) GOTO 60
+59    CONTINUE
+      ACTION(J2)=LI
+      GOTO 70
+60    CONTINUE
+      DO 62 LJ=1,6
+62    AN(LJ,IAN)=A(LJ)
+      ACTION(J2)=IAN
+      IAN=IAN+1
+      IF (IAN.GT.000500) CALL ERROR('IAN TOO BIG')
+70    SUC(J2)=J
+      VAL(J1)=-9999
+C
+C
+C     NOW WE GO BACK THROUGH THE OTHER ACTION NODES OF THIS AND
+C     CHANGE UPS TO APPENDS
+C
+      DEPTH=0
+      J1=J
+74    K=ACTION(J1)
+      IF (K.EQ.0) GOTO 90
+      IF (AN(4,K).NE.ZUP) GOTO 90
+      DO 76 LJ=1,6
+76    A(LJ)=AN(LJ,K)
+      A(4)=ZAPPND
+      DO 80 LI=1,IAN-1
+      DO 78 LJ=1,6
+      IF (A(LJ).NE.AN(LJ,LI)) GOTO 80
+78    CONTINUE
+      ACTION(J1)=LI
+      GOTO 90
+80    CONTINUE
+      DO 82 LJ=1,6
+82    AN(LJ,IAN)=A(LJ)
+      ACTION(J1)=IAN
+      IAN=IAN+1
+      IF (IAN.GT.000500) CALL ERROR('IAN TOO BIG')
+90    IF (ALT(J1).EQ.SIGMA.OR.ALT(J1).EQ.PHI) GOTO 92
+      IF (SUC(J1).NE.SIGMA) GOTO 91
+      J1=ALT(J1)
+      GOTO 74
+91    DEPTH=DEPTH+1
+      STACK(DEPTH)=ALT(J1)
+92    IF (SUC(J1).EQ.SIGMA.OR.SUC(J1).EQ.J) GOTO 93
+      J1=SUC(J1)
+      GOTO 74
+93    IF (DEPTH.EQ.0) GOTO 96
+      J1=STACK(DEPTH)
+      DEPTH=DEPTH-1
+      GOTO 74
+96    WRITE(5,960)(NAME(K,I),K=1,6)
+960   FORMAT(5X,6A4,' REDUCED')
+      GOTO 100
+C
+C
+C
+98    WRITE(5,980)(NAME(K,I),K=1,6)
+980   FORMAT('  **ERROR - DEGENERATE RIGHT RECURSION ',6A4)
+C
+100   CONTINUE
+      RETURN
+      END
+C
+      SUBROUTINE RD5
+C
+C
+C     RD5 PRODUCES JUMP REDUCTIONS IF AND ONLY IF
+C        PRIMITIVES AT THE BEGINNING OF ALTERNATIVE
+C        DEFINITIONS ARE AT THE BEGINNING OF THE
+C        ALTERNATIVES AND IN DECREASING ORDER
+C
+C#####
+      IMPLICIT INTEGER(A-Z)
+      DATA PHI/-1/,SIGMA/0/
+      COMMON /SCN/S(6),NP
+      COMMON /INP/C(20),CRDNUM
+      COMMON NI,NXT,NXT1,VAL(001700),DEF(001700),ALT(001700),
+     X   NIT,INTAB(000100),MINTN(000100),
+     X   SUC(001700),ACTION(001700),FAIL(001700),TYPEND(001700),
+     X   NDINFO(001700),NVALIX(000525),IXNVAL,
+     X   AN(7,000500),IAN,RNAME(2,000100),RNI,NVAL(4,000550),
+     X   NAME(6,000525),DEFD(000525),DEFVAL(000525),NTYPE(000525),
+     X   ZREDCE,ZNOSAV,ZBACK,ZRESCN,ZSSAVE,  ZUP,ZAPPND,ZNEW,ZADD,
+     X   ZTERM,ZNTERM,ZNULL,ZCRETE,ZANY,ZJUMP,ZERR,
+     X     ZACT,ZINTL,ZNTANY,ZPRODH
+C#####
+      COMMON /NEWCOM/ NEW(001700)
+      WRITE(5,511)
+ 511  FORMAT(' JUMP VECTORS BEING DETECTED')
+      NXT1=NXT-1
+      DO 510 I=1,NXT1
+ 510  NEW(I)=I
+      N1=NI-1
+      DO 550 I=1,N1
+      IF (NTYPE(I).NE.ZNTERM) GOTO 550
+      J=DEFVAL(I)
+      IF (TYPEND(J).NE.ZTERM) GOTO 550
+C     HAVE AT LEAST ONE PRIMITIVE
+      KK=1
+ 520  T1=ALT(J)
+      IF(ALT(J).LE.SIGMA.OR.TYPEND(T1).NE.ZTERM.OR.
+     X   DEF(T1)+1.NE.DEF(J))  GOTO 525
+      KK=KK+1
+      J=ALT(J)
+      GOTO 520
+C     KK IS NUMBER OF JUMP POINTS POSSIBLE
+ 525  CONTINUE
+      IF(KK.LE.2) GOTO 550
+C     MAKE JUMP NODE
+      FINALT=ALT(J)
+      J=DEFVAL(I)
+      NEW(J)=NXT
+      DEFVAL(I)=NXT
+      VAL(NXT)=-2
+      TYPEND(NXT)=ZJUMP
+      MNO=(NDINFO(J)/ZPRODH)*ZPRODH
+      NDINFO(NXT)=MNO
+      NDINFO(J)=NDINFO(J)-MNO
+      DEF(NXT)=0
+      ALT(NXT)=DEF(J)
+      SUC(NXT)=DEF(J)-KK+1
+      NXT=NXT+1
+      IF (NXT.GT.001700) CALL ERROR('NXT TOO BIG')
+      WRITE(5,533) KK,(NAME(K,I),K=1,6)
+ 533  FORMAT(I6,' WAY JUMP FOR ',6A4)
+      DO 535 L=1,KK
+      VAL(NXT)=VAL(J)
+      DEF(NXT)=DEF(J)
+      ALT(NXT)=FINALT
+      SUC(NXT)=SUC(J)
+      ACTION(NXT)=ACTION(J)
+      FAIL(NXT)=FAIL(J)
+      TYPEND(NXT)=TYPEND(J)
+      NDINFO(NXT)=NDINFO(J)
+      VAL(J)=-9999
+      J=ALT(J)
+      NXT=NXT+1
+      IF (NXT.GT.001700) CALL ERROR('NXT TOO BIG')
+ 535  CONTINUE
+ 550  CONTINUE
+      NXT1=NXT-1
+      DO 540 I=1,NXT1
+      T1=DEF(I)
+      IF (DEF(I).GT.0) DEF(I)=NEW(T1)
+ 540  CONTINUE
+      RETURN
+      END
+C
+      SUBROUTINE CARD
+C     THIS ROUTINE READS A CARD AND CHECKS FOR
+C        DEBUG CALLS
+      IMPLICIT INTEGER(A-Z)
+      COMMON /INP/C(20),CRDNUM
+      DATA ALLB/'    '/
+ 5    READ(20,11,ERR=900,END=950)C
+ 11   FORMAT(20A4)
+      IF (C(20).NE.ALLB) CALL ERROR('LINE TOO LONG')
+      DATA COUNT/0/
+      COUNT=COUNT+1
+      CRDNUM=COUNT
+      RETURN
+ 900  WRITE(5,911)C
+ 911  FORMAT(' READ ERROR'/1X,20A4)
+      STOP
+ 950  WRITE(5,955)C
+ 955  FORMAT(' END OF FILE'/1X,20A4)
+      STOP
+      RETURN
+      END
+C
+C
+C
+      SUBROUTINE FINAL
+      COMMON /SCN/S(6),NP
+      COMMON /INP/C(20),CRDNUM
+      WRITE(5,22) CRDNUM,C,S
+ 22   FORMAT(' LAST LINE READ WAS-',I5/1X,20A4/
+     X        ' CURRENT TOKEN IS-',6A4)
+      RETURN
+      END
+C
+      SUBROUTINE ERROR(A)
+C     THIS ROUTINE PRINTS OUT AN ERROR MESSAGE
+C        AND GIVES A CHANCE TO INPUT DEBUG COMMANDS
+      DIMENSION A(2)
+      WRITE(5,11)A
+ 11   FORMAT(' ** ERROR -- ',2A5)
+      CALL FINAL
+      STOP
+      END
+C
+      SUBROUTINE REDUCE
+C#####
+      IMPLICIT INTEGER(A-Z)
+      DATA PHI/-1/,SIGMA/0/
+      COMMON /SCN/S(6),NP
+      COMMON /INP/C(20),CRDNUM
+      COMMON NI,NXT,NXT1,VAL(001700),DEF(001700),ALT(001700),
+     X   NIT,INTAB(000100),MINTN(000100),
+     X   SUC(001700),ACTION(001700),FAIL(001700),TYPEND(001700),
+     X   NDINFO(001700),NVALIX(000525),IXNVAL,
+     X   AN(7,000500),IAN,RNAME(2,000100),RNI,NVAL(4,000550),
+     X   NAME(6,000525),DEFD(000525),DEFVAL(000525),NTYPE(000525),
+     X   ZREDCE,ZNOSAV,ZBACK,ZRESCN,ZSSAVE,  ZUP,ZAPPND,ZNEW,ZADD,
+     X   ZTERM,ZNTERM,ZNULL,ZCRETE,ZANY,ZJUMP,ZERR,
+     X     ZACT,ZINTL,ZNTANY,ZPRODH
+C#####
+      COMMON/NEWCOM/ NEW(001700)
+      WRITE(5,22)
+ 22   FORMAT(' SYNTAX TABLES BEING TIGHTENED')
+      K=1
+      J=NXT-1
+      DO 10 I=1,J
+      IF(VAL(I).LE.-9999) GOTO 10
+      NEW(I)=K
+      IF (I.EQ.K) GOTO 8
+      VAL(K)=VAL(I)
+      DEF(K)=DEF(I)
+      ALT(K)=ALT(I)
+      SUC(K)=SUC(I)
+      ACTION(K)=ACTION(I)
+      FAIL(K)=FAIL(I)
+      TYPEND(K)=TYPEND(I)
+      NDINFO(K)=NDINFO(I)
+ 8    K=K+1
+ 10   CONTINUE
+      J=K-1
+      DO 20 I=1,J
+      T1=DEF(I)
+      IF(DEF(I).GT.0.AND.DEF(I).LE.001700) DEF(I)=NEW(T1)
+      T1=ALT(I)
+      IF(ALT(I).GT.0.AND.ALT(I).LE.001700) ALT(I)=NEW(T1)
+      T1=SUC(I)
+      IF(SUC(I).GT.0.AND.SUC(I).LE.001700) SUC(I)=NEW(T1)
+ 20   CONTINUE
+      NXT=K
+      J=NI-1
+      DO 30 I=1,J
+      T1=DEFVAL(I)
+      IF (NTYPE(I).EQ.ZNTERM) DEFVAL(I)=NEW(T1)
+ 30   CONTINUE
+      RETURN
+      END
+C
+      SUBROUTINE MESS
+      COMMON/INP/C(20),CRDNUM
+      WRITE(5,11)C
+ 11   FORMAT(' ** NAME GT 24 CHARS ON:'/1X,20A4)
+      RETURN
+      END
+C
+      SUBROUTINE BREAK(IN,OUT,NUM)
+      IMPLICIT INTEGER(A-Z)
+      DIMENSION OUT(5)
+      V=IN
+      MINUS=0
+      IF (IN.GE.0) GOTO 10
+      MINUS="100
+      V=V.AND."377777777777
+ 10   CONTINUE
+      V=V/2**(1+7*(5-NUM))
+      DO 20 J=1,NUM
+      OUT(NUM-J+1)=V.AND."177
+      V=V/2**7
+ 20   CONTINUE
+      OUT(1)=OUT(1).OR.MINUS
+      RETURN
+      END
+C
+      SUBROUTINE PACK(IN,OUT,NUM)
+      IMPLICIT INTEGER(A-Z)
+      DIMENSION IN(5),BLANKS(5)
+      DATA BLANKS /"1004020100,"4020100,"20100,"100,0/
+      T=IN(1)
+      IN(1)=T.AND."77
+      OUT=0
+      DO 10 J=1,NUM
+ 10   OUT=(OUT*2**7).OR.IN(J)
+      OUT=OUT*2**(1+7*(5-NUM)).OR.BLANKS(NUM)
+      IN(1)=T
+      IF(T.GE."100)OUT=OUT.OR."400000000000
+      RETURN
+      END
+C
+      SUBROUTINE SCAN
+      IMPLICIT INTEGER(A-Z)
+      COMMON /SCN/S(6),NP
+      COMMON/INP/C(20),CRDNUM
+      DIMENSION COLS(80),CHARS(24)
+      DATA BLANK/"40/,COL/81/,TAB/"011/,FORMF/"014/,AMP/"046/,EXC/"041/
+ 1    IF(COL.LT.77)GOTO 20
+ 5    CALL CARD
+      DO 10 I=1,20
+ 10   CALL BREAK(C(I),COLS(1+4*(I-1)),4)
+      COL=1
+      IF (COLS(1).EQ.FORMF) GOTO 5
+ 20   CONTINUE
+C     SKIP COMMENTS
+      IF (COLS(COL).NE.BLANK.AND.COLS(COL).NE.TAB) GOTO 25
+      COL=COL+1
+      GOTO 20
+ 25   IF (COL.GE.77) GOTO 5
+C       LEADING BLANKS REMOVED
+C       SKIP LEADING BLANKS
+      IF (COLS(COL).EQ.AMP.AND.COLS(COL+1).EQ.EXC) GOTO 5
+      START=COL
+      DO 30 COL=START,77
+      IF (COLS(COL).EQ.BLANK.OR.COLS(COL).EQ.TAB) GOTO 35
+ 30   CONTINUE
+ 35   END=COL-1
+      DO 40 I=1,24
+      CHARS(I)=BLANK
+ 40   CONTINUE
+      IF (END-START+1.LE.24) GOTO 50
+      WRITE (5,22) C
+ 22   FORMAT(' *** NAME GT 24 CHARS ***',/1X,20A4)
+      END=START+23
+ 50   DO 60 I=START,END
+ 60   CHARS(I-START+1)=COLS(I)
+      DO 70 I=1,NP
+ 70   CALL PACK(CHARS(1+4*(I-1)),S(I),4)
+      IF (S(1).NE.'*DB*') RETURN
+      CALL DEBUG
+      GOTO 1
+      END   
+      FUNCTION AND(I,J)
+      INTEGER AND
+      AND=I.AND.J
+      RETURN
+      END
+      FUNCTION OR(I,J)
+      INTEGER OR
+      OR=I.OR.J
+      RETURN
+      END
+C
+      SUBROUTINE FIXNAM (NAME,LN,OUT,SPLITN,N)
+C     THIS ROUTINE TAKES A NAME LN WORDS LONG
+C        AND PACKS ITS ALPHAMERIC CHARACTERS
+C        INTO THE OUTPUT STRING OUT.  SPLITN
+C        INDICATES THE NUMBER OF CHARACTERS
+C        PLACED IN OUT.  SPLITN<N+1. IF SPLITN
+C        WOULD HAVE BEEN >N, THE FIRST N-2
+C        AND LAST TWO CHARACTERS ARE USED.
+      IMPLICIT INTEGER(A-Z)
+      DIMENSION NAME(1),OUT(1)
+      DIMENSION SPLIT(24)
+      DIMENSION SPLI(24)
+C     DATA C1/2ZC1/,Z40/2Z40/
+      DATA C1/"101/,Z40/"040/
+      DO 10 I=1,LN
+ 10   CALL BREAK(NAME(I),SPLI(1+4*(I-1)),4)
+      SPLITN=0
+      DO 20 I=1,24
+      SPLIT(I)=Z40
+      K=SPLI(I)
+      IF (K.LT.C1) GOTO 20
+      SPLITN=SPLITN+1
+      SPLIT(SPLITN)=K
+ 20   CONTINUE
+      IF(SPLITN.LE.N) GOTO 30
+      SPLIT(N-1)=SPLIT(SPLITN-1)
+      SPLIT(N)=SPLIT(SPLITN)
+      SPLITN=N
+ 30   NN=(N+3)/4
+      DO 40 I=1,NN
+      CALL PACK(SPLIT(1+4*(I-1)),OUT(I),4)
+ 40   CONTINUE
+      RETURN
+      END
+C
+      SUBROUTINE ACTN(N,FRSTND,DEFIND)
+C#####
+      IMPLICIT INTEGER(A-Z)
+      DATA PHI/-1/,SIGMA/0/
+      COMMON /SCN/S(6),NP
+      COMMON /INP/C(20),CRDNUM
+      COMMON NI,NXT,NXT1,VAL(001700),DEF(001700),ALT(001700),
+     X   NIT,INTAB(000100),MINTN(000100),
+     X   SUC(001700),ACTION(001700),FAIL(001700),TYPEND(001700),
+     X   NDINFO(001700),NVALIX(000525),IXNVAL,
+     X   AN(7,000500),IAN,RNAME(2,000100),RNI,NVAL(4,000550),
+     X   NAME(6,000525),DEFD(000525),DEFVAL(000525),NTYPE(000525),
+     X   ZREDCE,ZNOSAV,ZBACK,ZRESCN,ZSSAVE,  ZUP,ZAPPND,ZNEW,ZADD,
+     X   ZTERM,ZNTERM,ZNULL,ZCRETE,ZANY,ZJUMP,ZERR,
+     X     ZACT,ZINTL,ZNTANY,ZPRODH
+C#####
+      DIMENSION A(6),INTG(4),NSA(9),INTS(9)
+      DATA EXCLMN/'!'/
+      A(1)=0
+      A(2)=0
+      A(3)=0
+      A(4)=0
+      A(5)=0
+      A(6)=0
+      POWER=100000000
+      SW=0
+      TREACT=0
+      IF(TYPEND(N).EQ.ZCRETE) GOTO 700
+      IF(TYPEND(N).EQ.ZNTANY) GOTO 800
+ 10   CALL SCAN
+ 15   IF (S(1).EQ.EXCLMN) GOTO 500
+      IF (S(1).NE.'ERRO'.OR.S(2).NE.'R') GOTO 100
+C     PROCESS ERROR STUFF
+      SW=1
+      CALL SCAN
+      A(2)=S(1)
+      A(3)=S(2)
+      A(4)=S(3)
+      A(5)=0
+      A(6)=VAL(N)
+      CALL SCAN
+      CALL SRCHTB(I,T)
+      A(1)=I
+      NDINFO(N)=NDINFO(N).OR.ZBACK
+      GOTO 500
+C     NOT ERROR STUFF
+ 100  CONTINUE
+      IF (S(1).NE.'CALL'.OR.S(2).NE.' ') GOTO 150
+C     CALL
+      CALL SCAN
+      DO 110 I=1,RNI-1
+      IF (RNAME(1,I).EQ.S(1).AND.RNAME(2,I).EQ.S(2)) GOTO 120
+ 110  CONTINUE
+      I=RNI
+      RNAME(1,RNI)=S(1)
+      RNAME(2,RNI)=S(2)
+      RNI=RNI+1
+      IF (RNI.GT.000100) CALL ERROR('RNI TOO BIG')
+ 120  A(2)=I
+      NDINFO(N)=NDINFO(N).OR.ZBACK
+      IF (TREACT .EQ. 0) NDINFO(N)=NDINFO(N) .OR. ZSSAVE
+      SW=2
+      GOTO 10
+C
+ 150  IF (S(1).NE.'RESC'.OR.S(2).NE.'AN') GOTO 170
+      NDINFO(N)=NDINFO(N).OR.ZRESCN
+      GOTO 10
+C
+ 170  IF (S(1).NE.'NOBA'.OR.S(2).NE.'CKUP'.OR.S(3).NE.' ') GOTO 180
+      NDINFO(N)=NDINFO(N).OR.ZBACK
+      GOTO 10
+C
+ 180  IF (S(1).NE.'ALT') GOTO 190
+      CALL SCAN
+      DO 185 I=1,IXNVAL
+      DO 183 J=1,3
+      IF (NVAL(J,I).NE.S(J)) GOTO 185
+ 183  CONTINUE
+      GOTO 187
+ 185  CONTINUE
+      CALL ERROR ('NOT PREV DEF')
+ 187  A(3)=I
+      SW=2
+      GOTO 10
+C
+ 190  IF (S(1).NE.'SUBI'.OR.S(2).NE.'D') GOTO 200
+      CALL SCAN
+      DO 195 I=1,IXNVAL
+      DO 193 J=1,3
+      IF (NVAL(J,I).NE.S(J)) GOTO 195
+ 193  CONTINUE
+      GOTO 197
+ 195  CONTINUE
+      CALL ERROR ('NOT DEFINED')
+ 197  A(6)=I
+      SW=2
+      GOTO 10
+C
+ 200  IF (S(1).NE.'BACK'.OR.S(2).NE.'UPOK'.OR.S(3).NE.' ') GOTO 300
+      IF ((NDINFO(N).AND.ZBACK).NE.ZBACK) GOTO 10
+      NDINFO(N)=NDINFO(N)-ZBACK
+      GOTO 10
+C     MUST BE UP, APPEND, ADD, OR NEW
+ 300  IF (S(1).NE.'UP') GOTO 303
+      A(4)=ZUP
+      GOTO 320
+ 303  IF (S(1).NE.'APPE'.OR.S(2).NE.'ND') GOTO 306
+      A(4)=ZAPPND
+      GOTO 320
+ 306  IF (S(1).NE.'ADD') GOTO 309
+      A(4)=ZADD
+      GOTO 320
+ 309  IF (S(1).NE.'NEW') GOTO 312
+      A(4)=ZNEW+DEFIND*16
+      GOTO 320
+C     NOT LEGIT ACTION
+ 312  CALL ERROR('BAD ACTION')
+C     FORM INTL
+ 320  K=0
+      TREACT=1
+      DO 324 J=1,9
+ 324  INTS(J)=0
+ 325  CALL SCAN
+      SW=2
+      CALL BREAK(S,INTG,4)
+      IF (INTG(1).LT."060.OR.INTG(1).GT."071
+     C    .OR.INTG(2).NE."040) GOTO 330
+      I=INTG(1)-"060
+      IF (N-I+1.LT.FRSTND) CALL ERROR('BAD INT  ')
+      NDINFO(N-I+1)=NDINFO(N-I+1).OR.ZSSAVE
+      K=K+1
+      INTS(K)=I
+      GOTO 325
+C     TAG SORT THE INTEGERS TO REDUCE THEM TO A COMPACT SEQUENCE
+330   DO 975 J=1,9
+      IF (INTS(J).EQ.0) GOTO 974
+      NSA(J)=J
+      GOTO 975
+974   INTS(J)=20
+      NSA(J)=0
+975   CONTINUE
+
+      DO 980 J=1,8
+      DO 980 K=J+1,9
+      IF (INTS(J).LE.INTS(K)) GOTO 980
+      M1=INTS(K)
+      INTS(K)=INTS(J)
+      INTS(J)=M1
+      M1=NSA(K)
+      NSA(K)=NSA(J)
+      NSA(J)=M1
+980   CONTINUE
+
+      DO 985 J=1,9
+      IF (NSA(J).EQ.0) GOTO 983
+      INTS(NSA(J))=J
+      GOTO 985
+983   INTS(J)=0
+985   CONTINUE
+
+      I=0
+      DO 340 J=1,9
+      I=I+INTS(J)*POWER
+340   POWER=POWER/10
+
+C     SEARCH THE INTEGER TABLE FOR DUPLICATES
+      DO 350 J=1,NIT
+      IF (I .EQ. INTAB(J)) GOTO 360
+350   CONTINUE
+      NIT=NIT+1
+      IF (NIT .GE. 000100) CALL ERROR('TOO MANY INTEGER LISTS')
+      J=NIT
+      INTAB(NIT)=I
+360   A(1)=J
+      GOTO 15
+C
+C     ACTION ALL FORMED, SW=1 IF ERROR
+C
+ 500  IF (SW.EQ.0) RETURN
+      IAN1=IAN-1
+      A(5)=SW
+      IF(IAN1.EQ.0) GOTO 511
+      DO 510 I=1,IAN1
+      DO 505 J=1,6
+      IF (AN(J,I).NE.A(J)) GOTO 510
+ 505  CONTINUE
+      GOTO 530
+ 510  CONTINUE
+C     NOT ALREADY IN
+511   DO 515 J=1,6
+ 515  AN(J,IAN)=A(J)
+      I=IAN
+      IAN=IAN+1
+      IF (IAN.GT.000500) CALL ERROR ('IAN TOO BIG')
+C     INDEX IN I
+ 530  IF (SW.EQ.1) GOTO 550
+      ACTION(N)=I
+      RETURN
+ 550  FAIL(N)=I
+      A(1)=0
+      A(2)=0
+      A(3)=0
+      A(4)=0
+      A(5)=0
+      A(6)=0
+      SW=0
+      GOTO 10
+C     CREATE NODE -- GET TERMINAL
+ 700  CALL SCAN
+      CALL SRCHTB(I,T)
+      IF (NTYPE(I).NE.ZTERM) CALL ERROR('BAD TERM')
+      VAL(N)=I
+      DEF(N)=DEFVAL(I)
+      GOTO 10
+C
+C     NOTANY OPERATOR -- GET PRODUCTION
+C
+800   CALL SCAN
+      CALL SRCHTB(I,T)
+      IF (T.EQ.0) GOTO 810
+C     FIRST ENTRY OF SYMBOL, START FIXUP CHAIN
+      DEFVAL(I)=N
+      DEF(N)=0
+      GOTO 830
+810   IF (DEFD(I).EQ.1) GOTO 820
+C     SEEN BEFORE BUT NOT DEFINED, INSRT INTO FIXUP CHAIN
+      DEF(N)=DEFVAL(I)
+      DEFVAL(I)=N
+      GOTO 830
+C     ALRREADY DEFINED, JUST REFERENCE IT
+820   DEF(N)=DEFVAL(I)
+830   VAL(N)=I
+      GOTO 10
+      END
+C
+      SUBROUTINE SRCHTB(I,T)
+C     SEARCH TABLE FOR S
+C#####
+      IMPLICIT INTEGER(A-Z)
+      DATA PHI/-1/,SIGMA/0/
+      COMMON /SCN/S(6),NP
+      COMMON /INP/C(20),CRDNUM
+      COMMON NI,NXT,NXT1,VAL(001700),DEF(001700),ALT(001700),
+     X   NIT,INTAB(000100),MINTN(000100),
+     X   SUC(001700),ACTION(001700),FAIL(001700),TYPEND(001700),
+     X   NDINFO(001700),NVALIX(000525),IXNVAL,
+     X   AN(7,000500),IAN,RNAME(2,000100),RNI,NVAL(4,000550),
+     X   NAME(6,000525),DEFD(000525),DEFVAL(000525),NTYPE(000525),
+     X   ZREDCE,ZNOSAV,ZBACK,ZRESCN,ZSSAVE,  ZUP,ZAPPND,ZNEW,ZADD,
+     X   ZTERM,ZNTERM,ZNULL,ZCRETE,ZANY,ZJUMP,ZERR,
+     X     ZACT,ZINTL,ZNTANY,ZPRODH
+C#####
+C
+C     ON RETURN I HAS INDEX INTO NAME TABLES
+C               T = 0 IF NAME ALREADY IN TABLE
+C                 =1 1 IF JUST PUT INTO TABLE
+C
+      DATA ZROBLK/'0'/,BLANK/' '/
+      T=0
+      DO 20 I=1,NI
+      DO 17 J=1,NP
+      IF (NAME(J,I).NE.S(J)) GOTO 20
+ 17   CONTINUE
+      RETURN
+ 20   CONTINUE
+C     NOT IN TABLE
+      T=1
+      DO 25 J=1,NP
+ 25   NAME(J,NI)=S(J)
+      DEFD(NI)=0
+      DEFVAL(NI)=0
+      NTYPE(NI)=ZNTERM
+      NVALIX(NI)=1
+      I=NI
+      NI=NI+1
+      IF (NI.GT.000525) CALL ERROR ('NI TOO BIG')
+      NAME(1,NI)=0
+C     SEARCH DONE INDEX IN I
+      RETURN
+      END
+C
+      SUBROUTINE BLIOUT
+C     WRITE BLISS PLIT FOR SYNTAX TABLE
+C#####
+      IMPLICIT INTEGER(A-Z)
+      DATA PHI/-1/,SIGMA/0/
+      COMMON /SCN/S(6),NP
+      COMMON /INP/C(20),CRDNUM
+      COMMON NI,NXT,NXT1,VAL(001700),DEF(001700),ALT(001700),
+     X   NIT,INTAB(000100),MINTN(000100),
+     X   SUC(001700),ACTION(001700),FAIL(001700),TYPEND(001700),
+     X   NDINFO(001700),NVALIX(000525),IXNVAL,
+     X   AN(7,000500),IAN,RNAME(2,000100),RNI,NVAL(4,000550),
+     X   NAME(6,000525),DEFD(000525),DEFVAL(000525),NTYPE(000525),
+     X   ZREDCE,ZNOSAV,ZBACK,ZRESCN,ZSSAVE,  ZUP,ZAPPND,ZNEW,ZADD,
+     X   ZTERM,ZNTERM,ZNULL,ZCRETE,ZANY,ZJUMP,ZERR,
+     X     ZACT,ZINTL,ZNTANY,ZPRODH
+C#####
+      DIMENSION ACTTYP(2,5),INTS(9)
+      DATA ACTTYP/'NONE','    ','UP  ','    ','APPN','D   ',
+     C            'NEW ','    ','ADD ','    '/
+      DIMENSION TYPET(10)
+      DATA TYPET/'TERM ','NTERM','NULL ','CRATE','ANY  ','JUMP ',
+     X           'NTANY','ERROR','ACTN ','INTL '/
+C
+      WRITE(5,11)
+ 11   FORMAT(' BLISS TABLES BEING WRITTEN')
+C
+      DATA CMA/','/,SEMI/';'/
+      RNI2=RNI-2
+      WRITE(10,77) (RNAME(1,I),RNAME(2,I),CMA,I=2,RNI2),
+     X              RNAME(1,RNI-1),RNAME(2,RNI-1),SEMI
+77    FORMAT('EXTERNAL'/1000(9X,6(2A4,A1,1X)/))
+      WRITE(10,99) (RNAME(1,I),RNAME(2,I),CMA,I=2,RNI2),
+     X              RNAME(1,RNI-1),RNAME(2,RNI-1)
+ 99   FORMAT('BIND P$$R=PLIT( P$$ROUT GLOBALLY NAMES 0,'/
+     X       1000(9X,6(2A4,A1,1X)/))
+      WRITE(10,88)
+88    FORMAT(9X,');' //
+     X  'BIND P$$=PLIT( P$ GLOBALLY NAMES 0, 0,' //
+     X  '%NODE',7X,'TYPE',7X,'DEF',8X,
+     X  'ALT  SUC  ACT  ERR RD NS  B  S  R AF EF  %'/)
+      DO 1000 I=1,NXT-1
+      NODE=I*2
+      REDUCE=0
+      IF ((NDINFO(I).AND.ZREDCE).EQ.ZREDCE) REDUCE=1
+      NOSAVE=0
+      IF ((NDINFO(I).AND.ZNOSAV).EQ.ZNOSAV) NOSAVE=1
+      BACKUP=0
+      IF ((NDINFO(I).AND.ZBACK).EQ.ZBACK) BACKUP=1
+      RESCAN=0
+      IF ((NDINFO(I).AND.ZRESCN).EQ.ZRESCN)RESCAN=1
+      SEM=0
+      IF ((NDINFO(I).AND.ZSSAVE).EQ.ZSSAVE) SEM=1
+      VDEF=DEF(I)
+      IF (VDEF.GT.0.AND.VDEF.LE.001700) VDEF=VDEF+VDEF
+      VALT=ALT(I)
+      IF (VALT.GT.0.AND.VALT.LE.001700) VALT=VALT+VALT
+      VSUC=SUC(I)
+      IF (VSUC.GT.0.AND.VSUC.LE.001700) VSUC=VSUC+VSUC
+      ERRNDE=0
+      ERRF=0
+      IF (FAIL(I).EQ.0) GOTO 91
+      ERRF=1
+      ERRNDE=AN(7,FAIL(I))*2
+91    ACTF=0
+      ACTNDE=0
+      IF (ACTION(I).EQ.0) GOTO 93
+      ACTF=1
+      ACTNDE=AN(7,ACTION(I))*2
+93    CONTINUE
+      J=TYPEND(I)
+      IF ((NDINFO(I).AND.ZPRODH).NE.ZPRODH) GOTO 98
+      NAMI=NDINFO(I)/(ZPRODH*2)
+      WRITE(10,3) (NAME(K,NAMI),K=1,6)
+3     FORMAT(/'% ',6A4,' ::=  %')
+98    CONTINUE
+      GOTO(100,200,300,400,500,600,700),J
+C     TERMINAL
+100   L=NVALIX(VAL(I))
+      GOTO 1001
+C     NONTERMINAL
+200   GOTO 1002
+C     NULL
+300   GOTO 1002
+C     CREATE
+400   L=NVALIX(VAL(I))
+      GOTO 1001
+C     ANY
+500   GOTO 1002
+C     JUMP
+600   VALT=-VALT
+      VSUC=-VSUC
+      WRITE(10,611) NODE,VALT,VSUC
+611   FORMAT('%',I4,'% PM$JUMP(',I4,',',I4,'),')
+      GOTO 1000
+C     NOTANY
+700   GOTO 1002
+C
+C
+C
+1001  WRITE(10,1) NODE,TYPET(J),(NVAL(K,L),K=1,3),VALT,VSUC,ACTNDE,
+     X            ERRNDE,REDUCE,NOSAVE,BACKUP,SEM,RESCAN,ACTF,ERRF
+1     FORMAT('%',I4,'% PM$(PV$',A5,',',3A4,',',4(I4,','),
+     X       6(I2,','),I2,'),')
+      GOTO 1000
+C
+1002  WRITE(10,2) NODE,TYPET(J),VDEF,VALT,VSUC,ACTNDE,
+     X            ERRNDE,REDUCE,NOSAVE,BACKUP,SEM,RESCAN,ACTF,ERRF
+2     FORMAT('%',I4,'% PM$(PV$',A5,',',I4,8X,',',4(I4,','),
+     X       6(I2,','),I2,'),')
+C
+ 1000 CONTINUE
+C
+C     WRITE INTEGER NODES
+C
+      DO 1100 I=1,NIT
+      NODE=MINTN(I)*2
+      J=INTAB(I)
+      DO 1050 K=1,9
+      INTS(10-K)=J-J/10*10
+      J=J/10
+1050  CONTINUE
+      WRITE(10,1061) NODE,INTS
+1061  FORMAT('%',I4,'% PM$INTND (',8(I1,','),I1,'),')
+1100  CONTINUE
+C
+C     WRITE THE ACTION AND ERROR NODES
+C
+      DO 1200 I=1,IAN-1
+      NODE=AN(7,I)*2
+      GOTO (1150,1175) AN(5,I)
+C
+C     ERROR NODE
+C
+1150  LKFOR=NVALIX(AN(6,I))
+      ERRDEF=DEFVAL(AN(1,I))*2
+      WRITE (10,1151) NODE,ERRDEF,(AN(K,I),K=2,4),(NVAL(K,LKFOR),K=1,3)
+1151  FORMAT('%',I4,'% PM$ERR  (',I4,',',3A4,',',3A4,'),')
+      GOTO 1200
+C
+C     ACTION NODE
+C
+1175  ACT=AN(4,I).AND.15
+      IF (ACT.EQ.0) ACT=1
+      SUBF=0
+      SUBID=1
+      IF (AN(6,I).EQ.0) GOTO 1180
+      SUBF=1
+      SUBID=AN(6,I)
+1180  ROUT=AN(2,I)-1
+      IF (ROUT.LT.0) ROUT=0
+      DEFV=1
+      IF (ACT.EQ.ZNEW) DEFV=NVALIX(AN(4,I)/16)
+      ALTN=AN(3,I)
+      IF (ALTN.LE.0) ALTN=1
+      INTIX=AN(1,I)
+      IF (INTIX.NE.0) INTIX=MINTN(INTIX)*2
+C
+      WRITE(10,1199) NODE,ACTTYP(1,ACT),ACTTYP(2,ACT),SUBF,
+     X               (NVAL(K,SUBID),K=1,3),
+     X               (NVAL(K,DEFV),K=1,3),
+     X               (NVAL(K,ALTN),K=1,3),INTIX,ROUT
+1199  FORMAT('%',I4,'% PM$ACTION(PV$',A4,A2,',',I1,',',3(3A4,','),
+     X       I4,',',I4,'),')
+1200  CONTINUE
+C
+C
+C
+      WRITE(10,988)
+988   FORMAT(7X,'0);')
+      WRITE(5,989) NXT1
+989   FORMAT(I5,' NODES IN GRAPH')
+C
+C     PUT OUT BLISS SYMBOLIC VALUES
+C
+      IXNVL1=IXNVAL-1
+      WRITE(12,32)
+32    FORMAT('SWITCHES NOLIST;',/,'UNDECLARE $$$;')
+      WRITE(12,33) ((NVAL(J,I),J=1,4),CMA,I=2,IXNVL1),
+     X              (NVAL(J,IXNVAL),J=1,4),SEMI
+ 33   FORMAT('% BINDS FOR SYMBOLIC VALUES %'/
+     X       'BIND'/1000(4(3A4,'=',I4,A1)/))
+      WRITE(12,34)
+34    FORMAT('SWITCHES LIST;')
+      WRITE(5,35) IXNVAL
+35    FORMAT(I5,' SYMBOLIC VALUES DEFINED')
+      RETURN
+      END
+C
+      SUBROUTINE ADDACT
+C     ADD FAIL AND SUCCESS NODES
+C#####
+      IMPLICIT INTEGER(A-Z)
+      DATA PHI/-1/,SIGMA/0/
+      COMMON /SCN/S(6),NP
+      COMMON /INP/C(20),CRDNUM
+      COMMON NI,NXT,NXT1,VAL(001700),DEF(001700),ALT(001700),
+     X   NIT,INTAB(000100),MINTN(000100),
+     X   SUC(001700),ACTION(001700),FAIL(001700),TYPEND(001700),
+     X   NDINFO(001700),NVALIX(000525),IXNVAL,
+     X   AN(7,000500),IAN,RNAME(2,000100),RNI,NVAL(4,000550),
+     X   NAME(6,000525),DEFD(000525),DEFVAL(000525),NTYPE(000525),
+     X   ZREDCE,ZNOSAV,ZBACK,ZRESCN,ZSSAVE,  ZUP,ZAPPND,ZNEW,ZADD,
+     X   ZTERM,ZNTERM,ZNULL,ZCRETE,ZANY,ZJUMP,ZERR,
+     X     ZACT,ZINTL,ZNTANY,ZPRODH
+C#####
+C
+      WRITE(5,11)
+11    FORMAT(' BUILDING INTEGER, ACTION AND ERROR NODES')
+C
+      NXT1=NXT
+C     CREATE THE INTEGER NODES
+      DO 40 I=1,NIT
+      MINTN(I)=NXT1
+      NXT1=NXT1+1
+40    CONTINUE
+C     CREATE ACTION AND ERROR NODES
+      DO 100 I=1,IAN-1
+      AN(7,I)=NXT1
+      NXT1=NXT1+1
+100   CONTINUE
+      RETURN
+      END
+C
+      SUBROUTINE SRNVAL(I,T)
+C
+C     THIS ROUTINE SEARCHES THE NVAL TABLE FOR A NAME AND INSERTS
+C     IT IF NECESSARY
+C
+C#####
+      IMPLICIT INTEGER(A-Z)
+      DATA PHI/-1/,SIGMA/0/
+      COMMON /SCN/S(6),NP
+      COMMON /INP/C(20),CRDNUM
+      COMMON NI,NXT,NXT1,VAL(001700),DEF(001700),ALT(001700),
+     X   NIT,INTAB(000100),MINTN(000100),
+     X   SUC(001700),ACTION(001700),FAIL(001700),TYPEND(001700),
+     X   NDINFO(001700),NVALIX(000525),IXNVAL,
+     X   AN(7,000500),IAN,RNAME(2,000100),RNI,NVAL(4,000550),
+     X   NAME(6,000525),DEFD(000525),DEFVAL(000525),NTYPE(000525),
+     X   ZREDCE,ZNOSAV,ZBACK,ZRESCN,ZSSAVE,  ZUP,ZAPPND,ZNEW,ZADD,
+     X   ZTERM,ZNTERM,ZNULL,ZCRETE,ZANY,ZJUMP,ZERR,
+     X     ZACT,ZINTL,ZNTANY,ZPRODH
+C#####
+       T=0
+      DO 20 I=1,IXNVAL
+      DO 17 J=1,3
+      IF (NVAL(J,I).NE.S(J)) GOTO 20
+ 17   CONTINUE
+      RETURN
+ 20   CONTINUE
+C     NOT IN TABLE
+      IXNVAL=IXNVAL+1
+      IF (IXNVAL.GT.000550) CALL ERROR('SYM VAL OFL')
+      DO 25 J=1,3
+ 25   NVAL(J,IXNVAL)=S(J)
+      NVAL(4,IXNVAL)=0
+      T=1
+      I=IXNVAL
+      RETURN
+      END
+C
+      SUBROUTINE SETVAL
+C     THIS ROUTINE ANALYZES THE TERMINAL AND NON-TERMINAL VALUES
+C#####
+      IMPLICIT INTEGER(A-Z)
+      DATA PHI/-1/,SIGMA/0/
+      COMMON /SCN/S(6),NP
+      COMMON /INP/C(20),CRDNUM
+      COMMON NI,NXT,NXT1,VAL(001700),DEF(001700),ALT(001700),
+     X   NIT,INTAB(000100),MINTN(000100),
+     X   SUC(001700),ACTION(001700),FAIL(001700),TYPEND(001700),
+     X   NDINFO(001700),NVALIX(000525),IXNVAL,
+     X   AN(7,000500),IAN,RNAME(2,000100),RNI,NVAL(4,000550),
+     X   NAME(6,000525),DEFD(000525),DEFVAL(000525),NTYPE(000525),
+     X   ZREDCE,ZNOSAV,ZBACK,ZRESCN,ZSSAVE,  ZUP,ZAPPND,ZNEW,ZADD,
+     X   ZTERM,ZNTERM,ZNULL,ZCRETE,ZANY,ZJUMP,ZERR,
+     X     ZACT,ZINTL,ZNTANY,ZPRODH
+C#####
+      DATA EXCLMN/'!'/
+      DIMENSION INTS(4)
+      CALL SCAN
+      CALL SRNVAL(I,T)
+C     INDEX IN I, T=0 IF ALREADY IN
+ 30   CALL SCAN
+      NVALIX(NI)=I
+      IF (S(1).EQ.'=') GO TO 40
+      CURVAL=CURVAL+1
+      GO TO 55
+C      GET INTEGER
+40    CALL SCAN
+      IF(S(1).EQ.'*') GOTO 54
+      CALL BREAK(S,INTS,4)
+      IV=0
+      DO 50 J=1,4
+      INT=INTS(J)-"060
+      IF (INTS(J).EQ."040) GOTO 53
+      IF (INT.LT.0.OR.INT.GT.9) CALL ERROR('BAD INT VAL')
+ 50   IV=IV*10+INT
+53    CURVAL=IV
+54    CALL SCAN
+ 55   IF (T.EQ.0.AND.NVAL(4,I).NE.CURVAL.AND.NVALIX(NI).NE.1)
+     X      CALL ERROR ('DIFF VAL')
+      NVAL(4,I)=CURVAL
+      IF (S(1).NE.EXCLMN) CALL ERROR('! MISSING')
+      RETURN
+      END
+C
+      SUBROUTINE DEBUG
+C#####
+      IMPLICIT INTEGER(A-Z)
+      DATA PHI/-1/,SIGMA/0/
+      COMMON /SCN/S(6),NP
+      COMMON /INP/C(20),CRDNUM
+      COMMON NI,NXT,NXT1,VAL(001700),DEF(001700),ALT(001700),
+     X   NIT,INTAB(000100),MINTN(000100),
+     X   SUC(001700),ACTION(001700),FAIL(001700),TYPEND(001700),
+     X   NDINFO(001700),NVALIX(000525),IXNVAL,
+     X   AN(7,000500),IAN,RNAME(2,000100),RNI,NVAL(4,000550),
+     X   NAME(6,000525),DEFD(000525),DEFVAL(000525),NTYPE(000525),
+     X   ZREDCE,ZNOSAV,ZBACK,ZRESCN,ZSSAVE,  ZUP,ZAPPND,ZNEW,ZADD,
+     X   ZTERM,ZNTERM,ZNULL,ZCRETE,ZANY,ZJUMP,ZERR,
+     X     ZACT,ZINTL,ZNTANY,ZPRODH
+C#####
+      I=NI-1
+      WRITE(5,11)NI,((NAME(K,J),K=1,6),DEFD(J),DEFVAL(J),
+     X     NTYPE(J),(NVAL(K,J),K=1,3),J=1,I)
+ 11   FORMAT(' NI=',I4/1000(1X,6A4,1X,I1,I5,I3,1X,3A4/))
+      I=NXT-1
+      WRITE(5,22)NXT,(DEF(J),ALT(J),SUC(J),TYPEND(J),NDINFO(J),
+     X       VAL(J),ACTION(J),FAIL(J),J=1,I)
+ 22   FORMAT(' NXT=',I4/1000(8I5/))
+      RETURN
+      END
+    h<ZpÊ
