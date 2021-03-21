@@ -1,0 +1,389 @@
+Date:    10/23/72
+To:      Jon Shepherd
+From:    Basil M. Jarrett
+
+
+Subject:                    SPECIFICATION
+                                FOR A
+                        VARIAN 620I ASSEMBLER
+
+
+     The time estimate for this project is 3 to 4 man-weeks.
+     This assembler will translate an ASCII source file of symbolic
+instructions and data into binary instructions and data as a disc
+file.  This object file can be put on magnetic or paper tape for
+transfer to the Varian itself.
+
+     It will run on a PDP-10 and be written in SIMPL under the
+TYMCOM X monitor.
+
+     Character set:
+
+     A - Z    0 - 9
+
+     : ;   =
+
+     #     &  '   ( ) * + , - . /
+
+     CARRET (carriage return)
+
+     Statement Format:
+
+          As many as four fields:
+
+          1)  Label field
+          2)  Opcode field
+          3)  Parameter field
+          4)  Comment field
+     
+          can make up a statement.
+
+     These are separated by a SPACE (one or more blanks or tabs
+(control I's)).  The label begins in the 1st column of a state-
+ment.  If it has no label, and is not a DATA statement, it must
+start with a SPACE.  If the 1st non-blank character is a DIGIT
+(0-9), PLUS (+) or MINUS (-), the statement generates one word
+of data.
+
+
+     The label must be a SYMBOL, that is start with a LETTER (A-Z) and
+have up to nine more LETTERS or DIGITS.
+
+     The OPCODE field contains mnemonics for Varian instructions
+and assembler directives.  It must be a 1 to 5 character SYMBOL.
+
+     The PARAMETER field contains expressions made up of
+symbols, (labels), constants, operators, and commas.  It is
+followed by a SPACE.
+
+     The COMMENT field starts after this SPACE and can be any
+string of characters except a SEMI colon (;) or CARRET (carriage
+return) which terminates the statement.
+
+     Constants:
+
+     These DIGIT strings are octal unless followed by the LETTER
+D which makes them decimal.
+
+Special Characters:
+
+     COLON (:) anywhere in a statement signifies the start of a
+     comment e.g.
+
+            LAB1   HLT   :COMMENT  ;
+
+     SEMI (;) ends a statement
+
+     EQUAL (=) if a symbol is preceded by an EQUAL, a one word
+literal containing the value of that symbol is generated.
+
+Thus, LDA  =LAB1 will put a 5 in A if LAB1 has the value 5.
+
+     QUOTE (') is used after in ASC directive to enclose the
+character string
+
+     LEFT  '('  parenthesis
+            and
+     RIGHT ')'  parenthesis
+can be used in the usual way to force precedence in arithmetic
+expression evaluation and IF directive logical expressions.
+
+STAR (*)
+
+     In column 1 of a statement, this carries the same meaning as
+a COLON, the characters up to the next SEMI or CARRET are a comment.
+          Anywhere else in a statement, * is a symbol having the value
+of the location counter.
+
+PLUS (+)
+
+     This will be taken as the binary operator for addition or the
+unary operator for positive.
+
+COMMA (,)
+
+     Certain OPCODEs require more than one parameter or expression,
+these expressions are spearated by COMMAs in the parameter
+field.
+
+MINUS (-)
+
+     It is the binary operator for subtraction or the unary
+operator for negative depending on where it falls, e.g.
+
+     -7D is unary negation
+    X-7D is binary subtraction
+
+DOT (.)
+
+     is a symbol having the value 100000 octal.  It is useful
+in turning on the sign bit as in indirect addressing for double
+word instructions e.g.
+
+     JMP  BUG+.
+
+SLASH (/)
+
+     is a unary operator causing the operand preceding it to be
+shifted left 8 bits.  Thus,  HALVES  123/+321  would put two 8 bit
+values in the halves of the 16 bit Varian word.
+
+CARRET (carriage return)
+
+     Is a terminator for statements.
+
+     Expressions such as:
+
+          X
+          Y+Z
+          X-*+.+5
+          123/321+X
+          10D+AMN
+
+consist of symbols, operators, and constants.  Operations are 
+performed left to right.
+
+     NOTE:  Where no ambiguity results, PLUS signs can be
+            omitted thus,  X
+
+                           X-*.5
+                           123/321X
+                           10DAMN
+
+            are equivalent to the above.
+
+Assembler Directives
+
+     These must appear in the OPCODE field but do not generate
+a computer instruction.
+
+1)   L  expression
+
+     indicates the literal pool should start here and the location
+counter should be set to the value of it's operand.
+
+2)   I  expression
+
+     is like the I directive but for indirects.  It's operand also
+indicates where the programmer predicts it will safe to start allocating
+ code again.
+
+3)   LAB1  E  LAB2
+
+     says its label should be given the value of it's operand.
+LAB1 should be made the same as LAB2.  But LAB1 can be altered
+by successive E directives.
+
+4)   R  expression
+
+     resets the location counter to  expression .  A label on an
+R directive will have the location counter prior to resetting.
+
+Assembler Directives for Conditional Assembly
+
+1)   IF  logical expression
+
+2)   ELSEIF  logical expression
+
+3)   ENDIF
+
+4)   ELSE
+
+     The logical expression above is made up of DIGITs, operators,
+and parentheses.  The DIGITs are switches set to true or false
+at assembly time.  Statements between an IF and the next of the
+IF-type directives are assembled if that logical expression is
+true.  Thus,
+
+     IF  1
+     COM  A,A
+     ELSE
+     JMP  *
+     ENDIF
+
+will result in 'COM A,A' if 1 is set and 'JMP  *' otherwise.
+
+
+     ELSEIF and IF share a common ENDIF and the ELSEIF para-
+meter matters when the IF one is false.  Thus,
+
+     IF 1
+     NOP   :   1 IS SET
+     ELSEIF    2
+     NOP   :   2 IS SET AND 1 IS NOT
+     ELSE
+     NOP   :   1 IS NOT SET AND 2 IS NOT SET
+     ENDIF
+
+result in the following:
+
+     1     2
+
+
+   TRUE   TRUE   NOP: 1 IS SET
+
+   TRUE  FALSE   NOP: 1 IS SET
+
+  FALSE   TRUE   NOP: 2 IS SET AND 1 IS NOT
+
+  FALSE  FALSE   NOP: 1 IS NOT SET AND 2 IS NOT SET
+
+     The operators NOT (#), AND (&), and OR (!) can be used to form
+logical expressions e.g  IF  2&(#3)
+
+     2    3    2&(#3)
+     T    T      F
+     T    F      T
+     F    T      F
+     F    F      F
+
+     Most OPCODEs require one expression in the parameter field.
+If indexing or indirect addressing is desired, a second
+expression of the following form is needed:
+
+                             By X  By B
+     Indexing               5 or x    6 or B
+
+     Indirect        7 or I
+
+     The four inter-register commands:
+
+1)   COP     copy
+2)   INC     increment
+3)   DEC     decrement
+4)   COM     complement
+
+have as many as 3 expressions in the parameter field speci-
+fiying source, destination, and condition on overflow.
+
+     The 1st two expressions consist of 0 to 3 of the LETTERs
+'A', 'B', and 'X' while the 3rd is 0 to 1 of the LETTERs 'V'.
+e.g.
+     COP  A,B
+     COM AB, X
+     DEC ,A
+     INC A,A,V
+
+     The VARIAN 620/L computer handbook pages 20-1 through 20-68
+describe the instruction set.
+
+     The following OPCODEs generate a one word computer instruction:
+
+                see  # 21-6
+                  Type 1 and Type 4
+
+     These OPCODEs generate computer instructions occupying two
+consecutive words.
+
+                see  #21-6
+                  Types 2, 3, and 5
+
+.page
+The assembly directive
+ DITTO <arithemetic expression>
+ shall mean that the previous statement shall be assembled n more times
+where n is the value of the <arithmetic expression>.
+
+
+     Character String Constants
+
+
+     A literal constant can appear in an expression enclosed in QUOTEs.
+
+     The first non-blank character of a line being a QUOTE would
+generate data words, 2 characters per word.  An odd number of
+characters will make the left half of the 1st word null (octal 200).
+
+     In an expression, the value of 'ABCD' is 'CD'.
+
+     If the ASC directive is used, the 1st non-blank character
+is the enclosing symbol.  The string ends at the next 
+occurence of this character.
+
+LAB1   ASC   C string C :C is any character not in string
+
+
+.page
+
+Inclusion of the assembler directive
+
+ NEW
+
+will change the mode of assembly.  Different conventions will be assumed
+in the IF-type statements and arithmetic expressions as follows:
+
+
+Assembler Directives for Conditional Assembly
+
+    The following four pseudo-ops can be used to allow the assembling of
+certain statements and not of others depending on the value of chosen
+symbols (usually given values with the E directive).
+
+1)   IF  <logical expression>
+
+2)   ELSEIF  <logical expression>
+
+3)   ELSE
+
+4)   ENDIF
+
+    A conditional sequence of statements must start with an IF directive
+and end with an ENDIF, can have one ELSE just before the ENDIF and an
+arbitrary number of ELSEIF's before that.  The <logical expression>
+is made up of an <arithimetic expression>, a <relational operator>,
+and another <arithmetic expression>.
+     Statements between the IF and the next IF-type directive
+are assembled if the <logical expression> evaluates to true and all
+statements following until the ENDIF are not assembled.  If the
+<logical expression> evaluates to false, those statemennts between
+the IF and the next conditional directive are not assembled.  If this
+next directive is an ELSEIF, it's <logical expression> is evaluated
+and just like the IF, true will cause assembly of the statements
+following and a skip to the ENDIF while false will bring the
+next ELSEIF or ELSE into play.  Statements between an ELSE and ENDIF will
+be assembled if all the preceding IF's and ELSEIF'S were false.
+
+Thus,
+
+     IF PORTS>16
+     NOP   :   PORTS IS > 16
+     ELSEIF    CRD201=0
+     NOP   :   PORTS IS < 17 AND CRD201 IS = 1
+     ELSEIF CORRES=0
+     NOP   :   PORTS IS < 17, CRD201 IS # 1, CORRES IS = 0
+     ELSE
+     NOP   :  PORTS<17, CRD201#1, AND CORRES#0
+     ENDIF
+
+     will result in only one of the four NOP's being assembled and it
+will have a true comment.
+
+     The relational operators are:
+
+  =  equal to
+  >  greater than
+  <  less than
+  #  not equal to
+
+     The logical operators are:
+
+  &  bitwise and
+  !  inclusive or
+  ^  exclusive or
+  #  not
+
+     the arithmetic operators are:
+
+  +  addition
+  -  subtraction
+  *  multiplication
+  /  division
+  _  shift (followed by a positive count goes left, negative goes right)
+
+The change in meaning of SLASH (/) to the binary division operator means
+all previous SLASH uses must be replaced with BACK (\) for
+shifting things to left half and truncating the right half.
+
+     Precedence is normal.  Parens are allowed.  + signs may no
+longer be omitted.
+    
