@@ -1,0 +1,284 @@
+      SUBROUTINE SOMEM                                                  OMEM0050
+C     CONTROLS THE READING AND STORAGE OF ALL DATA DEALING WITH MEMBERS OMEM0060
+C     STRESS PROGRAMMING SYSTEM FOR IBM 1130                            OMEM0070
+C     DIMENSION AND COMMON STATEMENTS WHICH MUST APPEAR IN ALL ROUTINES OMEM0080
+C     SYSTEM PARAMETERS  -  14 WORDS                                    OMEM0090
+      DIMENSION NSYSF(6)                                                OMEM0100
+      DIMENSION NPRBF(6)                                                OMEM0110
+      DIMENSION NARRF(36)                                               OMEM0120
+      DIMENSION  JMIN(250),JPLS(250),MTYP(250)
+      DIMENSION A(40),BETA(37),LABL(16),IFREE(20),ICHK(2),IBUFF(40)     OMEM0140
+      DIMENSION HOLD(37)                                                OMEM0150
+      COMMON NTMP,KCUR,NAVAL,NOVER,ISOLV,ISUCC,ISCAN,ITRAC,NSYSF        OMEM0170
+C     PROBLEM PARAMETERS  -  32 WORDS                                   OMEM0180
+      COMMON NJ,NB,NDAT,NFJS,NLDS,NLDSI,ID,NCORD,JF,NSQ,IMETH,NMR,NJR,  OMEM0190
+     1IBETA,IYOUN,ISHEA,GSHEA,EYOUN,FILL1,FILL2,IPZER,ISTRS,NPRBF             OMEM0200
+C     PLATE PARAMETERS                                                  $MEM 201
+      COMMON IPLAT,NPLAT,KPLA1,KPLAT,KTHI1,KTHIK                        $MEM 202
+C     ARRAY CODEWORDS  40 PAIRS = 80 WORDS                              OMEM0210
+      COMMON KNAM1,KNAME,KXY1,KXYZ,KJRE1,KJREL,MEGA1,MEGAZ,KMEM1,KMEMB, OMEM0220
+     1KBET1,KBETA,KYON1,KYOUN,KSHE1,KSHEA,KMRE1,KMREL,KMEG1,KMEGA,      OMEM0230
+     2KMKS1,KMKST,KROT1,KROTE,KPPL1,KPPLS,KPMN1,KPMNS,LOAD1,LOADS,      OMEM0240
+     3KLIN1,KLINT,MLOA1,MLOAD,JLOA1,JLOAD,KDIA1,KDIAG,KOFD1,KOFDG,      OMEM0250
+     4KPPR1,KPPRI,KSTA1,KSTAT                                           OMEM0260
+      COMMON NARRF                                                      OMEM0270
+C  MEMBER INCIDENCE AND TYPE TABLES  250 JOINTS  500 MEMBERS
+      COMMON JMIN,JPLS,MTYP,IAMDU                                       OMEM0290
+C     SCRATCH AREA CAN BE INSERTED AS DESIRED FOR EACH ROUTINE          OMEM0300
+C     SCRATCH AREA FOR INPUT PHASE  -  SPH1A AND SPH1B                  OMEM0310
+      COMMON A,BETA,IFREE,LABL,IB,IL,ILOOK,JTOMB,K1,IPRER,JLD,INDEX,    OMEM0320
+     1JINDL,JDEPL,IPRTA,KK,JJC,JDC,IS,ICHK,JMIC,JMPC,JCODE,JIB          OMEM0330
+     2,MEMRE,CTE,KS1,LEM,IBUFF,K3                                       $MEM0340
+      IPRER=-1                                                          OMEM0350
+C     LEM=0,NO THRU                                                     OMEM0360
+C     LEM=1,THRU                                                        OMEM0370
+      NB1=NB+IPLAT                                                      $MEM0385
+      LEM=0                                                             OMEM0380
+C     JTOMB=JOINT NUMBER OR MEMBER NUMBER                               OMEM0390
+      IF(JTOMB)150,100,150                                              OMEM0400
+C     ONLY WORD MEMBER READ BY SOO1A                                    OMEM0410
+  100 IF(NB1)9917,9917,101                                              $MEM0420
+C     M=0,READ NEXT LOGICAL FIELD - MEMBER INCID,PROP,TEMP, + LENGTH    OMEM0430
+  101 CALL MATCH (KK,AA,0,6,IBUFF,I)                                    OMEM0440
+      GO TO (114,9901,9902,9900,105),I                                  OMEM0450
+114   IF(KK-2)9905,500,9905                                             OMEM0460
+C     CHECK FOR MEMBER PROPERTIES                                       OMEM0470
+C     KK=1  INCIDENCES                                                  OMEM0480
+C       =2  PROPERTIES                                                  OMEM0490
+C     =3 RELEASE                                                        OMEM0500
+C     =8 PRISMATIC                                                      OMEM0510
+C     =9 STIFF                                                          OMEM0520
+C     =10 FLEXIBILITY                                                   OMEM0530
+C  KK=17  PLATE                                                         $MEM0531
+  105 GO TO(120,110,130,9906,9906,9906,9906,400,107,107,9906,9906,      OMEM0540
+     19906,9906,9906,9906,800),KK                                       $MEM0550
+  107 IMLOT=KK-7                                                        OMEM0560
+      GO TO 200                                                         OMEM0570
+C     PROPERTIES READ                                                   OMEM0580
+  110 JCODE=0                                                           OMEM0590
+      GO TO 101                                                         OMEM0600
+C     RELEASES                                                          OMEM0610
+  130 ILOOK=5                                                           OMEM0620
+      RETURN                                                            OMEM0630
+C     INCIDENCES                                                        OMEM0640
+  120 IF(NJ)9916,9916,150                                               $MEM0650
+C     JTOMB=A MEMBER NUMBER                                             OMEM0660
+150   JCUD=0                                                            OMEM0670
+      IF(NB1-JTOMB)9910,151,151                                         $MEM0680
+C     ONLY WORD MEMBER READ BY SOO1A - INCIDENCES,PROPERTIES            OMEM0690
+  151 IF(KK-2)300,160,152                                               OMEM0700
+C     MBR CONSTANT TO LOAD - GO TO 9906,PRIS - GO TO 400                OMEM0710
+  152 IF(KK-8)9906,400,153                                              OMEM0720
+C     STIFFNESS FLEX,TEMP,LENGTH - GO TO 203                            OMEM0730
+  153 IF(KK-10)203,203,154                                              $MEM0740
+  154 IF(KK-17)9906,800,800                                             $MEM0741
+C     MEMBER PROPERTIES READ - FROM 151 - H1                            OMEM0750
+C     JTOMB (WORD)                                                      OMEM0760
+  160 CALL MATCH (K3,AA,0,6,IBUFF,I)                                    OMEM0770
+      GO TO(9905,9901,9902,9900,162),I                                  OMEM0780
+  162 IF(K3-16)166,167,800                                              $MEM0790
+167   LEM=1                                                             OMEM0800
+      CALL MATCH(IAMDU,AA,0,6,IBUFF,I)                                  OMEM0810
+      IF(I-2)9906,160,9906                                              OMEM0820
+  166 IF(K3-8)9906,400,163                                              OMEM0830
+  163 IF(K3-10)165,165,9906                                             OMEM0840
+  165 IMLOT=K3-7                                                        OMEM0850
+      GO TO 200                                                         OMEM0860
+C     MEMBER INCIDENCES - H2                                            OMEM0870
+  300 ILOOK=6                                                           $MEM 900
+      RETURN                                                            $MEM 910
+C     MEMBER PROPERTIES STIFFNESS (.......)                             OMEM1070
+C     OR                                                                OMEM1080
+C     MEMBER PROPERTIES                                                 OMEM1090
+C     JTOMB STIFFNESS(........   )                                      OMEM1100
+C     ALSO FOR FLEXIBILITY                                              OMEM1110
+  200 IF(ID)9919,9919,202                                               OMEM1120
+202   BETA(1)=0.0                                                       OMEM1130
+203   HOLD(1)=0.0                                                       OMEM1140
+      DO 230 I=1,NSQ                                                    OMEM1150
+      M=0                                                               OMEM1160
+204   CALL MATCH (K4,GARB,M,6,IBUFF,II)                                 OMEM1170
+      GO TO(250,9901,230,9900,205),II                                   OMEM1180
+C     TEST FOR THRU                                                     OMEM1190
+205   IF(K4-16)796,797,9906                                             OMEM1200
+797   LEM=1                                                             OMEM1210
+      CALL MATCH(IAMDU,AA,0,6,IBUFF,II)                                 OMEM1220
+      IF(II-2)9906,204,9906                                             OMEM1230
+  796 IF(K4-14)9906,235,203                                             OMEM1240
+C     0=BETA                                                            OMEM1250
+C     +=GIVEN                                                           OMEM1260
+230   HOLD(I)=GARB                                                      OMEM1270
+C     TO READ BETA ANGLE AFTER LABEL BETA OR NSQ DATA VALUES            OMEM1280
+  235 CALL MATCH (K4,AA,0,6,IBUFF,II)                                   OMEM1290
+      GO TO(250,9901,237,9900,9906),II                                  OMEM1300
+C     KBETA TABLE SET UP YET                                            OMEM1310
+  237 IF(KBETA)241,239,241                                              OMEM1320
+  239 CALL SBITE(KBET1,KBETA,2,NB1,0)                                   $MEM1330
+      IBETA=1                                                           OMEM1340
+      DO 240  JK=1,10                                                   OMEM1350
+C     ZERO KBETA                                                        OMEM1360
+  240 A(JK)=0.0                                                         OMEM1370
+      LIM=(NB1-1)/10+1                                                  $MEM1380
+      DO 2401 JL=1,LIM                                                  OMEM1390
+      CALL SDATA(KBET1,KBETA,1+10*(JL-1),A,NAREA,-2,0)                  OMEM1400
+ 2401 CONTINUE                                                          OMEM1410
+  241 IF(JTOMB)245,243,245                                              OMEM1420
+C     BETA(37)-LAST LOCATION FOR ANGLE.                                 OMEM1430
+  243 BETA(37)=AA                                                       OMEM1440
+      JCODE=2                                                           OMEM1450
+      IF(I-1)203,203,256                                                OMEM1460
+C     JCUD=1, BETA GIVEN ON CARD WITH MEMBER NUMBER                     OMEM1470
+245   JCUD=1                                                            OMEM1480
+      IF(I-1)203,203,260                                                OMEM1490
+C     DATA HAS BEEN READ - END OF FIELD                                 OMEM1500
+  250 IF(JTOMB)260,255,260                                              OMEM1510
+C     STORE DATA TEMPORARILY                                            OMEM1520
+  255 IF(I-1)500,500,256                                                OMEM1530
+  256 IF(I-NSQ)251 ,257,257                                             OMEM1540
+  251 II=NTMP                                                           OMEM1550
+      READ (5,10   ) (IBUFF(J), J=1,36)
+   10 FORMAT(36A2)
+      NTMP=II+2                                                         OMEM1570
+      M=1                                                               OMEM1580
+      GO TO 204                                                         OMEM1590
+  257 DO 258  II=1,NSQ                                                  OMEM1600
+  258 BETA(II)=HOLD(II)                                                 OMEM1610
+      GO TO 500                                                         OMEM1620
+C     STORE DATA   STIFFNESS OR FLEXIBILITY MATRIX                      OMEM1630
+260   IF(HOLD(1))269,265,269                                            OMEM1640
+  265 IF(BETA(1))2650,9905,2650                                         OMEM1650
+ 2650 DO 266  II=1,NSQ                                                  OMEM1660
+C     PUTS BETA INTO A                                                  OMEM1670
+266   A(II)=BETA(II)                                                    OMEM1680
+      GO TO 2690                                                        OMEM1690
+269   IF(I-NSQ)251 ,2688,2688                                           OMEM1700
+2688  DO 2689 II=1,NSQ                                                  OMEM1710
+2689  A(II)=HOLD(II)                                                    OMEM1720
+2690  CALL SPAK2(JTOMB,MTYP,IML)                                        OMEM1730
+      IF(IML)2691,2693,9920                                             OMEM1740
+2691  IF(IML+5)9920,2692,9920                                           OMEM1750
+2692  IMLOT=-IMLOT                                                      OMEM1760
+2693  JMPC=JMPC+1                                                       OMEM1770
+      IF(ISCAN-1)500,2694,500                                           OMEM1780
+2694  CALL SPAK2(-JTOMB,MTYP,IMLOT)                                     OMEM1790
+      J=JTOMB                                                           OMEM1800
+      CALL SDATA(KMKS1,KMKST,JTOMB,A,NAREA,-2,0)                        $MEM1810
+      IF(JCUD)2630,2630,2631                                            OMEM1820
+2630  IF(JCODE-2)275,273,275                                            OMEM1830
+C     STORE BETA ANGLE IF GIVEN                                         OMEM1840
+2631  CALL SDATA(KBET1,KBETA,JTOMB,AA,NAREA,-2,10)                      OMEM1850
+      GO TO 275                                                         OMEM1860
+273   CALL SDATA(KBET1,KBETA,JTOMB,BETA(37),NAREA,-2,10)                OMEM1870
+275   IF(LEM)274,500,274                                                OMEM1880
+274   JTOMB=JTOMB+1                                                     OMEM1890
+      IF(JTOMB-IAMDU)250,250,277                                        OMEM1900
+277   LEM=0                                                             OMEM1910
+      GO TO 500                                                         OMEM1920
+C    1 MEMBER PROPERTIES PRISMATIC(........   ) H3                      OMEM1930
+C      OR                                                               OMEM1940
+C    2 MEMBER PROPERTIES                                                OMEM1950
+C    3 JTOMB(...........)                                               OMEM1960
+C     FROM PRISMATIC - 162                                              OMEM1970
+  400 IG=1                                                              OMEM1980
+      CALL SREAD(IG)                                                    OMEM1990
+      IF(IG-1)500,402,500                                               OMEM2000
+  402 IF(IL-IB)9906,403,9906                                            OMEM2010
+  403 IF(JTOMB)440,405,440                                              OMEM2020
+C     ANY DATA READ - IB=FLOATING POINT FOR X,Y,2, IL=CODE FOR NEXT ELEMOMEM2030
+C     AX,AY,AZ,IX,IY,IZ                                                 OMEM2040
+  405 IF(IB)430,420,430                                                 OMEM2050
+C     NUMERICAL VALUE OF PROP. NOT READ                                 OMEM2060
+  420 JIB=0                                                             OMEM2070
+      GO TO 500                                                         OMEM2080
+C     NUMERICAL VALUE READ                                              OMEM2090
+C     NUMBER (1) READ                                                   OMEM2100
+  430 DO 431 II=1,IB                                                    OMEM2110
+      ITR=37-II                                                         OMEM2120
+      BETA(ITR)=BETA(II)                                                OMEM2130
+      LTR=17-II                                                         OMEM2140
+  431 LABL(LTR)=LABL(II)                                                OMEM2150
+      JIB=IB                                                            OMEM2160
+      GO TO 500                                                         OMEM2170
+  440 DO 443 I=1,6                                                      OMEM2180
+  443 A(I)=0.0                                                          OMEM2190
+      BETA(37)=0.0                                                      OMEM2200
+C     ANY DATA GIVEN ON HEADER CARD 450=YES 470=NO                      OMEM2210
+      IF(JIB)450,470,450                                                OMEM2220
+  450 DO 465 I=1,JIB                                                    OMEM2230
+C     SPLIT BETA INTO 2 PARTS,(LTR=17-I)=LABEL                          OMEM2240
+      ITR=37-I                                                          OMEM2250
+      LTR=17-I                                                          OMEM2260
+      IF(LABL(LTR)-7)455,453,455                                        OMEM2270
+  453 BETA(37)=BETA(ITR)                                                OMEM2280
+      GO TO 465                                                         OMEM2290
+  455 IWH=LABL(LTR)                                                     OMEM2300
+      A(IWH)=BETA(ITR)                                                  OMEM2310
+  465 CONTINUE                                                          OMEM2320
+C     ANY DATA GIVEN ON CARD WITH JTOMB  475=YES   490=NO               OMEM2330
+  470 IF(IB)475,490,475                                                 OMEM2340
+  475 DO 483 I=1,IB                                                     OMEM2350
+      IF(LABL(I)-7)479,477,479                                          OMEM2360
+  477 BETA(37)=BETA(I)                                                  OMEM2370
+      GO TO 483                                                         OMEM2380
+  479 IWH=LABL(I)                                                       OMEM2390
+      A(IWH)=BETA(I)                                                    OMEM2400
+  483 CONTINUE                                                          OMEM2410
+C     IMLOT=1=PRIS.,STORE 1 INTO MTYP                                  2420
+490   IMLOT=1                                                           OMEM2430
+C     UNPACK                                                            OMEM2440
+      CALL SPAK2(JTOMB,MTYP,IML)                                        OMEM2450
+      IF(IML)4901,4903,9920                                             OMEM2460
+C     TEST FOR RELEASE                                                  OMEM2470
+4901  IF(IML+5)9920,4902,9920                                           OMEM2480
+4902  IMLOT=-IMLOT                                                      OMEM2490
+4903  JMPC=JMPC+1                                                       OMEM2500
+      IF(ISCAN-1)500,4904,500                                           OMEM2510
+4904  CALL SPAK2(-JTOMB,MTYP,IMLOT)                                     OMEM2520
+      CALL SDATA(KMEM1,KMEMB,JTOMB,A,NAREA,-2,0)                        OMEM2530
+      IF(BETA(37))492,715,492                                           OMEM2540
+492   IF(KBETA)4960,494,4960                                            OMEM2550
+  494 CALL SBITE(KBET1,KBETA,2,NB1,0)                                   $MEM2560
+      IBETA=1                                                           OMEM2570
+      DO 4941  JL=1,10                                                  OMEM2580
+4941  A(JL)=0.0                                                         OMEM2590
+      LIM=(NB1-1)/10+1                                                  $MEM2600
+      DO 4942 JL=1,LIM                                                  OMEM2610
+4942  CALL SDATA(KBET1,KBETA,1+10*(JL-1),A,NAREA,-2,0)                  OMEM2620
+C     STORE TABLE FOR BETA ANGLES,FLOATING POINT NUMBERS                OMEM2630
+ 4960 CALL SDATA(KBET1,KBETA,JTOMB,BETA(37),NAREA,-2,10)                OMEM2640
+715   IF(LEM-1)500,716,500                                              OMEM2650
+716   JTOMB=JTOMB+1                                                     OMEM2660
+      IF(JTOMB-IAMDU)440,440,717                                        OMEM2670
+717   LEM=0                                                             OMEM2680
+      GO TO 500                                                         OMEM2690
+  500 ILOOK=3                                                           OMEM2700
+      RETURN                                                            OMEM2710
+ 9900 IPRER=0                                                           OMEM2720
+      GO TO 500                                                         OMEM2730
+ 9901 IPRER=1                                                           OMEM2740
+      GO TO 500                                                         OMEM2750
+ 9902 IPRER=2                                                           OMEM2760
+      GO TO 500                                                         OMEM2770
+ 9905 IPRER=5                                                           OMEM2780
+      GO TO 500                                                         OMEM2790
+ 9906 IPRER=6                                                           OMEM2800
+      GO TO 500                                                         OMEM2810
+ 9910 IPRER=10                                                          OMEM2820
+      GO TO 500                                                         OMEM2830
+ 9916 IPRER=16                                                          OMEM2860
+      GO TO 600                                                         OMEM2870
+ 9917 IPRER=17                                                          OMEM2880
+      GO TO 600                                                         OMEM2890
+ 9919 IPRER=19                                                          OMEM2920
+      GO TO 600                                                         OMEM2930
+ 9920 IPRER=20                                                          OMEM2940
+      GO TO 500                                                         OMEM2950
+  600 IF(ISCAN-1)500,601,500                                            OMEM2960
+601   ISCAN=0                                                           OMEM2970
+      GO TO 500                                                         OMEM2980
+  800 ILOOK=7                                                           $MEM3000
+      RETURN                                                            $MEM3020
+      END                                                               $MEM3070
+// DUP
+*STORE      WS  UA  SOMEM
+    c /é
