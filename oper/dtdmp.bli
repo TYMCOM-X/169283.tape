@@ -1,0 +1,102 @@
+MODULE DTDMP(DOLLAR,ENTRIES=($DTDMP),FSAVE,TIMING,
+                        TIMER=EXTERNAL(SIX12))=
+
+BEGIN
+REQUIRE DDEFS.BLI[7,107355];
+REQUIRE DVDEFS.BLI[7,107355];
+REQUIRE UDEFS.BLI[7,107355];
+UNDECLARE $DTDMP;
+
+ROUTINE POX(ARG) =
+   BEGIN
+   %THIS IS A COPY OF THE OCTAL PRINT ROUTINE FROM
+   DASM.BLI ... PRINT 12 UNSIGNED OCTAL DIGITS
+   /JS.................5/4/74
+   %
+   LOCAL I,T;
+   T_ARG<36,3>;
+   INCR I FROM 1 TO 12 DO
+        $UOCHR(SCANI(T)+"0");
+   END;
+
+   LOCAL T,I;
+
+ROUTINE PRINTRR(ARG)=
+        BEGIN
+%PRINTRR PRINTS THE RELOCATION REGISTER DESIGNATION OF
+THE VALUE OF ARG%
+        SELECT .ARG OF NSET
+                DBV$PROCBASE:    $DIVOT('DBV$PROCBASE');
+                DBV$PROGBASE:    $DIVOT('DBV$PROGBASE');
+                DBV$FIBASE:      $DIVOT('DBV$FIBASE  ');
+                DBV$DDBASE:      $DIVOT('DBV$DDBASE  ');
+                DBV$RSBBASE:     $DIVOT('DBV$RSBBASE ');
+                DBV$RCBBASE:     $DIVOT('DBV$RCBBASE ');
+                DBV$RBBASE:      $DIVOT('DBV$RBBASE  ');
+                DBV$SCBBASE:     $DIVOT('DBV$SCBBASE ');
+                DBV$LITBASE:     $DIVOT('DBV$LITBASE ');
+                DBV$LNEBASE:     $DIVOT('DBV$LNEBASE ');
+                DBV$TEMPBASE:    $DIVOT('DBV$TEMPBASE');
+                DBV$STEMPBASE:  $DIVOT('DBV$STEMPBASE');
+                OTHERWISE:      $UAPOC(.ARG);
+                TESN;
+        END;
+
+GLOBAL ROUTINE $DTDMP(PTR)=
+        BEGIN
+%$DTDMP DUMPS ONE EACH DELTA FILE ITEM
+USING THE $U ROUTINES
+
+PTR IS THE ONLY PARAMETER AND POINTS TO THE BUFFER HOLDING
+THE DELTA ITEM TO BE DUMPED (ON)
+
+/JS             4/18/74
+%
+        MAP D$ PTR;
+        LOCAL I,J;
+        J_PTR[D$WD2];
+        $DIVOT(' ID: ');
+        $UAPDC(.PTR[D$ID]);
+        $DIVOT(' ::  LENGTH: ');
+        $UAPDC(.PTR[D$LENGTH]);
+        $DIVOT(' :: TYPE: ');
+        SELECT .PTR[D$TYPE] OF
+                NSET
+                DV$CNST:        $DIVOT('DV$CNST    ');
+                DV$DRELB:       $DIVOT('DV$DRELB   ');
+                DV$DRELL:       $DIVOT('DV$DRELL   ');
+                DV$DRELR:       $DIVOT('DV$DRELR   ');
+                DV$END:         $DIVOT('DV$END     ');
+                DV$II:          $DIVOT('DV$II      ');
+                DV$INCR:        $DIVOT('DV$INCR    ');
+                DV$IREL :       $DIVOT('DV$IREL    ');
+                DV$ISTP:        $DIVOT('DV$ISTP    ');
+                DV$LIT1:        $DIVOT('DV$LIT1    ');
+                DV$LIT2:        $DIVOT('DV$LIT2    ');
+                DV$LIT3:       $DIVOT('DV$LIT3    ');
+                DV$LITS:       $DIVOT('DV$LITS    ');
+                DV$LITN:       $DIVOT('DV$LITN    ');
+                DV$NOTE:        $DIVOT('DV$NOTE    ');
+                DV$SET:         $DIVOT('DV$SET     ');
+                DV$SETL:        $DIVOT('DV$SETL    ');
+                DV$USE:         $DIVOT('DV$USE     ');
+                OTHERWISE:      $UAPOC(.PTR[D$TYPE]);
+                TESN;
+
+        $DIVOT('?M?J LEFT RR: ');
+        PRINTRR(.PTR[D$LRR]);
+        $DIVOT(' :: RIGHT RR: ');
+        PRINTRR(.PTR[D$RRR]);
+        $DIVOT(' :: OPND: ');
+        $UAPOC(.PTR[D$OPND]);
+
+        INCR I FROM 0 TO .PTR[D$LENGTH]-3 DO
+                BEGIN
+                $DIVOT('?M?J WORD ');
+                $UAPDC(.I+1);
+                $DIVOT(': ');
+                POX(.(PTR[D$WD2])[.I]);
+                END;
+        $DIVOT('?M?J');
+        END;
+END ELUDOM
