@@ -1,0 +1,188 @@
+C           LIQUID SCINTILLATION COUNTER PROGRAM - RAR - 2/12/73
+      DIMENSION ID(1500),MIN(1500),IA(1500),IB1(1500),IB2(1500),C(12,8)
+      DIMENSION A(12),B1(12),B2(12),TP(40,2),IBF(9),NY(1500)
+C           READ FROM 4: NO. OF SOLVENT SYSTEMS AND COEFFICIENTS
+C           J=1,4 FOR NO EXT STD & J=5,8 FOR EXT STD
+        TYPE 715
+        ACCEPT 705,INP
+715     FORMAT(' INPUT FILE NAME(MAX FIVE CHAR)  :'$)
+705     FORMAT(A5)
+        OPEN(2,INP,INPUT)
+        OPEN(4,'CODE',INPUT)
+      READ(4,800)NC
+800     FORMAT(I)
+801     FORMAT(8F)
+      READ(4,801)((C(I,J),J=1,8),I=1,NC)
+      CLOSE(4)
+802     FORMAT( /////)
+      DO 99 I=I,1500
+        MIN(I)=0
+        IA(I)=0
+        IB1(I)=0
+        IB2(I)=0
+        NY(I)=0
+99      ID(I)=0
+        N=1
+4       READ(2,980,END=7,ERR=4)ID(N),MIN(N),IA(N),IB1(N)
+980     FORMAT(I5,I6,2I7)
+   55 IF(ID(N).EQ.0.OR.IB1(N).EQ.0) GO TO 4
+      IPG=ID(N)/1000
+      IF(IPG.LE.3.OR.IPG.EQ.11) GO TO 5
+9151    CONTINUE
+      READ(2,915,END=7,ERR=9151)JK1,JK21,JK3,JK4
+        IF(JK1.EQ.0)GO TO 9151
+9152    CONTINUE
+      READ(2,915,END=7,ERR=9152)JK1,JK22,JK5,JK6
+        IF(JK1.EQ.0)GO TO 9152
+915     FORMAT(4I)
+        IF(JK21+JK22.NE.80)TYPE 98,N,ID(N)
+98      FORMAT(' ERROR AT',I3,', NO O',I4)
+      IA(N)=JK5-JK3
+      IB2(N)=JK6-JK4
+5       IF(MOD(N,10).EQ.0)TYPE 916,N
+916     FORMAT(' N= ',I4)
+        N=N+1
+      GO TO 4
+7       N=N-1
+1       TYPE 802
+        TYPE 960
+        ACCEPT 800,IDSS
+960     FORMAT('  ENTER SOLVENT SYSTEM ID: ',$)
+2       TYPE 10
+   10 FORMAT( /' STDS. OR SAMPLES? ',$)
+        ACCEPT 990,IW
+990     FORMAT(A3)
+      IF(IW.EQ.3HSTD) KODE=1
+      IF(IW.EQ.3HSAM) KODE=2
+      IF(IW.NE.3HSTD.AND.IW.NE.3HSAM) GO TO 2
+      IF(KODE.NE.1)GO TO 1001
+        TYPE 972
+        ACCEPT 971,DPM
+972     FORMAT( ' ENTER DPM OF STD: ',$)
+1001  IF(KODE.NE.2)GO TO 1002
+        TYPE 970
+        ACCEPT 971,FAC
+970     FORMAT( ' FACTOR? ',$)
+971     FORMAT(F)
+1002  IF(FAC.EQ.0.) FAC=1.
+        TYPE 950
+        ACCEPT 951,BC,BMIN
+950     FORMAT(' ENTER BACKGROUND COUNT & MINUTES: ',$)
+951     FORMAT(2F)
+      IF(BMIN.LE.0.) BMIN=1.
+        TYPE 802
+      IF(KODE.EQ.1)TYPE 40
+      IF(KODE.EQ.2)TYPE 50
+   40 FORMAT( 5(/),' -----STANDARDS-----'//' PROG  SAMPLE  PASSES'33X
+     1'% ERROR'/' USED  NUMBER   USED     DPM   EFFICIENCY  RATIO',
+     2 6X,'95% LEVEL'/)
+   50 FORMAT( 5(/),' -----SAMPLES-----'//' PROG  SAMPLE  PASSES',21X,
+     1'% ERROR',/,' USED  NUMBER   USED  EFFICIENCY    DPM   95%LEVEL'/)
+C           SORT
+      NY(1)=1
+      NUM=1
+  704 NUMP=NUM+1
+      DO 700 I=1,NUM
+      JJ=NY(I)
+      IF(ID(NUMP).LE.ID(JJ)) GO TO 701
+  700 CONTINUE
+      NY(NUMP)=NUMP
+      GO TO 703
+  701 NM=NUMP-I
+      DO 702 J=1,NM
+      NMP=NUMP-J+1
+  702 NY(NMP)=NY(NMP-1)
+      NY(I)=NUMP
+  703 IF(NUMP.GE.N) GO TO 706
+      NUM=NUMP
+      GO TO 704
+  706 ICOUNT=1
+
+      DO 12 I=1,N
+      T=0.
+      I1=NY(I)
+      I2=NY(I+1)
+      IF(ID(I1).NE.ID(I2)) GO TO 6
+      ICOUNT=ICOUNT+1
+      GO TO 12
+    6 DO 13 J=1,ICOUNT
+      M=NY(I-ICOUNT+J)
+      T=T+FLOAT(MIN(M))/100.
+      IPG=ID(M)/1000
+      IDEN=MOD(ID(M),1000)
+      IZ=0
+      IF(IPG.LE.3.OR.IPG.EQ.11)IZ=1
+      IF(IZ.EQ.1) GO TO 14
+      A(J)=FLOAT(IA(M))/0.4
+      B2(J)=FLOAT(IB2(M))/0.4
+      GO TO 13
+   14 A(J)=FLOAT(IA(M))/FLOAT(MIN(M))*100.
+   13 B1(J)=FLOAT(IB1(M))/FLOAT(MIN(M))*100.
+      IB2U=0
+        IAU=0
+        IB1U=0
+      CALL REJECT(ICOUNT,A,AAV,IAU)
+      CALL REJECT(ICOUNT,B1,B1AV,IB1U)
+      IF(IZ.EQ.0) CALL REJECT(ICOUNT,B2,B2AV,IB2U)
+      CPM=B1AV - BC/BMIN
+      T=T/FLOAT(ICOUNT)
+      STDEV=1.96*100.*SQRT(B1AV/T + BC/(BMIN*BMIN))/CPM
+      IF(IZ.EQ.0) RATIO = AAV/B2AV
+      IF(IZ.EQ.1) RATIO = AAV/B1AV
+      IF(KODE.EQ.1) GO TO 15
+      EFF=C(IDSS,1+IZ*4)+RATIO*(C(IDSS,2+IZ*4)+RATIO*(C(IDSS,3+IZ*4)    
+     1  +RATIO*C(IDSS,4+IZ*4)))
+      DPM=FAC*100.*CPM/EFF
+      TYPE 60,IPG,IDEN,IAU,IB1U,IB2U,EFF,DPM,STDEV
+   60 FORMAT(I3,I7,I5,2I2,F10.2,F10.1,F8.2)
+      GO TO 11
+   15 EFF=100.*CPM/DPM
+      IS=IS+1
+      TP(IS,1)=RATIO
+      TP(IS,2)=EFF
+      TYPE 70,IPG,IDEN,IAU,IB1U,IB2U,DPM,EFF,RATIO,STDEV
+   70 FORMAT(I3,I7,I5,2I2,F10.0,F9.2,G14.5,F7.2)
+   11 ICOUNT=1
+   12 CONTINUE
+      IF(KODE.EQ.1)CALL TAPER(IS,TP)
+        CLOSE(2)
+      GO TO 1
+      END
+      SUBROUTINE REJECT(N,D,AV,M)
+      DIMENSION D(20),P(10)
+      DATA P/1.,1.15,1.38,1.54,1.65,1.73,1.80,1.86,1.91,1.96/
+      IF(N.EQ.1) GO TO 11
+      IF(N.EQ.2) GO TO 12
+      M=N
+1       S=0
+        SS=0
+      DO 5 I=1,M
+      S=S+D(I)
+    5 SS=SS+D(I)*D(I)
+      EM=M
+      AV=S/EM
+      SIG=SQRT((SS-S*S/EM)/(EM-1.))
+      IF(SIG.LE.0.) RETURN
+      BIG=0.
+      DO 6 I=1,M
+      TEST=ABS(D(I)-AV)/SIG
+      IF(TEST.GT.BIG) BIG=TEST
+      IF(TEST.GT.BIG) IT=I
+    6 CONTINUE
+      IF(BIG.LT.P(M)) RETURN
+      IF(M.LE.2) RETURN
+      M=M-1
+      IF(IT.EQ.M+1) GO TO 1
+      DO 8 J=IT,M
+    8 D(J)=D(J+1)
+      GO TO 1
+   11 AV=D(1)
+      GO TO 7
+   12 AV=(D(1)+D(2))/2.
+    7 M=N
+      RETURN
+      END
+      SUBROUTINE TAPER(IS,TP)
+      DIMENSION TP(40,2)
+      RETURN
+      END
