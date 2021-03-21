@@ -1,0 +1,74 @@
+
+
+APPENDIX I - RETRIEVAL POINTERS
+
+
+Sequential and random file access is handled more efficiently by
+compacting the amount of information necessary to describe the
+location of a file.  Retrieval information associated with each
+file is stored and accessed separately from the data.  Retrieval
+pointers describe contiguous blocks of file storage space called
+groups.  Each pointer has one of three forms:
+
+a.  A group pointer.
+b.  An EOF pointer.
+c.  A change of unit pointer.
+
+
+I.l  A GROUP POINTER
+
+A group pointer has three fields:
+
+a.  A cluster count.
+
+b.  A folded checksum.
+
+c.  A cluster address within a unit.  The width of each
+    field may be specified at refresh time; therefore, the same
+    code can handle a wider variety of sizes of devices.
+
+The cluster count determines the number of consecutive clusters,
+which can be described by one pointer.  The folded checksum
+is computed for the first word of the first block of the group.
+Its main purpose is to catch hardware or software errors when the
+wrong block is read.  The folded checksum is not a check on the
+hardware parity circuitry.  The size of the cluster address
+field depends on the largest unit size in the file structure
+and the cluster size.  A cluster address is converted to a logical
+block address by multiplying the number of blocks per cluster.
+
+
+I.l.l  Folded Checksum Algorithm
+
+This algorithm takes the low order n-bit byte, repeatedly adds it
+to the upper part of the word, and then shifts.  The code is:
+
+   LOOP:  ADD     Tl,T
+          LDB     T,LOW ORDER N BITS OF Tl
+          LSH     Tl,-N                    ;right shift by n bits
+          JUMPN   Tl,LOOP
+          DONE                             ;answer in T
+
+This scheme eliminates the usual overflow problem associated with
+folded checksums and terminates as soon as there are no more bits
+to add.
+
+
+I.2  END-OF-FILE POINTER
+
+The EOF is indicated by a zero word.
+
+
+I.3  CHANGE OF UNIT POINTER
+
+A file structure may comprise more than one unit; therefore, the
+retrieval information block must indicate which unit the logical
+block is on.  A method of indicating a change from one unit to
+another in the middle of the file is necessary, because a file
+can start on one device and move to another.  To show this move-
+ment, a zero count field indicates that the right half of the word
+specifies a change in unit.  A zero count field contains a unit
+number with respect to the file structure.  The first retrieval
+pointer, with respect to the RIB, always specifies a unit number.
+Bit l8 is l to guarantee that the word is non-zero; otherwise
+it might be confused with an EOF pointer.
