@@ -1,0 +1,125 @@
+C           ACTIVE CERAMIC SECTION FOR 31-MODE CYLINDER.                C3100110    
+C                                                                       C3100120    
+      SUBROUTINE COMP31                                                 C3100130    
+C                                                                       C3100140    
+C     ACC = CERAMIC SECTION A-MATRIX                                    C3100150    
+C     BARE = LENGTH OF CERAMIC CYLINDER NOT ELECTRODED                  C3100160    
+C     BLC = LATERALLY CLAMPED DIELECTRIC IMPERMEABILITY OF CERAMIC      C3100170    
+C     BMAT = TUNING NETWORK B-MATRIX                                    C3100180    
+C     C0 = CLAMPED CAPACITANCE OF SINGLE CYLINDER                       C3100190    
+C     CCS = LONGITUDINAL VELOCITY OF SOUND IN CERAMIC                   C3100200    
+C     CLCS = LENGTH OF CERAMIC CYLINDER                                 C3100210    
+C     D31 = PIEZOELECTRIC CONSTANT OF CERAMIC                           C3100220    
+C     E0 = DIELECTRIC PERMITTIVITY OF FREE SPACE                        C3100230    
+C     E33 = RELATIVE DIELECTRIC CONSTANT OF CERAMIC                     C3100240    
+C     FREQ = FREQUENCY                                                  C3100250    
+C     ID = INSIDE DIAMETER OF CERAMIC CYLINDER                          C3100260    
+C     K = INVERSE WAVELENGTH IN CERAMIC                                 C3100270    
+C     K31 = TRANSVERSE COUPLING FACTOR OF CERAMIC                       C3100280    
+C     PHI = ELECTROMECHANICAL TRANSFORMER TURNS RATIO                   C3100290    
+C     RHOCS = DENSITY OF CERAMIC                                        C3100300    
+C     RMEAN = MEAN RADIUS OF CERAMIC CYLINDER                           C3100310    
+C     S11 = ELASTIC COMPLIANCE AT CONSTANT ELECTRIC FIELD OF CERAMIC    C3100320    
+C     ZB = SINGLE CYLINDER Z-MATRIX                                     C3100330    
+C     ZCC = CERAMIC CYLINDER Z-MATRIX (WITHOUT TUNING)                  C3100340    
+C                                                                       C3100350    
+      COMMON /CC    / ACC,ALPHA,BETA,B,PHI,CCS,Z0,ZCC,C0,AKL,ZZ0,ZC0,ZB C3100360    
+      COMMON /CERAM / S333,G333,E333,NO,RHOCS,CLCS,ACS,LT,Q,CSW         C3100370    
+      COMMON /CNTROL/ N(12),IE,IBC                                      C3100380    
+      COMMON /EDIT  / SEC(24),T(20),PTYPE(2),MO,IDAY,IYR,IRUN,OUT(4)     C3100390    
+      COMMON /FREQ  / FREQ,TWOPI                                        C3100400    
+      COMMON /SW    / LSW(20)                                           C3100410    
+      COMMON /TUNE  / RTUNE(3),LTUNE(3),CTUNE(3),TURNS                  C3100420    
+      COMMON /COM91 / OD,BARE                                           C3100430    
+C                                                                       C3100440    
+      REAL ID                                                           C3100450    
+C                                                                       C3100460    
+      LOGICAL LSW                                                       C3100470    
+C                                                                       C3100480    
+      COMPLEX S333,G333,E333,ACC(2,3,2),ALPHA(2,2,2),BETA(2,2),B(2,2,2),C3100490    
+     1PHI,CCS,Z0,    C0,AKL,ZZ0,K,KL,ZCC(2,2),CJ,RHOCA,SINKL,ZB(2,3),PHIC3100500    
+     2Z0,ZC0,ZWIG(2,3),ZWIG1,ZWIG2,PHIZC0,S11,D31,K31                   C3100510    
+C                                                                       C3100520    
+      EQUIVALENCE (S11,S333),(D31,G333)                                 C3100530    
+C                                                                       C3100540    
+      DATA PI/3.14159265/                                               C3100550    
+      DATA E0/8.854185E-12/                                             C3100560    
+C                                                                       C3100570    
+      OMEGA=FREQ*TWOPI                                                  C3100580    
+      CJ=(0.,1.)                                                        C3100590    
+C                                                                       C3100600    
+C     COMPUTE EQUIVALENT CIRCUIT PARAMETERS.                            C3100610    
+      CCS=1.0/CSQRT(RHOCS*S11)                                          C3100620    
+      K31=D31/CSQRT(S11*E333*E0)                                        C3100630    
+      ID=SQRT(OD*OD-4.0*ACS/PI)                                         C3100640    
+      RMEAN=(OD+ID)/4.0                                                 C3100650    
+      PHI=TWOPI*RMEAN*D31/S11                                           C3100660    
+      C0=E333*E0*(CLCS-BARE)*TWOPI*(1.0-K31*K31)/ALOG(OD/ID)            C3100670    
+      ZC0=1.0/(CJ*OMEGA*C0)                                             C3100680    
+      Z0=PHI*ZC0                                                        C3100690    
+      PHIZ0=PHI*Z0                                                      C3100700    
+      K=OMEGA/CCS                                                       C3100710    
+      AKL=K*CLCS                                                        C3100720    
+      RHOCA=CJ*RHOCS*CCS*ACS                                            C3100730    
+      SINKL=CSIN(AKL)                                                   C3100740    
+C                                                                       C3100750    
+C     COMPUTE SINGLE CYLINDER Z-MATRIX.                                 C3100760    
+      ZCC(1,1)=-RHOCA*CCOS(AKL)/SINKL+PHIZ0                             C3100770    
+      ZCC(1,2)=RHOCA/SINKL-PHIZ0                                        C3100780    
+      ZCC(2,1)=-ZCC(1,2)                                                C3100790    
+      ZCC(2,2)=-ZCC(1,1)                                                C3100800    
+      ZC0=Z0                                                            C3100810    
+      PHIZC0=PHI*ZC0                                                    C3100820    
+C                                                                       C3100830    
+C     COMPUTE CERAMIC SECTION Z-MATRIX (INCLUDING TUNING).              C3100840    
+      CALL BMAT                                                         C3100850    
+      ALPHA(1,1,IE)=-B(2,1,IE)*PHIZC0/(B(2,1,IE)*ZC0 - PHI*B(1,1,IE))   C3100860    
+      ALPHA(1,2,IE)=-ALPHA(1,1,IE)                                      C3100870    
+      ALPHA(2,1,IE)=-B(2,2,IE)*PHIZC0/(B(2,2,IE)*ZC0-PHI*B(1,2,IE))     C3100880    
+      ALPHA(2,2,IE)=-ALPHA(2,1,IE)                                      C3100890    
+      BETA(1,IE)=PHI*(B(2,1,IE)*B(1,2,IE)-B(1,1,IE)*B(2,2,IE))/(B(2,1,IEC3100900    
+     1)*ZC0-PHI*B(1,1,IE))                                              C3100910    
+      BETA(2,IE)=PHI*(B(1,1,IE)*B(2,2,IE)-B(2,1,IE)*B(1,2,IE))/(B(2,2,IEC3100920    
+     1)*ZC0-PHI*B(1,2,IE))                                              C3100930    
+      ZWIG1=ZC0*BETA(IE,IE)                                             C3100940    
+      ZWIG2=ZWIG1                                                       C3100950    
+      ZWIG(1,1)=ZCC(1,1)+ZC0*ALPHA(IE,1,IE)                             C3100960    
+      ZWIG(1,2)=ZCC(1,2)-ZC0*ALPHA(IE,1,IE)                             C3100970    
+      ZWIG(1,3)=ZWIG1                                                   C3100980    
+      ZWIG(2,1)=-ZWIG(1,2)                                              C3100990    
+      ZWIG(2,2)=-ZWIG(1,1)                                              C3101000    
+      ZWIG(2,3)=ZWIG2                                                   C3101010    
+      ZB(1,1)=ZWIG(1,1)                                                 C3101020    
+      ZB(1,2)=ZWIG(1,2)                                                 C3101030    
+      ZB(1,3)=ZWIG(1,3)                                                 C3101040    
+      ZB(2,1)=ZWIG(2,1)                                                 C3101050    
+      ZB(2,2)=ZWIG(2,2)                                                 C3101060    
+      ZB(2,3)=ZWIG(2,3)                                                 C3101070    
+C                                                                       C3101080    
+C     COMPUTE CYLINDER A-MATRIX FROM ITS Z-MATRIX.                      C3101090    
+      CALL TRAN(ZWIG,ACC(1,1,IE))                                       C3101100    
+      ACC(1,3,IE)=ZWIG1-ZWIG(1,1)*ZWIG1/ZWIG(2,1)                       C3101110    
+      ACC(2,3,IE)=-ZWIG1/ZWIG(2,1)                                      C3101120    
+      IF(.NOT.LSW(2))RETURN                                             C3101130    
+      N1=1                                                              C3101140    
+      IF(IE.EQ.2)N1=3                                                   C3101150    
+      N2=N1+1                                                           C3101160    
+      WRITE(6,100)PTYPE(1),FREQ,MO,IDAY,IYR,IRUN,OUT(N1),OUT(N2),CCS,K,C0C3101170    
+     1,Z0,PHI,K31,((ZB(I,J),ZWIG(I,J),I=1,2),J=1,3),((B(I,J,IE),J=1,2),IC3101180    
+     2=1,2)                                                             C3101190    
+      RETURN                                                            C3101200    
+C                                                                       C3101210    
+  100 FORMAT (1H1///16XA6,' TRANSDUCER ANALYSIS OUTPUT',7X'FREQUENCY IS'C3101220    
+     1,F7.1,6H HERTZ,7X4HDATE,I4,1H/,I2,1H/,I2,7X'RUN NUMBER',A6//6X'CERC3101230    
+     2AMIC SECTION DATA',2A6,' DRIVE'            //15X4HREAL12X4HIMAG25XC3101240    
+     34HREAL12X4HIMAG/6X2HCC2X1P2E16.7,9X1HK3X2E16.7/6X2HC02X2E16.7,9X2HC3101250    
+     4Z02X2E16.7/6X4HPHI 2E16.7,9X4HK31 2E16.7//16X18HSINGLE RING MATRIXC3101260    
+     528X24HCERAMIC COMPOSITE MATRIX/15X4HREAL12X4HIMAG25X4HREAL12X4HIMAC3101270    
+     6G/10X2E16.7,6X3HZ114X2E16.7/10X2E16.7,6X3HZ214X2E16.7/10X2E16.7,6XC3101280    
+     73HZ124X2E16.7/10X2E16.7,6X3HZ224X2E16.7/10X2E16.7,6X2HZ15X2E16.7/1C3101290    
+     80X2E16.7,6X2HZ25X2E16.7//40X13HTUNING MATRIX/15X4HREAL12X4HIMAG25XC3101300    
+     94HREAL12X4HIMAG/6X4HB11 2E16.7,9X4HB12 2E16.7/6X4HB21 2E16.7,9X4HBC3101310    
+     *22 2E16.7//)                                                      C3101320    
+C                                                                       C3101330    
+      END                                                               C3101340    
+    
