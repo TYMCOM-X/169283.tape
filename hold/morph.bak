@@ -1,0 +1,172 @@
+BEGIN "MORPHEME"
+
+BOOLEAN GOOD;
+INTEGER SIZE,I;
+STRING STR,WORD;
+
+PRELOADWITH "A","E","I","O","U","Y";
+STRING ARRAY VOWELS[1:6];
+
+PRELOADWITH "L","R","S","V","Z";
+STRING ARRAY LIQUID[1:5];
+
+PRELOADWITH "C","G","S","V","Z";
+STRING ARRAY NOEND[1:5];
+
+DEFINE NXTCHR = "STR[1 FOR 1]";
+
+STRING PROCEDURE SECONDLAST;
+RETURN(IF SIZE>1 THEN WORD[SIZE-1 FOR 1] ELSE NULL);
+
+STRING PROCEDURE THIRDLAST;
+RETURN(IF SIZE>3 THEN WORD[SIZE-2 FOR 1] ELSE NULL);
+
+STRING PROCEDURE RIGHT(INTEGER POSITION);
+RETURN(IF POSITION>SIZE THEN NULL ELSE WORD[SIZE-POSITION+1 TO INF]);
+
+STRING PROCEDURE LEFT(INTEGER POSITION);
+RETURN(IF POSITION>SIZE THEN NULL ELSE WORD[1 TO POSITION]);
+
+
+PROCEDURE TRY;
+COMMENT - THIS SHOULD CALL THE DICTIONARY ROUTINE.;
+OUTSTR("TRY: "&WORD&'15&'12);
+
+PROCEDURE GETWORD;
+BEGIN
+        WHILE LENGTH(STR)>0 AND (NXTCHR=" " OR NXTCHR=",") DO
+                WORD_LOP(STR);
+        WORD_NULL;
+        WHILE NOT (EQU(STR,NULL) OR NXTCHR=" " OR NXTCHR=",") DO
+                WORD_WORD&LOP(STR);
+        SIZE_LENGTH(WORD);
+END;
+
+PROCEDURE CUTOFF(INTEGER WHERE);
+WORD_WORD[1 FOR SIZE_SIZE-WHERE];
+
+BOOLEAN PROCEDURE INSET(REFERENCE STRING ARRAY ARRY;STRING CHR;INTEGER NUMBER);
+BEGIN
+        FOR I_1 STEP 1 UNTIL NUMBER DO
+                IF CHR=ARRY[I] THEN RETURN(TRUE);
+RETURN(FALSE);
+END;
+
+PROCEDURE CUTI;
+BEGIN
+        CUTOFF(1); WORD_WORD&"Y";
+END;
+
+PROCEDURE ADD(STRING CHR);
+BEGIN
+        WORD_WORD&CHR; SIZE_SIZE+LENGTH(CHR);
+END;
+
+PROCEDURE NOENDTEST;
+IF INSET(NOEND,RIGHT(1),5) THEN ADD("E");
+
+BOOLEAN PROCEDURE DECISION;
+BEGIN STRING REPLY;
+        TRY;
+        OUTSTR("OK? ");
+        RETURN(IF REPLY_INCHWL="Y" THEN TRUE ELSE FALSE);
+END;
+
+PROCEDURE GRAMMAR;
+BEGIN
+        IF INSET(VOWELS,RIGHT(1),6) THEN BEGIN
+            IF RIGHT(1)="I" THEN CUTI ELSE
+                IF NOT RIGHT(1)="Y" THEN
+                        IF RIGHT(1)="E" THEN BEGIN
+                            IF NOT SECONDLAST="E" THEN
+                                IF NOT DECISION THEN ADD("E");
+                        END ELSE ADD("E");
+        END ELSE
+        IF (RIGHT(1)="H" AND
+                SECONDLAST="T") THEN BEGIN
+                        IF NOT (DECISION) THEN ADD("E")
+        END ELSE
+        IF (SECONDLAST=RIGHT(1)) THEN BEGIN
+                IF INSET(LIQUID,RIGHT(1),5) THEN GOOD_DECISION;
+                CUTOFF(1); "REM0VE DOUBLED LETTER"
+        END ELSE
+        IF NOT INSET(VOWELS,SECONDLAST,6) THEN BEGIN
+                IF INSET(LIQUID,RIGHT(1),5) THEN BEGIN
+                    IF NOT EQU(RIGHT(2),"RL") THEN ADD("E") ELSE TRY;
+                END ELSE NOENDTEST;
+        END
+        ELSE
+        IF INSET(VOWELS,THIRDLAST,6) THEN NOENDTEST ELSE ADD("E");
+END;
+
+PROCEDURE VOWEL;
+BEGIN
+        IF RIGHT(1)="E" THEN
+                IF SECONDLAST="I" THEN BEGIN
+                        CUTOFF(2); ADD("Y");
+                END ELSE
+                IF SECONDLAST="H"
+                        AND NOT THIRDLAST="T" THEN CUTOFF(1)
+                ELSE
+                IF SECONDLAST="X" THEN CUTOFF(1)
+                ELSE
+                IF SECONDLAST="S" OR SECONDLAST="Z" THEN BEGIN
+                        IF THIRDLAST="S" OR THIRDLAST="Z" THEN
+                        CUTOFF(1);
+                END;
+                IF SECONDLAST="V" THEN
+                    IF NOT DECISION THEN BEGIN
+                        CUTOFF(2); ADD("FE");
+                END;
+END;
+
+WHILE TRUE DO BEGIN "MAIN LOOP"
+
+        OUTSTR("<"); STR_INCHWL; GOOD_TRUE;
+        IF LENGTH(STR)>0 THEN
+        IF STR[LENGTH(STR) FOR 1]="?" OR STR[LENGTH(STR) FOR 1]="." OR
+           STR[LENGTH(STR) FOR 1]="!" THEN STR_STR[1 FOR LENGTH(STR)-1];
+
+        WHILE NOT(EQU(STR,NULL)) DO BEGIN 
+
+                GETWORD;
+                IF EQU(RIGHT(3),"N'T") THEN BEGIN
+                        CUTOFF(3);
+                        STR_"NOT "&STR; "N'T -> NOT"
+                END ELSE
+                IF EQU(RIGHT(2),"'S") THEN
+                        CUTOFF(2)
+                ELSE
+                IF EQU(RIGHT(3),"'RE") THEN
+                        CUTOFF(3)
+                ELSE
+                IF RIGHT(1)="'" THEN BEGIN
+                        CUTOFF(2);
+                        VOWEL;
+                END ELSE
+                IF RIGHT(1)="S" AND NOT(SECONDLAST="A" OR SECONDLAST="I") THEN BEGIN
+                        CUTOFF(1);
+                        VOWEL;
+                END ELSE
+                IF EQU(RIGHT(2),"LY") THEN BEGIN
+                        CUTOFF(2);
+                        IF RIGHT(1)="I" THEN CUTI ELSE IF NOT(DECISION)
+                            THEN ADD("LE");
+                END ELSE
+                IF NOT EQU(RIGHT(5),"THING") AND EQU(RIGHT(3),"ING") OR
+                EQU(RIGHT(3),"EST") THEN BEGIN
+                        CUTOFF(3); COMMENT - REMOVE SUFFIX;
+                        GRAMMAR;
+                END ELSE
+                IF EQU(RIGHT(2),"ED") OR EQU(RIGHT(2),"EN") OR
+                   EQU(RIGHT(2),"ER") THEN BEGIN
+                        CUTOFF(2); GRAMMAR;
+                END;
+
+        IF GOOD THEN TRY; COMMENT - CALL DICTIONARY LOOKUP ;
+
+        END;
+
+END "MAIN LOOP";
+
+END "MORPHEME";
