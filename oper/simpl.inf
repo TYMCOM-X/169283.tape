@@ -1,0 +1,3595 @@
+
+
+
+
+
+                              section 1
+                       basic elements of simpl
+
+
+
+1.a. constants (kon)
+
+     all values are integer.  the maximum value is (2^n) -1,  where  n
+     is the number of bits in a word.
+
+     1.  decimal
+
+          example: 0,179
+
+
+     2.  octal
+
+          to specify an octal constant, precede  the  value  with  the
+          word oct; for example, oct 77 designates octal 77.
+
+     3.  hexadecimal
+
+          to specify a hexadecimal constant, precede  the  value  with
+          the  word  hex; for example, hex 7ffa designates hexadecimal
+          7ffa.
+
+     4.  character
+
+          preceding a character by the $ symbol  yields  its  internal
+          representation  as  a right-justified integer.  for example,
+          when generating code for the  pdp-10,  simpl  evaluates  the
+          constant  $a  as octal 101, the ascii code for the character
+          a.
+
+     5.  string
+
+          to designate a string constant,  surround  the  string  with
+          single  or  double quote marks.  the enclosed characters are
+          stored however characters are stored on  the  machine  being
+          used,  followed  by  at  least  one  string  terminator, the
+          definition of which is  also  machine  dependent.   as  many
+          terminators  are added as necessary to fill the last word of
+          the string.  if the last word of the string is already  full
+          (that  is,  if the number of characters is a multiple of the
+          number of characters per word), a  word  of  terminators  is
+          added.
+
+          the value of a string constant is the address of  the  first
+          word of the string.
+
+                                                              PAGE   2
+
+
+
+               example:
+
+               the constant "abcdef" is stored on the sigma 7 as
+
+               hexc1c2c3c4     hexc5c60000
+
+               word 1         word 2
+
+               and its value is  the  address  of  "word  1"  of  this
+               diagram.
+
+     6.  miscellaneous
+
+          the value of the following constants are machine dependent:
+
+          a.  eolit - the string terminator (0 on pdp-10 and sigma 7)
+
+          b.  charsperword - the number of characters per word  (5  on
+                    pdp-10, 4 on sigma 7)
+
+          c.  bitsperword - the number of bits per word
+
+          d.  carret - the internal  representation  of  the  carriage
+                    return character.
+
+          e.  lnfeed - the internal representation of  the  line  feed
+                    character
+
+     periods are  ignored  within  all  constant  types  above  except
+     character  and  string  constants.   thus  they  can  be used for
+     decorative  purposes,  possibly  to   show   separation   between
+     different  parts  of  a  word,  without  having any effect on the
+     value.  for example, hex 3c1c2c3  can  also  be  written  as  hex
+     3.c1c2c3, or hex 3.c1.c2.c3.  the miscellanous constants might be
+     made more readable by adding periods,  as  in  chars.per.word  or
+     car.ret.
+
+
+1.b.  identifiers (id)
+
+     simpl variables, labels, procedures and  macros  are  named  with
+     identifiers  (ids)  which must begin with an alphabetic character
+     (a to z) and include only alphanumeric characters (a to z,  0  to
+     9) thereafter.  thus, the following are legal identifiers:
+
+                             a
+                             x12
+                             nmbufnd
+
+                                                              PAGE   3
+
+
+
+  periods are ignored within identifiers and may therefore be used for
+  decorative purposes, possibly to clarify the meaning of a particular
+  string of characters.  for example,  nmbufnd  could  alternately  be
+  written  as  nmbuf.nd,  or  nm.buf.nd, or any combination within the
+  same program, and simpl will equate all such forms to the identifier
+  nmbufnd.
+
+  the  alphabetic  strings  that  have  a  special  meaning  to  simpl
+  (reserved  words,  such  as  oct,  hex,  eolit)  may  not be used as
+  identifiers.  however, a reserved word will be  recognized  as  such
+  only  if  it  is  terminated  by  a  space  (or  a  non-alphanumeric
+  character).  thus, hex c1 is read as a constant,  but  hexc1  is  an
+  identifier.
+
+  an identifier may represent only one language  element  at  a  time.
+  (see  section  4.f  for  information  on scope of names when a simpl
+  program contains procedures.)
+
+
+1.c.  variables and arrays
+
+  each variable occupies a word of storage.  a variable may be  simple
+  (not   subscripted)   or   have   a   single  subscript  (forming  a
+  one-dimensional array).  variables are named  with  identifiers  and
+  must  always  be  declared by the user.  (note: when generating code
+  for certain machines, simpl will initialize variables to 0, but this
+  is not a standard simpl specification.  thus, if variables are to be
+  initialized, the user should do so himself.)
+
+  to declare a simple variable,  type  the  identifier  in  the  local
+  declaration statement as follows:
+
+  local id
+
+  to declare an array, follow its identifier by the  subscript  limits
+  in parentheses, in the form id(kon:kon).  for example,
+
+  local b(3:50)
+
+  declares the 48-element array b.  if the subscript lower limit is 1,
+  it need not be specified.  for example,
+
+  local sp(35) is equivalent to local sp(1:35)
+
+     note: a subscript limit may in fact be any  constant  expression,
+          including -kon; expressions are discussed in section 1.e and
+          1.f.  other types of declaration statements, and a statement
+          that  specifies  the  default  subscript  lower  limit,  are
+          explained in section 3.a.
+
+                                                              PAGE   4
+
+
+
+     refer to a simple variable by its identifier,  and  to  an  array
+     element  by  the  array  identifier  followed by the subscript in
+     parentheses.  the subscript may  be  any  arithmetic  expression.
+     thus  b(4) and ptr(jct+1) are legal references to array elements.
+     the user must  himself  check  that  when  referencing  an  array
+     element,  the value of the subscript lies within the range of the
+     limits as specified in the declaration statement.  simpl does not
+     perform  any subscript checking and will react unpredictably if a
+     subscript is out of range.
+
+     an array identifier  may  be  typed  alone,  not  followed  by  a
+     subscript,  in  which  case  its value is the base address of the
+     array (the address of its 0th element).  for example, if an array
+     is  declared as b(3:50), the value of b+3 is the address of array
+     element b(3), and b+4 is the address of b(4), and so on.  it  can
+     be  seen  from  this that a simple variable and array cannot have
+     the same identifier.
+
+1.c.1 floating arrays
+
+     the user may also declare a "floating array", as follows:
+
+     local id()
+
+     this allocates one word of storage which can be referenced by the
+     identifier  id  and  set to a value which is then taken to be the
+     base address of an array identified  by  id.   this  allows,  for
+     example,   parts  of  an  array  to  be  addressed  by  different
+     identifiers than that of the entire array.  if the statement
+
+     local text(200),blk1(),blk2()
+
+     is followed by the statements that set blk1 to the value of  text
+     (the  base address of the array text), and blk2 to text+100, then
+     blk1(x) is equivalent to text(x), and blk2(x)  is  equivalent  to
+     text(x+100).   changing  the  value  of  blk1 or blk2 effectively
+     moves  or  "floats"  the  arrays  they  identify.   for  example,
+     exchanging  their  values causes blk2 to reference the lower half
+     of text and blk1 the upper half, rather than vice versa.
+
+1.c.2 indirect addressing -^
+
+     the up arrow may be used to designate indirect  addressing,  that
+     is, to refer to a word whose address is a specified value.  thus,
+     ^x refers to the variable whose address is  stored  in  x.   what
+     follows  the  ^  may  be an identifier, subscripted or not, or an
+     arithmetic expression in  parentheses.   (note:  it  may  be  any
+     primary,  as described in section 1.l.) for example, suppose that
+     an array is declared as
+
+                                                              PAGE   5
+
+
+
+     local b(3:50)
+
+     since b is evaluated as the base address  of  the  array,  ^(b+3)
+     refers  to b(3) and can be used anywhere that b(3) can to address
+     that particular storage word.
+
+1.c.3 storage word (sw)
+
+     the different ways of addressing a storage word in simpl  may  be
+     summarized as follows:
+
+      1.  an identifier typed alone; e.g., x, blk1
+
+      2.  an identifier followed by a subscript in parentheses;  e.g.,
+          b(7), blk1(i), ptr(l+3).
+
+      3.  indirect  addressing  using  the  ^;  e.g.,  ^x,  ^ptr(l+3),
+          ^(b+3).
+
+     these three constitute the language element sw (storage word).
+
+1.c.4 address operator -@
+
+     @ is a unary operator that operates on any storage word reference
+     (sw) and returns the address of that word.  note that the ^ and @
+     cancel each other's effect.
+
+     example:
+
+     if an array is declared as
+
+     local b(3:50)
+
+     then @b(3) is equal to b+3 (since b is the base  address  of  the
+     array).
+
+1.d.  labels
+
+     a label may be an identifier followed by a colon, or, within  the
+     case  statement  (section 3.c.2), a constant followed by a colon;
+     that is,
+
+     id:
+     or
+     kon:   (only within the case statement)
+
+     a label may appear only at the beginning of a line.  since a line
+     may  be  blank,  a  label may appear alone.  a line may have more
+     than one label; for example,
+
+                                                              PAGE   6
+
+
+
+     l3: cpyrd: statement
+
+     declaration statements,  procedure  heads  and  ends,  and  macro
+     definition statements may not be labelled.
+
+     unlike variables and procedure heads, labels do not normally have
+     to  be  declared.  for example, simpl can assume that an id after
+     the word go identifies a  label,  since  "go  variable"  and  "go
+     procedure" are illegal constructions.  in this case declaring the
+     label would be redundant.  however, it is possible to use  an  id
+     where  its  function  is not implicitly declared; for example, in
+     the statement
+
+     a_lab
+
+     which specifies that the value of lab be stored in a,  simpl  can
+     only know what lab identifies if an explicit declaration has been
+     made.  it may identify a  label,  enabling  the  user  to  branch
+     indirectly by typing
+
+     go ^a
+
+     in this case, then, lab would have to be declared a label.
+
+     to declare a label, type it in the local  declaration  statement,
+     as follows:
+
+     local id:
+
+     the kon: form of a label is declared within the  case  statement,
+     the only statement in which it can appear.
+
+1.e.  arithmetic expression
+
+1.e.1 standard mathematical operators
+
+     all arithmetic is fixed point.
+
+     binary operators:
+
+         +     addition
+         -     subtraction
+         *     multiplication (machine dependency: low-order word of
+                  the result)
+         /     division
+         mod   modulo operator; if x and y are both positive, x mod
+               y yields the remainder of the division of x by y in
+               the standard mathematical sense of modulus.  if x or
+               y is not positive, the results are unpredictable.
+
+                                                              PAGE   7
+
+
+
+         max   maximum
+         min   minimum
+
+         unary operators:
+
+         abs   absolute value
+         -     negative; 2's complement (unary minus)
+
+1.e.2 bit operators
+
+         these operators perform the specified operations on the bits
+         of their operands.
+
+         binary operators:
+
+         band   binary and                  bits.per.word
+         bor    binary inclusive or         bits at
+         bxor   binary exclusive or         a time
+         beqv   binary equivalence
+         shl    logical left shift
+         shr    logical right shift
+         rotl   circular left shift
+         rotr   circular right shift
+
+         unary operator:
+
+         bnot  binary not; 1's complement
+
+          the second operand of  the  shift  operators  specifies  the
+          shift  count and must have a positive value.  for example, x
+          shl 3 is calculated to be x shifted left  3  bit  positions;
+          the value of the expression x shl -3 is not predictable.
+
+          note that  the  operators  that  are  words  as  opposed  to
+          symbols,  such as abs and mod, must be terminated by a space
+          (or  a  non-alphanumeric  character)  since   simpl   allows
+          identifiers  to  begin  with  these words.  for example, the
+          strings absb and mod2 are recognized as identifiers, not  as
+          operators and operands.
+
+1.e.3 rules governing operands
+
+          all of the above operators can operate on the simpl language
+          element   known  as  the  primary,  or  prim  (the  complete
+          definition of which is given in section 1.l).   included  in
+          the  prim  category  are  a  constant  (kon), a storage word
+          reference (sw), and a unary operator with its operand  (such
+          as @sw, abs prim, -prim, and bnot prim).
+
+                                                              PAGE   8
+
+
+
+          example:                           illustrates:
+          hex ff + abs j                     kon + abs sw
+          @x mod y                           @sw mod sw
+          ^c(i)*-3                           sw*-kon
+
+     clearly then, the operands  in  these  examples  all  qualify  as
+     primaries.
+
+     the expression resulting from the use of any  of  the  arithmetic
+     operators may be enclosed in parentheses and operated on further;
+     that is, the expression enclosed in parentheses also qualifies as
+     a primary.  thus,
+
+     (hex ff + abs j)+2
+     (@x mod y)*(^c(i)*-3)
+
+     are allowed as expressions.
+
+1.e.4 operator precedence
+
+     several  operators  may  appear  in  a  single   expression,   as
+     illustrated  above  or  in the expression a+b/c.  the sequence of
+     operations is given  below.   each  numbered  item  in  the  list
+     represents  a level of precedence.  several operators of the same
+     precedence in a single expression are applied from left to right;
+     for example, x-y-z is evaluated as (x-y)-z.
+
+       1.  an expression in parentheses.  for example, the sequence of
+          operations  in  the  evaluation  of x-y-z can be reversed by
+          using parentheses as follows: x-(y-z).
+
+       2.  any unary operations.
+
+       3.  the shift operations: shl, shr, rotl, rotr.
+
+       4.  the other bitwise operations: band, bor, bxor, beqv.  thus,
+          a bor b shl 4 is evaluated as a bor (b shl 4).
+
+       5.  multiplication, division and mod.   thus,  x2  mod  4/2  is
+          calculated  as  (x2  mod 4)/2 (i.e., left to right), and x*y
+          shl 4 is equivalent to x*(y shl 4).
+
+       6.  addition and subtraction.  for example, a+b/c is calculated
+          as a+(b/c).
+
+       7.  max and min.  thus, a+b max c is evaluated as  the  maximum
+          of a+b and c.
+
+                                                              PAGE   9
+
+
+
+1.e.5 the ae classification
+
+     an expression resulting from the use of the arithmetic  operators
+     is  called  an arithmetic expression, or ae.  as explained above,
+     many  of  the  arithmetic  operators  take  primaries  as   their
+     operands.   the  ae classification also includes a primary alone,
+     so that  all  of  the  following  are  classified  as  arithmetic
+     expressions:
+
+     16
+     ptr
+     ^adr(k)
+     bnot s2
+     a+b/c
+     (a+3)
+
+     the term ae as described here will be useful  in  defining  other
+     language  elements  of simpl.  for example, since a subscript may
+     be any arithmetic expression, the general method  of  referencing
+     an array element is
+
+     id(ae)
+
+     note that an ae may be parenthesized whenever  desired;  it  will
+     still qualify as an ae.
+
+1.f.  constant expression (konex)
+
+     the previous section describes the ae, or arithmetic  expression,
+     classification.  a subset of this classification is the konex, or
+     constant expression, which is  an  arithmetic  expression  having
+     only  kon  type  operands  (excluding the string constant type of
+     kon).  this classification can  be  used  wherever  it  has  been
+     mentioned  that  a  kon can be used.  thus, the general form of a
+     local array declaration is local id(konex:konex), and a label  in
+     a case statement can take the form konex:.
+
+     this feature is valuable when  used  in  conjunction  with  simpl
+     macros, explained in section 5.  for example, bufsz and nbufs can
+     be defined as the constants 200 and  5,  so  that  the  statement
+     local a(bufsz*nbufs) would be equivalent to local a(1000).
+
+1.g.  relational expression
+
+     the relational operators, or relops, are:
+
+            <       less than
+            <=      less than or equal to
+            =       equal to
+
+                                                              PAGE  10
+
+
+
+            #       not equal to
+            >=      greater than or equal to
+            >       greater than
+
+     relational operators operate on arithmetic expressions  (aes)  to
+     form  relational  expressions, or rels, which have logical values
+     (true or false).  the different forms a relational expression may
+     take are:
+
+     1.  ae1 relop ae2
+
+                         examples:
+
+                    a<3
+                         syntab(iew)=0
+                         hex 17*x>=j+1 or (hex 17*x)>=(j+1)
+
+          note from the  last  example  that  parentheses  around  the
+          arithmetic   expressions   are   optional;   the  arithmetic
+          operators have a higher precedence than the relational.
+
+          the  order  of  evaluation  of  the  ae's  in  a  relational
+          expression  is  a  machine  dependency.   for example, in an
+          expression such as  ^ptr  <  ^inc  ptr,  in  which  inc  ptr
+          increments the value of ptr by 1, it is possible that ptr on
+          the left will be evaluated after ptr has been incremented on
+          the right.
+
+     2.  ae1 relop ae2 relop ae3
+
+          this  is  equivalent  to  an  and  of  the  values  of   the
+          expressions  ae1  relop ae2 and ae2 relop ae3.  for example,
+          $a<=char<=$z is true if char is both greater than  or  equal
+          to  $a  and  less than or equal to $z.  if either or both of
+          the  expressions  $a<=char  and  char<=$z  are  false,  then
+          $a<=char<=$z is false.
+
+          note that when this form of  the  relational  expression  is
+          used, the evaluation of the expression is ended as soon as a
+          false  condition  is  encountered.   thus,  if   the   first
+          condition  to be checked, ae1 relop ae2, is false, the value
+          of the whole expression is considered false  and  ae2  relop
+          ae3 is not evaluated.
+
+     3.  ae
+
+          an ae alone may be used as a relational  expression:  it  is
+          true if its value is non-zero, false if its value is zero.
+
+                                                              PAGE  11
+
+
+
+     4.  not rel
+
+          each of the above forms may be preceded by  not  to  form  a
+          relational  expression whose value is the logical not of the
+          value of the expression modified.
+
+          for example:
+
+          not a<3          true if a>=3
+                           false if a<3
+
+          not $a<=char<=$z  true if $a>char or char>$z
+                            false if $a<=char  and char<=$z
+
+          not flg           true if flg=0
+                            false if flg#0
+
+1.h.  logical expression
+
+     as explained above in the description of relational  expressions,
+     a  rel  may  be  preceded  by  the logical operator not to form a
+     construction that is also classified as a rel.
+
+     relational  expressions  may  be  operated  on  by  the   logical
+     operators and and or as well; that is,
+
+     rel1 and rel2         example: a=6 and not cd<3
+     rel1 or rel2                    a=6 or b>=bnot j
+
+     parentheses around the rels are optional,  since  the  relational
+     operators have a higher precedence than the logical.
+
+     the expressions resulting from the use of the  logical  operators
+     are   called   logical   expressions   and   may   themselves  be
+     parenthesized and operated on by not, and, and or.  for example:
+
+            not(char<$a or char>$z)
+            (a<3 and b<4) or c=6
+            (a=6 or b>=bnot j) and (x<y or z=1)
+
+     in fact, the logical expression (le) classification includes  all
+     of the following:
+
+            x
+            x [or/and] x
+            x [or/and] x [or/and] x...   any number of ors and ands
+
+     where x may  be  rel,  (le),  or  not(le).   (remember  that  rel
+     includes the construction not rel.)
+
+                                                              PAGE  12
+
+
+
+     it can be seen from  this  that  several  logical  operators  may
+     appear  in  a single expression without benefit of parentheses to
+     clearly indicate the precedence of  operations.   the  precedence
+     after  parenthesized  expressions  are  evaluated  is: first not,
+     followed by and, and finally, or.  thus,
+
+     a=6 and not cd<3 or c=6
+
+     is evaluated as
+
+     (a=6 and (not cd<3)) or c=6
+
+     the evaluation of a logical expression is ended as soon as it  is
+     known  whether the expression is true or false.  for example, the
+     expression
+
+     b or c or d or e
+
+     is considered true as soon as an operand is encountered  that  is
+     true.   thus,  if b is false and c is true, b or c is true, as is
+     therefore the entire expression; no further evaluation is made.
+
+     this rule is especially significant when the expression  includes
+     a construction that has a side effect when evaluated, such as inc
+     sw, which increments sw  and  is  evaluated  as  the  incremented
+     value.  consider the expression:
+
+     inc k>10 and inc j>1
+
+     k will be incremented.  if the incremented value is less than  or
+     equal  to 10, inc k>10 is false, so that the entire expression is
+     false; inc j>1 is never evaluated, which  means  that  j  is  not
+     incremented.   however,  if  inc  k  is  greater  than  10, simpl
+     proceeds to evaluate inc j>1, so that j will  be  incremented  in
+     this case.
+
+     when a logical expression is enclosed in brackets, it is given an
+     arithmetic rather than a logical value: 1 if the le is true and 0
+     if it is false.  for example,
+
+     2+[b=3]
+     2+[a=6 or b>=bnot j]
+
+     each of the above expressions equals 2  if  the  enclosed  le  is
+     false, and 3 if it is true.
+
+     the construction [le] is classified as a primary; thus it can  be
+     operated on by an arithmetic operator (as shown above) and can be
+     used wherever it is stated in this document that a primary can be
+
+                                                              PAGE  13
+
+
+
+     used.
+
+1.i.  conditional expression
+
+     the conditional expression takes the form
+
+     if le then ae1 else ae2
+
+     and is a  primary  that  is  evaluated  as  ae1  if  the  logical
+     expression le is true, and ae2 if le is false.
+
+     example 1:
+
+          2* if i=100 then j else j+1
+
+     is evaluated as 2*j if i=100, and 2*(j+1) if i #100
+
+     example 2:
+
+          pcp(if a<3 then 1 else 0)
+
+     references the storage word pcp(1) if a<3, and  pcp(0)  if  a>=3.
+     note that this could also have been written as
+
+     pcp([a<3])
+
+     example 3:
+
+          y-(if x>z then a else b)*2
+
+     is evaluated as y-a*2 if x>z and y-b*2 if x<=z.  note that if the
+     parentheses  are  omitted,  the  multiplication by 2 applies to b
+     only.  the user should guard against errors of this  nature  when
+     operating on conditional expressions.
+
+1.j.  operators with side effects
+
+     the simpl constructions using the operators described  below  are
+     classified  as primaries; each of them not only has an arithmetic
+     value as do other primaries, but also  has  the  side  effect  of
+     taking  some  specific action.  the nchv and pchv operators, also
+     in this category, are explained in section 1.k.
+
+1.j.1 inc and dec
+
+     inc and dec are unary operators that operate on any storage  word
+     reference  (sw).   inc  sw  increments  sw  by  1 and returns the
+     incremented value.  similarly, dec sw  decrements  sw  by  1  and
+     returns  the  decremented  value.   note  that  the  value of the
+
+                                                              PAGE  14
+
+
+
+     storage word referenced is actually changed when either of  these
+     operators  is  used.   for example, if i=0, inc i sets i to 1 and
+     returns the value 1, so that the next use of inc i would set i to
+     2 and return the value 2, and so on.
+
+     the constructions inc sw  and  dec  sw  are  thus  classified  as
+     primaries  (prim);  however,  they also classify as statements in
+     themselves, that increment and decrement the sw.
+
+1.j.2 assignment - _
+
+     the assignment operation takes the form
+
+     lp_ae
+
+     and constitutes a primary  which  causes  the  value  of  the  ae
+     (arithmetic  expression)  to be stored in the left part (lp); the
+     primary is evaluated as that value.  for a complete list of legal
+     left  parts,  refer  to  section  3.b.1,  the description of this
+     construction when used as a statement.
+
+     example 1:
+
+     p(i_sym(loc)-j)
+
+     sets i to the value of the expression sym(loc)-j  and  references
+     the array element p(i).
+
+     example 2:
+
+     the relational expression
+
+     $ <=char_tty
+
+     causes a character to be read from the terminal, stored  in  char
+     and compared to a blank.
+
+     note that if the  ae  of  lp_ae  is  itself  an  assignment,  the
+     construction appears as, for example,
+
+     x_y_i
+
+     which assigns the value of i to both x and y.   in  general  this
+     extends to
+
+     lp1_lp2_...lpn_ae
+
+1.j.3 deferred assignment - <==
+
+                                                              PAGE  15
+
+
+
+     the deferred assignment operator is used as follows:
+
+     sw<==ae
+
+     this construction is classified as a primary only.   it  has  the
+     same  side  effect  as regular assignment; that is, it stores the
+     value of ae, an arithmetic expression, in  sw,  a  storage  word.
+     however, this primary is evaluated not as the value of ae, but as
+     the value of sw before the assignment is made.  in  other  words,
+     the  assignment  is deferred until after the value of the primary
+     is taken to be sw.
+
+     example 1:
+
+     the statements
+
+     j_k
+     k_t
+
+     assign the value of k to j and then set k  to  the  value  of  t.
+     this can alternately be written as
+
+     j_k<==t
+
+     example 2:
+
+     the value of the expression
+
+     bfsz*lnk<==blk(n)+1
+
+     is bfsz multiplied by whatever is the value  of  lnk  immediately
+     before the expression is encountered.  after the expression is so
+     evaluated, the value of blk(n)+1 is assigned to lnk.
+
+     note that not all the forms of the lp, the left part of a regular
+     assignment,  may  appear  to  the  left of the <==; only an sw is
+     permitted.
+
+1.j.4 storage word modification
+
+     the storage modification operation may be unary or  binary.   the
+     unary operations are represented by
+
+     sw -_
+     sw abs_
+     sw bnot_
+
+     that is, a storage word followed by any of the  unary  arithmetic
+     operators,  followed by a back arrow.  the specified operation is
+
+                                                              PAGE  16
+
+
+
+     performed on the sw, so that, for example, sw-_ is equivalent  to
+     sw_-sw (but produces more efficient code).
+
+     the binary arithmetic operators, excluding  the  shift  operators
+     and  mod,  may  similarly  be  used  for storage modification, as
+     follows:
+
+     sw+_ae
+
+     in this case, sw is incremented by the value of ae.
+
+     when used as primaries, these constructions are evaluated as  the
+     modified  value  of  the  storage word; however, they may also be
+     used as statements in themselves.
+
+1.k.  functions and other operators
+
+1.k.1 character and half word handling
+
+1.k.1.1 ch (and hw)
+
+     ch is  a  function  that  takes  two  arithmetic  expressions  as
+     arguments; that is,
+
+     ch(ae1,ae2)
+
+     it returns the value of the character (the size  of  which  is  a
+     machine  dependency)  located  ae2  character  positions from the
+     first character of the word addressed by ae1.  in other words,
+
+     ae1 is the word address
+     ae2 is the character displacement
+
+     the second argument may be omitted, in which case it  is  assumed
+     to be zero; ch(ae) is equivalent to ch(ae,0).
+
+     example 1 (machine dependent - sigma 7):
+
+     if the value of the simple variable a  is  hex  12345678,  ch(@a)
+     equals hex 12 and ch(@a,1) equals hex 34.
+
+     example 2:
+
+     the statement
+
+     ts_'abcdef'
+
+     stores the value of the string constant 'abcdef'  in  ts.   since
+     this value is the address of the first word of the string, ch(ts)
+
+                                                              PAGE  17
+
+
+
+     equals  $a  (whatever  is  the  internal  representation  of  the
+     character a), and ch(ts,5) equals $f.
+
+     the above examples use the ch construction  as  a  primary  whose
+     value is the character addressed; however, it can also be used to
+     set a character to a value.  for example, the assignment
+
+     ch(ts,1)_$g
+
+     stores the internal representation of  the  character  g  in  the
+     second  character  position of the string 'abcdef'.  thus, the ch
+     construction can also be used as an  lp,  the  left  part  of  an
+     assignment.
+
+     half words  are  handled  in  a  perfectly  analogous  way.   the
+     function is hw rather than ch; ae2 is a half word displacement.
+
+1.k.1.2 chpt (and hwpt)
+
+     chpt is a function that takes the same type of arguments  as  the
+     ch function, that is,
+
+     chpt(ae1,ae2)
+     or
+     chpt(ae1) if ae2=0
+
+     where  ae1  is  the  word  address  and  ae2  is  the   character
+     displacement.
+
+     the value returned is a character pointer which may then be  used
+     with the chv, nchv or pchv operator, described below.  the actual
+     value need not be known and should not be altered by the user.
+
+     the chpt construction may also be used as an lp, the left part of
+     an assignment.
+
+     chpt (sw1,sw2)_ae
+
+     where the value of ae is a character pointer, assigns to sw1  the
+     corresponding   word   address,   and   to   sw2,  the  character
+     displacement (a value between 0 and chars.per.word-1).
+
+     the hwpt function is perfectly analogous to chpt, with half  word
+     rather than character displacement.
+
+1.k.1.3 chv (and hwv)
+
+     chv is a unary operator that operates  on  a  storage  word  (sw)
+     whose  value  is  the  character  pointer  that the chpt function
+
+                                                              PAGE  18
+
+
+
+     returns.
+
+     chv returns the character to which its argument points; that  is,
+     if ptr=chpt(ae1,ae2), then chv ptr = ch(ae1,ae2).
+
+     the chv construction can be used in the same ways that ch  can  -
+     as  a  prim or as an lp (the left part of an assignment).  the ch
+     description (above) includes an explanation and  illustration  of
+     this.
+
+     hwv is the corresponding operator for half word handling.
+
+1.k.1.4 nchv (and nhwv)
+
+     nchv is a unary operator that operates on  a  storage  word  (sw)
+     whose  value  is  the  character  pointer  that the chpt function
+     returns.  nchv sw increments sw so that it  points  to  the  next
+     character  and returns that character (the chv of the incremented
+     character pointer).
+
+     the nchv construction can be used in the same ways that  the  chv
+     construction  can: as a primary (evaluated as the next character)
+     or as the left part of an assignment (where it may be used to set
+     the  next  character  to  a  particular value).  for example, the
+     statements
+
+     ts_'abcdef'
+     p_chpt(ts,-1)
+
+     store in p the pointer  to  the  character  preceding  the  first
+     character of the string 'abcdef' (displacement of -1), so that
+
+     1.  used as a primary, nchv p would have the value $a;  its  next
+          use would be evaluated as $b, and so on.
+
+     2.  used as an lp (the left part of an assignment), nchv p  would
+          store the specified value in the first character position of
+          the string; its next such use  would  store  into  the  next
+          position, and so on.
+
+     a third use of the nchv sw construction  is  as  a  statement  in
+     itself, in which case it simply increments the pointer sw so that
+     it points to the next character.
+
+     for corresponding half word handling, use nhwv sw, where  sw  has
+     the  value  of  the  half  word  pointer  hwpt(ae1,ae2);  it will
+     increment sw and refer to the next half word.
+
+                                                              PAGE  19
+
+
+
+1.k.1.5 pchv (and phwv)
+
+     the constructions pchv sw and phwv sw are perfectly analogous  to
+     nchv  sw and nhwv sw; they decrement rather than increment sw, to
+     return the previous rather than the next character or half word.
+
+1.k.2 bit field manipulation
+
+1.k.2.1 byt function
+
+     byt is a function that returns  a  byte  of  any  size  from  any
+     position in a word.  it takes three arguments:
+
+     byt(ae,ae1,ae2)
+
+     the value of ae is the word, and
+
+     ae1 is the field width (number of bits in the byte)
+     ae2 is the bit displacement from the right (positive only)
+
+     for example, if the following is a diagram of the variable a,
+
+       hex c           hex 2a1          hex 6bf2
+       4 bits          12 bits          16 bits
+
+     then byt(a,4,28)=hex c, byt(a,12,16)=hex 2a1, and byt(a,16,0)=hex
+     6bf2.
+
+     the byt construction may be used as a primary, in which  case  it
+     is  evaluated as explained above, or it may be used to set a byte
+     to a value (as an lp, or left part  of  an  assignment).   as  an
+     example of the latter, consider the statement
+
+     byt(a,4,28)_hex f
+
+     which stores the value hex f in the byte referenced  by  byt(a,4,
+     28).  note that when the byt construction is used as a left part,
+     its form must be
+
+     byt(sw,ae1,ae2)
+
+1.k.2.2 word packing and unpacking
+
+     the simpl construction
+
+     [konex1,konex2,...,konexn]*[ae1,ae2,...,aen]
+
+     is a primary that returns the value of the word formed by packing
+     the  values  of the listed arithmetic expressions into bit fields
+
+                                                              PAGE  20
+
+
+
+     whose widths are specified by the  listed  constants.   in  other
+     words,  the  first konex1 bits of the word will hold the value of
+     ae1, the next konex2 bits, the value of ae2, and so on.  the  sum
+     of  the  constants  must  be  the total number of bits in a word.
+     each aei is evaluated in the usual way (i.e., as a  word  value);
+     konex1  bits are taken from the right of the value, so that an ae
+     value too large for its field will be truncated from the left.
+
+     example 1:
+
+     [4,12,16]*[hex c,x,^ptr+1]
+
+     where x=hex 2a1 and ^ptr+1=hex 6bf2, returns  the  value  of  the
+     variable a as diagrammed in the byt function description, above.
+
+     the construction
+
+     [konex1,konex2,...,konexn]*[lp1,lp2,...,lpn]
+
+     can be used as an lp (left part of an assignment) to  unpack  bit
+     fields  from  a  word.  the value of the ae (of lp_ae) is divided
+     into n bit fields as specified by the listed constants,  and  lpi
+     is assigned the value in its corresponding field.  the sum of the
+     constants must be bits.per.word.
+
+     example 2:
+
+     assume that the variable a has the value  of  the  primary  shown
+     example 1.  then
+
+     [4,12,16]*[x,y,z]_a
+
+     assigns hex c to x, hex 2a1 to y, and hex  6bf2  to  z.   suppose
+     that we want to assign the value of only the second field of a:
+
+     [4,12,16]*[,y,]_a
+
+     assigns hex 2a1 to y.  an lp1 was not  specified,  so  the  first
+     four bits of a were not assigned to a left part.  the third field
+     was also ignored, since a third left part was not listed.
+
+1.k.3 terminal input and output - tty
+
+     tty is a function with  no  arguments.   it  may  be  used  as  a
+     primary,  in  which case it accepts a character of input from the
+     terminal and is evaluated as the internal representation  of  the
+     character read.  for example:
+
+                                                              PAGE  21
+
+
+
+     char_tty
+
+     reads a character from the terminal and stores its value in char.
+
+     tty may also be used as follows:
+
+     tty_ae
+
+     where it is an lp, or left part of an assignment.  in this  case,
+     the  character  represented  by the value of the ae is printed on
+     the terminal.  thus, if char has the value $a,
+
+     tty_char
+
+     prints an a on the terminal.
+
+1.l.  primary (prim)
+
+     several simpl constructions described in this section  have  been
+     classified  as  primaries  (prim),  and  it  has been stated that
+     certain operators can take only primaries as their operands.
+
+     listed here are all those constructions which constitute the prim
+     category   and   examples   of   each.    this  is  an  important
+     classification,  since  it  is  from  primaries  that  arithmetic
+     expressions  are  built,  and  therefore  relational  and logical
+     expressions as well.
+
+      1.      constant (kon) -  $a,17
+      2.      storage word reference (sw) - b, ^ptr(i)
+      3.      unary operator with its operand - abs prim, -17, nchv
+              sw, @var(j1)
+      4.      function with its argument list, if any -
+              ch(@a), byt(q,5,6), tty
+              special word packing function -
+                         [4,12,16]*[hex c,x,^ptr+1]
+      5.      arithmetic expression in parentheses - (i+3),
+              (trm band s(i))
+      6.      relational expression in square brackets (value of 1 if
+              true, 0 if false) - [b=3], [not sym(iw)<c]
+      7.      conditional expression - if b<7 then j else j+1
+      8.      assignment operation - i_sym(loc)-j
+      9.      deferred assignment - x<==y
+     10.      storage word modification - b-_,cnt+_d+2
+     11.      procedure calls (explained in section 4) -  clr,
+              typ2(val)
+
+     note that a prim may be parenthesized whenever desired;  it  will
+     still qualify as a prim.
+
+                                                              PAGE  22
+
+
+
+1.m.  doubleword manipulation
+
+1.m.1 doubleword arithmetic expression
+
+     the doubleword arithmetic expression, or dae, yields a doubleword
+     value  that can be assigned to a double left part (see below).  a
+     simple form of the dae is
+
+     [ae1;ae2]
+
+     where ae1 is the most significant, and ae2 the least  signficant,
+     word of the value.  for example,
+
+     [-1;0]
+     [a;x*y]
+
+     the operators used in forming doubleword  arithmetic  expressions
+     are  explained  below.   note  the different operand types: dmul,
+     moddiv and divmod operate only on  aes  (single  word  arithmetic
+     expressions),  while  each of the remaining operators takes a dae
+     as its first argument.  all return doubleword values.
+
+     expression (dae):                    result:
+
+     ae1 dmul ae2                  doubleword product of ae1 and ae2
+     ae1 moddiv ae2                modulo division.  most significant
+                                   word of result is remainder; least
+                                   significant is quotient.  (more
+                                   efficient than divmod on certain
+                                   machines, such as sigma 7)
+     ae1 divmod ae2                modulo division.  most significant
+                                   word of result is quotient; least
+                                   significant is remainder.  (more
+                                   efficient than moddiv on certain
+                                   machines, such as pdp-10)
+
+     dae dmoddiv ae                same result as moddiv
+     dae ddivmod ae                same result as divmod
+     dae dshl ae                   doubleword logical left shift
+     dae dshr ae                   doubleword logical right shift
+     dae drotl ae                  doubleword circular left shift
+     dae drotr ae                  doubleword circular right shift
+
+     examples:
+
+     cp divmod ebufsz
+     [x,y] dmoddiv b
+     c dmul fpc dshl 2
+
+                                                              PAGE  23
+
+
+
+     to improve the readability of an  expression  such  as  the  last
+     example  above,  simpl allows any dae to be parenthesized; thus c
+     dmul fpc dshl 2 may also be typed as (c dmul fpc) dshl 2.
+
+     the second operand of the shift operators (the ae) specifies  the
+     shift  count  and  must  have a positive value.  a negative shift
+     count yields unpredictable results.
+
+     another form of the doubleword arithmetic  expression  is  double
+     preceding a call to a procedure that terminates with a return dae
+     statement.  in addition, daes can be passed  as  arguments  to  a
+     procedure.  additional details are included in the description of
+     procedures, in section 4 of this document.
+
+1.m.2 doubleword assignment
+
+     the doubleword assignment construction is
+
+     dlp_dae
+
+     where dlp, the double left part, takes the form  [lp1,lp2].   the
+     most  significant  word  of dae is assigned to lp1, and the least
+     significant to lp2.  this  construction  classifies  as  a  simpl
+     statement  or as a dae.  note that since the dae of dlp _ dae may
+     be another  doubleword  assignment,  whose  dae  may  be  another
+     assignment, and so on, the following construction is permitted:
+
+     dlp1 _ dlp2 _ ...dlpn _ dae
+
+     with the result that dae is assigned to each of the dlps listed.
+
+     either lp of the dlp may be omitted, as in
+
+     [lp;] _ dae dmoddiv ae
+
+     where the remainder of the division of dae by ae is stored in the
+     specified  left  part.   similarly,  [;lp]  can  be used as a dlp
+     reference to the least significant word  of  a  doubleword  value
+     (the quotient, in the above example).
+
+     note: neither ae of the dae form [ae1;ae2] may be omitted.
+
+
+                                                              PAGE  24
+
+
+
+                              section 2
+                          program structure
+
+
+2.a.  statement delimiters
+
+     a simpl program is made up of statements,  usually  separated  by
+     carriage  returns.   successive  occurrences of a certain type of
+     statement, known as the sst or short statement, may be  separated
+     by  semicolons rather than carriage returns if desired.  a subset
+     of simpl statements will be classified in this document as  ssts;
+     one of them is the assignment statement.  thus, the statements
+
+     i_1
+     a2_0
+     newchar(j)_6
+
+     may alternately be typed as:
+
+     i_1; a2_0; newchar(j)_6
+
+     a label may appear at the beginning  of  this  line,  before  the
+     statement  i_1.   but  the  other  statements cannot be labelled,
+     since a label may never appear in mid-line.
+
+2.b.  compound statements
+
+     several simpl statements may  be  compounded  to  form  a  single
+     statement.
+
+2.b.1 compounding short statements
+
+     short statements may be compounded as follows:
+
+     [sst1;sst2;...;sstn]
+
+     a label is not permitted within the brackets.
+
+     this construction is  itself  classified  as  an  sst.   thus  an
+     example of the if statement, whose simplest general form is if le
+     then statement, is
+
+     if ik=0 then [j_1;k(i)_i]
+         le          sst
+
+     note that without the surrounding brackets, the semicolon  serves
+     merely to separate the ssts as does the carriage return.  thus,
+
+                                                              PAGE  25
+
+
+
+     if ik=0 then j_1;k(i)_i
+          sst           sst
+
+2.b.2 compounding with do...end
+
+     any simpl statements may be compounded through  the  use  of  the
+     do...end construction, which takes the form
+
+     do
+     statement1
+     statement2
+      ...
+     statementn
+     end
+
+     any of the statements compounded in this  way  may  be  labelled.
+     the  only  restriction  is that on labelling in general - a label
+     must appear at the beginning of a line.  if  the  statements  are
+     ssts  (short  statements), they may be separated by semicolons if
+     desired, but a carriage return must follow do and precede end.
+
+     the do...end construction itself is considered a single statement
+     and  can therefore be labelled, compounded, and whatever else can
+     be done with a simpl statement.  note, however, that it does  not
+     fall into the sst classification.
+
+     example:
+
+          a compound statement may follow  the  word  then  in  an  if
+     statement, so that the following is allowed:
+
+     if pl then do
+     j_1
+     k_[pl>=1]
+     i(k)_pl
+     end
+
+2.c.  line continuation -&
+
+     an & followed by a carriage return is ignored by  simpl,  thereby
+     allowing  program  line  continuation over any number of physical
+     lines.  for example,
+
+     l1: if i=0 then j0 else &
+          p(i)_rcdpnt(_i)
+
+     is read by simpl exactly as though it had been entered as
+
+                                                              PAGE  26
+
+
+
+     l1: if i=0 then j_0 else p(i)_rcdpnt(i)
+
+     note that & does not allow the user to have labels  in  mid-line;
+     in the example here, a label cannot precede p(i) when the line is
+     continued just as it cannot when line continuation is not used.
+
+2.d.  comments -!
+
+     program comments may be entered using the exclamation point.   to
+     enter  a  comment  at  the  end  of  a  line,  precede it by a !.
+     anything typed between the ! and the end of the line (except  for
+     another !; see below) will be ignored.  for example,
+
+     dctptr_@dcttbl(0) !the dictionary ptr
+
+     any characters typed  between  exclamation  points  are  ignored,
+     thereby  allowing  comments  to  be  entered  in  mid-line.   for
+     example,
+
+     dctptr !the dictionary ptr! _@dcttbl(0)
+
+     the second exclamation point indicates the end of the comment.
+
+                                                              PAGE  27
+
+
+
+                              section 3
+                         statements of simpl
+
+3.a.  declaration statements
+
+3.a.1 local declaration
+
+     the local statement is used to declare variables and  procedures,
+     which must always be declared, and labels, which may be declared.
+     details on the declaration of any of these language elements  may
+     be found in the section describing that element.
+
+     the general form of the local statement is
+
+     local d1
+         or
+     local d1,d2,...,dn
+
+     where di may be any of the declarations listed below.
+
+       general form:            element declared:
+
+       id                         simple variable
+       id(konex1:konex2)          array with subscript range
+                                  konex1 to konex2
+       id(konex)                  array with subscript range 1 to 
+                                  konex
+       id()                       floating array
+       id:                        label
+       %id                        procedure
+
+     the declaration of a simpl  language  element  must  precede  its
+     first use.  redeclaration (successive declarations using the same
+     identifier) is not permitted.
+
+3.a.2 table statement
+
+     the table statement may be used to  declare  read-only  variables
+     and  arrays  and  fill them with specified constant values (which
+     cannot be changed).  the constant values may  be  represented  by
+     the  konex  construction (such as bits.per.word/2) or by a string
+     constant (such as "abcde").  the table statement takes the form:
+
+     table d1
+        or
+     table d1,d2,...,dn
+
+     where di may be any of the declarations explained below.
+
+                                                              PAGE  28
+
+
+
+     to declare a simple variable id and set it to the value of konex,
+     enter the declaration
+
+     id[konex]
+
+     in the table statement; for example,
+
+     table x[0]
+
+     to declare an array and set its elements to  a  list  of  values,
+     first enter the array declaration as it would appear in any other
+     declaration statement; that is, id(konex1:konex2)  or  id(konex).
+     follow  this  immediately  by  a  list  of  constants enclosed in
+     brackets, for example,
+
+     table abc(0:3)[1,2,3,0]
+
+     if fewer constants are listed than array elements declared, simpl
+     fills  the  rest  of the constant list with zeroes.  thus, in the
+     above example, the closing bracket could  follow  the  3  in  the
+     constant  list,  and  abc(3)  would  still  be  initialized to 0.
+     listing more constants than elements declared  is  considered  an
+     error by simpl.
+
+     the   constant   list   may   also   include   the   construction
+     konex1(konex2),  which  indicates  the  repetition  of  the value
+     konex2, konex1 times.  for example,
+
+     table fcb(8)[3,0,0,0,0,0,0,1]
+
+     can more easily be entered as follows:
+
+     table fcb(8)[3,6(0),1]
+
+3.a.3 global and find
+
+     a number of simpl source files can  be  compiled  separately  and
+     loaded  together  in  such  a  way  that  they  share procedures,
+     variables and other language elements.  two types of  declaration
+     statements  must  be used to accomplish this sharing of elements:
+     global and find, which take the same form as the local statement:
+
+     global list of declarations
+     find list of declarations
+
+     the global statement must be used in  place  of  local  when  the
+     declared  element is to be referenced from another file (that is,
+     when it is to be shared).  similarly, the find statement must  be
+     used  to declare that an element is to be found elsewhere than in
+
+                                                              PAGE  29
+
+
+
+     the current file; the simpl loader will search  the  other  files
+     entered for a global statement declaring that element.
+
+     it  is  not  necessary,  in  finding  an  array,  to  enter   the
+     declaration  exactly  as  it appears in the global statement.  as
+     long  as  there  is  a  constant  within  the  parentheses  -  to
+     distinguish it from a floating array, whose declaration is id() -
+     the array will be found.  for example, an array declared as
+
+     global head(0:100)
+
+     may be found with
+
+     find head(0:100)
+
+     or just
+
+     find head(0)
+
+     or find head followed by any parenthesized constant.
+
+     table statements may also be globally declared; for example
+
+     global table comwd(4)['edit', 'list', 'run', 'zzzzz']
+
+     which may be found by
+
+     find comwd(1)
+
+3.a.4 base statement
+
+     when the subscript lower limit  is  not  specified  in  a  local,
+     global  or table array declaration, the limit is normally assumed
+     to be 1; that is,
+
+     local id(50)
+
+     is equivalent to local id(1:50).  however, the base statement may
+     be  used  to  change  the  default  lower  limit  to  a specified
+     constant.  
+
+     base konex
+
+     sets the default lower limit to the value of konex.  for example,
+     base  0  causes  local id(50) to be equivalent to local id(0:50).
+     the specified limit applies to all subsequent array  declarations
+     and may be changed at any time by another base statement.
+
+                                                              PAGE  30
+
+
+
+3.b.  value manipulation
+
+     the statements described here are ssts  (short  statements)  that
+     can  be  used to store values into a word, doubleword, half word,
+     character, or bit field, exchange and move values, and  increment
+     or decrement the value of a storage word.
+
+     most of these constructions can also be  used  as  primaries,  as
+     explained in section 1.
+
+3.b.1 assignment statement
+
+     the assignment statement takes the form
+
+     lp_ae
+
+     and stores the value of the  ae  (an  arithmetic  expression)  in
+     whatever  is specified by the lp, or left part.  the following is
+     a complete list of legal left parts:
+
+      1.      storage word reference (sw).
+
+      2.      character and half word references:
+
+              ch(ae1,ae2)      hw(ae1,ae2)
+              chpt(sw1,sw2)    hwpt(sw1,sw2)
+              chv sw           hwv sw
+              nchv  sw         nhwv sw
+              pchv sw          phwv sw
+
+      3.      bit field references:  byt(sw,ae1,ae2) and
+              [konex1,konex2,...,konexn]*[lp1,lp2,...,lpn]
+
+      4.      tty, designating terminal output; for example, tty_$a
+              prints out the  character a.
+
+     since the assignment construction also qualifies  as  a  primary,
+     the  ae  of  lp_ae  may  be  another  assignment, whose ae may be
+     another assignment, and so on, allowing the construction:
+
+     lp1_lp2_...lpn_ae
+
+3.b.2 doubleword assignment statement
+
+     the doubleword assignment statement takes the form
+
+     dlp _ dae
+
+                                                              PAGE  31
+
+
+
+     and stores the value of dae (a doubleword arithmetic  expression)
+     in the specified double left part, dlp, which may take any of the
+     forms
+
+     [lp1;lp2]
+     [lp1;]
+     [;lp2]
+
+     lp1 is assigned to  the  most  significant,  and  lp2  the  least
+     significant, word of the dae.  since the doubleword assignment is
+     itself classified as a dae, the following type of construction is
+     permitted:
+
+     dlp1_dlp2_..._dlpn_dae
+
+     where dae is assigned to each of the dlps listed.
+
+     further information on doubleword manipulation may  be  found  in
+     section l.
+
+3.b.3 storage word modification
+
+     the operation performed by a storage word modification  statement
+     may be unary or binary.
+
+     an sw followed by any unary arithmetic operator,  followed  by  a
+     back arrow, causes the specified operation to be performed on the
+     sw.  thus, sw-_ negates the contents of sw.
+
+     the binary arithmetic operators, excluding  the  shift  operators
+     and  mod,  may  similarly  be  used  for storage modification, as
+     follows:
+
+     sw+_ae
+
+     in this case, sw is incremented by the value of ae.
+
+     this construction also qualifies as a primary; thus,
+     a_b bnot_
+
+     leaves the 1's complement of b in both b and a.
+
+3.b.4 exchange statement
+
+     the exchange statement takes the form
+
+     sw1<=>sw2
+
+                                                              PAGE  32
+
+
+
+     and exchanges the values of the specified storage words.
+
+
+3.b.5 move statement
+
+     the move statement may be used to move a number  of  values  from
+     one set of consecutive locations to another, as follows:
+
+     move ae1 from ae2 to ae3
+
+     ae1 specifies how many values are to be moved.
+     ae2 is the address from which to move the first value.
+     ae3 is the address to which to move the first value.
+
+     for example,
+
+      local blk(0:49),test(100)
+      .
+      .
+      .
+      move 50 from blk to test+1
+
+     replaces test(1) by the value of blk(0), test(2) by  blk(1),  and
+     so  on,  until  50  values have been moved.  this statement could
+     also have been written as
+
+     move 50 from @blk(0) to @test(1)
+
+     the move statement may also be used to store a  single  specified
+     value in a number of consecutive locations, as follows:
+
+     move ae1 from all ae2 to ae3
+
+     ae2 specifies the value to be moved.  for example,
+
+     move n from all 0 to stp
+
+     stores 0 in stp(0) to stp(n-1).
+
+3.b.6 inc and dec
+
+     inc sw
+
+     increments the specified storage word.
+
+     dec sw
+
+     decrements the specified storage word.
+
+                                                              PAGE  33
+
+
+
+3.b.7 nchv and nhwv
+
+     the nchv statement takes the form
+
+     nchv sw
+
+     where sw is a storage word whose value is a character pointer (as
+     returned  by  the  chpt  function;  see  section 1.k.1).  nchv sw
+     increments sw so that it points to the next character.
+
+     nhwv sw
+
+     is the corresponding statement for half  word  handling  (a  half
+     word pointer is returned by the hwpt function).
+
+3.b.8 pchv and phwv
+
+     the statements pchv sw and phwv sw  are  perfectly  analogous  to
+     nchv  sw and nhwv sw: they decrement rather than increment sw, to
+     point to the previous rather than  the  next  character  or  half
+     word.
+
+3.c.  transfer of control
+
+3.c.1 unconditional transfer: go
+
+          the go statement may take either of the forms
+
+          go id
+             or
+          go ^prim
+
+          the first form transfers control to the  statement  labelled
+          id:.   when  the  second form is used, the location to which
+          the transfer is made is the value of prim (a primary).   for
+          example,
+
+          local a,lab1:,lab2:
+          a_lab1 !necessitates declaration
+          go ^a !same as go lab1
+          a_lab2
+          go ^a !same as go lab2
+          lab1: statement
+          lab2: statement
+
+          the variable a is assigned the value of lab1, so that go  ^a
+          branches to the statement labelled lab1.  a is then reset to
+          lab2, changing the effect of go ^a.  note  that  the  actual
+          value of a label need not be known and should not be altered
+
+                                                              PAGE  34
+
+
+
+          by the user.  it is very unlikely, for example, that a label
+          value  plus  1  will  address the next statement.  when then
+          might the prim of go ^prim be  some  arithmetic  expression?
+          consider the following case: the user has stored in an array
+          named w some data (which are machine instructions)  that  he
+          wishes  to  branch  to.   since  w  is evaluated as the base
+          address of the array, the statement
+
+               go ^(w+i)
+
+          will branch to the ith entry in the array w.
+
+3.c.2 case statement
+
+          the case statement takes the form
+
+          do ae of konex1:konexn
+          statements (some labelled with constants  that  lie  in  the
+          range konex1 to konexn)
+          end
+
+          konex1:konexn indicates the range of expected values of  the
+          ae,  an arithmetic expression; if the ae should have a value
+          out of this range, the results will be unpredictable.  simpl
+          evaluates the ae and then searches within the case statement
+          for a statement labelled with a konex  whose  value  is  the
+          value  of  the  ae.   if  found,  control  transfers to that
+          statement and execution continues sequentially with the next
+          statement  until  another  constant  label or the end of the
+          case statement  is  encountered.   unless  a  statement  was
+          executed  that transferred control elsewhere, execution then
+          continues with the statement following  the  case  statement
+          (that  is, following the end).  if a statement labelled with
+          the value of the ae is not found within the case  statement,
+          simpl does nothing but continue execution with the statement
+          following the end.  konex1 need  not  be  specified  if  its
+          value is 1; that is,
+
+          do ae of konex
+
+          is equivalent to
+
+          do ae of 1:konex
+
+          example:
+
+               do lob of 6
+               2: 4:  5:  go rtest
+               1:         lab _ gen(sum)
+
+                                                              PAGE  35
+
+
+
+                          inc gsum
+               3:         brf(blp) _ lab
+               6:         val _ 0
+               end
+
+          if the value of lob is  2,  4,  or  5,  a  transfer  to  the
+          statement  labelled  rtest  is  made.   if lob equals 1, the
+          statements lab_gen(sum) and inc gsum are executed,  followed
+          by  whatever follows the end.  similarly, if lob equals 3 or
+          6, the statement so labelled is executed and simpl  proceeds
+          with the statement after the end.
+
+          note that the above example illustrates multiple labels on a
+          statement,  a useful construction within the case statement.
+          note also that the constant labels need not  appear  in  any
+          particular order.
+
+          constant labels  are  permitted  nowhere  else  in  a  simpl
+          program  other  than  within  a  case  statement.   the same
+          constant label may appear within different  case  statements
+          in the same program; each case statement searches only up to
+          its own end for a constant label.  since  go  konex  is  not
+          permitted  by  simpl,  a  branch to any statement within the
+          case statement implies that that statement must be  labelled
+          with  an  identifier.   for  example, suppose that the above
+          example is to be extended  so  that  if  lob  equals  1,  an
+          additional  statement,  val_0,  is  to  be  executed.  val_0
+          already  appears  within  the  case  statement  and  can  be
+          branched to as follows:
+
+               do lob of 6
+               2: 4: 5:  go rtest
+               1:        lab _ gen(sum)
+                         inc gsum; go tp
+               3:        brf(blp) _ lab
+               6: tp:    val _ 0
+               end
+
+          here we have added go tp (taking the option to  separate  it
+          from  inc  gsum  with  a  semicolon  rather  than a carriage
+          return).  the statement labelled 6:  is  now  also  labelled
+          tp:.
+
+          the user may branch  from  outside  the  case  statement  to
+          anywhere  within  it;  the  subsequent  transfer  of control
+          follows the same rules as when a  "normal"  entry  into  the
+          case  statement is made.  thus, if the statement labelled 3:
+          in the above example were changed to
+
+                                                              PAGE  36
+
+
+
+          abc: 3: brf(blp)_lab
+
+          then go abc  appearing  outside  the  case  statement  would
+          transfer  control  here.   brf(blp)  would be set to lab and
+          execution would continue with the  statement  following  the
+          end.
+
+          note that since a constant label terminates execution within
+          the case statement (by transferring control to the statement
+          following the end), simpl will not proceed  from  any  line,
+          even  a blank line, to one that is labelled with a constant.
+          for example, if the case statement appears in part as:
+
+          do char of $a:$z
+          $q:$r:$z:
+          $l:$m:$n: go ntch
+          .
+          .
+          .
+          end
+
+          and char equals $q,$r or $z, the effect will be the same  as
+          if those three labels were excluded from the case statement:
+          control would transfer to the statement after the end.  note
+          that this is equivalent to omitting the labels $q:, $r:, and
+          $z from within the case statement.
+
+          simpl reacts unpredictably if the value of the ae  does  not
+          lie  within  the  specified  range.   it is, however, simple
+          enough  to  check  for  this  condition  by  using  the   if
+          statement; for example,
+
+          if $a<=char<=$z then do char of $a:$z
+          .
+          .
+          .
+          end else go inp.err
+
+          a complete description of the if statement can be  found  in
+          section 3.d.2.
+
+3.d.  conditional statements
+
+3.d.1 the stmt classification
+
+          the discussion of conditional and  loop  control  statements
+          will  refer  to  the stmt classification.  this includes the
+          following constructions:
+
+                                                              PAGE  37
+
+
+
+               1.    any sst, or short statement.  remember that
+                     this includes the construction [sst1;...;sstn]
+               2.    the if statement, explained below.
+               3.    the case statement.
+               4.    a compound statement formed by using
+                     do...end.  remember that any statements
+                     can be compounded in this way.
+
+3.d.2 if statement
+
+          the if statement takes the form
+
+          if le then stmt1
+               or
+          if le then stmt1 else stmt2
+
+          if the logical expression (le) specified is true,  stmt1  is
+          executed;  unless  stmt1  caused  a  transfer  of control to
+          another statement, execution continues  with  the  statement
+          following  the  if  statement.  if the le specified is false
+          and an else clause is not provided, simpl continues with the
+          next  statement.   if  the le is false and an else clause is
+          provided, stmt2 is executed; execution  continues  with  the
+          next statement unless stmt2 transferred control elsewhere.
+
+          example 1:
+
+          if x=asym then x_0
+          y_0
+
+          if x equals asym, x is set to 0; if x does not  equal  asym,
+          its value is unchanged.  in either case, y is then set to 0,
+
+          example 2:
+
+          if i>a or j<b then [lc(i)_1;r(tr)_tr] else go l2
+
+          if the expression i>a or j<b is true, the compound statement
+          [lc(i)_1;r(tr)_tr]  is  executed,  followed by the statement
+          after the if statement.  if the expression is false, control
+          transfers to the statement labelled l2.
+
+          an if statement qualifies as an sst (short  statement)  only
+          if all of the statements contained within it are ssts.
+
+          since the  then  or  else  clause  may  contain  another  if
+          statement,  which  may  contain another if statement, and so
+          on, constructions like the following are possible:
+
+                                                              PAGE  38
+
+
+
+          if ...  then ...  else if ...  then ...
+          if ...  then ...  else if ...  then ...  else ...
+          if ...  then if ...  then ...  else ...
+
+          note that the else clause in the last example is part of the
+          second  if  statement; it matches the then clause closest to
+          it.  the rule for matching then and else clauses is  similar
+          to  the rule for matching parentheses: they are matched from
+          the inside out.
+
+          suppose that a construction is desired  like  the  last  one
+          listed above but with the else matching the outer then.  two
+          solutions are possible:
+
+          if ...  then if ...  then ...  else null else ...
+
+          a dummy else clause (null does  nothing  )  is  inserted  to
+          match  the  inner then so that the other else clause matches
+          the outer then.  or, if the statement  following  the  inner
+          then  is  an  sst,  it may be enclosed in square brackets (a
+          "compound statement" only one statement long); that is,
+
+          if ...  then [if ...  then ...]else ...
+
+3.d.3 eif statement
+
+          the eif statement takes the form
+
+               eif le1 then stmt1
+               orif le2 then stmt2
+               .
+               .
+               .
+               orif len then stmtn
+                fif le then stmt
+                   or
+                else stmt
+
+          eif and fif are mnemonics for "either if" and "finally  if".
+          the  construction  must  begin with eif.  the orif lines are
+          optional, and the ending line must begin with either fif  or
+          else.
+
+          the first logical expression is evaluated.  if it  is  true,
+          stmt1 is executed; unless stmt1 caused a transfer of control
+          to another statement, execution continues with the statement
+          following  the  eif  statement.   if  the le is false, simpl
+          proceeds to the next line and evaluates its le.  when a true
+          logical  expression is found, the corresponding statement is
+
+                                                              PAGE  39
+
+
+
+          executed and simpl transfers out of the  eif  statement.   a
+          false  le  causes  the next line to be examined.  if all the
+          les listed are false, and the construction ends with an else
+          line,  the  else statement is executed.  if there is no else
+          line (that is, if the ending line begins  with  fif),  simpl
+          will  naturally  fall through to the statement following the
+          eif statement if all the les are false.
+
+          example:
+
+               eif type(i2)#2 then go err
+               orif wtp=4 then [appl_abq;j_0]
+               orif wtp=5 then bppl_abq
+               else go chk
+
+          the effect of this  construction  can  be  achieved  through
+          nested  if  statements,  but  the latter is easily liable to
+          appear complicated and difficult to read, especially if  any
+          of  the  statements  contained  within  is  long  (such as a
+          do...end  compounded  statement).   the  eif  statement   is
+          provided  as a more convenient method of testing a number of
+          conditions.
+
+          any of the lines in the eif statement may be labelled.   the
+          user  may  branch from outside the eif statement to anywhere
+          within it; simpl does not disallow entering the construction
+          at an orif (or fif) rather than at the eif.
+
+          note that the eif statement falls into neither the  sst  nor
+          the stmt classification.
+
+3.e.  loop control statements
+
+3.e.1 while statement
+
+          the while statement takes the form
+
+          while le then stmt
+
+          the statement following then is executed and  reexecuted  as
+          long  as  the logical expression (le) specified is true.  as
+          soon as the le becomes false, execution continues  with  the
+          statement following the while statement.  for example,
+
+          sum_i_0
+          while inc i<=n then sum_sum+a(i)
+
+          after these two statements are executed,  sum  contains  the
+          sum  of  array elements a(1) through a(n), and i is equal to
+
+                                                              PAGE  40
+
+
+
+          n+1.
+
+          a while statement qualifies as an sst (short statement) only
+          if the statement following then is an sst.
+
+3.e.2 repeat statement
+
+          the repeat statement takes the form
+
+          repeat ae stmt
+
+          it executes the statement stmt as many times as specified by
+          the value of the arithmetic expression ae.  for example, 
+
+          repeat llen tty_nchv ptr
+
+          the ae is evaluated only once, when the statement  is  first
+          encountered;  any  change  made  to  its  value  during loop
+          execution has no effect on the repeat count.
+
+          the repeat statement qualifies as an sst  (short  statement)
+          if the statement to be repeated is an sst.
+
+3.e.3 for statement
+
+          the simplest form of the for statement is
+
+          for sw_itpt stmt
+
+          where itpt, the iteration part, specifies  those  values  of
+          the  storage  word  sw for which the statement stmt (the for
+          "loop") is to be executed.  for example,
+
+          sum_0
+          for i_1 to 10 sum_sum+a(i)
+
+          stores in sum the sum of array elements a(1) to a(10).
+
+          the general form of the itpt is
+
+          ae1 by ae2 to ae3
+                  or
+          ae1 to ae3 by ae2
+
+          ae1 is an arithmetic expression specifying the initial value
+          to  be  assigned to sw.  ae2 specifies the value by which sw
+          is incremented as long as the result is less than  or  equal
+          to the limit a3.
+
+                                                              PAGE  41
+
+
+
+          the for loop is executed each time  the  sw  is  assigned  a
+          value.   the  value  of  the sw upon falling through the for
+          statement is the last value of sw  for  which  the  loop  is
+          executed.  if the loop is never executed, as in for i_n to 1
+          by -1 where n equals 0, the  value  of  the  sw  immediately
+          thereafter is unpredictable.
+
+          as shown in the example above, the by clause may be omitted;
+          by  1  is  assumed.   the  to clause may also be omitted, in
+          which case some other means of exiting the for loop must  be
+          provided.  for example,
+
+          for j_1 by 1 do
+          .
+          .
+          if char_tty=car.ret then go out
+          .
+          end
+
+          the exit from this loop  is  made  when  a  carriage  return
+          character is read from the terminal.
+
+          if both the by and the to clauses are omitted, so  that  the
+          itpt  consists of only an ae, the stmt following the itpt is
+          executed once, with the value of ae assigned to sw.  this is
+          a  useful feature in view of the fact that several itpts may
+          be specified in a single for statement, separated by commas;
+          in general,
+
+          for sw_itpt1,itpt2,...,itptn stmt
+
+          for example,
+
+          for rpc_1,6,8 to 11,12 to 18 by 2 do
+          .
+          .
+          end
+
+          the values of rpc for which the do...end  stmt  is  executed
+          are  1, 6, 8, 9, 10, 11, 12, 14, 16  and  18.  note that the
+          commas completely separate the itpts, so that, for  example,
+          the by 2 above refers only to 12 to 18, and has no effect on
+          any other itpts listed.
+
+          when a number of itpts are listed in  this  way,  the  first
+          itpt  is  evaluated  and the loop executed for the specified
+          value(s), then the second itpt is evaluated, and so  on,  so
+          that if a for statement begins
+
+                                                              PAGE  42
+
+
+
+          for i_1 to j, m to n ...
+
+          m and n are not evaluated until after the loop  is  executed
+          for i_1 to j.
+
+          the aes in an itpt are evaluated  once,  when  the  itpt  is
+          first encountered.  thus if a variable is included in any of
+          the aes, changing the value of that variable within the  for
+          loop  does  not  affect  the  increment  or limit originally
+          calculated for the itpt.
+
+          similarly, if the value of the sw is changed within the  for
+          loop, the change will not be recognized in the test for when
+          to terminate loop execution.  
+
+          suppose that the sw in a for statement takes either  of  the
+          forms  id(ae)  or  ^(ae),  where  ae  includes  a  variable.
+          changing that variable within the for loop does  not  result
+          in  the  modification of a different sw.  the address of the
+          sw is noted  by  simpl  when  the  for  statement  is  first
+          encountered  and  is  not affected by any changes within the
+          loop.  
+
+          if a transfer out of a for loop is made by  means  of  a  go
+          statement,  a  subsequent  go back into the loop can be made
+          without  disturbing  the  progress  of  the  sw   test   and
+          modification, just as though the statements executed outside
+          the loop had instead been located within it.   however,  the
+          result of transferring into a for loop from outside the loop
+          is unpredictable in any other case, that  is,  if  the  last
+          transfer out of the loop was made after the usual completion
+          of the iterations on the sw rather than by  means  of  a  go
+          statement.   the  for  statement  qualifies as an sst (short
+          statement) if the statement comprising the for  loop  is  an
+          sst.  
+
+3.e.4 loop statement
+
+          the loop statement takes the form
+
+          loop stmt
+
+          where stmt may contain the special short statements
+
+          while le
+          repeat ae
+          for sw _ itpt1,...,itptn
+
+                                                              PAGE  43
+
+
+
+          which may be used for exit from the loop and do not have any
+          meaning  outside of the loop statement.  if these statements
+          are not used, the loop stmt is simply executed over and over
+          again;  some  explicit  means of exit must be encoded in the
+          loop.  for example,
+
+          loop nchv lptr _ getch(chkln)
+
+          where getch is a procedure that reads a character  from  the
+          terminal and branches to chkln when a carret is encountered.
+
+          the while le statement specifies that loop execution  is  to
+          be  repeated  as long as the specified logical expression is
+          true.  as soon as the le becomes false, execution  continues
+          with  the  statement  following  the  loop  statement.   for
+          example
+
+          loop [getline; while char _ nchv lptr=carret]
+
+          where getline is a procedure that reads a line of input  and
+          stores  a corresponding pointer in lptr.  the effect of this
+          statement is  to  ignore  all  lines  that  begin  with  the
+          character carret.
+
+          the above example  qualifies  as  a  short  statement  (sst)
+          because  the  statement  comprising  the loop is an sst; the
+          statement
+
+              loop do
+                 nxadr     ! sets termch
+                 if termch=$: then err(bcln)
+                 lstcnt_lstcnt+ltbl(i)
+                 while termch#$,
+                 if inc cnt=rngmx then err(lng)
+              end
+
+          is not an sst.
+
+          the repeat ae statement may be used to specify that the loop
+          code be executed ae times, after which control passes to the
+          statement following the loop stmt.  in other words, the loop
+          exit  takes  place  the  ae+1st  time  that  the  repeat  ae
+          statement  is  encountered.   as  in  the   regular   repeat
+          statement, the ae is evaluated only once.
+
+          similarly, the for sw _  itpt1,...,itptn  statement  may  be
+          used  to  specify values of sw for which the loop code is to
+          be executed, following  the  same  rules  as  those  of  the
+          regular for statement.
+
+                                                              PAGE  44
+
+
+
+          note that if the special while, repeat, or for statement  is
+          the   first  statement  of  the  loop  stmt,  the  resulting
+          construction is equivalent to the regular while,  repeat  or
+          for statement.
+
+3.f.  miscellaneous statements
+
+3.f.1 null
+
+     null
+
+     has exactly that effect.
+
+3.f.2 halt
+
+     halt
+
+     traps (attempts to execute an illegal instruction).
+
+3.f.3 exit
+
+     exit
+
+     provides a normal return to the supervisory level.
+
+                                                              PAGE  45
+
+
+
+                              section 4
+                           simpl procedures
+
+
+4.a.  procedure declaration
+
+     procedures  are  named  with  identifiers  and  must  always   be
+     declared.   to declare a procedure, precede its identifier with a
+     % in the local statement; that is,
+
+     local %id
+
+4.b.  procedure definition
+
+     a procedure is defined as follows:
+
+     %id(par1, par2,...,parn)
+     statements constituting the procedure
+     end id
+
+     where pari is a parameter declaration (explained in section 4.e).
+     there  may  be no parameters, in which case the procedure head is
+     simply
+
+     %id
+
+     the identifier typed in the procedure head must  appear  in  that
+     procedure's  end statement.  procedure definitions must be placed
+     after the main program with no statements between the end of  one
+     procedure and the head of the next.
+
+
+4.c.  parameters and arguments
+
+     input to a procedure is made through parameters.  procedures that
+     do not require input from the calling program have no parameters.
+     the  maximum  allowable  number  of  parameters  is   a   machine
+     dependency  (14  on  the sigma 7 or pdp-10).  when a procedure is
+     called, arithmetic expressions (the "arguments" to the procedure)
+     are  listed  in  place  of the parameters; the first parameter is
+     given  the  value  of  the  first  argument  listed,  the  second
+     parameter is assigned the second argument, and so on.  it is left
+     up to the user to check that the number of arguments  at  calling
+     time  matches the number of parameters specified in the procedure
+     definition; simpl does not make this check.  if  fewer  arguments
+     are given than parameters specified, the extra parameters will be
+     assigned values unknown to the user.  if more arguments are given
+     than parameters specified, the extra arguments will be ignored.
+
+                                                              PAGE  46
+
+
+
+     parameters are local to the procedure definition; a parameter may
+     have  the same identifier as another language element outside the
+     procedure  without  conflict  (that  is,  without  affecting  the
+     outside element in any way).
+
+4.d.  procedure call and return
+
+     to call a procedure, type its identifier followed by the list  of
+     arguments, if any; that is,
+
+     id or id(arg1, arg2,...,argn)
+
+     note: section 4.h describes entry into a procedure at some  point
+     other than its beginning.
+
+     a procedure may be used either as a statement or  as  a  function
+     reference.   a  procedure call that appears alone classifies as a
+     statement (an sst); the statements contained within the procedure
+     are executed until a
+
+     return
+
+     statement is encountered, at which time control transfers to  the
+     statement following the procedure call.
+
+     a procedure may be used as a  function  reference  (that  is,  to
+     return  a value).  a procedure call of this type, classified as a
+     primary, causes simpl to execute the statements of the  procedure
+     until a statement of the form
+
+     return ae
+
+     is encountered, at which time the value of the ae, an  arithmetic
+     expression, is returned.
+
+     for example, suppose a program includes the statement
+
+     clear; s_2*sqr(a)+i
+
+     and the procedure definitions
+
+       %clear
+       .
+       .
+       return
+       end clear
+       %sqr(x)
+       .
+       .
+
+                                                              PAGE  47
+
+
+
+       return z
+       end sqr
+
+     the procedure clear is used as a statement.  sqr  is  used  as  a
+     primary  in an arithmetic expression; the value of z as evaluated
+     in the procedure is returned.
+
+     if a procedure is used as a statement  but  the  return  is  made
+     through  a return ae statement, the value returned will simply be
+     ignored.  if a procedure is used as a primary but the  return  is
+     made  through a simple return statement, some unpredictable value
+     will be returned.
+
+     in addition to return ae, simpl allows  the  construction  return
+     dae,  where  dae  is  a  doubleword  arithmetic expression.  when
+     return dae is used, the procedure call must be  preceded  by  the
+     word   double;  this  construction  (double  procedure  call)  is
+     classified as a dae.
+
+     note that a return is  automatically  generated  if  simpl  falls
+     through  to  the  end of a procedure because a return or transfer
+     out of the procedure was accidentally omitted.
+
+     when a procedure is called, its return point is saved, specifying
+     where  control  is to be transferred when a return is encountered
+     within that procedure.  any previous value of the return point is
+     destroyed.
+
+     once a transfer out of a procedure through a return statement has
+     been  made,  simpl  assumes the user is temporarily finished with
+     that procedure, and no longer retains the  value  of  the  return
+     point.  however, if a transfer out of a procedure is made by some
+     means other than a return, the  value  of  the  return  point  is
+     saved.   thus,  if a transfer back into the procedure is made (by
+     some means other than a call, which would  destroy  the  previous
+     return  point  value), a subsequent return in the procedure would
+     return to the originally calculated return  point,  as  though  a
+     transfer  out  of  the procedure had not been made.  this implies
+     that procedures can be nested with  the  expected  results.   for
+     example,
+
+       %sval(x)
+       .
+       .
+       tprt
+       !returns here from tprt
+       .
+       .
+       return
+
+                                                              PAGE  48
+
+
+
+       %tprt
+       .
+       .
+       return
+       end tprt
+       end sval
+
+     if sval is called from the main program, its return point will be
+     saved  throughout the call to and return from the procedure tprt,
+     so that the return in sval will transfer control to the statement
+     following the call to sval in the main program.
+
+     the  limit  to  the  depth  of  nesting  is  10  procedures   (an
+     implementation  dependency).   the general rule for the placement
+     of procedure definitions is that they must be located at the very
+     end  of  the  block  containing  them,  be it the main program or
+     another procedure.
+
+     another method of transferring out of a procedure other than  the
+     normal  return  is  by  means  of the go statement.  as explained
+     above, the user may go out of a procedure and  go  back  into  it
+     without  losing  the  value  of  the return point, as long as the
+     procedure is not called again before the transfer back into it is
+     made (since that would destroy the original return point value).
+
+     the information given here about the return point value tells  us
+     what to expect when a transfer into a procedure is made through a
+     go statement rather than a call, and a return is  encountered  in
+     the  procedure.   the subsequent action taken by simpl depends on
+     how the last transfer out of that procedure was made.  if it  was
+     made  by  some  means  other  than a return statement, the return
+     point value saved the last time the  procedure  was  called  will
+     have  been  retained.   if the last transfer out of the procedure
+     was made through a return statement, however,  the  return  point
+     value  will  not have been retained and the action taken by simpl
+     will be unpredictable.
+
+     finally, the above information implies that  procedures  are  not
+     recursive.
+
+4.e.  parameter declarations
+
+     a parameter may represent a variable used within  the  procedure,
+     or  an  address, a label, or another procedure name.  the type of
+     language element that the parameter represents  is  specified  in
+     the procedure head, in the parameter declaration list.  this list
+     tells simpl how to interpret the argument passed, but the type of
+     the  argument  is  not checked against the type of the parameter.
+     it is left up to the user to check, for example, that an  address
+
+                                                              PAGE  49
+
+
+
+     is  passed  as  an  argument when the corresponding parameter has
+     been declared an address.
+
+     a parameter may be declared in any of the following ways:
+
+       1.      id              simple variable value
+       2.      @id             address
+       3.      id()            base address of array id
+       4.      id:             label
+       5.      %id             procedure name
+
+     these declarations are explained in  detail  below.   note  their
+     similarity  to  the  declarations  that  can be made in the local
+     statement.    the   parameter   declarations   do   not   include
+     id(konex:konex);  the local declarations do not include @id.  the
+     two types of declarations also differ in that the local statement
+     declares  but  does  not  allocate space for labels and procedure
+     names.  each parameter declaration does allocate a word in  which
+     the value of the argument passed will be stored.
+
+
+     1.  id
+
+     the value of the argument passed is stored in the simple variable
+     id.  note that if the argument is a variable, any changes made to
+     id within the procedure will not  affect  that  variable.   simpl
+     merely passes its value.  for example, suppose the procedure
+
+     %cube(x)
+     x_x*x*x; return x
+     end cube
+
+     is called as a primary, as cube(var).  the value returned will be
+     var cubed.  the variable var will not be affected.
+
+     simpl also allows  the  values  of  daes  (doubleword  arithmetic
+     expressions) to be passed through parameters.  when this is done,
+     two identifiers must be specified in the parameter list, one  for
+     each  word  of the value.  for example, the procedure sproc might
+     be headed
+
+     %sproc(x,y)
+
+     and called with sproc(dae), where dae is any form  of  doubleword
+     arithmetic expression.
+
+
+     2.  @id
+
+                                                              PAGE  50
+
+
+
+     the   parameter   represents   an   address;   simpl    therefore
+     automatically  performs  indirect addressing on id whenever it is
+     used within the procedure.  for example, a statement of the  form
+     lp_id  would  assign to lp the value stored in the word addressed
+     by the value passed through id.  the user may specify at  calling
+     time  a  variable  whose  value  will  be changed from within the
+     procedure, by passing the address of that variable  (rather  than
+     just  its  value  as  in  1.   above).   for example, suppose the
+     procedure
+
+     %cube(@x)
+     x_x*x*x
+     end cube
+
+     is called as a statement, as cube(@var).   first  indirection  is
+     performed  on each x in the expression x*x*x so that the value of
+     var is cubed.  then indirection is  applied  to  the  left  part,
+     storing this value into var.
+
+     note that this can be achieved less conveniently by  passing  the
+     address  without  declaring  it  to  be  one, and then explicitly
+     applying indirection:
+
+     %cube(xadr)
+     ^xadr_Xadr*^xadr*^xadr
+     end cube
+
+     3.  id()
+
+     this declaration is similar to 2.  above in that it  declares  id
+     to  be  an address and it can be used to affect variables outside
+     the procedure.  the argument passed becomes the base  address  of
+     the  array  id.   for  example,  suppose  that  the  main program
+     includes the array b(3:50) and a procedure headed
+
+     %proc(z())
+
+     since b represents the base address of the array b(3:50), calling
+     this  procedure by proc(b) causes z(i) to reference b(i); calling
+     proc(@b(2)) causes z(i) to reference b(i+2).  z(i) appearing as a
+     left  part  (of  an  assignment  statement)  would store into the
+     corresponding element of the array b.
+
+     4.  id:
+
+     the parameter represents a label.  for example, if the  procedure
+     headed
+
+                                                              PAGE  51
+
+
+
+     %fchk(l:)
+
+     is called as fchk(eof) the statement go l in the  procedure  will
+     transfer  to  the  line labelled eof.  note that (as usual when a
+     label is used in an arithmetic expression) eof must be a declared
+     label  in  the  calling  program  in  order  to  be  passed as an
+     argument.
+
+     5.  %id
+
+     a procedure name will be passed.  for example, if  the  procedure
+     headed
+
+     %pr(%spr)
+
+     is called as pr(%val), then a call to spr  within  the  procedure
+     effectively  calls  the  procedure  val.   note  that  it  is the
+     procedure name that is passed, not its value.  the latter  occurs
+     when the argument is an actual procedure call (used as a function
+     reference, it qualifies as a primary, which is  a  form  of  ae).
+     for  example, calling the procedure headed %cube(x) by cube(abc),
+     where abc is a procedure with no parameters, causes simpl to pass
+     the value returned from abc as the argument to cube.
+
+4.f.  scope of names
+
+     as noted above, parameters are local to the procedure definition.
+     to use other identifiers locally within a procedure, declare them
+     in a local statement within the  procedure;  as  usual,  a  label
+     normally  does not require declaration.  if simpl encounters in a
+     procedure an identifier that is not local to that  procedure,  it
+     searches  for the declaration of that element in the outer block,
+     which will be  the  main  program  or  (in  the  case  of  nested
+     procedures)  another  procedure.   if the identifier is not found
+     there, either in a local statement or  parameter  list  or  as  a
+     label, the next outer block is searched, and so on.  some type of
+     declaration or use of the identifier as a label  must  appear  in
+     the procedure or in one of its outer blocks.
+
+       example 1:
+
+               local %a,%b,%c,i,z
+               z_i_0
+               .
+               .
+               %a(x)
+               inc z
+               .
+               .
+
+                                                              PAGE  52
+
+
+
+               %b
+               local i
+               if z>100 then i_x+1
+               .
+               .
+               end b
+               %c
+               local j
+               if i=100 then j_-1
+               .
+               .
+               end c
+               end a
+
+
+     here the outer block for procedure a is the main program and  the
+     outer  block  for  b and c is a.  procedure c declares a local j;
+     since the identifier j is not declared elsewhere, j is  undefined
+     anywhere  except  within  c.   procedure c references i, which is
+     declared neither in c nor in its outer block a, but in  the  next
+     outer  block,  the  main program; thus it refers to the global i.
+     the i referenced in  the  procedure  b  is  local  to  b;  the  x
+     referenced  there  is  declared  in  the  outer  block  a,  as  a
+     parameter.  the z in procedures a and b is declared in  the  main
+     program.
+
+       example 2:
+
+               local %d,%e
+               .
+               .
+               eof:
+               .
+               .
+               %d
+               .
+               .
+               go eof
+               .
+               .
+               end d
+               %e
+               .
+               .
+               go err
+               .
+               .
+               err:
+               .
+
+                                                              PAGE  53
+
+
+
+               .
+               end e
+
+     when go eof is encountered within the procedure  d,  simpl  finds
+     the  label  eof  not  in  d,  but  in  the  outer block (the main
+     program).  suppose that d also includes  the  statement  go  err,
+     where  err  is  a label in the procedure e, as illustrated.  when
+     this statement is encountered in d, simpl first finds that err is
+     not local to d, so it looks in the outer block, the main program,
+     and doesn't find any information on err  there,  either:  end  of
+     search,  and  error! the way to satisfy this search is to declare
+     err in the main program.  once simpl is  so  satisfied  that  the
+     label  err  does  exist,  it  will  transfer to that label, which
+     happens to be located in the procedure e.
+
+       example 3:
+
+               local %iopk,%open,%close
+               .
+               .
+               %iopk
+               local %fnlu,buf(2000)
+               %fnlu
+               .
+               .
+               end fnlu
+               %open
+               .
+               .
+               end open
+               %close
+               .
+               .
+               end close
+               end iopk
+
+
+     the procedures open  and  close  can  be  called  from  the  main
+     program, and they in turn can call the procedure fnlu, since fnlu
+     is declared and defined in their outer block, the procedure iopk.
+     since  it  is  local  to  iopk,  however,  fnlu  cannot be called
+     directly from the main program.  similarly, the array buf  cannot
+     be  referenced  outside  of  iopk.  this procedure entry and data
+     protection is a useful feature of simpl.  in  this  example,  the
+     open  and  close  procedures  might perform certain checks before
+     calling fnlu, and the programmer might wish  to  protect  himself
+     (or  someone else adding code to the main program) from accessing
+     fnlu until these different checks have been  made.   he  is  also
+     protecting  the array buf from accidental manipulation outside of
+
+                                                              PAGE  54
+
+
+
+     iopk, at the same time allowing it to be  manipulated  freely  in
+     all of the procedures in his package.
+
+     example 4:
+
+     continuing from example 3, suppose that the programmer wishes  to
+     remove  the  restrictions  on entry into the procedure fnlu, that
+     is, to allow it to be called directly from the main program.   if
+     fnlu  were  still  declared  local to iopk, the definition of the
+     procedure fnlu would not extend beyond iopk; thus  another  %fnlu
+     declaration outside of iopk would find no corresponding procedure
+     definition.  the correct solution, of course, is to declare  fnlu
+     only in the main program.
+
+     if for some reason the  programmer  wished  to  retain  the  fnlu
+     procedure  local  to iopk but have a different fnlu that could be
+     accessed from the main  program,  he  could  simply  declare  and
+     define an fnlu in both places, that is
+
+               local %iopk,%open,%close,%fnlu
+               .
+               .
+               %fnlu
+               .
+               .
+               end fnlu
+               %iopk
+               (remainder as in example 3)
+               .
+               .
+               .
+
+
+4.g.  procedure entry points
+
+     a procedure may have several entry points, each with its own name
+     and  parameter  list.  procedure entry points are declared in the
+     same way as procedures, that is,
+
+     local %id
+
+     and called in the same way -- by typing the  identifier  followed
+     by  the  list  of arguments, if any.  an entry point is indicated
+     within a procedure by two % signs preceding the identifier rather
+     than a single %.  for example,
+
+       %exuc(x,y,z:,n)
+       .
+       .
+
+                                                              PAGE  55
+
+
+
+       %%exu(x,y,z:)
+       .
+       .
+       return
+       end exuc
+
+     exu identifies an entry point to the procedure exuc.  since  exuc
+     requires  an  argument  that  exu  does  not,  exu  has  one less
+     parameter.  when exuc is called,  simpl  proceeds  in  the  usual
+     manner,  falling through the entry point exu (assuming it has not
+     encountered a return before that point).   when  exu  is  called,
+     execution begins at the indicated point within the procedure, and
+     the  subsequent  return  transfers  control  as  usual,  to   the
+     statement following the call.  
+
+     the following rules apply to entry point parameter lists:
+
+       1.  any identifiers in an entry point parameter list that  also
+          appear in previous parameter lists within the procedure must
+          be declared the same way as  in  the  previous  lists;  they
+          identify  the  same elements.  thus, in the above example, x
+          and y can only be declared as simple variables, and z  as  a
+          label, in exu's parameter list.
+
+       2.  new  parameters  can  be  introduced  at  an  entry  point,
+          declaring  those  identifiers locally at that point.  in our
+          example here, the  exu  entry  point  might  be  changed  to
+          %%exu(x,y,z:,a).  if this is done and an outer-declared a is
+          referenced before this point, then falling through  to  here
+          would cause a declaration conflict.
+
+          a nested procedure can reference all the  identifiers  local
+          to  the  procedure  in  which  it  is  nested.  if the outer
+          procedure has multiple entry points, this includes not  only
+          those  identifiers  declared  at  the procedure head (in the
+          parameter list or a declaration statement), but  also  those
+          in the entry point parameter lists.
+
+          consider the following example:
+
+           local %rw,%r,%w
+           %rw
+           local %getchk
+           %%r(fn)
+           if typ(fn)=dir then getchk
+           .
+           .
+           return
+           %%w(fn,val)
+
+                                                              PAGE  56
+
+
+
+           .
+           .
+           getchk
+           .
+           return
+           %getchk
+           if id(buf(fn))=0 then do
+           .
+           .
+           return
+           end getchk
+           end rw
+
+          here the procedure rw has three entry points (rw, r  and  w)
+          and  one  nested  procedure,  getchk.  when getchk is called
+          from r or w, it can reference fn since fn is  local  to  rw.
+          suppose  that  procedure  entry points were not available to
+          the user, and r and w were  therefore  separate  procedures.
+          in  order  to create a situation in which both r and w could
+          call getchk and getchk could reference fn, getchk would have
+          to  be a separate procedure local to neither (declared in an
+          outer block), having fn as a parameter.  
+
+4.h.  return as an sw
+
+     we have discussed at length when simpl does or does not save  the
+     value  of  the  return  point  of a procedure.  that value is, in
+     fact, saved in a storage word  that  can  be  referenced  by  the
+     identifier return.
+
+     since the former value of the return point is  destroyed  when  a
+     procedure  is  called, simpl procedures are not recursive.  using
+     return as an sw, however, the user can effectively have recursion
+     by saving and later restoring the proper return point values.
+
+     the value of return should not be manipulated by  the  user,  but
+     only  stored  back into a return, either into another procedure's
+     return or back  into  itself.   as  an  example  of  the  latter,
+     consider
+
+       %proc
+       .
+       .
+       save _ return; doit; return _ save
+       .
+       .
+       return
+       %%doit
+       .
+
+                                                              PAGE  57
+
+
+
+       .
+       end proc
+
+     doit is an entry point within proc and  is  usually  called  from
+     outside  proc.   if called from within proc, doit destroys proc's
+     return value.  to circumvent this, the value of return  is  saved
+     before  calling  doit and restored after the return from doit has
+     been made.
+
+
+                                                              PAGE  58
+
+
+
+                              section 5
+                             simpl macros
+
+5.a.  macro definition
+
+     to define a macro that consists of a single simpl line or part of
+     a line, use the def statement, as follows:
+
+     def id(id1,id2,...,idn) as definition
+
+     id is the  macro  identifier.   the  parenthesized  ids  are  the
+     parameters  used  in the macro definition; they are local to that
+     definition.  the maximum number of parameters a macro may have is
+     an implementation dependency.  a macro may have no parameters, in
+     which case the def statement takes the form
+
+     def id as definition
+
+     the definition is terminated by a  carriage  return  and  can  be
+     anything  that  may  be  typed in a simpl program: a statement or
+     part of one, several short statements separated by semicolons, an
+     operator, any simpl language elements.  the characters between as
+     and the carriage return are not checked for syntax when  the  def
+     statement is encountered.
+
+     examples:
+
+            def add as +
+            def sum(x,y) as x+y
+            def fix(x1,x2,x3) as _x1-abs(x2/x3)
+            def cnt as if inc x>100 then go err; dec z
+
+     a macro  may  also  consist  of  more  than  a  single  line.   a
+     multiple-line  macro is defined in the same way as a single- line
+     macro -- with a def statement -- except that by replaces the word
+     as,  and  the definition is terminated not by a car- riage return
+     but by endm id, where id is the macro identifier.  for example,
+
+            def rcgo(x) by
+            if dec ecnt(x)>=0 then return cptr(x)
+            if wlab(fn)#w.err then wlab(fn)_wset
+            go ^rlab(fn)_raddr(x)
+            endm rcgo
+
+     the definition consists of all  the  characters  between  by  and
+     endm,  including  all carriage returns (four in this example).  a
+     carriage return is not required after by  or  before  endm.   for
+     example,  if  the  above  def  statement were modified so that it
+     ended with
+
+                                                              PAGE  59
+
+
+
+     go ^rlab(fn) endm rcgo
+
+     it could be used as in
+
+     rcgo(n) rinit
+
+     a macro definition must precede the first use of the macro and is
+     local  to  the  procedure in which it appears.  the def statement
+     may not be labelled.
+
+5.b.  macro expansion
+
+     to use a macro, type its  identifier  followed  by  the  list  of
+     arguments, if any; that is,
+
+     id
+     or
+     id(arg1,arg2,...,argn)
+
+     when simpl encounters the use of a macro having no parameters  it
+     simply  substitutes  the text of the macro definition in place of
+     the macro identifier.  for example, if add and sub are defined as
+
+     def add as +
+     def sub as -
+     def nblks as 15
+
+     then
+
+     d_a add b sub nblks
+
+     is equivalent to
+
+     d_a + b - 15
+
+
+     if a macro has parameters, arguments must be specified  when  the
+     macro   is   used.   each  argument  replaces  its  corresponding
+     parameter in the macro definition.  the argument can be, like the
+     definition  itself,  absolutely anything that may be typed into a
+     simpl program.  when simpl encounters the use of a  macro  having
+     parameters,  it  substitutes  the arguments for the parameters in
+     the macro definition and generates the result  in  place  of  the
+     macro call.  for example, suppose a macro is defined as
+
+     def sum(x,y) as x+y
+
+     and used in the statement
+
+                                                              PAGE  60
+
+
+
+     z_sum(a,b)
+
+     a+b is generated in place of sum(a,b),  so  that  this  statement
+     becomes z_a+b.  only after a macro is expanded in this way is the
+     statement syntactically examined by simpl.  thus,  if  the  macro
+     sum is used as follows
+
+     p_q*sum(r,s)
+
+     then this statement becomes
+
+     p_q*r+s
+
+     where the product of q and r is added to s.  if sum were  instead
+     defined as
+
+     def sum(x,y) as (x+y)
+
+     the statement p_q*sum(r,s) would become
+
+     p_q*(r+s)
+
+     remember that anything is legal as an argument.  the macro sum as
+     just  defined  could  be  used  as sum(f1_f,2*z) in which case it
+     would expand to (f1_f+2*z), a primary assigning f+2*z to f1.
+
+     commas normally separate macro arguments; however, simpl  matches
+     parentheses  within an argument list and does not consider commas
+     between them to be separators.  for example,
+
+     x _sum(a(j),prc(2,c))
+
+     is a permitted use of the  macro  sum;  the  second  argument  is
+     prc(2,c).  anywhere except within parentheses, commas do separate
+     arguments, so that, for example, ([18,18]*[a,b],q) is interpreted
+     by simpl as listing four arguments.
+
+     macros are expanded from left to right;  thus,  the  user  cannot
+     define the macros
+
+     def bar as (a,b)
+     def foo(x,y) as x+y/2
+
+     and use them together as foo bar, expecting bar  to  be  expanded
+     first as the arguments to foo.  instead, the construction foo bar
+     would in this case be illegal.
+
+     a procedure may redefine a macro originally defined on some outer
+     level.
+
+                                                              PAGE  61
+
+
+
+       %prog
+       local %p1, %p2
+       def nbufs as 30
+       .                        !cannot be redef'd here
+       .
+       %p1
+       def nbufs as 12
+       .
+       .
+       end p1
+       %p2
+       .
+       .
+
+     the second def statement above redefines nbufs so that it  is  12
+     rather  than  30  within  the  procedure  p1.   nbufs resumes its
+     definition as 30 within the procedure p2.
+
+     as noted by the comment in  this  example,  redefinition  is  not
+     permitted within a single program level.
+
+     two additional examples of the use of macros are given below.
+
+     consider the user who needs to reference the four bit index field
+     of  a number of storage words, a field displaced 17 bits from the
+     right.  he could define a macro
+
+     def xfld(x) as byt(x,4,17)
+
+     and enjoy the convenience of entering such statements as
+
+     i_xfld(wd1)
+     xfld(c)_0
+
+     the following macro
+
+     def do.for(a,b,c) by
+     a_b_1
+     while inc a<=c then endm do.for
+
+     might be used as in
+
+     sum_0
+     do.for (i,1,10) sum_sum+x(i)
+
+     where it sums array elements x(1) through x(10).
+
+5.c.  undef statement
+
+                                                              PAGE  62
+
+
+
+     a procedure can undefine a macro defined  on  some  outer  level,
+     through the use of the statement
+
+     undef id
+
+     where id is the  macro  identifier.   this  would  be  used,  for
+     example, in a procedure containing a local variable id which also
+     identifies a macro in the main program.  the effect of the  undef
+     statement  is  local  to  the  procedure  in  which the statement
+     appears.  an undef statement may not be labelled.
+
+     the same rule applies for undefinition as for redefinition: it is
+     not permitted within a single program level.
+
+
+
+                                                              PAGE  63
+
+
+
+                              appendix a
+
+                      implementation dependencies
+
+
+this section lists any simpl features which have not been implemented
+on particular machines, and describes additional features (not
+previously documented in this manual) which are machine-exclusive
+and are not planned for implementation on any other systems.
+
+a.1   xds 940
+
+      none of the following has been implemented in the 940
+      version of simpl:
+
+         half word handling
+         chpt(sw1,sw2) as an lp (left part)
+         move ae1 from ae2 to ae3
+         storage word modification (b-_; cnt+_d+2)
+         global table statements
+         for or loop statements
+
+      on the 940, max and min are functions rather than arithmetic
+      operators.  they may take two or more arguments; that is,
+
+      max(ae1,ae2,...,aen)
+      min(ae1,ae2,...,aen)
+
+      system calls may be made on the 940 through use of the back
+      slash, as follows:
+
+      \id1(sw,ae1,ae2,ae3,go id)
+
+      \brs kon (ae1,ae2,ae3,go id)
+
+      where
+
+      id1 is any opcode that the assembler will recognize (such
+          as a syspop or machine instruction).
+
+      sw  contains the contents of the address field.
+
+      kon is the brs number.
+
+      ae1,ae2, and ae3 specify the contents of the a, b and
+          x registers.  these arguments are optional but are order-
+          dependent when specified.  for example, if only the contents
+          of the a and x registers need to be specified, the corres-
+          ponding arguments must be separated by two commas; the 
+
+                                                              PAGE  64
+
+
+
+          second comma terminates a null b register argument.
+
+      go id must be specified when the return from the call may be
+          either skip or non-skip.  id is the label to be branched to
+          if the non-skip return is taken.  go id may be preceded by
+          any number of register arguments (including none); the only
+          restriction is that it be the last argument listed.
+
+      these constructions may stand alone as statements or qualify
+      as ae's which are evaluated as the contents of the a register
+      after the call is made (or, if preceded by double, the contents
+      of the a and b registers).
+
+      examples:
+
+      \brs 113
+      \stb(breg)
+      \bio(file,count,,where,go short)
+      \brs48 (msp(lit),go no)
+
+a.2   pdp-10
+
+      two back slashes will be used to precede any simpl
+      constructions that are exclusive to the pdp-10.
+
+      the statement
+
+      \\->id
+
+      where id is a label previously allocated on the same
+      program level, specifies id to be the starting location of the
+      program.
+
+
+
+
+
+
+                                    index
+
+indicates the section(s) containing a discussion of the subject
+
+abs  1.e.1
+address operator  1.c.4
+ae  1.e
+and 1.h
+arguments
+    function  1.k
+    procedure  4.c
+    macro  5.b
+arithmetic expression  1.e
+    doubleword  1.m.1
+arrays  1.c
+assignment
+    deferred  1.j.3
+    doubleword  1.m.2, 3.b.2
+    primary  1.j.2
+    statement  3.b.1
+
+band  1.e.2
+base  3.a.4
+beqv  1.e.2
+bit manipulation  1.e.2, 1.k.3
+bitsperword  1.a
+bnot  1.e.2
+bor  1.e.2
+bxor  1.e.2
+byt  1.k.2.1
+
+call, procedure  4.d
+carret  1.a
+case statement  3.c.2
+ch  1.k.1.1
+character
+    constant  1.a
+    manipulation  1.k.1
+charsperword  1.a
+chpt  1.k.1.2
+chv  1.k.1.3
+comments  2.d
+compound statements  2.b
+conditional
+    expression  1.i
+    statements  3.d
+constants  1.a
+
+
+
+
+
+dae  1.m.1
+ddivmod  1.m.1
+dec  1.j.1, 3.b.6
+decimal constant  1.a
+declaration  3.a
+    base statement  3.a.4
+    find  3.a.3
+    global  3.a.3
+    label  1.d
+    local  3.a.1
+    parameter  4.e
+    procedure  4.a
+    table  3.a.2
+    variable and array  1.c
+def  5.a
+deferred assignment  1.j.3
+divmod  1.m.1
+dlp  1.m.2
+dmoddiv  1.m.1
+dmul  1.m.1
+do...end compounding  2.b.2
+do ae...  (case statement)  3.c.2
+double  4.d
+doubleword
+    arithmetic expression  1.m.1
+    assignment  1.m.2, 3.b.2
+    manipulation  1.m
+    operators  1.m.1
+drotl  1.m.1
+drotr  1.m.1
+dshl  1.m.1
+dshr  1.m.1
+
+eif statement  3.d.3
+else  3.d.2, 3.d.3
+end  2.b.2, 3.c.2, 4.b
+eolit  1.a
+exchange statement  3.b.4
+exit   3.f.3
+
+fif  3.d.3
+find  3.a.3
+floating array  1.c.1
+for statement  3.e.3, 3.e.4
+functions  1.k
+
+global  3.a.3
+go  3.c.1
+
+
+
+
+
+half word manipulation  1.k.1
+halt  3.f.2
+hex  1.a
+hexadecimal constants  1.a
+hw   1.k.l.1
+hwpt  1.k.1.2
+hwv  1.k.2.3
+
+identifiers  1.b
+if  3.d.2
+inc  1.j.1, 3.b.6
+indirect addressing  1.c.2
+input, terminal  1.k.3
+
+kon  1.a
+konex  1.f
+
+labels  1.d
+le  1.h
+line continuation  2.c
+lnfeed  1.a
+local  3.a.1
+logical expression  1.h
+loop statement  3.e.4
+
+macro
+    definition  5.a
+    expansion   5.b
+max  1.e.1
+min  1.e.1
+mod  1.e.1
+moddiv  1.m.1
+move  3.b.5
+
+nchv  1.k.l.4, 3.b.7
+nhwv  1.k.1.4, 3.b.7
+not  1.g, 1.h
+null  3.f.1
+
+oct  1.a
+octal constant  1.a
+or  1.h
+orif  3.d.3
+output, terminal  1.k.3
+
+parameters
+    procedure  4.c, 4.e
+    macro  5.a
+pchv  1.k.1.5, 3.b.8
+
+
+
+
+
+phwv  1.k.1.5, 3.b.8
+primary  1.l
+procedure  4
+    call  4.d, 4.g
+    declaration  4.a
+    definition  4.b
+    return  4.d, 4.h
+
+rel  1.g
+relational expression  1.g
+repeat  3.e.2, 3.e.4
+return  4.d, 4.h
+rotl  1.e.2
+rotr  1.e.2
+
+semicolon  2.a, 2.b.1
+shift operators  1.e.2, 1.m.2
+shl  1.e.2
+shr  1.e.2
+statement
+    compounding  2.b
+    delimiters  2.a
+    descriptions  3
+stmt  3.d.1
+storage word  1.c.3
+    modification  1.j.4, 3.b.3
+string constant  1.a
+subscripted variable  1.c
+sw  1.c.3
+
+table  3.a.2
+terminal i/o  1.k.3
+tty  1.k.3
+
+undef  5.c
+
+variables  1.c
+
+while  3.e.1, 3.e.4
+word packing and unpacking  1.k.2.2
+
+   1.a, 1.b
+^  1.c.2
+@  1.c.4
+_ 1.j.2, 1.j.4
+&  2.c
+!  2.d
+<==  1.j.3
+<=>  3.b.4
+
+
+
+
+
+ 
+
+
+
+
+
+                          TABLE OF CONTENTS
+
+
+
+
+1.a.constants (kon)  . . . . . . . . . . . . . . . . 1
+1.b. identifiers (id)  . . . . . . . . . . . . . . . 2
+1.c. variables and arrays  . . . . . . . . . . . . . 3
+1.c.1 floating arrays  . . . . . . . . . . . . . . . 4
+1.c.2 indirect addressing ^  . . . . . . . . . . . . 4
+1.c.3 storage word (sw)  . . . . . . . . . . . . . . 5
+1.c.4 address operator @ . . . . . . . . . . . . . . 5
+1.d. labels  . . . . . . . . . . . . . . . . . . . . 5
+1.e. arithmetic expression . . . . . . . . . . . . . 6
+1.e.1 standard mathematical operators  . . . . . . . 6
+1.e.2 bit operators  . . . . . . . . . . . . . . . . 7
+1.e.3 rules governing operands . . . . . . . . . . . 7
+1.e.4 operator precedence  . . . . . . . . . . . . . 8
+1.e.5 the ae classification  . . . . . . . . . . . . 9
+1.f. constant expression (konex) . . . . . . . . . . 9
+1.g. relational expression . . . . . . . . . . . . . 9
+1.h. logical expression  . . . . . . . . . . . . . . 11
+1.i. conditional expression  . . . . . . . . . . . . 13
+1.j. operators with side effects . . . . . . . . . . 13
+1.j.1 inc and dec  . . . . . . . . . . . . . . . . . 13
+1.j.2 assignment . . . . . . . . . . . . . . . . . . 14
+1.j.3 deferred assignment  . . . . . . . . . . . . . 14
+1.j.4 storage word modification  . . . . . . . . . . 15
+1.k. functions and other operators . . . . . . . . . 16
+1.k.1 character and half word handling . . . . . . . 16
+1.k.1.1 ch (and hw)  . . . . . . . . . . . . . . . . 16
+1.k.1.2 chpt (and hwpt)  . . . . . . . . . . . . . . 17
+1.k.1.3 chv (and hwv)  . . . . . . . . . . . . . . . 17
+1.k.1.4 nchv (and nhwv)  . . . . . . . . . . . . . . 18
+1.k.1.5 pchv (and phwv)  . . . . . . . . . . . . . . 19
+1.k.2 bit field manipulation . . . . . . . . . . . . 19
+1.k.2.1 byt function . . . . . . . . . . . . . . . . 19
+1.k.2.2 word packing and unpacking . . . . . . . . . 19
+1.k.3 terminal input and output - tty  . . . . . . . 20
+1.l. prinary (prim)  . . . . . . . . . . . . . . . . 21
+1.m. doubleword manipulation . . . . . . . . . . . . 22
+1.m.1 doubleword arithmetic expression . . . . . . . 22
+1.m.2 doubleword assignment  . . . . . . . . . . . . 23
+
+2.a. statement delimiters  . . . . . . . . . . . . . 24
+2.b. compound statements . . . . . . . . . . . . . . 24
+2.b.1 compounding short statements . . . . . . . . . 24
+2.b.2 compounding with do...end  . . . . . . . . . . 25
+2.c. line continuation & . . . . . . . . . . . . . . 25
+
+
+
+
+
+2.d. comments - !  . . . . . . . . . . . . . . . . . 26
+
+3.a. declaration statements  . . . . . . . . . . . . 27
+3.a.1 local declaration  . . . . . . . . . . . . . . 27
+3.a.2 table statement  . . . . . . . . . . . . . . . 27
+3.a.3 global and find  . . . . . . . . . . . . . . . 28
+3.a.4 base statement . . . . . . . . . . . . . . . . 29
+3.b. value manipulation  . . . . . . . . . . . . . . 30
+3.b.1 assignment statement . . . . . . . . . . . . . 30
+3.b.2 double word assignment statement . . . . . . . 30
+3.b.3 storage word modification  . . . . . . . . . . 31
+3.b.4 exchange statement . . . . . . . . . . . . . . 31
+3.b.5 move statement . . . . . . . . . . . . . . . . 32
+3.b.6 inc and dec  . . . . . . . . . . . . . . . . . 32
+3.b.7 nchv and nhwv  . . . . . . . . . . . . . . . . 33
+3.b.8 pchv and phwv  . . . . . . . . . . . . . . . . 33
+3.c. transfer of control . . . . . . . . . . . . . . 33
+3.c.1 uncondition transfer: go . . . . . . . . . . . 33
+3.c.2 case statement . . . . . . . . . . . . . . . . 34
+3.d. conditional statements  . . . . . . . . . . . . 36
+3.d.1 the stmt classification  . . . . . . . . . . . 36
+3.d.2 if statement . . . . . . . . . . . . . . . . . 37
+3.d.3 eif statement  . . . . . . . . . . . . . . . . 38
+3.e. loop control statements . . . . . . . . . . . . 39
+3.e.1 while statement  . . . . . . . . . . . . . . . 39
+3.e.2 repeat statement . . . . . . . . . . . . . . . 40
+3.e.3 for statement  . . . . . . . . . . . . . . . . 40
+3.e.4 loop statement . . . . . . . . . . . . . . . . 42
+3.f. miscellaneous statements  . . . . . . . . . . . 44
+3.f.1 null . . . . . . . . . . . . . . . . . . . . . 44
+3.f.2 halt . . . . . . . . . . . . . . . . . . . . . 44
+3.f.3 exit . . . . . . . . . . . . . . . . . . . . . 44
+
+4.a. procedure declaration . . . . . . . . . . . . . 45
+4.b. procedure definition  . . . . . . . . . . . . . 45
+4.c. parameters and arguments  . . . . . . . . . . . 45
+4.d. procedure call and return . . . . . . . . . . . 46
+4.e. parameter declarations  . . . . . . . . . . . . 48
+4.f. scope of names  . . . . . . . . . . . . . . . . 51
+4.g. procedure entry points  . . . . . . . . . . . . 54
+4.h. return as an sw . . . . . . . . . . . . . . . . 56
+
+5.a. macro definition  . . . . . . . . . . . . . . . 58
+5.b. macro expansion . . . . . . . . . . . . . . . . 59
+5.c. undef statement . . . . . . . . . . . . . . . . 61
+ XK7S
