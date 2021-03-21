@@ -1,0 +1,92 @@
+C
+C     ..................................................................
+C
+C        SUBROUTINE DDGT3
+C
+C        PURPOSE
+C           TO COMPUTE A VECTOR OF DERIVATIVE VALUES GIVEN VECTORS OF
+C           ARGUMENT VALUES AND CORRESPONDING FUNCTION VALUES.
+C
+C        USAGE
+C           CALL DDGT3(X,Y,Z,NDIM,IER)
+C
+C        DESCRIPTION OF PARAMETERS
+C           X     -  GIVEN VECTOR OF DOUBLE PRECISION ARGUMENT VALUES
+C                    (DIMENSION NDIM)
+C           Y     -  GIVEN VECTOR OF DOUBLE PRECISION FUNCTION VALUES
+C                    CORRESPONDING TO X (DIMENSION NDIM)
+C           Z     -  RESULTING VECTOR OF DOUBLE PRECISION DERIVATIVE
+C                    VALUES (DIMENSION NDIM)
+C           NDIM  -  DIMENSION OF VECTORS X,Y AND Z
+C           IER   -  RESULTING ERROR PARAMETER
+C                    IER  = -1  - NDIM IS LESS THAN 3
+C                    IER  =  0  - NO ERROR
+C                    IER POSITIVE  - X(IER) = X(IER-1) OR X(IER) =
+C                                    X(IER-2)
+C
+C        REMARKS
+C           (1)   IF IER = -1,2,3, THEN THERE IS NO COMPUTATION.
+C           (2)   IF IER =  4,...,N, THEN THE DERIVATIVE VALUES Z(1)
+C                 ,..., Z(IER-1) HAVE BEEN COMPUTED.
+C           (3)   Z CAN HAVE THE SAME STORAGE ALLOCATION AS X OR Y.  IF
+C                 X OR Y IS DISTINCT FROM Z, THEN IT IS NOT DESTROYED.
+C
+C        SUBROUTINES AND FUNCTION SUBPROGRAMS REQUIRED
+C           NONE
+C
+C        METHOD
+C           EXCEPT AT THE ENDPOINTS X(1) AND X(NDIM), Z(I) IS THE
+C           DERIVATIVE AT X(I) OF THE LAGRANGIAN INTERPOLATION
+C           POLYNOMIAL OF DEGREE 2 RELEVANT TO THE 3 SUCCESSIVE POINTS
+C           (X(I+K),Y(I+K)) K = -1,0,1. (SEE HILDEBRAND, F.B.,
+C           INTRODUCTION TO NUMERICAL ANALYSIS, MC GRAW-HILL, NEW YORK/
+C           TORONTO/LONDON, 1956, PP. 64-68.)
+C
+C     ..................................................................
+C
+      SUBROUTINE DDGT3(X,Y,Z,NDIM,IER)
+C
+C
+      DIMENSION X(1),Y(1),Z(1)
+      DOUBLE PRECISION X,Y,Z,DY1,DY2,DY3,A,B
+C
+C        TEST OF DIMENSION AND ERROR EXIT IN CASE NDIM IS LESS THAN 3
+      IER=-1
+      IF(NDIM-3)8,1,1
+C
+C        PREPARE DIFFERENTIATION LOOP
+    1 A=X(1)
+      B=Y(1)
+      I=2
+      DY2=X(2)-A
+      IF(DY2)2,9,2
+    2 DY2=(Y(2)-B)/DY2
+C
+C        START DIFFERENTIATION LOOP
+      DO 6 I=3,NDIM
+      A=X(I)-A
+      IF(A)3,9,3
+    3 A=(Y(I)-B)/A
+      B=X(I)-X(I-1)
+      IF(B)4,9,4
+    4 DY1=DY2
+      DY2=(Y(I)-Y(I-1))/B
+      DY3=A
+      A=X(I-1)
+      B=Y(I-1)
+      IF(I-3)5,5,6
+    5 Z(1)=DY1+DY3-DY2
+    6 Z(I-1)=DY1+DY2-DY3
+C        END OF DIFFERENTIATION LOOP
+C
+C        NORMAL EXIT
+      IER=0
+      I=NDIM
+    7 Z(I)=DY2+DY3-DY1
+    8 RETURN
+C
+C        ERROR EXIT IN CASE OF IDENTICAL ARGUMENTS
+    9 IER=I
+      I=I-1
+      IF(I-2)8,8,7
+      END
