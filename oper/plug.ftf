@@ -1,0 +1,1076 @@
+C       PLUG.FTF
+        SUBROUTINE PLUG(VALID, REPEAT)
+C
+C       THIS IS THE PLUG FUNCTIONAL UNIT.
+C
+C       IT PERFORMS ALL THE PROCESSING ASSOCIATED WITH THE PLUG SPEC.
+C
+        INTEGER REPEAT, ID(3)
+        LOGICAL VALID, FIRSTIM, TRUE
+        DATA FIRSTIM, TRUE / .TRUE.,  .TRUE. /
+C
+        COMMON /FILES/ FILE(7, 10), T3FILE(7)
+        INTEGER T3FILE
+C
+        COMMON /LIBINXP/ INXID(3), INXPNT, INXNWD, INXNPIN, INXFLAG,
+     1  THISINX
+        LOGICAL INXFLAG
+C
+        COMMON /PLUGPIN/ PPLIST(21), PPFLAG, THISPP
+        INTEGER PPLIST, THISPP
+        LOGICAL PPFLAG
+C
+        COMMON /PLUGBUF/ LIST(21), FROMPB, TOPB, PBFLAG, THISPB,
+     1  PLUGID(3), NPB, PB1, SAVEIT
+        INTEGER LIST, FROMPB, TOPB, THISPB, PLUGID, PB1
+        LOGICAL SAVEIT
+C
+        COMMON /LIBFILE/ LFNO, LFSIZE, LPNREC, LFOPEN, LFID(5)
+C
+        COMMON /CPGLOB/ KURSOR, LINSIZ, NATCH, INLINE(270), ISTTY,
+     1  HUSH, UNCOLA, IPROMP, IDFILE(5)
+C
+        COMMON /OWNPRM/ PRMPCP, UNPROMP, JPROM
+        LOGICAL PRMPCP, UNPROMP
+C
+    1   FORMAT (' LAST PLUG DESCRIPTION NOT SAVED', /
+     1  ' TYPE C/R ONLY IF NOT TO SAVE IT: ' $ )
+    2   FORMAT (' PLUG ALREADY DEFINED...ENTERING EDIT MODE'/)
+    3   FORMAT (' PLUG NOT DEFINED...ENTERING DEFINITION MODE'/)
+    4   FORMAT(' PLUG EDITED...NOW APPEND ' $)
+C
+C
+C
+C
+C       DETERMINE IF TO SAVE CURRENT PLUG DESCRIPTION
+        IF (.NOT. VALID) GO TO 110
+        IF (.NOT. SAVEIT) GO TO 100
+C
+C       HERE ON A VERIFICATION CHECK...DETERMINE IF PLUG IS TO
+C       BE SAVED
+        TYPE 1
+        IF (.NOT. FETCHL(I) ) GO TO 100
+C
+C       INPUT NOT NULL LINE, SO WRITE IT OUT
+        CALL PLGSAVE
+C
+C       CLEAN UP AND EXIT
+  100   SAVEIT = .FALSE.
+        PLUGID(1) = 0
+        PLUGID(2) = 0
+        PLUGID(3) = 0
+        CALL WCLOSE(LFNO)
+        CALL WCLOSE(T3FILE(1) )
+        T3FILE(2) = 1
+        FIRSTIM = .TRUE.
+        RETURN
+C
+C       HERE ON ENTRY...TEST IF FIRST TIME
+  110   IF (.NOT. FIRSTIM) GO TO 120
+        FIRSTIM = .FALSE.
+        CALL GETLP
+C
+C       HERE ON NON-VALIDITY CHECKING...GET A LINE, DETERMINE WHAT TO DO
+  120   UNCOLA = .FALSE.
+C
+C       GET A LINE AND TEST IT
+  130   CALL NEWLINE
+C
+C       DETERMINE IF THIS IS A VALID COMMAND
+  140   I = LPARSE(14)
+        IF (I .EQ. 0) GO TO 130
+        GO TO (160, 150, 700, 800), I
+C
+C       UNRECOGNIZED COMMAND...GO FIND OUT IF ANYBODY ELSE KNOWS IT
+        CALL GENERAL
+        GO TO 140
+C
+C       HERE FOR EDIT...IS THERE A PLUG ALREADY DEFINED
+  150   IF (PLUGID(1) .EQ. 0) GO TO 160
+        CALL NOWCH(1, KANDO)
+        IF (KANDO) GO TO 160
+        GO TO 500
+C
+C       GENERAL PROCESSING
+  160   CALL ANOTHER
+        IF (.NOT. PACK(ID(1), 14, 0) ) GO TO  210
+C
+C       DETERMINE IF THIS PLUG IS ALREADY IN FILE
+        IF (PLUGID(1) .NE. ID(1) ) GO TO 170
+        IF (PLUGID(2) .NE. ID(2) ) GO TO 170
+        IF (PLUGID(3) .NE. ID(3) ) GO TO 170
+C
+C       CURRENT PLUG...CHECK AND CONTINUE
+        IF (I .EQ. 1) TYPE 2
+        GO TO 500
+C
+C       HERE IF NEW PLUG
+  170   IF (I .NE. 1) GO TO 180
+        CALL ANOTHER
+        IF (LPARSE(43) .NE. 1) GO TO 210
+C
+C       HAVE EXAMINES TERMINAL ":" IF "DEFINE"...GO ON
+  180   IF (.NOT. SAVEIT) GO TO 200
+        TYPE 1
+        IF (.NOT. FETCHL(I) ) GO TO 190
+        CALL PLGSAVE
+  190   IF (I .NE. 1) GO TO 200
+        KURSOR = LINSIZ
+  200   SAVEIT = .FALSE.
+        T3FILE(2) = 23
+        CALL WOPEN(T3FILE(1) )
+        T3FILE(3) = 0
+        FROMPB = 0
+        TOPB = 0
+        PLUGID(1) = ID(1)
+        PLUGID(2) = ID(2)
+        PLUGID(3) = ID(3)
+        NPB = 0
+        PB1 = 0
+        GO TO (300, 400), I
+C
+C       COMMAND ERROR...BITCH
+  210   CALL ERROR ('SYNTAX ERROR IN COMMAND', 'SYNTAX')
+        GO TO 140
+C
+C
+C
+C
+C
+C       "DEFINE" COMMAND
+C
+C       LOOK FOR ID
+  300   IF (.NOT. LPXLOOK(ID(1) ) ) GO TO 310
+C
+C       ENTRY IS ALREADY DEFINED...COMMENT AND SKIP
+        TYPE 2
+        GO TO 410
+C
+C       HERE TO DEFINE AN ENTRY
+  310   PLUGID(1) = ID(1)
+        PLUGID(2) = ID(2)
+        PLUGID(3) = ID(3)
+        ITEM = 0
+        LIST(1) = "211400000000
+        LIST(20) = 0
+        LIST(21) = 0
+        CALL SOPM
+C
+C       GET ELEMENTS OF DEFINITION
+  320   DO 330 II = 2, 19
+  330   LIST(II) = 0
+C
+C       CHECK IF "FROM FILE"
+        CALL ANOTHER
+        IF (LPARSE(32) .NE. 1) GO TO 340
+        CALL ANOTHER
+        CALL CPDO(0)
+        CALL NEWLINE
+        CALL ANOTHER
+        GO TO 320
+C
+C       NOT FILE...GET CLAUSE
+  340   IF (.NOT. PGETC(LIST(1) ) ) GO TO 320
+        SAVEIT = .TRUE.
+        THISPB = T3FILE(3) + 1
+        T3FILE(3) = THISPB
+        FROMPB = ITEM
+        TOPB = 0
+        PBFLAG = .TRUE.
+        IF (ITEM .EQ. 0) GO TO 350
+        NPB = NPB + 1
+        CALL GETPB(ITEM)
+        TOPB = T3FILE(3)
+        PBFLAG = .TRUE.
+        GO TO 360
+C
+C       HERE FOR NEW ITEM
+  350   PB1 = THISPB
+        NPB = 1
+C
+C       ITEMS LINKED...SAVE AND TEST IF DONE
+  360   CALL PUTPB
+        ITEM = T3FILE(3)
+        CALL GETPB(ITEM)
+        JPROM = JPROM + 1
+        IF (LPARSE(43) .NE. 1) GO TO 320
+C
+C       DONE...CLEAN UP AND CONTINUE
+        CALL ROPM
+        GO TO 120
+C
+C
+C
+C
+C
+C       "EDIT" COMMAND
+  400   IF (LPXLOOK(ID(1) ) ) GO TO 410
+C
+C       NEW FILE OR NO SUCH PLUG..BITCH
+        TYPE 3
+        GO TO 310
+C
+C       GOT IT...SET UP AND COPY IT
+  410   PLUGID(1) = ID(1)
+        PLUGID(2) = ID(2)
+        PLUGID(3) = ID(3)
+        NPB = 0
+        PB1 = 1
+        T3FILE(3) = 0
+        ITEM = INXPNT
+C
+C       COPY
+        DO 430 II = 1, INXNPIN
+        CALL GETLPP(ITEM)
+        ITEM = ITEM + 1
+        DO 420 J = 1, 21
+  420   LIST(J) = PPLIST(J)
+        FROMPB = T3FILE(3)
+        THISPB = FROMPB + 1
+        TOPB = THISPB + 1
+        T3FILE(3) = THISPB
+        NPB = NPB + 1
+        PBFLAG = .TRUE.
+  430   CALL PUTPB
+C
+C       ALL COPIED...NOW DIDDLE LAST ELEMENT
+        CALL GETPB(T3FILE(3) )
+        TOPB = 0
+        PBFLAG = .TRUE.
+        CALL PUTPB
+C
+C       FILE NOW EXISTS
+C
+C       NOW ENTER EDIT MODE...FIRST TYPE OUT PLUG ID, DETERMINE IF
+C       CORRECTION TO BE DONE
+  500   CALL BLANK
+        CALL BUFN(' PLUG IDENTIFICATION: ', 22)
+        CALL BUFOUT(PLUGID)
+        CALL BUFN('...NEW ID? :', 12)
+        CALL TCONCAT
+        IF (.NOT. FETCHL(I) ) GO TO 520
+        IF (PACK(ID(1), 14, 0) ) GO TO 510
+C
+C       NEW NAME HAS ERROR...BITCH
+        CALL ERROR('INVALID PLUG NAME','???')
+        GO TO 500
+C
+C       GOT NEW NAME...SET IT UP
+  510   PLUGID(1) = ID(1)
+        PLUGID(2) = ID(2)
+        PLUGID(3) = ID(3)
+        SAVEIT = .TRUE.
+        GO TO 500
+C
+C       NOW DO THE LIST
+  520   ITEM = PB1
+        GO TO 540
+C
+C       HERE AFTER ELEMENT IS CHANGED
+  530   SAVEIT = .TRUE.
+C
+C       DISPLAY THE ELEMENT
+  540   CALL GETPB(ITEM)
+        CALL PLE(TRUE)
+        I = IEDIT(TRUE)
+        GO TO (640, 550, 590, 560, 620), I
+C
+C       EDIT
+  550   CALL PLE(.FALSE.)
+        IF (.NOT. PBFLAG) GO TO 540
+        GO TO 530
+C
+C       DELETE
+  560   ITEM = FROMPB
+        I = TOPB
+        IF (I .EQ. 0) GO TO 570
+        CALL GETPB(I)
+        FROMPB = ITEM
+        PBFLAG = .TRUE.
+C
+C       LINK .FROM. TO .TO.
+  570   NPB = NPB - 1
+        IF (ITEM .EQ. 0) GO TO 580
+        CALL GETPB(ITEM)
+        TOPB = I
+        PBFLAG = .TRUE.
+        GO TO 530
+C
+C       DELETE FIRST ITEM
+  580   ITEM = I
+        PB1 = I
+        IF (NPB .NE. 0) GO TO 530
+C
+C       HERE IF DELETED LAST ELEMENT
+        SAVEIT = .FALSE.
+        PLUGID(1) = 0
+        GO TO 120
+C
+C       HERE FOR INSERT
+  590   T3FILE(3) = T3FILE(3) + 1
+        I = THISPB
+        ITEM = FROMPB
+        FROMPB = T3FILE(3)
+        PBFLAG = .TRUE.
+        IF (ITEM .EQ. 0) GO TO 600
+C
+C       LINK LAST ITEM TO NEW
+        CALL GETPB(ITEM)
+        TOPB = T3FILE(3)
+        PBFLAG = .TRUE.
+        GO TO 610
+C
+C       HERE IF NEW FIRST ITEM
+  600   PB1 = T3FILE(3)
+C
+C       HERE FOR BOTH CASES...CLEAN UP
+  610   CALL PUTPB
+        FROMPB = ITEM
+        TOPB = I
+        THISPB = T3FILE(3)
+        ITEM = T3FILE(3)
+C
+C       HERE TO REPLACE OLD OR CREATE NEW
+  620   CALL SOPM
+        DO 630 II = 2, 19
+  630    LIST(II) = 0
+        IF (.NOT. PGETC(LIST(1) ) ) GO TO 620
+        CALL ROPM
+        PBFLAG = .TRUE.
+        GO TO 530
+C
+C       HERE WHEN ELEMENT ACCEPTED...SET NEXT ELEMENT
+  640   ITEM = TOPB
+        IF (ITEM .NE. 0) GO TO 540
+C
+C       TEST FOR APPEND
+        TYPE 4
+        IF (IEDIT(.FALSE.) .EQ. 2) GO TO 120
+        ITEM = T3FILE(3) + 1
+        CALL SOPM
+  650   T3FILE(3) = T3FILE(3) + 1
+        TOPB = T3FILE(3)
+        PBFLAG = .TRUE.
+        CALL PUTPB
+        FROMPB = THISPB
+        THISPB = T3FILE(3)
+        TOPB = 0
+  660   DO 670 II = 2, 19
+  670   LIST(II) = 0
+        IF (.NOT. PGETC(LIST(1) ) ) GO TO 660
+        PBFLAG = .TRUE.
+        JPROM = JPROM + 1
+        IF (LPARSE(43) .NE. 1) GO TO 650
+        CALL ROPM
+        GO TO 540
+C
+C
+C
+C
+C       "ENTER"...TEST IF "ENTER PLUG"
+  700   IF (LPARSE(15) .NE. 1) GO TO 210
+C
+C       SAVE THE CURRENT DESCRIPTION
+        IF (SAVEIT) CALL PLGSAVE
+        SAVEIT = .FALSE.
+        GO TO 120
+C
+C
+C
+C
+C       "DIRECTORY"...PRINT IT OUT
+  800   CALL PDIR
+        GO TO 120
+        END
+        SUBROUTINE PLE(LIST)
+C
+C       THIS ROUTINE LISTS AND EDITS PLUG DATA
+C
+        COMMON /CPGLOB/ KURSOR, LINSIZ, NATCH, INLINE(270), ISTTY,
+     1  HUSH, UNCOLA, IPROMP, IDFILE(5)
+        LOGICAL ISTTY, HUSH, UNCOLA
+C
+        COMMON /PLUGBUF/ PPID, DEFAULT, GROUP, SUBGRP, ILT, OLT,
+     1  GRPNO, SGRPNO, LOAD, DRIVE, WOCC, TCC, PPCORAL(2), GRPRING,
+     2  SGRPRNG, PPX, PPY, FROMPP, TOPP, PPFLAG, THISPP
+        DOUBLE PRECISION DEFAULT, GROUP, SUBGRP
+        REAL LOAD, DRIVE, PPX, PPY
+        INTEGER PPID, ILT, OLT, GRPNO, SGRPNO, WOCC, TCC, PPCORAL,
+     1  GRPRING, SGRPRNG, FROMPP, TOPP, THISPP
+        LOGICAL PPFLAG
+C
+        DOUBLE PRECISION DID
+        INTEGER ID(3), TTCC(2, 0/3), TWOCC(2, 0/2), NONE(2)
+        EQUIVALENCE (ID(1), DID)
+        LOGICAL LIST
+        DATA TTCC / 'NO FL',"476032400000, "526400000000,0,
+     1          "422372747000,0, 'FLOAT',"202371300000 /
+        DATA TWOCC / 'FORBI',"422110547000, "476260000000,0,
+     1          'REQUI',"512130400000 /
+        DATA NONE /'**NON',"425245200000 /
+C
+    1   FORMAT('+: ' $ )
+    2   FORMAT( 1H(, I3, 1H) )
+    3   FORMAT(F10.3)
+    4   FORMAT(1H+ / 5X $)
+C
+C       COMMENCE OUTPUTTING THE LIST:
+C
+C
+C       OUTPUT THE PLUG-PIN IDENTIFICATION
+  100   CALL BLANK
+        CALL BUFN(PPID, 5)
+        CALL BUFN(PPID, 1)
+        CALL TCONCAT
+        IF (LIST) GO TO 140
+        TYPE 1
+        IF (.NOT. FETCHL(I) ) GO TO 140
+  110   I = NOWCH(8, KANDO)
+        IF (.NOT. KANDO) GO TO 140
+        CALL NEXTCH(8, KANDO)
+        IF (PACK(ID(1), 4, 0) ) GO TO 130
+  120   CALL ERROR('INVALID PLUG-PIN NAME','BAD ID')
+        GO TO 110
+  130   J = NOWCH(8, KANDO)
+        IF (.NOT. KANDO) GO TO 120
+        IF (I .NE. J) GO TO 120
+        I = 1
+        PPID = 0
+        CALL BUFSTR(PPID, I, J)
+        CALL BUFSTR(PPID, I, ID(1) )
+        PPFLAG = .TRUE.
+        GO TO 100
+C
+C
+C
+C       OUTPUT X-POSITION
+  140   ENCODE (10, 3, ID) PPX
+        CALL BLANK
+        CALL BUFN(' X = ', 5)
+        CALL RTRUNC(10, ID)
+        CALL BUFOUT(ID)
+        CALL TCONCAT
+        IF (LIST) GO TO 160
+        TYPE 1
+        IF (.NOT. FETCHL(I) ) GO TO 160
+  150   CALL NOWCH(1, KANDO)
+        IF (.NOT. KANDO) GO TO 160
+        IF (.NOT. GETREAL(PPX) ) GO TO 150
+        PPFLAG = .TRUE.
+        GO TO 140
+C
+C
+C
+C       OUTPUT Y-POSITION
+  160   ENCODE (10, 3, ID) PPY
+        CALL RTRUNC(10, ID)
+        CALL BLANK
+        CALL BUFN(' Y = ', 5)
+        CALL BUFOUT(ID)
+        CALL TCONCAT
+        IF (LIST) GO TO 180
+C
+C       INPUT A NEW VALUE
+        TYPE 1
+        IF (.NOT. FETCHL(I) ) GO TO 180
+  170   CALL NOWCH(1, KANDO)
+        IF (.NOT. KANDO) GO TO 180
+        IF (.NOT. GETREAL(PPY) ) GO TO 170
+        PPFLAG = .TRUE.
+        GO TO 160
+C
+C
+C
+C       OUTPUT DEFAULT SIGNAL
+  180   CALL BLANK
+        CALL BUFN(' SIGNAL = ', 10)
+        IF (DEFAULT .EQ. 0) CALL BUFOUT(NONE)
+        IF (DEFAULT .EQ. 0) GO TO 190
+        CALL BUFN(DEFAULT, 10)
+        IF (.NOT. LIST) CALL BUFN(' ("*" DELETES VALUE) ', 21)
+  190   CALL TCONCAT
+        IF (LIST) GO TO 230
+C
+C       INPUT A NEW VALUE
+        TYPE 1
+        IF (.NOT. FETCHL(I) ) GO TO 240
+  200   I = NOWCH(8, KANDO)
+        IF (.NOT. KANDO) GO TO 240
+        IF (DEFAULT .EQ. 0) GO TO 210
+        IF (I .NE. 1H*) GO TO 210
+C
+C       DELETE OLD VALUE
+        DEFAULT = 0
+        PPFLAG = .TRUE.
+        GO TO 180
+C
+C       HERE FOR GENERAL CASE...NEW DEFAULT SIGNAL NAME
+  210   IF (SIGSTR(ID) ) GO TO 220
+        CALL ERROR('INVALID SIGNAL NAME','BAD SIG. ID')
+        GO TO 200
+  220   DEFAULT = DID
+        PPFLAG = .TRUE.
+        GO TO 180
+C
+C       HERE IN LISTING MODE...FORCE A NEW LINE
+  230   TYPE 4
+C
+C
+C
+C       OUTPUT GROUP DESCRIPTION
+  240   CALL BLANK
+        CALL BUFN(' GROUP ', 7)
+        IF (GROUP .EQ. 0) CALL BUFOUT(NONE)
+        IF (GROUP .EQ. 0) GO TO 250
+        CALL BUFOUT(GROUP)
+        ENCODE (5, 2, ID) GRPNO
+        CALL DBLANK(5, ID)
+        CALL BUFOUT(ID)
+        IF (.NOT. LIST) CALL BUFN(' ("*" DELETES VALUE) ', 21)
+  250   CALL TCONCAT
+        IF (LIST) GO TO 320
+C
+C       INPUT A NEW VALUE
+        TYPE 1
+        IF (.NOT. FETCHL(I) ) GO TO 320
+  260   I = NOWCH(8, KANDO)
+        IF (.NOT. KANDO) GO TO 320
+        IF (I .NE. 1H( ) GO TO 280
+C
+C       GOT "("
+        IF (GROUP .NE. 0) GO TO 310
+C
+C       ERROR IN GROUP NAME
+  270   CALL ERROR ('SYNTAX ERROR IN GROUP NAME','BAD GRP. ID')
+        GO TO 260
+C
+C       DIDN'T GET "("
+  280   IF (GROUP .EQ. 0) GO TO 290
+        IF (I .NE. 1H*) GO TO 290
+C
+C       DELETE OLD VALUE
+        GROUP = 0
+        GRPNO = 0
+        PPFLAG = .TRUE.
+        GO TO 240
+C
+C       HERE FOR GENERAL CASE...NEW GROUP NAME
+  290   IF (.NOT. PACK(ID, 10, 0) ) GO TO 270
+        GROUP = DID
+        GRPNO = 1
+        I = NOWCH(8, KANDO)
+        IF (.NOT. KANDO) GO TO 240
+        IF (I .EQ. 1H( ) GO TO 310
+C
+C       EXPECT "("...ERROR
+  300   CALL ERROR ('SYNTAX ERROR IN GROUP NUMBER','BAD GRP. NO.')
+        GO TO 260
+C
+C       GET GROUP NUMBER
+  310   CALL NEXTCH(8, KANDO)
+        IF (LOOKIN(J) .NE. 2) GO TO 300
+        IF (NOWCH(8, KANDO) .NE. 1H) ) GO TO 300
+        GRPNO = J
+        PPFLAG = .TRUE.
+        GO TO 240
+C
+C
+C
+C       OUTPUT SUBGROUP DESCRIPTION
+  320   CALL BLANK
+        CALL BUFN(' SUBGROUP ', 10)
+        IF (SUBGRP .EQ. 0) CALL BUFOUT(NONE)
+        IF (SUBGRP .EQ. 0) GO TO 330
+        CALL BUFOUT(SUBGRP)
+        ENCODE (5, 2, ID) SGRPNO
+        CALL DBLANK(5, ID)
+        CALL BUFN(ID, 5)
+        IF (.NOT. LIST) CALL BUFN(' ("*" DELETES VALUE) ', 21)
+  330   CALL TCONCAT
+        IF (LIST) GO TO 400
+C
+C       INPUT A NEW VALUE
+        TYPE 1
+        IF (.NOT. FETCHL(I) ) GO TO 410
+  340   I = NOWCH(8, KANDO)
+        IF (.NOT. KANDO) GO TO 410
+        IF (I .NE. 1H( ) GO TO 360
+C
+C       GOT "("
+        IF (SUBGRP .NE. 0) GO TO 390
+C
+C       ERROR IN SUBGROUP NAME
+  350   CALL ERROR ('SYNTAX ERROR IN SUBGROUP NAME','BAD SGRP. ID')
+        GO TO 340
+C
+C       DIDN'T GET "("
+  360   IF (SUBGRP .EQ. 0) GO TO 370
+        IF (I .NE. 1H*) GO TO 370
+C
+C       DELETE OLD VALUE
+        SUBGRP = 0
+        SGRPNO = 0
+        PPFLAG = .TRUE.
+        GO TO 320
+C
+C       HERE FOR GENERAL CASE...NEW SUBGROUP NAME
+  370   IF (.NOT. PACK(ID, 10, 0) ) GO TO 350
+        SUBGRP = DID
+        SGRPNO = 1
+        I = NOWCH(8, KANDO)
+        IF (.NOT. KANDO) GO TO 320
+        IF (I .EQ. 1H( ) GO TO 390
+C
+C       EXPECT "("...ERROR
+  380   CALL ERROR ('SYNTAX ERROR IN SUBGROUP NUMBER','BAD SGRP. NO.')
+        GO TO 340
+C
+C       GET SUBGROUP NUMBER
+  390   CALL NEXTCH(8, KANDO)
+        IF (LOOKIN(J) .NE. 2) GO TO 380
+        IF (NOWCH(8, KANDO) .NE. 1H) ) GO TO 380
+        SGRPNO = J
+        PPFLAG = .TRUE.
+        GO TO 320
+C
+C
+C
+C
+C       HERE TO MAKE A NEW LINE IN LIST MODE
+  400   TYPE 4
+C
+C       PROCESS INPUT LOGIC TYPE
+  410   CALL BLANK
+        CALL BUFN(' INPUT LOGIC TYPE = ', 20)
+        IF (ILT .EQ. 0) CALL BUFOUT(NONE)
+        IF (ILT .EQ. 0) GO TO 420
+        CALL BUFN(ILT, 5)
+        IF (.NOT. LIST) CALL BUFN(' ("*" DELETES VALUE) ', 21)
+  420   CALL TCONCAT
+        IF (LIST) GO TO 460
+C
+C       GET NEW VALUE IF NECESSARY
+        TYPE 1
+        IF (.NOT. FETCHL(I) ) GO TO 460
+  430   I = NOWCH(8, KANDO)
+        IF (.NOT. KANDO) GO TO 460
+        IF (I .NE. 1H* ) GO TO 440
+C
+C       DELETE CURRENT VALUE
+        ILT = 0
+        PPFLAG = .TRUE.
+        GO TO 410
+C
+C       NEW VALUE
+  440   IF (PACK(I, 5, 0) ) GO TO 450
+        CALL ERROR ('SYNTAX ERROR IN INPUT LOGIC TYPE','???')
+        GO TO 430
+C
+C       GOT ONE
+  450   ILT = I
+        PPFLAG = .TRUE.
+        GO TO 410
+C
+C
+C
+C       PROCESS OUTPUT LOGIC TYPE
+  460   CALL BLANK
+        CALL BUFN(' OUTPUT LOGIC TYPE = ', 21)
+        IF (OLT .EQ. 0) CALL BUFOUT(NONE)
+        IF (OLT .EQ. 0) GO TO 470
+        CALL BUFN(OLT, 5)
+        IF (.NOT. LIST) CALL BUFN(' ("*" DELETES VALUE) ', 21)
+  470   CALL TCONCAT
+        IF (LIST) GO TO 510
+C
+C       GET NEW VALUE IF NECESSARY
+        TYPE 1
+        IF (.NOT. FETCHL(I) ) GO TO 520
+  480   I = NOWCH(8, KANDO)
+        IF (.NOT. KANDO) GO TO 520
+        IF (I .NE. 1H* ) GO TO 490
+C
+C       DELETE CURRENT VALUE
+        OLT = 0
+        PPFLAG = .TRUE.
+        GO TO 460
+C
+C       NEW VALUE
+  490   IF (PACK(I, 5, 0) ) GO TO 500
+        CALL ERROR ('SYNTAX ERROR IN OUTPUT LOGIC TYPE','???')
+        GO TO 480
+C
+C       GOT ONE
+  500   OLT = I
+        PPFLAG = .TRUE.
+        GO TO 460
+C
+C
+C
+C       NEW LINE IN LIST MODE
+  510   TYPE 4
+C
+C
+C
+C       PROCESS LOAD
+  520   ENCODE (10, 3, ID) LOAD
+        CALL RTRUNC(10, ID)
+        CALL BLANK
+        CALL BUFN(' INPUT LOAD = ', 14)
+        CALL BUFOUT(DID)
+        CALL TCONCAT
+        IF (LIST) GO TO
+        TYPE 1
+        IF (.NOT. FETCHL(I) ) GO TO 540
+  530   CALL NOWCH(1, KANDO)
+        IF (.NOT. KANDO) GO TO 540
+        IF (.NOT. GETREAL(LOAD) ) GO TO 530
+        PPFLAG = .TRUE.
+        GO TO 520
+C
+C
+C       PROCESS DRIVE
+  540   ENCODE (10, 3, ID) DRIVE
+        CALL RTRUNC(10, ID)
+        CALL BLANK
+        CALL BUFN(' OUTPUT DRIVE = ', 16)
+        CALL BUFOUT(DID)
+        CALL TCONCAT
+        IF (LIST) GO TO 560
+        TYPE 1
+        IF (.NOT. FETCHL(I) ) GO TO 570
+  550   CALL NOWCH(1, KANDO)
+        IF (.NOT. KANDO) GO TO 570
+        IF (.NOT. GETREAL(DRIVE) ) GO TO 550
+        PPFLAG = .TRUE.
+        GO TO 540
+C
+C
+C
+C       NEW LINE IF LIST MODE
+  560   TYPE 4
+C
+C
+C
+C       PROCESS TIE CONDITIONS
+  570   CALL BLANK
+        CALL BUFN(' INPUT TIE ', 11)
+        CALL BUFOUT(TTCC(1, TCC) )
+        CALL TCONCAT
+        IF (LIST) GO TO 600
+        TYPE 1
+        IF (.NOT. FETCHL(I) ) GO TO 600
+  580   CALL NOWCH(1, KANDO)
+        IF (.NOT. KANDO) GO TO 600
+        I = LPARSE(39)
+        GO TO (590, 590, 590, 590) I
+C
+C       HERE IF ERROR
+        CALL ERROR('INVALID TIE DESCRIPTION','???')
+        GO TO 580
+C
+C       GOT A NEW ONE
+  590   TCC = I - 1
+        PPFLAG = .TRUE.
+        GO TO 570
+C
+C
+C
+C       PROCESS WIRED-OR CONDITIONS
+  600   CALL BLANK
+        CALL BUFN(' OUTPUT WIRED-OR ', 17)
+        CALL BUFOUT(TWOCC(1, WOCC) )
+        CALL TCONCAT
+        IF (LIST) GO TO 630
+        TYPE 1
+        IF (.NOT. FETCHL(I) ) GO TO 630
+  610   CALL NOWCH(1, KANDO)
+        IF (.NOT. KANDO) GO TO 630
+        I = LPARSE(41)
+        GO TO (620, 620, 620) I
+C
+C       HERE IF ERROR
+        CALL ERROR('INVALID WIRED-OR DESCRIPTION','???')
+        GO TO 610
+C
+C       GOT A NEW ONE
+  620   WOCC = I - 1
+        PPFLAG = .TRUE.
+        GO TO 600
+C
+C
+C
+C       FINALLY DONE...DATA LISTED OR EDITED AS NECESSARY...QUIT
+  630   CALL BLANK
+        CALL TYPE
+        RETURN
+        END
+        LOGICAL FUNCTION PGETC(LIST)
+C
+C       THIS ROUTINE GETS A PLUG CLAUSE, OR TELLS WHY NOT.
+C       RETURNS .TRUE. IF SUCCESS, .FALSE. IF NOT; IF NOT, NEW LINE IN
+C       INLINE
+C
+        COMMON /CPGLOB/ KURSOR, LINSIZ, NATCH, INLINE(270), ISTTY,
+     1  HUSH, UNCOLA, IPROMP, IDFILE(5)
+        LOGICAL ISTTY, HUSH, UNCOLA
+C
+        COMMON /OWNPRM/ PRMPCP, UNPROMP, JPROM
+        LOGICAL PRMPCP, UNPROMP
+C
+        INTEGER LIST(21), TEMP(21)
+        LOGICAL PID, PX, PY, DEF, GRP, SGRP, ILT, OLT, IL, OD, ITC, OWC
+C
+C       COPY THE SOURCE, SET FLAGS
+        DO 100 I = 1, 21
+  100   TEMP(I) = LIST(I)
+        CALL BUMPIT(TEMP(1) )
+        PID = .FALSE.
+        PX = .FALSE.
+        PY = .FALSE.
+        DEF = .FALSE.
+        GRP = .FALSE.
+        SGRP = .FALSE.
+        ILT = .FALSE.
+        OLT = .FALSE.
+        IL = .FALSE.
+        OD = .FALSE.
+        ITC = .FALSE.
+        OWC = .FALSE.
+        PGETC = .FALSE.
+        GO TO 120
+C
+C       SKIP ANY PSSIBLE ","
+  110   CALL ANOTHER
+        CALL LPARSE(42)
+C
+C       GET A CLAUSE ELEMENT
+  120   CALL ANOTHER
+        I = LPARSE(36)
+        GO TO (200, 210, 230, 240, 260, 270, 280, 290, 330, 370,
+     1          380), I
+C
+C       DETERMINE IF POSSIBLE NUMBER
+        I = LOOKRL(N)
+        IF (I .EQ. 1) GO TO 130
+        IF (I .EQ. 4) GO TO 130
+C
+C       GOT A REAL NUMBER...CAN IT BE X
+        IF (PX) GO TO 140
+        GO TO 235
+C
+C       UNRECOGNIZED SYNTAX...BITCH
+  130   CALL ERROR('UNRECOGNIZED ELEMENT SYNTAX','SYNTAX')
+        RETURN
+C
+C       ITEM REPEATED
+  140   CALL ERROR('MULTIPLE DEFINED CLAUSE ATTRIBUTE','MULT. DEF.')
+        RETURN
+C
+C       ERROR IN INPUT SPECIFICATION
+  150   CALL ERROR('INVALID REAL NUMBER SPECIFICATION','BAD REAL NO.')
+        RETURN
+C
+C       ERROR IN GROUP/SUBGROUP NUMBER
+  160   CALL ERROR ('GROUP/SUBGROUP NUMBER SPECIFICATION','BAD NO.')
+        RETURN
+C
+C       BAD REAL NUMBER
+  170   CALL ERROR('INVALID REAL NUMBER','BAD NO.')
+        RETURN
+C
+C       GOT "
+  200   I = 1H"
+        GO TO 220
+C
+C       GOT '
+  210   I = 1H'
+C
+C       VERIFY IT
+  220   IF (PID) GO TO 140
+        PID = .TRUE.
+        IF (.NOT. PACK(J, 4, 0) ) GO TO 130
+        IF (NOWCH(8, KANDO) .NE. I ) GO TO 130
+        CALL NEXTCH(8, KANDO)
+        K = 1
+        TEMP(1) = 0
+        CALL BUFSTR(TEMP(1), K, I)
+        CALL BUFSTR(TEMP(1), K, J)
+        GO TO 110
+C
+C       X
+  230   IF (PX) GO TO 140
+C
+C       SKIP "="
+        CALL LPARSE(35)
+        I = LOOKRL(N)
+        IF (I .EQ. 1) GO TO 170
+        IF (I .EQ. 4) GO TO 170
+C
+C       GOT A VALID REAL NUMBER IN N
+  235   TEMP(20) = N
+        PX = .TRUE.
+C
+C       DETERMINE IF POSSIBLE FORM (NN.N, NN.N)
+        IF (PY) GO TO 110
+        IF (LPARSE(42) .NE. 1) GO TO 120
+        I = LOOKRL(N)
+        IF (I .EQ. 1) GO TO 120
+        IF (I .EQ. 4) GO TO 120
+        GO TO 250
+C
+C       Y
+  240   IF (PY) GO TO 140
+        CALL LPARSE(35)
+        IF (.NOT. GETREAL(N) ) RETURN
+  250   TEMP(21) = N
+        PY = .TRUE.
+        GO TO 110
+C
+C       GOT SIGNAL...
+  260   IF (DEF) GO TO 140
+        DEF = .TRUE.
+        CALL LPARSE(35)
+        IF (.NOT. SIGSTR(TEMP(2) ) ) GO TO 130
+        GO TO 110
+C
+C       GROUP
+  270   IF (GRP) GO TO 140
+        GRP = .TRUE.
+        IF (.NOT. PACK(TEMP(4), 10, 0) ) GO TO 130
+        TEMP(10) = 1
+C
+C       TEST IF NUMBER
+        IF (NOWCH(8, I) .NE. 1H( ) GO TO 110
+        CALL NEXTCH(8, KANDO)
+        IF (LOOKIN(TEMP(10) ) .NE. 2) GO TO 160
+        IF (NOWCH(8, KANDO) .NE. 1H) ) GO TO 160
+        CALL NEXTCH(8, KANDO)
+        GO TO 110
+C
+C       SUBGROUP
+  280   IF (SGRP) GO TO 140
+        SGRP = .TRUE.
+        IF (.NOT. PACK(TEMP(6), 10, 0) ) GO TO 130
+        TEMP(11) = 1
+C
+C       TEST IF NUMBER
+        IF (NOWCH(8, I) .NE. 1H( ) GO TO 110
+        CALL NEXTCH(8, KANDO)
+        IF (LOOKIN(TEMP(11) ) .NE. 2) GO TO 160
+        IF (NOWCH(8, KANDO) .NE. 1H) ) GO TO 160
+        CALL NEXTCH(8, KANDO)
+        GO TO 110
+C
+C       INPUT...PARSE IT OUT
+  290   CALL ANOTHER
+        I = LPARSE(37)
+        GO TO (130, 130, 300, 310, 320, 130), I+2
+C
+C       "INPUT LOGIC"
+  300   CALL ANOTHER
+        IF (LPARSE(38) .NE. 1) GO TO 130
+        CALL ANOTHER
+        CALL LPARSE(35)
+        CALL ANOTHER
+        IF (.NOT. PACK(TEMP(8), 5, 0) ) GO TO 130
+        GO TO 110
+C
+C       "INPUT LOAD"
+  310   CALL ANOTHER
+        CALL LPARSE(35)
+        CALL ANOTHER
+        IF (.NOT. GETREAL(TEMP(12) ) ) RETURN
+        GO TO 110
+C
+C       "INPUT TIE"
+  320   CALL ANOTHER
+        I = LPARSE(39)
+        IF (I .LE. 0) GO TO 130
+        IF (I .GT. 4) GO TO 130
+        TEMP(15) = I - 1
+        GO TO 110
+C
+C       "OUTPUT"...PARSE IT OUT
+ 330    CALL ANOTHER
+        I = LPARSE(40)
+        GO TO (130, 130, 340, 350, 360, 130), I+2
+C
+C       OUTPUT LOGIC
+ 340    CALL ANOTHER
+        IF (LPARSE(38) .NE. 1) GO TO 130
+        CALL ANOTHER
+        CALL LPARSE(35)
+        CALL ANOTHER
+        IF (.NOT. PACK(TEMP(9), 5, 0) ) GO TO 130
+        GO TO 110
+C
+C       OUTPUT LOAD"
+ 350    CALL ANOTHER
+        CALL LPARSE(35)
+        CALL ANOTHER
+        IF (.NOT. GETREAL(TEMP(13) ) ) RETURN
+        GO TO 110
+C
+C       "OUTPUT WIRED-OR"
+ 360    CALL ANOTHER
+        I = LPARSE(41)
+        IF (I .LE. 0) GO TO 130
+        IF (I .GT. 3) GO TO 130
+        TEMP(14) = I - 1
+        GO TO 110
+C
+C       ":"...BACK UP CURSOR
+ 370    KURSOR = KURSOR - 1
+C
+C       ";"
+ 380    DO 390 I = 1, 21
+ 390    LIST(I) = TEMP(I)
+        PGETC = .TRUE.
+        RETURN
+        END
+        SUBROUTINE PDIR
+C
+C       THIS ROUTINE LISTS THE CURRENT PLUG LIBRARY DIRECTORY
+C
+        COMMON /LIBFILE/ FILE(4), NAME(5)
+C
+        COMMON /CPGLOB/ KURSOR, LINSIZ, NATCH, INLINE(270)
+C
+        COMMON /LIBPRE/ BLOKSIZ, INDXSIZ, NINDEX, INDEX1
+        INTEGER BLOKSIZ
+C
+        COMMON /LIBINXP/ LPXID(3), LPXSTAR, LPXSIZE, LPXNPIN
+C
+    1   FORMAT(///' PLUGS DESCRIBED IN LIBRARY ', 5A5//
+     1  ' PLUG',15X,'# PINS')
+    2   FORMAT('    **NONE**'///)
+    3   FORMAT(///)
+    4   FORMAT(I5)
+C
+C       TYPE THE HEADER
+        TYPE 1, NAME
+        IF (NINDEX .NE. 0) GO TO 100
+C
+C       NONE THERE...COMMENT AND EXIT
+        TYPE 2
+        RETURN
+C
+C       HERE WITH PLUGS DEFINED
+  100   I = INDEX1
+        DO 110 J = 1, NINDEX
+        CALL GETLPX(I)
+        I = I + 1
+        CALL BLANK
+        LINSIZ = 2
+        CALL BUFOUT(LPXID(1) )
+        LINSIZ = 20
+        ENCODE (5, 4, K) LPXNPIN
+        CALL BUFN(K, 5)
+  110   CALL TYPE
+C
+C       DONE..CLEAN UP AND EXIT
+        TYPE 3
+        RETURN
+        END
+   _@<
