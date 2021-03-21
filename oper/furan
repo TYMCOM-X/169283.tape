@@ -1,0 +1,470 @@
+        SUBROUTINE FURAN(A,B,C,BU,BL,CB,CN,CBC,BETA,PI,NFLAG,TEMP,
+     +  ETA,PIP,ALPHA,INDETA,INDA,RINV,DICT)
+        COMMON /KOM/ KOMFILE
+        INTEGER RHS1
+
+
+        DIMENSION A(1),B(1),C(1),BU(1),BL(1),CB(1),CN(1),CBC(1),
+
+     +  BETA(1),PI(1),NFLAG(1),TEMP(1),ETA(1),PIP(1),ALPHA(1)
+        DIMENSION INDETA(1),INDA(1),RINV(1),DICT(0/1)   
+        DIMENSION NAMES(4)
+        DATA NAMES /5HCHSIN,5HOBJEC,3HRHS,5HROW I/
+        DIMENSION ITIT(5),NAMRUO(2)
+
+C
+C DECLARATIONS MADE 6/19/73
+C*S     START COMMON
+        COMMON /MIPCOM/ V,AV,WDCNT,DUEL,IR,IK,RI,L,M,N
+        COMMON /MIPCOM/ Q,QP,QPP,NETA,MAXETA,PRIM,NODUAL,NOPRIM
+        COMMON /MIPCOM/ BIG,NPM,MP1,NP1,DELTA,UNB,ITYPE,ISTAR,IRP,IRPP
+        COMMON /MIPCOM/ TOL,TOL1,OPTION,ISW,ID,CHSIN,ITER,OBVAL,OBJ1
+        COMMON /OUTCOM/ JL,JR,NAML,VAL,NAMR,KR,PR
+        COMMON /LINCNT/ LINE
+C       LINE IS CURRENT LINE NO. IN CREATE FILE
+        INTEGER DICT, OPTION
+        INTEGER V,AV,CB,CN,WDCNT,DUEL ,PRIM,UNB,RI
+C*E     END COMMON
+
+
+
+        IF(KOMFILE .EQ. 22)  GO TO 4671
+
+        TYPE 466
+466     FORMAT(' ANY CHANGES IN LIMITING CONSTRAINT VALUES?',/,
+     +  ' TYPE NONE OR THE NAME OF THE CONSTRAINT AND THE',/,
+     +  ' NEW VALUE IN FORMAT(A5,F).',/)
+
+4671    IFST = 0
+467     READ(KOMFILE,468,END=90001) NAME, VALUE
+
+        IF((NAME .EQ. 'NONE ').OR.(NAME.EQ.'     '))  GO TO 475
+
+468     FORMAT(A5,G)
+
+        IF(IFST .NE. 0) GO TO 470
+
+C       INITIALIZE RINV IF FIRST TIME THRU
+        IFST = 1
+
+        DO 4681 I = 1, M
+4681    RINV(I) = 0.
+
+470     DO 469 J = 1, M
+        IF(NAME .EQ. DICT(J))  GO TO 472
+469     CONTINUE
+
+        TYPE 471
+471     FORMAT(' NO SUCH CONSTRAINT.  TRY AGAIN.',/)
+        GO TO 467
+
+472     IF(NFLAG(J) .EQ. 4)  VALUE = -VALUE
+C
+C       UPDATE RINV
+C       
+        RINV(J) = B(J) - VALUE
+C
+C       UPDATE B VECTOR
+C
+        B(J) = VALUE
+        GO TO 467
+
+475     IF(IFST .EQ. 0)  GO TO 4751
+
+C       HERE IF A CONSTRAINT HAS BEEN CHANGED
+C
+C       
+        CALL FTRAN(RINV,ETA,TEMP,INDETA)
+
+
+
+        DO 4750 J = 1, M
+        OBVAL = OBVAL + CBC(J) * RINV(J)
+4750    BETA(J) = BETA(J) - RINV(J)
+
+C
+C       HERE WHEN DONE CHANGING CONSTRAINTS
+C
+
+4751    IF(KOMFILE .EQ. 22)  GO TO 477
+
+        TYPE 476
+476     FORMAT(' ANY CHANGE IN OBJECTIVE FUNCTION COEFFICIENTS?',/,
+     +  ' TYPE NONE OR THE NAME OF THE VARIABLE AND THE',/,
+     +  ' NEW COEFFICIENT IN FORMAT(A5,F),',/)
+
+477     IFST = 0
+4771    READ(KOMFILE,468,END=90001)  NAME, VALUE
+
+        IF((NAME .EQ. 'NONE ').OR.(NAME.EQ.'     '))  GO TO 485
+
+        IFST = 1
+
+        
+
+        DO 479 I = 1, N
+        IF(NAME .EQ. DICT(M+I))  GO TO 482
+479     CONTINUE
+
+        TYPE 481
+481     FORMAT(' NO SUCH VARIABLE.  TRY AGAIN.',/)
+
+        GO TO 477
+
+
+482     IF(CHSIN .EQ. 0)  VALUE = -VALUE
+
+        DIFCI = VALUE - C(I)
+        C(I) = VALUE
+
+        IPM = I + M
+
+        DO 483 J = 1,N
+        IF(IPM .EQ. CN(J)) GO TO 484
+483     CONTINUE
+
+C       VARIABLE IS BASIC
+
+        DO 4831 J = 1, M
+        IF(IPM .EQ. CB(J))  GO TO 4832
+4831    CONTINUE
+4832    CONTINUE
+
+        IF(NFLAG(IPM) .EQ. -1)
+     +     OBVAL = OBVAL -DIFCI * ((BU(I)-BETA(J))+BL(I))
+
+        IF(NFLAG(IPM) .EQ. 1)  
+     +     OBVAL = OBVAL - DIFCI * (BETA(J) + BL(I))
+
+        IF((NFLAG(IPM).NE.-1) .AND.(NFLAG(IPM).NE.1))
+     +     OBVAL = OBVAL  -DIFCI * BETA(J)
+
+        GO TO 4771
+
+C
+C       VARIABLE IS NON-BASIC
+C
+
+484     IF(NFLAG(IPM) .EQ. -1)
+     +     OBVAL =  OBVAL + DIFCI * (BU(I) + BL(I))
+
+        IF(NFLAG(IPM) .EQ. 1)
+     +     OBVAL = OBVAL + DIFCI * BL(I)
+
+        GO TO 4771
+
+485     IF(IFST .EQ. 0) GO TO 4851
+C
+C       HERE WHEN  AT LEAST ONE COEFFICIENT CHANGED
+C
+        DO 100 I = 1, M
+        CBC(I) = 0.
+        IF(CB(I) .LE. M)  GO TO 100
+
+        CBC(I) = C(CB(I)-M)
+        IF(NFLAG(CB(I)) .EQ. -1)  CBC(I) = -CBC(I)
+
+100     CONTINUE
+
+C
+C       COMPUTE PI VECTOR (SAME PROCESS AS IN PIVOT)
+C
+        DO 700 I = 1,M
+700     PIP(I) = CBC(I)
+        CALL BTRAN(PIP,0,RINV,ETA,TEMP,INDETA)
+
+1100    DO 1300 I = 1, N
+        IC = CN(I)
+        IF(CN(I) .GT. M) GO TO 1140
+        T1 = 0
+        DO 1120 IX = 1, M
+1120    A(IX) = 0.
+        A(CN(I)) = 1.
+        GO TO 1150
+
+1140    IC = CN(I) - M
+        T1 = C(IC)
+      CALL GETA(IC,INDA,TEMP,A)
+
+1150    T = 0.
+        DO 1200 J = 1, M
+1200    T = T + PIP(J) * A(J)
+
+        PI(I) = T1 - T
+        IF(NFLAG(CN(I)) .EQ. -1)  PI(I) = -PI(I)
+1300    CONTINUE
+
+
+
+4851    IF(KOMFILE .EQ. 22)  GO TO 488
+
+        TYPE 486
+486     FORMAT(' ANY NEW FREE VARIABLES?',/,
+     +  ' TYPE NONE OR THE NAME OF THE VARIABLE IN FORMAT(A5).'/)
+
+488     READ(KOMFILE,12,END=90001) NAME
+
+        IF((NAME .EQ. 'NONE ').OR.(NAME.EQ.'     '))  GO TO 496
+
+        DO 487 JJ = 1, N
+        IF(DICT(M+JJ) .EQ. NAME)  GO TO 492
+487     CONTINUE
+
+        TYPE 481
+        GO TO 488
+
+492     IF(IRANGE .EQ. 0)  IRANGE = 5
+        JX = M + JJ
+        IF((NFLAG(JX).NE.1).AND.(NFLAG(JX).NE.-1))  GO TO 493
+
+        BUTMP = BIG
+        BLTMP = 0.
+        IFLAG = 2
+        GO TO 5423
+
+
+493     NFLAG(M+JJ) = 2
+        BU(JJ) = BIG
+        BL(JJ) = -BIG
+        GO TO 488
+
+
+496     IF(KOMFILE .EQ. 22)  GO TO 498
+
+        TYPE 497
+497     FORMAT(' ANY NEW FROZEN VARIABLES?',/,
+     +  ' TYPE NONE OR THE NAME OF THE VARIABLE IN FORMAT(A5)',/)
+
+498     READ(KOMFILE,12,END=90001)  NAME
+
+        IF((NAME .EQ. 'NONE ').OR.(NAME.EQ.'     ')) GO TO 506
+
+        DO 507 JJ = 1, N
+        IF(DICT(M+JJ) .EQ. NAME)  GO TO 500
+507     CONTINUE
+        TYPE 481
+        GO TO 498
+
+500     IF(IRANGE .EQ. 0)  IRANGE = 5
+        JX = M + JJ
+        IF((NFLAG(JX).NE.1).AND.(NFLAG(JX).NE.-1))  GO TO 501
+
+        IFLAG = 3
+        BLTMP = 0.
+        BUTMP = BIG
+        GO TO 5423
+
+
+        
+501     NFLAG(M+JJ) = 3
+        BU(JJ) = 0
+        BL(JJ) = 0.
+        GO TO 498
+
+506     IF(KOMFILE .EQ. 22)  GO TO 511
+
+        TYPE 510
+510     FORMAT(' ANY FREE OR FROZEN VARIABLES TO BE MADE REGULAR?',/,
+     +  ' TYPE NONE OR THE NAME OF THE VARIABLE IN FORMAT(A5).',/)
+
+511     READ(KOMFILE,12,END=90001)  NAME
+
+        IF((NAME .EQ. 'NONE ').OR.(NAME.EQ.'     '))  GO TO 526
+
+        DO 517 J = 1, N
+        IF(NAME .EQ. DICT(M+J))  GO TO 520
+517     CONTINUE
+
+        TYPE 481 
+        GO TO 511
+
+520     IF(IRANGE .EQ. 0) IRANGE = 5
+
+        BU(J) = BIG
+        BL(J) = 0.
+        NFLAG(M+J) = 0
+        GO TO 511
+
+526     IF(KOMFILE .EQ. 22)  GO TO 528
+
+        TYPE 527
+527     FORMAT(' ANY CHANGE IN BOUNDS OR NEW BOUNDED VARIABLES?',/,
+     +  ' TYPE NONE OR THE NAME OF THE VARIABLE, THE UPPER BOUND,'/,
+     +  ' THE LOWER BOUND IN FORMAT(A5,2F). PLEASE TYPEIN 1.E38',/,
+     +  ' FOR THE UPPER BOUND IF THERE IS NO FINITE UPPER BOUND.'/)
+
+528     READ(KOMFILE,14,END=90001) NAME, BUTMP, BLTMP
+
+        IF((BUTMP -BLTMP) .LT. 0)  GO TO 9000
+
+        IF((BUTMP.LT.0) .OR. (BLTMP.LT.0))  GO TO 9100
+
+
+        IF((NAME .EQ. 'NONE ').OR.(NAME.EQ.'     '))  GO TO 540
+
+        DO 529 JX = 1, M+N
+        IF(NAME .EQ. DICT(JX))  GO TO 542
+529     CONTINUE
+
+        TYPE 481
+        GO TO 528
+
+
+542     IF(NFLAG(JX) .EQ. 3)  GO TO 5421
+
+        IF(NFLAG(JX) .EQ. 2)  GO TO 5422
+
+        IFLAG = 1
+        GO TO 5423
+
+5421    TYPE 530
+530     FORMAT(' FROZEN VARIABLE HAS BEEN BOUNDED.ILLEGAL OPTION.'/)
+
+        IF(KOMFILE .EQ. 22)  GO TO 145
+
+        TYPE 5301
+5301    FORMAT(' RETYPE VARIABLE NAME OR NONE.',/)
+
+        GO TO 528
+
+5422    TYPE 531
+531     FORMAT(' FREE VARIABLE HAS BEEN BOUNDED, ILLEGAL OPTION',/)
+        IF(KOMFILE .EQ. 22)  GO TO 145
+
+        TYPE 5301
+
+        GO TO 528
+
+5423    IF(IRANGE .EQ. 0) IRANGE = 4
+        IF(IRANGE .EQ. 5) IRANGE = 4
+
+C       SEE IF VARIABLE IS IN CB
+
+        DO 6000 I = 1, M
+        IF(CB(I) .EQ. JX)  GO TO 6005
+6000    CONTINUE
+
+        GO TO 7000
+
+6005    INDX = CB(I) - M
+        IF(NFLAG(JX) .EQ. -1)  GO TO 6010
+
+        IF(NFLAG(JX) .NE. 1)   GO TO 6300
+
+        GO TO 6020
+
+6010    IR = INDX
+        CALL COMPLE(BU,BETA,NFLAG,CB,CBC,INDETA)
+6020    BETA(I) = BETA(I) - (BLTMP -BL(INDX))
+
+C       OBVAL = OBVAL - C(CB(I)-M) * (BLTMP -BL(INDX))
+
+        BU(INDX) = BIG
+        IF(BUTMP .LT. BIG)  BU(INDX) = BUTMP -BLTMP
+        BL(INDX) = BLTMP
+        GO TO 8000
+
+6300    NFLAG(JX) = 1
+        BU(INDX) = BIG
+        IF(BUTMP .LT.BIG)  BU(INDX) = BUTMP -BLTMP
+        BL(INDX) = BLTMP
+        
+        BETA(I) = BETA(I) - BLTMP
+
+C       OBVAL = OBVAL -C(CB(I)-M) * BLTMP
+        GO TO 8000
+
+C
+C       HER IF VARIABLE IS A MEMBER OF CN
+C
+
+7000    DO 7010 J = 1, N
+        IF(CN(J) .EQ. JX)  GO TO 7020
+
+7010    CONTINUE
+
+7020    INDX = CN(J) - M
+        FM = 1.
+        IF(NFLAG(JX) .EQ. -1)  GO TO 7030
+
+        GO TO 7040
+
+7030    IK = J
+        FM = -1.
+        
+
+7040    CALL GETA(CN(J)-M,INDA,TEMP,A)
+        
+        DO 750 K = 1,M
+750     ALPHA(K) = A(K) * FM
+        
+        CALL FTRAN(ALPHA,ETA,TEMP,INDETA)
+
+        IF(NFLAG(JX) .NE. -1)  GO TO 752
+
+        CALL UBITER(NFLAG,CN,PI,BETA,ALPHA,BU)
+
+        DO 754 II = 1, M
+754      ALPHA(II) = -ALPHA(II)
+
+
+
+
+752     IF(NFLAG(JX) .NE. 1)  GO TO 7300
+
+        DO 7050 K = 1, M
+7050    BETA(K) = BETA(K) -(BLTMP -BL(INDX)) * ALPHA(K)
+
+        OBVAL = OBVAL - PI(J) * (BLTMP - BL(INDX))
+
+        BL(INDX) = BLTMP
+        BU(INDX) = BIG
+        IF(BUTMP .LT. BIG)  BU(INDX) = BUTMP -BLTMP
+
+        GO TO 8000
+
+7300    DO 7310 K = 1, M
+7310    BETA(K) = BETA(K) -ALPHA(K) * BL(INDX)
+
+        OBVAL = OBVAL - PI(J) * BLTMP
+        NFLAG(CN(J)) = 1
+        BL(INDX) = BLTMP
+        BU(INDX) = BIG
+        IF(BUTMP .LT. BIG)  BU(INDX) = BUTMP - BLTMP
+8000    CONTINUE
+
+        GO TO (528, 493, 501), IFLAG
+
+
+
+        
+540     CALL MANE(A,B,C,BU,BL,CB,CN,CBC,BETA,PI,NFLAG,TEMP,ETA,
+     +  PIP,ALPHA,INDETA,INDA,RINV,DICT)
+        
+        RETURN
+
+
+145     TYPE 146
+146     FORMAT(' FATAL ERROR.  EXECUTION ABORTED.')
+        
+2851    CALL EXIT
+
+
+90001   TYPE 90002
+90002   FORMAT(' END OF FILE READ. ')
+        GO TO 2851
+12      FORMAT(A5)
+14      FORMAT(A5,2G)
+
+9000    TYPE 9010
+9010    FORMAT(' VARIABLE HAS LOWER BOUND GREATER THAN UPPER BOUND',/,
+     +  ' TRY AGAIN.',/)
+        GO TO 528
+
+9100    TYPE 9110
+9110    FORMAT(' VARIABLE HAS UPPER OR LOWER BOUND LESS THAN ZERO',/,
+     +  ' TRY AGAIN.'/)
+        GO TO 528
+
+        END
+  
