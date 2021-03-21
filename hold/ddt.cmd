@@ -1,0 +1,1 @@
+0010°	DDT=DDT+EDDT
