@@ -1,0 +1,64 @@
+MODULE  YABRT
+(DOLLAR, TIMING, ENTRIES=($YABRT), TIMER=EXTERNAL(SIX12), FSAVE) =
+BEGIN
+
+% Version 1975.02.04    / Rich Strauss %
+
+REQUIRE  RDEFS.BLI[7,107355];
+REQUIRE UDEFS.BLI[7,107355];
+REQUIRE RSDEFS.BLI[7,107355];
+
+
+UNDECLARE $YABRT;
+GLOBAL ROUTINE          $YABRT =
+                        % Abort routine to close all files %
+BEGIN
+
+LOCAL   PDB$  PDB;      % Procedure Definition Block %
+
+LOCAL   SC$  SB,        % Source Block (sequential input) %
+        RB$  RB,        % Report Block (sequential output) %
+        RSB$ RS;        % Relation Specification block %
+
+PDB_.RPDB$;         % CURRENT PDB %
+
+SB _ .PDB[PD$SCBF];     % Address of 1. source block %
+RB _ .PDB[PD$RB];       % Address of 1. report block %
+RS _ .PDB[PD$RSBF];     % Address of 1. relation specification block %
+
+
+% Close chain of source files (sequential input) %
+
+WHILE .SB  NEQ  SCV$NULL
+DO
+    BEGIN
+    $TCLSI (.SB);
+    SB _ .SB[SC$NEXT];
+    END;
+
+
+% Close chain of report files (sequential output) %
+
+WHILE .RB  NEQ  RBV$NULL
+DO
+    BEGIN
+    $TCLSO (.RB);
+    RB _ .RB[RB$NEXT];
+    END;
+
+
+% Close chain of relations via each relation specification block %
+
+WHILE .RS  NEQ  RSV$NULL
+DO
+    BEGIN
+    $RABRT (.RS);
+    RS _ .RS[RS$NXT];
+    END;
+
+$UMESS($USPTR('PROCEDURE ABORTED.'));
+
+END;    % Of global routine $YABRT %
+
+
+END     % Of module YABRT.BLI %
