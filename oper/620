@@ -1,0 +1,3218 @@
+C * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+$ASSEM
+$HEAD              DEVELOPMENT DEPT. - TECHNICAL COMPUTING CENTER
+$NAME CMPK00
+*
+*                  MIC VERSION OF COMPAK
+*
+*                  W.S. HILL      10/72
+*
+*
+*                  MODIFIED FOR RMS-1   WSH  4/73
+*
+IAOR   BEGIN   0120           INDIRECT ADDRESS COUNTER
+X      EQU     1
+B      EQU     2
+       ORG     0
+       NOP                     MOVE START LOC TO LOC 2 (PATCH WILL NOT
+       NOP                     ALLOW XFR TO LOC 0)
+       CALL    FRESH           FOR START FROM LOC 2
+       JMP     EXCQ            GO TO THE EXECUTIVE LOOP
+HALT   ENTR                    HALT SUBROUTINE
+P0     DATA    0
+*      SYSTEM CONSTANTS
+P1     DATA    1
+P2     DATA    2
+P3     DATA    3
+P4     DATA    4
+P5     DATA    5
+P6     DATA    6
+P7     DATA    7
+P8     DATA    8
+P9     DATA    9
+M0     DATA    0100000
+M1     DATA    -1
+M2     DATA    -2
+M3     DATA    -3
+M4     DATA    -4
+M5     DATA    -5
+M6     DATA    -6
+M7     DATA    -7
+B40    DATA    040
+B60    DATA    060
+B77    DATA    077
+B100   DATA    0100
+B160   DATA    0160
+B177   DATA    0177
+B200   DATA    0200
+B377   DATA    0377
+B5000  DATA    05000
+       ORG     044
+       INR     CLK                 INCREMENT ACTUAL CLOCK
+CLK    DATA    030000              ACTUAL CLOCK
+       JMPM    CLKI
+*      SYSTEM TEMPORARIES AND POINTERS
+SFTR   DATA    0               SFTR THRU T6 ARE ZEROED BY IPAK
+PTR0   DATA    0
+PTR1   DATA    0
+PTR2   DATA    0
+PTR3   DATA    0
+PTR4   DATA    0
+PTR5   DATA    0
+PTR6   DATA    0
+PTR7   DATA    0
+PTR8   DATA    0
+PTR9   DATA    0
+T      DATA    0
+T1     DATA    0
+T2     DATA    0
+T3     DATA    0
+T4     DATA    0
+T5     DATA    0
+T6     DATA    0
+*
+*      ROUTINE TO DUMP 620 CORE INTO THE 940
+*      ENTER WITH A=STARTING 620 ADDRESS AND B=FINAL ADDRESS
+*      DONT HIT SYSTEM RESET BEFORE STARTING PROGRAM
+       JMP     DVAR            GO TO DUMP ROUTINE
+*
+*
+*   THE FOLLOWING TWO INTERRUPTS SHOULD NOT OCCUR
+*
+SCRI   JMPM    HALT            A SPEC CHAR INT. HAS BEEN RECVD FROM SMC
+*
+BIC1   JMPM    HALT            AN INT. HAS BEEN RECVD FROM BIC 1
+*
+       ORG     0100
+       JMPM    SCRI            SPECIAL CHAR RECVD INT (SMC)
+PINT   JMPM    PBIT           SMC CHAR REC'D INTERRUPT
+       NOP                     INPUT BUFFER READY (AMC) INTERRUPT
+       NOP
+       NOP                     OUTPUT BUFFER READY (AMC) INTERRUPT
+       NOP                     NOT USED
+       JMPM    BIC1            BIC1 TRANSFER COMPLETE INTERRUPT(UNUSED)
+       JMPM    MSINT          BIC 2 TRANSFER COMPLETE INTERRUPT
+       JMPM    TTYIN          TTY READ INTERRUPT
+       JMPM    TTYOUT         TTY WRITE INTERRUPT
+       ORG     0350
+CLKI   ENTR                    REAL TIME CLOCK INTERRUPT
+       EXC     0247            DISABLE MAJOR CLOCK INTERRUPT
+       STA     RCSA            SAVE A
+       LDAI    036030
+       STA     CLK             RESET MINOR INTERRUPT TO FIRE EVERY SEC
+       INCR    1               TURN ON TIME-OUT ROUTINE
+       STA     CLOK
+       LDA     RCSA            RESTORE REGISTERS
+       EXC     0147            ENABLE CLOCK
+       EXC     0240            ENABLE PIM
+       JMP*    CLKI            RETURN
+*
+*      TIME-OUT ROUTINE - TURNED ON BY 1 SEC CLOCK INTERRUPT ROUTINE
+*
+TIMO   ENTR
+       TZA
+       STA     CLOK            RESET TURN ON FLAG
+RNP3   NOP                     NOP CHANGED TO JMPM SRDY BY PREP
+       NOP                     RESET TO NOP BY IPAK AND 'OFF' KEY-IN
+*                              AND IN CKR2 WHEN 1108 TIMES OUT
+       INR     CLK4      CLK4 IS THE 940 TIME OUT
+       LDA     CLK4
+       SUBI    0264            TIMEOUT LIMIT (3 MIN)
+       JAP     CKR5           TIMEOUT OCCURED
+       LDA     TO08            IS 1108 TIME-OUT ACTIVE
+       JAN     CHC5            NO
+       INR     CLK2            YES - BUMP CLK2
+       LDA     CLK2      CLK2 IS THE 1108 TIME OUT
+       SUBI    EXST           TEST WAITTIME FOR 1108
+       JAP     CKR2           CONSIDER REMOTE SITE DOWN
+CHC5   LDA     CLK6            ARE WE WAITING ON 1108 TO ACK DATA
+       JAN     CKR4            NO
+       INR     CLK6            YES - BUMP TIMER
+       LDA     CLK6
+       SUBI    EXST            HAS IT BEEN 5 MINUTES YET
+       JAN     CKR4            NO
+       LDA     =TTYMSG         TYPE 'RTRY2'
+       LDB     =MT7
+       JMPM    QENTRY
+       JMP     CKR2            GO DISCONNECT 1108
+CKR4   LDA     MPOL            IS MIC POLLING
+       JAN     CKR6            NO
+       INCR    1               YES - TURN ON IAMC ROUTINE
+       STA     IAMF
+CKR6   JMP*    TIMO            RETURN
+CKR2   LDAI    0377            1108 HAS TIMED OUT - INHIBIT INTERRUPTS
+       JMPM    CITM
+       STA     CLKM            SAVE OLD MASK
+       DECR    1
+       STA     BELL            PUT BELL ON QUEUE
+       TZA
+       STA     COMF            RESET COMMUNICATIONS ESTABLISHED FLAG
+       CALL    SHUT
+       LDA     CLKM            RESTORE PIM MASK
+       JMPM    MTIC
+       EXC     0240            ENABLE PIM
+       JMP*    TIMO            RETURN
+CKR5   LDB     =MT8            PRINT '940 DISCONNECT'
+       LDA     =TTYMSG
+       JMPM    QENTRY
+       DECR    1
+       STA     BELL            TURN ON BELL RINGING
+       STA     DOWN            STOP EVERYTHING BUT BELL RINGING
+       EXC     0247            TURN OFF CLOCK
+       JMP*    TIMO            RETURN
+*
+EXST   EQU     300            5 MIN TIMEOUT
+*
+*
+************************************************************
+*
+*        SHUT DOWN ROUTINE
+*        USED WHEN 1108 TIMES OUT OR WHEN OFF IS KEYED-IN
+*
+*        SUBROUTINES USED
+*        IPAK , QENTRY
+*
+SHUT   ENTR
+       DECR    1
+       STA     D118            SET SHUT HAS BEEN CALLED FLAG
+       STA     TO08            TURN OFF 1108 TIME-OUT
+       STA     WFDC            SET WAIT FOR DISCONNECT FLAG
+*                              CLOCK
+       CALL    IPAK
+       DECR    1               SET SEND DISCONNECT MSG FLAG
+       STA     DISF
+       LDA     P1
+       STA     MSG28
+       LDA     =TTYMSG         PRINT '1108 DISCONNECT'
+       LDB     =MT28
+       JMPM    QENTRY
+       JMP*    SHUT
+*
+*****************************************************************
+*
+*      SRDY    SUBROUTINE USED TO SEND READY SIGNALS TO 1108.
+*              THIS SUBROUTINE IS ALSO USED TO SEND NACK'S TO
+*              1108 IF CLK3 TIMES OUT (THIS IS DONE BY CHANGING
+*              LOC. SRD2+2 FROM REDY TO NACK IN THE C08RDY
+*              ROUTINE)
+*      W. L. FRANZ   SHELL DEVELOPMENT CO.
+*
+SRDY   ENTR
+       INR     CLK3
+       LDA     CLK3
+SRC1   SUBI    RDYP            SUBTRACT READY PERIOD(CHANGED TO
+*                              SUBI 10 BY C08RDY)
+       JAP     SRD1            IS IT TIME TO SEND A READY(OR A NACK)
+       JMP*    SRDY            NO. RETURN
+SRD1   LDA     MSG28           YES. SEND READY(OR NACK)
+       JAZ     SRD4            IS MSG28 OFF
+SRD3   TZA                     IF NOT
+       STA     CLK3            RESET CLOCK AND RETURN
+       JMP*    SRDY
+SRD4   LDA     DACK            IS DIFFERED ACK FLAG SET
+       JAN     SRD3            YES - RESET CLOCK AND RETURN
+       LDA     TMFL            IS WAITIMG TO SEND DATA TO 1108 SET
+       JAN     SRD3            YES - RESET CLOCK AND RETURN
+       EXC     0440            NO - INHIBIT INTERRUPTS
+SRD2   INCR    1
+       LDBI    REDY            PUT MSG28 ON QUEUE
+*                              REDY MESSAGE ADDRESS PUT HERE BY 'RDY'
+*                              KEYIN \ IPAK.CHANGED TO NACK BY C08RDY
+       STA     MSG28           SET READY AS INITIAL RESPONSE
+       STB     RESP
+       EXC     0240            PERMIT INTERRUPTS
+       LDA     =TTYMSG         PRINT 'S2' IF SS3 UP
+       LDB     =MT9
+       JS3M    QENTRY
+       JMP     SRD3            RETURN
+*
+RCSA   DATA    0
+CLK2   DATA    0              1108 TIMEOUT CLOCK
+CLK3   DATA    0               READY CLOCK
+CLK4   DATA    0              940 TIMEOUT CLOCK
+CLK6   DATA    -1              WAITING FOR 1108 TO ACK DATA CLOCK
+RDYP   EQU     9               READY PERIOD
+D118   BSS     1               SHUT HAS BEEN CALLED FLAG
+TO08   BSS     1               1108 TIME-OUT FLAG (=0, ACTIVE)
+DISF   BSS     1               SEND DISCONNECT MESSAGE FLAG
+CLKM   BSS     1               STORAGE FOR PIM MASK
+PBUF   BSS     1               PHONE INTERRUPT BUFFER POINTER
+MPOL   BSS     1               MIC POLLING FLAG
+MCWA   DATA    0270            940 ADDRESS OF MIC CONTROL WORD
+ADDB   DATA    0271            940 ADDRESS OF MIC DATA BUFFER ADDRESS
+MMAD   DATA    034000          MIN DATA BUFFER ADDRESS ALLOWED
+WCAD   DATA    0272            940 ADDRESS OF DATA CHAR COUNT
+MDB9   DATA    500             MAX WORDS THAT CAN BE SENT TO 940
+CW94   BSS     1               CONTROL WORD READ FROM 940
+*
+******************************************************************
+*
+*      C08RDY  COMMUNICATION ESTABLISHED SUBROUTINE
+*      W. L. FRANZ             SHELL DEVELOPMENT CO.
+*      C08RDY  SUBROUTINE WHICH NOTIFIES THE OPERATOR THAT COMMUNICATIO
+*              BETWEEN 620 AND 1108 HAS  BEEN ESTABLISHED AND STOPS THE
+*              VARIAN FROM SENDING READY SIGNALS
+*      SUBROUTINES DIRECTLY CALLED
+*                   QENTRY
+*
+C08RDY ENTR
+       LDA     =TTYMSG         ALERT OPERATOR THAT COMMUNICATIONS HAVE
+       LDB     =MT5            BEEN ESTABLISHED(TYPE &LINKED&)
+       JMPM    QENTRY
+       LDA     B5000           RESET JMPM C08RDY INST. TO NOP'S
+       STA     RNP1
+       STA     RNP1+1
+       STA     RNP2
+       STA     RNP2+1
+       INCR    1
+       STA     COMF           SET COMMUNICATIONS ESTABLISHED FLAG
+       TZA
+       STA     TO08            ACTIVATE 1108 TIME-OUT
+       STA     BELL            TURN OFF BELL
+       LDAI    NACK            *SET NACK TIMEOUT
+       STA     SRD2+2          *
+       LDAI    10              CHANGE CLK3 TIMEOUT TO 10 SECS
+       STA     SRC1+1          *
+       JMP*    C08RDY          RETURN
+*
+***********************************************************
+*
+*      RMIC - A SUBROUTINE TO READ A SINGLE 16 BIT WORD FROM THE 940 VIA
+*             THE MIC INTERFACE
+*
+*      ENTER RMIC WITH THE 940 ADDRESS TO BE READ IN A
+*      RMIC WILL RETURN WITH THE CONTENTS OF THAT 940 ADDRESS IN A
+*
+*      EXAMPLE -   LDA   MCWA     940 ADDRESS OF CW94
+*                  CALL  RMIC
+*                  STA   CW94     STORE WORD READ FROM 940
+*
+RMIC   ENTR
+       STA     MADD            SAVE 940 ADDRESS
+       SEN     0137,*+6        IS MIC BUSY
+       NOP                     YES - LOOP TILL IT CLEARS
+       NOP
+       JMP     *-4
+RMC1   LDA     MADD
+       OAR     036             LOAD MIC WITH 940 ADDRESS TO BE READ
+       LDA     MB89            SET READ AND PRIORITY BITS
+       OAR     035             READ
+       SEN     0137,*+6        IS MIC BUSY
+       NOP                     YES - LOOP TILL IT CLEARS
+       NOP
+       JMP     *-4
+       SEN     0237,RMC1       RE-TRY IF PARITY ERROR OCCURED
+       CIA     037             READ WORD FROM MIC
+       JMP*    RMIC            RETURN
+*
+MADD   BSS     1               TEMP STORAGE FOR 940 ADDRESS
+MB89   DATA    01400           SETS READ AND PRIORITY BITS
+*
+****************************************************************
+*
+*      QENTRY  ENTER ITEM IN CIRCULAR QUEUE TABLE
+*      W. H. JOBE        SHELL DEVELOPMENT CO.
+*      THIS ROUTINE ENTERS DATA IN A CIRCULAR QUEUE TABLE AND
+*      TURNS THE ASSOCIATED 620 EXECUTIVE QUEUE WORD TO ON IF
+*      THE DATA ENTERED IS THE ONLY DATA ENTRY IN THE TABLE.
+*              ENTRY - A = ADDRESS OF EXECUTIVE QUEUE WORD
+*                      B = DATA ITEM TO BE ENTERED IN QUEUE TABLE
+*              EXAMPLE -
+*              LDA  =MSG28
+*              LDB  DATA
+*              JMPM QENTRY
+*
+QENTRY ENTR
+       EXC     0440            DISABLE PIM
+       NOP
+       TAX
+       LDA     0,X                 IS TABLE EMPTY?
+       JAZ     QEN4                YES. MARK IT NOT EMPTY
+QEN1   LDX     1,X                 SET UP X
+       LDA     2,X                 DPTR NEGATIVE?
+       JAN*    QENTRY          * IF TABLE FULL THEN LEAVE FOR NOW
+       SUB     1,X                 MUST WE RECYCLE?
+       JAZ     QEN5                YES
+       LDA     1,X                 UPDATE EPTR
+QEN2   IAR                         BUMP
+       STA     1,X                 RETURN IT
+       SUB     0,X                 TABLE FULL NOW?
+       JAZ     QEN6                YES
+QEN3   LDX     1,X
+       STB     0,X                 PUT ITEM IN TABLE
+       EXC     0240            ENABLE PIM
+       JMP*    QENTRY              RETURN
+QEN4   IAR
+       STA     0,X                 MARK TABLE
+       JMP     QEN1                NOT EMPTY
+QEN5   DATA    05141               TXAI
+       IAR                         RECYCLE
+       JMP     QEN2
+QEN6   LDA     2,X
+       CPA
+       STA     2,X                 MARK TABLE
+       JMP     QEN3                FULL.
+*
+*****************************************************************
+*
+*      QGET    GET OLDEST ITEM IN CIRCULAR QUEUE TABLE
+*      W. H. JOBE        SHELL DEVELOPMENT CO.
+*      QGET RETURNS IN THE A REGESTER THE OLDEST DATA ITEM IN A
+*      CIRCULAR QUEUE TABLE.  CALL QREMOV WHEN THE POINTER TO THE
+*      ITEM IS TO BE REMOVED.IF QGET IS USED ON AN EMPTY TABLE
+*      A NO SKIP RETURN IS GIVEN.  ON SUCCESSFUL GET A SKIP RETURN
+*      OCCURS.
+*              ENTRY - A = ADDRESS OF EXECUTIVE QUEUE WORD.
+*              EXAMPLE -
+*              LDA  =MSG28
+*              JMPM QGET
+*
+QGET   ENTR
+       EXC     0440            DISABLE PIM
+       TAX
+       LDX     1,X                 SET UP X
+       LDA     0,X             GET OLDEST ITEM POINTER
+       SUB     1,X             SUBTRACT NEWEST ITEM POINTER
+       JAZ     QG5             GO CHECK WHERHER FULL OR EMPTY
+       LDA     2,X                 E
+QG6    XAN     QG4
+       SUB     0,X
+       JAZ     QG3                 RECYCLE
+       LDA     0,X
+QG1    IAR               BUMP (SINCE OLDEST POINTER IS REALLY
+       TAX               OLDEST POINTER -1)
+       LDA     0,X       LOAD A WITH OLDEST ITEM
+       INR     QGET      SKIP RETURN
+       INR     QGET
+QG7    EXC     0240            ENABLE PIM
+       JMP*    QGET      RETURN
+QG3    DATA    05141               TXAI
+       IAR                         RECYCLE
+       JMP     QG1
+QG4    CPA
+QG5    LDA     2,X             GET END OF TABLE POINTER
+       JAN     QG6             TABLE FULL NOT EMPTY
+       JMP     QG7             FAIL RETURN - TABLE EMPTY
+*
+*****************************************************************
+*
+*      QREMOV  REMOVE OLDEST ITEM FROM CIRCULAR QUEUE TABLE
+*      W. H. JOBE        SHELL DEVELOPMENT CO.
+*      QREMOV REMOVES THE OLDEST DATA ITEM FROM A CIRCULAR QUEUE
+*      TABLE AND TURNS THE ASSOCIATED 620 EXECUTIVE QUEUE WORD TO
+*      OFF IF THE DATA ITEM REMOVED IS THE LAST ITEM IN THE TABLE.
+*      A NOP IS PERFORMED IF THERE IS NOT AN ITEM IN THE TABLE.
+*              ENTRY - A = ADDRESS OF EXECUTIVE QUEUE WORD
+*              EXAMPLE -
+*              LDA =MSG28
+*              JMPM QREMOV
+*      SUBROUTINES DIRECTLY CALLED
+*              NONE
+*
+QREMOV ENTR
+       EXC     0440            DISABLE PIM
+       DATA    05016               TA(X AND B) SAVE QUEUE ADDRESS.
+       LDA     0,X                 IS TABLE EMPTY?
+       JAZ     QR2             YES - RETURN
+       LDX     1,X                 SET UP X
+       LDA     2,X
+       XAN     QR7                 MARK TABLE NOT FULL IF FULL
+       STA     2,X
+       SUB     0,X                 RECYCLE
+       JAZ     QR5                 YES
+       LDA     0,X                 GET RPTR
+QR1    IAR                         BUMP
+       STA     0,X                 RESTORE
+       SUB     1,X                 DID TABLE GO EMPTY?
+       JAZ     QR4                 YES
+       EXC     0240            ENABLE PIM
+       JMP*    QREMOV
+QR4    TBX               ADDRESS OF EXEC.Q.WORD
+       STA     0,X                 MARK TABLE EMPTY.
+QR2    EXC     0240            ENABLE PIM
+       JMP*    QREMOV
+QR5    DATA    05141               TXAI
+       IAR                         RECYCLE
+       JMP     QR1
+QR7    CPA
+*
+************************************************************
+*
+*PBFH  PHONE BUFFER HANDLER
+*
+BUFGET ENTR
+       EXC     0440            DISABLE PIM
+       TZB
+       DATA    05314           TRANSFER A TO X DECREMENTED
+BFLK   LDA     1,X             PUT ABUFFER LOCATION IN A
+       IBR                     INCREMENT B AND X REGISTERS. B HAS THE
+       IXR                     BUFFER NO+1
+       JAN     BFLK            IF LOC IS NEG THEN BUFFER IS IN USE
+       XAZ     BUF1            * ENABLE PIM
+       JAZ*    BUFGET          RETURN IF A ZERO
+       CPA
+       STA     0,X             COMPLEMENT ADDR TO SHOW IT IS IN USE
+       CPA                     RESTORE ADDRESS IN A
+       DBR                     BUFFER NO IS NOW IN B
+       JANM    HALT
+       INR     BUFGET
+       INR     BUFGET          SKIP IF A BUFFER HAS BEEN FOUND
+       EXC     0240            ENABLE PIM
+       JMP*    BUFGET    RETURN
+*
+**********************************************************
+*
+BUFREL ENTR                    BUFFER RELEASE SUBROUTINE
+       EXC     0440            DISABLE PIM
+       STB     PBRT            STORE BUFFER NUMBER TEMPORARILY
+       ADD     PBRT            ADD BUFR NO  TO BUF TABL ADDR TO GET
+       TAB                     ADDRESS OF BFR LOC
+       LDA     0,B
+       CPA                     RETURN BUFR ADDR TO ITS NON BUSY STATE
+       JAN     *+3             IF NEGATIVE IT HAS BEEN RELEASED. DO NOT
+*                              RESTORE IT
+       STA     0,B             RESTORE UNCOMPLEMENTED ADDRESS
+       EXC     0240            ENABLE PIM
+       JMP*    BUFREL    RETURN
+*
+PBRT   DATA    0               TEMP STORAGE OF BUFR NO.
+BUF1   EXC     0240            FREE PIM
+*
+*
+*
+BELL   BSS     1               RING THE BELL IF =-1
+DOWN   BSS     1               IF=-1, 940 HAS TIMED OUTK   BSS     1               TURN ON TIME-OUT ROUTINE FLAG
+IAMF   BSS     1               FLAG TO TURN ON IAMC
+MS94   DATA    0              SHORT MESSAGES TO 940
+DAT940 DATA    0              DATA MESSAGES TO 940
+       DATA    D94T
+MSG28  DATA    0               MSG28 EXECUTIVE WORD
+TRNSMT DATA    0
+       DATA    TTLC
+DCMPRS DATA    0               DCMPRS EXECUTIVE WORD
+       DATA    XDTS
+DSPTCH DATA    0
+CMPRES DATA    0               COMPRESS EXECUTIVE QUEUE
+       DATA    CMPT
+TTYMSG DATA    0               TTY EXEC QUEUE WORD
+       DATA    TTTL
+*
+*
+*
+*        EXEC LOOP
+*
+EXCQ   SEN     0570,*+3       SENSE CTE-CARRIER ON
+       EXC     0370           TURN OWN CARRIER OFF, ASSUME 940 DOWN
+       ROF                     RESET OVERFLOW IF INADVERTANTLY SET
+       JSS1    GTM940          GO 940 TTY MODE IF SS1 UP
+       LDA     CLOK
+       DAR
+       JAPM    TIMO
+       LDA     DOWN            IF 940 HAS TIMED OUT STOP EVERYTHING
+       JAN     TYPI
+       LDA     IAMF
+       DAR
+       JAPM    IAMC
+       LDA     MS94
+       DAR
+       JAPM    MSH94
+       LDA     DAT940
+       DAR
+       JAPM    RDATA
+       LDA     DCMPRS
+       DAR
+       JAPM    RECOMP
+       LDA     MSG28
+       DAR
+       JAPM    M28S
+       LDA     TRNSMT
+       DAR
+       JAPM    TRSMT
+       LDA     CMPRES
+       DAR
+       JAPM    CMPS
+       LDA     DSPT
+       DAR
+       JAPM    EDSP
+TYPI   LDA     TTYMSG
+       DAR
+       JAPM    ETYM
+       LDA     TTYMSG
+       JAN     EXCQ            IF BUSY DO NOT CHECK BELL
+       LDA     BELL            DO WE HAVE TO RING BELL
+       JAZ     EXCQ            NO
+       LDB     =MT1            YES - PUT BELL ON TTYM QUEUE
+       LDA     =TTYM
+       JMPM    QENTRY
+       JMP     EXCQ
+*
+*        END OF EXEC LOOP
+*
+TTLC   DATA    TTLC+3          TRNSMT TABLE
+       DATA    TTLC+3
+       DATA    TTLC+4
+       DATA    0
+       DATA    0               END OF TRNSMIT TABLE
+XDTS   DATA    XDTS+3          OLDEST ITEM IN DCMPRS TABLE (POINTER)
+       DATA    XDTS+3          NEWEST ITEM IN TABLE
+       DATA    XDTS+5          END OF TABLE
+       DATA    0
+       DATA    0
+       DATA    0               END OF TABLE
+CMPT   DATA    CMPT+3         TABLE FOR CMPRES ENTRIES
+       DATA    CMPT+3
+       DATA    CMPT+6
+       DATA    0,0,0,0
+TTTL   DATA    TTTL+3          TTY MESSAGE TABLE
+       DATA    TTTL+3
+       DATA    TTTE
+TTTE   BES     30                  TTY MESSAGE TABLE
+D94T   DATA    D94T+3         DATA MESSAGES TO 940
+       DATA    D94T+3
+       DATA    D94T+5
+       DATA    0,0,0
+PBFT   DATA    PBF1                PHONE BUFFER TABLE
+       DATA    PBF2
+       DATA    0               EMD OF  PHONE BUFFER TABLE
+CPSBT  DATA    CBF1                COMPRESS BUFFER TABLE
+       DATA    CBF2
+       DATA    0                   END BUF TBL
+OBUT   DATA    OBU1           OUTPUT BUFFER TABLE
+       DATA    OBU2
+       DATA    0
+IBUT   DATA    IBU1           INPUT BUFFER TABLE
+       DATA    IBU2
+       DATA    0
+*
+******************************************************************
+*
+*
+*      ETYM    START MESSAGE TO TTY
+*      W. H. JOBE        SHELL DEVELOPMENT CO.
+*      ETYM INITIATES A MESSAGE BEING SENT TO THE TELETYPE.
+*      ETYM MARKS TTYMSG BUSY AND GIVES AN INTERRUPT TO TTYOUT
+*      WHICH IS THE CHARACTER OUT INTERRUPT ROUTINE.  THE TTYOUT
+*      INTERRUPT GETS THE ADDRESS OF MESSAGE TO SEND FROM CQT
+*      AND HANDLES THE REST OF THE MESSAGE.  THE INTERRUPT ALSO
+*      DEQUEUES THE CQT.
+*      ETYM ALSO CONTAINS THE TABLE OF ALL MESSAGES THAT CAN BE
+*      PRINTED ON THE TTY.
+*
+ETYM   ENTR
+       LDA     M1              MARK TTYMSG AS BUSY
+       STA     TTYMSG
+       JMPM    TTYOUT          SOFTWARE INTERRUPT.
+       JMP*    ETYM
+*
+MT1    DATA    0103400         BELL RINGER IN MSB
+MT2    DATA    'TERR2',0106612
+MT3    DATA    'FCEQ',0106612
+MT4    DATA    'HLTGOV',0106612
+MT5    DATA    'LINKED',0106612
+MT7    DATA    'RTRY2 ',0106612
+MT8    DATA    '940 DISCONNECT',0106612
+MT9    DATA    'S2',0106612
+MT10   DATA    'S1',0106612
+MT11   DATA    'EOF ',0106612
+MT12   DATA    0137677,0137400,0106612
+MT15   DATA    'OP',0106612
+MT16   DATA    'TM',0106612
+MT17   DATA    'M8',0106612
+MT18   DATA    'DT',0106612
+MT19   DATA    'RT',0106612
+MT20   DATA    'IP',0106612
+MT25   DATA    'INIT',0106612
+MT28   DATA    '1108 DISCONNECT ',0106612
+MT30   DATA    'I9',0106612
+MT31   DATA    'O9',0106612
+MT32   DATA    'R9',0106612
+MT33   DATA    'A9',0106612
+*
+*
+*****************************************************************
+*
+*      BICIO
+*      W. H. JOBE        SHELL DEVELOPMENT CO.
+*      BICIO IS A GENERAL PURPOSE IO DRIVER FOR THE 620.
+*      IT VERIFIES THE IO OPERATION, INITIALIZES THE CHANNEL,
+*      CHECKS FOR DEVICE READY, CHECKS FOR DEVICE NOT BUSY,
+*      CHECKS FOR BIC NOT BUSY, LOADS INITIAL AND FINAL
+*      REGISTERS, ENABLES BIC AND CONNECTS CONTROLLER.
+*              ENTRY - A = BEGINNING CORE ADDRESS
+*                      B = FINAL CORE ADDRESS
+*                      X = FILE NUMBER
+*              WHERE   FILE NUMBER         DEVICE
+*                      -----------         -------
+*                            0             PAPER TAPE PUNCH
+*                            1             READER
+*                            2             PHONE(OUT)
+*                            3             PHONE(IN)
+*      ON ENTRY THE FOLLOWING RELATIONS INVOLVING A AND B AND X
+*      MUST HOLD OR A HALT OCCURS.
+*               8000.GT.B.GE.A.GE.0   4.GT.X.GE.0
+*      BICIO SKIPS ON RETURN IF SUCCESSFUL.  ON NO SKIP THE A
+*      REGISTER WILL BE -1,0, OR, 1.  A -1 INDICATES THE DEVICE IS NOT
+*      READY.  A 0 INDICATES DEVICE IS BUSY AND 1 INDICATES BIC IS BUSY
+*      SUBROUTINES DIRECTLY CALLED
+*              HALT
+*
+*
+BICIO  ENTR
+       STA     AIO
+       STB     BIO
+       JANM    HALT                HALT IF A NEGATIVE
+       TBA
+       SUB     AIO
+       JANM    HALT                HALT IF B-A NEGATIVE
+       LDAI    020000
+       SUB     BIO
+       JANM    HALT                HALT IF 8000-B NEGATIVE
+       TXA
+       JANM    HALT                HALT ON NEGATIVE FILE NUMBER
+       SUB     P4
+       JAPM    HALT                HALT ON FILE NUMBER.GT.3
+       TXA                         BUILD SENSE BIC BUSY WORD
+       ADDI    BBSY
+       TAB
+       LDA     SEN1
+       ORA     0,B
+       STA     SBB
+       STA     SBCH
+       ADDI    02000               MAKE THAT AN
+       STA     LIR                 OME INSTRUCTION
+       IAR                         DITTO
+       STA     LFR
+       SUBI    03000               MAKE THAT AN
+       STA     IBIC                EXC INSTRUCTION(INITIALIZE BIC)
+       DAR
+       STA     ENB       EXC INSTRUCTION(ENABLE BIC)
+       TXA                         BUILD DRDY WORD
+       ADDI    DRDY
+       TAB
+       LDA     SEN1
+       ORA     0,B
+       STA     SDR                 READY INSTRUCTION
+       TXA                         BUILD DEVICE BUSY WORD
+       ADDI    DBSY
+       TAB
+       LDA     SEN1
+       ORA     0,B
+       STA     SDB                 BUSY INSTRUCTION
+       TXA                         BUILD CBUF WORD
+       ADDI    CXUX
+       TAB
+       LDA     EXC1
+       ORA     0,B
+       STA     CBB
+SBCH   NOP                    SENSE BIC NOT BUSY
+       DATA    IBIC
+       NOP
+       JMP     OUT1
+IBIC   NOP                         INITIALIZE BIC
+       TZX
+SDR    NOP                    SENSE DEVICE READY
+       DATA    SDB
+       NOP
+       JMP     OUT3                SET X=-1
+SDB    NOP                         SENSE DEVICE BUSY
+       DATA    SBB
+       NOP
+       JMP     OUT2                SET X=0
+SBB    NOP                         SENSE BIC BUSY
+       DATA    LIR
+       NOP
+       JMP     OUT1                SET X=1
+LIR    NOP                    LOAD INITIAL REGISTER FROM MEMORY
+       DATA    AIO
+LFR    NOP                    LOAD FINAL REGISTER FROM MEMORY
+       DATA    BIO
+ENB    NOP                         ENABLE BIC
+CBB    NOP                         CONNECT AND GO
+       INR     BICIO
+       INR     BICIO
+       JMP*    BICIO               RETURN
+OUT1   IXR                         MARK
+OUT2   IXR                         ERROR IN
+OUT3   DXR                         X
+       TXA
+       JMP*    BICIO               RETURN
+*
+AIO    BSS     1
+BIO    BSS     1
+EXC1   EXC     0
+SEN1   SEN     0
+DRDY   DATA    0537,0630,0471,0471
+DBSY   DATA    0537,0630,0471,0471
+BBSY   DATA    020,020,022,022
+CXUX   DATA    0037,0230,0171,0271
+*****************************************************************
+*
+*
+*      TTYIN   TTY CHARACTER IN INTERRUPT
+*      W. H. JOBE        SHELL DEVELOPMENT CO.
+*      TTYIN   TAKES A CHARACTER FROM THE TTY AND ASSEMBLES IT
+*      INTO A COMMAND.  TWO CHARACTER ARE NECESSARY FRO A COMPLETE
+*      COMMAND.  THIS INTERRUPT DISCARDS ALL CHARACTERS AFTER THE
+*      FIRST TWO HAVE BEEN RECEIVED.  ON RECEIVING A CARRIAGE
+*      RETURN THIS INTERRUPT REQUESTS A LINE FEED FROM TTYOUT
+*      SUBROUTINES DIRECTLY CALLED
+*              NONE
+*
+*
+TTYIN  ENTR
+       STA     SATI                SAVE A, B, AND X.
+       STB     SBTI
+       STX     SXTI
+*      ENABLE                      ENABLE H. P. INTERRUPTS
+       LDAI    0300            ALLOW EVERY INTERRUPT BUT TTYIN + OUT
+       JMPM    CITM
+       STA     CX11             SAVE OLD INTERRUPT MASK
+       EXC     0240            ENABLE INTERRUPTS
+       CIAB    1               XFR TTY INPUT TO A AND B
+       ERAI    0233            IS IT AN ESC CHAR.
+       JAZ     BOFF            YES - GO TURN BELL OFF
+       TBA                     NO - PUT CHAR. BACK IN A
+       JMPM    CH11                ECHO CHARACTER TO TTY
+       LDB     M1              MARK CHARACTER OUT AS ECHO
+       STB     ECHO            FOR TTYOUT INTERRUPT BENIFIT
+       TAX                         SAVE CHARACTER IN X
+       ERAI    0215                IS THIS A CARRAIGE RETURN?
+       JAZ     CRTN                YES. GO TO CRTN
+       LDB     TCNT                NO
+       JBZ     TRTN                DISCARD THIS CHARACTER
+       INR     TCNT                NOW-1 OR 0
+       TXA                         CHARACTER INTO A
+       IBR                         EQUIVALENT TO LDB TCNT
+       JBZ     NSHF                2ND CHARACTER
+       LRLA    8                   1ST CHARACTER
+       STA     TWRD                TEMPORARY CMND. WORD.
+       JMP     TRTN
+NSHF   ORA     TWRD                OR IN 1ST
+       STA     CMND                CHARACTER FOR
+       JMP     TRTN                COMPLETE CMND.
+CRTN   LDA     M2                  RESET CHARACTER
+       STA     TCNT                COUNTER
+       LDA     P1              TELL TTYOUT INTERRUPT THAT WE
+       STA     ECHO            NEED A LINE FEED
+TRTN   LDA     CX11      RESTORE OLD INTERRUPT MASK
+       JMPM    MTIC
+       LDA     SATI                RESTORE A, B, AND X.
+       LDB     SBTI
+       LDX     SXTI
+       EXC     0240              ENABLE ALL INTERRUPTS
+       JMP*    TTYIN               TTYIN RETURN
+BOFF   TZA
+       STA     BELL            TURN BELL OFF
+       JMP     TRTN
+*
+CX11   BSS     1
+SATI   BSS     1
+SBTI   BSS     1
+SXTI   BSS     1
+TCNT   DATA    -2
+TWRD   BSS     1
+CMND   BSS     1
+*
+****************************************************************
+*
+*
+*      TTYOUT  TTY CHARACTER OUT INTERRUPT
+*      W. H. JOBE        SHELL DEVELOPMENT CO.
+*      TTYOUT HANDLES A CHARACTER OUT INTERRUPT BY SETTING UP
+*      THE NEXT CHARACTER OF A MESSAGE AND STARTING IT TO THE
+*      TTY.  IF THE CHARACTER JUST SENT WAS A LINE FEED THE
+*      INTERRUPT ASSUMES THIS WAS THE LAST CHARACTER OF THE
+*      MESSAGE AND DEQUEUES TTYMSG.  AT THE BEGINNING OF A
+*      MESSAGE THIS ROUTINE IS ENTERED BY A SOFTWARE INTERRUPT
+*      FROM ETYM.AFTER ECHO OF LINE FEED REQUESTED BY TTYIN,
+*      TTYOUT PLACES DISPATCH COMMAND ON QUEUE
+*      SUBROUTINES DIRECTLY CALLED
+*              QGET                    QREMOV
+*
+TTYOUT ENTR
+       STA     STIA                SAVE A, B, AND X.
+       STB     STIB
+       STX     STIX
+       LDA     B200            ENABLE ALL INTERRUPTS BUT TTYOUT
+       JMPM    CITM
+       STA     CI11      SAVE OLD INTERRUPT MASK
+       EXC     0240            ENABLE INTERRUPTS
+       LDA     ECHO                CHECK ECHO
+       JAN     TEXC                NEGX
+       JAZ     TYCON               ZERO
+       LDA     M1                  POSITIVE, CR ECHO
+       STA     EXCO                SO FLAG NEXT
+       STA     ECHO                ECHO AS LF ECHO
+       LDAI    0212                AND OUTPUT
+       JMPM    CH11                LINE FEED.
+       JMP     LVNW
+TEXC   LDA     EXCO                IT IS AN ECHO
+       JAN     LFECHO              IS IT AN LF ECHO?
+       JMP     LVNW-1              NO. JUST AN ECHO
+LFECHO TZA                         LINE FEED
+       STA     ECHO                RESET
+       STA     EXCO                FLAGS.
+       INCR    1               TURN ON DSPTCH
+       STA     DSPTCH
+       JMP     LVNW                AND GO LEAVE.
+TYCON  LDA     LSTC                WAS LAST CHARACTER
+       ERAI    0212                OUT A LINE FEED?
+       JAZ     TYDN                YES. WE'RE DONE.
+       LDA     LSTC            N0 - WAS IT A BELL RINGER?
+       ERAI    0207
+       JAZ     TYDN            YES - WE'RE DONE
+       LDX     FSTM                NO.  SET UP BASE ADDRESS
+       JXZ     INTO                JUMP ON SOFTWARE INTERRUPT.
+GOON   TZA                         INITIALIZE LOOP
+       LDX     FSTM                BASE ADDRESS
+       LDB     SHTC                CHECK FOR FULL OR
+       JBZ     FSHT                PARTIAL WORD.
+       LDA     0,X                 PARTIAL WORD.
+       ANA     B377           GET BOTTOM HALF
+       JMPM    CH11            GO PRINT CHAR
+       STA     LSTC                SAVE IT FOR LF INSPECTION
+       TZA
+       STA     SHTC                F-P FLAG
+       INR     FSTM                BUMP BASE ADDR.
+       JMP     LVNW
+FSHT   LDB     0,X                 FULL WORD
+       LLRL    8                   INTO A
+       JMPM    CH11            GO PRINT CHAR
+       STA     LSTC                SAVE IT FOR LF INSPECTION
+       INR     SHTC                F-P FLAG
+       JMP     LVNW
+INTO   LDA     =TTYMSG         GO GET MESSAGE ADDRESS
+       JMPM    QGET            FROM TTY QUEUE
+       JMP     LVNW           SPURIOUS TTY OUTPUT INTERRUPT
+*              AFTER INITIAL SYSTEM DEBUG THIS COULD BE BETTER HANDLED
+*              AS A RETURN TO THE ROUTINE ETYM WHICH COULD MARK TTYMSG
+*              FROM BUSY TO OFF.  THIS COULD BE A SKIP RETUN.
+       STA     FSTM                INITIALIZE BASE ADDR.
+       JMP     GOON
+       INR     ECHO
+LVNW   LDA     CI11
+       JMPM    MTIC
+       LDA     STIA
+       LDB     STIB
+       LDX     STIX
+       EXC     0240              ENABLE ALL INTERRUPTS
+       JMP*    TTYOUT              RETURN
+TYDN   TZA
+       STA     LSTC            DESTROY LAST CHAR SENT
+       STA     FSTM                RESET SINCE
+       STA     SHTC                WE ARE ALL DONE.
+       LDAI    TTYMSG              TAKE MSG TO TTY OFF
+       JMPM    QREMOV              QUEUE.
+       LDA     TTYMSG          TAKE MSG OFF BUSY
+       XAN     LVIX
+       STA     TTYMSG
+       JMP     LVNW                LEAVE
+CH11   ENTR
+       SEN     0101,CH12       SENSE TTY WRITE REGISTER READY
+       NOP                     SEVERAL NOPS FOR INTERRUPTS
+       NOP                     SEVERAL NOPS FOR INTERRUPTS
+       NOP
+       JMP     CH11+1
+CH12   OAR     1         OUTPUT A CHARACTER
+       JMP*    CH11
+*
+LVIX   INCR    1
+CI11   BSS     1
+ECHO   DATA    0
+STIA   DATA    0
+STIB   DATA    0
+STIX   DATA    0
+LSTC   DATA    0
+FSTM   DATA    0
+SHTC   DATA    0
+EXCO   DATA    0
+*
+****************************************************************
+*
+*      PBIT    PHONE INTERRUPT, BIT MODE
+*      W. L. FRANZ       SHELL DEVELOPMENT CO.
+*      THIS INTERRUPT SEARCHES FOR A SYNC
+*      CHARACTER AS EACH BIT ENTERS THE PHONE READ REGISTER
+*      SUBROUTINES DIRECTLY CALLED
+*              NONE
+*
+PBIT   ENTR                    PHONE INTERRUPT FOR BIT MODE
+       STA     PSTA            SAVE A
+       CIA     071             INPUT READ REGISTER
+       SUB     SYNC            SUBTRACT SYNCH
+       JAZ     CPIN            IF SYNC CHANGE INTERRUPT
+PEX1   LDA     PSTA            RESTORE A
+       EXC     0240            ENABLE PIM
+       JMP*    PBIT
+CPIN   DECR    1               CHANGE INTERRUPT INSTRUCTION
+       STA     PMOD             FROM JMPM PBIT TO JMPM PSYN
+       LDA     =PSYN            AND MODE TO -1 TO INDICATE ONLY
+       STA     PINT+1           ONE SYNC FOUND
+       EXC     0671            PUT CONTROLLER IN CHAR. MODE
+       CIA     071             JAR MODEM
+       JMP     PEX1
+*
+****************************************************************
+*
+*      PSYN    PHONE INTERRUPT, SYNC MODE
+*      W. L. FRANZ       SHELL DEVELOPMENT CO.
+*      PHONE INTERRUPT ROUTINE WHICH SEARCHES FOR SYNC
+*      CHAR FIRST NON SYNC CHAR AFTER 2 SYNC FOUND STARTS CHAR INTERRUP
+*      SUBROUTINES DIRECTLY CALLED
+*              BUFGET                  HALT
+*              BUFRE
+*
+PSYN   ENTR                    PHONE INTERRUPT TO GET IN SYNC
+       STA     PSTA            SAVE A
+       STB     PSTB            SAVE B
+       LDA     PMODE
+       JAZ     S2FN            HAS SECOND SYNC BEEN FOUND ?
+       CIA     071             NO. INPUT READ REG. TO A
+       SUB     SYNC            SUBTRACT SYNCH
+       JAZ     PMCH            IF 2ND SYNCH CHANGE MODE FROM -1 TO 0
+PXT2   LDA     =PBIT           IF NOT GO BACK TO BIT MODE
+       STA     PINT+1
+       TZA
+       STA     PIPB            SET PHONE INPUT TO NOT BUSY
+       EXC     071             PUT CONTROLLER IN BIT MODE
+       CIA     071             JAR MODEM
+PEX2   LDA     PSTA            RESTORE A
+       LDB     PSTB            RESTORE B
+       EXC     0240            ENABLE PIM
+       JMP*    PSYN            RETURN
+PMCH   INR     PMODE           2ND SYNCH FOUND CHANGE MODES
+       JMP     PEX2            RETURN
+S2FN   CIAB    071             2ND SYNC FOUND NOW CHECK 3RD CHAR
+       SUB     SYNC
+       JAZ     PEX2            RETURN IF THIS CHAR IS A SYNC
+       TBA
+       SUBI    0100            IS CHAR AN SOM
+       JAZ     PSOM            YES - MESSAGE (OR DATA) MUST FOLLOW
+       JMP     PXT2            NO - GO LOOK FOR SYNCS AGAIN
+PSOM   LDA     =PCHR
+       STA     PINT+1          CHANGE INTERRUPT TO CHARACTER
+       DECR    1                  MOVED FROM PBIT              ********
+       STA     PIPB            SET PHONE INPUT BU MOVED FROM PBIT *****
+       STB     PCR1            INPUT CHARACTER IN A HURRY
+       STX     PSTX            SAVE X SINCE BUFGET USES X
+       LDA     =PBFT           PBFT IS A TABLE GIVING ADDRESS OF BUFFER
+       JMPM    BUFGET          OBTAIN A BUFFER ADDRESS AND NO.
+       JMP     PXT3            NO BUFFER
+       EXC     0440            DISABLE PIM
+       STA     PBUF            STORE INPUT BUFFER LOC. IN LOW CORE
+       STB     PBFN            STORE INPUT BUFFER NO.
+       STA     PBFI            STORE INPUT-BUFFER INITIAL LOCATION
+       TZA
+       STA     PCNT            SET CHAR COUNT ZERO (SOM IS STORED FIRST
+       STA     BCC            INITALIZE BCC-CHAR
+       LDA     PSYN            STORE RETURN INFORMATION
+       STA     PCHR             IN PCHR
+       LDB     PCR1            PUT INPUT CHARACTER IN B
+       TBA                     ALSO IN A
+       LDX     PSTX            RESTORE X
+       JMP     PCH1            STORE FIRST CHARACTER THROUGH CHR MODE
+PXT3   EXC     0440            DISABLE PIM
+       LDX     PSTX            RESTORE X
+       JMP     PXT2            RETURN
+*
+PCR1   DATA    0              INPUT CHARACTER
+*
+****************************************************************
+*
+*      PCHR    PHONE INTERRUPT, CHARACTER MODE
+*      W. L. FRANZ       SHELL DEVELOPMENT CO.
+*      PHONE INTERRUPT WHICH STORES IN A BUFFER
+*      UNTIL AN EOM OR A BUFFER RUNAWAY OCCURS
+*      SUBROUTINES DIRECTLY CALLED
+*              SNAK                    BUFREL
+*
+PCHR   ENTR
+       STA     PSTA            SAVE A
+       STB     PSTB            SAVE B
+       CIAB    071             INPUT READ REGISTER TO B
+PCH1   SUB     EOM             IS CHAR AN EOM
+       JAZ     CMSR            IF YES CHANGE TO MESG RECEIVED INTERRUPT
+       TBA                     IF NOT, CHECK PARITY USING
+       ERA     BCC            UPDATE BCC CHAR
+       STA     BCC
+       TBA
+       ADD     =PRTB           THE PARITY TABLE PRTB. IF PARITY
+       TAB                     IS ODD A WILL BE LOADED WITH THE
+       LDA     0,B             CHARACTER LESS THE PARITY BIT(EXCEPT EOM
+       ASRA    8              GET UPPER 8-BIT FIELD, PULL - SIGN IF BAD
+       XAN     PEI1            IF PARITY EVEN -1 PUT IN ERROR FLAG
+       STA*    PBUF            STORE CHARACTER
+       INR     PBUF            OBTAIN NEXT STORAGE LOCATION
+       INR     PCNT            INCREMENT COUNT OF CHAR STORED
+       LDA     PCNT            LOAD A WITH THE CHARACTER COUNT
+       SUBI    MLEN+5          SUBTRACT THE MAXIMUM BUFFER ALLOWED
+       JAP     PERR            RUN AWAY BUFFER ?
+PEX3   LDA     PSTA            RESTORE A
+       LDB     PSTB            RESTORE B
+       EXC     0240            ENABLE PIM
+       JMP*    PCHR            RETURN
+CMSR   LDA     =PEOM           EOM DETECTED  CHANGE INTERRUPT
+       STA     PINT+1          TO MESSAGE RECEIVED
+       JMP     PEX3            DONT SAVE EOM
+PERR   STX     PSTX             STORE X SINCE BUFRLS USES X
+       LDA     PCHR            * EXIT THROUGH PEOM INTERRUPT
+       STA     PEOM            *
+       LDAI    0377            DO NOT ALLOW ANY INTERRUPTS
+       JMPM    CITM
+       STA     PBIM
+       JMP     EMO8            *
+*
+*****************************************************************
+*
+*      PEOM    PHONE INTERRUPT, END OF MESSAGE RECEIVED MODE
+*      W. L. FRANZ       SHELL DEVELOPMENT CO.
+*      THIS IS THE MESSAGE RECEIVED INTERRUPT WHICH CHECKS THE INPUT MS
+*      FOR ERRORS, FREES INPUT BUFFERS, AND DETERMINES WHAT FUNCTION MS
+*      HAS BEEN RECEIVED
+*      SUBROUTINES DIRECLY CALLED
+*              QENTRY                  UNAK
+*              CKLP                    HALT
+*              QREMOV                  BUFRLS
+*
+PEOM   ENTR                    MESSAGE RECEIVED INTERRUPT
+       STA     PSTA
+       STB     PSTB
+       STX     PSTX
+       LDAI    0377            * DONT ALLOW OTHER INTERRUPTS
+       JMPM    CITM            LOAD INTERRUPT MASK
+       STA     PBIM
+       CIA     071             INPUT LRC
+       ERA     BCC             COMPARE WITH ASSEMBLED LRC
+       ANA     B77             LOWER SIX BITS ONLY
+       JAZ     PBOK            JUMP IF OK
+       JMP     PID1            BCC ERROR - GO SEND NACK
+PBOK   LDA     PCNT
+       SUB     P8              IS THIS A FUNCTION MESSAGE
+       JAN     PFM1            YES
+*      WE HAVE A DATA MESSAGE
+       LDA     PCDMF           HAVE WE RECVD TWO DATA MESSAGES IN A ROW
+       JAN     PID2            YES - GO SEND NACK
+       TZA                     NO
+       STA     PCOPF           RESET OUTPUT FUNCTION FOUND FLAG
+       DECR    1
+       STA     PCDMF           SET DATA MESSAGE RECVD FLAG
+       LDA     =PBFT           GO SEE IF ANOTHER BUFFER IS AVAILABLE
+       JMPM    BUFGET          FOR NEXT MESSAGE FROM 1108
+       JMP     PSDA            NO BUFFER - DIFER SENDING ACK
+       LDA     =PBFT           RELEASE BUFFER JUST ACQUIRED
+       JMPM    BUFREL
+       JMP     PDA2
+PSDA   DECR    1               NO BUFFER WAS AVAILABLE
+       STA     DACK            SET DIFERRED OUTPUT FLAG
+       ERA     OFCE            IS FUNCTION CODES EQL FLAG ALSO SET
+       XAZ     PEI2            IF YES (A=0), RESET DACK
+       JAN     PDA3            JMP IF DACK=-1 BUT OFCE=0
+PDA2   DECR    1
+       STA     RESP
+       INCR    1               SEND ACK TO 1108 (DACK=-1,OFCE=-1 OR
+       STA     MSG28           DACK=0)
+       LDA     OFCE            WERE FUNCTION CODES EQL
+       JAN     PDA4            YES - GO RELEASE BUFFERS AND EXIT
+PDA3   LDA     =TTYMSG         NO - PRINT 'DT' IF SS3 UP
+       LDB     =MT18
+       JS3M    QENTRY
+       LDA     PEFLG           WAS THERE A PARITY ERROR
+       JAP     PD3B            NO
+       TZA
+       STA     DACK            RESET DIFFERED ACK FLAG
+       JMP     PID2
+PD3B   LDA     PBFN            PUT BUFFER NO. IN A (IN 2 MSB)
+       LRLA    14
+       ORA     PBFI            PUT BUFFER ADDRESS IN A (IN 14 LSB)
+       INCR    012             ADD ONE TO A AND PUT IN B (SKIP SOM)
+       LDA     =DCMPRS             DCMPRS ON QUEUE
+       JMPM    QENTRY
+       TZA
+       STA     PIPB            RESET PHONE BUSY FLAG
+       JMP     EM12
+*
+PID1   LDA     PCNT            DO NOT SEND NACK FOR SHORT MESSAGES
+       SUB     P8
+       JAN     EMO8
+PID2   CALL    SNAK            SEND NACK
+       JMP     EMO8
+*
+PDA4   TZA                     RESET FUNCTION CODES EQL FLAG
+       STA     OFCE
+       JMP     EMO8
+*
+*      ENTER PFM1 TO DE-CODE SHORT (FUNCTION) MESSAGES
+*
+PFM1   LDA     PBFI            CALCULATE LOCATION OF FUNCTION CODE
+       IAR                    (SOM+1)
+       STA     PBUF            SAVE ADDRESS IN PBUF
+       LDB*    PBUF            PUT FUNCTION CODE IN B
+       TBA
+       SUB     F27             IS IT A PROBE
+       JAZ     PFM4            YES
+       TBA
+       SUB     F44             IS IT A 44 INPUT
+       JAZ     PFM5            YES
+       TBA
+       SUB     F45             IS IT A 45 INPUT
+       JAZ     PFM5            YES
+       TBA
+       SUB     F25             IS IT HALT-GO-VOICE
+       JAZ     PFM6            YES
+       TBA                     LOOK FOR OUTPUT FUNCTION MESSAGES
+       SUB     F10             SUBTRACT 10 OCTAL TO SEE IF OUTPUT IS OD
+       JAZ     POF2            ODD BLOCK OF OUTPUT ? NO, YES J TO POF2
+       TBA
+       SUB     F11             SUBTRACT 11 OCTAL TO SEE IF OUTPUT IS EV
+       JAZ     POF2            EVEN OUTPUT BLOCK ? NO, YES J TO POF2
+       LDA     =TTYMSG         SEND WARNING TO OPERATOR
+       LDB     =MT2            PRINT 'TERR2'
+       JMPM    QENTRY
+       JMPM    SNAK            TRY SENDING A NACK
+       JMP     EMO8
+*
+POF2   TZA                     RESET CLEAR FOR DATA FLAG
+       STA     PCDMF
+       LDA     PCOPF           IF 2 OUTPUT FUNCTION CODES IN A ROW
+       JAN     EMO8            HAVE BEEN RECVD - GO AWAY
+       DECR    1
+       STA     PCOPF            SET OUTPUT FUNCTION FOUND FLAG
+       LDA     INOT           IS THIS THE FIRST MESSAGE RECEIVED
+       XAZ     INOT+1         BUMP INOT
+       JAZ     RNP1-1
+       TBA
+       SUB     POCD            SUBTRACT LAST OUTPUT FUNCTION CODE
+       JAZ     POF3            OUTPUT CODES EQUAL ? NO, YES JUMP
+       STB     POCD            POST LATEST OUTPUT FUNCTION CODE
+RNP1   NOP                     SET TO NOPS BY IPAK
+       NOP                     SET TO JMPM C08RDY BY TYPING READY
+       LDA     =TTYMSG
+       LDB     =MT15
+       JS2M    QENTRY          * IF SS2 SET TYPE OP
+       JMP     RN2A            CHECK FOR MESSAGE AFTER LAST CARD SENT
+*
+POF3   LDA     =TTYMSG         WARN OPERATOR
+       LDB     =MT3            PRINT 'FCEQ'
+       JMPM    QENTRY
+       DECR    1
+       STA     OFCE            SET OUTPUT FUNCTION CODES EQUAL FLAG. -1
+       JMP     EMO9            EXIT THROUTH EMO9
+*
+PFM4   DECR    1               SEND 'ACK' TO 1108
+       STA     RESP
+       INCR    1
+       STA     MSG28
+RNP2   NOP                     SET TO JMPM C08RDY BY TYPING READY
+       NOP                     RESET TO NOPS BY C08RDY AND IPAK
+RN2A   LDA     PEFF            WAS THIS PROBE THE RESPONSE AFTER
+       JAN     PFM7            THE LAST CARD BUFFER WAS SENT
+       JMP     EMO9            EXIT THROUGH EMO8
+*
+PFM6   LDA     =TTYMSG         HALT-GO-VOICE HAS BEEN RECVD
+       LDB     =MT4            PRINT 'HLTGOC'
+       JMPM    QENTRY          PRINT MESSAGE
+       LDA     =ACK            SEND ACK
+       STA     RESP
+       INCR    1               TURN ON MSG28
+       STA     MSG28
+       JMP     EMO8
+*
+PFM5   LDA     INIT            IS IT OK TO RECEIVE 044/045
+       JAP     EMO8            NO
+       DECR    1               YES
+       STA     CLK6            TURN OFF CLOCK 6
+       STA     TMFL            SET REQUEST FOR INPUT RECV'D FLAG
+       LDA     PIPRQ           IS THIS IN ANSWER TO OUR '06'
+       JAN     PFM8            YES
+       TBA                     NO - ARE FUNCTION CODES EQL (IE. HAS
+       SUB     PICD            1108 NACK'D US)
+       JAZ     RRT2            YES - GO RETRANSMIT
+       STB     PICD            NO - STORE NEW FUNCTION CODE
+       JMP     PF7B
+PFM8   TZA
+       STA     PIPRQ           RESET INPUT REQUEST FLAG
+       DECR    1
+       STA     IPRQ            SET OK TO SEND DATA FLAG
+       STB     PICD            STORE NEW FUNCTION CODE
+       JMP     EMO8
+PFM7   TZA
+       STA     PEFF            RESET FINAL CARD BUFFER SENT FLAG
+       STA     INIT
+       DECR    1
+       STA     CLK6            TURN OFF CLOCK 6
+PF7B   LDA     =TTYMSG
+       LDB     =MT20     PRINT 'IP' IF SS3 UP
+       JS3M    QENTRY
+       LDA     =TRNSMT         REMOVE OLDEST ITEM IN TRNSMT TABLE
+       JMPM    QREMOV
+       LDA     =TRNSMT        CHECK FOR TRANSMIT QUEUE BUSY
+       JMPM    QGET
+       JMP     RTBF           IS EMPTY, DO NOTHING
+       INCR    1
+       STA     TRNSMT         ENABLE TRANSMIT ROUTINE
+RTBF   LDA     =CPSBT          RELEASE TRANSMIT BUFFER NEED TABLE ADD**
+       LDB     CB2N            NEED TRANSMIT BUFFER NUMBER     ********
+       JMPM    BUFRLS          RELEASE BUFFER
+EMO9   LDA     PCOPF          IS THIS AN OUTPUT MESSAGE?
+       JAN     EMO2           IF NEG JUMP
+EMO8   TZA
+       STA     PIPB            SET PHONE INPUT NOT BUSY
+EMO2   LDA     =PBFT
+       LDB     PBFN
+       JMPM    BUFRLS          RELEASE PHONE INPUT BUFFER
+EM12   TZA
+       STA     PEFLG           RESET PARITY ERROR FLAG
+       LDA     =PBIT
+       STA     PINT+1          CHANGE INTERRUPT TO BIT MODE
+       EXC     071             PUT PHONE CONTROLLER IN BIT MODE
+       TZA                     RESET   15 SEC CLOCK
+       STA     CLK2
+       STA     CLK3
+       LDA     PBIM
+       JMPM    MTIC            RESTORE INTERRUPT MASK
+       LDA     PSTA            RESTORE REGISTERS
+       LDB     PSTB
+       LDX     PSTX
+       EXC     0240            ENABLE PIM
+       JMP*    PEOM
+*
+RRT2   INCR    1
+       STA     TRNSMT         ACTIVATE TRANSMIT ROUTINE
+       LDA     =TTYMSG
+       LDB     =MT19
+       JS2M    QENTRY          * IF SS2 SET TYPE RT
+       JMP     EMO8            EXIT THROUGH EMO8
+*
+IPRQ   DATA    0               OK TO SEND DATA TO 1108 FLAG
+RESP   DATA    ACK
+BCC    BSS     1              ASSEMBLED LONGITUDINAL PARITY CHAR
+F10    DATA    065            FUNCTION CODES IN ASCII (WITHOUT PARITY)
+F11    DATA    066
+F25    DATA    0102
+F27    DATA    0104
+F44    DATA    0112
+F45    DATA    0113
+*
+********************************************************************
+*
+*      SNAK
+*      W. L. FRANZ       SHELL DEVELOPEMNT CO.
+*      THIS SHORT SUBROUTINE PUTS A NACK ON THE QUEUE FOR MSG28
+*      SUBROUTINES DIRECTLY CALLED
+*              QENTRY
+*
+SNAK   ENTRY
+       LDA     =TTYMSG         PRINT 'S1' IF SS3 UP
+       LDB     =MT10
+       JS3M    QENTRY
+       TZA
+       STA     PCOPF          RESET OUTPUT FUNCTION CODE FLAG
+       LDA     =NACK           SEND NACK
+       STA     RESP
+       INCR    1
+       STA     MSG28           TURN MAG28 ON
+       JMP*    SNAK
+*
+PSTA   DATA    0               TEMPORARY STORAGE FOR A REGISTER
+PSTB   DATA    0               TEMPORARY STORAGE FOR B REGISTER
+PSTX   DATA    0               TEMPORARY STORAGE FOR X REGISTER
+PBIM   DATA    0
+PMODE  DATA    -1              PHONE MODE FOR SYNCH CHARACTER
+SYNC   DATA    065             SYNCH CHARACTER
+EOM    DATA    0125            END OF MESSAGE CHARACTER
+PBFI   DATA    0               PHONE INPUT BUFFER STARTING LOCATION
+PBFN   DATA    0               PHONE INPUT BUFFER NUMBER
+PCNT   DATA    0               COUNT OF CHARACTERS STORED
+PIPB   DATA    0               PHONE INTERRUPT BUSY FLAG
+PCDMF  DATA    0               DATA MESSAGE RECEIVED FLAG
+PCOPF  DATA    0               OUTPUT FUNCTION FOUND FLAG
+PICD   DATA    0113           LAST INPUT FUNCTION CHARACTER (ASCII)
+POCD   DATA    066             LAST OUTPUT FUNCTION CHARACTER  (ASCII)
+DACK   DATA    0               DEFERRED ACKNOWLEDGE FLAG
+PEFLG  DATA    0               PARITY ERROR FLAG
+OFCE   DATA    0               OUTPUT FUNCTION CODES EQUAL FLAG
+TMFL   DATA    0               FLAG NOTICE OF A REQUEST FOR INPUT
+PEFF   DATA    0               FLAG AAYING THE LAST CARD BUFFER HAS BEE
+PIFF   DATA    0              THIS FLAG ACTS AS PEFF BUT IS SET FIRST
+PIPRQ  DATA    0               INPUT REQUEST FLAG
+OFIN   DATA    0               HOLDS FINAL ADDR OF OUTPUT BFR
+ONUM   DATA    0               HOLDS OUTPUT BFR NUMBER FOR EPC1
+PEI1   STA     PEFLG           INSTRUCTION WHICH SETS PARITY ERROR FLAG
+PEI2   STA     DACK            INSTRUCTION TO RESET DEFERRED ACK
+INIT   DATA    0              FLAG FOR INITIAL INPUT REQUEST FROM 1108
+       INR     INIT
+INOT   DATA    0              FLAG FOR INITIAL OUTPUT REQUEST FROM 1108
+       INR     INOT
+*
+*      THE FOLLOWING ARE MESSAGES TO THE 1108
+*
+REDY   DATA    016,032465,032465,040105,0,0,010125,012577
+NACK   DATA    016,032465,032465,040057,0,0,0125,027577
+ACK    DATA    016,032465,032465,040000,0,0,0125,0177
+OSIX   DATA    016,032465,032465,040106,0,0,0125,03177
+DISCON DATA    016,032465,032465,040114,0,0,0125,06177
+*
+*      THIS IS THE PARITY ERROR TABLE 128 LOCATIONS  (ASCII , NO PARITY
+*
+PRTB   DATA    -1,056777,026777,-1,030777,-1,-1,032377
+       DATA    032777,-1,-1,034377,-1,056377,035777,-1
+       DATA    025777,-1,-1,037777,-1,041377,041777,-1
+       DATA    -1,043377,043777,-1,044777,-1,-1,021777
+       DATA    040100,0177443,0177457,020437
+       DATA    0177542,045555,046163,0177556
+       DATA    0177461,047475,050141,0177420
+       DATA    051062,0177402,0177522,021064
+       DATA    0177503,024004,026105,0177506
+       DATA    027407,0177410,0177511,052512
+       DATA    053013,0177514,0177521,054416
+       DATA    0177536,024535,037076,0177423
+       DATA    020040,0177524,0177425,030026
+       DATA    0177527,031130,031431,0177432
+       DATA    0177533,033034,033544,0177445
+       DATA    034446,0177547,0177550,055451
+       DATA    0177452,035153,027054,0177565
+       DATA    040566,0177467,0177470,042171
+       DATA    042572,0177473,0177574,044117
+       DATA    0177415,036401,036160,0177577
+       DATA    -1,025377,022377,-1,045377,-1,-1,046777
+       DATA    047377,-1,-1,050777,-1,022777,023777,-1
+       DATA    057377,-1,-1,023377,-1,051777,052377,-1
+       DATA    -1,053777,054377,-1,055377,-1,-1,057777
+*
+****************************************************************
+*
+*      M28S    MESSAGE TO 1108 SUBROUTINE
+*      W. L. FRANZ  SHELL DEVELOPMENT CO.
+*      SUBROUTINE WHICH TRANSMITS SHORT MESSAGES TO THE 1108
+*      SUBROUTINES CALLED
+*              UNPC    BICIO    HALT
+*
+M28S   ENTR
+       SEN     022,T281            SENSE BIC 2 NOT BUSY
+       JMP*    M28S
+T281   SEN     0471,T282        ARE WE CLEAR TO SEND?
+       EXC     0471            N0 - TRN ON REQUEST TO SEND
+       JMP*    M28S            RETURN
+T282   LDA     DISF            SHOULD WE SEND A DISCONNECT
+       JAP     T283            NO
+       TZA                     YES - RESET FLAG
+       STA     DISF
+       LDA     =DISCON
+       JMP     T286
+T283   LDA     RESP            IF RESP =-1, AN ACK HAS BEEN REQUESTED
+*                              BUT IF PIPRQ=-1 SEND AN '06' INSTEAD
+       JAP     T285            ACK HAS NOT BEEN REQUESTED
+       LDA     PIPRQ           SHOULD WE SEND '06' INSTEAD OF 'ACK'
+       JAP     T284            NO
+       DECR    1               YES - SET OK TO RECEIVE 044/045 FLAG
+       STA     INIT
+       LDA     =OSIX
+       JMP     T286
+T284   LDA     =ACK            SEND 'ACK'
+       JMP     T286
+T285   LDA     RESP            GET LOC OF MSG TO BE UNPACKED
+T286   LDB     =M8TB           PUT LOC WHERE MSG IS TO BE STORED IN B
+       JMPM    UNPC            UNPACK MESSAGE AND PUT IT INTO BUFFER
+       DECR    1         LDA =-1
+       STA     MSG28     SET MSG28 BUSY
+       LDA     =M8TB           STARTING ADDRESS
+       LDB     =M8TE-2        ENDING ADDRESS
+       LDX     P2              PHONE BIC NO.
+       JMPM    BICIO           OUTPUT DATA TO 1108
+       JMPM    HALT            BAD RETURN
+       JMP*    M28S
+*
+M8TB   BSS     14             MESSAGE BUFFER
+       DATA    0177,0177
+M8TE   DATA    0177
+*
+******************************************************************
+*
+*      MSINT   MESSAGE SENT INTERRUPT OBTAINED FROM PHONE BIC
+*      W. L. FRANZ       SHELL DEVELOPMENT CO.
+*      MESSAGE SENT INTERRUPT THIS INTERRUPT SETS TRANSMIT TO OFF
+*      IF THE MESSAGE SENT WAS A DATA MESSAGE. IF IT WAS A MSG28, THE
+*      OLDEST ITEM IN THE MSG28 TABLE IS DELETED.
+*      SUBROUTINES DIRECTLY CALLED
+*              QENTRY    PREP
+*
+MSINT  ENTR
+       STA     MSIA            SAVE A
+       STB     MSIB            SAVE B
+       STX     MSIX            SAVE X
+       LDA     WFDC            ARE WE WAITING ON INTERRUPT FROM DISCON
+       JAN     DCHA            YES
+       LDA     DMSFLG          LOAD DATA MESSAGE FLAG
+       JAZ     RM8FT           WAS MSG A DATA MSG? NO, YES REMOVE FM TA
+       LDA     =TTYMSG
+       LDB     =MT16           TRANSMIT MESSAGE ('TM')
+       JS2M    QENTRY          IF SS2 SET SEND TTY MSG TM
+       EXC     0440            DISABLE PIM
+       LDA     PIFF      WAS THIS MESSAGE AFTER LAST BUFFER SENT?
+       JAP     *+4            NO
+       STA     PEFF           MAKE PEFF -1
+       INR     PIFF           RESET PIFF
+       TZA
+       STA     DMSFLG          RESET DATA MESSAGE FLAG
+ASE1   TZA
+       STA     CLK3
+       LDA     MSIA            RESTORE A
+       LDB     MSIB            RESTORE B
+       LDX     MSIX            RESTORE X
+       IME     071,MSIA        JAR MODEM
+       EXC     0240
+       JMP*    MSINT           RETURN
+RM8FT  TZA                     REMOVE MSG28 FROM QUEUE
+       STA     MSG28
+       LDA     =TTYMSG
+       LDB     =MT17           PRINT 'M8' IF SS2 UP
+       JS2M    QENTRY          * SEND TTY MSG
+       EXC     0440            DISABLE PIM
+       JMP     ASE1
+DCHA   TZA                     INTERRUPT FROM DISCON HAS ARRIVED
+       STA     WFDC            RESET WAITING FOR DISCON FLAG
+       LDA     COMF            WAS OFF KEYED-IN  (COMF=-1)
+       JAN     RM8FT           YES - DO NOT TRY TO RESTART
+       CALL    PREP            TRY TO GET 1108 GOING AGAIN
+       JMP     RM8FT
+*
+MSIA   DATA    0
+MSIB   DATA    0
+MSIX   DATA    0
+WFDC   BSS     1               WAITING FOR DISCONNECT FLAG
+*
+***************************************************************
+*
+*      TRSMT   SUBROUTINE WHICH TRANSMITS CARD IMAGES TO THE 1108
+*      W. L. FRANZ       SHELL DEVELOPMENT CO.
+*      SUBROUTINES CALLED
+*              QGET    BICIO    HALT
+*
+TRSMT  ENTR
+       LDA     TMFL            IF REQUEST FOR INPUT HAS NOT BEEN SET
+       JAP*    TRSMT     RETURN
+       SEN     0471,TR1  SENSE SMC CLEAR TO SEND
+       EXC     0471      TURN ON REQUEST TO SEND
+       JMP*    TRSMT     RETURN
+TR1    SEN     022,M281  SENSE BIC 2 NOT BUSY
+       JMP*    TRSMT
+M281   LDA     MSG28
+       JAN*    TRSMT           IF MSG28 IS BUSY RETURN
+       LDA     PIPB
+       JAN*    TRSMT           IF THE PHONE IS INPUTTING DATA RETURN
+       LDA     =TRNSMT         OBTAIN THE BUFFER TO BE TRANSMITTED
+       JMPM    QGET            AND ITS NUMBER
+       JMP*    TRSMT           * IF EMPTY THEN LEAVE
+       STA     T               TEMPORARILY STORE THE PACKED WORD
+       JAP     M282            IS THIS LAST CARD BUFFER
+       ANA     =077777         YES - RESET SIGN BIT
+       STA     T
+       DECR    1               SET FLAG FOR MSINT
+       STA     PIFF
+       LDA     T
+M282   LSRA    13              PUT BUFFER NO. IN B
+       STA     CB2N
+       LDA     T
+       ANAI    017777          SAVE 13 LSB
+       STA     T               PUT BUFFER ADDRESS IN T
+       DECR    1
+       STA     TRNSMT    SET TRANSMIT BUSY
+       LDA     T
+       ADDI    MLEN+8
+       TAB                     PUT FINAL BIC ADDRESS IN B
+       LDA     T               PUT INITIAL ADDRESS IN A
+       LDX     P2              PUT PHONE BIC NO IN X
+       JMPM    BICIO           START OUTPUTTING DATA TO THE 1108
+       JMPM    HALT            BAD RETURN
+       DECR    1
+       STA     DMSFLG          SET DATA MESSAGE FLAG NEEDED BY MSGSENT
+       TZA
+       STA     TMFL            RESET REQUEST FOR TRANSMISSION FLAG
+       STA     CLK6            START CLOCK 6 RUNNING
+       JMP*    TRSMT
+*
+CB2N   DATA    1               START OFF WITH BUFFER 1 UNRELEASED
+DMSFLG DATA    0
+*
+*****************************************************************
+*
+*      UNPC    UNPACK
+*      W. L. FRANZ       SHELL DEVELOPMENT CO.
+*      UNPC UNPACKS A TABLE OF DATA WITH TWO CHARACTERS PER WORD
+*      (6 BITS+PARITY OR 8BIT AS(II) AND PLACES THE UNPACKED DATA ONE
+*      CHARACTER PER WORD IN ANOTHER TABLE
+*      THE FIRST WORD OF THE PACKED DATA HAS THE TOTAL NUMBER OF
+*      CHARACTERS TO BE UNPACKED
+*      WHEN THE SUBROUTINE IS CALLED REGISTER A HAS THE ADDRESS OF
+*      THE DATA TO BE UNPACKED AND REGISTER B CONTAINS THE ADDRESS INTO
+*      WHICH THE UNPACKED DATA WILL BE PLACED
+*      UPON RETURN REGISTER X IS ZERO, A HAS THE LAST CHARACTER UNPACKE
+*      AND B MAY BE ANYTHING
+*      SUBROUTINES DIRECTLY CALLED
+*              HALT
+*
+UNPC   ENTR
+       STA     PTR3            STORE LOC OF DATA TO BE UNPACKED
+       STB     PTR5            STORE LOC OF UNPACKED DATA
+       LDA*    PTR3            GET NUMBER OF CHARACTERS TO BE UNPACKED
+       TAX                     PUT NO CHAR IN X
+       INR     PTR3            GENERATE LOC OF FIRST DATA TO UNPACK
+       JAZM    HALT            IF NO CHAR IS ZERO OR NEGATIVE HALT
+       JANM    HALT
+STUP   TZA
+       LDB*    PTR3            OBTAIN TWO CHARACTERS
+       LLRL    8               PUT ONE CHAR IN A
+       STA*    PTR5            STORE UNPACKED CHAR
+       DXR               DECREMENT CHAR. COUNT
+       JXZ*    UNPC            DONE ?
+       TZA
+       INR     PTR5            GET NEXT LOC FOR UNPACKED STORAGE
+       LLRL    8               PUT SECOND CHAR IN A
+       STA*    PTR5            STORE UNPACKED CHAR
+       DXR
+       JXZ*    UNPC            DONE ?
+       INR     PTR5
+       INR     PTR3            LOC OF NEXT WORD OF PACKED DATA
+       JMP     STUP
+*
+*****************************************************************
+*
+*      CMPS    COMPRESS CARDS INTO TRANSMIT BUFFERS
+*      E. B. FOLLIS      SHELL DEVELOPMENT CO.
+*      CMPS CONVERTS HOLLERITH CHARACTERS READ INTO BUFFER FROM THE
+*      940 TO XS3 CODE, COMPRESSES THEM, INSERTS THEM INTO A
+*      TRANSMIT BUFFER, IMPLEMENTS ALL THE NECESSARY SYNC, SOM, CONTROL
+*      EOM AND LRC CHARACTERS, AND WHEN A BUFFER IS FILLED A REQUEST
+*      IS QUEUED TO TRANSMIT THE DATA BUFFER.
+*      BITS 0-12 OF THE EXECUTIVE QUEUE ENTRY CONTAIN THE BRF ADDR
+*      BIT 13 CONTAINS THE BUFFER NUMBER =0 OR 1
+*
+*      SUBROUTINES DIRECTLY CALLED
+*              CMPX    HALT    QGET
+*              BUFGT   BUFRLS  QREMOV
+*              QENTRY
+*
+*
+CMPS   ENTR                        SUBROUTINE COMPRESS
+       TZA
+       STA     OFBF            RESET BUFFER OVERFLOW FLAG
+       LDA     PFBU                DO WE HAVE A PARTIALLY FILLED BUF ?
+       JAN     CONV                YES!
+CMX3   LDA     =CPSBT              NO, LDA = BUF TBL. ADDR.
+       JMPM    BUFGT               AND SEE IF WE CAN GET A BUF
+       JMP     NOBUF               NO-DO WHAT MUST BE DONE
+       STA     CBFT                STORE BUF. ADDR. FOR LATER RELEASE
+       STB     CBFN                STORE BUF. NO. FOR LATER RELEASE
+       TAX                         X = BUF. STRT. LOC.
+       TBA                         A = BUF. NO.
+       LRLA    13                  LEFT SHIFT 13
+       ORA     CBFT                BRING IN STRT. LOC.
+       STA     BNBA                BNBA = BUF. NO./BUF. STRT. LOC.
+       TXB                         B = BUFR. START LOC.
+       LDAI    -PHBZ               A = NEG. OF NO. OF TIMES TO INIT.
+       LDX     B100                X = VALUE FOR BUFR. INIT.
+CPLO   STX     0,B                 STORE X IN CURRENT LOC.
+       IBR                         INCREMENT LOC. POINTER.
+       IAR                         INCREMENT COUNTER
+       JAN     CPLO                ARE WE THRU WITH INIT.
+       LDX     CBFT                NOW RESTORE X.
+       LDAI    065                 A = SYNC CHARACTER
+       STA     0,X                 WD1 = SYNC.
+       IXR
+       STA     0,X                 WD2 = SYNC.
+       IXR
+       STA     0,X                 WD3 = SYNC.
+       IXR
+       STA     0,X                 WD4 = SYNC.
+       IXR
+       LDA     B100                A = SOM CHARACTER
+       STA     0,X                 WD5 = SOM
+       IXR
+       STA     0,X                 WD6 = 0 (FOR POSSIBLE EOF STORE)
+       STX     BWD5                BWD5 = ADDR WD6 FOR CONTROL SET
+       STX     CBFA                X = ADDR DF7 (1ST WD SYNC'ED BUF.)
+       TXA
+       ADD     DAT2                DAT2 = MLEN-3
+       STA     CTBE                LAST AVAILABLE WD IN BUFF FOR CMPX
+       ADD     P4                  ADD 4 FOR EO MESSAGE STORE
+       STA     CEOM                326TH WD=EOM LOC. FOR LATER STORE
+       LDA     XS3D            DO WE STILL HAVE AN INPUT BUFFER TO
+*                              COMPRESS
+       JAN     CMX1                YES! GO COMPRESS!
+CONV   LDA     =CMPRES        OBTAIN ADDRESS OF INPUT BUFFER
+       JMPM    QGET
+       JMPM    HALT           FAILURE
+       ANAI    077777
+       TZB
+       LLRL    3
+       LSRA    3
+       STA     DBUL           SAVE BUFFER ADDRESS
+       STA     PTR1                AND STORE FOR INDIRECT ADDR.
+       TBA
+       ANA     P1              EXTRACT BIT 13 OF QUE REQUEST
+       STA     DBUN            SAVE BUFFER NUMBER
+       TZA                         A=0 FOR CNTR INITIALIZATION
+       STA     PTR3                SO GOES PTR3
+       STA     UNCX                RESET UNCOMPRESSABLE CHAR. FLAG
+CL9P   LDA*    PTR1           IT IS 940 INPUT
+       TAB
+       ERA     B177                IS THE CHARACTER A LOZENGE?
+       JAZ     CMX6                YES, GO SET FLAG
+       TBA                         NO,
+       ERA     B160                IS THE CHARACTER AN UNEQUAL SIGN?
+       JAZ     CMX6                YES-GO SET FLAG
+       JMP     CMX7                NO, ON YOUR MERRY WAY''
+CMX7   INR     PTR1                INCREMENT CHARACTER AND
+       INR     PTR3                CNT POINTER
+       LDA     PTR3                GET CNTR IN A
+       SUBI    80                  AND SEE IF WE ARE THRU
+       JAP     CMX1                YES.
+       JMP     CL9P                NO, LOOP BACK
+CMX6   LDA     M1              FOUND UNCOMPRESSABLE CHARACTER
+       STA     UNCX            SET FLAG
+CMX1   LDA     CBFA            A=LAST BUFFER ADDRESS USED
+       JMPM    CMPX                GO COMPRESS CARD!
+       JMP     OVFL                OVERFLOWED BUFFER
+       STB     CBFA                STORE LAST ADDR. STORED INTO
+       JAN     CEOF                EOF ENCOUNTERED - GO AWAY!
+       INR     CBFA                SET CBFA = NEXT AVAILABLE BUF. ADDR.
+       LDX     CBFA                AND LOAD X FOR END OF CARD CHARACTER
+       LDA     B160                A =   (.NE. CHAR.)
+       STA     0,X                 STORE END OF CARD CHARACTER
+       LDA     M1                  TURN ON FLAG FOR PARTIALLY
+       STA     PFBU                FILLED BUFFER
+       TZA
+       STA     XS3D            RESET INPUT BUFFER TO COMPRESS FLAG
+       JMP     CMX2
+CEOF   LDA     =TTYMSG             REQUEST EOF MESSAGE
+       LDB     =MT11
+       JMPM    QENTRY
+       LDAI    013                 A = CONTROL WD FOR EOF
+       LDX     BWD5                X = ADDR. OF WD5
+       STA     0,X                 W5 = CONTROL WORD
+       LDA     BNBA            SET SIGN BIT OF BNBA TO INDICATE FINAL
+       ORA     M0              CARD BUFFER (TRSMT LOOKS FOR THIS)
+       STA     BNBA
+CMX4   LDX     CEOM                326TH LOC. FOR EOM STORE
+       LDAI    0125                A = EOM CHARACTER
+       STA     0,X                 326TH WD = EOM
+       LDA     B160                A =   (.NE. CHAR.)
+       LDX     CBFA                X = LAST ADDR WD STORED INTO
+       IXR
+       STA     0,X                 LAST WD -1 IN BUF IS   (.NE. CHAR.)
+       IXR
+       STA     0,X                 LAST WD IN BUF IS   (.NE. CHAR.)
+       TZB                         B=0 FOR CNTR INITIALIZATION
+       STB     T4                  AND INITIALIZE CNTR.
+       LDA     CBFT                A = ADDR 1ST LOCATION IN BUFFER
+       ADD     P5                  A = ADDR 6TH LOCATION IN BUFFER
+       TAX
+       LDA     0,X                 A = CONTENTS OF 6TH LOCATION
+CEOR   IXR                         X = ADDR OF CURRENT LOCATION
+       ERA     0,X                 EXCLUSIVE OR LOOP FOR CHECK SUM
+       INR     T4                  BUMP CNTR.
+       TAB                         SAVE A.
+       LDA     T4                  A= CNTR.
+       SUBI    MLEN                ARE WE THRU LOOPING
+       JAP     CMX5                YES.
+       TBA                         RESTORE A.
+       JMP     CEOR                NO, KEEP EOR-ING
+CMX5   IXR                         INCREMENT X ONCE,
+       IXR                         AND TWICE FOR CHECKSUM STORE.
+       STB     0,X                 STORE LRC IN LAST BUFFER WD.
+       TZA
+       STA     PFBU            RESET PARTIALLY FILLED BUFFER FLAG
+       LDA     =TRNSMT             REQUEST ENTRY
+       LDB     BNBA                TO TRANSMIT (B = BUF NO./BUF ADDR.)
+       JMPM    QENTRY              TABLE
+       LDA     OFBF                IN OVERFLOW MODE
+       JAN     OVF1                YES, BRANCH
+CMX2   LDA     =IBUT          ADDRESS OF INPUT BUFFER TABLE
+       LDB     DBUN           BUFFER NUMBER
+       JMPM    BUFRLS         RELEASE INPUT BUFFER
+       LDA     =CMPRES
+       JMPM    QREMOV         REMOVE ENTRY FROM COMPRESS QUEUE
+       JMP*    CMPS            RETURN
+OVFL   STB     CBFA
+       LDA     M1                  SET BUFFER OVERFLOW
+       STA     OFBF                FLAG AND
+       JMP     CMX4                GO AWAY
+OVF1   LDA       M1            SET INPUT BUFFER TO BE COMPRESSED FLAG
+       STA     XS3D
+       JMP     CMX3                AND GO TRY TO GET A BUFFER
+NOBUF  LDA     =CMPRES
+       JMPM    QGET
+       JMPM    HALT            THERE WERE NO ENTRIES ON COMPRESS QUEUE
+       JMP*    CMPS           RETURN
+*
+XS3D   DATA    0               INPUT BUFFER TO BE COMPRESSED FLAG
+PFBU   DATA    0                   PARTIAL BUFFER FLAG
+CBFT   BSS     1                   BUFFER ADDR
+CBFN   BSS     1                   BUFFER NO
+CBFA   BSS     1                   LAST LOCATION IN BUFFER STORED INTO
+CTBE   BSS     1                   END OF USABLE BUFFER (ADDR)
+DAT2   DATA    MLEN-3
+OFBF   DATA    0
+BNBA   BSS     1
+BWD5   BSS     1
+UNCX   DATA    0                   UNCOMPRESSABLE CARD FLAG
+CEOM   BSS     1                   EOM LOCATION
+*
+****************************************************************
+*
+*      CMPX    COMPRESS A CARD
+*      W. H. JOBE        SHELL DEVELOPMENT CO.
+*      E. B. FOLLIS      SHELL DEVELOPMENT CO.
+*      CMPX COMPRESSES A CARD IN XS-3 INTO A TRANSMIT BUFFER.  IT
+*      ALSO CHECKS AND REPORTS TRANSMIT BUFFER OVERFLOW AND END OF
+*      FILE.  THE END OF FILE CARD IS ASSUMED TO BE A 7/8 PUNCH IN
+*      COLUMN 1 AND COLUMN 2.
+*
+*              ENTRY - A = LAST ADDRESS IN CURRENT TRANSMIT BUFFER
+*                          THAT SOMETHING WAS STORED.
+*
+*              EXIT -  B = LAST ADDRESS CMPX PUT A CHARACTER INTO
+*                          TRANSMIT BUFFER.  (NOTE - CMPX PUTS
+*                          CHARACTERS AND ONLY CHARACTERS THAT WERE
+*                          ON CARD INTO TRANSMIT BUFFER, WITH THE
+*                          SINGULAR EXCEPTION OF A C OR B IN THE
+*                          FIRST AVAILABLE LOCATION UPON ENTRY
+*                          TO INDICATE A COMPRESSED OR UNCOMPRESSED
+*                          CARD, RESPECTIVELY.)
+*
+*                          IF A IS NEGATIVE ON EXIT THEN END OF
+*                          FILE WAS ON CARD TO BE COMPRESSED.
+*
+*                          EXIT IS MADE WITH SKIP RETURN.
+*
+*
+*      NO SKIP ON RETURN MEANS THAT CARD CAUSED BUFFER OVERFLOW.
+*
+*      SUBROUTINES DIRECTLY CALLED
+*              NONE
+*
+*
+CMPX   ENTR
+       STA     LGB                 SAVE B IN LAST GOOD B.
+       TAB
+       LDA     DBUL           ADDRESS OF INPUT BUFFER
+       ADDI    72
+       STA     CBFL           LAST TAB STOP
+       ADDI    7
+       STA     CBFE           END-OF-CARD
+       LDX     DBUL           ADDRESS OF BUFFER
+       LDA     0,X            GET FIRST CHARACTER OF BUFFER
+       ERA     B40                 CHECK FOR EOF
+       JAZ     EOFF                POSSIBLE
+CMP0   LDA     UNCX                DO WE HAVE AN UNCOMPRESSABLE CARDU
+       JAN     UNCC                YES, GO STORE'
+       IBR                         INCREMENT B
+       LDAI    026                 A = C FOR COMPRESSED CARD
+       STA     0,B                 AND STORE IN FIRST AVAILABLE LOCATIO
+       LDA     DBUL           INPUT BUFFER ADDRESS
+       ADD     P8
+       TAX                         FORM INDEX INTO BUFFER
+*      SCAN FIELD OF 8
+CMP1   TZA
+       STA     T3                  RESET COUNTER
+CMP2   DXR
+       LDA     0,X                 GET NEXT CHARACTER
+       ERA     B100                IS THE CHARACTER A BLANKU
+       JAZ     *+4                YES'
+       JMP     CMP4                NO.
+       INR     T3
+       LDA     T3
+       SUB     P8
+       JAZ     *+4
+       JMP     CMP2
+       IBR
+       LDA     B177                PUT LOZENGE IN XS3 INTO
+       STA     0,B                 TRANSMIT BUFFER
+CMP3   TBA                         A = LAST ADDR. STORED INTO.
+       SUB     CTBE                - LAST AVAILABLE ADDR. TO STORE INTO
+       JAP     NSKP                WE HAVE OVERFLOWED BUFFER.
+       JMP     CPOK
+NSKP   LDB     LGB                 RESTORE LAST GOOD B
+       JMP*    CMPX                FAIL SKIP
+CPOK   TXA                         ARE WE DONE.
+       SUB     CBFL
+       JAP     CMP7                YES
+       TXA                         NO, CONTINUE
+       ADDI    16                  MOVE OVER ON CARD
+       TAX                         X NOW RIGHT
+       JMP     CMP1                START SCAN
+*      CODE FOR FIELD WITH NON-BLANK CHARACTERS
+CMP4   LDA     P8
+       SUB     T3
+       STX     T1
+       TAX                         X IS NUMBER OF CHARACTERS
+       STA     T2                  TEMP. STORE FOR NO. CHARS. TO MOVE
+       SUB     P7                  DO WE HAVE SEVEN CHARATERS TO MOVE
+       JAZ     CMP9                YES, GO CHANGE A AND X.
+CMP8   LDA     T1                  CURRENT ADDR. CHAR. FOUND
+       SUB     T2                  SUBTRACT NO. OF CHAR. TO MOVE
+       IAR                         INCREMENT A ONCE FOR PROPER LOC.
+       STA     T2                  T2,T4 ARE BEGINNING
+       STA     T4                  FIELD ADDRESSES.
+*      CODE TO MOVE NON-BLANKS TO TRANSMIT BUFFER
+CMP5   LDA*    T4
+       IBR
+       STA     0,B
+       DXR
+       JXZ     CMP6
+       INR     T4
+       JMP     CMP5
+CMP6   LDX     T2
+       LDA     T3                  NO TRAILING BLANKS.
+       JAZ     CMP3                YES
+       LDA     B177                NO.  PUT IN THE
+       IBR                         LOZENGE.
+       STA     0,B
+       JMP     CMP3
+CMP7   LDA     0,B            GET LAST CHARACTER STORED (PTR IN B)
+       ERA     B177           IS IT A LOZENGE?
+       JAZ     *+4            YES, TAKE IT OUT
+       JMP     CPFI           NO, LEAVE AS IS
+       LDA     B100           RESET CHARACTER TO 100
+       STA     0,B
+       DBR
+       JMP     CMP7
+CPFI   INR     CMPX
+       INR     CMPX
+       JMP*    CMPX
+EOFF   LDA     1,X                 REALLY EOF? X HAS INPUT BUFFER ADDRE
+       ERA     B40
+       JAZ     *+4                 IT IS EOF
+       JMP     CMP0                NO.
+       LDA     M1                  EOF CASE
+       JMP     CPFI                RETURN SKIPPING.
+*      CODE TO MOVE UNCOMPRESSABLE CARD FOLLOWS
+UNCC   TBA                         SO, WE HAVE AN UNCOMPRESSABLE CARD'
+       ADDI    80                 ADD 1 LESS THAN WE NEED
+       SUB     CTBE                AND SUB. IN ORDER TO JAP IF JUST FIT
+       JAP     NSKP                OVERFLOW, GO NO SKIP RETURN
+       IBR
+       LDAI    025                 A = B FOR UNCOMPRESSED CARD
+       STA     0,B                 AND STORE.
+       LDX     DBUL                X = FIRST LOCATION IN CARD BUFFER
+UNC1   LDA     0,X                 LOAD A WITH CHARACTER FROM CARD BUF.
+       IBR                         INCREMENT B FOR CORRECT STORE INDEX
+       STA     0,B                 AND STORE CHARACTER DIRECT.
+       TXA
+       IXR                         INCREMENT X FOR NEXT CHAR. PICKUP
+       SUB     CBFE                HAVE WE TRANSFERRED ALLU
+       JAN     UNC1                NO, KEEP LOOPING'
+       JMP     CPFI                YES, GO SKIP RETURN WITH B ALRIGHT
+CMP9   TZA
+       STA     T3                  NO BLANKS FOUND FOR THIS TRIP
+       INR     T1                  INCREMENT LOCATION CNTR CORRECT
+       INR     T2                  INCREMENT NO. OF CHARACTERS TO MOVE
+       LDX     P8                  MAKE X RITE FOR 8 CHAR. STORE
+       JMP     CMP8                AND GO BACK PROPER
+*
+LGB    BSS     1
+CBFE   BSS     1                  END OF CARD BUFFER LOCATION
+CBFL   BSS     1              ADDRESS OF LAST TAB STOP
+DBUL   BSS     1              INPUT BUFFER ADDRESS
+DBUN   BSS     1              INPUT BUFFER NUMBER
+*
+*******************************************************************
+*
+*      EDSPCH     DISPATCHES INSTRUCTIONS AFTER A TTY WORD KEYED IN
+*      E. B. FOLLIS      SHELL DEVELOPMENT CO.
+*      EDSPCH INTERRAGATES A WORD KEYED IN FROM THE TELETYPE AND THEN
+*      DISPATCHES INSTRUCTIONS AND/OR MESSAGES TO THE NECESSARY PLACES.
+*      IF AN UNKOWN WORD IS KEYED IN, DISPATCH SENDS BACK A '???'.
+*      THIS ALSO OCCURS IF A 'XMT' IS TYPED IN AND THE READ ROUTINE IS
+*      ON, BUSY OR PENDING.  THE FOLLOWING ARE VALID COMMAND WORDS:
+*
+*              'RDY'     READY
+*              'OFF'     OFF
+*
+*      SUBROUTINES DIRECTLY CALLED
+*              QENTRY
+*
+*
+EDSPCH ENTR                        SUBROUTINE DISPATCH
+       LDA     CMND                A=WORD FROM TELETYPE
+       STA     T1                  STORE TEMP
+       TZB                         INITIALIZE CNTR. (B)
+       LDXI    EDT1                X=ADDR OF WORD TABLE
+ELOP   LDA     T1                  A=COMMAND WORD
+       ERA     0,X                 EXCLUSIVE OR WITH TABLE WORD
+       JAZ     EWER                WORD IDENTIFIED?
+       IBR                         NO, INCREMENT B AND SEE
+       TBA                         A = CNTR.
+       ADD     NCOM                ARE WE THRU?
+       JAP     EBWD                YES, BAD CMNWD.
+       IXR                         INCREMENT X TO POINT TO NEXT WORD
+       JMP     ELOP                AND LOOP BACK
+EBWD   LDB     =MT12           ILLEGAL COMMAND WORD
+       LDA     =TTYMSG
+       JMPM    QENTRY              TABLE
+EBAK   EXC     0440            DISABLE PIM
+       TZA                     TAKE DSPTCH OFF QUEUE
+       STA     DSPTCH
+       EXC     0240            ENABLE PIM
+       JMP*    EDSPCH              AND RETURN.
+EWER   STA     CMND            DESTROY OLD COMMAND WORD
+       TXA                     A=LOCATION IN TBL1 WHERE WD. FOUND
+       SUBI    EDT1                A=NO. OF LOC. BEYOND TBL1 WD. FOUND
+       ADDI    EDT2                A= LOC. IN TBL2 CORRESPONDING TO TBL
+       TAB                         B=A
+       LDA     0,B                 A=LOCATION OF PROPER CODE FOR WORD
+       STA     EDINS
+       DATA    01000               DATA=JMP INSTRUCTION
+EDINS  DATA    EDINS-1             INFINITE LOOP IF NOTHING GETS STORED
+*
+*        READY KEY-IN WILL NOT BE HONORED UNLESS COMMUNICATIONS HAVE
+*        BEEN STOPPED WITH AN OFF KEY-IN (COMF=-1)
+*
+EDRDY  LDA     COMF            RDY KEY-IN WILL NOT BE HONORED UNLESS OFF
+       JAP     EBWD            WAS KEYED-IN (COMF=-1)
+       EXC     0440            DISABLE PIM
+       TZA
+       STA     TO08            ACTIVATE 1108 TIME OUT
+       CALL    PREP
+       JMP     EBAK                GO RETURN.
+PREP   ENTR
+       LDX     =RNP1           SET UP TO TRANSMIT READY MESSAGES
+       LDBI    02000               CHANGE TWO
+       STB     0,X                 RNP1 TO A
+       LDA     =C08RDY             MARK TO
+       STA     1,X                 C08RDY.
+       LDX     =RNP2               CHANGE TWO
+       STB     0,X                 RNP2 TO A
+       STA     1,X                 C08RDY.
+       LDX     =RNP3               CHANGE TWO
+       STB     0,X                 RNP3 TO A
+       LDA     =SRDY               JUMP AND
+       STA     1,X                 SRDY.
+       LDA     =REDY          PREPARE FOR SENDING READY-MESSAGES
+       STA     SRD2+2
+       LDA     P9
+       STA     SRC1+1          SET READY PERIOD TO 9 SECS
+       TZA                         A = ZERO.  NOW STORE'
+       STA     CLK2                RESET CLOCK INTERRUPT (RECORDER TO).
+       STA     CLK3                RESET CLOCK INTERRUPT (READY TRNSMT)
+       STA     COMF           RESET COMMUNICATIONS ESTABLISHED FLAG
+       RETU*   PREP
+EDOFF  EXC     0440            OFF WAS KEYED-IN - DISABLE PIM
+       DECR    1
+       STA     COMF            SET COMF=-1 TO INDICATE OFF KEY-IN
+       CALL    SHUT
+       JMP     EBAK           RETURN
+*
+*
+COMF   DATA    0         COMMUNICATIONS ESTABLISHED FLAG
+EDT1   DATA    'RD'                READY
+       DATA    'OF'                OFF
+NCOM   DATA    -2             NUMBER OF COMMANDS (-)
+EDT2   DATA    EDRDY
+       DATA    EDOFF
+*
+******************************************************************
+*
+*      CITM AND MTIC     CHANGE INTRRUPT MASK
+*      E. B. FOLLIS      SHELL DEVELOPMENT CO.
+*      CITM SETS USERS MASK INTO HARDWARE REGISTER, UPDATES SOFTWARE
+*      REGISTER AND RETURNS OLD MASK TO USER.  MTIC SETS USERS MASK
+*      INTO HARDWARE REGISTER.
+*
+*      CITM    ENTRY -
+*                    A - NEW INTERRUPT MASK TO BE STORED
+*              EXIT -
+*                    A - OLD INTERRUPT MASK
+*
+*      MTIC    ENTRY -
+*                    A - NEW INTERRUPT MASK TO BE STORED
+*
+*      SUBROUTINES DIRECTLY CALLED
+*              NONE
+*
+*
+CITM   ENTR                        SUBROUTINE CITM
+       EXC     0440                DISABLE ALL INTERRUPTS
+       LDB     SFTR                SAVE CURRENT MASK AND
+       STA     SFTR                STORE NEW MASK.
+       OAR     040                 PUT NEW MASK IN HARDWARE REGISTER
+       TBA                         AND PUT OLD MASK IN A
+       JMP*    CITM                AND RETURN.
+MTIC   ENTR                        SUBROUTINE MTIC
+       EXC     0440                DISABLE ALL INTERRUPTS
+       STA     SFTR                UPDATE SOFTWARE AND HARWARE REGISTER
+       OAR     040                 WITH NEW MASK
+       JMP*    MTIC                AND RETURN.
+*
+************************************************************
+*        FRESH START ROUTINE - USED ONLY AT INITIAL START-UP
+*
+*        SUBROUTINES CALLED
+*        IPAK , QENTRY
+*
+FRESH  ENTR
+       EXC     0447            INITIALIZE AND DISABLE RTC
+       EXC     0540            CLEAR AND DISABLE PIM
+       TZA
+       OAR     040             ARM ALL INTERRUPTS
+       STA     ECHO
+       STA     EXCO
+       STA     LSTC
+       STA     CMND
+       STA     SHTC
+       STA     FSTM
+       STA     DSPTCH
+       STA     TTYMSG
+       STA     BELL
+       STA     DOWN
+       STA     IAMF
+       STA     MPOL
+       STA     GOPL
+       STA     CW94
+       STA     COMF
+       STA     D118
+       STA     WFDC
+       LDA     M1
+       STA     TO08
+       LDAI    TTTL+3
+       STA     TTTL
+       STA     TTTL+1
+       LDAI    TTTE
+       STA     TTTL+2
+       LDA     M2
+       STA     TCNT
+       CALL    IPAK
+       EXC     0270            TURN ON AMC CARRIER
+       EXC     0134            RESET THE MIC
+       LDA     =TTYMSG         PRINT INIT MESSAGE
+       LDBI    MT25
+       JMPM    QENTRY
+       EXC     0440            DISABLE PIM
+       JMP*    FRESH
+*
+****************************************************************
+*
+*      IPAK    INITIALIZATION PACKAGE
+*      P ROSENBLADT           SHELL DEVELOPMENT COMPANY, EMERYVILLE
+*      IPAK IS USED AT INITIAL START-UP AND AFTER ANY 1108  DISCONNECT
+*
+IPAK   ENTR
+       TZA
+       NOP
+       NOP
+       STA     PIPRQ
+       STA     IPRQ
+       STA     PIPB
+       STA     PEFLG
+       STA     PBIM
+       STA     DISF
+       STA     PCOPF
+       STA     OFCE
+       STA     DACK
+       STA     TMFL
+       STA     PEFF
+       STA     PIFF
+       STA     DMSFLG
+       STA     UNCX
+       STA     PFBU
+       STA     OFBF
+       STA     XS3D
+       STA     PBRT
+       STA     INIT
+       STA     INOT
+       STA     CLK2
+       STA     CLK3
+       STA     CLK4
+       STA     MSG28
+       STA     TRNSMT
+       STA     DCMPRS
+       STA     CMPRES
+       STA     MS940
+       STA     DAT940
+       STA     CLOK
+       STA     LMSD
+       STA     D94PF
+       LDXI    -17
+       LDBI    SFTR
+ZL     STA     0,B
+       JXZ     *+6
+       IXR
+       IBR
+       JMP     ZL
+       LDAI    TTLC+3         INITIALIZE BUFFER POINTERS
+       STA     TTLC
+       STA     TTLC+1
+       IAR
+       STA     TTLC+2
+       LDAI    XDTS+3
+       STA     XDTS
+       STA     XDTS+1
+       ADD     P2
+       STA     XDTS+2
+       LDA     =D94T+3
+       STA     D94T
+       STA     D94T+1
+       ADD     P2
+       STA     D94T+2
+       LDAI    CMPT+3
+       STA     CMPT
+       STA     CMPT+1
+       ADD     P3
+       STA     CMPT+2
+       LDA     B5000
+       STA     RNP1
+       STA     RNP1+1
+       STA     RNP2
+       STA     RNP2+1
+       STA     RNP3
+       STA     RNP3+1
+       STA     0104
+       STA     0105
+       LDA     M1
+       STA     PCDMF
+       STA     CLK6
+       STA     PMODE
+       STA     FULSW
+       STA     SRDATA
+       LDA     P1
+       STA     CB2N
+       STA     RESM
+       LDA     =PBIT          INITIALIZE INTERRUPT POINTERS
+       STA     0103
+       LDA     =MSINT
+       STA     0113
+       LDA     =TTYIN
+       STA     0115
+       LDA     =TTYOUT
+       STA     0117
+       LDAI    036030          SET UP RTC TO FIRE IN 1 SECOND
+       STA     CLK
+       LDAI    CBF1
+       STA     CPSBT          BUFFER POINTERS
+       LDAI    CBF2
+       STA     CPSBT+1
+       LDAI    PBF1
+       STA     PBFT
+       LDAI    PBF2
+       STA     PBFT+1
+       LDA     =OBU1
+       STA     OBUT
+       LDA     =OBU2
+       STA     OBUT+1
+       LDAI    IBU1
+       STA     IBUT
+       LDAI    IBU2
+       STA     IBUT+1
+       EXC     071            GO TO BITMODE
+       EXC     0471           TURN CARRIER ON
+       RETU*   IPAK           RETURN
+*
+*************************************************************:
+*
+*      RECOMP  CONVERSION ROUTINE
+*
+*      RECO IS CALLED TO CONVERT A DATA BLOCK IN A PHONE BUFFER INTO TH
+*      FORMAT REQUIRED FOR TRANSMISSION TO THE XDS 940. DATA IN PHONE
+*      BUFFER IS IN ASCII CODE AND IS COMPRESSED IN UNIVAC'S COMPRESSIO
+*      SCHEME. THIS DATA WILL BE RECOMPRESSED INTO A SCHEME WHERE
+*      MULTIPLE BLANKS ARE REPRESENTED BY A 0135 CHARACTER AND A
+*      BLANK COUNT (BINARY) AND PUT INTO AN OUTPUT BUFFER. THE PHONE
+*      BUFFER IS THEN RELEASED. AN ASCII 0377 IS USED AS TOP-OF-FORM
+*      CHARACTER. SKIPPING OF SEVERAL LINES IS DONE BY INSERTION OF
+*      THAT MANY CRLF'S, IF THE NUMBER IS LESS THAN 9. OTHERWISE
+*      A TOP-OF-FORM CHARACTER IS INSERTED.
+*      NOTE - PUNCHED OUTPUT IS PUT INTO THE PRINT BUFFER AS WELL
+*
+*      THE PHONE BUFFER ADDRESS  IS ON THE EXECUTIVE QUEUE
+*
+*      SUBROUTINES DIRECTLY CALLED
+*              BUFGET         QGET
+*              HALT           BUFRE
+*              QREMOV         QENTRY
+*
+RECOMP ENTRY
+       LDA     =OBUT           TRY TO GET AN OUTPUT BUFFER
+       JMPM    BUFGET
+       JMP*    RECOMP         RETURN, IF NONE IS AVAILABLE YET
+       STA     OBUL           SAVE OUTPUT BUFFER ADDRESS
+       STA     PTR6
+       STB     OBUN           SAVE OUTPUT BUFFER NUMBER
+       LDA     =DCMPRS        GET INPUT BUFFER NUMBER AND ADDRESS
+       JMPM    QGET
+       JMPM    HALT           BAD RETURN
+       TZB
+       STB     PTR0            ZERO THE CHAR COUNT
+       LLRL    2              PUT BUFFER NO. INTO B
+       STB     CBUN           AND SAVE
+       LSRA    2              RESTORE ADDRESS IN A
+       STA     CBULI          AND SAVE INPUT BUFFER INITIAL ADDRESS
+       TAX
+       LDA     0,X             PICK UP FIRST CHAR IN BUFFER
+       TAB
+NEXL   ERA     PAGE           IS IT A TOP-OF-PAGE?
+       JAZ     TOPP            ADD TOP OF FORM
+       TBA
+       ERA     BPUN           IS IT PUNCH OUTPUT?
+       JAZ     ONEL           YES
+       TBA
+       ERA     CPUN           IS IT PUNCH OUTPUT?
+       JAZ     ONEL           YES
+       TBA
+SKLI   SUB     B60            OBTAIN BINARY NUMBER
+       STA     0,X            STORE TEMPORARILY
+       LRLA    3              MULTIPLY BY 8
+       ADD     0,X            ADD TWICE TO MAKE IT 10
+       ADD     0,X
+       IXR
+       ADD     0,X            ADD NEXT CHARACTER
+       SUB     B60            MAKE IT A BINARY NUMBER
+       IXR
+ONEL   TAB                    COUNTER FOR NUMBER OF LINES TO SKIP
+       JANM    HALT           SOMETHING IS SERIOUSLY WRONG
+NEWL   LDA     CR             INSERT THAT MANY CRLF'S
+       CALL    STOTR
+       LDA     LF
+       CALL    STOTR
+       JBZ     NEWT
+       DBR
+       JBZ     NEWT           DONE
+       JMP     NEWL
+NEWT   TZA
+       STA     PTR4           SET TAB-COUNT TO ZERO
+GNC    LDA     PTR4           UPDATE TAB-COUNT MOD 8
+       IAR
+       SUB     P9
+       JAP     MOD8
+       INR     PTR4
+       JMP     MOD8+2
+MOD8   IAR
+       STA     PTR4
+       LDA     0,X            GET NEXT CHARACTER
+       IXR
+       TAB
+       ERA     LOZ            IS IT A LOZENGE?
+       JAZ     LOZF           YES, REPLACE COMPRESSION SCHEME
+       TBA
+       ERA     EOLI           IS IT THE END-OF-LINE?
+       JAZ     EOBU           YES, TEST FOR END-OF-BUFFER
+       TBA
+       ERA     BLANK          IS IT A BLANK?
+       JAZ     BLNK
+INSC   TBA                    INSERT A NORMAL CHARACTER
+       CALL    STOTR
+       JMP     GNC            AND GET NEXT CHAR
+LOZF   LDA     P9             PROCESS LOZENGE
+       SUB     PTR4           NUMBER OF CHARS LEFT IN THAT TAB
+       TAB
+GMLZ   LDA     0,X            GET NEXT CHAR
+       ERA     LOZ            IS IT A LOZENGE?
+       JAZ     GNLZ           IF YES, JUMP
+       INCR    1
+       STA     PTR4
+       LDA     0,X            GET CHARACTER AGAIN
+       ERA     BLANK          IS IT A BLANK?
+       JAZ     GBLF
+TSEAR  TBA                    NO TERMINATE SEARCH
+       SUB     P2
+       JAP     INES           GO INSERT SPEC CHAR AND BLANK COUNT
+NOES   LDA     BLANK
+       CALL    STOTR
+       DBR
+       JBZ     MOD8+2
+       JMP     NOES
+GNLZ   IXR
+       TBA                    LOZENGE FOUND DURING PROCESSING A LOZENGE
+       ADD     P8             ADD 8 TO BLANK COUNT
+       TAB
+       JMP     GMLZ           LOOK FOR MORE LOZENGES
+GBLF   IXR                    A BLANK WAS FOUND AFTER PROCESSING LOZENG
+       INR     PTR4
+       IBR                    INCREMENT BLANK COUNT
+       LDA     0,X            GET NEXT CHARACTER
+       ERA     BLANK          IS THIS A BLANK?
+       JAZ     GBLF           YES, CONTINUING LOOKING AHEAD
+       JMP     TSEAR          TERMINATE SEARCH
+INES   LDA     BESC           INSERT SPECIAL CHAR AND BLANK COUNT
+       CALL    STORE
+       TBA                    COUNT IS IN B
+       CALL    STORE
+       JMP     MOD8+2
+BLNK   STX     BXSV           SAVE X PRIOR TO LOOKING AHEAD FOR MORE
+       INCR    2              BLANKS (SAVE COUNT IN B)
+BLMR   LDA     0,X
+       IXR
+       ERA     BLANK          IS THE NEXT CHAR A BLANK?
+       XAZ     BIBR           YES
+       JAZ     BLMR           LOOK AHEAD FOR MORE
+       DXR                    LET PTR POINT TO CURRENT CHAR
+       DECR    021            TRANSFER B TO A DECREMENTED
+       DAR
+       JAP     *+6
+       LDB     BLANK
+       LDX     BXSV           RESTORE OLD X
+       JMP     INSC           GO ON WITH NORMAL BUSINESS
+       LDA     BESC           INSERT SPECIAL CHAR AND BLANK COUNT
+       CALL    STORE
+       TBA
+       CALL    STORE
+       DECR    021            B TO A DECREMENTED
+       ADD     PTR4           UPDATE TAB-COUNTER
+       STA     PTR4
+       JMP     GNC            X STILL HAS PTR TO CURRENT CHAR
+EOBU   LDA     0,X            CHECK FOR END-OF-BUFFER
+       TAB
+       ERA     EOLI
+       JAZ     TRL9            END OF BUFFER
+       TBA
+       JMP     NEXL           NO
+*      END OF BUFFER
+TRL9   LDA     CR              INSERT CR/LF AT END OF BUFFER
+       CALL    STOTR
+       LDA     LF
+       CALL    STOTR
+       LDA     DACK            SHOULD WE SEND AN ACK TO 1108
+       JAZ     GENF            NO
+       TZA
+       STA     DACK      RESET DACK
+       DECR    1               SET UP 'ACK' AS POSSIBLE MESSAGE
+       STA     RESP
+       INCR    1
+       STA     MSG28     SEND PROPER RESPONSE TO 1108
+GENF   DECR    1               INSERT -1 AT END OF BUFFER TO FLAG END
+       CALL    STORE
+       LDA     PTR6
+       DAR
+       STA     OFIN           SAVE FINAL ADDRESS OF OUTPUT BUFFER
+       LDA     =PBFT          RELEASE INPUT BUFFER
+       LDB     CBUN
+       JMPM    BUFRE
+       LDA     =DCMPRS        REMOVE CONV FROM QUEUE
+       JMPM    QREMOV
+       LDA     OBUN           ENTER OUTPUT BUFFER NUMBER
+       LDB     OBUL           AND ADDRESS INTO APPROPRIATE EXECUTIVE
+       LRLB    3              QUEUE
+       LLSR    3
+       LDA     =DAT940         PUT DAT940 ON QUEUE
+       JMPM    QENTRY
+       LDA     M1
+       STA     D94PF          SET DATA-TO-940-PENDING-FLAG
+       JMP*    RECOMP
+TOPP   LDA     TOFC           INSERT SPECIAL TOP-OF-FORM CHAR
+       CALL    STORE
+       IXR
+       LDA     0,X            GET NEXT CHAR
+       JMP     SKLI
+STOTR  ENTR
+       ORA     B200            CHANGE TO INTERNAL 940 CODE
+       SUB     B40
+       ANA     B177
+       CALL    STORE          STORE THE CHARACTER
+       RETU*   STOTR
+STORE  ENTR                   STORE-INTO-OUTPUT-BUFFER ROUTINE
+       STA     SAVC            SAVE CHAR
+       LDAI    PHBM            ARE WE ABOUT TO OVERFLOW THE BUFFER
+       SUB     PTR0
+       JAZM    HALT            YES - HALT
+       INR     PTR0            NO - BUMP COUNT OF CHARS STORED
+       LDA     SAVC
+       STA*    PTR6            STORE CHAR
+       INR     PTR6
+       RETU*   STORE
+*
+BIBR   IBR
+BXSV   BSS     1
+OBUL   BSS     1
+OBUN   BSS     1
+CBUN   BSS     1
+CBULI  BSS     1
+SAVC   BSS     1               TEMP STORAGE FOR STORE ROUTINE
+TOFC   DATA    0377            TOP OF FORM CHARACTER
+BPUN   DATA    0102
+CPUN   DATA    0103
+BLANK  DATA    040
+PAGE   DATA    052            TOP-OF-FORM CHAR IN INPUT BUFFER
+CR     DATA    015            CARRIAGE RETURN
+LF     DATA    012            LINE FEED
+BESC   DATA    0135           ESCAPE CHAR FOR BLANK COMPRESSION
+EOLI   DATA    0136           END-OF-LINE CHAR IN INPUT BUFFER
+LOZ    DATA    0137           LOZENGE
+*
+***********************************************************
+*
+*    IAMC ROUTINE - SERVICES MESSAGES RECV'D FROM 940 VIA THE 940 MIC
+*                   CONTROL WORD (CW94)
+*
+IAMC   ENTR
+       LDA     MCWA            READ MIC CONTROL WORD FROM 940
+       CALL    RMIC
+       STA     CW94            DOES 940 HAVE A MESSAGE FOR US
+       JAN     IAM1            YES
+       LDA     MPOL            NO - WERE WE POLLING
+       JAN*    IAMC            NO - RETURN WITH IAMC STILL ON QUEUE
+       JMP     IAMR            YES - GO TAKE IAMC OFF THE QUEUE
+IAM1   DECR    1
+       STA     MPOL            STOP MIC POLLING
+       TZA
+       STA     CLK4            RESET 940 TIME-OUT CLOCK
+       LDA     =TTYMSG         PRINT 'I9' IF SS2 UP
+       LDB     =MT30
+       JS2M    QENTRY
+       LDA     D118            HAS SHUT BEEN CALLED
+       JAP     DNTO            NO
+       TZA                     YES - RESET FLAG
+       STA     D118
+       JMP     GSCN            GO SEND 'CNP'
+DNTO   LDA     COMF            ARE COMMUNICATIONS WITH 1108 OK
+       DAR
+       JAP     *+4             YES
+       JMP     GSCN            NO - GO SEND 'CNP'
+       LDA     LMSD           GET 'LAST MESSAGE SENT' WORD
+       ADDI    RCVF+1
+       STA     RCVF
+       LDA     CW94            PICK UP THE CONTROL WORD RECV'D FROM 940
+       ANA     P7             GET 3 LOWER BITS
+       ADDI    NMDM           ADDRESS OF 'NEXT MASSAGE DISPATCH MATRIX'
+       TAB
+       LDA     0,B            GET MATRIX WORD
+       DATA    01000          JMP
+RCVF   BSS     1
+       LSRA    3               JMP TO HERE IF LMSD=0
+       LSRA    3                                  =1
+       LSRA    3                                  =2
+       LSRA    3                                  =3
+       NOP                                        =4
+       NOP                                        =5
+       NOP                                        =6
+       NOP                                        =7
+       ANA     P7             MASK OUT 3 BITS
+       ADDI    (NMDP)*        NEXT MESSAGE DISPATCH LIST
+       STA     *+2
+       DATA    01000          JMP
+       BSS     1              JUMP INDIRECT TO NEXT MESSAGE DISPATCH
+*
+*      SEND 'NAC9' TO 940
+*
+FNAK   LDA     P7
+       STA     NMSD
+       JMP     RCVD
+*
+*      A DATA MESSAGE HAS BEEN RECEIVED
+*
+COMP   LDA     =IBUT           CAN WE GET A BUFFER TO PUT DATA IN
+       JMPM    BUFGET
+       JMP     SDM9            NO - GO SEND A DELAY MESSAGE
+       STA     IBUL            SAVE BUFFER ADDRESS
+       STB     IBUN            SAVE BUFFER NUMBER
+       STA     PTR9            INITIALIZE PTR FOR STORING CHARS
+       LDA     DIBUZ           FILL BUFFER WITH BLANKS
+       LDB     B100            BLANK CHAR
+       DAR
+       LDX     IBUL
+       STB     0,X
+       IXR
+       DAR
+       JAP     *-3
+       LDA     WCAD            READ CHAR COUNT FROM 940
+       CALL    RMIC
+       STA     DBWC
+       LDA     ADDB            READ DATA BUFFER ADDRESS FROM 940
+       CALL    RMIC
+       STA     DBAD
+       JAN     DAOK            IF BIT 15 SET,ADDRESS MUST BE OK
+       SUB     MMAD            IS ADDRESS OK
+       JANM    HALT            NO - HALT
+DAOK   TZA
+       STA     ICCT            ZERO COUNT OF CHARS STORED
+       STA     ICRM            ZERO COUNT OF CHARS READ FROM 940
+RCML   LDA     ICRM
+       SUB     DBWC            ARE WE DONE READING
+       JAZ     RCVL            YES
+       LDA     ICCT            IS BUFFER FULL
+       SUB     DIBUZ
+       JAZ     RBSN            YES - GO RELEASE BUFFER AND SEND 'NAC9'
+       LDA     DBAD            READ A CHAR FROM THE 940
+       CALL    RMIC
+       INR     DBAD            BUMP 940 ADDRESS
+       INR     ICRM            BUMP COUNT OF CHARS READ
+       TAB                     SAVE CHAR READ IN B
+       ERA     B9ESC           IS CHAR A MULTIPLE BLANK CHAR
+       JAZ     RCVE            YES
+       TBA                     NO - PUT CHAR BACK IN A
+       ADD     B40             CONVERT INTERNAL 940 CODE TO ASCII
+       ANA     B177            STRIP OFF 8TH BIT
+       ADD     =PRTB           ADD TABLE ADDRESS FOR CONVERSION TO XS3
+       TAX
+       LDA     0,X             GET WORD FROM TABLE
+       LRLA    8
+       ASRA    8               GET RIGHT HALF
+       JAN     RCML            DISREGARD ILLEGAL CHARS
+       STA*    PTR9            STORE XS3 CHAR WITH PARITY
+       INR     PTR9            INCREMENT POINTER
+       INR     ICCT            BUMP COUNT OF CHARS STORED
+       JMP     RCML            GO GET ANOTHER CHAR FROM 940
+*
+*      ENTER RCVE WHEN A MULTIPLE BLANK CHAR WAS RECEIVED
+*
+RCVE   LDA     DBAD            GO READ BLANK COUNT (NEXT CHAR)
+       CALL    RMIC
+       INR     DBAD            BUMP 940 ADDRESS
+       INR     ICRM            BUMP COUNT OF CHARS READ FROM 940
+       DAR                     A CONTAINS THE BLANK COUNT
+       LDB     B100            FILL IN WITH REQUIRED NUMBER OF BLANKS
+RCV1   TAX                     PUT BLANK COUNT IN X
+       STB*    PTR9            STORE A BLANK
+       INR     PTR9            BUMP POINTER
+       INR     ICCT            BUMP COUNT OF CHARS STORED
+       LDA     ICCT
+       SUB     DIBUZ           HAVE WE FILLED BUFFER
+       JAZ     RCML            YES - GO SEE IF WE ARE DONE
+       DECR    041             DECREMENT X INTO A
+       JAP     RCV1
+       JMP     RCML            DONE
+*
+RCVL   LDB     P1              SET UP 'ACK9' AS NEXT MESSAGE
+       LDA     CW94            PICK UP CONTROL WORD READ FROM 940
+       ERA     M0              STRIP OFF THE SIGN BIT
+       ERA     =015            WAS THIS THE LAST DATA BUFFER FOR A JOB
+       JAZ     RCV2            YES - SEND 'ACK9'
+       LDB     P3              NO - SET UP 'RDTS' AS NEXT MESSAGE
+       LDA     D94PF           DO WE HAVE 1108 OUTPUT TO SEND TO 940
+       JAP     RCV2            NO - SEND 'RDTS'
+       LDB     P2              YES - SEND 'RQRS'
+RCV2   STB     NMSD
+       INCR    1               TURN ON SHORT MESSAGE TO 940 ROUTINE
+       STA     MS94
+       LDA     IBUN            PUT DATA BUFFER ON COMPRESS QUEUE
+       LRLA    13
+       ORA     IBUL
+       TAB
+       LDA     =CMPR
+       JMPM    QENTRY
+       JMP     IAMR            RETURN
+RBSN   LDA     =IBUT
+       LDB     IBUN
+       JMPM    BUFRLS          RELEASE DATA BUFFER
+       JMP     FNAK            GO SEND 'NAC9'
+*
+*      A 'READY' MESSAGE HAS BEEN RECEIVED. WE SEND AN 'ACK9' IF NO
+*      OUTPUT IS AVAILABLE, OTHERWISE A 'RQRS'.
+*
+W940   LDA     D94PF           DO WE HAVE DATA TO SEND TO 940
+       JAN     SN94            YES
+       LDB     P1              NO - SEND 'ACK9'
+IAM2   STB     NMSD
+       DECR    1               SET FLAG TO TELL MS94 TO START
+       STA     GOPL            POLLING AGAIN
+       JMP     RCVD
+SN94   LDB     P2              SEND 'RQRS'
+SN95   STB     NMSD
+RCVD   INCR    1               SEND SHORT MESSAGE TO 940
+       STA     MS94
+IAMR   TZA
+       STA     IAMF            TAKE IAMC OFF THE QUEUE
+       JMP*    IAMC            RETURN
+*
+*      A 'NACK' HAS BEEN RECEIVED. RESEND LAST MESSAGE TO 940
+*
+RS94   DECR    1              THE MS94 ROUTINE LOOKS FOR THIS -1
+       STA     NMSD
+       JMP     RCVD
+*
+*      A 'RQTS' HAS BEEN RECEIVED. SEND 'RDTS' AFTER CONNECTING THE
+*      DESIRED REMOTE SITE. IF DATA IS READY SEND RQRS INSTEAD
+*
+CONREM LDA     D94PF           SEE IF THERE IS ANY DATA PENDING
+       JAN     SN94            YES GO SEND 'RQRS'
+       LDA     PIPRQ           NO-ARE WE WAITING ON AN RQTS TO 1108
+       JAN     SDM9            YES - GO SEND DELAY MESSAGE
+       LDA     IPRQ            IS OK TO SEND DATA TO 1108 FLAG SET
+       JAN     SOS1            YES
+       DECR    1
+       STA     PIPRQ           SET WAITING ON RQTS TO 1108 FLAG
+       JMP     SDM9            GO SEND A DELAY MESSAGE
+SOS1   LDA     P3              SEND 'RDTS'
+       STA     NMSD
+       TZA                     RESET OK TO SEND DATA TO 1108 FLAG
+       STA     IPRQ
+       JMP     RCVD
+SDM9   LDB     P5              SEND DELAY MESSAGE
+       JMP     IAM2
+*
+*      A 'RDRS' HAS BEEN RECEIVED. IF OUTPUT IS AVAILABLE IT
+*      IS NOW SENT. IF NOT, A 'RDTS' IS SENT
+*
+TR94   LDB     P3              PREPARE TO SEND 'RDTS'
+       LDA     D94PF           DO WE HAVE OUTPUT FOR THE 940
+       JAP     SN95            NO
+       TZA                     YES
+       STA     SRDATA          ACTIVATE RDATA ROUTINE
+       JMP     IAMR            RETURN
+*
+*      A 'ACK' HAS BEEN RECEIVED. THIS MEANS, NOT THE FIRST DATA
+*      MESSAGE IS TO BE SENT. WE MUST RELEASE THE LAST OUTPUT BUFFER
+*
+TRM9   LDA     =OBUT
+       LDB     ONUM           LAST OUTPUT BUFFER NUMBER
+       JMPM    BUFRE
+       JMP     TR94
+*
+*      COMMUNICATIONS WITH 1108 ARE BROKEN - SEND 'CNP'
+*
+GSCN   LDB     P6              SEND 'CNP'
+       JMP     IAM2
+*
+****************************************************************
+*
+*      MSH94   SHORT MESSAGES TO XDS 940 ROUTINE
+*      P ROSENBLADT           SHELL DEVELOPMENT COMPANY, EMERYVILLE
+*      THIS ROUTINE TAKES A SHORT MESSAGE FROM THE MS94 QUEUE AND SENDS
+*      IT TO THE 940. IT SETS THE FLAG LMSD ACCORDING TO THE MESSAGE
+*      SENT. IF ENTERED WITH THE EXECUTIVE WORD -1, THE LAST MESSAGE
+*      IS RETRANSMITTED.
+*              MESSAGE SENT            LMSD
+*              ------------            ----
+*                 ACK9                  0
+*                 RDTS                  1
+*                 RQRS                  2
+*                 DATA                  3     THIS IS SET BY RDATA
+*                 NAC9                 NO CHANGE
+*                 DLY                    4
+*                 CNP                  NO CHANGE
+*
+*              SUBROUTINES DIRECTLY CALLED
+*                  HALT       QGET
+*                  BUFRE      UNPC
+*                  QREMOV
+*
+MSH94  ENTR
+       LDA     NMSD            GET NEXT MESSAGE TO BE TRANSMITTED
+       JAN     RETR            RETRANSMIT IF NEGATIVE
+       LDA     =TTYMSG        PRINT 'A9' IF SS2 UP
+       LDB     =MT33
+       JS2M    QENTRY          * PRINT TTY MSG
+       LDA     NMSD            SEND SHORT MESSAGE TO 940
+       CALL    SMIC
+       LDA     NMSD            UPDATE LMSD
+       ADDI    XLMS-1
+       TAX
+       LDA     0,X
+       JAN     MSH1            IF NEGATIVE DO NOT CHANGE LMSD
+       STA     LMSD
+MSH1   LDA     P5              IF MESSAGE SENT WAS A 'NAC9' OR 'CNP'
+       SUB     NMSD            DO NOT UPDATE RESM
+       JAN     MSH2
+       LDA     NMSD            UPDATE RESM (USED TO RE-TRANSMIT)
+       STA     RESM
+MSH2   LDA     GOPL            DO WE START MIC POLLING AGAIN
+       JAP     MSH3            NO
+       TZA                     YES
+       STA     GOPL            RESET START POLLING FLAG
+       STA     MPOL            TURN ON POLLING
+       JMP     MSH4
+MSH3   INCR    1               TURN ON IAMC IMMEDIATELY
+       STA     IAMF
+MSH4   TZA
+       STA     MS94            TURN OFF MSH94
+       JMP*    MSH94           RETURN
+*
+*      RETRANSMIT LAST MESSAGE
+*
+RETR   LDA     =TTYMSG         PRINT 'R9'
+       LDB     =MT32
+       JMPM    QENTRY
+       LDA     RESM            RE-TRANSMIT
+       JAN     RSDB            WAS IT A DATA MESSAGE
+       CALL    SMIC            NO - SEND IT TO 940
+       JMP     MSH3
+*
+*      RETRANSMIT A DATA BLOCK
+*
+RSDB   LDA     PTR8            RESET PRT7 TO POINT TO BEGINNING OF
+       STA     PTR7            DATA BUFFER IN 620
+       CALL    XBUF            SEND BUFFER TO 940
+       JMP     MSH3            RETURN
+*
+**********************************************************************
+*
+*      RDATA   OUTPUT OF DATA BLOCKS TO 940 ROUTINE
+*      P ROSENBLADT           SHELL DEVELOPMENT COMPANY, EMERYVILLE
+*      THIS ROUTINE OUTPUTS AN OUTPUT BUFFER TO THE XDS 940.
+*
+*      SUBROUTINES DIRECTLY CALLED
+*             QGET           HALT
+*             QREMOV         XBUF
+*             QENTRY
+*
+RDATA  ENTR
+       LDA     SRDATA         MAY WE GO SEND DATA TO 940?
+       JAN*    RDATA          NOT, IF NEG.   RETURN
+       LDA     P3             SET LAST MESSAGE SENT FLAG
+       STA     LMSD
+       LDA     =DAT940
+       JMPM    QGET           GET OUTPUT BUFFER NUMBER AND ADDRESS
+       JMPM    HALT           EMPTY QUEUE
+       TZB
+       LLRL    3
+       STB     ONUM           SAVE BUFFER NUMBER FOR RELEASE BY 'ACK'
+       LSRA    3
+       STA     PTR7
+       STA     PTR8           INITIAL ADDRESS FIXED
+       DECR    1               SET RESM =-1 TO INDICATE A
+       STA     RESM            DATA MESSAGE WAS SENT
+       CALL    XBUF            SEND DATA BUFFER TO 940
+       INCR    1
+       STA     IAMF            TURN ON IAMC
+       LDA     =DAT940         REMOVE OLDEST ITEM FROM RDATA QUEUE
+       JMPM    QREMOV
+       TZA
+       STA     D94PF          RESET DATA-TO-940-PENDING FLAG
+       DECR    1
+       STA     SRDATA         RESET RDATA SWITCH
+       LDA     =TTYMSG        PRINT 'O9' IF SS3 UP
+       LDB     =MT31
+       JS3M    QENTRY
+       LDA     =DAT940
+       JMPM    QGET           IS THIS QUEUE EMPTY?
+       RETU*   RDATA          YES
+       DECR    1              NO
+       STA     D94PF          SET DATA-TO-940-PENDING FLAG
+       RETU*   RDATA
+*
+*      NEXT MESSAGE DISPATCH MATRIX
+NMDM   DATA    011210         'REDY' RECEIVED
+       DATA    002060          'ACK' RECEIVED
+       DATA    022222          'NACK' RECV'D
+       DATA    033003          'RQTS' RECEIVED
+       DATA    000520         'RDRS' RECEIVED
+       DATA    024204          'DATA' RECEIVED
+*      NEXT MESSAGE DISPATCH VECTOR
+NMDP   DATA    FNAK           BAD MESSAGE RECEIVED
+       DATA    W940           WAIT FOR 940
+       DATA    RS94           RESEND TO 940
+       DATA    CONREM         CONNECT REMOTE SITE
+       DATA    COMP           GO COMPRESS A DATA BLOCK
+       DATA    TR94           TRANSMIT DATA BLOCK TO 940
+       DATA    TRM9           TRANSMIT DATA BLOCK AND RELEASE LAST BUFF
+*      VARIABLES AND CONSTANTS FOR IAMC
+*      DISPATCH VECTOR
+IBUL   BSS     1               INPUT DATA BUFFER ADDRESS
+IBUN   BSS     1               INPUT DATA BUFFER NUMBER
+DBAD   BSS     1               DATA BLOCK ADDRRSS
+DBWC   BSS     1               DATA BLOCK CHAR COUNT
+ICRM   BSS     1               COUNT OF CHARS RECV'D FROM 940
+ICCT   BSS     1              CHARACTER COUNT FOR INCOMING MESSAGE
+B9ESC  DATA    0135           940 BLANK ESCAPE CHARACTER
+GOPL   BSS     1               START POLLING FLAG
+DIBUZ  DATA    IBUZ           INPUT BUFFER SIZE
+LMSD   DATA    0              LAST MESSAGE SENT FLAG
+NMSD   BSS     1              NEXT MESSAGE TO BE SENT ADDRESS
+RESM   BSS     1               RE-TRANSMIT MESSAGE NUMBER
+XLMS   DATA    0               LMSD UPDATE VECTOR     ACK9
+       DATA    2                                      RQRS
+       DATA    1                                      RDTS
+       DATA    -1                                     UNUSED (DATA)
+       DATA    4                                      DELY
+       DATA    -1                                     CNP
+       DATA    -1                                     NAC9
+SRDATA DATA    -1             SWITCH FOR RDATA ROUTINE (NOT ENTERED, -1
+D94PF  DATA    0              DATA TO 940 PENDING FLAG. ON IF -1, ELSE
+*
+*************************************************
+*
+*      SMIC    SEND A CONTROL MESSAGE TO THE 940 VIA THE MIC
+*
+*      THIS SUBROUTINE TAKE THE CONTENTS OF THE A ACCUMULATOR AND
+*      PLACES IT IN THE MIC CONTROL WORD IN 940 MEMORY. THE 940 IS
+*      THEN INTERRUPTED
+*
+SMIC   ENTR
+       STA     SVCW            SAVE CONTROL WORD TO BE SENT
+       SEN     0137,*+6        IS MIC BUSY
+       NOP                     YES - LOOP TILL IT CLEARS
+       NOP
+       JMP     *-4
+SMI1   LDA     SVCW
+       OAR     037             LOAD DATA INTO MIC
+       LDA     MCWA
+       OAR     036             LOAD MIC WITH 940 ADDRESS OF CONTROL WORD
+       LDA     MB9S            SET PRIORITY BIT
+       OAR     035             WRITE
+       SEN     0137,*+6        IS MIC BUSY
+       NOP                     YES - LOOP TILL IT CLEARS
+       NOP
+       JMP     *-4
+       SEN     0237,SMI1       RE-SEND IF PARITY OCCURED
+       EXC     0234            FIRE 940 INTERRUPT 211
+       JMP*    SMIC            RETURN
+*
+SVCW   BSS     1               SAVE LOCATION FOR CONTROL BEING SENT
+MB9S   DATA    01000           SETS PRIORITY BIT FOR MIC WRITE
+*
+*************************************************
+*
+*      XBUF    TRANSFERS DATA BLOCK FROM 620 TO 940 MEMORY
+*
+*      XBUF TRANSFERS THE DATA BLOCK POINTED TO BY PTR7 INTO THE 940
+*      ADDRESS THAT IS READ FROM THE 940. A CHECK IS MADE THAT THE DATA
+*      DOES NOT OVERLAP A 940 PAGE AS IT IS STORED
+*
+XBUF   ENTR
+       LDA     ADDB            READ DATA BLOCK ADDRESS FROM 940
+       CALL    RMIC
+       STA     DBAD
+       JAN     ADOK            IF BIT 15 SET,ADDRESS MUST BE OK
+       SUB     MMAD            ADDRESS OK
+       JANM    HALT            NO - HALT
+ADOK   TZA
+       STA     ICCT            ZERO COUNT OF CHARS STORED INTO 940
+       STA     NPAG            RESET ABOUT TO STORE IN NEW PAGE FLAG
+RDA1   LDA*    PTR7            PICK UP A CHAR
+       JAN     RDA2            WE ARE DONE IF CHAR IS NEGATIVE
+       TAB                     PUT CHAR IN B
+       LDA     NPAG            IS ABOUT TO STORE IN NEW PAGE FLAG SET
+       JANM    HALT            YES - HALT
+       LDA     MDB9
+       SUB     ICCT            HAVE WE FILLED BUFFER
+       JAZM    HALT            YES - HALT
+       LDA     DBAD
+       CALL    DMIC            SEND CHAR IN B TO ADDRESS IN A
+       INR     ICCT            BUMP CHAR COUNT
+       INR     DBAD            BUMP 940 ADDRESS
+       INR     PTR7            BUMP POINTER
+       LDA     DBAD            ARE WE ABOUT TO STORE IN A NEW 940 PAGE
+       ANA     =03777
+       JAZ     ASNP            YES
+       JMP     RDA1
+ASNP   DECR    1
+       STA     NPAG            SET ABOUT TO STORE IN NEW 940 PAGE FLAG
+       JMP     RDA1
+RDA2   LDB     ICCT            PUT CHAR COUNT IN 940
+       LDA     WCAD            ADDRESS OF WORD COUNT CELL
+       CALL    DMIC
+       LDA     P4              SEND DATA MESSAGE TO 940
+       CALL    SMIC
+       JMP*    XBUF            RETURN
+*
+NPAG   BSS     1               ABOUT TO STORE IN NEW 940 PAGE FLAG
+*
+**************************************************
+*
+*      DMIC    WRITES CONTENTS OF B ACCUMULATOR TO 940 ADDRESS GIVEN
+*              IN THE A ACCUMULATOR
+*
+DMIC   ENTR
+       STA     DMIA            SAVE ADDRESS
+       STB     DMIB            SAVE DATA
+       SEN     0137,*+6        IS MIC BUSY
+       NOP                     YES - LOOP TILL IT CLEARS
+       NOP
+       JMP     *-4
+DMIR   LDA     DMIA            SET UP ADDRESS IN MIC
+       OAR     036
+       LDA     DMIB            SET UP DATA IN MIC
+       OAR     037
+       LDA     MB9S            SET PRIORITY BIT
+       OAR     035             WRITE
+       SEN     0137,*+6        IS MIC BUSY
+       NOP                     YES - LOOP TILL IT CLEARS
+       NOP
+       JMP     *-4
+       SEN     0237,DMIR       REPEAT IF PARITY ERROR
+       JMP*    DMIC            RETURN
+*
+DMIA   BSS     1               STORAGE FOR ADDRESS
+DMIB   BSS     1               STORAGE FOR DATA
+*
+*
+******************************************************************
+*
+*      TM940     MAIN LOOP FOR 940 TELETYPE MODE
+*      P ROSENBLADT           SHELL DEVELOPMENT COMPANY, EMERYVILLE
+*      THIS LOOP CHECKS THE 2400 BAUD INPUT BUFFER AND TYPES OUT ON THE
+*      620 TELETYPE WHAT IS IN THERE
+ABF1   SET     PBF1           INPUT BUFFER ADDRESS
+*
+GTM940 EXC     0540            CLEAR AND DISABLE PIM
+       LDAI    0300            LOAD ESCAPE FROM 8-LEVEL CHAR
+       SEN     0170,*+5        SENSE AMS WRITE REGISTER READY
+       NOP
+       JMP     *-3
+       OAR     070             SEND CHAR TO 940
+       JMP     TM940+1
+*
+TM940  EXC     0470           INITIALIZE ASYNCHRONOUS MODEM CONTROLLER
+       SEN     0570,*+5       SENSE CTE-11 READY
+       NOP
+       JMP     *-3            NOT READY
+       EXC     0270           TURN CARRIER ON
+       LDAI    02000           SET AMC READ INTERRUPT TO JMPM TO ITM9
+       STA     0104
+       LDAI    ITM9           STORE INTERRUPT ADDRESSES
+       STA     0105
+       LDAI    ITTY
+       STA     0115
+       TZA
+       STA     OFC            INITIALIZE FLAG
+       LDX     ARIP           INITIALIZE BUFFER PTRS
+       STA     0,X            READ-IN-PTR
+       LDA     B177
+       STA     1,X            READ-OUT-PTR
+       LDA     NMASK          ARM TTY READ BUFFER READY AND AMC READ
+       CALL    CITM           BUFFER READY
+       EXC     0140            CLEAR INTERRUPT REGISTERS
+LOOP   EXC     0240           ENABLE PIM
+       SEN     0570,*+5       SENSE CTE-11 CARRIER ON
+       EXC     0370           TURN CARRIER OFF
+       JMP     TM940
+       JSS1    TEST
+       CALL    FRESH
+       TZA
+       STA     TO08            ACTIVATE 1108 TIME-OUT
+       CALL    PREP
+       EXC     0447            INITIALIZE RTC
+       EXC     0147            ENABLE RTC
+       EXC     0340            CLEAR AND ENABLE PIM
+       JMP     EXCQ            RETURN TO MAIN EXEC QUEUE
+*      TEST FOR INPUT BUFFER EMPTY, WHICH IS CASE WHEN
+*      (AROP+1)  MOD 200B =   ARIP
+TEST   LDB     ARIP           READ-IN-PTR
+       EXC     0440           DISABLE INTERRUPTS
+       LDA     1,B            GET AROP
+       IAR                    INCREMENT
+       ANA     B177           MOD 200B
+       TAX
+       ERA     0,B            COMPARE WITH ARIP
+       JAZ     RCVM           BUFFER IS EMPTY, JUMP TO SEE IF DEFO
+       TXA                    GET INCREMENTED AROP
+       STA     1,B            AND STORE
+       ADD     AINB
+       TAX
+       LDA     0,X            GET ONE CHARACTER FROM INPUT BUFFER
+       EXC     0240           ENABLE PIM
+       SEN     0101,*+5       SENSE TTY WRITE REGISTER READY
+       NOP
+       JMP     *-3
+       OAR     01             TYPE CHARACTER
+       JMP     LOOP+1
+RCVM   LDA     OFC            WAS 940 OUTPUT DEFERRED?
+       JAZ     LOOP           NO
+       TZA                    YES, TURN FLAG OFF
+       STA     OFC
+       LDA     DEFO           SEND ANOTHER DEFO-CHAR TO CONTINUE OUTPUT
+       CALL    OTM9           OUTPUT CHARACTER TO 940
+       JMP     LOOP
+*
+***************************************************************
+*
+*      ITM9      ASYNCHRONOUS   MODEM CONTROLLER INPUT INTERRRUPT ROUTI
+*      P ROSENBLADT           SHELL DEVELOPMENT COMPANY, EMERYVILLE
+*      PUTS CHARACTER INTO INPUT BUFFER (AINB) AND INCREMENTS READ-IN-P
+*      IF THE BUFFER IS FULL, SEND 'DEFER OUTPUT' CHAR (034B)
+*
+*      SUBROUTINES DIRECTLY CALLED
+*              NONE
+*
+ITM9   ENTR
+       STA     SAVA           SAVE REGISTERS
+       STB     SAVA+1
+       STX     SAVA+2
+       LDX     ARIP           READ-IN-PTR
+       LDA     1,X            GET READ-OUT-PTR
+       ORA     B200           ADD 200
+       SUB     0,X            SUBTRACT READ-IN-PTR
+       ANA     B177           TURN 8-BIT OFF
+       JAZM    HALT            DATA OVERRUN - HALT
+       SUB     P5             GIVE 5   CHARACTERS EARLY WARNING
+       JAP     NOFU           ENOUGH SPACE LEFT
+       LDA     OFC            NOT ENOUGH SPACE LEFT
+       JAN     NOFU           DO NOTHING IF 174B ALREADY SENT
+       DECR    1
+       STA     OFC            SET FLAG FOR 'DEFERRED OUTPUT'
+       LDA     DEFO           SEND 'DEFERRED OUTPUT' CHAR
+       CALL    OTM9           OUTPUT CHARACTER TO 940
+NOFU   LDA     0,X            READ-IN-PTR
+       ADD     AINB
+       TAX
+       CIAB    070            GET CHARACTER (ASCII) FROM CONTROLLER
+       ERA     XOFF           IS THIS AN XOFF CHAR?
+       JAZ     WWAIT
+       TBA
+       ERA     XON            WAS IT AN XON?
+       JAZ     GGOON
+       JBZ     IAOUT          IGNORE CONTR SHIFT P
+       STB     0,X
+       LDX     ARIP
+       LDA     0,X            READ-IN-PTR
+       IAR                    INCREMENT MOD 200
+       ANA     B177
+DMSTP  STA     0,X            STORE READ-IN-PTR
+IAOUT  LDA     SAVA           RESTORE REGISTERS
+       LDB     SAVA+1
+       LDX     SAVA+2
+       EXC     0240           RE-ENABLE PIM
+       RETU*   ITM9
+WWAIT  LDA     WMASK          DISABLE TTY INT
+       OAR     040
+       TZA
+       STA     FULSW     STOP DUMP IF IN PROGRESS
+       JMP     IAOUT
+GGOON  LDA     NMASK          ENABLE TTY INTS
+       OAR     040
+       INCR    1
+       STA     FULSW     RESET AND CONTINUE DUMP
+       JMP     IAOUT
+*
+XOFF   DATA    0223            X-OFF CHAR SENT BY 940
+XON    DATA    021             X-ON CHAR SENT BY 940
+*
+***************************************************************
+*
+*      ITTY    TTY INPUT INTERRUPT ROUTINE FOR 940 TELETYPE MODE
+*      P ROSENBLADT           SHELL DEVELOPMENT COMPANY, EMERYVILLE
+*      DOES NOT ECHO A CHARACTER BUT LETS THE 940 DO IT
+*      AFTER IT IS SENT TO THE ASYNCHRONOUS MODEM CONTROLLER
+*      THIS IS DONE ONLY IF SS1 IS UP, ELSE NOTHING IS DONE
+*      SUBROUTINES DIRECTLY CALLED
+*              NONE
+*
+ITTY   ENTR
+       STA     T6             SAVE REGISTERS
+       CIA     01             GET CHARACTER
+       JS1M    OTM9           OUTPUT CHARACTER TO 940
+       LDA     T6             RESTORE A
+       EXC     0240
+       RETU*   ITTY
+OTM9   ENTR                   OUTPUT A CHARACTER TO AMC (IN A)
+       SEN     0170,*+5       SENSE WRITE REGISTER READY
+       NOP
+       JMP     *-3
+       OAR     070            OUTPUT CHARACTER TO AMC
+       RETU*   OTM9
+*
+*      ROUTINE TO DUMP 620I CORE TO XDS 940 DISK FILE
+*      IN TTY MODE, TYPE  -COPY TEL TO /FILE/
+*      THEN ENTER DVAR WITH A REG SET TO STARTING 620
+*      ADDRESS, AND B REG SET TO ENDING 620 ADDRESS
+*
+MWNL   EQU     020
+MCNW   EQU     6
+DVAR   LSRA    4
+       LRLA    4
+       STA     START
+       TBA
+       LSRA    4
+       LRLA    4
+       STA     END
+       LDA     CONQ            SEND STOP ECHO CHAR.
+       JMPM    CXMT
+NXL    TZA
+       STA     WNL             RESET WORDS IN LINE SENT COUNTER
+       LDA     START           GET START OF LINE ADDRESS
+       JMPM    CVWXMT          CONV WORD AND XMIT
+       LDA     BLK
+       JMPM    CXMT            SEND EXTRA BLANK SEPARATOR
+       LDX     START
+NXW    LDA     0,X             GET NEXT WORD
+       JMPM    CVWXMT
+       IXR
+       INR     WNL
+       LDA     WNL
+       SUBI    MWNL
+       JAN     NXW             NOT END OF LINE
+       STX     START
+       LDA     END
+       SUB     START           END OF DATA YET
+       JAN     XDVAR           YES EXIT
+       LDA     CRR             SEND CR
+       JMPM    CXMT
+       LDAI    05000           STORE NOP IN STORE READ IN POINTER
+       STA     DMSTP
+       JMP     NXL             DO NEXT LINE
+XDVAR  LDA     CONQ            SEND ECHO ON CHAR
+       JMPM    CXMT
+       LDA     COND            SEND CONTROL D TO TERMINATE COPY COMM.
+       JMPM    CXMT
+       LDAI    055000          RESTORE CODE TO STORE READ IN POINTER
+       STA     DMSTP
+       JMP     TEST            RTN TO TTY TEST LOOP
+*
+*      ROUTINE TO CONVERT  16 BIT WORD TO 6 OCTAL
+*      DIGITS WHICH ARE CONVERTED TO ASCII FOR TRANSMISSION TO
+*      THE 940 DISK FILE.
+*
+CVWXMT ENTR
+       STX     SDVX
+       TAB
+       TZA
+       STA     CNW
+       LLRL    1
+NOCH   STB     SDVB            SAV REST OF WORD
+       ADDI    TAB
+       TAX
+       LDA     0,X
+       JMPM    CXMT            SEND CHAR
+       INR     CNW
+       LDA     CNW
+       SUBI    MCNW
+       JAZ     NW              GET NEXT DIGIT IN WORD
+       LDB     SDVB
+       TZA
+       LLRL    3
+       JMP     NOCH            RTN TO GET NEXT OCTAL DIGIT
+NW     LDA     BLK             SEND BLANK TO SEPARATE WORDS
+       JMPM    CXMT
+       LDX     SDVX
+       RETU*   CVWXMT          RETURN
+*
+*      SEND CHAR TO 940 AS IF FROM TTY
+*
+CXMT   ENTR
+       LDB     0               DUMMY  IN LOOP TO INSURE INT.
+       LDB     FULSW           CHECK FOR X-OFF
+       JBZ     *-2             WAIT FOR X-ON
+       JS1M    OTM9
+       EXC     0240
+       RETU*   CXMT
+*
+*      WORKING STORAGE
+*
+START  DATA    0
+END    DATA    0
+FULSW  DATA    1
+*      THE FOLLOWING CONSTANTS ARE ASCII CHARACTERS
+*        USED  FOR TRANSMISSION TO 940
+CONQ   DATA    0235            CONTROL CHAR ADDED BY DON CRENSHAW TO SYS
+CRR    DATA    0215            CARRIAGE RETURN
+COND   DATA    0204            CONTROL D
+BLK    DATA    0240            BLANK
+SDVX   DATA    0
+SDVB   DATA    0
+WNL    DATA    0               NO. WDS IN THIS LINE
+CNW    DATA    0               NO. CHS IN THIS WORD
+*      FOLLOWING ARE ASCII EQU OF NUMBERS 0-7
+TAB    DATA    0260,0261,0262,0263,0264,0265,0266,0267
+DEFO   DATA    034             *DEFER OUTPUT CHAR SENT TO 940
+NMASK  DATA    0273           INTERRUPT MASK ENABLING ONLY TTY AND AMC
+WMASK  DATA    0373           INTERRUPT MASK ENABLING ONLY AMC INPUT
+ARIP   DATA    ABF1           ADDRESS OF ARIP
+AINB   DATA    ABF1+2         ADDRESS OF AINB
+OFC    DATA    0              FLAG NEG IF 'DEFER OUTPUT' ACTIVE
+SAVA   BSS     3
+*      BUFFERS
+       ORG     010000
+MLEN   SET     330            DATA MESSAGE LENGTH - RMS 1
+PHBZ   SET     345            PHONE BUFFER SIZE
+PHBM   SET     500             OUTPUT TO 940 BUFFER SIZE
+IBUZ   SET     80              INPUT BUFFER SIZE
+PBF1   BSS     PHBZ                PHONE BUFFER NO. 1
+PBF2   BSS     PHBZ                PHONE BUFFER NO. 2
+CBF1   BSS     PHBZ                COMPRESS BUFFER NO. 1
+CBF2   BSS     PHBZ            COMPRESS BUFFER NO. 2
+OBU1   BSS     PHBM            OUTPUT TO 940 BUFFER NO. 1
+OBU2   BSS     PHBM            OUTPUT TO 940 BUFFER NO. 2
+IBU1   BSS     IBUZ           INPUT BUFFER NO. 1
+IBU2   BSS     IBUZ           INPUT BUFFER NO. 2
+ENBF   DATA    0                   END OF BUFFERS MARKER
+       END
+                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    mc0¹
