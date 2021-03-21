@@ -1,0 +1,358 @@
+MODULE GPRINT(DOLLAR,ENTRIES=($GBTYP,$GBPRN,$GEOL,$GABRT,$GPRNT,$GNUMFP),FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+  BEGIN
+
+  REQUIRE ADEFS.BLI[7,107355];
+  REQUIRE BDEFS.BLI[7,107355];
+  REQUIRE FDEFS.BLI[7,107355];
+  REQUIRE FPDEFS.BLI[7,107355];
+  REQUIRE GDEFS.BLI[7,107355];
+  REQUIRE SDEFS.BLI[7,107355];
+  REQUIRE TDEFS.BLI[7,107355];
+  REQUIRE ZDEFS.BLI[7,107355];
+
+  UNDECLARE $GBTYP,$GBPRN,$GEOL,$GABRT,$GPRNT, $GNUMFP;
+
+  MAP Z$ ZBSTK$;
+  MAP A$ GBTKN$;
+  MAP G$ GGBFP$;
+  MAP G$OPND GGBOP$;
+
+  GLOBAL ROUTINE $GNUMFP(STKPTR)=
+    BEGIN
+
+    LOCAL FP$I PICTURE;
+
+    PICTURE := 0;
+    PICTURE[FP$TYPE] := FPV$NUM;
+    PICTURE[FP$SIGN] := FPV$LMP;                % SIGN CONTROL %
+    PICTURE[FP$XI]   := 1;                      % FIXED INTEGER PLACES %
+    PICTURE[FP$FS]   := FPV$MINUS;              % FLOATING INTEGER TYPE %
+    PICTURE[FP$FI]   := .ZBSTK$[Z$ICNT,.STKPTR] - 1; % FLOATING INTEGER PLACES %
+    PICTURE[FP$DI]   := .ZBSTK$[Z$DCNT,.STKPTR]; % FIXED DECIMAL PLACES %
+    IF .PICTURE[FP$DI] GTR 0
+      THEN
+        PICTURE[FP$SP2] := FPV$TRUE;            % PRINT DECIMAL POINT %
+
+    .PICTURE
+
+    END;
+
+
+%*****
+  PROCESS THE TV$8BGPRNT TOKEN.
+*****%
+  GLOBAL ROUTINE $GBPRN =
+    BEGIN
+
+    GLIST$ := $GPUSH(.GBTKN$,AV$SZTOK);
+    GOUTF$ := ZV$SET;
+
+    END;
+
+
+%****
+  PROCESS TV$8BGTYPE AND TV$8BGABT TOKENS.
+    PUSH THE BEGINNING OF STATEMENT TOKEN AND A REPORT NAME TOKEN ONTO THE STACK. THE NAME TOKEN
+    MUST BE FABRICATED AND RELATE TO THE DUMMY REPORT THAT WAS CREATED BY $GEXEC. THIS REPORT
+    IS TIED TO THE TTY/TOUT FILE. THIS ROUTINE IS CALLED BY $GEXXEC EXCLUSIVELY.
+****%
+  GLOBAL ROUTINE $GBTYP =
+    BEGIN
+
+    LOCAL S$ NAMESTE:INCSTE;
+
+    GOUTF$ := ZV$SET;
+    GLIST$ := $GPUSH(.GBTKN$,AV$SZTOK);
+    INCSTE := $SGSTE(.GDRPT$);
+    NAMESTE:= $SGSTE(.INCSTE[S$STP1]);
+
+    GBTKN$[A$ID]   := TV$NAME;
+    GBTKN$[A$STP]  := .NAMESTE[S$STPX];
+    GBTKN$[A$SBID] := ZV$RP;
+    $GPUSH(.GBTKN$,AV$SZTOK+3);
+    ZBSTK$[Z$DEFSTP,.ZSTKP$] := .NAMESTE[S$DSTP];
+    ZBSTK$[Z$INCSTP,.ZSTKP$] := .GDRPT$;
+    $SFRNCH(.NAMESTE);
+    $SFRNCH(.INCSTE);
+    END;
+
+
+%****
+  PROCESS TV$8NDOLST TOKEN.
+****%
+  GLOBAL ROUTINE $GEOL = 0;
+
+
+%*****
+  THIS ROUTINE PROCESSES OUTPUT LIST ITEMS BY TRANSLATING BETA TOKEN STACK ENTRIES INTO THEIR
+  APPROPRIATE GAMMA N-TUPLE COUNTERPARTS. THIS ROUTINE IS CALLED BY $GABRT AND $GPRNT.
+*****%
+  ROUTINE OUTPUTLIST(REPTP,IOITEMP) =
+    BEGIN
+
+    MAP G$ GGBFP$;
+    MAP G$OPND GGBOP$;
+    LOCAL S$ NAMESTE:DEFSTE:INCSTE;
+    LOCAL FP$I PICTURE;
+    LOCAL INCSTP, ERRFLG;
+
+    IF .ZBSTK$[Z$SBID,.REPTP] NEQ ZV$RP     % IS THE PRINT QUALIFIED BY A REPORT NAME? %
+      THEN
+       BEGIN
+       IOITEMP := .REPTP;
+       IF .GRPTP$ NEQ ZV$NULL               % NOT QUALIFIED! IS IT IN A REPORT CONDITION? %
+         THEN
+           INCSTP := .GRPTP$                % YES! IN A REPT.COND. %
+         ELSE                               % NOT IN A REPT. COND. %
+            IF .BRPSP$ EQL .BDRPT$          % IS THIS UNNAMED REPORT MODE? %
+              THEN
+                BEGIN                       % UNNAMED REPORT MODE %
+                NAMESTE := $SGSTE(.BRPSP$);
+                IF .NAMESTE[S$CISTP] EQL SV$NULL
+                  THEN
+                    BEGIN
+                    $GERR(551,.REPTP);          % REPORT IS NOT ACTIVE! %
+                    INCSTP := .GDRPT$;
+                    END
+                  ELSE
+                    INCSTP := .NAMESTE[S$CISTP];
+                $SFRNCH(.NAMESTE);
+                END
+              ELSE
+                BEGIN                       % NOT UNNAMED REPT. MODE %
+                $GERR(511,.IOITEMP);
+                INCSTP := .GDRPT$;
+                END
+        END
+      ELSE
+        BEGIN
+        INCSTP := .ZBSTK$[Z$INCSTP,.REPTP];
+        IF .INCSTP EQL ZV$NULL
+          THEN
+            BEGIN
+            $GERR(551,.REPTP);
+            INCSTP := .GDRPT$;
+            END;
+        END;
+    $GIREC(GV$SOUT,3);
+    GGBOP$[0,G$OPTYP]  := GV$STP;
+    GGBOP$[0,G$OPVAL]  := .INCSTP;
+    $GWBUF(.GGBFP$,.GOB1I$);
+
+    ERRFLG := 0;
+    DO
+      BEGIN
+      SELECT  .ZBSTK$[Z$ID,.IOITEMP]  OF
+                  NSET
+          TV$NAME:
+             BEGIN
+             IF .ZBSTK$[Z$SBID,.IOITEMP] NEQ ZV$FLD    AND
+                .ZBSTK$[Z$SBID,.IOITEMP] NEQ ZV$NRSLT   AND
+                .ZBSTK$[Z$SBID,.IOITEMP] NEQ ZV$SRSLT   AND
+                .ZBSTK$[Z$SBID,.IOITEMP] NEQ ZV$DRSLT
+               THEN
+                 BEGIN
+                 $GERR(510,.IOITEMP);
+                 ERRFLG := 1;
+                 END
+               ELSE
+                 BEGIN
+                 IF $GICHK(.IOITEMP) EQL ZV$FALSE
+                   THEN
+                     $GERR(526,.IOITEMP);
+                 IF .ZBSTK$[Z$DATATYP,.IOITEMP] EQL ZV$DATE
+                   THEN
+                     BEGIN
+                     IF .ZBSTK$[Z$DTMP,.IOITEMP] EQL ZV$NULL
+                       THEN
+                         $FATAL(#116);
+                     $GIREC(GV$PRINT,5);
+                     GGBFP$[G$OPND1] := $GOPND(.IOITEMP);
+                     GGBFP$[G$OPND2] := .ZBSTK$[Z$DTMP,.IOITEMP][0];
+                     GGBFP$[G$OPND3] := .ZBSTK$[Z$DTMP,.IOITEMP][1];
+                     END
+                   ELSE
+                     BEGIN
+                     $GIREC(GV$PRINT,4);
+                     GGBFP$[G$OPND1]  := $GOPND(.IOITEMP);
+                     IF .ZBSTK$[Z$FP,.IOITEMP] EQL ZV$NULL
+                       THEN
+                         BEGIN
+                         IF .ZBSTK$[Z$SBID,.IOITEMP] NEQ ZV$NRSLT
+                           THEN
+                             $FATAL(#116);
+                         GGBFP$[G$OPND2] := $GNUMFP(.IOITEMP);
+                         END
+                       ELSE
+                         GGBFP$[G$OPND2] := .ZBSTK$[Z$FP,.IOITEMP];
+                     END;
+                 END;
+             END;
+
+          TV$9CR:
+             $GIREC(GV$CR,2);
+
+
+          TV$CCLIT:
+             BEGIN
+             $GIREC(GV$PRINT,4);
+             GGBFP$[G$OPNDN] := $GOPND(.IOITEMP);
+             (GGBFP$[G$OPNDN])[1] := .ZBSTK$[Z$FP,.IOITEMP];
+             END;
+
+          TV$DECLIT:
+             BEGIN
+             $GIREC(GV$PRINT,4);
+             GGBFP$[G$OPNDN] := $GOPND(.IOITEMP);
+             (GGBFP$[G$OPNDN])[1] := .ZBSTK$[Z$FP,.IOITEMP];
+             END;
+
+          TV$INTLIT:
+             BEGIN
+             $GIREC(GV$PRINT,4);
+             GGBFP$[G$OPNDN] := $GOPND(.IOITEMP);
+             (GGBFP$[G$OPNDN])[1] := .ZBSTK$[Z$FP,.IOITEMP];
+             END;
+
+          TV$8TABTO:
+             BEGIN
+             $GIREC(GV$TABTO,3);
+             GGBFP$[G$OPNDN] := .ZBSTK$[Z$GOPND,.IOITEMP];
+             END;
+
+          TV$9TAB:
+             BEGIN
+             $GIREC(GV$TAB,3);
+             GGBFP$[G$OPNDN] := .ZBSTK$[Z$GOPND,.IOITEMP];
+             END;
+
+          TV$8SKIPTO:
+             BEGIN
+             $GIREC(GV$SKIPTO,3);
+             GGBFP$[G$OPNDN] := .ZBSTK$[Z$GOPND,.IOITEMP];
+             END;
+
+          TV$9SKIP:
+             BEGIN
+             $GIREC(GV$SKIP,3);
+             GGBFP$[G$OPNDN] := .ZBSTK$[Z$GOPND,.IOITEMP];
+             END;
+
+          TV$STRING:
+             BEGIN
+             $GIREC(GV$PRINT,4);
+             GGBOP$[0,G$OPTYP]  := GV$LIT;
+             GGBOP$[0,G$OPVAL]  := .ZBSTK$[Z$INCSTP,.IOITEMP];
+             GGBFP$[G$OPND2] := .ZBSTK$[Z$FP,.IOITEMP];
+             END;
+
+          TV$TRIM:
+             BEGIN
+             $GIREC(GV$TRIM,4);
+             GGBFP$[G$OPND1] := .ZBSTK$[Z$GOPND,.IOITEMP];
+             GGBFP$[G$OPND2] := .ZBSTK$[Z$FP,.IOITEMP];
+             END;
+
+
+          OTHERWISE:           % EITHER REPORT ITEM OR ERROR!   %
+             BEGIN
+             IF .ZBSTK$[Z$SBID,.IOITEMP] NEQ ZV$RPITEM
+               THEN
+                 BEGIN
+                 $GERR(512,.IOITEMP);
+                 ERRFLG := 1;
+                 END
+               ELSE
+                 BEGIN
+                 $GIREC(GV$PRINT,4);
+                 GGBFP$[G$OPNDN]  := $GOPND(.IOITEMP);
+                 (GGBFP$[G$OPNDN])[1] := .ZBSTK$[Z$FP,.IOITEMP];
+                 END;
+             END;
+
+                    TESN;
+
+
+      IF .ERRFLG EQL 1
+        THEN
+          ERRFLG := 0
+        ELSE
+          $GWBUF(.GGBFP$,.GOB1I$);
+      IOITEMP := .ZBSTK$[Z$SUCP,.IOITEMP];
+      END
+    UNTIL .IOITEMP EQL ZV$NULL;
+    $GIREC(GV$ESOUT,3);
+    GGBOP$[0,G$OPTYP] := GV$STP;
+    GGBOP$[0,G$OPVAL] := .INCSTP;
+    $GWBUF(.GGBFP$,.GOB1I$);
+    DO
+      $GPOP()
+    UNTIL .ZSTKP$ EQL .GLIST$;
+    $GPOP();
+    END;
+
+
+%*****
+  PROCESS TV$ABORT TOKEN.
+    IF NO OUTPUT LIST HAS BEEN ASSOCIATED WITH THE ABORT, THEN CLEAR THE STACK AND GENERATE
+    THE GV$ABORT N-TUPLE. OTHERWISE, CALL THE OUTPUT LIST PROCESSOR BEFORE GENERATING THE N-TUPLE.
+    THIS ROUTINE IS CALLED BY $GEXEC EXCLUSIVELY.
+*****%
+  GLOBAL ROUTINE $GABRT =
+    BEGIN
+
+    IF .ZBSTK$[Z$SUCP,.GLIST$] EQL .ZSTKP$      % ARE THE BEGINNING OF STATEMENT AND REPORT NAME
+                                                  TOKENS THE TWO TOP ENTRIES?
+                                                %
+      THEN                                      % YES! %
+        BEGIN
+        $GPOP();                                % DUMMY REPORT %
+        $GPOP();                                % TV$8BGRPT    %
+        END
+      ELSE                                      % NO! PROCESS THE OUTPUT LIST. %
+        OUTPUTLIST(.ZBSTK$[Z$SUCP,.GLIST$],.ZBSTK$[Z$SUCP,(.ZBSTK$[Z$SUCP,.GLIST$])]);
+
+    $GIREC(GV$ABORT,2);
+    $GWBUF(.GGBFP$,.GOB1I$);
+    IF .ZBSTK$[Z$SBID,.ZSTKP$] EQL ZV$LBL       % IS THERE A LABEL ON TOP OF THE STACK? %
+      THEN                                      % YES! CLEAR IT. %
+        $GPOP();
+    END;
+
+
+%*****
+  PROCESS TV$TYPE AND TV$PRINT TOKENS.
+    IF ALL OF THE OUTPUT LIST ITEMS HAD ERRORS AND WERE THEREFORE DELETED FROM THE STACK THEN NO GAMMA N-TUPLES 
+    NEED BE GENERATED. THIS CONDITION CAN BE DETECTED BY TESTING FOR THE BEGINNING OF STATEMENT AND REPORT NAME 
+    TOKENS AS THE TWO TOP STACK ENTRIES. IF THIS IS THE CASE THEN CLEAR THE TWO TOP ENTRIESFROM THE STACK
+    AND RETURN TO $GEXEC. OTHERWISE, CALL THE OUTPUT LIST PROCESSOR.THIS ROUTINE IS CALLED BY $GEXEC EXCLUSIVELY.
+*****%
+  GLOBAL ROUTINE $GPRNT =
+    BEGIN
+
+    LOCAL RPSTKP;
+
+    RPSTKP := .ZBSTK$[Z$SUCP,.GLIST$];
+    IF .GLIST$ EQL .ZSTKP$
+      THEN
+        $GPOP()
+      ELSE
+        IF .RPSTKP EQL .ZSTKP$   AND   .ZBSTK$[Z$SBID,.RPSTKP] EQL ZV$RP
+          THEN
+            BEGIN
+            $GPOP();
+            $GPOP();
+            END
+          ELSE
+            OUTPUTLIST(.RPSTKP,.ZBSTK$[Z$SUCP,.RPSTKP]);
+    IF .ZBSTK$[Z$SBID,.ZSTKP$] EQL ZV$LBL
+      THEN
+        $GPOP();
+    GOUTF$ := ZV$RESET;
+
+    END;
+
+
+  END
+ELUDOM
+    
