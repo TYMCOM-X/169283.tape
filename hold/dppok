@@ -1,0 +1,365 @@
+      SUBROUTINE TONN(A,M)
+      DIMENSION A(8,15)
+      COMMON TT,PA(8,15),TNP(15),TNC(8),TP(15),TC(8),VOL(8,15),OBJ(8,15)
+     X,NP,NC,PU(8,15)
+      COMMON PC(8),PM(8),TNT
+      REAL*8 TT,PA,TNP,TNC,TP,TC
+      TT=0
+           DO 20 IP=1,NP
+      TP(IP)=0
+           DO 10 IC=1,NC
+      PA(IC,IP)=A(IC,IP)*PU(IC,IP)
+10    TP(IP)=TP(IP)+PA(IC,IP)
+20    TT=TT+TP(IP)
+           DO 50 IC=1,NC
+      PC(IC)=0
+      TC(IC)=0
+           DO 30 IP=1,NP
+      PC(IC)=PC(IC)+PA(IC,IP)
+30    TC(IC)=TC(IC)+A(IC,IP)
+      IF(M.EQ.0)GOTO 150
+         IF(TC(IC))40,50,40
+40    PM(IC)=PC(IC)*1000.0/TC(IC)
+50    CONTINUE
+60    WRITE(6,100)TNT,TT
+      READ(5,*)IMPR
+      IF(IMPR.EQ.0)GO TO 150
+      WRITE(6,110)(TP(IP),IP=1,NP)
+      WRITE(6,120)(TC(IC),IC=1,NC)
+      WRITE(6,130)(PC(IC),IC=1,NC)
+      WRITE(6,140)(PM(IC),IC=1,NC)
+100   FORMAT(/1X,'TONNAGE INITIAL =',F10.3,5X,'APRES ESSAI =',F10.3)
+     X
+110   FORMAT(/1X,'PRODUITS',1X,8F10.3/10X,8F10.3)
+120   FORMAT(/1X,'CONDITTS',1X,8F10.1)
+130   FORMAT(/1X,'TONNAGES',3X,8F10.3)
+140   FORMAT(/1X,'P.MOYENS',3X,8F10.3///)
+150   RETURN
+      END
+      SUBROUTINE TISS(A,B,INDI,NK)
+      DIMENSION A(8,15),B(8,15)
+      COMMON TT,PA(8,15),TNP(15),TNC(8),TP(15),TC(8),VOL(8,15), OBJ(8,15
+     X),NP,NC,PU(8,15)
+      COMMON PC(8),PM(8),TNT
+      REAL *8 TT,PA,TNP,TNC,TP,TC,C
+           DO 10 IP=1,NP
+           DO 10 IC=1,NC
+10    B(IC,IP)=A(IC,IP)
+110   DO 200 K=1,NK
+           DO 150 IC=1,NC
+      TC(IC)=0
+           DO 120 IP=1,NP
+120   TC(IC)=TC(IC)+B(IC,IP)
+         IF(TC(IC))130,150,130
+130   C=TNC(IC)/TC(IC)
+           DO 140 IP=1,NP
+140   B(IC,IP)=B(IC,IP)*C
+150   CONTINUE
+         IF(K-NK)155,151,155
+151   IF(INDI-2)155,210,210
+155   CALL TONN(B,0)
+           DO 180 IP=1,NP
+      IF (TP(IP).EQ.0)GOTO180
+160   C=TNP(IP)/TP(IP)
+           DO 170 IC=1,NC
+170   B(IC,IP)=B(IC,IP)*C
+180   CONTINUE
+200   CONTINUE
+210   CALL TONN(B,5)
+      RETURN
+      END
+      COMMON TT,PA(8,15),TNP(15),TNC(8),TP(15),TC(8),VOL(8,15), OBJ(8,15
+     X),NP,NC,PU(8,15)
+      COMMON PC(8),PM(8),TNT
+      REAL*8 TT,PA,TNP,TNC,TP,TC,PC
+      COMPLEX *16 FICH,FICREF
+      DIMENSION CAT(16,2),DISP(2,7),QC(8)
+      DIMENSION X(23),KI(15),TCN(8),PER(15),INTIT(45)
+      NC=7
+      NP=15
+       WRITE(6,1600)
+1600  FORMAT(/1X,'NOM DU FICHIER REFERENCE ENTRE APOSTROPHES')
+      READ(5,*)FICREF
+      CALL OPEN(8,FICREF,'INPUT')
+      CALL OPEN(9,'DPPOK','INPUT')
+           DO 1 IP=1,NP
+1     READ(9,*)(PU(IC,IP),IC=1,NC)
+      NT=NP+1
+           DO 2 IT=1,NT
+2     READ(9,101)(CAT(IT,K),K=1,2)
+      READ(9,*)(QC(IC),IC=1,NC)
+           DO 5 IK=1,2
+5     READ(9,107)(DISP(IK,K),K=1,7)
+           DO 3 IP=1,NP
+3     READ(8,*)(VOL(IC,IP),IC=1,NC)
+101   FORMAT(2A4)
+      CALL CLOSE(8)
+107   FORMAT(7A4)
+      WRITE(6,43)
+43    FORMAT(/1X,'DONNEES EN CAISSAGES  (0)  EN 1000 U DE COND (1)',' 2.
+     XRESULTATS MEME CODE')
+      READ(5,*) (JDON,JUNITE)
+      IF (JUNITE)8,11,8
+8     DO 9 IC=1,NC
+           DO 9 IP=1,NP
+9     PU(IC,IP)=PU(IC,IP)/QC(IC)
+      AR=0.1
+      GOTO 999
+11    DO 25 IP=1,NP
+           DO 25 IC=1,NC
+25    PU(IC,IP)=PU(IC,IP)/1000.0
+      AR=5.0
+999   WRITE(6,998)
+998   FORMAT(/1X,'TOTAL PAR PRODUIT (SUR 2 LIGNES), ET PAR CONDT.')
+     X
+      NC1=NP+1
+      NXT=NP+NC
+      READ(5,*) (X(I),I=1,NXT)
+      TT=0
+           DO 590 I=1,NP
+      TNP(I)=X(I)
+590   TT=TT+TNP(I)
+      TNT=TT
+           DO 600 I=NC1,NXT
+      J=I-NP
+600   TNC(J)=X(I)
+         IF(JDON-JUNITE)45,49,47
+45    DO 46 IC=1,NC
+46    TNC(IC)=TNC(IC)*QC(IC)/1000.0
+      GO TO 49
+47    DO 48 IC=1,NC
+48    TNC(IC)=TNC(IC)*1000.0/QC(IC)
+49    CONTINUE
+      CALL TISS(VOL,OBJ,2,7)
+40    TNT=TT
+      WRITE(6,200)
+200   FORMAT(/1X,'CHANGEMENTS 1.PRODUITS 2.CONDITIONNEMENTS','  3.ARTICL
+     XES  4.TOTAL TONNAGE  5.NORMALISATION '1X,' 0.PAS DE CHANGEMENT')
+      READ(5,*)INDI
+         IF(INDI)50,130,50
+50    IF(INDI-2)55,55,51
+51    IF(INDI-4)300,52,630
+      CALL TISS(VOL,OBJ,INDI,7)
+630   DO 631 IP=1,NP
+631   TNP(IP)=TP(IP)
+      DO 632 IC=1,NC
+632   TNC(IC)=TC(IC)
+      GO TO 40
+52    WRITE(6,53)
+53    FORMAT(1X,'NOUVEAU TONNAGE')
+      READ(5,*) (TTN)
+      C=TTN/TT
+           DO 54 IP=1,NP
+           DO 54 IC=1,NC
+54    OBJ(IC,IP)=OBJ(IC,IP)*C
+      CALL TONN(OBJ,5)
+      GO TO 40
+55    WRITE(6,210)
+210   FORMAT(1X,'INDIQUEZ-EN LE NOMBRE')
+      READ(5,*) (IQ)
+70    WRITE(6,220)
+220   FORMAT(1X,'DONNEZ PAR LIGNE INDICE ET NOUVELLE QUANTITE')
+     X
+           DO 90 NQ=1,IQ
+      READ(5,*)JA,Q
+         IF(INDI-2)75,80,300
+75    C=TP(JA)/Q
+      TNP(JA)=Q
+      DO 89 IC=1,NC
+89    OBJ(IC,JA)=OBJ(IC,JA)/C
+      GO TO 90
+80    C=TC(JA)/Q
+      TNC(JA)=Q
+      DO 91 IP=1,NP
+91    OBJ(JA,IP)=OBJ(JA,IP)/C
+90    CONTINUE
+      CALL TONN(OBJ,5)
+      GO TO 40
+300   WRITE(6,230)
+230   FORMAT(1X,'SUR COMBIEN DE CONDIT.PORTENT VOS CHANGEMENTS')
+     X
+      READ(5,*) IQ
+      DO 7777 IP=1,NP
+7777  TNP(IP)=TP(IP)
+      DO 7778 IC=1,NC
+7778  TNC(IC)=TC(IC)
+           DO 270 NQ=1,IQ
+      WRITE(6,235)
+235   FORMAT(1X,'INDICE CONDIT.,NOUVEAU TOTAL' ' ET NOMBRE DE CHANGEMENT
+     XS')
+      READ(5,*)J,TQ,NJ
+      TK=TNC(J)
+      TCN(J)=0
+      TC(J)=0
+      WRITE(6,237)
+237   FORMAT(1X,'INDICES-PRODUITS DE CES CHANGEMENTS')
+      NJQ=NJ*10
+      READ(5,*)(KI(I),I=1,NJ)
+           DO 239 KNJ=1,NJ
+      I=KI(KNJ)
+      WRITE(6,238)I,J,OBJ(J,I)
+238   FORMAT(1X,'INDICES ET MONTANT ANCIENNE VALEUR =',2I3,F12.1,5X,'DON
+     XNEZ VOTRE CHANGEMENT')
+      TC(J)=TC(J)+OBJ(J,I)
+      READ(5,*)Q
+      OBJ(J,I)=Q
+239   TCN(J)=TCN(J)+Q
+      C=(TQ-TCN(J))/(TK-TC(J))
+      TNC(J)=TQ
+      I=1
+           DO 260 IP=1,NP
+      KD=KI(I)
+         IF(IP-KD)240,250,240
+240   OBJ(J,IP)=OBJ(J,IP)*C
+      GO TO 260
+250   I=I+1
+260   CONTINUE
+270   CONTINUE
+      CALL TONN (OBJ,5)
+      DO 1111 K1=1,NJ
+      K2=KI(K1)
+1111  TNP(K2)=TP(K2)
+      GO TO 40
+130   WRITE(6,400)
+400   FORMAT(/1X,'VOULEZ-VOUS LE TABLEAU DES RESULTATS ',' OUI(1), NON(0
+     X)  2.MISE EN BBL 1/0 SI 1 NOM DU FICH')
+      READ(5,*)IJ,NSAUV
+      CALL TONN(OBJ,0)
+      DO 6543 IP=1,NP
+6543  TNP(IP)=IDINT((TP(IP)+0.05)/0.1)*0.1
+      IF (NSAUV)2610,2620,2610
+2610  READ(5,*)FICH
+      CALL OPEN (10,FICH,'OUTPUT')
+      GO TO 137
+2620  IF(IJ)137,999,137
+137   DO 165 IC=1,NC
+      IF(IC.EQ.2)GOTO 165
+      TTTC=TC(IC)
+      TC(IC)=AINT((TTTC+AR*.5)/AR)*AR
+      OBJ(IC,3)=TC(IC)
+           DO 140 IP=1,NP
+      TNP(IP)=IDINT((TP(IP)+0.05)/0.1)*0.1
+         IF(IP-3)138,140,138
+138   OBJ(IC,IP)=AINT((OBJ(IC,IP)+AR*0.5)/AR)*AR
+      PA(IC,IP)=AINT ((OBJ(IC,IP)*PU(IC,IP) )*1000.0)
+      OBJ(IC,3)=OBJ(IC,3)-OBJ(IC,IP)
+140   CONTINUE
+      PA(IC,3)=AINT ((OBJ(IC,3)*PU(IC,3) )*1000.0)
+165   CONTINUE
+      DO 885 IP=1,NP
+      PA(2,IP)=TNP(IP)*1000
+      DO 880 IC=1,NC
+      IF(IC.EQ.2)GOTO 880
+      PA(2,IP)=PA(2,IP)-PA(IC,IP)
+880   CONTINUE
+      OBJ(2,IP)=PA(2,IP)/PU(2,IP)/1000.0
+      OBJ(2,IP)=AINT((OBJ(2,IP)+AR*0.5)/AR)*AR
+885   PA(2,IP)=OBJ(2,IP)*PU(2,IP)*1000 +0.5
+      DO 887 IC=1,NC
+      TC(IC)=0
+      DO 887 IP=1,NP
+887   TC(IC)=TC(IC)+OBJ(IC,IP)
+           DO 162 IP=1,NP
+      TP(IP)=0
+           DO 162 IC=1,NC
+162   TP(IP)=TP(IP)+PA(IC,IP)
+           DO 163 IP=1,NP
+      PC(IC)=0
+           DO 163 IP=1,NP
+163   PC(IC)=PC(IC)+PA(IC,IP)
+         IF(JUNITE)141,142,141
+141   IJK=1
+      GO TO 450
+142   IJK=2
+450   TT=0
+           DO 460 IP=1,NP
+460   TT=TT+TP(IP)
+      TT=TT/1000.0
+         IF(IJ-1)2030,2020,2030
+2020  CONTINUE
+      WRITE(6,1100)
+1100  FORMAT( 1X,'DONNEZ VOTRE PERIODE (30 CARACT.MAXI)'  ,1X,'ET VOTRE
+     XINTITULE ( 3 FOIS 30 C.MAXI)')
+      READ(5,1110)(PER(K),K=1,15),(INTIT(K),K=1,45)
+1110  FORMAT(15A2)
+475   WRITE(6,310)(DISP(IJK,K),K=1,7),(PER(K),K=1,15),(INTIT(K),K=1,45)
+     X
+         IF(JUNITE)480,480,490
+480   WRITE(6,104)
+      GO TO 495
+490   WRITE(6,112)
+495   WRITE(6,127)
+      TPM=0
+2030  CONTINUE
+           DO 160 IP=1,NP
+         IF(IJ-1)1800,2040,1800
+2040  CONTINUE
+      WRITE(6,105)IP,(CAT(IP,K),K=1,2),(OBJ(IC,IP),IC=1,NC)
+         IF(NSAUV)1800,1900,1800
+1800  CONTINUE
+      WRITE(10,*)(OBJ(IC,IP),IC=1,NC)
+         IF(IJ-1)160,1900,160
+1900  CONTINUE
+      TP(IP)=TP(IP)/1000.0
+      TPM=TPM+TP(IP)
+         IF(IP-5)150,750,710
+710   IF(IP-7)150,750,720
+720   IF(IP-13)150,750,730
+730   IF(IP-15)150,750,750
+150   DO 155 IC=1,NC
+        PA(IC,IP)=PA(IC,IP)/1000.0
+      IF(OBJ(IC,IP))155,154,155
+154   PA(IC,IP)=0.0
+155   CONTINUE
+      WRITE(6,106)(PA(IC,IP),IC=1,NC),TP(IP)
+      GO TO 160
+750   DO 156 IC=1,NC
+        PA(IC,IP)=PA(IC,IP)/1000.0
+      IF(OBJ(IC,IP))156,149,156
+149   PA(IC,IP)=0.0
+156   CONTINUE
+      WRITE(6,111)(PA(IC,IP),IC=1,NC),TP(IP),TPM
+      TPM=0
+160   CONTINUE
+         IF(IJ-1)800,2050,800
+2050  CONTINUE
+      WRITE(6,119)
+119   FORMAT(1X,' ')
+      WRITE(6,113)(CAT(NT,K),K=1,2),(TC(IC),IC=1,NC)
+157   WRITE(6,127)
+158   DO 175 IC=1,NC
+      PC(IC)=0
+           DO 175 IP=1,NP
+175   PC(IC)=PC(IC)+PA(IC,IP)
+           DO 195 IC=1,NC
+         IF(TC(IC))185,195,185
+185   PM(IC)=PC(IC)*1000.0/TC(IC)
+195   CONTINUE
+      WRITE(6,106)(PC(IC),IC=1,NC),TT
+      WRITE(6,201)(PM(IC),IC=1,NC)
+310   FORMAT(////20X,'VENTILATION  K R E M A  PAR ARTICLE ',7A4//20X,'PE
+     XRIODE = ',15A2,5X,15A2/20X,45X,15A2/65X,15A2/ 1X,110('*'))
+104   FORMAT(16X,'*C 6S VRAC*FX.108 SL*FX.48 SG.*C.12 500G','*C.12 KILO*
+     XC.100 SPT*C.60 G.S.*TON.PRODUIT*T.CATEGORIE*'/2X,'INDICES',7X,'*
+     X  1    *    2    *    3    *    4    *','    5    *    6    *    7
+     X    *           *')
+127   FORMAT(1X,110('-'))
+112   FORMAT(16X,'* V R A C *STS  LUXE*ST GEANTS*','STS 500 G*SACS KILO*
+     XSTS SPECT*STS GD SP*TON.PRODUIT*T.CATEGORIE*'/2X,'INDICES',7X,'*
+     X  1    *    2    *    3    *    4    ','*    5    *    6    *    7
+     X    *           *')
+105   FORMAT(1X,I2,2X,2A4,1X,7F10.1)
+106   FORMAT(1X,4X,'* TONNES',3X,7F10.3,F12.1/)
+111   FORMAT(1X,4X,'* TONNES',3X,7F10.3,2F12.1/1X,110('-'))
+113   FORMAT(1X,4X,2A4,1X,7F10.1)
+201   FORMAT(/1X,4X,'POIDS MOYEN',7F10.3//////)
+800   WRITE(6,850)
+850   FORMAT ( 1X,' AUTRES CHANGEMENTS ','OUI (1), N0N(0), FIN DE TRAVAI
+     XL (-1)')
+      READ(5,*) (KLM)
+      CALL CLOSE(10)
+      IF(KLM)1200,999,40
+1200  CALL CLOSE (9)
+      STOP
+      END
+                                                                                                                                                                                                                                                                                                                                                                                                                                    
