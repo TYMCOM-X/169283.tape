@@ -1,0 +1,337 @@
+
+(SPECIAL CONTEXT
+         TYPETYPE
+         FIELDTYPE
+         identifierTYPE
+         BIPS
+         SYSVARNUM
+         VAL
+         IX
+         SYS
+         SYSTEMSYMBOLS
+         BLOCKHEADERLENGTH
+         SHORTPOSITIVETYPE
+         SHORTNEGATIVETYPE
+         TRACEDFIELDS
+         TAB
+         DESTINATION
+         SOURCE
+         TTYOFILE
+         TTYIFILE
+         FREEBLOCKS
+         FREEMAPCELL
+         FORMCOMPUTEFIELD
+         NSYSVARS
+         FORMFORM
+         &UPPER
+         TYPEFORM
+         FIELDFORM
+         FUNCTIONFORM
+         FORMTYPE
+         FORMFIELDTABLE
+         FORMFIELDNAMES
+         TYPEFIELDNAMES
+         identifierFIELDNAMES
+         BYTEVECTORFORM
+         WORDVECTORFORM
+         PACKEDFORM
+         TRUE
+         BASE
+         IBASE
+         VECTORBLOCKTYPE
+         L70LISTTYPE
+         L70WORDVECTORFORM
+         L70BYTEVECTORFORM
+         L70VECTORBLOCKTYPE
+         &N)
+
+(PROG (&V ?&LST1 NAME)
+      (SETQ ?&LST1 (QUOTE (MADENAME cons identifier)))
+ LOOP (COND ((NULL ?&LST1) (RETURN &V)) (T NIL))
+      (SETQ NAME (CAR ?&LST1))
+      (SETQ &V (PUTPROP NAME T (QUOTE &RCLASS)))
+      (SETQ ?&LST1 (CDR ?&LST1))
+      (GO LOOP))
+
+(SETCONTEXT (QUOTE FORMFIELDNAMES)
+             (QUOTE VALUE)
+             NIL
+             (QUOTE
+              (NAME FIELDTABLE
+                    OUTCONVERT
+                    GETCELL
+                    EXPAND
+                    RELOCATE
+                    MARK
+                    SWEEP
+                    FETCH
+                    STORE
+                    COPY
+                    INCREMENT
+                    FREEBLOCK
+                    FREEWORD)))
+
+(SETCONTEXT (QUOTE TYPEFIELDNAMES)
+             (QUOTE VALUE)
+             NIL
+             (QUOTE (NAME INCONVERT OUTCONVERT INPOINT OUTPOINT PACK UNPACK FORMCOMPUTE ADVANCE)))
+
+(SETCONTEXT (QUOTE identifierFIELDNAMES) (QUOTE VALUE) NIL (QUOTE (PNAME PROPERTIES)))
+
+(PROG (&V ?&LST1 NAME)
+      (SETQ ?&LST1 (APPEND FORMFIELDNAMES (APPEND TYPEFIELDNAMES identifierFIELDNAMES)))
+ LOOP (COND ((NULL ?&LST1) (RETURN &V)) (T NIL))
+      (SETQ NAME (CAR ?&LST1))
+      (SETQ &V (PUTPROP NAME T (QUOTE &FIELD)))
+      (SETQ ?&LST1 (CDR ?&LST1))
+      (GO LOOP))
+
+(DEFPROP BACKPOINTER (&BYTE 44 44 NIL 0) &BYTE)
+
+(DEFPROP EXTRA (&BYTE 44 22 NIL 1) &BYTE)
+
+(DEFPROP HASHED (&BYTE 22 22 NIL 1) &BYTE)
+
+(DEFPROP INDICATOR (&BYTE 44 44 T 2) &BYTE)
+
+(DEFPROP PROPERTY (&BYTE 44 44 T 3) &BYTE)
+
+(DEFPROP XINDICATOR (&BYTE 44 44 T 4) &BYTE)
+
+(DEFPROP XPROPERTY (&BYTE 44 44 T 5) &BYTE)
+
+(DEFPROP LASTPHYSICAL (&BYTE 44 22 NIL 0) &BYTE)
+
+(DEFPROP NEXTPHYSICAL (&BYTE 22 22 NIL 0) &BYTE)
+
+(DEFPROP OCCUPIED (&BYTE 44 1 NIL 1) &BYTE)
+
+(DEFPROP TRACEBIT (&BYTE 43 1 NIL 1) &BYTE)
+
+(DEFPROP FLAGS (&BYTE 42 42 NIL 1) &BYTE)
+
+(DEFPROP BACKPOINTER (&BYTE 44 44 NIL 2) &BYTE)
+
+(DEFPROP LASTPHYSICAL (&BYTE 44 22 NIL 0) &BYTE)
+
+(DEFPROP NEXTPHYSICAL (&BYTE 22 22 NIL 0) &BYTE)
+
+(DEFPROP ZEROWORD (&BYTE 44 44 NIL 1) &BYTE)
+
+(DEFPROP LASTFREE (&BYTE 44 22 NIL 2) &BYTE)
+
+(DEFPROP NEXTFREE (&BYTE 22 22 NIL 2) &BYTE)
+
+(DEFPROP TOHEADER (&BYTE 44 22 NIL 0) &BYTE)
+
+(DEFPROP TOBACKPOINTER (&BYTE 22 22 NIL 0) &BYTE)
+
+(DEFPROP TONEXTVECTOR (&BYTE 44 22 NIL 0) &BYTE)
+
+(DEFPROP ELEMENTS (&BYTE 22 22 NIL 0) &BYTE)
+
+(DEFPROP &DPUTFIELD
+ (LAMBDA (DESC REC VALU)
+  (PROG NIL
+        (COND
+         ((AND TRACEDFIELDS (EQUAL (&GETBYTE (QUOTE TRACEBIT) (BLOCKHEADER DESC)) 1))
+          (TRACEFIELDPRINT DESC REC (QUOTE " _ ") VALU)))
+        (RETURN (STORE (CORE (*PLUS (EFFECTIVE REC) (DATAAREA DESC))) VALU))))
+EXPR)
+
+(DEFPROP EXPANDBLOCK
+ (LAMBDA (DESC BEFORE AFTER)
+  (PROG (BLK PREFACE DATASIZE DATA NEWDATA)
+        (SETQ DATA (DATAAREA DESC))
+        (SETQ BLK (FINDHEADER DATA))
+        (SETQ PREFACE (PREFACEF DESC))
+        (SETQ DATASIZE (DATASIZEF DESC))
+        (SETQ NEWDATA (GETBLOCK DESC (*PLUS PREFACE BEFORE) (*PLUS DATASIZE AFTER)))
+        (PROG (&V ?&LST1 ?&UPPER1 N)
+              (SETQ ?&LST1 0)
+              (SETQ ?&UPPER1 (*DIF DATASIZE 1))
+         LOOP (COND ((*GREAT ?&LST1 ?&UPPER1) (RETURN &V)) (T NIL))
+              (SETQ N ?&LST1)
+              (SETQ &V (STORE (CORE (*PLUS NEWDATA N)) (CORE (*PLUS DATA N))))
+              (SETQ ?&LST1 (ADD1 ?&LST1))
+              (GO LOOP))
+        (PROG (&V ?&LST1 ?&UPPER1 N)
+              (SETQ ?&LST1 2)
+              (SETQ ?&UPPER1 (*PLUS PREFACE 1))
+         LOOP (COND ((*GREAT ?&LST1 ?&UPPER1) (RETURN &V)) (T NIL))
+              (SETQ N ?&LST1)
+              (SETQ &V (STORE (CORE (*DIF NEWDATA N)) (CORE (*DIF DATA N))))
+              (SETQ ?&LST1 (ADD1 ?&LST1))
+              (GO LOOP))
+        (FORGETSPACE BLK)
+        (RETURN NEWDATA)))
+EXPR)
+
+(DEFPROP EXPANDRECORDBLOCK
+ (LAMBDA (TYP PREFACEINCR DATAINCR)
+  (PROG (FTABLE DESC HAD DATA FRM)
+        (SETQ FRM (FORMFROMTYPE TYP))
+        (SETQ FTABLE (&GETFIELD (QUOTE FIELDTABLE) FRM))
+        (SETQ HAD (*DIF (DATASIZEF (CADAR FTABLE)) 1))
+        (PROG (&V ?&LST1 FLD)
+              (SETQ ?&LST1 FTABLE)
+         LOOP (COND ((NULL ?&LST1) (RETURN &V)) (T NIL))
+              (SETQ FLD (CAR ?&LST1))
+              (SETQ &V (PROG NIL (SETQ DESC (CADR FLD)) (EXPANDBLOCK DESC PREFACEINCR DATAINCR)))
+              (SETQ ?&LST1 (CDR ?&LST1))
+              (GO LOOP))
+        (SETQ DATA (DATAAREA (CADAR FTABLE)))
+        (PROG (&V ?&LST1 ?&UPPER1 I)
+              (SETQ ?&LST1 (*PLUS HAD 1))
+              (SETQ ?&UPPER1 (*DIF (*PLUS HAD DATAINCR) 1))
+         LOOP (COND ((*GREAT ?&LST1 ?&UPPER1) (RETURN &V)) (T NIL))
+              (SETQ I ?&LST1)
+              (SETQ &V (STORE (CORE (*PLUS DATA I)) (*PLUS I 1)))
+              (SETQ ?&LST1 (ADD1 ?&LST1))
+              (GO LOOP))
+        (STORE (CORE (*PLUS (*PLUS DATA HAD) DATAINCR)) (MINUS 1))
+        (&PUTFIELD (QUOTE FREEBLOCK) FRM (ABSOLUTE DATA))
+        (&PUTFIELD (QUOTE FREEWORD) FRM (*PLUS HAD 1))))
+EXPR)
+
+(DEFPROP FORGETSPACE
+ (LAMBDA (BLK)
+  (PROG (L N)
+        (SETQ L (EFFECTIVE (&GETBYTE (QUOTE LASTPHYSICAL) BLK)))
+        (SETQ N (EFFECTIVE (&GETBYTE (QUOTE NEXTPHYSICAL) BLK)))
+        (COND ((EQUAL (&GETBYTE (QUOTE OCCUPIED) L) 0)
+               (PROG NIL
+                     (&PUTBYTE (QUOTE NEXTPHYSICAL) L (ABSOLUTE N))
+                     (&PUTBYTE (QUOTE LASTPHYSICAL) N (ABSOLUTE L))
+                     (SETQ BLK L)))
+              (T (PROG NIL
+                       (&PUTBYTE (QUOTE LASTFREE) BLK 0)
+                       (&PUTBYTE (QUOTE NEXTFREE) BLK (ABSOLUTE FREEBLOCKS))
+                       (COND
+                        ((NOT (EQUAL FREEBLOCKS 0)) (&PUTBYTE (QUOTE LASTFREE) FREEBLOCKS (ABSOLUTE BLK))))
+                       (&PUTBYTE (QUOTE ZEROWORD) BLK 0)
+                       (SETCONTEXT (QUOTE FREEBLOCKS) (QUOTE VALUE) NIL BLK))))
+        (COND
+         ((EQUAL (&GETBYTE (QUOTE OCCUPIED) N) 0)
+          (PROG (NN)
+                (SETQ NN (EFFECTIVE (&GETBYTE (QUOTE NEXTPHYSICAL) N)))
+                (&PUTBYTE (QUOTE NEXTPHYSICAL) BLK (ABSOLUTE NN))
+                (&PUTBYTE (QUOTE LASTPHYSICAL) NN (ABSOLUTE BLK))
+                (COND
+                 ((NOT (EQUAL (&GETBYTE (QUOTE NEXTFREE) N) 0))
+                  (&PUTBYTE (QUOTE LASTFREE)
+                             (EFFECTIVE (&GETBYTE (QUOTE NEXTFREE) N))
+                             (&GETBYTE (QUOTE LASTFREE) N))))
+                (COND
+                 ((NOT (EQUAL (&GETBYTE (QUOTE LASTFREE) N) 0))
+                  (&PUTBYTE (QUOTE NEXTFREE)
+                             (EFFECTIVE (&GETBYTE (QUOTE LASTFREE) N))
+                             (&GETBYTE (QUOTE NEXTFREE) N)))))))))
+EXPR)
+
+(DEFPROP GETBLOCK
+ (LAMBDA (DESC PREFACE DATASIZE)
+  (PROG (HEDR DATA)
+        (SETQ HEDR (GETSPACE (*PLUS (*PLUS (*PLUS BLOCKHEADERLENGTH PREFACE) 1) DATASIZE)))
+        (SETQ DATA (*PLUS (*PLUS (*PLUS HEDR BLOCKHEADERLENGTH) PREFACE) 1))
+        (STORE (CORE (EFFECTIVE DESC)) (ABSOLUTE DATA))
+        (STORE (CORE (*PLUS HEDR 2)) NIL)
+        (&PUTBYTE (QUOTE BACKPOINTER) HEDR DESC)
+        (&PUTBYTE (QUOTE TOHEADER) (*DIF DATA 1) (*DIF DATA HEDR))
+        (&PUTBYTE (QUOTE TOBACKPOINTER) (*DIF DATA 1) (*DIF (*DIF DATA HEDR) 2))
+        (RETURN DATA)))
+EXPR)
+
+(DEFPROP GETRECORDNUMBER
+ (LAMBDA (TYP)
+  (PROG (FW FRM)
+        (SETQ FRM (FORMFROMTYPE TYP))
+        (COND
+         ((EQUAL (&GETFIELD (QUOTE FREEWORD) FRM) (MINUS 1))
+          (&GETGENERAL (&GETFIELD (QUOTE EXPAND) FRM) (LIST TYP 0 (&GETFIELD (QUOTE INCREMENT) FRM)))))
+        (SETQ FW (&GETFIELD (QUOTE FREEWORD) FRM))
+        (&PUTFIELD (QUOTE FREEWORD)
+                    FRM
+                    (COND ((EQUAL (LENGTH (&GETFIELD (QUOTE FIELDTABLE) FRM)) 0) (*PLUS FW 1))
+                          (T (CORE (*PLUS (EFFECTIVE (&GETFIELD (QUOTE FREEBLOCK) FRM)) FW)))))
+        (RETURN FW)))
+EXPR)
+
+(DEFPROP GETSPACE
+ (LAMBDA (LEN)
+  (PROG (FB)
+        (SETQ FB FREEBLOCKS)
+        (PROG (&V)
+         LOOP (COND
+               ((AND (NOT (EQUAL FB 0))
+                     (*GREAT LEN (*DIF (EFFECTIVE (&GETBYTE (QUOTE NEXTPHYSICAL) FB)) FB)))
+                (SETQ &V (SETQ FB (EFFECTIVE (&GETBYTE (QUOTE NEXTFREE) FB)))))
+               (T (RETURN &V)))
+              (GO LOOP))
+        (COND ((EQUAL FB 0) (OUTOFCORE LEN) (RETURN (GETSPACE LEN)))
+              ((EQUAL LEN (*DIF (EFFECTIVE (&GETBYTE (QUOTE NEXTPHYSICAL) FB)) FB))
+               (PROG NIL
+                     (&PUTBYTE (QUOTE OCCUPIED) FB 1)
+                     (COND
+                      ((NOT (EQUAL (&GETBYTE (QUOTE LASTFREE) FB) 0))
+                       (&PUTBYTE (QUOTE NEXTFREE)
+                                  (EFFECTIVE (&GETBYTE (QUOTE LASTFREE) FB))
+                                  (&GETBYTE (QUOTE NEXTFREE) FB)))
+                      (T (SETCONTEXT (QUOTE FREEBLOCKS)
+                                      (QUOTE VALUE)
+                                      NIL
+                                      (EFFECTIVE (&GETBYTE (QUOTE NEXTFREE) FB)))))
+                     (COND
+                      ((NOT (EQUAL (&GETBYTE (QUOTE NEXTFREE) FB) 0))
+                       (&PUTBYTE (QUOTE LASTFREE)
+                                  (EFFECTIVE (&GETBYTE (QUOTE NEXTFREE) FB))
+                                  (&GETBYTE (QUOTE LASTFREE) FB))))))
+              (T (PROG (B)
+                       (SETQ B (*PLUS FB LEN))
+                       (&PUTBYTE (QUOTE LASTPHYSICAL) B (ABSOLUTE FB))
+                       (&PUTBYTE (QUOTE NEXTPHYSICAL) B (&GETBYTE (QUOTE NEXTPHYSICAL) FB))
+                       (&PUTBYTE (QUOTE ZEROWORD) B 0)
+                       (COND
+                        ((EQUAL (&GETBYTE (QUOTE LASTFREE) FB) 0)
+                         (&PUTBYTE (QUOTE LASTFREE) B 0)
+                         (SETCONTEXT (QUOTE FREEBLOCKS) (QUOTE VALUE) NIL B))
+                        (T (&PUTBYTE (QUOTE LASTFREE) B (&GETBYTE (QUOTE LASTFREE) FB))
+                           (&PUTBYTE (QUOTE NEXTFREE)
+                                      (EFFECTIVE (&GETBYTE (QUOTE LASTFREE) B))
+                                      (ABSOLUTE B))))
+                       (COND
+                        ((EQUAL (&GETBYTE (QUOTE NEXTFREE) FB) 0) (&PUTBYTE (QUOTE NEXTFREE) B 0))
+                        (T (&PUTBYTE (QUOTE NEXTFREE) B (&GETBYTE (QUOTE NEXTFREE) FB))
+                           (&PUTBYTE (QUOTE LASTFREE)
+                                      (EFFECTIVE (&GETBYTE (QUOTE NEXTFREE) B))
+                                      (ABSOLUTE B))))
+                       (&PUTBYTE (QUOTE LASTPHYSICAL)
+                                  (EFFECTIVE (&GETBYTE (QUOTE NEXTPHYSICAL) FB))
+                                  (ABSOLUTE B))
+                       (&PUTBYTE (QUOTE NEXTPHYSICAL) FB (ABSOLUTE B))
+                       (&PUTBYTE (QUOTE OCCUPIED) FB 1))))
+        (RETURN FB)))
+EXPR)
+
+(DEFPROP MAKERECORD
+ (LAMBDA (TYP) (DESCR TYP 0 (GETRECORDNUMBER TYP)))
+EXPR)
+
+(DEFPROP RECORD
+ (LAMBDA (TYP VALUES)
+  (PROG (DESC)
+        (SETQ DESC (MAKERECORD TYP))
+        (PROG (&V ?&LST1 ?&LST2 FLD VALU)
+              (SETQ ?&LST1 (&GETFIELD (QUOTE FIELDTABLE) (FORMFROMTYPE TYP)))
+              (SETQ ?&LST2 VALUES)
+         LOOP (COND ((OR (NULL ?&LST1) (NULL ?&LST2)) (RETURN &V)) (T NIL))
+              (SETQ FLD (CAR ?&LST1))
+              (SETQ VALU (CAR ?&LST2))
+              (SETQ &V (&DPUTFIELD (CADR FLD) DESC VALU))
+              (SETQ ?&LST1 (CDR ?&LST1))
+              (SETQ ?&LST2 (CDR ?&LST2))
+              (GO LOOP))
+        (RETURN DESC)))
+EXPR)
+
+(CSYM G0645)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
