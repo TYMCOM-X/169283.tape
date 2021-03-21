@@ -1,0 +1,535 @@
+MODULE FPICR(DOLLAR,ENTRIES=($FPICR,$FPCNT),FSAVE,TIMING,
+  TIMER=EXTERNAL(SIX12))=BEGIN
+%VERSION E3     %
+%LAST UPDATE, MAR. 19,1974, BY V.E. VAN VLEAR   %
+REQUIRE FDEFS.BLI[7,107355];
+REQUIRE TDEFS.BLI[7,107355];
+REQUIRE ADEFS.BLI[7,107355];
+REQUIRE SDEFS.BLI[7,107355];
+REQUIRE UDEFS.BLI[7,107355];
+REQUIRE FPDEFS.BLI[7,107355];
+
+%FORMAT PICTURE ROUTINE %
+%TAKES ADDRESS OF TOKEN AS ARGUMENT AND RETURNS "FORMAT WORD"   %
+
+LABEL TL;
+MACRO
+  FERR(S)=($UMESS(FTLMS$<36,7>); $FATAL(S))&,      %FATAL TYPE ERROR    %
+  GNCH=(NCH:=SCANI(SP);K:=.K+1;
+    IF .K GEQ .LN THEN NCH:=0)&,
+  CKCT(Q,X)=
+    BEGIN
+    IF (.TCT+.CT) GTR 20 THEN
+      BEGIN
+      CT:=20-.TCT;
+      $FERROR(FV$FATAL,.TOK,X,0)
+      END;
+    TCT:=.TCT+.CT;
+    Q:=.Q+.CT
+    END&,
+  %FOLLOWING MACRO TRANSLATES "B" INTO "N" AND SETS BLANK FLAG  %
+  GCHB=BEGIN
+        NCH:=SCANI(SP);
+        IF .NCH EQL "B" THEN
+          BEGIN
+          NCH:="N";
+          FW[FP$SP3]:=FPV$TRUE
+          END
+        END&;
+
+%CHAR. TABLE, USED TO SELECT "CASE SET".        %
+BIND CHT=PLIT(
+ "Z","+","-","$","*","N",".","V",",","(",")","D","C");
+
+UNDECLARE $FPICR,$FPCNT;
+
+GLOBAL ROUTINE $FPICR(TOK)=
+BEGIN
+
+MAP A$ TOK;
+
+LOCAL S$ CBUF,LN,CT,FP$I FW,STP,T1,SP,CH,FC,NCH,PERSW,V,K,CMCT,CMSW,TCT,
+   BF[8],SP1;
+
+IF .TOK EQL 0 THEN
+  FW:=#601000002                 %FOR "-6ZN"     %
+ELSE
+  BEGIN
+  FW:=0;                         %FOR FORMAT WORD        %
+  STP:=.TOK[A$STP];
+  IF .STP EQL 0 THEN
+    FERR(#177);        %FATAL ERROR, INVALID STP        %
+  CBUF:=$SGSTE(.STP);            %GET SYMBOL TABLE ENTRY %
+  T1:=.CBUF[S$TYPE];             %CHECK TYPE OF ENTRY    %
+  IF .T1 NEQ SV$STLIT THEN
+    BEGIN
+    $FERROR(FV$FATAL,.TOK,302,0);             %NOT VALID TYPE OF SYMBOL TABLE ENTRY     %
+    RETURN #601000002
+    END;
+  T1:=CBUF[S$NAME];              %ADDRESS OF NAME        %
+  SP:=(.T1)<0,7>;                %MAKE BYTE PTR. FOR CHAR.       %
+  LN:=.CBUF[S$NCHAR];            %NO. OF CHARS. IN STRING        %
+%COPY STRING INTO BUFFER        %
+  K:=-1;
+  SP1:=(BF)<36,7>;               %STRING PTR. FOR NEW STRING     %
+  CMSW:=-1;                      %PREPARE TO CHECK FOR COMMA     %
+  DO
+    BEGIN
+    GNCH;
+    IF .NCH NEQ " " THEN
+      BEGIN
+      IF .NCH GEQ "0" AND .NCH LEQ "9" THEN
+        BEGIN
+        CT:=.NCH-#60;
+        GNCH;
+        WHILE .NCH GEQ "0" AND .NCH LEQ "9" DO
+          BEGIN
+          CT:=.CT*10;
+          CT:=.CT+.NCH-#60;
+          GNCH
+          END;
+        IF .CT EQL 0 THEN
+          BEGIN
+          CT:=1;
+          $FERROR(FV$FATAL,.TOK,341,0)
+          END;
+        IF .NCH EQL "C" THEN
+          %PROCESS CHAR. COUNT  %
+          BEGIN
+          IF .SP1 NEQ (BF)<36,7> OR .K GEQ .LN OR .CT GTR SV$MSTL THEN
+            $FERROR(FV$FATAL,.TOK,311,0);
+          FW[FP$TYPE]:=FPV$STR;
+          FW[FP$C]:=.CT;
+          $SFRNCH(.CBUF);
+          RETURN .FW
+          END;
+        INCR K TO .CT-1 DO REPLACEI(SP1,.NCH)
+        END
+      ELSE
+        REPLACEI(SP1,.NCH)
+      END
+    END
+  UNTIL
+    .K GEQ .LN;
+  REPLACEI(SP1,0);              %END OF STRING FLAG     %
+  SP:=(BF)<36,7>;
+  CMCT:=0;
+  FC:=0;                         %FIELD COUNT    %
+  TCT:=0;                        %CLEAR TOTAL FIELD COUNT        %
+  PERSW:=0;                      %PERIOD SW., CHANGED TO 13 FOR CASE     %
+  GCHB;                        %GET FIRST CHAR. FOR "NEXT CHAR. NCH"    %
+  UNTIL .NCH EQL 0
+  DO                            %GET ALL CHARS. UNTIL END OF STRING     %
+    BEGIN
+    CH:=.NCH;                    %SET CURRENT CHARACTER  %
+    CMCT:=.CMCT+1;               %COUNT OF CHARS. BETWEEN COMMAS %
+    IF .CH EQL "D" THEN NCH:=SCANI(SP) ELSE GCHB;
+      CT:=1;             %COUNT FIELD CHAR., HAVE FIRST  %
+      WHILE
+        BEGIN
+        IF .NCH EQL "," THEN    %SET COMMA FLAG AND SKIP OVER   %
+          BEGIN
+          GCHB;
+          IF .CMSW EQL -1 AND
+            (.CH EQL "$" OR .CH EQL "+" OR .CH EQL "-") THEN
+            CMCT:=.CMCT-1;
+          IF  .CMCT GTR 3 OR
+            (.CMSW NEQ -1 AND .CMCT LSS 3) THEN
+            $FERROR(FV$FATAL,.TOK,319,0);    %IMPROPER USE OF COMMA     %
+          CMSW:=.CMSW+1;
+          CMCT:=0
+          END;
+        .NCH EQL .CH
+        END
+      DO
+        BEGIN
+        CMCT:=.CMCT+1;
+        GCHB;
+        CT:=.CT+1
+        END;
+
+      IF .CMSW NEQ -1 THEN
+        BEGIN
+        IF .PERSW NEQ 0 THEN
+          $FERROR(FV$FATAL,.TOK,320,0)       %COMMA APPEARED AFTER DECIMAL POINT        %
+        ELSE
+          BEGIN
+          IF .CMCT EQL 3 THEN
+            BEGIN
+            IF .NCH EQL "+" OR .NCH EQL "-" OR .NCH EQL "." OR
+               .NCH EQL "V" OR .NCH EQL "C" OR .NCH EQL "D" OR
+               .NCH EQL ")" THEN CMSW:=-1
+            END
+          ELSE
+          IF .CMCT GTR 3 OR (.CMCT LSS 3 AND NOT (.NCH EQL "N" OR
+          .NCH EQL "B")) THEN
+            $FERROR(FV$FATAL,.TOK,321,0);   %LAST PART OF COMMA DIVIDED FIELD BAD       %
+          FW[FP$SP4]:=FPV$TRUE    %SET COMMA FLAG        %
+          END
+        END;
+    V:=-1;
+%SEARCH FOR CHAR. IN VALID CHAR. TABLE  %
+TL: INCR J TO 12 DO
+      BEGIN
+      IF .CH EQL .CHT[.J] THEN
+        BEGIN
+        V:=.J;                 %SAVE POSITION FOR CASE VECTOR    %
+        LEAVE TL
+        END
+      END;
+    IF .V EQL -1 THEN
+      $FERROR(FV$FATAL,.TOK,303,0);           %INVALID CHARACTER        %
+      %CASE NUMBERS RUN FROM 0 TO 22, 13-22 AFTER PERIOD        %
+
+    FC:=.FC+1;                   %COUNT FIELDS   %
+    %PERIOD SW. HAS 0 OR 13 WHERE 13 IS AFTER PERIOD (DEC.)     %
+    CASE (IF .V GTR 9 THEN .V ELSE .V+.PERSW) OF
+      SET
+
+%******* 8 TABS DROPPED FOR SETS, SEARCH FOR NEXT FLAG FOR END  %
+
+%0      "Z"     %
+
+BEGIN
+IF .FW[FP$FI] NEQ 0 THEN
+  IF .FW[FP$FS] NEQ 0 THEN
+    $FERROR(FV$FATAL,.TOK,304,0)             %FLOATING INT. FIELD USED MORE THAN ONCE   %
+  ELSE
+    $FERROR(FV$FATAL,.TOK,328,0);           %FLOATING FIELD ALREADY USED ON "Z" %
+CKCT(FW[FP$FI],331)          %COUNT OVERFLOW "Z"        %
+END;
+
+
+%1      "+"     %
+
+BEGIN
+IF .FW[FP$SIGN] NEQ 0 THEN
+  $FERROR(FV$FATAL,.TOK,305,0)              %SIGN CONTROL ALREADY DEFINED       %
+ELSE IF (.CT GTR 1) AND (.FW[FP$FI] NEQ 0) THEN
+  $FERROR(FV$FATAL,.TOK,304,0);
+IF (.FW[FP$FI]+.FW[FP$XI]) EQL 0 THEN
+  BEGIN
+IF .CMSW EQL -1 THEN CMCT:=.CMCT-1;
+  FW[FP$SIGN]:=FPV$LMPS;
+  IF .CT GTR 1 THEN
+    BEGIN
+    FW[FP$FS]:=.V;
+    CT:=.CT-1;
+    CKCT(FW[FP$FI],332)        %COUNT OVERFLOW "+"      %
+    END
+  END
+ELSE
+  BEGIN
+  FW[FP$SIGN]:=FPV$RTS;
+  IF .CT GTR 1 THEN
+    BEGIN
+    FW[FP$ES]:=.V;
+    CT:=.CT-1;
+    CKCT(FW[FP$EI],333)        %COUNT OVERFLOW "+"      %
+    END
+  END
+END;
+
+
+%2      "-"     %
+
+BEGIN
+IF .FW[FP$SIGN] NEQ 0 THEN
+  $FERROR(FV$FATAL,.TOK,305,0)              %SIGN CONTROL ALREADY DEFINED       %
+ELSE IF (.CT GTR 1) AND (.FW[FP$FI] NEQ 0) THEN
+  $FERROR(FV$FATAL,.TOK,304,0);
+IF (.FW[FP$FI]+.FW[FP$XI]) EQL 0 THEN
+  BEGIN
+  IF .CMSW EQL -1 THEN CMCT:=.CMCT-1;
+  FW[FP$SIGN]:=FPV$LMP;
+  IF .CT GTR 1 THEN
+    BEGIN
+    FW[FP$FS]:=.V;
+    CT:=.CT-1;
+    CKCT(FW[FP$FI],334)        %COUNT OVERFLOW "-"      %
+    END
+  END
+ELSE
+  BEGIN
+  FW[FP$SIGN]:=FPV$RT;
+  IF .CT GTR 1 THEN
+    BEGIN
+    FW[FP$ES]:=.V;
+    CT:=.CT-1;
+    CKCT(FW[FP$EI],335)        %COUNT OVERFLOW "-"      %
+    END
+  END
+END;
+
+
+%3      "$"     %
+
+BEGIN
+IF .CMSW EQL -1 THEN CMCT:=.CMCT-1;
+IF .CT EQL 1 THEN
+  IF .FW[FP$SP1] EQL FPV$TRUE THEN $FERROR(FV$FATAL,.TOK,306,0)
+  ELSE FW[FP$SP1]:=FPV$TRUE      %SET DOLLAR-SIGN FLAG   %
+ELSE
+  BEGIN
+  IF (.FW[FP$FS] EQL .V) OR (.FW[FP$SP1] EQL FPV$TRUE) THEN
+    $FERROR(FV$FATAL,.TOK,306,0)            %DOLLAR-SIGN USED TWICE IN INTEGER  %
+  ELSE IF .FW[FP$FI] NEQ 0 THEN
+    $FERROR(FV$FATAL,.TOK,322,0);           %FLOAT.INT. FIELD OVERRIDDEN BY "$" %
+  FW[FP$FS]:=.V;
+  CT:=.CT-1;
+  CKCT(FW[FP$FI],336)          %COUNT OVERFLOW "$"      %
+  END
+END;
+
+
+%4      "*"     %
+
+BEGIN
+IF .FW[FP$FS] EQL .V THEN
+  $FERROR(FV$FATAL,.TOK,307,0)                %ASTERISK USED TWICE IN INTEGER   %
+ELSE
+  BEGIN
+  IF .FW[FP$FI] NEQ 0 THEN
+    $FERROR(FV$FATAL,.TOK,323,0);           %ON "*",FLOATING FIELD ALREADY USED %
+  FW[FP$FS]:=.V
+  END;
+CKCT(FW[FP$FI],337)            %COUNT OVERFLOW "*"      %
+END;
+
+
+%5      "N"     %
+
+BEGIN
+IF .FW[FP$XI] NEQ 0 THEN
+  $FERROR(FV$FATAL,.TOK,308,0);             %"N" APPEARS IN TWO FIELDS IN INTEGER       %
+CKCT(FW[FP$XI],338)            %COUNT OVERFLOW "N"      %
+END;
+
+
+%6      "."     %
+
+BEGIN
+IF .CT GTR 1 THEN
+  $FERROR(FV$FATAL,.TOK,309,0);             %MORE THAN 1 PERIOD %
+FW[FP$SP2]:=FPV$TRUE;  %SET PERIOD FLAG  %
+PERSW:=13
+END;
+
+
+%7      "V"     %
+
+BEGIN
+IF .CT GTR 1 THEN
+  $FERROR(FV$FATAL,.TOK,310,0);            %MORE THAN 1 "V"     %
+PERSW:=13
+END;
+
+
+%8      ","     %
+
+BEGIN
+$FERROR(FV$FATAL,.TOK,318,0);              %ERROR IN USING COMMA,(FIRST CHAR.?,0)       %
+FW[FP$SP4]:=FPV$TRUE
+END;
+
+
+%9      "("     %
+
+BEGIN
+IF .FC GTR 1 THEN
+  $FERROR(FV$FATAL,.TOK,312,0);            %"(" NOT FIRST CHARACTER     %
+CMCT:=.CMCT-1;
+FW[FP$SIGN]:=FPV$PAREN
+END;
+
+
+%10     ")"     %
+
+IF .NCH NEQ 0 OR .CT GTR 1 THEN
+  $FERROR(FV$FATAL,.TOK,313,0)             %",0)" MUST BE LAST CHARACTER        %
+ELSE IF .FW[FP$SIGN] NEQ FPV$PAREN THEN
+  $FERROR(FV$FATAL,.TOK,317,0);            %",0)" NOT FOLLOWING A "("   %
+
+
+%11     "D"     %
+
+IF .NCH NEQ "B" OR .CT GTR 1 THEN
+  $FERROR(FV$FATAL,.TOK,314,0)             %"D" NOT FOLLOWED BY "B"     %
+ELSE
+  BEGIN
+  NCH:=SCANI(SP);
+  IF .NCH NEQ 0 THEN
+    $FERROR(FV$FATAL,.TOK,315,0);          %"B" NOT LAST CHAR.  %
+  IF .FW[FP$SIGN] NEQ 0 THEN
+    $FERROR(FV$FATAL,.TOK,305,0);
+  FW[FP$SIGN]:=FPV$DB
+  END;
+
+
+%12     "C"     %
+
+IF .NCH EQL "R" THEN
+  BEGIN
+  NCH:=SCANI(SP);
+  IF .NCH NEQ 0 THEN
+    $FERROR(FV$FATAL,.TOK,316,0);          %"R" NOT LAST CHAR   %
+  IF .FW[FP$SIGN] NEQ 0 THEN
+    $FERROR(FV$FATAL,.TOK,305,0);
+  FW[FP$SIGN]:=FPV$CR
+  END
+ELSE IF .FC NEQ 1 THEN
+  $FERROR(FV$FATAL,.TOK,311,0)             %"C" NOT ONLY FIELD LETTER   %
+ELSE IF .NCH NEQ 0 THEN
+  $FERROR(FV$FATAL,.TOK,311,0)
+ELSE
+  BEGIN
+  FW[FP$TYPE]:=FPV$STR;
+  FW[FP$C]:=.CT
+  END;
+
+
+%13     "Z" DECIMAL     %
+
+BEGIN
+IF .FW[FP$EI] NEQ 0 THEN
+  IF .FW[FP$ES] NEQ 0 THEN
+    $FERROR(FV$FATAL,.TOK,324,0)           %FLOATING DECIMAL FIELD ALREADY USED %
+  ELSE
+    $FERROR(FV$FATAL,.TOK,328,0);
+CKCT(FW[FP$EI],339)            %COUNT OVERFLOW "Z"      %
+END;
+
+
+%14     "+" DECIMAL     %
+
+BEGIN
+IF .FW[FP$SIGN] NEQ 0 THEN
+  $FERROR(FV$FATAL,.TOK,305,0)
+ELSE IF (.CT GTR 1) AND (.FW[FP$EI] NEQ 0) THEN
+  $FERROR(FV$FATAL,.TOK,324,0);
+FW[FP$SIGN]:=FPV$RTS;
+IF .CT GTR 1 THEN
+  BEGIN
+  FW[FP$ES]:=.V;
+  CT:=.CT-1;
+  CKCT(FW[FP$EI],333)
+  END
+END;
+
+
+%15     "-" DECIMAL     %
+
+BEGIN
+IF .FW[FP$SIGN] NEQ 0 THEN
+  $FERROR(FV$FATAL,.TOK,305,0)
+ELSE IF (.CT GTR 1) AND (.FW[FP$EI] NEQ 0) THEN
+  $FERROR(FV$FATAL,.TOK,324,0);
+FW[FP$SIGN]:=FPV$RT;
+IF .CT GTR 1 THEN
+  BEGIN
+  FW[FP$ES]:=.V;
+  CT:=.CT-1;
+  CKCT(FW[FP$EI],335)
+  END
+END;
+
+
+%16     "$" DECIMAL     %
+
+$FERROR(FV$FATAL,.TOK,325,0);      %$ NOT VALID AFTER DECIMAL   %
+
+
+
+%17     "*" DECIMAL     %
+
+$FERROR(FV$FATAL,.TOK,325,0);      %INVALID CHARACTER AFTER PERIOD      %
+
+
+%18     "N"     %
+
+BEGIN
+IF .FW[FP$DI] NEQ 0 THEN
+  $FERROR(FV$FATAL,.TOK,329,0);             %DEC. "N" FIELD APPEARS MORE THAN ONCE      %
+CKCT(FW[FP$DI],340)          %COUNT OVERFLOW "N"        %
+END;
+
+
+%19     "." DECIMAL     %
+
+$FERROR(FV$FATAL,.TOK,326,0);      %PERIOD AFTER DECIMAL POINT ALREADY DEFINED  %
+
+
+%20     "V" DECIMAL     %
+
+$FERROR(FV$FATAL,.TOK,327,0);      %"V" OCCURING AFTER DECIMAL POINT ALREADY DEFINED    %
+
+
+
+%21     "," DECIMAL     %
+
+$FERROR(FV$FATAL,.TOK,320,0);
+
+TES
+
+%***** RETURN TAB 6 PLACES      %
+    END;
+
+  IF ((.FW[FP$FI]+.FW[FP$EI]+.FW[FP$XI]+.FW[FP$DI]) EQL 0) AND
+     (.FW[FP$TYPE] NEQ FPV$STR) THEN
+    BEGIN
+    FW[FP$XI]:=7;                %FAKE A FORMAT COUNT OF 7N      %
+    $FERROR(FV$FATAL,.TOK,330,0)             %NO FORMAT COUNT   %
+    END;
+  IF (.FW[FP$XI]+.FW[FP$DI]) EQL 0 THEN
+    BEGIN
+    IF .FW[FP$FI] NEQ 0 THEN
+      BEGIN
+      FW[FP$FI]:=.FW[FP$FI]-1;
+      FW[FP$XI]:=1
+      END;
+    IF .FW[FP$EI] NEQ 0 THEN
+      BEGIN
+      FW[FP$EI]:=.FW[FP$EI]-1;
+      FW[FP$DI]:=1
+      END
+    END;
+  $SFRNCH(.CBUF)
+  END;
+  .FW                   %RETURN FORMAT WORD     %
+END;
+
+%FORMAT PICTURE COUNTER, COUNTS TOTAL FIELD REQUIREMENT %
+GLOBAL ROUTINE $FPCNT(FW)=
+BEGIN
+
+MAP FP$I FW;
+
+LOCAL CT;
+
+IF .FW[FP$TYPE] EQL FPV$NUM THEN
+  BEGIN
+  CT:=.FW[FP$XI]+.FW[FP$FI];
+  IF .FW[FP$SP4] EQL FPV$TRUE THEN
+    CT:=.CT+((.CT-1)/3);                 %ADD COUNT FOR COMMAS   %
+  CT:=.CT+.FW[FP$DI]+.FW[FP$EI];         %DECIMAL FIELDS %
+  IF .FW[FP$SP1] EQL FPV$TRUE OR .FW[FP$FS] EQL FPV$DOLLAR THEN
+    CT:=.CT+1;                           %FOR DOLLAR SIGN        %
+  IF .FW[FP$SP2] EQL FPV$TRUE THEN
+    CT:=.CT+1;                           %FOR DECIMAL POINT      %
+  IF .FW[FP$SIGN] NEQ FPV$NSC THEN
+    IF .FW[FP$SIGN] EQL FPV$PAREN OR
+       .FW[FP$SIGN] EQL FPV$CR OR
+       .FW[FP$SIGN] EQL FPV$DB THEN
+          CT:=.CT+2
+       ELSE
+          CT:=.CT+1
+  END
+ELSE
+  CT:=.FW[FP$C];
+
+.CT
+
+END;
+
+END ELUDOM
+  
