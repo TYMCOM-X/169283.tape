@@ -1,0 +1,349 @@
+      DOUBLE PRECISION ADATE,JOBNO  
+      DIMENSION ITYP(30),B(6,6),AFJ(6,1),A(6,210),AFX(210),MILL(90),  
+     1 FA(35),FL(35),FI(35),KK(35),II(35),SN(35),CN(35),ISUP(30),X(30),         
+     2 Y(30),Z(210),R(210),DEPTH(35),D(4100),AFK(210,1),C(210,6),     
+     3 RR(210,1),Q(210,1),ZZ(210,1),CC(210),DK(90,90),ITY(30),ISU(30) 
+      EQUIVALENCE(R(1),RR(1,1)),(Z(1),ZZ(1,1)),(AFX(1),AFK(1,1)),     
+     1 (CC(1),C(1,1))         
+      BAM=3HBBB     
+      CALL IFILE(1,BAM)       
+      K1=90         
+      K2=210        
+    2 FORMAT(2F)    
+    3 FORMAT(3I)    
+    7 FORMAT(2X,I2,F10.2,2F9.2)         
+   33 FORMAT(2I,3F) 
+   50 FORMAT(2I)    
+   44 FORMAT(3X,I2,4X,I2,1H-,I2,3X,F8.1,3X,F7.2,3X,F6.2,3X,F6.2)      
+  121 FORMAT(1H1/////)        
+  122 FORMAT(///)   
+  522 FORMAT(15X,5HJOINT,I4,5X,13H--PIN-SUPPORT)  
+  523 FORMAT(15X,5HJOINT,I4,5X,'--FIXED SUPPORT')   
+  524 FORMAT(15X,5HJOINT,I4,5X,15H--HORIZ. ROLLER)
+  525 FORMAT(15X,5HJOINT,I4,5X,14H--VERT. ROLLER) 
+ 5020 FORMAT(1H1)   
+ 5051 FORMAT(1H0,1X,'JOINT  X(FT)   Y(FT)') 
+ 5052 FORMAT(1H1////26X,11HRIGID FRAME,/,26X,11(1H=),//24X, 
+     1 16HJOINT LOCATIONS  ////)        
+ 5053 FORMAT(1H1,/2X,A9,21X,'RIGID FRAME'15X,'JOB NO. ',A9,/32X,      
+     111('='),//)        
+ 5054 FORMAT(///22X,'MEMBER DATA'/1H0,'MEMBER  JOINTS'3X,   
+     1 'I(IN**4)  A(IN**2)   L(FT)    D(IN)')     
+ 5056 FORMAT(1X,I2,3X,I3,F10.1,F9.1,F11.1,F11.1)  
+ 5059 FORMAT(3X,I2,2X,2F9.3,F9.3)       
+ 5061 FORMAT(1H0,11X,12HLOADING DATA //1X,5HJOINT,        
+     128H    H(K)      V(K)   MOM(KF)   )         
+ 5060 FORMAT(3X,I2,3X,F6.2,2X,F6.2)     
+ 6066 FORMAT(//11X,13HDISPLACEMENTS///1X,35HJOINT    DX(IN)   DY(IN)  RO        
+     1T(RAD)    )   
+ 6067 FORMAT(//21X,13HMEMBER FORCES///) 
+ 6068 FORMAT(1X,'MEM.  JT.   SHEAR(K) AXIAL(K)  MOMENT(KF) ',        
+     1'STRESS(KSI)')
+ 6821 FORMAT(I,3F)  
+ 6996 FORMAT(2A4)    
+ 7777 FORMAT(I2)    
+ 7831 FORMAT(10X,50HMAX. NUMBER OF JOINTS 30--MAX.NUMBER OF MEMBERS 35 )        
+      CALL DATE(ADATE)        
+C****MODULUS OF ELASTICITY IN K.S.I.    
+      FE=30000.     
+C*************************    
+      READ (1,6996) JOBNO     
+      WRITE(5,5053)ADATE,JOBNO        
+  850 WRITE(5,5051)         
+ 1000 READ(1,3) NJ,NE,NS      
+      IF((NE.LE.35).AND.(NJ.LE.30)) GO TO  7832   
+      WRITE(5,7831)         
+      STOP
+ 7832 CONTINUE      
+      NQE=6*NE      
+      NQ=NJ*3       
+      DO 1 J=1,NJ   
+      ITYP(J)=0
+      ISUP(J)=0
+      N=3*J-2       
+      READ(1,2)X(J),Y(J)      
+    1 WRITE(5,5060)J,X(J),Y(J)        
+      WRITE(5,5054)         
+      DO 111 M=1,NE 
+      READ (1,33) II(M),KK(M),FI(M),FA(M),DEPTH(M)
+      I=II(M)       
+      K=KK(M)       
+      FL(M)=((Y(K)-Y(I))**2+(X(K)-X(I))**2)**.5   
+      SN(M)=(Y(K)-Y(I))/FL(M) 
+      CN(M)=(X(K)-X(I))/FL(M) 
+      IF(FA(M))6021,6021,111  
+ 6021 FA(M)=FI(M)/20.         
+  111 WRITE(5,44) M,I,K,FI(M),FA(M),FL(M),DEPTH(M)        
+      DO 957 I=1,NS 
+  957 READ(1,50)ISU(I),ITY(I) 
+      KI=0
+      DO 959 I=1,NJ 
+      DO 958 J=1,NS 
+      IF(ISU(J).NE.I) GO TO 958         
+      KI=KI+1       
+      ISUP(KI)=ISU(J)         
+      ITYP(KI)=ITY(J)         
+  958 CONTINUE      
+  959 CONTINUE      
+C 2=PIN   3=FIXED   4=HOR.ROLL.   5=VERT.ROLL.    
+      WRITE(5,5052)         
+      CALL PLOP(X,Y,NJ,MILL)        
+      WRITE(5,122)
+      DO 16 I=1,NQ  
+      MILL(I)=0     
+   16 AFK(I,1)=0    
+      NQT=NQ*(NQ+1)/2         
+      DO 1616 I=1,NQT         
+ 1616 D(I)=0        
+      IXX=1         
+      ISS=1         
+      DO 11 I=1,NJ  
+      ICOORD=I*3-2  
+      JCOORD=ICOORD+2         
+      ISX=ITYP(ISS) 
+      IF(I.EQ.ISUP(ISS)) GO TO 12       
+      DO 13 M1=ICOORD,JCOORD  
+      MILL(IXX)=M1  
+   13 IXX=IXX+1     
+      GO TO 11      
+   12 GO TO (559,559,558,557,556),ISX   
+  557 WRITE(5,524) I        
+      GO TO 560     
+  556 WRITE(5,525)I         
+  560 MILL(IXX)=JCOORD-6+ISX  
+      IXX=IXX+1     
+      MILL(IXX)=JCOORD        
+      IXX=IXX+1     
+      GO TO 14      
+  559 WRITE(5,522)I         
+      MILL(IXX)=JCOORD        
+      IXX=IXX+1     
+      GO TO 14      
+  558 WRITE(5,523)I         
+   14 ISS=ISS+1     
+   11 CONTINUE      
+      DO 6 N=1,NE   
+      CALL SETUP(N,SN,CN,II,KK,FE,FI,FL,FA,A,B,NE,NQ,K2)    
+      CALL LW(A,B,C,NQ,6,6,2,6,K2,6,6,K2,6)       
+      NQN=0         
+      DO 116 J=1,NQ 
+      DO 116 I=J,NQ 
+      NQN=NQN+1     
+      DO 116 K=1,6  
+  116 D(NQN)=D(NQN)+C(I,K)*A(K,J)       
+    6 CONTINUE      
+      IX=IXX-1      
+      NX=0
+      DO 88 J=1,IX  
+      IXN=MILL(J)   
+      Q(J,1)=Q(IXN,1)         
+      DO 88 I=J,IX  
+      NX=NX+1       
+      LX=(MILL(J)-1)*NQ-((MILL(J)-1)*(MILL(J)-2))/2+MILL(I)-MILL(J)+1 
+   88 D(NX)=D(LX)   
+      NQ=IX         
+      DO 276 I=1,NQ 
+      R(I)=0        
+      CALL LZC(D,Z,NQ,I,CC)   
+      DO 276 J=1,NQ 
+  276 DK(I,J)=Z(J)  
+ 6789 WRITE(5,5053)ADATE,JOBNO
+      WRITE(5,5061)         
+      NQ=IX         
+      NZ=3*NJ       
+      DO 6788 N=1,NZ
+ 6788 Q(N,1)=0      
+ 6877 READ (1,6821) J,AQ1,AQ2,AQ3       
+      IF(J.LE.0) GO TO 6889   
+      IF(J.EQ.99) GO TO 1000  
+      N=3*J-2       
+      Q(N,1)=AQ1    
+      Q(N+1,1)=AQ2  
+      Q(N+2,1)=AQ3  
+ 1025 WRITE(5,7)J,Q(N,1),Q(N+1,1),Q(N+2,1)      
+      GO TO 6877    
+ 6889 CONTINUE      
+      DO 1888 J=1,IX
+      IXN=MILL(J)   
+ 1888 Q(J,1)=Q(IXN,1)         
+      CALL LW(DK,Q,RR,NQ,NQ,1,1,K1,K1,K2,1,K2,1)  
+      J=1 
+      NQ=3*NJ       
+      DO 1010 I=1,NQ
+  798 IF(MILL(J).NE.I) GO TO 1010       
+  797 AFK(I,1)=RR(J,1)        
+      J=J+1         
+ 1010 CONTINUE      
+      WRITE(5,6066)         
+      DO 1020 I=1,NJ
+      M=I*3-2       
+      DIS1=AFK(M,1)*12.       
+      DIS2=AFK(M+1,1)*12.     
+      DIS3=AFK(M+2,1)*12.     
+ 1020 WRITE(5,5059)I,DIS1,DIS2,DIS3   
+      WRITE(5,6067)         
+      WRITE(5,6068)         
+      DO 1019 N=1,NE
+      CALL SETUP(N,SN,CN,II,KK,FE,FI,FL,FA,A,B,NE,NQ,K2)    
+      CALL LW(A,AFK,ZZ,6,NQ,1,1,6,K2,K2,1,K2,1)   
+      CALL LW(B,ZZ,AFJ,6,6,1,1,6,6,K2,1,6,1)      
+      KL=II(N)      
+      DO 9010 I=1,2 
+      K=3*I-2       
+      STRESS=ABS(AFJ(K+2,1))*6.*DEPTH(N)/FI(N)+ABS(AFJ(K+1,1))/FA(N)  
+      GO TO (8019,8020),I     
+ 8020 AFJ(K,1)=-AFJ(K,1)      
+      AFJ(K+1,1)=-AFJ(K+1,1)  
+      AFJ(K+2,1)=-AFJ(K+2,1)  
+ 8019 WRITE(5,5056)N,KL,AFJ(K,1),AFJ(K+1,1),AFJ(K+2,1),STRESS       
+ 9010 KL=KK(N)      
+ 1019 CONTINUE      
+      GO TO 6789    
+  185 STOP
+      END 
+      SUBROUTINE PLOP(X,Y,NJ,MXY)   
+      DIMENSION X(1),Y(1),MXY(29),FMT(31),PART(2) 
+      DATA FMT(1),FMT(31),PART(1)/5H(11X,,5H 1X) ,5HA2,  /  
+      DATA PART(2),IBLANK/5HI2,  ,5H     /        
+      BIG=X(1)      
+      DO 15 I=1,NJ  
+      IF(BIG.LT.X(I)) BIG=X(I)
+   15 IF(BIG.LT.Y(I)) BIG=Y(I)
+      WRITE(5,23) 
+    7 FORMAT(1H )   
+   23 FORMAT(//)    
+      XN=25./BIG    
+      DO 10 MNJ=1,29
+      DO 5 I=1,29   
+      MXY(I)=IBLANK 
+    5 FMT(I+1)=PART(1)        
+      N=30-MNJ      
+      IFLAG=0       
+      DO 1 J=1,NJ   
+      MY=Y(J)*XN+2.5
+      IF(MY.NE.N) GO TO 1     
+      IFLAG=1       
+      MX=X(J)*XN+2.5
+      MXY(MX)=J     
+      FMT(MX+1)=PART(2)       
+    1 CONTINUE      
+      IF(IFLAG)3,3,6
+    3 WRITE(5,7)  
+      GO TO 10      
+    6 WRITE(5,FMT)(MXY(J),J=1,29)     
+   10 CONTINUE      
+      RETURN        
+      END 
+      SUBROUTINE LW(A,B,C,M,N,K,JJ,L1,L2,L3,L4,L5,L6)       
+      DIMENSION A(L1,L2),B(L3,L4),C(L5,L6)        
+      DO 10 I=1,M   
+      DO 10 J=1,K   
+      GO TO (4,4,3),JJ        
+    4 C(I,J)=0.     
+    3 DO 12 L=1,N   
+      GO TO(1,2,1),JJ         
+    1 C(I,J)=C(I,J)+A(I,L)*B(L,J)       
+      GO TO 12      
+    2 C(I,J)=C(I,J)+A(L,I)*B(L,J)       
+   12 CONTINUE      
+   10 CONTINUE      
+      RETURN        
+      END 
+      SUBROUTINE SETUP(N,SN,CN,II,KK,FE,FI,FL,FA,A,B,NE,NQ,K2)        
+      DIMENSION SN(1),CN(1),II(1),KK(1),FI(1),FL(1),FA(1),A(6,K2),B(6,6)        
+      DO 6 J=1,6    
+      DO 7 I=1,NQ   
+    7 A(J,I)=0      
+      DO 6 I=1,6    
+    6 B(I,J)=0      
+      L=II(N)*3-2   
+      DO 5 K=1,2    
+      J=(K-1)*3     
+      A(J+1,L)=SN(N)
+      A(J+2,L)=CN(N)
+      L=L+1         
+      A(J+1,L)=-CN(N)         
+      A(J+2,L)=SN(N)
+      L=L+1         
+      A(J+3,L)=1    
+    5 L=KK(N)*3-2   
+      K=1 
+      F=FE*FI(N)/144.         
+      S=FL(N)       
+      V=FE*FA(N)    
+      B(K,K)=12.*F/(S**3)     
+      B(K,K+2)=6.*F/(S**2)    
+      B(K,K+3)=-12.*F/(S**3)  
+      B(K,K+5)=6.*F/(S**2)    
+      K=K+1         
+      B(K,K)=V/S    
+      B(K,K+3)=-V/S 
+      K=K+1         
+      B(K,K)=4.*F/S 
+      B(K,K+1)=-6.*F/(S**2)   
+      B(K,K+3)=2.*F/S         
+      K=K+1         
+      B(K,K)=12.*F/(S**3)     
+      B(K,K+2)=-6.*F/(S**2)   
+      K=K+1         
+      B(K,K)=V/S    
+      K=K+1         
+      B(K,K)=4.*F/S 
+      DO 8 I=1,6    
+      DO 8 J=1,6    
+      IF(B(I,J))8,9,8         
+    9 B(I,J)=B(J,I) 
+    8 CONTINUE      
+      RETURN        
+      END 
+      SUBROUTINE LZC(A,C,N,LX,Z)        
+      DIMENSION A(1),C(1),Z(1)
+      IX(I,J)=(J-1)*N-((J-1)*(J-2))/2+I-J+1       
+      IF(LX.GT.1) GO TO 9     
+      A(1)=SQRT(A(1))         
+      DO 1 J=2,N    
+    1 A(J)=A(J)/A(1)
+      DO 19 I=2,N   
+      JXX=IX(I,I)   
+      NI=I-1        
+      SUM=0         
+      DO 6 J1=1,NI  
+      JX=IX(I,J1)   
+    6 SUM=SUM+A(JX)**2        
+      A(JXX)=SQRT(A(JXX)-SUM) 
+      IF(I.EQ.N) GO TO 9      
+   50 NT=I+1        
+      DO 19 J=NT,N  
+      IJX=IX(J,I)   
+      SUM=0.        
+      DO 8 J1=1,NI  
+      J2=IX(I,J1)   
+      J3=IX(J,J1)   
+    8 SUM=SUM+A(J2)*A(J3)     
+   19 A(IJX)=(A(IJX)-SUM)/A(JXX)        
+    9 DO 12 I=1,N   
+   12 C(I)=0.       
+      C(LX)=1.      
+      Z(1)=C(1)/A(1)
+      DO 21 J=2,N   
+      JXX=IX(J,J)   
+      SUM=0.        
+      NJX=J-1       
+      DO 22 I=1,NJX 
+      IXX=IX(J,I)   
+   22 SUM=SUM+A(IXX)*Z(I)     
+   21 Z(J)=(C(J)-SUM)/A(JXX)  
+      INX=IX(N,N)   
+      C(N)=Z(N)/A(INX)        
+      DO 108 J=2,N  
+      K=N-J+1       
+      SUM=0.        
+      IXX=IX(K,K)   
+      L=K+1         
+      DO 208 I=L,N  
+      JXX=IX(I,K)   
+  208 SUM=SUM+A(JXX)*C(I)     
+  108 C(K)=(Z(K)-SUM)/A(IXX)  
+      RETURN        
+      END 
+
