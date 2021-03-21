@@ -1,0 +1,1858 @@
+
+
+CHAPTER 5 - NONDIRECTORY DEVICES
+
+
+This chapter explains the unique features of each standard non-
+directory I/O device.  Each device accepts the programmed operators
+explained in Chapter 4, unless otherwise indicated.  Table 
+5-l is a summary of the characteristics of all nondirectory
+devices.  Buffer sizes are given in octal and include three
+bookkeeping words.  The user may determine the physical charac-
+teristics associated with a logical device name by calling the
+DEVCHR UUO (refer to Paragraph 4.9.4.2).
+
+
+
+
+
+
+(Table 5-l   Nondirectory Devices)
+
+
+
+5.l  CARD PUNCH
+
+The device mnemonic is CDP; the buffer size is dependent on the
+data mode.
+
+   Data Mode                  Buffer Size
+   ---------                  -----------
+
+   A, AL           23  (20  data) words - 80 7-bit ASCII char.
+                     8    8
+
+   I, IB           36  (33  data) words - 80 l2-bit bytes
+                     8    8
+
+   B               35  (32  data, 33  punched) words - 26 data
+                     8    8         8
+                   words, word count and checksum punched.
+
+
+5.l.l  Concepts
+
+The header card is the first card of an ASCII file and identifies
+the card code used (refer to Table 5-2).  This card is not punched
+for data modes other than ASCII.  The header card has a l2-2-4-8
+in column l, and a 0-l-6-7 in columns 2 through 80.
+
+The end-of-file (EOF) card is the last card of each output file.
+This card is punched for all data modes.  The end-of-file card
+has a l2-ll-0-l in column l, and a 0-l-6-7 in columns 2 through
+80.
+
+
+5.l.2  Data Modes
+
+5.l.2.l  A(ASCII) - ASCII characters are converted to card codes
+and punched (up to 80 characters per card).  Tabs are simulated
+by punching from l to 8 blank columns; form-feeds and carriage
+returns are ignored.
+
+Line-feeds cause a card to be punched.  All other nontransla-
+table ASCII characters cause a question mark to be punched.
+Cards can be split between buffers.  Attempting to punch more
+than 80 columns per card causes the error bit IOBKTL (bit 2l of
+status word) to be set.  The CLOSE will punch the last partial
+card and then punch an EOF card.
+
+
+                           TABLE 5-2
+                        PDP-l0 Card Codes
+
+
+        PDP-l0   DEC      DEC             PDP-l0   DEC     DEC
+CHAR    ASCII    029      026     CHAR    ASCII    029     026
+----    ------   ---      ---     ----    ------   ---     ---
+
+Space    040                               l00     8-4     8-4
+
+         04l     ll-8-2   l2-8-7    A      l0l     l2-l    l2-l
+
+ "       042     8-7      0-8-5     B      l02     l2-2    l2-2
+
+         043     8-3      0-8-6     C      l03     l2-3    l2-3
+
+ $       044     ll-8-3   ll-8-3    D      l04     l2-4    l2-4
+   
+         045     0-8-4    0-8-7     E      l05     l2-5    l2-5
+
+         046     l2       ll-8-7    F      l06     l2-6    l2-6
+
+ '       047     8-5      8-6       G      l07     l2-7    l2-7
+
+ (       050     l2-8-5   0-8-4     H      ll0     l2-8    l2-8
+
+ )       05l     ll-8-5   l2-8-4    I      lll     l2-9    l2-9
+
+ *       052     ll-8-4   ll-8-4    J      ll2     ll-l    ll-l
+
+ +       053     l2-8-6   l2        K      ll3     ll-2    ll-2
+
+ ,       054     0-8-3    0-8-3     L      ll4     ll-3    ll-3
+
+ -       055     ll       ll        M      ll5     ll-4    ll-4
+
+ .       056     l2-8-3   l2-8-3    N      ll6     ll-5    ll-5
+
+ /       057     0-l      0-l       O      ll7     ll-6    ll-6
+
+ 0       060     0        0         P      l20     ll-7    ll-7
+ 
+ l       06l     l        l         Q      l2l     ll-8    ll-8
+
+ 2       062     2        2         R      l22     ll-9    ll-9
+
+ 3       063     3        3         S      l23     0-2     0-2
+
+ 4       064     4        4         T      l24     0-3     0-3
+
+ 5       065     5        5         U      l25     0-4     0-4
+
+ 6       066     6        6         V      l26     0-5     0-5
+
+ 7       067     7        7         W      l27     0-6     0-6
+
+ 8       070     8         8        X      l30     0-7     0-7
+
+ 9       07l      9       9         Y      l3l     0-8     0-8
+
+ :       072     8-2 or   ll-8-2    Z      l32     0-9     0-9
+                 ll-0*    or ll-0*
+
+ ;       073     ll-8-6   0-8-2            l33     l2-8-2  ll-8-5
+
+         074     l2-8-4   l2-8-6           l34     ll-8-7  8-7
+
+ =       075     8-6      8-3              l35     0-8-2   l2-8-5
+
+         076     0-8-6    ll-8-6    %      l36     l2-8-7  8-5
+
+ ?       077     0-8-7 or  l2-8-2   !      l37     0-8-5   8-2
+                 l2-0*     or l2-0**
+
+
+* Either is accepted on input, but ll-8-2 or 8-2 is punched.
+**  Either is accepted on input, but l2-8-2 or 0-8-7 is punched.
+
+
+Cards are normally punched with DEC026 card codes.  If bit 29
+(ocatal l00) of the status word is on (from INIT, OPEN or
+SETSTS), cards are punched with DEC029 codes (see Table 5-2,
+PDP-l0 Card Codes).  The first card of any file (the header 
+card) indicates the card code used (l2-0-2-4-6-8 punch in colum
+l for DEC029 card codes; l2-2-4-8 punch in column l for DEC026
+card codes).
+
+
+5.l.2.2  AL(ASCII Line) - The same as A mode.
+
+
+5.l.2.3  I(Image) - Up to 26 2/3 data words are punched in
+columns l through 80.  The buffer set up by the monitor depends
+on the mode used.  Image binary causes exactly one card to 
+be punched for each output.  The CLOSE punches the last partial
+card, and then punches an EOF card.
+
+
+5.l.2.4  IB(Image Binary) - Same as I.
+
+
+5.l.2.5  B(Binary) - Column l contains the word count in rows
+l2-3.  A 7-9 punch is in column l.  Column 2 contains a checksum
+as described for the paper-tape reader (refer to Paragraph 
+5.7.l.5); columns 3 through 80 contain up to 26 data words; 3
+columns per word.  Binary causes exactly one card to be punched
+for each output.  The CLOSE punches the last partial card, and then
+punches an EOF card.
+
+
+5.l.3  Special Programmed Operator Service
+
+Following a CLOSE, an EOF card is punched.  Both the header card
+of the file (identifies the card code used) and the EOF card are
+laced (i.e., all holes are punched) in columns 2 through 80
+for eacy file identification.  These laced punches are ignored
+by the card reader service routine.
+
+After each interrupt, the card punch stores the results of a CONI
+in the DEVSTS word of the device data block.  The DEVSTS UUO
+is used to return the contents of the DEVSTS word to the user
+(refer to Paragraph 4.9.3.4).
+
+
+5.l.4  File Status  (Refer to Appendix D)
+
+The file status of the card punch is shown below.
+
+
+
+
+
+
+
+
+
+5.2  CARD READER
+
+The card reader device mnemonic is CDR; the buffer size is
+36  (33  data0 words.
+  8    8
+
+
+5.2.l  Concepts
+
+A header card is the first card of the file and identifies the
+card code used.  The header card is used only when changing from
+or back to installation standard on ASCII input.  The header
+card must not be present with any other data modes; if present,
+the header card is treated as incorrect format.  The header card
+has a l2-2-4-8 in column l.
+
+A card with a l2-ll-0-l punched in column l is an EOF card.  
+Columns 2 through 80 are ignored.  The EOF card has the same
+effect as the EOF key on the card reader.  This key must be
+depressed or the end-of-file card must be present at the end
+of each input file for all data modes.
+
+
+5.2.2  Data Modes
+
+5.2.2.l  A(ASCII) - All 80 columns of each card are read and
+translated to 7-bit ASCII code.  Blank columms are translated
+to spaces.  At the end of each card a carriage return/line feed
+is appended.  As many complete cards as can fit are placed in the
+input buffer, but cards are not split between two buffers.
+Using the standard-sized buffer, only one card is placed in 
+each buffer.
+
+Cards are normally translated as DEC026 card codes (refer to 
+PDP-l0 System Reference Manual).  If a card containing a 
+l2-0-2-4-6-8 punch in column l is encountered, any following 
+cards are translated as DEC029 codes (refer to Table 5-2)
+until the 029 conversion mode is turned off.  The 029 mode is
+turned off either by a RELEASE command or by a card containing
+a l2-2-4-8 punch in column l.  Columns 2 through 80 of both of
+these cards are ignored.
+
+
+5.2.2.2  AS(ASCII Line) - This mode is the same as the A mode.
+
+
+5.2.2.3  I(Image) - All l2 punches in all 80 columns are packed
+into the buffer as l2-bit bytes.  The first l2-bit byte is
+column l.  The last word of the buffer contains columns 79   
+and 80 as the left and middle bytes, respectively.  The EOF
+card and the EOF button are processed as in the A mode.  Cards
+are not split between two buffers.
+
+
+5.2.2.4  IB(Image Binary) - This mode is the same as I.
+
+
+5.2.2.5  B(Binary) - Card column l must contain 7-9 punch to verify  
+that the card is in binary format.  Column l also contains the
+word count in rows l2 through 3.  The absence of the 7-9 punch
+results in setting the IOIMPM (bit l8 of status word) flag in 
+the card reader status word.  Card column 2 must contain a 
+l2-bit checksum as described for the paper-tape binary format.
+Columns 3 through 80 contain binary data, 3 columns per word
+for up to 26 words.  Cards are not split between two buffers.
+The EOF card and the EOF button are processed the same as in
+the A mode.
+
+
+5.2.3  Special Programmed Operator Service
+
+The card reader, after each interrupt, stores the results of
+a CONI in the DEVSTS word in the device data block.  The DEVSTS UUO
+is used to return the contents of the DEVSTS word to the user
+(refer to Paragraph 4.9.3.4).
+
+
+5.2.4  File Status (Refer to Appendix D)
+
+The file status of the card reader is shown below
+
+
+
+
+
+
+
+
+
+
+
+
+5.3  DISPLAY WITH LIGHT PEN
+
+The device mnemonic is DIS; there is no buffer because the 
+display uses device-dependent dump mode only.
+
+
+5.3.l  Data Modes
+
+For ID(IMAGE DUMP - 25), an arbitrary length in the user area
+may be displayed on the scope.  The command list format is
+as described in Chapter 4 with the addition for the Type 30,
+VR30 and VPl0 display, that, if RH=0, and LH  0, then
+LH specifies the intensity for the following data (4 to l3).
+
+
+5.3.2  Background
+
+The monitor service routine for the Type 30, VR30 and VPl0 
+maintains a flicker-free picture on the display during time-
+sharing; therefore, the picture data must be available for display
+at least every two jiffies.  This time requirement necessitates
+that the display data remain in core; also, the user program must
+remain in core.  To minimize swapping of other programs and to
+make available a larger block of free core for other users, the
+program is shuffled toward the top of core between pictures.
+
+
+5.3.3  Display UUOs
+
+The I/O UUOs for both displays operate as follows:
+
+   INIT D, l5            ;mode l5 only
+   SIXBIT/DIS/           ;device name
+   0                     ;no buffers used
+   ERROR RETURN          ;display not available
+   NORMAL RETURN
+   CLOSE D,              ;stops display and
+     or                  ;releases device as
+   RELEAS D,             ;described in Chapter 4
+
+
+5.3.3.l  INPUT D, ADR - If a light pen hit has been detected since
+the last INPUT command, then C(ADR) is set to the location of
+last light pen hit.  If no light pen hit has been detected
+since last INPUT command, the C(ADR) is set to -l.
+
+
+5.3.3.2  OUTPUT D, ADR - ADR specifies the first address of a table
+of pointers.  This table is composed of pointers with the following
+format:
+
+
+
+
+
+
+
+For the Type 30, VR30 and VPl0 Display:
+
+If LH = 0 and RH = 0, then this is the end of the command list.
+
+IF LH   0 and RH = 0, then LH is the desired intensity for the
+                      following data or commands.  The intensity
+                     ranges from 4 to l3, where 4 is the dimmest
+                      and l3 is the brightest.
+
+If LH = 0 and RH   0, then RH is the address of the next pointer.
+                      Successive pointers are interpreted 
+                      beginning at RH.
+
+If LH   0 and RH   0, then -LH words beginning at address RH+l
+                      are output as data to the display.  The 
+                      format of the data word is the following:
+
+
+
+
+
+
+
+For the Type 340B Display:
+
+If RH = 0, then this is the end of the command list.
+
+If LH = 0 and RH   0, then RH is the address of the next pointer.
+                      Successive pointers are interpreted 
+                      beginning at RH.
+
+If LH   0 and RH   0, then -LH words beginning at address RH+l
+                      are output as data to the display.  The
+                      format of the data word is described in the
+                      Precision Incremental CRT Display Type
+                      340 Maintenance Manual.
+
+An example of a valid pointer list for the VR30 display is:
+
+
+OUTPUT D, LIST                   ;output data
+                                 ;pointed to by list
+LIST;  XWD     5,0               ;intensity 5 (dim)
+       IOWD    l,A               ;plot A
+       IOWD    5,SUBPl           ;plot subpicture l
+       XWD     l3,0              ;intensity l3 (bright)
+       IOWD    l,C               ;plot C
+       IOWD     2,SUBP2          ;plot subpicture 2
+       XWD     0,LISTl           ;transfer to list l
+
+LISTl: XWD     l0,0              ;intensity l0 (normal)
+       IOWD    l,B               ;plot B
+       IOWD    l,D               ;plot D
+       XWD     0,0               ;end of command list
+       OUTPUT  D, LIST           ;output data
+                                 ;pointed to by list
+
+A:     XWD     6,6               ;Y=   6, X=6
+B:     XWD     70,l05            ;Y=  70, X=l05
+C:     XWD     l05,70            ;Y= l05, X=70
+D:     XWD     l000,200          ;Y=l000, X=200
+
+SUBPl: BLOCK   5                 ;subpicture l
+SUB2:  BLOCK   2                 ;subpicture 2
+
+An example of a valid pointer list for the type 340B Display is:
+
+         OUTPUT   D, LIST        ;output data pointed
+                                 ;to by pointer in list
+
+LIST:    IOWD     l,A            ;set starting point to (6,6)
+         IOWD     5,SUBPl        ;draw a circle
+         IOWD     l,C            ;set starting point to (70,l05)
+         IOWD     5,SUBPl        ;draw a circle
+         IOWD     l,B            ;set starting point to (l05,70)
+         IOWD     2,SUBP2        ;draw a triangle
+         IOWD     0,LISTl        ;transfer to listl
+
+LISTl:   IOWD     l,D            ;set starting point to (l00,-200)
+         IOWD     5,SUBPl        ;draw a circle
+         IOWD     l,A            ;set starting point to (6,6)
+         IOWD     2,SUBP2        ;draw a triangle
+         XWD      0,0            ;stop
+
+A:       X=6      Y=6
+B:       X=l05    Y=70
+C:       X=70     Y=l05
+D:       X=l000   Y=200
+
+SUBPl:   BLOCK    5              ;draw a circle
+SUBP2    BLOCK    2              ;draw a triangle
+
+The example shows the flexibility of this format.  The user can
+display a subpicture by setting up a pointer.  He can also display
+the same subpicture in many different places by setting up pointers
+to the subpicture, each preceded by a pointer to commands for
+the display to reset its coordinates.
+
+
+5.3.4  File Status (See Appendix D)
+
+The file status of the display is shown below.
+
+
+
+
+
+
+
+
+5.4  LINE PRINTER
+
+The device mnemonic is LPT; the buffer size is 34  (33  data) words.
+                                                 8    8
+
+
+5.4.l  Data Modes
+
+5.4.l.l  A(ASCII) - ASCII Characters are transmitted to the line
+printer exactly as they appear in the buffer.  Refer to the PDP-l0
+System Reference Manual for a list of the vertical spacing charac-
+teristics.
+
+
+5.4.l.2  AL(ASCII Line) - This mode is exactly the same as A and
+is included for programming convenience.  All format control must
+be performed by the user's program; this includes placing a 
+RETURN, LINE-FEED sequence at the end of each line.
+
+
+5.4.l.3  I(Image) - This mode is the same as A(ASCII) mode.
+
+
+5.4.2  Special Programmed Operator Service
+
+The first output programmed operator of a file and the CLOSE at
+the end of a file cause an extra form-feed to be printed to
+keep files separated.
+
+After each interrupt, the line printer stores the results of a
+CONI in the DEVSTS word of the device data block.  The DEVSTS UUO
+is used to return the contents of the DEVSTS word to the user
+(refer to Paragraph 4.9.3.4).
+
+5.4.3  File Status (See Appendix D)
+
+The file status of the line printer is shown below:
+
+
+
+
+
+
+
+
+
+
+5.5  MAGNETIC TAPE
+
+Magnetic tape format is industry compatible, 7- or 9-channel
+200, 556, and 800 bits/in. (see description below).  The 
+device mnemonic is MTA0, MTAl, ...,MTA7; the buffer size is
+203  (200  data) words.
+   8     8
+
+
+5.5.l  Data Modes
+
+5.5.l.l  A(ASCII) - Data appears to be written on magnetic tape
+exactly as it appears in the buffer.  No processing or check-
+summing of any kind is performed by the service routine.  The
+parity checking of the magnetic tape system is sufficient
+assurance that the data is correct.  Normally, all data, both binary
+and ASCII, is written with odd parity and at 800 bits per inch
+unless changed by the installation.  A maximum of 200  words per
+                                                      8
+record is allowed if the monitor has set up the buffer ring.
+If the user builds his own buffers, he may specify any number
+of words per record.  The word count is not written on the tape.
+If an I/O error occurs or an end-of-tape is reached, reading
+ahead ceasing on input and implied output ceases on output.
+
+
+5.5.l.2  AL(ASCII Line) - The mode is the same as A.
+
+
+5.5.l.3  I(Image) - The mode is the same as A, but data consists
+of 36-bit words.
+
+
+5.5.l.4  IB(Image Binary) - The mode is the same as I.
+
+
+5.5.l.5  DR(Dump Records) - Standard fixed length records (l28
+words is the standard unless installation standard is changed
+at MONGEN time) are read into or written from anywhere in the
+user's core area without regard to the standard buffering 
+scheme.  Control for read or write operations mustia a command
+list in core memory.  The command list format is described in
+Chapter 4.  For input oeprations, a new record is read for each
+word in the command list (except GOTO words); if the record
+terminates before the command word is satisified, the service
+routine reads the next records.  If the command word runs
+out before the record terminates, the remainder of the record
+is ignored.  For each output command word, enough standard length
+records are followed by one short record to exactly write all
+of the words on the tape.  If an I/O error occurs or the end-
+of-tape is reached, no additional commands are retrieved from a
+dump mode command list, and I/O is terminated.
+
+
+5.5.l.6  D(Dump) - Variable length records are read into or
+written from anywhere in the user's core area without regard 
+to the standard buffering scheme.  Control for read or write
+operations must be via a command list in core memory.  The
+command list format is described in Chapter 4.  For input
+operations a new record is read for each word in the command
+list (except GOTO words); if the record terminates before the
+command word is satisfied, the service routine skips to the next
+command word.  If the command word runs out before the record
+terminates, the remainder of the record is ignored.  For each
+output command word, exactly one record is written (refer to
+Paragraph 4.4.l.2 for command list format).
+
+
+5.5.2  Magnetic Tape Format
+
+Magnetic tape format can be generally described as unlabelled,
+industry-compatible format.  That is, as far as the user is
+concerned, the tape contains only data records and EOF marks,
+which signal the end of the data set or the end of the file.
+
+An EOF mark consists of a record containing a l7  (for
+                                                8
+7-channel tapes) or a 23  (for 9-channel tapes).  EOF marks
+                        8
+are used in the following manner:
+
+a.  No EOF mark precedes the first file on a magnetic tape.
+b.  An EOF mark follows every file.
+c.  Two EOF marks follow a file if that file is the last or
+    only file on the tape.
+
+Files are sequentially written on and read from a magnetic
+tape.  A file consists of an integral number of physical records,
+separated from each other by interrecord gaps (area on tape in
+which no data is written).  There may or may not be more
+than one logical record in each physical record.
+
+
+5.5.3  Special Programmed Operator Service
+
+CLOSE performs a special function for magnetic tape.  When an
+output file is closed (both dump and nondump), the I/O service
+routine automatically writes two EOF marks and backspaces over
+one of them.  If another file is opened, the second EOF mark
+is wiped out leaving one EOF mark between files.  At the end
+of the in-use portion of the tape, however, a double EOF 
+character, which is defined as the logical end of tape, appears.
+When an input dump file is closed, the I/O service routine
+automatically skips to the next EOF mark.
+
+After each interrupt, the magnetic tape service routine stores
+the results of a CONI in the DEVSTS word.  The DEVSTS UUO
+is used to return the contents of the DEVSTS word to the 
+user (refer to Paragraph 4.9.3.4).
+
+A special programmed operator called MTAPE provides for tape
+manipulation functons such as rewind, backspace record, backspace
+file, and 9-channel tape initialization.  The format is:
+
+   MTAPE D, FUNCTION
+
+where D is the device channel on which the magnetic tape unit 
+is initialized.  FUNCTION is selected according to Table 5-3.
+
+
+                             TABLE 5-3
+                           MTAPE FUNCTIONS
+
+Function                                  Action
+--------                                  ------
+
+   0               No operator, wait for spacing and I/O to finish.
+
+   l               Rewind to load point.
+
+   ll              Rewind and unload *
+
+   7               Backspace record
+
+   l7              Backspace files; implemented by a series of
+                   backspace record operations.
+
+   3               Write EOF.
+
+   6               Skip one record.
+
+   l3              Write 3 in. of blank tape.
+
+   l6              Skip one file; implemented by a series of skip
+                   record operations.
+
+   l0              Space to logical end of tape; terminates at
+                   either two consecutive EOF marks or at the 
+                   end of first record beyond end of tape marker.
+
+   l00             Initialize for Digital-compatible 9-channel **
+
+   l0l             Initialize for industry-compatible 9-channel tape ***
+
+
+*    On the 5l6 Magnetic Tape Control, this function is implemented    
+     as such, but earlier types of transports consider it only as
+     a REWIND function.
+
+**   Digital-compatible mode writes (or reads) 36 data bits in five
+     frames of a 9-track magnetic tape.  It can be any density, 
+     any parity, and is not industry compatible.  This mode is
+     in effect until a RELEAS D, or an MTAPE D, l0l is executed.
+
+***  Industry-compatible 9-channel mode writes (or reads) 32
+     data bits per word in four frames of a 9-track magtape and
+     ignores the last four bits of a word.  It must be 800 bits/in.
+     density, odd parity.
+
+
+MTAPE waits for the magnetic tape unit to complete the action in
+progress before performing the indicated function, including
+no operation (0).  Bits l8 through 25 of the status word are
+then cleared, the indicated function is initiated, and control
+is immediately returned to the user's program.  It is important
+to remember that when performing buffered input/output, the 
+I/O service routine can be reading several blocks ahead of the
+user's program.  MTAPE affects only the physical position of
+the tape and does not change the data that has already been
+read into the buffers.
+
+
+5.5.3.l  Use of the MTAPE Operator - MTAPE functions must be
+followed by MTAPE 0 if subsequent operations depend on
+the completion of the MTAPE function.  If this is not done,
+subsequent input and output UUOs are ignored until the magnetic
+tape control is freed.  This problem occurs frequently in 
+programs that issue a REWIND at the beginning of the program.
+The tape may actually be positioned at the beginning of the
+tape; however, the processing of the MTAPE function may cause
+the first input to be ignored.
+
+Issuing a backspace file command to a magnetic tape unit moves
+the tape in the reserse direction until the tape has:
+
+a.  passed the end of file mark.
+b.  Reached the beginning of the tape.
+
+The end of the backspace file operation positions the tape
+heads either immediately in front of a file mark or at the 
+beginning of the tape.
+
+In most cases, it is desirable to skip forward over this file
+mark.  This is decidedly not the case if the beginning of the
+tape is reached; in this case giving a skip file command would,
+indeed, skip the entire first file on the tape stopping at the
+beginning of the second file, rather than leaving the tape
+positioned at the beginning of the first file.  Therefore, a
+typical (incorrect) sequence for backspace file would be:
+
+   MTAPE MT,l7         ;backspace file
+   CALLI MT,WAIT       ;wait for completion
+   STATO MT,4000       ;beginning of tape?
+   MTAPE MT,l6        ;no, skip over file mark
+
+It is necessary to wait after the backspace file instruction to
+ensure that the tape is moved to the EOF mark or the beginning
+of the tape before testing to see whether or not it is the
+beginning of the tape.  The instruction CALLI MT, WAIT cannot
+be used for this purpose, it waits only for the completion of 
+I/O transfer operation.  (Backspace file is a spacing operation,
+not an I/O transfer operation.)  Instead, use the following
+sequence for backspace file:
+
+   MTAPE MT,l7        ;backspace file
+   MTAPE MT,0         ;wait for completion
+   STATO MT,4000      ;beginning of tape?
+   MTAPE MT,l6        ;no, skip over file mark
+
+The device service routine must wait until the magnetic tape
+control is free before processing the MTAPE MT,0 command, which
+tells the tape control to do nothing.  Thus, the service routine
+achieves the waiting period necessary for the completion of the
+previous operation and the proper positioning of the tape.
+
+
+5.5.4  9-channel Magtape
+
+Nine-channel magtape may be written and read in two ways: normal
+Digital-compatible format, and industry-compatible format.
+
+
+5.5.4.l  Digital Compatible Mode - Digital-compatible mode, the
+usual mode, allows old 7-channel user mode programs to read and
+write 9-channel tapes with no modification.  Digital-compatible
+modes writes 36 data bits in five bytes of a nine track magtape.
+It can be any density, and parity, and is not industry compatible.
+The software mode is specified in the usual manner during initial-
+ization or with a SETSTS.  User mode I/O is handled precisely as
+7-track magtape.  It is assumed that most DEC magtapes will be
+written and read in Digital-compatible mode.
+
+
+                        DATA WORD ON TAPE
+
+                              TRACKS
+                              ------
+
+   9      8      7      6      5      4      3      2      l
+
+  B0     Bl     B2     B3     B4     B5     B6     B7      P
+  B8     B9     Bl0    Bll    Bl2    Bl3    Bl4    Bl5     P
+  Bl6    Bl7    Bl8    Bl9    B20    B2l    B22    B23     P
+  B24    B25    B26    B27    B28    B29    (B30)  (B3l)   P
+  0      0      (B30)  (B3l)  B32    B33    B34    B35     P
+
+P  = Parity
+BN = Bit N in core.
+
+
+For the data word in core there are 5 magnetic tape bytes
+per 36-bit word.  Parity bits are unavailable to the user.
+Bits are written on tape as shown above; bits 30 and 3l are
+written twice and tracks 8 and 9 of byte 5 contain 0.
+On reading, parity bits and tracks 8 and 9 of byte 5 are
+ignored, the OR of bits (B30) is read into bit 30 of the
+data word, the OR of bits (B3l) is read into bit 3l.
+
+
+5.5.4.2  Industry-Compatible Mode - For reading and writing 
+industry-compatible 9-channel magtapes, MTAPE D, l0l UUO must
+be executed to set the status.  MTAPE D, l0l is meaningful for 
+9-channel magtape only and is ignored for all other devices.
+In the left half of the status word, bit 2 (which cannot be
+read by the user program) may be cleared, thus, the device
+is returned to 9-channel Digital-compatible status by a RELEAS,
+a call to EXIT, or an MTAPE D, l00 UUO.  These MTAPE UUOs act
+only as a switch to and from industry-compatible mode and affect
+I/O status only by setting the density to 800 bits/in. and
+odd parity.
+
+On INPUT, four 8-bit bytes are read into each word in the buffer,
+left-justified with the remaining four bits of the word containing
+error checking information.
+
+On OUTPUT, the leftmost four 8-bit bytes of each word in the 
+buffer are written out in four frames, with the remaining four
+rightmost bits of the word being ignored.
+
+
+                         DATA WORD ON TAPE
+
+                              TRACKS
+                              ------
+
+   9      8      7     6      5      4      3      2      l
+
+  B0     Bl     B2    B3     B4     B5     B6     B7     B32
+  B8     B9     Bl0   Bll    Bl2    Bl3    Bl4    Bl5    B33
+  Bl6    Bl7    Bl8   Bl9    B20    B2l    B22    B23    B34
+  B24    B25    B26   B27    B28    B29    B30    B3l    B35
+
+
+For data word in core, four magnetic tape bytes carry four
+8-bit bytes from the data word.  Parity bits are obtained as
+shown above when reading.  The rightmost four bits (32-35) are
+ignored on writing.
+
+
+5.5.4.3  Changing Modes - MTAPE CH, l0l automatically sets 
+density at 800 bits (i.e., 800 eight-bit bytes) per inch and
+sets odd parity.  Note that buffer headers are set up, when
+necessary by the monitor in the usual manner according
+to the I/O mode in which the device is initailized.  Byte
+pointers and byte counts in buffer header have to be changed
+by the user to operate on eight-bit bytes.
+
+
+5.5.5  File Status (Refer to Appendix D)
+
+The file status of the magnetic tape is shown below.
+
+
+
+
+
+
+
+
+
+
+
+5.6  PAPER-TAPE PUNCH
+
+The device mnemonic is PTP; the buffer size is 43  (40  data) words.
+                                                 8    8
+
+
+5.6.l  Data Modes
+
+5.6.l.l  A(ASCII) - The eighth hole is punched for all characters.
+Tape-feed without the eighth hold (000) is inserted after form-
+feed.  A rubout is inserted after each vertical or horizontal
+tab.  Null characters (000) appearing in the buffer are not
+punched.
+
+
+5.6.l.2  AL(ASCII) Line - The mode is the same as A mode.  Format
+control must be performed by the user's program.
+
+
+5.6.l.3  I(Image) - Eight-bit characters are punched exactly as
+they appear in the buffer with no additional processing.
+
+
+5.6.l.4  IB(Image Binary) - Binary words taken from the output
+buffer are split into six 6-bit bytes and punched with the
+eighth hold punched in each line.  There is no format control
+or checksumming performed by the I/O routine.  Data punched
+in this mode is read back by the paper-tape reader in the 
+IB mode.
+
+
+5.6.l.5  B(Binary) - Each bufferful of data is punched as one
+checksummed binary block as described for the paper-tape reader.
+Several blank lines are punched after each bufferful for
+visual clarity.
+
+
+5.6.2  Special Programmed Operator Service
+
+The first output programmed operator of a file causes approximately
+two fanfolds of blank tape to be punched as leader.  Following
+a CLOSE, an additional fanfold of blank tape is punched as
+trailer.  No EOF character is punched automatically.
+
+After each interrupt, the paper-tape punch stores the results
+of a CONI in the DEVSTS word of the device data block.  The
+DEVSTS UUO is used to return the contents of the DEVSTS word
+to the user (refer to Paragraph 4.9.3.4).
+
+
+5.6.3  File Status (Refer to Appendix D)
+
+The file status for the paper-tape punch is shown below.
+
+
+
+
+
+
+
+5.7  ER-TAPE READER
+
+The device mnemonic is PTR; the buffer size is 43  (40  data) words.
+                                                 8    8
+
+
+5.7.l  Data Modes (Input Only)
+
+NOTE:  To initialize the paper-tape reader, the input tape must
+be threaded through the reading mechanism and the FEED button
+must be depressed.
+
+
+5.7.l.l  A(ASCII) - Blank tape (000), RUBOUT (377), and null
+characters (200) are ignored.  All other characters are 
+truncated to seven bits and apper in the buffer.  The physical
+end of the paper tape serves as an EOF, but does not cause a 
+character to appear in the buffer.
+
+
+5.7.l.2  AL(ASCII Line) - Character processing is the same
+as for the A mode.  The buffer is terminated by LINE FEED,
+FORM or VT.
+
+
+5.7.l.3  I(Image) - There is no character processing.  The buffer
+is packed with 8-bit characters exactly as read from the input
+tape.  Physical end-of-tape is the EOF indication but does 
+not cause a character to appear in the buffer.
+
+
+5.7.l.4  IB(Image Binary) - Characters not having the eighth
+hole punched are ignored.  Characters are truncated to six bits
+and packed six to the word without further processinng.  This
+mode is useful for reading binary tapes having arbitrary 
+blocking format.
+
+
+5.7.l.5  B(Binary) - Checksummed binary data is read in the
+following format.  The right half of the first word of each
+physical block contains the number of data words that follow
+and the left contains half a folded checksum.  The checksum is
+formed by adding the data words using 2's complement arithmetic,
+then splitting the sum into three l2-bit bytes and adding these
+using l's complement arithmetic to form a l2-bit checksum.
+The data error status flag (refer to Table 4-7) is raised
+if the checksum miscompares.  Because the checksum  and
+word count appear in the input buffer, the maximum block length 
+is 40.  The byte pointer, however, is initialized so as not to
+pick up the word count and checksum word.
+
+Again, physical end of tape is the EOF indication, but does not
+result in putting a character in the buffer.
+
+
+5.7.2  Special Programmed Operator Service
+
+After each interrupt, the paper-tape reader stores the results
+of a CONI in the DEVSTS word of the device data block.  The
+DEVSTS UUO is used to return the contents of the DEVSTS word
+to the user (refer to paragraph 4.9.3.4).
+
+
+5.7.3  File Status (Refer to Appendix D)
+
+The file status of the paper-tape reader is shown below.
+
+Standard bits:
+
+
+
+
+
+
+
+
+5.8  PLOTTER
+
+The device mnemonic is PLT; the buffer size is 43  (40 data) words.
+                                                 8    8
+The plotter takes 6-bit characters with the bits of each
+character decoded as follows:
+
+                             -X      +X        +Y        -Y
+       PEN       PEN        DRUM    DRUM    CARRIAGE   CARRIAGE
+      RAISE     LOWER        UP     DOWN      LEFT      RIGHT
+
+
+Do not combine PEN RAISE or LOWER with any of the position
+function.s  (For more details on the incremental plotter,
+refer to the PDP-l0 System Reference Manual).
+
+
+5.8.l  Data Modes
+
+5.8.l.l  A(ASCII) - Five 7-bit characters per word are transmitted
+to the plotter exactly as they appear in the buffer.  The plotter
+is a 6-bit device, therefore, the leftmost bit of each character
+is ignored.
+
+5.8.l.2  AL(ASCII Line) - This mode is identical to the A mode.
+
+
+5.8.l.3  I(Image) - Six 6-bit characters per word are transmitted
+to the plotter exactly as they appear in the buffer.
+
+
+5.8.l.4  B(Binary) - This mode is identical to the I mode.
+
+
+5.8.l.5  IB(Image Binary) - This mode is identical to the I mode.
+
+
+5.8.l.6  DR(Dump Records) - This mode is not available.
+
+
+5.8.l.7  D(Dump) - This mode is not available.
+
+
+5.8.2  Special Programmed Operator Service
+
+The first OUTPUT operator causes the plotter pen to be 
+lifted from the paper before any user data is sent to the
+plotter.  The CLOSE operator causes the plotter pen to be
+lifted after all user data is sent to the plotter.  These
+two pen-up commands are the only modifications the monitor
+makes to the user output file.
+
+After each interrupt, the plotter stores the results of a CONI
+in the DEVSTS word of the device data block.  The DEVSTS UUO
+is used to return the contents of the DEVSTS word to the user
+(refer to Paragraph 4.9.3.4).
+
+
+5.8.3  File Status (Refer to Appendix D)
+
+The file status of the plotter is shown below:
+
+
+
+
+
+
+
+
+
+5.9  TELETYPE
+
+The device mnemonic is TTY0, TTYl, ..., TTYl76, TTYl77, CTY; the
+buffer size is 23  (20  data) words.
+                 8    8
+
+Line number n of the Type 630 Data Communications Syste, Data
+Line Scanner DCl0, PDP-8 680 System or PDP-8/I DEC68A System is
+referred to as TTYn.  The console teletype is CTY.  The timesharing
+monitor automatically gives the logical name TTY to the user's
+console when a job is initialized.
+
+
+Teletype devide names are assigned dynamically.  For interconsole
+communication bh program, one of the two users must type DEASSIGN
+TTY to make the teletype available to the other user's program
+as an I/O device.  Typing ASSIGN TTYn is the only way to reassign
+a teletype that has been deassigned (refer to TALK command,
+Table 2-2).
+
+Two teletype routines are provided:  a newer, full-duplex software
+routine and an older, half-duplex software routine.  The full-
+duplex software is recommended.
+
+With a full-duplex teletype service, the two functions of a
+console, typein and typeout, are handled independently, and do
+not need to be handled in the strict sense of output first and
+the input.  For example:  if two operations are desired from PIP,
+the request for the second operation can be typed before receiving
+the asterisk after completion of the first.  The echo-checking
+of typed-in characters disappears because the keyboard and the
+printing operations are independent.  To stop unwanted output, a
+Contrll O is typed.  Also, the command Control C does not 
+stop a program instantly; the Control C will be delayed until
+the program requests input from the keyboard, and then the 
+program will be stopped.  When a program must be stopped instantly,
+as when it gets into a loop, Control C typed twice stops the program.
+
+Programs waiting for teletype output are awakened eight
+characters before the output buffer is empty, causing them to
+be swapped in sooner and preventing pauses in typing.  Programs
+waiting for teletype input will be awakened ten characters before
+the input buffer is filled, thus reducing the possibility of lost
+typein.
+
+
+5.9.l  Data Modes
+
+5.9.l.l  Full-Duplex Software A(ASCII) and AL(ASCII Line)
+
+The input handling of all control characters is as follows.
+(All are passed to program except as noted below).
+
+000    NULL          Ignored on input, suppressed on output.
+
+00l    %A            Echoes as %A; passed to program.
+
+002    %B            Complements switch controlling echoing, not
+                     passed to program.  Used on loca-copy data-
+                     phones and TWX;s. (No special action with
+                     5.02 and later monitors).
+
+003    %C            The user's console is switched to monitor
+                     mode the next time input is requested by
+                     program.  Two successive %C's cause the console
+                     to be immediately switched to monitor mode.
+
+004    %D (EOT)      004 passed to program.  Not echoed, therefore,
+                     typing in a Control D (EOT) does not cause a
+                     full duplex data phone to hang up.
+
+005    %E (WRU)      No special action.
+
+006    %F            Complements switch controlling translation
+                     of lower case letters to upper case.  Used
+                     when lower case input is desired to programs.
+                     Not sent to program, but program can sense
+                     the state of this switch by the TTCALL UUO.
+                     (No special action with 5.02 and later monitors).
+
+007    %G (Bell)     007 passed to program, and is a break character.
+
+0l0    %H (Backspace)  Acts as a RUBOUT, unless either DDT mode
+                     or full character set mode is true, or the %F
+                     switch (or lower case mode in 5.02 and later
+                     monitors) is on.  In these cases, 0l0 is sent
+                     to the program.
+
+0ll    %I (Tab)      0ll passed to program.  Echoed as spaces if %P
+                     switch is on.  (In 5.02 and later monitors,
+                     this character is determined by TTY command).
+                     These spaces not passed to program.
+
+0l2    %J (Linefeed) Break character; no other special action.
+
+0l3    %K (Vertical  0l3 passed to program.  Echoes as four line-
+           tab)      feeds if %P switch is on.  (In 5.02 and later
+                     monitors this character is determined by the
+                     TTY command).  These l.f.'s not passed.
+
+0l4    %L (Form)     0l4 passed to program.  Echoes as 8 line-
+                     feeds if the %P switch is on.  (In 5.02 and
+                     later monitors this character is determined
+                     by the TTY command).  Is a break character.
+                     These linefeeds not passed to program.
+
+0l5    %M (Carriage  If teletype is in paper-tape input mode, 0l5
+           Return)   is simply passed to program; otherwise, 0l5
+                     supplies a linefeed echo, and is passed to
+                     program as a CR and LF, and is a break char.
+
+0l6    %N            No special action.
+
+0l7    %O            Complements output suppression bits allowing
+                     user to turn output on and off.  INPUT, INIT
+                     and OPEN clear the output suppression bit.
+                     Not passed to program.  Echoed as %O followed
+                     by CR-LF.,
+
+020    %P            Does not appear in the input buffer.  When
+                     switch is off, TAB, VT and FF are echoed
+                     normally.  When switch is on, TAB is converted
+                     to spaces, and VT and FF to linefeeds to
+                     simulate the action indicated.  The %P
+                     switch should be turned on if the user's terminal
+                     does not act on TAB, VT and FF.  (No special
+                     action with 5.02 and later monitors).
+
+02l    %Q (XON)      Starts paper-tape mode, as described above.
+                     Passed to program.
+
+022    %R (TAPE)     No special action.
+
+023    %S (XOFF)     Ends paper-tape mode, as described above, is
+                     passed to program.
+
+024    %T (NO TAPE)  No special action.
+
+025    %U            Deletes input line back to last break character.
+                     Typed back as %U followed by CR-LF.
+
+026    %V            No special action.
+
+027    %W            No special action.
+
+030    %X            No special action.
+
+03l    %Y            No special action.
+
+032    %Z            Acts as EOF on teletype input.  Echoes as %Z
+                     followed by CR-LF.  Is a break character.
+                     Appears in buffer as 032.
+
+033    %(ESC)        The current ASCII altmode, but is translated
+                     to l75 before being passed to the program,
+                     unless in full character set mode (bit 20
+                     in INIT.)  l75 is the l963 altmode, echoes
+                     as dollar sign; is always a break character
+
+034    %             No special action.
+
+035    %1            No special action.
+
+036    %%            No special action.
+
+037    %!            No special action.
+
+040-l37              Printing character, no special action.
+
+l40-l74              Lower case ASCII; translated to upper case,
+                     unless %F switch (or lower case mode in 5.02
+                     monitors) is set.  Echoes as upper case if
+                     translated to upper case.
+
+l75 and l76          Old versions of altmode; refer to description
+                     of ESC (033).
+
+l77                  RUBOUT or DELETE:
+
+                     a. Completely ignored if in paper-tape mode (XON).
+
+                     b. Break character, passed to program if either
+                        DDTmode or full character set mode is true.
+
+                     c.  Otherwise causes a character to be deleted
+                        for each rubout typed.  All the characters
+                        deleted are echoed between a single pair of
+                        backslashes. If no characters remain to be
+                        deleted, echoes as CR-LF.
+
+
+On ourput, all characters are typed just as they appear in the
+output buffer with the exception of TAB, VT and FORM, which are
+processed the same as on type-in.  Programs should avoid sending
+%D because it may have catastrophic effects (e.g., it may hang up
+certain data sets).
+
+
+5.9.l.2  Half-Duplex Software A(ASCII) - If, during output
+operations, an echo-check failure occurs (the received character
+was not the same as the transmitted character), the I/O routine
+suspends output until the user types the next character.  If
+that character is %C, the console is immediately placed in monitor
+mode.  If it is %O, all teletype output buffers that are currently
+full are ignored, thus cutting the output short.  All other
+characters cause the service routines to continue output.  The
+user may cause a deliberate echo check by typing in while
+typeout is in progress.  For example, to return to monitor control
+mode while typeout is in progress, the user must type any 
+character until an echo check occurs and output is suspended;
+then he types %C.
+
+The buffer is terminated when it is full or when the user types
+%Z.
+
+
+5.9.l.3  Half-Duplex Software AL(ASCII Line) - The mode is the same
+as the ASCII mode (usually preferred) with the addition that
+the input is terminated by a CR-LF pair, FF, VT or ALTMODE.
+
+
+5.9.l.4  I(Image) - Image mode is legal for teletype input and
+output, except for teletypes controlled by pseudo-teletypes 
+(refer to Paragraph 5.l0).
+
+Since, on input, any sequence of input characters must be allowed,
+%C and %Z may not cause their usual escape functions.  This means
+that if the user program accepts all characters and does not
+release the teletype from image mode, no typein will release
+the user from this state; consequently, the teletype would 
+effectively become dead to the system.  The break character
+cannot be used to escape from this situation, because DCl0
+and the 630 do not detect the break character.  To solve this
+design problem, an image input state is defined.  If during the
+image input state, no characters are received for l5 seconds,
+the image input state is terminated by SCNSER (scanner service)
+and a %C is simulated.  Therefore, if the user discovers that his
+program has failed because of this condition, he simply stops
+typing until a %C appears.
+
+The image input state begins when the program goes into I/O
+wait because of an INPUT UUO in image mode.  It ends when
+the program executes any teletype output operation.  If no
+output is desired, the TTCALL UUO can be executed to output
+a null string.
+
+When using image mode input to read binary tapes, echoing should
+be suppressed by setting bit 28 in the teletype status word.
+
+NOTE:  Since there are no break characters in image mode, 
+       characters are transferred a character at a time instead
+       of a line at a time.  Therefore, an input buffer may only
+       have one character in it when control is returned to the
+       user program.
+
+On output, the low order eight bits of each word in the user's
+buffer are outputted.  These characters are transmitted exactly
+as supplied by the user.  Parity is neither checked nor added,
+and filler characters are not generated.  Image mode affects
+buffered output (INIT, OUTPUT UUOs) only, except when allowing
+output to plotting devices by FORTRAN subroutines.  For
+this case, an additional TTCALL function has been added
+(refer to Paragraph 5.9.3).
+
+
+5.9.2  DDT Submode
+
+To allow a user's program and the DDT debugging program to use
+the same teletype without interferring with one another, the
+teletype service routine provides the DDT submode.  This mode
+does not affect the teletype status if it is initialized with
+the INIT operator.  It is not necessary to use INIT to
+perform I/O in the DDT submode.  I/O in DDT mode is always
+to the user's teletype and not to any other device.
+
+In the DDT submode, the user's program is responsible for its
+own buffering.  Input is usually one character at a time,
+but if the typist types characters faster than they are 
+processed, the teletype service routine supplies buffers full
+of characters at the same time.
+
+To input characters in DDT mode, use the sequence:
+
+   MOVEI AC,BUF
+   CALL AC, (SIXBIT/DDTIN/)
+
+BUF is the first address of a 2l-word block in the user's area.
+The DDTIN operator delays, if necessary, until one character
+is typed in.  Then all characters (in 7-bit packed format)
+typed in since the previous occurrence of DDTIN are moved to
+the user's area in locations BUF, BUF+l.  The character string
+is always terminated by a null character (000).  RUBOUTs are
+not processed by the service routine but are passed on to the
+user.  The special control characters %O and %U have no effect.
+Other characters are processed as in ASCII mode.
+
+To perform output in DDT mode, use the sequence
+
+     MOVEI AC, BUF
+     CALL AC,(SIXBIT /DDTOUT/)
+
+BUF is the first address of a string of packed 7-bit characters
+terminated by a null (000) character.  The teletype service
+routine delays until the previous DDTOUT operation is complete,
+then moves the entire character string into the monitor, begins
+outputting the string, and restarts the user's program.
+Character processing is the same as for ASCII mode output.
+
+
+5.9.3  Special Programmed Operator Service
+
+The general form of the TTCALL (operation code 05l) programmed
+operator is as follows:
+
+     TTCALL AC,ADR
+
+The AC field describes the particular function desired, and
+the argument (if any) is contained in ADR.  ADR may be on AC
+or any address in the low segment above the JOB DATA AREA (l37).
+It may be in high segment for AC fields l and 3.  The functions are:
+
+
+   AC FIELD     MNEMONIC*                ACTION
+
+      0         INCHRW         Input character and wiat.
+
+      l         OUTCHR         Output and character.
+
+      2         INCHRS         Input character and skip.
+
+      3         OUTSTR         Output a string.
+
+      4         INCHWL         Input character, wait, line mode.
+
+      5         INCHSL         Input character, skip, line mode.
+
+      6         GETLCH         Get line characters.
+
+      7         SETLCH         Set line characters.
+
+      l0        RESCAN         Reset input stream to command.
+
+       ll       CLRBFI         Clear typein buffer.
+
+      l2        CLRBFO         Clear typeout buffer.
+
+      l3        SKPINC         Skip if a character can be input.
+
+      l4         SKPINL        Skip if a line can be input.
+
+      l5        IONEOU         Output as an image character.
+
+     l6-l7                     (Reserved for expansion)
+
+
+*  The TTCALL mnemonics are defined in a separate MACRO assembler
+   table, which is scanned if an undefined OP CODE is found.  If
+   the symbol is found in the TTCALL Table it is defined as though
+    it had appeared in an appropriate OPDEF statement, for example
+
+           TYPE:  OUTCHR CHARAC
+
+   If OUTCHR is undefined, it will be assembled as though the
+   program contained the statement
+
+           OPDEF OUTCHR TTCALL l,
+
+   This facility is available in MACRO V.44 and later.
+
+
+
+5.9.3.l  INCHRW ADR or TTCALL 0,ADR - This command inputs a
+character into the low-order seven bits of location ADR.  If
+there is no character yet typed, the program waits.
+
+
+5.9.3.2  OUTCHR ADR or TTCALL l,ADR - This command outputs a
+character to the teletype from location ADR.  Only the low order
+7 bits of the contents of ADR are used.  The remaining bits do
+not need to be zeroes.
+
+If there is no room in the output buffer, the program waits 
+until room is available.  ADR may be in the high segment.
+
+
+5.9.3.3  INCHRS ADR or TTCALL2,ADR - This command is similar
+to INCHRW, except that it skips on a successful return,
+and does not skip if there is no character in the input
+buffer; it never puts the job into a wait.
+
+   TTCALL 2,ADR
+   JRST NONE
+   JRST NONE
+
+
+5.9.3.4  OUTSTR ADR or TTCALL 3,ADR - This command outputs a 
+string of characters in ASCIZ format:
+
+   TTCALL 3,MESSAGE
+   MESSAGE:ASCIZ /TYPE THIS OUT/
+
+   ADR may be in high segment.
+
+
+5.9.3.5  INCHWL ADR or TTCALL 4,ADR - This command is the same
+as INCHRW, except that is decides whether or not to wait on the
+basis of lines rather than characters; as such, it is the preferred
+way of inputting characters, because INCHRW causes a swap to
+occur for each character rather than each line (compare DDT and
+PIP input).
+
+Note that a control C character in the input buffer is sufficient
+to satisfy the condition of a pending line.  Therefore, when the
+input is done, the control C is interpreted and the job is stopped.
+This definition of a line also applies to TTCALL 5, and
+TTCALL l4.
+
+
+5.9.3.6  INCHSL or TTCALL 5,ADR - This command is the smae as
+INCHRS, except that its decision whether to skip is made on the
+basis of lines rather than characters.
+
+
+5.9.3.7  GETLCH ADR or TTCALL 6,ADR - This command takes one
+argument from location ADR, and returns one word, also in ADR.
+The argument is a number, representing a teletype line.  If
+the argument is negative, the line number controlling the program
+is assumed.  If the line number is greater than those defined
+in the system, a zero answer is returned.
+
+The normal answer format is as follows:
+
+     Right half of ADR:            The line number.
+     Left half of ADR:             Bits, as follows:
+
+         Bit                   Meaning
+         ---                   --------
+
+          0             Line is a pseudo-teletype.
+          l             Line is the CTY.
+          2             Line is the display console.
+          3             Line is the dataset data line.
+          4             Line is the dataset control line.
+          5             Line is half-duplex.
+         ll             A line has been typed in by the user.
+         l2             A rubout has been typed.
+         l3             Control F switch is on.
+         l4             Control P switch is on.
+         l5             Control B switch is on.
+         l6             Control Q (paper tpae) switch is on.
+         l7             Line is in a talk ring.
+
+
+5.9.3.8  SETLCH ADR or TTCALL 7,ADR - This command allows a
+program to set and clear some of the bits described for GETLIN.
+They may be changed only for the controlling teletype.  Bitt
+l4, l5, and l6 can be modified.
+
+Example:
+
+     SETO     AC,0
+     TTCALL   6,AC
+     TLZ      AC,BIT l3
+     TLO      AC,BIT l4
+     TTCALL   7,AC
+
+
+5.9.3.9   RESCAN ADR or TTCALL l0,0 - This command is intended
+for use only by the COMPIL CUSP.  It causes the input buffer to
+be rescanned from the point where the last command began.  Obviously,
+if it is executed other than before the first input, that command
+may no longer be in the buffer.  ADR is not used, but it is address
+checked.
+
+
+5.9.3.l0  CLRBFI ADR or TTCALL ll,0 - This command causes the
+input buffer to be cleared (as if the user had typed a number
+of CONTROL Us.  It is intended to be used when an error has
+been detected, e.g., if a user did not want any commands, which
+he might have typed ahead, to be executed).
+
+
+5.9.3.ll  CLRBFO ADR or TTCALL l2,0 - This command causes the
+output buffer to be cleared as if the user had typed CONTROL O.
+It should be used rarely, because usually one wants to see
+all output, up the the point of an error.  This command is
+included primarily for completeness.
+
+
+5.9.3.l2  SKPINC ADR or TTCALL l3,0 - This command skips if 
+the user has typed at least one character.  It does not skip
+if no characters have been typed; however, it never inputs a
+character.  It is useful for a computer-based program,
+which wants to occasionally check for input and, if any,
+go off to another routine (such as FORTRAN Operating System)
+to actually do the input.
+
+
+5.9.3.l3  SKPINL ADR or TTCALL l4,0 - This command is the same
+as SKPINC, escept that a skip occurs if the user has typed at
+least one line.
+
+
+5.9.3.l4  IONEOU ADR or TTCALL l5,E - This command outputs the
+low-order eight bits of the contents of E as an image charac-
+ter to the terminal.  This function is available in 5.02 
+and later monitors.
+
+
+5.9.4  File Status (Refer to Appendix D)
+
+The file status of the teletype is shown below:
+
+
+
+
+
+
+
+
+
+
+
+5.9.5  Paper-Tape Input from the Teletype (Full Duplex Software)
+
+Paper-tape input is possible from a teletype equipped with a 
+paper-tape reader which is controlled by the XON (%Q) and XOFF
+%(S) characters.  When commanded by the XON character, the
+teletype service reads paper tapes, starting and stopping the
+paper tape as needed and continuing until the XOFF character is
+read or typed in.  While in this mode of operation, any RUBOUTS
+will be discarded and no free line feeds will be inserted
+after carriage returns.  Also, TABS and FORMFEEDS will not
+be simulated on a teletype Model 33, to ensure output of the reader
+control characters.  To use paper tape processing, the teletypr
+with a paper-tape reader must be connected by a full-duplex
+connection and only ASCII paper tapes should be used.
+
+The correct operating sequence for reading a paper tape in this
+way is as follows:
+
+   .R PIP #
+   *DSK:FILE!TTY:%Q #
+   THIS IS WHAT IS ON TAPE
+   MORE OF THE SAME
+   LAST LINE %Z
+   *%S
+
+
+
+5.9.6  Paper-Tape Output at the Teletype (Full-Duplex Software)
+
+Paper-tape output is possible on any Teletype-mounted paper-tape
+punch, which is controlled by the TAPE (AUX ON) and TAPE (AUX OFF)
+characters.  The punch is connected in parallel with the key-
+board printer, and therefore, when the punch is on, all characters
+typed on the keyboard are punched on tape.
+
+LT33B or LT33H teletypes can have the reader and punch turned
+off and on under program control.  When commanded by teh AUX ON
+character, the teeltype service punches paper tapes until the
+AUX OFF character is read or typed in.  The AUX OFF character is
+the last character punched on tape.
+
+When writing programs to output to the teletype paper-tape
+punch, the user should punch several inches of blank tape before
+the AUX OFF character is transmitted.  This last character may
+then be torn off and discarded.
+
+
+5.l0  PSEUDO-TELETYPE
+
+The device mnemonic is PTY0,...,PTYn.  (The number of pseudo-
+teletypes is specified at MONGEN time.)  The buffer size is
+23  (20  data) words.
+  8    8
+
+
+5.l0.l  Concepts
+
+Each job in the PDP-l0 timesharing system is usually initiated
+by a user at a physical terminal.  Except in the case of a 
+DETACH operation, the job remains under the control of the
+user's terminal until it is terminated by either the KJOB
+command or the LOGOUT UUO.  For each physical teletype there
+is a block of core in the monitor, containing information about
+the physical teletype and including two buffers as the link 
+between the physical teletype and the job.  It is through
+these buffers that the teletype sends input to the job, 
+and the job returns output to the teletype.
+
+Sometimes it is desirable to allow a job in the PDP-l0 timesharing
+system to be initiated by a program instead of by a user.  Since
+a program cannot use a phusical terminal in teh way a user can,
+some means must be provided in the monitor for the program to
+send input to and accept output from the job it is controlling.
+The monitor provides this capability via the pseudo-teletype
+(PTY).  the PTY is a simulated teletype and is not defined by
+hardware.  Like hardware-defined teletypes, each PTY has a
+block of core associated with it.  This block of core is
+used by the PTY in the same manner as a hardware-defined
+teletype uses its block of core.  Figure 5-l shows the parallel
+between a hardware-defined teletype and a software-defined PTY.
+
+
+
+
+
+
+
+
+(Figure 5-l  Psuedo-Teletype)
+
+
+The controlling program, most commonly the batch processor, uses
+the PTY in the same way as a user uses a physical device.  It
+initiates the PTY, inputs characters to and waits for output
+from the PTY, and closes the PTY using the appropriate programmed
+operators.  The job controlled by the program performs I/O to
+the PTY as though the PTY were a physical terminal.
+
+A controlled job may go into a loop and not accept any input
+from its associated buffer; therefore, it is not possible for
+the controlling program to simply rely on waiting for activity
+in the controlled job.  A controlling program may also wish to
+drive more than one controlled job, and be able to respond
+to any of these jobs; therefore, the controlling program cannot
+wait for any particular PTY.  For these two reasons, the PTY
+differs from other devices in that it is never in an I/O wait
+state.  Timing is accomplished by the SLEEP UUO and the
+status bits of the PTY.
+
+
+5.l0.2  The SLEEP UUO
+
+If the controlling program waits for activity in the 
+controlled job, it delays the SLEEP UUO (refer to Paragraph
+4.3.4.l).  When the controlling program continues after a SLEEP
+UUO, it checks for activity on the PTY via the status bits.
+If there is no activity, it checks the job run time or other 
+criteria to determine whether or not the job should be interrupted.
+If the job should be interrupted, the controlling program may
+output to the PTY two control C characters to stop the job.
+(A user stops a running job in the same way.)  If the job
+should not be interrupted, the controlling program should repeat
+the SLEEP UUO.
+
+Unnecessary delays might result if activity occurred on a 
+PTY while the controlling job was sleeping.  These delays
+are avoided because a check is made when a PTY status bit 
+changes to determine if the controlling program is in a sleep.
+If it is, the sleep time is cleared so the controlling
+program can service the PTY.
+
+
+5.l0.3  File Status (Refer to Appendix D)
+
+The file status of the pseudo-Teletype is shown below:
+
+
+
+
+
+
+
+
+
+
+
+
+5.l0.4  Special Programmed Operator Service
+
+5.l0.4.l  OUT, OUTPUT UUOs - The first OUTPUT operation after
+an INIT or OPEN causes the special actions of the RELEASE
+UUO (refer to Paragraph 5.l0.4.3) and then the following normal
+output operations:
+
+a.  Characters from the controlling program's buffer ring are
+    placed in the input buffer of the TTY linked to the PTY.
+
+b.  The IOPTW bit is cleared.
+
+c.  The MONMOD bit is set or cleared as determined by the state
+    of the TTY.
+
+The following are exceptions to the normal output action:
+
+a.  NULLS (ASCII 000) are discarded.
+
+b.  If more OUTPUTS are performed than are accepted by the
+    controlled job and if the limit on this excess is 
+    exceeded, the IOBKTL bit is set and the remainder of the
+    controlling program's buffer is discarded.
+
+c.  Lower case characters sent to the controlled job are 
+    translated to upper case if the appropriate bit in the 
+    TTY is set.
+
+
+5.l0.4.2  IN, INPUT UUOs - Characters are read from the output
+buffer of the TTY and are placed in the buffer ring of the
+controlling program.  If there are no characters to read, an
+empty buffer is returned.  The INPUT UUO does not cause a WAIT.
+
+All the available characters are passed to the controlling program.
+If there are more characters to read than can fit in the buffer
+of the controlling program, the IOPTRE bit remains set and another
+INPUT should be done.  If the output buffer of the TTY is
+exhausted by the INPUT UUO, the IOPTRE bit is cleared.
+
+
+
+5.l0.4.3  RELEASE UUO - The RELEASE UUO causes the following
+special actions:
+
+a.  Any characters in the output buffer of TTY are discarded.
+
+b.  If the controlled job is still attached to TTY, it is
+    detached.
+
+c.  The PTY is disassociated from the software channel.
+
+CAUTION:  Haphazard use of the PTY and subsequent RELEASE
+operations may leave detached jobs tying up core and other
+system resources.
+
+
+5.l0.4.4  JOBSTS UUO - This UUO provides status information about
+device TTY and/or the controlled job in order to allow complete
+and accurate checking of a controlled job.
+
+The call is:
+
+   MOVEI AC, user channel number    ;or MOVNI AC, job number
+   JOBSTS AC,                       ;or CALLI AC, 6l
+   error return
+   normal return
+
+When the UUO is called, AC contains a number n specifying the
+job and/or the TTY to be checked.  If n is from 0 to l7,
+the specified TTY and job are those currently INITed on the user's
+channel n.  If n is negative, the job to be checked is job number
+(-n).
+
+The error return is given if one of the following is true:
+
+a.  The UUO is not implemented.
+
+b.  n is out of range.
+
+c.  There is no PTY INITed on channel n.
+
+Otherwise, the normal return is given and AC contains the 
+following status information.
+
+
+     Bit                         Explanation
+     ---                         -----------
+
+ Bit 0 = l          Job number is assigned.
+
+ Bit l = l          Job is logged in.
+
+ Bit 2 = l          TTY is at monitor level.
+
+ Bit 3 = l          TTY output is available.
+
+ Bit 4 = l          TTY is at user level and in input wait,
+                    or TTY is at monitor level and can accept a
+                    command.  In other words, there is no command
+                    awaiting decoding or being delayed and the job
+                   is not running.
+
+ Bit 5 = l          JACCT is set.  In particular, %C %C will not 
+                    work.
+
+ Bits l8-35         Job number being checked or 0 if no job
+                    number is assigned.
+
+
+5.l0.4.5  CTLJOB UUO - This UUO is used to determine the job
+number of the program (job) that is controlling the specified
+job, if any.
+
+The call is:
+
+   MOVE AC, job number     ;-l means user's job
+   CTLJOB AC,              or CALLI AC, 65
+   error return
+   normal return
+
+On a normal return, AC contains the job number of the program
+that is controlling the controlled job.  If AC = -l, the 
+specified job is not being controlled via a PTY.
+
+An error return is given if the UUO is not implemented or the job
+number is too large.
+   @^Ã
