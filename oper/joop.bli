@@ -1,0 +1,255 @@
+MODULE JOOP(DOLLAR,FSAVE,ENTRIES=($JOOP),TIMING,TIMER=EXTERNAL(SIX12))=
+
+BEGIN
+% THIS MODULE IS USED TO MAKE A MIDAS REL FILE.
+/RAF.............................23-DEC-74
+%
+
+
+REQUIRE JDEFS.BLI[7,107355];
+REQUIRE CDEFS.BLI[7,107355];
+REQUIRE UDEFS.BLI[7,107355];
+REQUIRE DDEFS.BLI[7,107355];
+REQUIRE RDEFS.BLI[7,107355];
+REQUIRE SDEFS.BLI[7,107355];
+
+UNDECLARE $JOOP;
+
+MACRO INC(Z)= (Z_.Z+1)&; %MACRO TO INCREMENT%
+
+GLOBAL ROUTINE $JOOP(DBASE)=  %FORMATS A DELTA FILE%
+   BEGIN
+      LOCAL UDYNARY$ PROGSP;
+      LOCAL BREGS[13],CLC[13];
+      LOCAL D$ TKP,CB,PROGSIZE;
+      LOCAL JRL$ BITS;
+      LOCAL S$ P;
+      LOCAL OUTF;     
+      LOCAL BUF[DV$MAXDREC];
+      LOCAL HEADER[3];                     % REL FILE HEADER BLOCK %
+      MAP UDYNARY$ DBASE;
+
+      PROGSIZE_CLC[0]_DBASE[0]_0;
+
+      %SET UP THE BASE REGS%
+
+      INCR I FROM 1 TO 12 DO
+         BEGIN
+            PROGSIZE_.PROGSIZE+.DBASE[.I];
+            CLC[.I]_ BREGS[.I]_.DBASE[.I-1]+.CLC[.I-1];
+         END;
+
+      %END OF BASE REGS SET UP%
+
+      HEADER[0]_'MIDAS';               % FIRST WORD OF IDENT %
+      HEADER[1]_'-REL?1';              % SECOND OF IDENT %
+      HEADER[2]_.PROGSIZE;             % GET PROGRAM SIZE IN HEADER %
+      PROGSP_$CGTZM(.PROGSIZE); %GET SPACE TO RELOCATE IN%
+      BITS_$CGTZM((.PROGSIZE+17)/18); %GET SPACE FOR RELOCATION TABLE%
+
+      TKP_BUF<0,0>;  %SET UP TKP TO ADDRESS BUF%
+      $CSTART(CV$DELTAIN); %OPEN DELTA FILE%
+
+      DO BEGIN
+         $CIND(BUF<0,0>);
+
+         SELECT .TKP[D$TYPE] OF
+            NSET
+
+                % STORE A SINGLE CONSTANT %
+
+            DV$CNST:    BEGIN
+                           PROGSP[.CLC[.CB]]_.TKP[D$WD2];
+                           INC(CLC[.CB]);
+                        END;
+
+                % RELOCATE BOTH ADDRESSES %
+
+            DV$DRELB:   BEGIN
+                           TKP[D$WD3L]_.TKP[D$WD3L] +
+                              (IF .TKP[D$LRR] NEQ 0
+                                 THEN
+                                    .BREGS[.TKP[D$LRR]]
+                                 ELSE 0);
+                           TKP[D$WD3R]_.TKP[D$WD3R] +
+                              (IF .TKP[D$RRR] NEQ 0
+                                 THEN
+                                    .BREGS[.TKP[D$RRR]]
+                                    ELSE 0);
+                           PROGSP[.CLC[.CB]]_.TKP[D$WD3];
+                           BITS[J$RLLEFT,.CLC[.CB]]_(IF .TKP[D$LRR] NEQ 0
+                              THEN 1
+                              ELSE 0);
+                           BITS[J$RLRIGHT,.CLC[.CB]]_(IF .TKP[D$RRR] NEQ 0
+                              THEN 1
+                              ELSE 0);
+                           INC(CLC[.CB]);
+                        END;
+
+                % RELOCATE LEFT HALF %
+
+            DV$DRELL:   BEGIN
+                           TKP[D$WD2L]_.TKP[D$WD2L] +
+                              (IF .TKP[D$LRR] NEQ 0
+                                 THEN
+                                    .BREGS[.TKP[D$LRR]]
+                                 ELSE 0);
+                           PROGSP[.CLC[.CB]]_.TKP[D$WD2];
+                           BITS[J$RLLEFT,.CLC[.CB]]_(IF .TKP[D$LRR] NEQ 0
+                              THEN 1
+                              ELSE 0);
+                           INC(CLC[.CB]);
+                        END;
+
+                % RELOCATE RIGHT HALF %
+
+            DV$DRELR:   BEGIN
+                           TKP[D$WD2R]_.TKP[D$WD2R] +
+                              (IF .TKP[D$RRR] NEQ 0
+                                 THEN
+                                    .BREGS[.TKP[D$RRR]]
+                                 ELSE 0);
+                           PROGSP[.CLC[.CB]]_.TKP[D$WD2];
+                           BITS[J$RLRIGHT,.CLC[.CB]]_(IF .TKP[D$RRR] NEQ 0
+                              THEN 1
+                              ELSE 0);
+                           INC(CLC[.CB]);
+                        END;
+
+                % TERMINATE DELTA CODE %
+
+            DV$END:     0;
+
+                % IMMEDIATE INSTRUCTION %
+
+            DV$II:      BEGIN
+                           PROGSP[.CLC[.CB]]_.TKP[D$WD2];
+                           INC(CLC[.CB]);
+                        END;
+
+                % INCREMENT LOCATION COUNTER %
+
+            DV$INCR:    IF .TKP[D$LRR] NEQ 0
+                           THEN
+                              CLC[.TKP[D$LRR]]_.CLC[.TKP[D$LRR]] + .TKP[D$OPND];
+
+                % RELOCATE INSTRUCTION OPERAND ADDRESS %
+
+            DV$IREL:    BEGIN
+                           TKP[D$WD2R]_.TKP[D$WD2R] +
+                              (IF .TKP[D$RRR] NEQ 0
+                                 THEN
+                                    .BREGS[.TKP[D$RRR]]
+                                 ELSE 0);
+                           PROGSP[.CLC[.CB]]_.TKP[D$WD2];
+                           BITS[J$RLRIGHT,.CLC[.CB]]_(IF .TKP[D$RRR] NEQ 0
+                              THEN 1
+                              ELSE 0);
+                           INC(CLC[.CB]);
+                        END;
+
+                % RELOCATE INSTRUCTION VIA SYMBOL TABLE POINTER %
+
+            DV$ISTP:    BEGIN
+                           P_$SGSTE(.TKP[D$WD2R]);
+                           TKP[D$WD2R]_.P[S$DFO] +
+                              (IF .P[S$DB] NEQ 0
+                                THEN
+                                   .BREGS[.P[S$DB]]
+                                ELSE 0);
+                           BITS[J$RLRIGHT,.CLC[.CB]]_(IF .P[S$DB] NEQ 0
+                              THEN 1
+                              ELSE 0);
+                           $SFRNCH(.P);
+                           PROGSP[.CLC[.CB]]_.TKP[D$WD2];
+                           INC(CLC[.CB]);
+                        END;
+
+                % STORE SINGLE WORD NUMERIC LITERAL %
+
+            DV$LIT1:    BEGIN
+                           PROGSP[.CLC[.CB]]_.TKP[D$WD2];
+                           INC(CLC[.CB]);
+                        END;
+
+                % STORE DOUBLE WORD NUMERIC LITERAL %
+
+            DV$LIT2:    BEGIN
+                           PROGSP[.CLC[.CB]]_.TKP[D$WD2];
+                           INC(CLC[.CB]);
+                           PROGSP[.CLC[.CB]]_.TKP[D$WD3];
+                           INC(CLC[.CB]);
+                        END;
+
+                % STORE THREE WORD NUMERIC LITERAL %
+
+            DV$LIT3:    BEGIN
+                           PROGSP[.CLC[.CB]]_.TKP[D$WD2];
+                           INC(CLC[.CB]);
+                           PROGSP[.CLC[.CB]]_.TKP[D$WD3];
+                           INC(CLC[.CB]);
+                           PROGSP[.CLC[.CB]]_.(TKP[D$WD3])[1];
+                           INC(CLC[.CB]);
+                        END;
+
+                % STORE STRING OF ANSI CHARACTERS %
+
+            DV$LITS:    BEGIN
+                           INCR I FROM 0 TO .TKP[D$LENGTH]-3 DO
+                              PROGSP[.CLC[.CB]+.I]_.(TKP[D$WD2])[.I];
+                           CLC[.CB]_.CLC[.CB]+.TKP[D$LENGTH]-2;
+                        END;
+
+                % STORE A NAME STRING %
+
+            DV$LITN:    BEGIN
+                           INCR I FROM 0 TO .TKP[D$LENGTH]-3 DO
+                              PROGSP[.CLC[.CB]+.I]_.(TKP[D$WD2])[.I];
+                           CLC[.CB]_.CLC[.CB]+.TKP[D$LENGTH]-2;
+                        END;
+
+                % PURPOSE AND USAGE (NOTE) %
+
+            DV$NOTE:    0;
+
+                % SET RELOCATION REGISTER %
+
+            DV$SET:     CLC[.TKP[D$LRR]]_.BREGS[.TKP[D$LRR]]+.TKP[D$OPND];
+
+                % SET RELOCATION REGISTER FOR LIBRARY LINKAGE %
+
+            DV$SETL:    0;
+
+                % USE SPECIFIED LOCATION COUNTER %
+
+            DV$USE:     CB_.TKP[D$LRR];
+               TESN;
+
+      END UNTIL .TKP[D$TYPE] EQL DV$EOF;
+
+      $CSTOP(CV$DELTAIN);  %CLOSE DELTA FILE%
+
+      OUTF _ BEGIN      % CREATE HASHED PROCEDURE NAME FOR FILE-NAME %
+             LOCAL  PDB$ PDB;
+             LOCAL PTR, CNT, CHAR;
+             PDB _ .PROGSP;
+             CNT _ 0;
+             PTR _ (.PDB[PD$NAME]+.PROGSP)<36,7>;
+             UNTIL ((CHAR _ SCANI(PTR)) EQL 0 ) OR (.CHAR EQL " ") DO
+                CNT _ .CNT + 1;
+             PTR _ (.PDB[PD$NAME]+.PROGSP)<36,7>;
+             $CHASH(.PTR,.CNT,.CSCHN$)
+             END;
+      OUTF _ $JSTART(.OUTF);  %OPEN OUTPUT FILE%
+      $JWRITE(.OUTF,HEADER,3);       %WRITE HEADER ON OUTPUT FILE %
+      $JWRITE(.OUTF,.PROGSP,.PROGSIZE);       %WRITE PROGRAM%
+      $JWRITE(.OUTF,.BITS,(.PROGSIZE+17)/18); %RELOCATION TABLE%
+      $JSTOP(.OUTF); %CLOSE OUTPUT FILE%
+
+      $CFREEM(.PROGSP);  %FREE PROGSP ARRAY%
+      $CFREEM(.BITS);    %FREE BITS ARRAY%
+
+   END;
+
+END ELUDOM
+  
