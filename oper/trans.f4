@@ -1,0 +1,692 @@
+C **********************************************************
+C * NAME:     SMOVEA                                       *
+C * PURPOSE:  STORES THE LOCATION OF THE BEGINNING         *
+C *           OF A LINE                                    *
+C * USAGE:    CALL SMOVEA(X,Y)                             *
+C *           X  VIRTUAL X                                 *
+C *           Y  VIRTUAL Y                                 *
+C *           TEKTRONIX V3 1-16-73                         *
+C **********************************************************
+C *    THIS ROUTINE WILL DIVIDE A LINE INTO SEGMENTS FOR PLOTING
+      SUBROUTINE SMOVEA(X,Y)
+      COMMON /SEGCOM/XOLD,YOLD
+      XOLD=X
+      YOLD=Y
+      CALL MOVEA(X,Y)
+      RETURN
+      END
+C **********************************************************
+C * NAME:     SDRAWA                                       *
+C * PURPOSE:  DIVIDE A LONG LINE INTO SHORT SEGMENTS       *
+C *           AND DRAWA IT.  DIVISION OCCURS ONLY WHEN     *
+C *           NEEDED AND ONLY IN POLAR COORDINATES         *
+C * USAGE:    CALL SMOVEA(X,Y)                             *
+C *           X  VIRTUAL X                                 *
+C *           Y  VIRTUAL Y                                 *
+C *           TEKTRONIX V3 1-16-73                         *
+C **********************************************************
+      SUBROUTINE SDRAWA(X,Y)
+      COMMON /SEGCOM/ XOLD,YOLD
+      COMMON /COMEXT/KEYCON,FACX,FACY,PAR1,PAR2,PAR3,PAR4,PAR5,PAR6
+      KEY=KEYCON
+      IF(KEYCON .LT. 1)KEY=5
+      IF(KEYCON .GT. 4)KEY=4
+C *    LINEAR LOG POLAR USER ERROR
+      GO TO (100, 100, 200, 400, 100),KEY
+C *    ERROR LINEAR LOG
+100   CALL DRAWA(X,Y)
+      XOLD=X
+      YOLD=Y
+      RETURN
+C *    POLAR
+200   DX=X-XOLD
+      DY=Y-YOLD
+      XSTEP=SIGN(5.*.01745/FACX,DX)
+      IF(ABS(DX*.75) .LT. ABS(XSTEP)) GO TO 100
+      FRAC=DY/DX
+      NSEG=(DX/XSTEP)+.9999
+      XOUT=XOLD
+300   IF(NSEG .LT. 2) GO TO 100
+      XOUT=XOUT+XSTEP
+      YOUT=YOLD+(XOUT-XOLD)*FRAC
+      CALL DRAWA(XOUT,YOUT)
+      NSEG=NSEG-1
+      GO TO 300
+C *    USER SEGMENTATION
+400   CALL USDRAW(X,Y)
+      GO TO 100
+      END
+C **********************************************************
+C * NAME:     REVCOT                                       *
+C * PURPOSE:  CONVERT VIRTUAL COORDINATES TO SCREEN        *
+C *           COORDINATES AND PLOT                         *
+C * USAGE:    CALL REVCOT(IX,IY,X,Y)                       *
+C *           IX SCREEN  X                                 *
+C *           IY SCREEN  Y                                 *
+C *           X  VIRTUAL X                                 *
+C *           Y  VIRTUAL Y                                 *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C *           TEKTRONIX V3 1-16-73                         *
+C **********************************************************
+C ROUTINE---BG-0200.05-01   REVCOT
+      SUBROUTINE REVCOT(IX,IY,X,Y)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+      COMMON /COMEXT/KEYCON,FACX,FACY,PAR1,PAR2,PAR3,PAR4,PAR5,PAR6
+C
+      E=2.7182818284
+      DX=FLOAT(IX-KMINSX)/FACX
+      DY=FLOAT(IY-KMINSY)/FACY
+      KEY=KEYCON
+      IF(KEYCON .LT. 1)KEY=5
+      IF(KEYCON .GT. 4)KEY=4
+C *       LINEAR LOG POLAR USER ERROR
+      GO TO(300, 400, 500, 600, 100  ),KEY
+C *    ERROR
+100   X=IX
+      Y=IY
+C *    EXIT POINT
+200   CALL PCLIPT(X,Y)
+      RETURN
+C *    LINEAR
+300   X=DX+TMINVX
+      Y=DY+TMINVY
+      GO TO 200
+C *    LOG SCALES
+400   KEYL=PAR1
+      X=DX+TMINVX
+      Y=DY+TMINVY
+      IF(KEYL .NE. 2)X=E**(DX+PAR2)
+      IF(KEYL .NE. 1)Y=E**(DY+PAR3)
+      GO TO 200
+C *    POLAR
+500   DX=IX-PAR3
+      DY=IY-PAR4
+      X=ATAN2(DY,DX)/FACX+PAR1
+      Y=SQRT(DY*DY+DX*DX)/FACY+PAR2
+      GO TO 200
+C *    USER CONVERSION
+600   CALL UREVCT(IX,IY,X,Y)
+      GO TO 200
+      END
+C **********************************************************
+C * NAME:     DWINDO                                       *
+C * PURPOSE:  DATA WINDOW                                  *
+C *           SET UP VIRTUAL SPACE LIMITS AND CALCULATE    *
+C *           TRANSFORMATION SCALE                         *
+C * USAGE:    CALL DWINDO(XMIN,XMAX,YMIN,YMAX)             *
+C *            XMIN  LEFT LIMIT OF DATA WINDOW             *
+C *            XMAX  RIGHT LIMIT OF DATA WINDOW            *
+C *            YMIN  LOWER LIMITS OF DATA WINDOW           *
+C *            YMAX  UPPER LIMITS OF DATA WINDOW           *
+C *           TEKTRONIX V3 1-16-73                         *
+C **********************************************************
+      SUBROUTINE DWINDO(XMIN,XMAX,YMIN,YMAX)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+      COMMON /COMEXT/KEYCON,FACX,FACY,PAR1,PAR2,PAR3,PAR4,PAR5,PAR6
+C
+C *   SET UP TCOMMON
+      TMINVX=XMIN
+      TMAXVX=XMAX
+      TMINVY=YMIN
+      TMAXVY=YMAX
+      KEYCON=1
+      CALL RESCAL
+      RETURN
+      END
+C **********************************************************
+C * NAME:     LWINDO                                       *
+C * PURPOSE:  LOGRITHMIC WINDOW                            *
+C *           SETS UP LIMITS OF LOGRITHMIC WINDOW AND      *
+C *           CALCULATES SCALE FACTORS AND OFFSETS         *
+C * USAGE:    CALL LWINDO(XMIN,XMAX,YMIN,YMAX,KEY)         *
+C *            XMIN  LEFT LIMIT OF DATA WINDOW             *
+C *            XMAX  RIGHT LIMIT OF DATA WINDOW            *
+C *            YMIN  LOWER LIMITS OF DATA WINDOW           *
+C *            YMAX  UPPER LIMITS OF DATA WINDOW           *
+C *            KEY   INDICATES WHICH AXIS WILL BE LOG      *
+C *              1     X AXIS                              *
+C *              2     Y AXIS                              *
+C *              3     BOTH                                *
+C *       NOTE:LIMITS OF WINDOW ARE ACTUAL DATA LIMITS     *
+C *            NOT THE LOGS OF THE DATA LIMITS             *
+C *           TEKTRONIX V3 1-16-73                         *
+C **********************************************************
+      SUBROUTINE LWINDO(XMIN,XMAX,YMIN,YMAX,KEY)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+      COMMON/COMEXT/KEYCON,FACX,FACY,PAR1,PAR2,PAR3,PAR4,PAR5,PAR6
+C
+C *    KEY = 1 X LOG
+C *          2 Y LOG
+C *          3 BOTH LOG
+C
+      PAR1=KEY
+      IF(KEY .EQ. 2) GO TO 100
+C *    SETUP X LOG CONVERSION
+      PAR2=ALOG(XMIN)
+C
+100   IF(KEY .EQ. 1) GO TO 200
+C *    SETUP Y LOG CONVERSION
+      PAR3=ALOG(YMIN)
+C
+C *    WRAPUP
+200   CALL DWINDO(XMIN,XMAX,YMIN,YMAX)
+      KEYCON=2
+      CALL RESCAL
+      RETURN
+      END
+C **********************************************************
+C * NAME:     PWINDO                                       *
+C * PURPOSE:  POLAR WINDOW                                 *
+C *           SET UP POLAR SPACE LIMITS AND CALCULATE      *
+C *           TRANSFORMATION SCALE                         *
+C * USAGE: CALL PWINDO(THETA1,THETA2,ANGSUP,RMIN,RMAX,RSUP)*
+C *            THETA1  LOWER ANGLE LIMIT IN RADIANS        *
+C *            THETA2  UPPER ANGLE LIMIT IN RADIANS        *
+C *            ANGSUP  ANGLE IN RADIANS TO BE SUBTRACTED   *
+C *                    FROM ALL INCOMING ANGLES            *
+C *            RMIN    MINIMUM RADIUS                      *
+C *            RMAX    MAXIMUM RADIUS                      *
+C *            RSUP    AMOUNT TO BE SUBTRACTED FROM EACH   *
+C *                    INCOMING RADIUS                     *
+C **********************************************************
+      SUBROUTINE PWINDO(THETA1,THETA2,ANGSUP,RMIN,RMAX,RSUP)
+      COMMON /COMEXT/ KEYCON,FACX,FACY,PAR1,PAR2,PAR3,PAR4,PAR5,PAR6
+C
+      PAR1=ANGSUP
+      PAR2=RSUP
+      CALL DWINDO(THETA1,THETA2,RMIN,RMAX)
+      KEYCON=3
+      CALL RESCAL
+      RETURN
+      END
+C **********************************************************
+C * NAME:     VWINDO                                       *
+C * PURPOSE:  DATA WINDOW                                  *
+C *           SET UP VIRTUAL SPACE LIMITS AND CALCULATE    *
+C *           TRANSFORMATION SCALE                         *
+C * USAGE:    CALL VWINDO(XMIN,XRANGE,YMIN,YRANGE)         *
+C *            XMIN  LEFT LIMIT OF DATA WINDOW             *
+C *            XRANGE  EXTENT OF DATA WINDOW               *
+C *            YMIN  LOWER LIMITS OF DATA WINDOW           *
+C *            YRANGE  EXTENT OF DATA WINDOW               *
+C *           TEKTRONIX V3 1-16-73                         *
+C **********************************************************
+C
+      SUBROUTINE VWINDO(XMIN,XRANGE,YMIN,YRANGE)
+      XMAX=XMIN+XRANGE
+      YMAX=YMIN+YRANGE
+      CALL DWINDO(XMIN,XMAX,YMIN,YMAX)
+      RETURN
+      END
+C **********************************************************
+C * NAME:     SWINDO                                       *
+C * PURPOSE:  SCREEN WINDOW                                *
+C *           SET UP SCREEN SPACE LIMITS AND CALCULATE     *
+C *           TRANSFORMATION SCALE                         *
+C * USAGE:    CALL SWINDO(IXMIN,IXRNGE,IYMIN,IYRNGE)       *
+C *            IXMIN  LEFT LIMIT OF SCREEN WINDOW          *
+C *            IXRNGE  EXTENT OF SCREEN WINDOW             *
+C *            IYMIN  LOWER LIMITS OF SCREEN WINDOW        *
+C *            IYRNGE  EXTENT OF SCREEN WINDOW             *
+C *           TEKTRONIX V3 1-16-73                         *
+C **********************************************************
+      SUBROUTINE SWINDO(MINX,LENX,MINY,LENY)
+      MAXX=MINX+LENX
+      MAXY=MINY+LENY
+      CALL TWINDO(MINX,MAXX,MINY,MAXY)
+      RETURN
+      END
+C **********************************************************
+C * NAME:     TWINDO                                       *
+C * PURPOSE:  SCREEN WINDOW                                *
+C *           SET UP VIRTUAL SPACE LIMITS AND CALCULATE    *
+C *           TRANSFORMATION SCALE                         *
+C * USAGE:    CALL TWINDO(IXMIN,IXMAX,IYMIN,IYMAX)         *
+C *            IMIN  LEFT LIMIT OF SCREEN WINDOW           *
+C *            IMAX  RIGHT LIMIT OF SCREEN WINDOW          *
+C *            IMIN  LOWER LIMITS OF SCREEN WINDOW         *
+C *            IMAX  UPPER LIMITS OF SCREEN WINDOW         *
+C *           TEKTRONIX V3 1-16-73                         *
+C **********************************************************
+      SUBROUTINE TWINDO(MINX,MAXX,MINY,MAXY)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+      COMMON /COMEXT/KEYCON,FACX,FACY,PAR1,PAR2,PAR3,PAR4,PAR5,PAR6
+C
+C *   SET UP TCOMMON
+      KMINSX=MINX
+      KMAXSX=MAXX
+      KMINSY=MINY
+      KMAXSY=MAXY
+      CALL RESCAL
+      RETURN
+      END
+C **********************************************************
+C *            GRAPHIC TRANSFORM ROUTINES
+C **********************************************************
+C **********************************************************
+C * NAME:     V2ST                                         *
+C * PURPOSE:  TRANSFORMS VIRTUAL DISPLAY VECTORS FOR       *
+C *           OUTPUT TO THE SCREEN                         *
+C * USAGE:    CALL V2ST(I,X,Y)                             *
+C *           I =0  POINT OR MOVE                          *
+C *             =1  BRIGHT VECTOR                          *
+C *           X    VIRTUAL X-COORDINATE                    *
+C *           Y    VIRTUAL Y-COORDINATE                    *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C *           TEKTRONIX V3 1-16-73                         *
+C **********************************************************
+C ROUTINE---BG-0170.05-01   V2ST
+      SUBROUTINE V2ST(I,X,Y)
+      DIMENSION BUFIN(4),BFOUT(4)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+      EQUIVALENCE (BUFIN(1),XS),(BUFIN(2),YS),(BUFIN(3),XE),
+     1(BUFIN(4),YE)
+      EQUIVALENCE (BFOUT(1),CXS),(BFOUT(2),CYS),(BFOUT(3),CXE),
+     1            (BFOUT(4),CYE)
+      XE=X
+      YE=Y
+C * POINT OR MOVE
+      IF(I .EQ. 0) GO TO 10
+C * BRIGHT VECTOR
+      XS=TIMAGX
+      YS=TIMAGY
+C * CLIP VECTOR
+      CALL CLIPT(BUFIN,BFOUT)
+C * ON SCREEN?
+      IF(KERROR .EQ. 1) GO TO 110
+C * ARE WE AT START POINT?
+      IF(CXS .EQ. TREALX .AND. CYS .EQ. TREALY) GO TO 120
+C * MOVE BEAM TO START POINT
+      MODE=KKMODE
+      CALL VECMOD
+      CALL WINCOT(CXS,CYS,IX,IY)
+      CALL MODCHK(IX,IY)
+      KKMODE=MODE
+      GO TO 120
+C * POINT OR MOVE
+10    CALL PCLIPT(XE,YE)
+C * OFF SCREEN?
+      IF(KERROR .EQ. 1) GO TO 110
+      CXE=XE
+      CYE=YE
+C * CONVERT TO SCREEN COORDINATES AND PLOT
+120   CALL WINCOT(CXE,CYE,IX,IY)
+      CALL MODCHK(IX,IY)
+C * SAVE POSITION  ABS AND IMAGINARY
+      TREALX=CXE
+      TREALY=CYE
+110   TIMAGX=X
+      TIMAGY=Y
+      RETURN
+      END
+C **********************************************************
+C * NAME:     WINCOT                                       *
+C * PURPOSE:  CONVERT VIRTUAL COORDINATES TO SCREEN        *
+C *           COORDINATES                                  *
+C * USAGE:    CALL WINCOT(X,Y,IX,IY)                       *
+C *           X  VIRTUAL X                                 *
+C *           Y  VIRTUAL Y                                 *
+C *           IX  SCREEN X                                 *
+C *           IY  SCREEN Y                                 *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C *           TEKTRONIX V3 1-16-73                         *
+C **********************************************************
+C ROUTINE---BG-0200.05-01   WINCOT
+      SUBROUTINE WINCOT(X,Y,KDISX,KDISY)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+      COMMON /COMEXT/KEYCON,FACX,FACY,PAR1,PAR2,PAR3,PAR4,PAR5,PAR6
+      DATA PHI/3.14159/
+C
+C *    CHECK FOR PERMITTED VALUE OF CONVERSION KEY
+C *    DEFAULT IS LINEAR,ERROR IS NONE
+      DX=X-TMINVX
+      DY=Y-TMINVY
+      KEY=KEYCON
+      IF(KEYCON .LT. 1)KEY=5
+      IF(KEYCON .GT. 4)KEY=4
+C *    BRANCH TO PROPER SECTION
+C
+C *      LINEAR LOG POLAR USER ERROR
+      GO TO(500,300,600,700,100),KEY
+C       ERROR
+100   KDISX=X
+      KDISY=Y
+C *    EXIT POINT
+200   RETURN
+C
+C *    LOG TRANSFORM
+300   KEYL=PAR1
+      IF(KEYL .EQ. 2) GO TO 400
+C *    SETUP X LOG TRANSFORM
+      DX=ALOG(X)-PAR2
+C
+400   IF(KEYL .EQ. 1) GO TO 500
+C *    SETUP Y LOG TRANSFORM
+      DY=ALOG(Y)-PAR3
+C *    CONVERT LNER
+500   KDISX=DX*FACX+KMINSX
+      KDISY=DY*FACY+KMINSY
+C *    GO TO EXIT
+      GO TO 200
+C
+C *    POLAR TRANSFORMATION
+600   A=(X-PAR1)*FACX
+      R=(Y-PAR2)*FACY
+      KDISX=R*COS(A)+PAR3
+      KDISY=R*SIN(A)+PAR4
+C *    GO TO EXIT
+      GO TO 200
+C
+C *    USER TRANSFORMATION IN USE
+700   CALL USECOT(X,Y,KDISX,KDISY)
+C *    GO TO EXIT
+      GO TO 200
+      END
+C **********************************************************
+C * NAME:     RESCAL                                       *
+C * PURPOSE:  THIS ROUTINE CALCULATES THE TRANSFORMATION   *
+C *           SCALE FACTORS USING THE INFORMATION          *
+C *           STORED IN COMMON                             *
+C * USAGE:    CALL RESCAL                                  *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C *           TEKTRONIX V3 1-16-73                         *
+C **********************************************************
+C ROUTINE---BG-0200.05-01   WINCOT
+      SUBROUTINE RESCAL
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+      COMMON /COMEXT/KEYCON,FACX,FACY,PAR1,PAR2,PAR3,PAR4,PAR5,PAR6
+      REAL COST(4),SINT(4)
+      DATA COST,SINT/1.,0.,-1.,0.,0.,1.,0.,-1./
+C
+      KEY=KEYCON
+      IF(KEYCON .LT. 1)KEY=5
+      IF(KEYCON .GT. 4)KEY=4
+C *    BRANCH TO PROPER SECTION AND RETURN
+C
+C *       LINIER LOG POLAR USER ERROR
+      GO TO (100,200,300,400,500),KEY
+C
+C *    LINIER
+100   FACX=FLOAT(KMAXSX-KMINSX)/(TMAXVX-TMINVX)
+      FACY=FLOAT(KMAXSY-KMINSY)/(TMAXVY-TMINVY)
+      RETURN
+C
+C *    LOGRITHMIC
+200   KEYL=PAR1+.001
+      IF(KEYL .NE. 2)FACX=(KMAXSX-KMINSX)/(ALOG(TMAXVX)-ALOG(TMINVX))
+      IF(KEYL .NE. 1)FACY=(KMAXSY-KMINSY)/(ALOG(TMAXVY)-ALOG(TMINVY))
+      RETURN
+C
+C *    POLAR SCALING
+C
+C *    FIND SCREEN RANGE
+300   PID2=3.14159*.5
+      AMIN=TMINVX+PAR1
+      AMAX=TMAXVX+PAR1
+      RMIN=TMINVY+PAR2
+      RMAX=TMAXVY+
+      TRANGX=KMAXSX-KMINSX
+      TRANGY=KMAXSY-KMINSY
+C *    FIND X COMPONET OF FOUR CORNERS
+      F12X=COS(AMIN)
+      F34X=COS(AMAX)
+      F12Y=SIN(AMIN)
+      F34Y=SIN(AMAX)
+      P1X=RMIN*F12X
+      P2X=RMAX*F12X
+      P3X=RMIN*F34X
+      P4X=RMAX*F34X
+C *    FIND MIN AND MAX OF X COMPONET
+      XMIN=AMIN1(P1X,P2X,P3X,P4X)
+      XMAX=AMAX1(P1X,P2X,P3X,P4X)
+C *    FIND Y COMPONETS OF CORNORS
+      P1Y=RMIN*F12Y
+      P2Y=RMAX*F12Y
+      P3Y=RMIN*F34Y
+      P4Y=RMAX*F34Y
+C *    FIND MIN AND MAX OF Y COMPONETS
+      YMIN=AMIN1(P1Y,P2Y,P3Y,P4Y)
+      YMAX=AMAX1(P1Y,P2Y,P3Y,P4Y)
+C
+C *    CHECK LIMITS OF ARCS
+      NQUAD=TMINVX/PID2
+      IF(TMINVX .LT. 0)NQUAD=NQUAD-1
+      ANGRAD=NQUAD*PID2
+      DO 310 I=1,5
+      IF(ANGRAD .LT. AMIN) GO TO 310
+      IF(ANGRAD .GT. AMAX) GO TO 320
+      FCOS=COST(I)
+      PX1=RMAX*FCOS
+      PX2=RMIN*FCOS
+      FSIN=SINT(I)
+      PY1=RMAX*FSIN
+      PY2=RMIN*FSIN
+      XMAX=AMAX1(XMAX,PX1,PX2)
+      XMIN=AMIN1(XMIN,PX1,PX2)
+      YMAX=AMAX1(YMAX,PY1,PY2)
+      YMIN=AMIN1(YMIN,PY1,PY2)
+310   ANGRAD=ANGRAD+PID2
+C *    FIND SCALE FACTORS
+      CALL ANMODE
+320    FACY=AMIN1(TRANGX/(XMAX-XMIN),TRANGY/(YMAX-YMIN))
+      FACX=1.
+      PAR3=KMINSX-FACY*XMIN
+      PAR4=KMINSY-FACY*YMIN
+      RETURN
+C
+C *    USER FUNCTION
+400   CALL URSCAL
+      RETURN
+C
+C *    NO SCALE
+500   FACX=1.
+      FACY=1.
+      RETURN
+      END
+C *    THIS FILE WILL SATISFY ALL CALL IN TCS RELEASE 3
+      SUBROUTINE USDRAW(X,Y)
+      RETURN
+      END
+      SUBROUTINE URSCAL
+      COMMON /COMEXT/KEYCON,FACX,FACY,PAR1,PAR2,PAR3,PAR4,PAR5,PAR6
+      FACX=1.
+      FACY=1.
+      RETURN
+      END
+C
+      SUBROUTINE USECOT(X,Y,IX,IY)
+      IX=X
+      IY=X
+      RETURN
+      END
+C
+      SUBROUTINE UREVCT(IX,IY,X,Y)
+      X=IX
+      Y=IY
+      RETURN
+      END
+C **********************************************************
+C * NAME:        SVSTAT                                    *
+C * PURPOSE:     SAVE STATUS                               *
+C * USAGE:       CALL SVSTAT(ARRAY)                        *
+C *              ARRAY - 60 WORD REAL ARRAY                *
+C *                IN WHICH TERMINAL STATUS IS STORED      *
+C **********************************************************
+C ROUTINE---DA-0420.05-01   SVSTAT
+      SUBROUTINE SVSTAT(RARRAY)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+      COMMON /COMEXT/KEYCON,FACX,FACY,PAR1,PAR2,PAR3,PAR4,PAR5,PAR6
+      COMMON /SAVEIT/ SAVING(9)
+      DIMENSION RARRAY(55),IB(44),RB(11),EB(8)
+      EQUIVALENCE (IB(1),KBAUDR),(RB(1),TMINVX)
+      EQUIVALENCE (IEB,KEYCON),(EB(1),FACX)
+C *
+C *   COPY TERMINAL STATUS AREA INTO GIVEN SAVE ARRAY    **
+C *
+      DO 100 I=1,44
+100   RARRAY(I)=IB(I)
+      DO 101 I=1,11
+101   RARRAY(I+44)=RB(I)
+102   SAVING(1)=IEB
+      DO 104 I=1,8
+104   SAVING(I+1)=EB(I)
+      RETURN
+      END
+C **********************************************************
+C * NAME:        RESTAT                                    *
+C * PURPOSE:     RESTORE STATUS                            *
+C * USAGE:       CALL RESTAT(ARRAY)                        *
+C *              ARRAY - 54 WORD REAL ARRAY                *
+C *                   IN WHICH PREVIOUS TERMINAL STATUS    *
+C *                   HAS BEEN STORED                      *
+C **********************************************************
+C ROUTINE---DA-1120.05-01 4010 RESTAT
+      SUBROUTINE RESTAT(RARRAY)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+      COMMON /COMEXT/KEYCON,FACX,FACY,PAR1,PAR2,PAR3,PAR4,PAR5,PAR6
+      COMMON /SAVEIT/ SAVING(9)
+      DIMENSION RARRAY(55),IB(44),RB(11),EB(8)
+      EQUIVALENCE (IEB,KEYCON),(EB(1),FACX)
+      EQUIVALENCE (IB(1),KBAUDR),(RB(1),TMINVX)
+C *
+C *  COPY GIVEN STATUS INTO TUS COMMON **
+      DO 100 I=1,44
+100   IB(I)=RARRAY(I)
+      DO 101 I=1,11
+101   RB(I)=RARRAY(I+44)
+102   IEB=SAVING(1)
+      DO 104 I=1,8
+104   EB(I)=SAVING(I+1)
+C *  SAVE GIVEN MOVE FLAG & MODE **
+      MOVE=KMOVEF
+      MODE=KKMODE+1
+      KGL=KGRAFL
+C *  MOVE TO GIVEN BEAM LOCATION; FORCE ENTRY TO A/N TO RESET FOR MOVE
+      IY=KBEAMY
+      CALL ANMODE
+      KBEAMY=IY
+      CALL MOVABS(KBEAMX,KBEAMY)
+C *  ENTER GIVEN MODE  **
+      GO TO (200,300,400,500,300),MODE
+200   CALL ANMODE
+      GO TO 600
+300   IF(MOVE) 350,600,350
+C *   PRIME FOR MOVE  **
+350   CALL VECMOD
+      GO TO 600
+400   CALL PNTMOD
+600   KGRAFL=KGL
+500   RETURN
+      END
+C **********************************************************
+C * NAME:     INITT                                        *
+C * PURPOSE:  TO INITIALIZE TERMINAL AND SET COMMON        *
+C *           VARIABLES                                    *
+C * USAGE:    CALL INITT(IBAUD)                            *
+C *           IBAUD  BAUD RATE IN CHARACTERS/SEC.          *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C **********************************************************
+C ROUTINE---DA-1010.05-01 4010 INITT
+      SUBROUTINE INITT(IBAUD)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+      COMMON /COMEXT/KEYCON,FACX,FACY,PAR1,PAR2,PAR3,PAR4,PAR5,PAR6
+      KEYCON=1
+      FACX=1.
+      FACY=1.
+      KBAUDR=IBAUD
+      KMINSX=0
+      KMAXSX=1023
+      KMINSY=0
+      KMAXSY=780
+C * 4010 HOME POSITION
+      KHOMEY=767
+C * CHARACTER HORIZONTAL SIZE
+      KHORSZ=14
+      DO 100 I=1,10
+      KHORZT(I)=0
+100   KVERTT(I)=0
+      KITALC=0
+      KLMRGN=0
+      KRMRGN=1010
+      KSIZEF=0
+      KTBLSZ=10
+C * CHARACTER VERTICAL SIZE
+      KVERSZ=22
+      TMINVX=0.
+      TMAXVX=1023.
+      TMINVY=0.
+      TMAXVY=780.
+      TRCOSF=1.
+      TRSINF=0.
+      TRSCAL=1.
+      CALL ANMODE
+      CALL NEWPAG
+      RETURN
+      END
+C **********************************************************
+C * NAME:     GENFLG                                       *
+C * PURPOSE:  TO TEST THE GENERAL CONDITION FLAG........   *
+C * USAGE:    IF(GENFLG(0)) GO TO 100                      *
+C **********************************************************
+      LOGICAL FUNCTION GENFLG(ITEM)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+      LOGICAL GENFLG
+      GENFLG=KERROR .EQ. ITEM
+      RETURN
+      END
+%@VF
