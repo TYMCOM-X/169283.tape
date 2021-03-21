@@ -1,0 +1,99 @@
+MODULE MIDASI(DOLLAR,STACK=GLOBAL($CSTK$,#177),
+                FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+BEGIN
+
+REQUIRE CDEFS.BLI[7,107355];
+REQUIRE KDEFS.BLI[7,107355];
+REQUIRE SDEFS.BLI[7,107355];
+REQUIRE UDEFS.BLI[7,107355];
+
+
+ROUTINE BUILDIT(RTNADR)=
+  BEGIN
+  LOCAL CLINE$ LINE,
+        CHAR,
+        DEST;
+  MAP  KFCB$ CTERM$;
+
+  FUNCTION FETCHNAME(STORE,PROMPT)=
+   BEGIN
+   DEST _ (.STORE)<36,6>;
+   $UAPSZ(.PROMPT);
+   $UPRPT();
+   $KREAD(CTERM$);
+   LINE _ .CTERM$[K$IDADR];
+   INCR J FROM 0 TO 11 DO
+     REPLACEI( DEST, SCANI(LINE[C$WPTR])-#40)
+   END;
+
+  WHILE 1 DO
+    BEGIN
+    
+    $CISINIT();
+    
+    $CGPPN();
+    $COWNR();
+    $CUNAME();
+    $CTIME();
+    $CDATE();
+    
+    COSTK$<18,18> _ COSTK$< 0,18> _ $CGZAM(CV$COSTKSZ,0);
+    CPARM$<18,18> _ CPARM$< 0,18> _ $CGZAM(CV$PARMSTKSZ,0);
+    
+    $SIN();
+    
+    $UMESS($USPTR('Reserved Words Loaded'));
+
+    SELECT "VER", "MIDAS", "P1COM", "P2COM", "P3COM", "P4COM",
+           "S1COM",%"S2COM",%"RUNTM", "DBCTL", "SORT"
+        OF
+      NSET
+      "VER":    FETCHNAME(CVER$,$USPTR('System Version Number: '));
+      "MIDAS":  FETCHNAME(CMC$,$USPTR('Command Overlay Name: '));
+      "P1COM":  FETCHNAME(CP1$,$USPTR('Procedure Compiler #1 Overlay Name: '));
+      "P2COM":  FETCHNAME(CP2$,$USPTR('Procedure Compiler #2 Overlay Name: '));
+      "P3COM":  FETCHNAME(CP3$,$USPTR('Procedure Compiler #3 Overlay Name: '));
+      "P4COM":  FETCHNAME(CP4$,$USPTR('Procedure Compiler #4 Overlay Name: '));
+      "S1COM":  FETCHNAME(CS1$,$USPTR('Schema Compiler #1 Overlay Name: '));
+      "S2COM":  FETCHNAME(CS2$,$USPTR('Schema Compiler #2 Overlay Name: '));
+      "RUNTM":  FETCHNAME(CRN$,$USPTR('Runtime Library Overlay Name: '));
+      "DBCTL":  FETCHNAME(CDB$,$USPTR('Data Base Control Overlay Name: '));
+      "SORT" :  FETCHNAME(CSR$,$USPTR('Sort Overlay Name: '))
+      TESN;
+
+
+    RTNADR _ EXCHJ(.RTNADR,.BREG)
+    END
+
+  END;
+
+$CRESET();
+
+
+CSTK0$ _ CREATE BUILDIT(.BREG)
+                AT $CGTZM(#777)
+                LENGTH #777
+                THEN 0;
+
+CSTK0$ _ EXCHJ(.CSTK0$,.BREG);
+
+$CFREEM(.CSTK0$);
+CSTK0$ _ 0;     % SET UP FOR MIDAS OVERLAY INITIALIZATION %
+
+(.COSTK$)<0,36,0,0> _ .CMC$; % BOUNDRY CONDITION "SAFE-GUARD" %
+
+$CPUSH(COSTK$,.CMC$);   % MIDAS COMMAND %
+$CPUSH(COSTK$,.CSR$);   % SORT %
+$CPUSH(COSTK$,.CDB$);   % DBCTRL %
+$CPUSH(COSTK$,.CRN$);   % RUNTIME %
+$CPUSH(COSTK$,.CS1$);   % S1COMP %
+$CPUSH(COSTK$,.CP4$);   % P4COMP %
+$CPUSH(COSTK$,.CP3$);   % P3COMP %
+$CPUSH(COSTK$,.CP2$);   % P2COMP %
+$CPUSH(COSTK$,.CP1$);   % P1COMP %
+
+$COLAY()
+
+
+END
+ELUDOM
