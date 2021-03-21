@@ -1,0 +1,430 @@
+SWITCHES NOLIST;
+UNDECLARE $$$;
+%
+THIS IS THE MIDAS-1 UNIVERSAL FILE MDEFS.BLI
+   FOR SYMBOLS USING THE <LETTER> M.
+
+DEFINITIONS OF STRUCTURES, MACROS, BINDS, ETC
+  WHICH ARE USED BY MORE THAN ONE MIDAS MODULE
+  ARE DEFINED HERE WITH  NAMES CORRESPONDING 
+  TO THE CONVENTIONS OUTLINED IN SECTION
+  1.9.4 PART E.
+
+THE MAJORITY OF BLISS MODULES WILL BE COMPILED
+  USING ONE OF THESE UNIVERSAL FILES.  THE FIRST EXPRESSION
+  IN THE BLOCK HEADING WILL GENERALLY BE A REQUIRE
+  STATEMENT:
+       REQUIRE (MIDAS)MDEFS.BLI;
+
+THE MACROS IN THIS FILE ARE TERMINATED WITH THE CHARACTER
+AMPERSTAND:  &
+THE NAMES IN THIS FILE CONTAIN DOLLAR SIGNS:  $
+CONSEQUENTLY, THE MODULE HEADER OF ALL MODULES USING THIS
+FILE MUST CONTAIN THE "DOLLAR" MODULE-PARAMETER.
+%
+
+
+        % Global Editor Pointers  --  MPN 17.1.7 %
+
+
+EXTERNAL
+        MACTP$,         % Active-Page Global Editor Pointer %
+        MPSDP$;         % Pseudo-Page Global Editor Pointer %
+      MACRO
+                MPSDP$FCB1  = MPSDP$[0] &,      % local ref. file  %
+                MPSDP$FCB2  = MPSDP$[1] &;      % direct ref. file %
+
+
+        % Editor State Flags  --  MPN 17.1.8 %
+
+
+EXTERNAL
+        MREAD$,         % Read-Only-Mode Editor State Flag %
+        MSPGE$,         % Select-PageExists Editor State Flag %
+        MPGED$,         % Paginated-Object Editor State Flag %
+        MCHNG$,         % Changes-Made Editor State Flag %
+        MLOAS$,         % Load-Select-Mode Editor State Flag %
+        MPINS$,         % Previous-Insert Editor State Flag %
+        MPAPN$,         % Previous-Append  Editor State Flag %
+        MPFND$;         % Previous-Find  Editor State Flag %
+
+
+        % Preserved Values  --  MPN 17.1.9 %
+
+
+EXTERNAL  MINSV$;       % Previous-Insert Preserved Values %
+        MACRO
+                MINSV$PAGE = MINSV$[0] &,       % real page key %
+                MINSV$LINE = MINSV$[1] &,       % next line-number  %
+                MINSV$INCR = MINSV$[2] &,       % increment value   %
+                MINSV$TARG = MINSV$[3] &;       % target line-number %
+
+EXTERNAL  MAPNV$;       % Previous-Append Preserved Values %
+        MACRO
+                MAPNV$PAGE = MAPNV$[0] &,       % real page key %
+                MAPNV$LINE = MAPNV$[1] &,       % next line-number %
+                MAPNV$INCR = MAPNV$[2] &;       % increment value %
+
+EXTERNAL  MFNDV$;       % Previous-Find Preserved Values %
+        MACRO
+                MFNDV$STRING = MFNDV$[0] &,     % search string pointer %
+                MFNDV$DISPLY = MFNDV$[1] &;     % display format %
+
+
+        % Line Addressing Structures  --  MPN 17.3 %
+
+
+STRUCTURE  MLD$[FIELD] =        % Line Designator Information Block %
+        CASE .FIELD OF SET
+  % MLD$TYPE  %  (@.MLD$)       ;
+  % MLD$PAGE  %  (@.MLD$+1)     ;
+  % MLD$LCPTR %  (@.MLD$+2)     ;
+        TES;
+
+BIND
+   MLD$TYPE   =  0,     % syntactic form type %
+   MLD$PAGE   =  1,     % real page key %
+   MLD$LCPTR  =  2;     % pointer to a MLC$ line-coord info block %
+
+STRUCTURE  MLC$[FIELD] =        % Line-coord Information Block %
+        CASE .FIELD OF SET
+  % MLC$BASETYPE %  (@.MLC$)    ;
+  % MLC$BASE     %  (@.MLC$+1)  ;
+  % MLC$OSETTYPE %  (@.MLC$+2)  ;
+  % MLC$OSET     %  (@.MLC$+3)  ;
+        TES;
+
+BIND
+   MLC$BASETYPE  =  0,  % type of base line address %
+   MLC$BASE      =  1,  % base line address %
+   MLC$OSETTYPE  =  2,  % type of offset %
+   MLC$OSET      =  3;  % value of offset %
+
+STRUCTURE  MLR$[FIELD] =        % Line-Range Information Block %
+        CASE .FIELD OF SET
+  % MLR$TYPE   %  (@.MLR$)      ;
+  % MLR$LLDPTR %  (@.MLR$+1)    ;
+  % MLR$ULDPTR %  (@.MLR$+2)    ;
+        TES;
+
+BIND
+   MLR$TYPE    =  0,    % type of line range %
+   MLR$LLDPTR  =  1,    % pointer to MLD$ line-designator info block %
+   MLR$ULDPTR  =  2;    % pointer to MLD$ line-designator info block %
+
+STRUCTURE  MFDS$[FIELD] =       % Full Line Dest. Spec. Information Block %
+        CASE .FIELD OF SET
+  % MFDS$LLDPTR %  (@.MFDS$)    ;
+  % MFDS$INCR   %  (@.MFDS$+1)  ;
+  % MFDS$ULDPTR %  (@.MFDS$+2)  ;
+        TES;
+
+BIND
+   MFDS$LLDPTR  =  0,   % pointer to MLD$ line-desig. info block %
+   MFDS$INCR    =  1,   % increment value %
+   MFDS$ULDPTR  =  2;   % pointer to MLD$ line-desig. info block %
+
+STRUCTURE  MRL$[FIELD] =        % Range List Information Block %
+        SELECT .FIELD OF NSET
+  % MRL$COUNT  % 0: (@.MRL$)      ;
+  % MRL$LRPTR1 % 1:  (@.MRL$+1)    ; % first of a list of line-range pointers %
+  % MRL$LRPTR2 % 2: (@.MRL$+2)    ;
+  % MRL$LRPTR3 % 3: (@.MRL$+3)    ;
+  % MRL$LRPTR4 % 4: (@.MRL$+4)    ;
+  % MRL$LRPTR5 % 5: (@.MRL$+5)    ;
+         OTHERWISE: (@.MRL$+.FIELD) ;
+        TESN;
+
+BIND
+   MRL$COUNT    =  0,   % number of pointers to MLR$ blocks %
+   MRL$LRPTR1   =  1,   % pointer to a MLR$ line-range info block %
+   MRL$LRPTR2   =  2,   % pointer to a MLR$ line-range info block %
+   MRL$LRPTR3   =  3,   % pointer to a MLR$ line-range info block %
+   MRL$LRPTR4   =  4,   % pointer to a MLR$ line-range info block %
+   MRL$LRPTR5   =  5;   % pointer to a MLR$ line-range info block %
+
+STRUCTURE  MPR$[FIELD] =        % Page-Range Information Block %
+        CASE .FIELD OF SET
+  % MPR$LPAGE %  (@.MPR$)       ;
+  % MPR$UPAGE %  (@.MPR$+1)     ;
+        TES;
+
+BIND
+   MPR$LPAGE  =  0,     % real page key for lower bound %
+   MPR$UPAGE  =  1;     % real page key for upper bound %
+
+STRUCTURE  MSLS$[FIELD] =       % Subline Spec. Information Block %
+        CASE .FIELD OF SET
+  % MSLS$TYPE   %  (@.MSLS$)    ;
+  % MSLS$SLPAT  %  (@.MSLS$+1)  ;
+  % MSLS$LPAT   %  (@.MSLS$+2)  ;
+  % MSLS$FRTYPE %  (@.MSLS$+3)  ;
+  % MSLS$FULLRNG%  (@.MSLS$+4)  ;
+        TES;
+
+BIND
+   MSLS$TYPE     =  0,  % original syntactic form of subline spec. %
+   MSLS$SLPAT    =  1,  % pointer to a subline-pattern %
+   MSLS$LPAT     =  2,  % pointer to a line-pattern %
+   MSLS$FRTYPE   =  3,  % type of full-range %
+   MSLS$FULLRNG  =  4;  % full-range value or pointer %
+
+MACRO  MLS$ = MSLS$ &;          % Line Spec. Information Block %
+
+BIND
+   MLS$TYPE     =  MSLS$TYPE,
+   MLS$SLPAT    =  MSLS$SLPAT,
+   MLS$LPAT     =  MSLS$LPAT,
+   MLS$FRTYPE   =  MSLS$FRTYPE,
+   MLS$FULLRNG  =  MSLS$FULLRNG;
+
+STRUCTURE  MDNI$[FIELD] =       % Destination Numbering Info. Block %
+        CASE .FIELD OF SET
+  % MDNI$TYPE   %  (@.MDNI$)    ;
+  % MDNI$PAGE   %  (@.MDNI$+1)  ;
+  % MDNI$BASELN %  (@.MDNI$+2)  ;
+  % MDNI$PREVLN %  (@.MDNI$+3)  ;
+  % MDNI$INCR   %  (@.MDNI$+4)  ;
+  % MDNI$TARGET %  (@.MDNI$+5)  ;
+  % MDNI$ERRTOP %  (@.MDNI$+6)  ;
+        TES;
+
+BIND
+   MDNI$TYPE     =  0,  % value indicating combination of info. included %
+   MDNI$PAGE     =  1,  % real page key %
+   MDNI$BASELN   =  2,  % line number for first instance %
+   MDNI$PREVLN   =  3,  % value of last line number assigned %
+   MDNI$INCR     =  4,  % increment value %
+   MDNI$TARGET   =  5,  % maximum desired line number value %
+   MDNI$ERRTOP   =  6;  % maximum allowable line number value %
+
+
+        % Command Process Graph Structures  --  MPN 17.4.1 %
+
+
+STRUCTURE MPGN$[FIELD] =        % Command Process Graph Nodes %
+        CASE .FIELD OF SET
+  % MPGN$TYPE %  (@.MPGN$)      ;
+  % MPGN$DEF  %  (@.MPGN$+1)    ;
+  % MPGN$SUC  %  (@.MPGN$+2)    ;
+  % MPGN$RET  %  (@.MPGN$+3)    ;
+  % MPGN$ACT  %  (@.MPGN$+4)    ;
+        TES;
+
+BIND
+   MPGN$TYPE  =  0,     % class/type of process graph node %
+   MPGN$DEF   =  1,     % pointer to "DEF" node %
+   MPGN$SUC   =  2,     % pointer to "SUC" node %
+   MPGN$RET   =  3,     % pointer to "calling" node %
+   MPGN$ACT   =  4;     % pointer to action specification %
+
+
+        % Execution Tree-Stack Node Structures  --  MPN 17.4.4 %
+
+
+STRUCTURE  MPN$[FIELD] =        % Process Node %
+        CASE .FIELD OF SET
+  % MPN$TYPE %  (@.MPN$)        ;
+  % MPN$SN   %  (@.MPN$+1)      ;
+  % MPN$AN   %  (@.MPN$+2)      ;
+  % MPN$DN   %  (@.MPN$+3)      ;
+  % MPN$NPN  %  (@.MPN$+4)      ;
+        TES;
+
+BIND
+   MPN$TYPE  =  0,      % Node type field = MV$PN %
+   MPN$SN    =  1,      % Pointer to selection node chain %
+   MPN$AN    =  2,      % Pointer to action node chain %
+   MPN$DN    =  3,      % Pointer to destination node %
+   MPN$NPN   =  4;      % Pointer to next process node %
+
+STRUCTURE  MSN$[FIELD] =        % Selection Node %
+        CASE .FIELD OF SET
+  % MSN$TYPE %  (@.MSN$)        ;
+  % MSN$S    %  (@.MSN$+1)      ;
+  % MSN$SP   %  (@.MSN$+2)      ;
+  % MSN$NSN  %  (@.MSN$+3)      ;
+  % MSN$SE   %  (@.MSN$+4)      ;
+        TES;
+
+BIND
+   MSN$TYPE  =  0,      % Node type field = MV$SN %
+   MSN$S     =  1,      % Pointer to routine to be invoked %
+   MSN$SP    =  2,      % Pointer to parameter block %
+   MSN$NSN   =  3,      % Pointer to next selection node %
+   MSN$SE    =  4;      % Pointer to error routine %
+
+STRUCTURE  MAN$[FIELD] =        % Action Node %
+        CASE .FIELD OF SET
+  % MAN$TYPE %  (@.MAN$)        ;
+  % MAN$A    %  (@.MAN$+1)      ;
+  % MAN$AP   %  (@.MAN$+2)      ;
+  % MAN$NAN  %  (@.MAN$+3)      ;
+  % MAN$AE   %  (@.MAN$+4)      ;
+        TES;
+
+BIND
+   MAN$TYPE  =  0,      % Node type field = MV$AN %
+   MAN$A     =  1,      % Pointer to routine to be invoked %
+   MAN$AP    =  2,      % Pointer to parameter block %
+   MAN$NAN   =  3,      % Pointer to next action node%
+   MAN$AE    =  4;      % Pointer to error routine %
+
+STRUCTURE  MDN$[FIELD] =        % destination Node %
+        CASE .FIELD OF SET
+  % MDN$TYPE %  (@.MDN$)        ;
+  % MDN$D    %  (@.MDN$+1)      ;
+  % MDN$DE   %  (@.MDN$+2)      ;
+        TES;
+
+BIND
+   MDN$TYPE  =  0,      % Node type field = MV$DN %
+   MDN$D     =  1,      % Pointer to routine to be invoked %
+   MDN$DE    =  2;      % Pointer to error routine %
+
+STRUCTURE  MSP$[FIELD] =        % Selection Parameter Node %
+        CASE .FIELD OF SET
+  % MSP$TYPE   %  (@.MSP$)      ;
+  % MSP$LENGTH %  (@.MSP$+1)    ;
+  % MSP$PARAM  %  (@.MSP$+2)    ;
+        TES;
+
+BIND
+   MSP$TYPE    =  0,    % Node type field = MV$SP %
+   MSP$LENGTH  =  1,    % Total length of this node %
+   MSP$PARAM   =  2;    % First word of parameters %
+
+STRUCTURE  MAP$[FIELD] =        % Action Parameter Node %
+        CASE .FIELD OF SET
+  % MAP$TYPE   %  (@.MAP$)      ;
+  % MAP$LENGTH %  (@.MAP$+1)    ;
+  % MAP$PARAM  %  (@.MAP$+2)    ;
+        TES;
+
+BIND
+   MAP$TYPE    =  0,    % Node type field = MV$AP %
+   MAP$LENGTH  =  1,    % Total length of this node %
+   MAP$PARAM   =  2;    % First word of paraameters %
+
+
+        % Pattern Search Tree Structure  --  MPN 17.4.5 %
+
+
+STRUCTURE  MPST$[FIELD] =       % Pattern Search Tree entry %
+        CASE .FIELD OF SET
+  % MPST$DEPTH   %  (@.MPST$)   ;
+  % MPST$SEARCH  %  (@.MPST$+1) ;
+  % MPST$REPLACE %  (@.MPST$+2) ;
+  % MPST$SUC     %  (@.MPST$+3) ;
+  % MPST$FAIL    %  (@.MPST$+4) ;
+        TES;
+
+BIND
+   MPST$DEPTH    =  0,  % depth of pattern element in contat-pattern %
+   MPST$SEARCH   =  1,  % Search pattern element %
+   MPST$REPLACE  =  2,  % Replacement pattern element %
+   MPST$SUC      =  3,  % Link to follow upon success %
+   MPST$FAIL     =  4;  % Link to follow upon failure %
+
+
+        % Pattern Incarnation Stack Structure  --  MPN 17.4.6 %
+
+
+STRUCTURE  MPIS$[FIELD] =       % Pattern Incarnation Stack entry %
+        CASE .FIELD OF SET
+  % MPIS$STARTCP %  (@.MPIS$)   ;
+  % MPIS$LENGTH  %  (@.MPIS$+1) ;
+  % MPIS$REPLACE %  (@.MPIS$+2) ;
+        TES;
+
+BIND
+   MPIS$STARTCP  =  0,  % Starting Character position of orig string %
+   MPIS$LENGTH   =  1,  % Length of orig string %
+   MPIS$REPLACE  =  2;  % Replacement pattern element %
+
+
+        % Command Analysis Routines  --  MPN 17.9 %
+
+
+EXTERNAL
+        $MPGEXEC,       % Process Graph Executive Routine %
+        $MCLESCAN,      % Command Level Entry Rescan Routine %
+        $MGRPKEY,       % Get Real Page Key Routine %
+        $MLINEPAT,      % Line Pattern Search Tree Building Routine %
+        $MSLPSPAT,      % Subline Pattern Search Tree Building Routine %
+        $MATCHRP,       % Match Replacement Pattern Elements Routine %
+        $MBLDPGKEY,     % Build Real Page Key Routine %
+        $MGDESTLN,      % Get Destination Line Number Routine %
+        $MCHNUMSCH,     % Check Numbering Scheme Routine %
+        $MGPREVLN,      % Get Previous Line Number Routine %
+        $MGNEXTLN,      % Get Next Line Number Routine %
+        $MEMPTYDEST,    % Empty Destination Check Routine %
+        $MGLNVAL,       % Get Line Number Value Routine %
+        $MSPANPGS,      % Span Pages Test Routine %
+        $MDESCND,       % Descending Range Test Routine %
+        $MREORDER;      % Reorder Information Block Routine %
+
+
+        % Command Execution Routines %
+
+
+EXTERNAL
+        $MPROMPT,       % Line Number Prompt Routine %
+        $MINSERT,       % Obtain Insert Line-Image Routine %
+        $MNEWPG,        % Add New Page to Page Table Routine %
+        $MONCE,         % Perform Once Routine %
+        $MSETKEY,       % Set-Key for SKIM Extent Read Routine %
+        $MRKDEL,        % Set Deletion Flag True Routine %
+        $MPGCMB,        % Combine Pages Routine %
+        $MPRDEL,        % Delete Page Range from Page Table Routine %
+        $MEXTRD,        % Sequential Read Until End of Extent Routine %
+        $MLNCMB,        % Combine Line Images Routine %
+        $MRENUM,        % Renumbering Routine %
+        $MREKEY,        % Rekey to New Real Page Key Routine %
+        $MADJINCR,      % Adjust Renumbering Increment Routine %
+        $MEXTEMPTY,     % Run Time Empty Destination Check Routine %
+        $MPGDEL,        % Delete Page from Page Table Routine %
+        $MLSTFND,       % Display Found Line Info. Routine %
+        $MLSTWB,        % List Working Buffer Routine %
+        $MFIX,          % Line Image Fix Routine %
+        $MVOPEN,        % User Verify File Open Routine %
+        $MLIST,         % Display List Formated Line Routine %
+        $MPRINT,        % Display Print Formated Line Routine %
+        $MRENAME,       % Change Page Name Routine %
+        $MWRITE,        % Write Line to File Routine %
+        $MLEDIT,        % Edit Entire Line Routine %
+        $MSLEDIT,       % Edit Sublines Routine %
+        $MTABLST,       % Set Tabs from a List Routine %
+        $MTABEVR,       % Set Every N-th Tab Routine %
+        $MRNSPL,        % Renumber Split Line Routine %
+        $MLSPLIT,       % Split Line-Image Routine %
+        $MSPLCK,        % Split Line Renumbering Check Routine %
+        $MCLOSE,        % Close External File Routine %
+        $MDELCOP;       % Create Line Deletion Copy Routine %
+
+
+        % Bound Values for General Use %
+
+
+BIND
+   MV$TRUE      =  1,   % Value for TRUE %
+   MV$FALSE     =  0,   % Value for FALSE %
+
+   MV$NULL      =  0,   % NULL value for pointers, etc. %
+
+   MV$ZERO      =  0,
+
+   MV$PN        =  1,   % Execution Tree-Stack Node Type PN %
+   MV$AN        =  2,   % Execution Tree-Stack Node Type AN %
+   MV$SN        =  3,   % Execution Tree-Stack Node Type SN %
+   MV$DN        =  4,   % Execution Tree-Stack Node Type DN %
+   MV$AP        =  5,   % Execution Tree-Stack Node Type AP %
+   MV$SP        =  6;   % Execution Tree-Stack Node Type SP %
+
+
+
+%
+END OF MIDAS-1 UNIVERSAL FILE: (MIDAS)MDEFS.BLI
+%
+SWITCHES LIST;
+   
