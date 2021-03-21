@@ -1,0 +1,258 @@
+EXPOF.F4	F40	V26(10)	15-MAY-73	15:27	PAGE 1
+
+
+  		      CC....      PROGRAM NAME.....EXPOF
+EXPOF.F4	F40	V26(10)	15-MAY-73	15:27	PAGE 2
+
+
+  		      C****************************************************************
+  		      C*     COPYRIGHT        TEKTRONIX, INC    1973
+  		      C*                       BEAVERTON, OREGON
+  		      C*     PLOT-10/DECISION MAKER RELEASE 1.0 - VERSION 1
+  		      C*               MODIFICATION LEVEL 0
+  		      C****************************************************************
+  		            SUBROUTINE EXPOF
+  		      C
+  		            COMMON/GAMA1/IFOR,WA(2560),DEMAN(600),XD(300),FCAST(600),
+  		           1BUFFER(600),ITITLE(30),IUNITS(30)
+  		      C
+  		            DIMENSION IEXPST(7)
+  		            DATA  IEXPST  /
+  		           *	4H;   , 4HEXPO, 4H-SMO, 4HOTHE, 4HD PR,4HOJEC,4HTION/
+  		            DIMENSION ITITX1 (30)
+  		            DATA  IDOLLR, IBLANK  / 4H$    , 4H     /
+  		            DIMENSION PERI(10),ACER(7),SMC(6),ESMC(7)
+  		            DATA PERI/4HENTE,4HR NU,4HMBER,4H OF ,4HPERI,4HODS ,4HFOR ,
+  		           14HPROJ,4HECTI, 3HON  /
+  		            DATA ESMC/4HENTE,4HR A ,4HSMOO,4HTHIN,4HG CO,4HNSTA,3HNT /
+  		            DATA ACER/4HAVER,4HAGE ,4HCUMU,4HLATI,4HVE E,4HRROR,3H =  /
+  		            DATA SMC/4HSMOO,4HTHIN,4HG CO,4HNSTA,4HNT =,1H /
+  		      C...      FORM FORECAST FILE SEGMENT
+  		      C...FOR MOST CASES II=1
+  		            II=1
+  		      C			.OPEN FILE
+  		            CALL READER
+  		      C-----
+  		      C			. GET FILE SEGMENT NAME
+  		      10    CONTINUE
+  		            NAMSEG = 0
+  		            CALL MESAGE (1)
+  		            READ (5,120) NAMSEG
+  		            IF( NAMSEG .EQ. IDOLLR  .OR.  NAMSEG .EQ. IBLANK )  GO TO 99999
+  		      C-----
+  		      C			. GET SEGMENT
+  		            CALL SEGGET (NAMSEG, JPTR)
+  		            IF( JPTR .GT. 0 )  GO TO 20
+  		            GO TO 10
+  		      C-----
+  		      20    CONTINUE
+  		      C			. GET TITLE
+  		            CALL GETT (ITITLE, LENTLE, WA(JPTR))
+  		      C-----
+  		      C			. GET UNITS
+  		            CALL GETL (ITITX1, IX1, WA(JPTR))
+  		            CALL GETU (IUNITS, IUNLEN, WA(JPTR))
+  		      C-----
+  		      C			. GET DATA
+  		            CALL GETD (XD, DEMAN, NDA, TIM, WA(JPTR))
+  		            IF( NDA .GT. 0 )  GO TO 99999
+  		      C-----
+  		      C
+EXPOF.F4	F40	V26(10)	15-MAY-73	15:27	PAGE 3
+
+
+  		            TEST = 0.0
+  		            SDAT=XD(1)
+  		            ISYRI = XD(1)
+  		            NDATA=-NDA
+  		            ND = -NDA
+  		            ITIM=XD(1)
+  		            ITIM = TIM
+  		            YRS=NDATA/ITIM
+  		            EDAT=MOD(NDATA,ITIM)
+  		            IF(EDAT.EQ.0.)GO TO 9
+  		            YRS=YRS+1
+  		      9      EDAT=EDAT+SDAT-1
+  		            IF(EDAT.EQ.0)EDAT=TIM
+  		            NPTL=ITIM/II
+  		      C...DISPLAY ORIGINAL DATA SEGMENT
+  		            CALL ERASE
+  		            NOPT=0
+  		            CALL SWINDO(200,600,100,500)
+  		      12    CALL TGRAPH(DEMAN,NDATA,ISYRI,YRS,TIM,0,1024+64,64,0)
+  		      C
+  		            CALL MOVABS(200,675)
+  		            CALL ANMODE
+  		            WRITE (5,10100)
+  		      10100 FORMAT (1X, 13HORIGINAL DATA )
+  		      C...EXPONENTIAL SMOOTHING PROCEDURE FOLLOWS
+  		            CALL WRITEL(ESMC,27)
+  		            CALL FIN(5, ALPHA, 1)
+  		            IF(TEST.EQ.ALPHA)GO TO 15
+  		             IF(ALPHA.EQ.0)ALPHA=0.000001
+  		            SLPHA=1.-ALPHA
+  		            OAVER=DEMAN(1)
+  		            OTREN=0.
+  		            J=0
+  		            DO 11 I=1,NDATA
+  		            AVER=ALPHA*DEMAN(I)+SLPHA*OAVER
+  		            CTREN=AVER-OAVER
+  		            TREN=ALPHA*CTREN+SLPHA*OTREN
+  		            FCAST(I)=AVER+SLPHA*TREN/ALPHA
+  		            OAVER=AVER
+  		      11    OTREN=TREN
+  		      1000  FORMAT(1H ,5I10)
+  		            CALL ERASE
+  		            CALL TGRAPH(FCAST,NDATA,ISYRI,YRS,TIM,0,160,160,16+32)
+  		      C
+  		            CALL MOVABS (200,650)
+  		            CALL ANMODE
+  		            WRITE (5,10200)
+  		      10200 FORMAT (1X, 17H---SMOOTHED DATA  )
+  		      C...CALCULATE AVERAGE CUMULATIVE ERROR OF THA EXPO FIT, ACE
+  		            CALL ANMODE
+  		            ACE=0.
+  		            DO 14 I=1,NDATA
+  		            TEST=DEMAN(I)-FCAST(I)
+EXPOF.F4	F40	V26(10)	15-MAY-73	15:27	PAGE 4
+
+
+  		            BUFFER(I)=TEST
+  		      14    ACE=ACE+TEST
+  		            ACE=ACE/NDATA
+  		            CALL WRITEL(1H0,0)
+  		            CALL WRITEL (SMC, 24)
+  		            CALL NOUT(ALPHA,5,3,0)
+  		            CALL WRITEL(ACER,27)
+  		            CALL NOUT(ACE,6,1,0)
+  		            STDERR=STDDEV(BUFFER,NDATA)
+  		      260   FORMAT(1H+,$,7X,21HSTD. DEV. OF ERROR = ,E8.2)
+  		            WRITE(5,260) STDERR
+  		            TEST=ALPHA
+  		      C...      REPEAT EXPONENTIAL SMOOTHING WITH DIFFERENT ALPHA
+  		            GO TO 12
+  		      C...      MAKE FINAL GRAPF FILE THAT WILL INCLUDE A FORECAST
+  		      15    CONTINUE
+  		            CALL WRITEL(PERI,39)
+  		            CALL FIN (5, F, 1)
+  		            NFU = F
+  		            IF(NFU.EQ.0) GO TO 99999
+  		            TNFU=NFU/ITIM
+  		            YRS=YRS+TNFU
+  		      16    CONTINUE
+  		            ND1=NDATA+1
+  		            ND=NDATA+NFU
+  		            IF(MOD(ND,ITIM).GT.0)YRS=YRS+1
+  		            DO 18 I=ND1,ND
+  		      18    FCAST(I)=FCAST(I-1)+TREN
+  		            CALL ERASE
+  		            CALL WRITEL(1H0,0)
+  		            CALL WRITEL(SMC,21)
+  		            CALL NOUT(ALPHA,5,3,0)
+  		            WRITE (5,10400) NFU
+  		      10400 FORMAT (1H+,10X,21HFORCAST PERIODS =  , I2 )
+  		            CALL WRITEL(ACER,26)
+  		            CALL NOUT(ACE,6,1,0)
+  		      C
+  		            CALL MNMX1 (DUMMIN,FCAMAX,ND,FCAST)
+  		            CALL MNMX1 (DUMMIN,DEMMAX,NDATA,DEMAN)
+  		            IF( DEMMAX .GT. FCAMAX )  GO TO 410
+  		      C
+  		            CALL TGRAPH(FCAST,ND,ISYRI,YRS,TIM,0,1024+64,64,0+32)
+  		            CALL MOVABS (200,650)
+  		            CALL ANMODE
+  		            WRITE (5,10200)
+  		      C
+  		            CALL TGRAPH(DEMAN,NDATA,ISYRI,YRS,TIM,0,160,160,16)
+  		            CALL MOVABS (200,675)
+  		            CALL ANMODE
+  		            WRITE (5, 10100)
+  		      C
+  		            GO TO 420
+  		      410   CONTINUE
+EXPOF.F4	F40	V26(10)	15-MAY-73	15:27	PAGE 5
+
+
+  		            CALL TGRAPH (DEMAN,NDATA,ISYRI,YRS,TIM,0,1024+64,64,0)
+  		            CALL MOVABS (200,675)
+  		            CALL ANMODE
+  		            WRITE (5,10100)
+  		      C
+  		            CALL TGRAPH (FCAST,ND,ISYRI,YRS,TIM,0,160,160,16+32)
+  		            CALL MOVABS (200,650)
+  		            CALL ANMODE
+  		            WRITE (5,10200)
+  		      C
+  		      420   CONTINUE
+  		            CALL MESAGE (4)
+  		            READ(5,120)FEXPO
+  		      120   FORMAT(A4)
+  		            IF(FEXPO.EQ.1H ) GO TO 99999
+  		      C...WRITE FORECAST SEGMENT
+  		      C			. MAKE A NEW SEGMENT
+  		            LENT = LENTLE
+  		            LEN7 = LENTLE + 7
+  		            IF( LEN7  .GT.  30 )  GO TO 310
+  		            LENT = LEN7
+  		            DO 300 I = 1, 7
+  		            ITITLE (LENTLE + I) = IEXPST (I)
+  		      300   CONTINUE
+  		      310   CONTINUE
+  		            DO 315 I = 1, 600
+  		            BUFFER (I) = 0.0
+  		      315   CONTINUE
+  		            CALL SAVET (ITITLE, LENT, BUFFER )
+  		            CALL SAVEL (ITITX1, IX1, BUFFER)
+  		            CALL SAVEU (IUNITS, IUNLEN, BUFFER )
+  		            CALL SAVED (XD, FCAST, -ND, TIM, BUFFER )
+  		            CALL SEGSAV (FEXPO, BUFFER)
+  		            CALL WRITER
+  		      C----
+  		      99999 CONTINUE
+  		            CALL NEWPAG
+  		            RETURN
+  		            END
+
+CONSTANTS
+
+0	000000000001	1	000000000310	2	000000001130	3	000000000144	4	000000000764
+5	000000000000	6	000000002100	7	000000000100	10	000000001243	11	000000000033
+12	000000000005	13	155414336750	14	000000000240	15	000000000060	16	000000001212
+17	301004020100	20	000000000000	21	000000000030	22	000000000003	23	000000000006
+24	000000000047	25	000000000025	26	000000000032	27	000000000040	30	000000000020
+31	000000000004	32	201004020100	33	201004020100	
+
+COMMON
+
+IFOR  	/GAMA1 /+0	WA    	/GAMA1 /+1	DEMAN 	/GAMA1 /+5001	XD    	/GAMA1 /+6131	FCAST 	/GAMA1 /+6605
+BUFFER	/GAMA1 /+7735	ITITLE	/GAMA1 /+11065	IUNITS	/GAMA1 /+11123	
+EXPOF.F4	F40	V26(10)	15-MAY-73	15:27	PAGE 6
+
+
+
+SUBPROGRAMS
+
+READER	MESAGE	SEGGET	GETT  	GETL  	GETU  	GETD  	INT   	FLOAT 	MOD   	ERASE 	SWINDO	TGRAPH	MOVABS	ANMODE
+WRITEL	FIN   	INTO. 	INTI. 	NOUT  	STDDEV	FLOUT.	FLIRT.	MNMX1 	ALPHO.	ALPHI.	SAVET 	SAVEL 	SAVEU 	SAVED 
+SEGSAV	WRITER	NEWPAG	
+
+SCALARS
+
+EXPOF 	1006		IDOLLR	1007		IBLANK	1010		II    	1011		NAMSEG	1012	
+JPTR  	1013		LENTLE	1014		IX1   	1015		IUNLEN	1016		NDA   	1017	
+TIM   	1020		TEST  	1021		SDAT  	1022		ISYRI 	1023		NDATA 	1024	
+ND    	1025		ITIM  	1026		YRS   	1027		EDAT  	1030		NPTL  	1031	
+NOPT  	1032		ALPHA 	1033		SLPHA 	1034		OAVER 	1035		OTREN 	1036	
+J     	1037		I     	1040		AVER  	1041		CTREN 	1042		TREN  	1043	
+ACE   	1044		STDERR	1045		F     	1046		NFU   	1047		TNFU  	1050	
+ND1   	1051		DUMMIN	1052		FCAMAX	1053		DEMMAX	1054		FEXPO 	1055	
+LENT  	1056		LEN7  	1057		IFOR  	0		
+
+ARRAYS
+
+WA    	1		DEMAN 	5001		XD    	6131		FCAST 	6605		BUFFER	7735	
+ITITLE	11065		IUNITS	11123		IEXPST	1060		ITITX1	1067		PERI  	1125	
+ACER  	1137		SMC   	1146		ESMC  	1154		
+
+ EXPOF
+    
