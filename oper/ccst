@@ -1,0 +1,114 @@
+        SUBROUTINE CCST
+C                                                                       CCS00140    
+C     FREQ = FREQUENCY                                                  CCS00150    
+C     FVC = ARRAY OF INDIVIDUAL CERAMIC RING INTERFACE FORCES AND VELS. CCS00160    
+C     FVC(1,I) = FORCE AT I-TH INTERFACE                                CCS00170    
+C     FVC(2,I) = VELOCITY AT I-TH INTERFACE                             CCS00180    
+C     K = NO = NUMBER OF RINGS IN CERAMIC STACK                         CCS00190    
+C     LENGTH = CLCS = INDIVIDUAL RING LENGTH                            CCS00200    
+C     OMEGA = ANGULAR FREQUENCY                                         CCS00210    
+C     P = PHI = ELECTROMECHANICAL TRANSFORMATION RATIO                  CCS00220    
+C     RHO = RHOCS = CERAMIC DENSITY                                     CCS00230    
+C     SOUND = CCS = LONGITUDINAL VELOCITY OF SOUND UN CERAMIC           CCS00240    
+C     SPEAK = PEAK STRAIN IN CERAMIC STACK                              CCS00250    
+C     SPEAKM = MAGNITUDE OF PEAK STRAIN                                 CCS00260    
+C     STC = ARRAY OF INDIVIDUAL CERAMIC RING STRESSES AND STRAINS       CCS00270    
+C     STC(1,I) = STRAIN IN I-TH RING                                    CCS00280    
+C     STC(2,I) = STRESS IN I-TH RING                                    CCS00290    
+C     TPEAK = PEAK STRESS IN CERAMIC STACK                              CCS00300    
+C     TPEAKM = MAGNITUDE OF PEAK STRESS IN CERAMIC STACK                CCS00310    
+C     VL = VELOCITY AT LEFT END OF INDIVIDUAL RING                      CCS00320    
+C     VR = VELOCITY AT RIGHT END OF INDIVIDUAL RING                     CCS00330    
+C     WAVE = WAVELENGTH OF SOUND IN CERAMIC                             CCS00340    
+C     XPS = LOCATION OF PEAK STRAIN IN INDIVIDUAL RING                  CCS00350    
+C     XPT = LOCATION OF PEAK STRESS IN INDIVIDUAL RING                  CCS00360    
+C                                                                       CCS00370    
+      COMMON /CC    / ACC,ALPHA,BETA,B,PHI,CCS,Z0,ZCC,C0,AKL,ZZ0,ZC0,ZB CCS00380    
+      COMMON /CERAM / S333,G333,E333,NO,RHOCS,CLCS,ACS,LT,O,CSW         CCS00390    
+      COMMON /CERFV / FVC,E,EC                                          CCS00400    
+      COMMON /CERI  / CURENT,TOTI,POWLOS(32),EF(32),TOTPL,TOTEF         CCS00410    
+      COMMON /CERST / STC                                               CCS00420    
+      COMMON /CNTROL/ N(12),IE,IBC                                      CCS00430    
+      COMMON /EDIT  / SEC(24),T(20),PTYPE(2),MO,IDAY,IYR,IRUN,OUT(4)     CCS00440    
+      COMMON /FREQ  / FREQ,TWOPI                                        CCS00450    
+      COMMON /SW    / LSW(20)                                           CCS00460    
+      COMMON /COM94 / SPEAK,TPEAK                                       CCS00470    
+C                                                                       CCS00480    
+      LOGICAL LSW                                                       CCS00490    
+C                                                                       CCS00500    
+C                                                                       CCS00510    
+      COMPLEX FVC(2,33),E,EC,CURENT(32),TOTI,S333,G333,E333,ACC(2,3,2),ACCS00520    
+     1LPHA(2,2,2),BETA(2,2),B(2,2,2),PHI,CCS,Z0,C0,AKL,ZZ0,ZCC(2,2),ZC0,CCS00530    
+     2ZB(2,3),STC(2,32),D1,D2,T1,Q,CL,CZERO,P,CJ,VL,VR,SPEAK,TPEAK,WAVE,CCS00540    
+     3SOUND                                                             CCS00550    
+C                                                                       CCS00560    
+      REAL MAGS,IPS,MAGT(32),IPT(32),LENGTH,TPEAKM(32),XPT(32)          CCS00570    
+C                                                                       CCS00580    
+      IF=0                                                              CCS00590    
+      N1=2*(IE-1)+1                                                     CCS00600    
+      N2=N1+1                                                           CCS00610    
+      CJ=(0.,1.)                                                        CCS00620    
+      IF(LSW(11))WRITE(6,150)PTYPE(1),FREQ,MO,IDAY,IYR,IRUN,OUT(N1),OUT(NCCS00630    
+     12)                                                                CCS00640    
+      OMEGA=TWOPI*FREQ                                                  CCS00650    
+      K=NO                                                              CCS00660    
+      P=PHI                                                             CCS00670    
+      WAVE=AKL/CLCS                                                     CCS00680    
+      LENGTH=CLCS                                                       CCS00690    
+      SOUND=CCS                                                         CCS00700    
+      RHO=RHOCS                                                         CCS00710    
+      D1=2.0*CJ*CCS*CSIN(AKL/2.0)                                       CCS00720    
+      D2=CJ*OMEGA*C0*ACS                                                CCS00730    
+      T1=RHOCS*CCS*CCS/D1                                               CCS00740    
+      VL=FVC(2,1)                                                       CCS00750    
+      IF(.NOT.LSW(11))GOTO100                                           CCS00760    
+      WRITE(6,170)                                                      CCS00770    
+      WRITE(6,160)                                                      CCS00780    
+  100 DO 130 I=1,K                                                      CCS00790    
+        VR=FVC(2,I+1)                                                   CCS00800    
+        XPS=0.0                                                         CCS00810    
+        SPEAKM=0.0                                                      CCS00820    
+        XPT(I)=0.0                                                      CCS00830    
+        TPEAKM(I)=0.0                                                   CCS00840    
+        XPEAK=SOLVE(VL,VR,LENGTH,WAVE,IF)                               CCS00850    
+        IF(IF)110,120,110                                               CCS00860    
+  110   XPS=XPEAK/LENGTH                                                CCS00870    
+        SPEAK=(VR*CCOS(XPEAK*WAVE)-VL*CCOS((LENGTH-XPEAK)*WAVE))/(CJ*SOUCCS00880    
+     1  ND*CSIN(WAVE*LENGTH))                                           CCS00890    
+        SPEAKM=CABS(SPEAK)                                              CCS00900    
+        XPT(I)=XPS                                                      CCS00910    
+        TPEAK=RHO*SOUND/(CJ*CSIN(WAVE*LENGTH))*(VR*CCOS(WAVE*XPEAK)-VL*CCCS00920    
+     1  COS(WAVE*(LENGTH-XPEAK)))-P*CURENT(I)/D2                        CCS00930    
+        TPEAKM(I)=CABS(TPEAK)                                           CCS00940    
+  120   Q=VR-VL                                                         CCS00950    
+        STC(2,I)=Q/D1                                                   CCS00960    
+        STC(1,I)=Q*T1-P*CURENT(I)/D2                                    CCS00970    
+        VL=VR                                                           CCS00980    
+        X=REAL(STC(1,I))                                                CCS00990    
+        Y=AIMAG(STC(1,I))                                               CCS01000    
+        MAGT(I)=SQRT(X*X+Y*Y)                                           CCS01010    
+        IF(MAGT(I).NE.0.0)IPT(I)=57.2957795*ATAN2(Y,X)                  CCS01020    
+        X=REAL(STC(2,I))                                                CCS01030    
+        Y=AIMAG(STC(2,I))                                               CCS01040    
+        MAGS=SQRT(X*X+Y*Y)                                              CCS01050    
+        IPS=0.0                                                         CCS01060    
+        IF(MAGS.NE.0.0)IPS=57.2957795*ATAN2(Y,X)                        CCS01070    
+        IF(.NOT.LSW(11))GOTO130                                         CCS01080    
+        WRITE(6,190)I,X,Y,MAGS,IPS,XPS,SPEAKM                           CCS01090    
+  130 CONTINUE                                                          CCS01100    
+      IF(.NOT.LSW(11))GOTO140                                           CCS01110    
+      WRITE(6,180)                                                      CCS01120    
+      WRITE(6,160)                                                      CCS01130    
+      WRITE(6,190)(I,STC(1,I),MAGT(I),IPT(I),XPT(I),TPEAKM(I),I=1,K)    CCS01140    
+  140 RETURN                                                            CCS01150    
+C                                                                       CCS01160    
+  150 FORMAT (1H1//6XA6,27H TRANSDUCER ANALYSIS OUTPUT,10X2HF=,F8.2,10X4CCS01170    
+     1HDATE,I4,1H/I2,1H/I2,10X11HRUN NUMBER  A6//6X36HCERAMIC SECTION STCCS01180    
+     2RESSES AND STRAINS,2A6,8H CONTROL//)                              CCS01190    
+  160 FORMAT (/6X4HRING,8X4HREAL,11X4HIMAG,11X3HMAG,12X5HPHASE, 9X4HXP/LCCS01200    
+     1,12X10HPEAK VALUE/6X6HNUMBER//)                                   CCS01210    
+  170 FORMAT (6X26HSTRAIN * * * * * * * * * *)                          CCS01220    
+  180 FORMAT (//6X26HSTRESS * * * * * * * * * *)                        CCS01230    
+  190 FORMAT (I9,4X1P3E15.5,0PF14.6,F12.6,1PE19.5)                      CCS01240    
+C                                                                       CCS01250    
+      END                                                               CCS01260    
