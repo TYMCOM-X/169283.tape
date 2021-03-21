@@ -1,0 +1,738 @@
+MODULE PARSER(DOLLAR, ENTRIES =($PARSE,$PSERR),
+                FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+BEGIN
+
+BIND DEBUGLVL=0;        % CONTROL KNOB FOR DEBUG CODE %
+
+REQUIRE FDEFS.BLI[7,107355];
+REQUIRE PDEFS.BLI[7,107355];
+REQUIRE UDEFS.BLI[7,107355];
+REQUIRE TDEFS.BLI[7,107355];
+REQUIRE CDEFS.BLI[7,107355];
+REQUIRE HDEFS.BLI[7,107355];
+
+UNDECLARE $PARSE,$PSERR;
+
+MAP PP$ PPARM$;
+
+%
+   THIS IS THE STRUCTURE FOR THE ERROR STACK ENTRIES
+%
+STRUCTURE ERRB[FIELD]=
+   CASE .FIELD OF SET
+%CODE%      (@.ERRB+0)< 0,18>;
+%CTKN%      (@.ERRB+2)< 0, 0>;
+%LKFOR%     (@.ERRB+0)<18,18>;
+%SUC%       (@.ERRB+1)< 0,18>;
+%POS%       (@.ERRB+1)<18,18>;
+            TES;
+
+%  THESE ARE THE FIELD VALUE CODES
+%
+BIND
+   CODE = 0,
+   CTKN = 1,
+   LKFOR = 2,
+   SUC = 3,
+   POS = 4;
+
+MACRO
+   ERRBSIZE = .PPARM$[PP$TKNSIZE]+2&;
+
+BIND
+   LSEML=10,            % 1+MAX LENGTH OF THE INTEGER LIST IN ACTION NODES%
+   NTKNW=20;            % NUMBER OF TOKENS IN BASIC WINDOW INCREMENT %
+
+MACRO
+   LH=18,18&,   %LEFT HALFWORD%
+   RH=0,18&,            %RIGHT HALFWORD%
+   ASSERT(LEVEL,CONDTN,CODE)=    %DEBUG ASSERTIONS%
+      IF DEBUGLVL GEQ LEVEL
+         THEN
+            IF NOT(CONDTN)
+               THEN ABORT(CODE)&,
+   BETWEEN(A,L,U)=(A GEQ L AND A LEQ U)&;
+
+%  FOLLOWING ARE SOME MACROS WHICH IMPLEMENT STACKS AS ARRAYS WITH THE
+   ZEROTH WORD AS A PSEUDO POINTER - LEFT HALF SIZE AND RIGHT CUR
+   RENT INDEX.
+%
+
+MACRO
+   NULLSTK(S,L)=S[0] := L^18+0&,
+   PUSH(A,S)=(ASSERT(9,NOT FULL(S),#036); S[S[0] := .S[0]+1] := A)&,
+   POP(S)=.S[(S[0] := .S[0]-1)+1]&,
+   FULL(S)=(.S[0]<RH> GEQ .S[0]<LH>)&,
+   EMPTY(S)=(.S[0]<RH> EQL 0)&,
+   COUNT(S)=.S[0]<RH>&,
+   TOP(S)=S[.S[0]]&;
+
+%
+   POSTERR PROCESSES THE ERROR STACK BY CALLING THE USER'S ERROR ROUTINE
+   WITH THE PARAMETERS IN THE ERROR BLOCKS THAT HAVE BEEN STACKED
+   BY PREVIOUS PARSING.  THE PROCESSING IS STRAIGHTFORWARD: IT MERELY
+   LOOPS UNTIL THE ERROR LIST IS EMPTY, UNPACKING EACH BLOCK AND DELIVERING
+   THE PARAMETERS TO (.PPARM$[PP$ERROROUT]).  THE PARAMETERS ARE:
+        CODE - THE ERROR CODE PICKED OUT OF THE GRAPH IN THE ERROR NODE
+        CTKN - THE ADDRESS IN THE TOKEN WINDOW OF THE CURRENT TOKEN
+        LKFOR - THE TV OR NV VALUE OF THE ITEM NOT FOUND
+%
+ROUTINE POSTERR=
+   UNTIL .PPARM$[PP$ERRORSTK] EQL 0 DO
+      BEGIN
+      LOCAL ERRB E;
+      E := .PPARM$[PP$ERRORSTK];
+      PPARM$[PP$ERRORSTK] := .E[SUC];
+      (.PPARM$[PP$ERROROUT])(.E[CODE],E[CTKN],.E[LKFOR]);
+      $CFREEM(.E)
+      END;
+
+%
+        $PSERR
+        THIS ROUTINE STACKS THE INFORMATION NECESSARY TO REPORT AN ERROR
+        UNTIL IT'S REPORTING TIME  (GENERALLY A NOBACKUP POINT).
+        IT MAY ALSO BE CALLED FROM SYNTAX ROUTINES.
+%
+
+GLOBAL ROUTINE $PSERR(ECODE,TOKP,L)=
+   BEGIN
+   LOCAL ERRB E;
+
+   E := $CGTZM(ERRBSIZE);
+   E[CODE] := .ECODE;
+   E[LKFOR] := .L;
+   $UMOVE(.PPARM$[PP$TKNSIZE],.TOKP,E[CTKN]);
+   E[SUC] := .PPARM$[PP$ERRORSTK];
+   E[POS] := .PPARM$[PP$FIRSTTKN];
+   PPARM$[PP$ERRORSTK] := .E
+   END;
+
+%
+        PSCAN
+
+   PSCAN IS THE DRIVER ROUTINE FOR THE PARSER.  ITS BASIC FLOW IS QUITE SIMPLE
+   IT EVALUATES THE CURRENT NODE TYPE, WHICH REGARDLESS OF ITS SIDE EFFECTS
+   MUST EITHER SUCCEED OR FAIL.  ON FAILURE, THE PARSER ADVANCES TO THE
+   ALTERNATE NODE OF THE CURRENT NODE AND THE PROCESS CONTINUES.  ON SUC-
+   CESS, THE ROUTINE ADVANCES TO THE SUCCESSOR NODE.  THE SUCCESS OPTION 
+   IS SOMEWHAT MORE COMPLICATED BECAUSE, IF THE CURRENT NODE IS NOT A
+   BACKUP POINT AND IT HAS AN ALTERNATIVE, THEN THE PARSER MUST BE PREPARED
+   TO RESTORE ITS CURRENT STATE SHOULD THE SUCCESSOR EVENTUALLY FAIL.  TO
+   SAVE THE CURRENT STATE THE ROUTINE PSCAN CALLS ITSELF RECURSIVELY.
+
+   THE PROCESSING OF THE INDIVIDUAL NODES WILL BE DESCRIBED WHERE THE
+   CODE APPEARS.  THE CODE IS ORGANIZED AS FOLLOWS: FIRST, THE DECLARATIONS
+   FOR PSCAN, THEN A NUMBER OF AUXILIARY FUNCTIONS AND MACROS APPEAR.  NEXT
+   THE MACROS FOR EACH OF THE NODE TYPES ARE PRESENTED.  AFTER THIS IS THE
+   MACRO NODEACTION WHICH DISPATCHES TO THE APPROPRIATE NODE PROCESSOR AND
+   HANDLES COMMON PRE-NODE CHECKS AND POST-NODE PROCESSING.  FINALLY, THE
+   MAIN LINE CODE FOR PSCAN APPEARS, INVOKING THE NODEACTION MACRO.
+
+%
+ROUTINE PSCAN(NODE,TREEP,SEML)=
+   BEGIN
+
+   MAP
+      PS$ NODE,     %CURRENT NODE OF SYNTAX GRAPH%
+      HTREE$ TREEP, % DESTINATION OF SYNTAX TREE %
+      UDYNARY$ SEML;  %SAVED SEMANTICS OF SUBTREES PRIOR TO ACTION%
+   LOCAL SAVCTKN;       % FOR SAVING THE TOKEN CURSOR %
+
+%
+   TRACEP IS THE TRACE OUTPUT ROUTINE.  IT IS CALLED WITH VARIOUS
+   CODES TO INDICATE WHICH KIND OF OUTPUT IS DESIRED.
+%
+   FUNCTION TRACEP(CD,ARG)=
+      BEGIN
+
+      BIND RESM=PLIT(
+         $USPTR(' FAILURE'),
+         $USPTR(' SUCCESS'));
+
+      $UAPSZ((CASE .CD OF SET
+         $USPTR('NODE #');
+         $USPTR('READING TOKEN ');
+         $USPTR('CALLING SEMANTIC ROUTINE #');
+         $USPTR('RETURN FROM SEMANTIC ROUTINE');
+         $USPTR('RECURSION FOR NON-TERMINAL #');
+         $USPTR('NON-TERMINAL #');
+         $USPTR('STARTING ERROR PRODUCTION #');
+         $USPTR('ENDING ERROR PRODUCTION');
+         $USPTR('BACKING UP TO TOKEN ');
+         $USPTR('STARTING NODE #');
+         $USPTR('RECURSION FOR SUC #');
+         0;
+         $USPTR('JUMP TO NODE #');
+         $USPTR('CLEARING TOKEN WINDOW OF ');
+         $USPTR('ACTION NODE #');
+         0
+         TES));         % PUT OUT PRIMARY MESSAGE FOR CODE %
+      CASE .CD OF SET
+% 0 : NODE COMPLETE %
+         BEGIN
+         $UAPDC($PNODNUM(.NODE));
+         $UAPSZ(.RESM[.ARG])
+         END;
+% 1 : TOKEN READ %
+         (.PPARM$[PP$PRTOKEN])(.PPARM$[PP$TOKEN]);
+% 2 : SEMANTIC ROUTINE CALL %
+         $UAPDC(.ARG);
+% 3 : SEMANTIC ROUTINE EXIT %
+         0;
+% 4 : RECURSION FOR NONTERMINAL %
+         $UAPDC(.NODE[P$DEF]);
+% 5 : RETURN FROM NONTERMINAL %
+         BEGIN
+         $UAPDC(.NODE[P$DEF]);
+         $UAPSZ(.RESM[.ARG])
+         END;
+% 6 : ERROR PRODUCTION PROCESSING%
+         $UAPDC(.NODE[P$ERRNDE]);
+% 7 : ERROR RETURN %
+         $UAPSZ(.RESM[.ARG]);
+% 8 : TOKEN BACKUP %
+         (.PPARM$[PP$PRTOKEN])(.PPARM$[PP$TOKEN]);
+% 9 : NODE TRACE %
+         $UAPDC($PNODNUM(.NODE));
+%10 : RECURSION FOR SUCCESSOR %
+         $UAPDC(.NODE[P$SUC]);
+%11 : TREE DUMP %
+         BEGIN
+         $UOUTL();
+         $HTDMP(.ARG)
+         END;
+%12 : JUMP NODE %
+         $UAPDC($PNODNUM(.NODE));
+%13 : CLEARING TOKEN WINDOW %
+         $UAPDC(.ARG);
+%14 : ACTION NODE %
+         $UAPDC(.ARG);
+%15 : STOP AT NODE %
+         IF $PNODNUM(.NODE) EQL .PPARM$[PP$TRACESTOP]
+            THEN
+               BEGIN
+               $UAPSZ($USPTR('STOP AT NODE #'));
+               $UAPDC(.PPARM$[PP$TRACESTOP]);
+               $UOUTL();
+               SIX12(-1)
+               END
+      TES;
+      $UOUTL()
+      END;
+%
+   TYPERR IS USED TO REPORT CATASTROPHIC PARSER ERRORS DETECTED BY THE
+   ASSERTIONS SPRINKLED THROUGH THE CODE.  IT TYPES ON THE TERMINAL THE
+   CURRENT CONTEXT OF THE PARSER, CALLS THE USER ROUTINE (.PPARM$[PP$PRTOKEN])
+   TO FORMAT THE CURRENT TOKEN AND THEN FATALLY ABORTS.
+%
+   FUNCTION TYPERR(CODE)=
+      BEGIN
+      $UOUTM(FTLMS$<36,7>,0);
+      $UAPSZ($USPTR('CURRENT GRAPH NODE IS '));
+      $UAPDC($PNODNUM(.NODE)); $UOUTL(0);
+      $UAPSZ($USPTR('CURRENT TOKEN IS - '));
+      (.PPARM$[PP$PRTOKEN])(.PPARM$[PP$TOKEN]); $UOUTL(0);
+      $FATAL(.CODE)
+      END;
+
+   MACRO
+      NODEPOK(NP)=NOT NP AND BETWEEN(NP,4,@(.PPARM$[PP$GRAPH]-1))&,
+      TRACE(CODE,ARG)=
+         IF DEBUGLVL GEQ 3
+            THEN IF .PPARM$[PP$TRACECODE]<35-CODE,1>
+                    THEN TRACEP(CODE,ARG)&,
+      ABORT(Z)=TYPERR(Z)&;
+
+
+%
+   FOLLOWING ARE THE MACROS FOR INTERFACING WITH THE SCANNER AND THE
+   ALPHA FILE:
+        NEXTOKEN - SETS PPARM$[PP$TOKEN] TO POINT TO THE NEXT TOKEN IN WINDOW
+        CLEARTKNW - CLEARS THE TOKEN WINDOW UP TO CURRENT TOKEN
+                    AT NO BACKUP POINTS
+        SAVCUR - SAVES THE CURSOR INTO THE TOKEN WINDOW FOR POSSIBLE BACKUP
+        RESTORCUR - RESTORES TO A PREVIOUS BACKUP POINT
+
+%
+   FUNCTION GETOK=
+      BEGIN
+      ASSERT(5, BETWEEN(.PPARM$[PP$FIRSTTKN], 0, .PPARM$[PP$WINDOWSZ] - 1), #033);
+      IF (PPARM$[PP$FIRSTTKN] := .PPARM$[PP$FIRSTTKN] + 1) LEQ .PPARM$[PP$LASTTKN]
+        THEN PPARM$[PP$TOKEN] := .PPARM$[PP$TOKEN] + .PPARM$[PP$TKNSIZE]
+        ELSE BEGIN
+          IF .PPARM$[PP$FIRSTTKN] GEQ .PPARM$[PP$WINDOWSZ]
+            THEN BEGIN  % TOKEN WINDOW OVERFLOW %
+              LOCAL WP;
+              WP := $CGTZM((.PPARM$[PP$WINDOWSZ] + NTKNW) *
+                                 .PPARM$[PP$TKNSIZE]);
+              $UMOVE(.PPARM$[PP$WINDOWSZ] * .PPARM$[PP$TKNSIZE],
+                         .PPARM$[PP$WINDOW], .WP);
+              PPARM$[PP$WINDOWSZ] := .PPARM$[PP$WINDOWSZ] + NTKNW;
+              $CFREE(.PPARM$[PP$WINDOW]);
+              PPARM$[PP$TOKEN] := .PPARM$[PP$TOKEN] - .PPARM$[PP$WINDOW] + .WP;
+              PPARM$[PP$WINDOW] := .WP   END;
+         PPARM$[PP$LASTTKN] := .PPARM$[PP$LASTTKN] + 1;
+         PPARM$[PP$TOKEN] := .PPARM$[PP$TOKEN] + .PPARM$[PP$TKNSIZE];
+         (.PPARM$[PP$SOURCE])(.PPARM$[PP$TOKEN])
+         END;
+      TRACE(1,0)
+      END;
+
+   MACRO
+      NEXTOKEN=GETOK()&,
+      CLEARTKNW=
+         IF .PPARM$[PP$FIRSTTKN] NEQ 0
+           THEN BEGIN
+             LOCAL TC;
+             TRACE(13,.PPARM$[PP$FIRSTTKN]);
+             TC := .PPARM$[PP$LASTTKN] - .PPARM$[PP$FIRSTTKN] + 1;
+             $UMOVE(.TC * .PPARM$[PP$TKNSIZE],
+                         .PPARM$[PP$TOKEN], .PPARM$[PP$WINDOW]);
+             PPARM$[PP$FIRSTTKN] := 0;
+             PPARM$[PP$LASTTKN] := .TC - 1;
+             PPARM$[PP$TOKEN] := .PPARM$[PP$WINDOW]   END&,
+      SAVCUR=SAVCTKN := .PPARM$[PP$FIRSTTKN]&,
+      RESTORCUR=
+         IF .SAVCTKN NEQ .PPARM$[PP$FIRSTTKN]
+            THEN BEGIN
+               ASSERT(5, BETWEEN(.SAVCTKN, 0, .PPARM$[PP$LASTTKN]), #035);
+               PPARM$[PP$TOKEN] := (PPARM$[PP$FIRSTTKN] := .SAVCTKN) * .PPARM$[PP$TKNSIZE] +
+                                        .PPARM$[PP$WINDOW];
+               TRACE(8,0)
+               END&;
+   
+   % STACK TERMINAL SEMANTICS NODE %
+
+   FUNCTION STACKSEM(NP) =
+      BEGIN
+      MAP HNODE$ NP;
+      LOCAL HTREE$I NT;
+      NP[H$TYPE] := HV$TERM;
+      NP[H$SUC] := HV$SIGMA;
+      NT[H$HEAD] := NT[H$TAIL] := .NP;
+      PUSH(.NT,SEML)
+      END;
+
+
+   %RECORD TERMINAL SEMANTICS NODE%
+
+   FUNCTION RECORDSEM =
+      BEGIN
+      LOCAL HNODE$ NP;      %PTR TO THE NODE BEING RECORDED%
+      NP := $CGTZM(HV$TSIZE);
+      $UMOVE(.PPARM$[PP$TKNSIZE], .PPARM$[PP$TOKEN], NP[H$TKNL]);
+      STACKSEM(.NP)
+      END;
+
+   FUNCTION TRYERR=
+      BEGIN
+      LOCAL
+         VAL,              %HOLDER FOR PSCAN VALUE%
+         NSEML[LSEML],   %TEMPORARY SEMANTIC LIST FOR ERROR PRODUCTION%
+         TEMPTREE,    %RETURNED TREE FROM NON-TERMINAL%
+         ERRB E,      %POINTER TO ERROR STACK ENTRY%
+         PS$ ERRNODE; %ERROR NODE%
+      NULLSTK(NSEML,LSEML);
+      VAL := TEMPTREE := 0;
+      TRACE(6,0);
+      ERRNODE := $PNODADDR(.NODE[P$ERRNDE]);
+      $PSERR(.ERRNODE[P$ERRNUM], .PPARM$[PP$TOKEN], .ERRNODE[P$LKFOR]);
+      IF (VAL := PSCAN(.ERRNODE[P$ERRDEF],TEMPTREE<0,0>,NSEML<0,0>))
+         THEN
+            IF .NODE[P$SEM]
+               THEN PUSH(.TEMPTREE,SEML)
+               ELSE $PGARB(.TEMPTREE)
+         ELSE
+            BEGIN
+            UNTIL EMPTY(NSEML) DO
+               $PGARB(POP(NSEML));
+            RESTORCUR
+            END;
+
+      TRACE(7,.VAL);
+      .VAL
+      END;
+
+   FUNCTION CRESEM(TOKID)=
+      BEGIN
+      LOCAL HNODE$ NP, PTKN$ TP;
+      NP := $CGTZM(HV$TSIZE);
+      TP := NP[H$TKNL];
+      TP[PTKN$ID] := .TOKID;
+      (.PPARM$[PP$TKNBLDR])(.TP, .PPARM$[PP$TOKEN]);
+      STACKSEM(.NP)
+      END;
+
+%  THE FOLLOWING MACRO THROWS AWAY ERROR BLOCKS WHICH MAY
+   HAVE BEEN PUT OUT BECAUSE WE ARE BACKING UP OVER THEM.  WE CAN KEEP
+   ONLY ERRORS FOR TOKENS 'BEFORE' THE CURRENT ONE.
+%
+   MACRO FLUSHERRS=
+      BEGIN
+      LOCAL ERRB E;
+
+      UNTIL
+         (IF .PPARM$[PP$ERRORSTK] EQL 0
+            THEN 1
+            ELSE (E := .PPARM$[PP$ERRORSTK];
+                  .E[POS] LSS .PPARM$[PP$FIRSTTKN]))
+      DO BEGIN
+         PPARM$[PP$ERRORSTK] := .E[SUC];
+         $CFREEM(.E)
+         END
+      END &;
+
+   MACRO TERMINAL=
+      IF .PPARM$[PP$TOKFIELD, PTKN$ID] EQL .NODE[P$TID]
+         THEN
+            BEGIN
+            IF .NODE[P$SEM]
+               THEN
+                  RECORDSEM();
+            IF NOT .NODE[P$RESCAN]
+               THEN NEXTOKEN;
+            1
+            END
+         ELSE
+            IF .NODE[P$ERRF]
+               THEN TRYERR()
+               ELSE 0&;
+   
+   
+   MACRO NONTERMINAL=
+      BEGIN
+      LOCAL
+         SAVCTKN,         % SAVE FOR TOKEN IF FAILURE %
+         NSEML[LSEML],
+         TEMPTREE;
+      NULLSTK(NSEML,LSEML);
+      TEMPTREE := HV$EMPTY;
+      TRACE(4,0);
+      SAVCUR;
+      IF PSCAN(.NODE[P$DEF],TEMPTREE<0,0>,NSEML<0,0>)
+         THEN
+            BEGIN
+            TRACE(5,1);
+            IF .NODE[P$SEM]
+               THEN PUSH(.TEMPTREE,SEML)
+               ELSE $PGARB(.TEMPTREE);
+            1
+            END
+         ELSE
+            BEGIN
+            TRACE(5,0);
+            RESTORCUR;
+            $PGARB(.TEMPTREE);
+            UNTIL EMPTY(NSEML)
+            DO $PGARB(POP(NSEML));
+            IF .NODE[P$ERRF]
+               THEN TRYERR()
+               ELSE 0
+            END
+      END&;
+   
+   MACRO NULL=
+      BEGIN
+      IF .NODE[P$SEM]
+         THEN CRESEM(TV$NULL);
+      1
+      END&;
+   
+   MACRO CRATE=
+      BEGIN
+      IF .NODE[P$SEM]
+         THEN CRESEM(.NODE[P$TID]);
+      1
+      END&;
+   
+   MACRO ANY=
+      IF .PPARM$[PP$TOKFIELD, PTKN$ID] NEQ TV$EOF
+         THEN
+            BEGIN
+            IF .NODE[P$SEM]
+               THEN RECORDSEM();
+            IF NOT .NODE[P$RESCAN]
+               THEN NEXTOKEN;
+            1
+            END
+         ELSE IF .NODE[P$ERRF]
+            THEN TRYERR()
+         ELSE 0&;
+   
+   MACRO JUMP=
+      IF BETWEEN(.PPARM$[PP$TOKFIELD, PTKN$ID],.NODE[P$LOWT],.NODE[P$HIGHT])
+         THEN
+            BEGIN
+            NODE := .NODE+PV$SIZE*(.PPARM$[PP$TOKFIELD, PTKN$ID]-.NODE[P$LOWT]+1);
+            TRACE(12,0);
+            TRACE(15,0);
+            IF .NODE[P$SEM]
+               THEN RECORDSEM();
+            IF NOT .NODE[P$RESCAN]
+               THEN NEXTOKEN;
+            1
+            END
+         ELSE
+            BEGIN
+            NODE := .NODE+PV$SIZE*(.NODE[P$HIGHT]-.NODE[P$LOWT]+1);
+            0
+            END&;
+   
+   
+   MACRO NOTANY=
+      BEGIN
+      LOCAL SAVCTKN,VAL;
+      SAVCUR;
+      VAL := NOT PSCAN(.NODE[P$DEF],.TREEP,.SEML);
+      RESTORCUR;
+      .VAL
+      END&;
+
+   MACRO ACTION=
+      BEGIN
+      LOCAL
+        PS$ ACTN,   %ACTION NODE PTR%
+        HTREE$I TT, %TREE ASSEMBLED FROM INTEGER LIST%
+        PS$ INTN,   %THE INTEGER LIST NODE PTR.%
+        M,          %NO. OF SEMANTIC ARRAY ENTRIES+1%
+        INTL[2],    %TO HOLD THE INTEGER LIST AND TERM 0 WORD%
+        N,          %CURRENT INTEGER TEMPORARY%
+        INTLP;      %BYTE PTR TO THE INTEGERLIST%
+
+      ASSERT(3,NODEPOK(.NODE[P$ACTION]), #040);
+      TRACE(14,.NODE[P$ACTION]);
+      ACTN := $PNODADDR(.NODE[P$ACTION]);
+      ASSERT(7,.ACTN[P$ACT] LEQ 4, #037);
+      IF .ACTN[P$SUBF]
+         THEN
+            BEGIN
+            LOCAL
+               PTKN$ TKP,   % TOKEN POINTER %
+               HNODE$ H; % TREE NODE FOR SUBID %
+            TT := .TOP(SEML);
+            H := .TT[H$HEAD];
+            TKP := H[H$TKNL];
+            TKP[PTKN$SUBID] := .ACTN[P$SUBID]
+            END;
+
+      IF .ACTN[P$ACT] NEQ PV$NONE
+         THEN
+            BEGIN
+            ASSERT(3,NODEPOK(.ACTN[P$INTIX]), #040);
+            INTN := $PNODADDR(.ACTN[P$INTIX]);
+            INTL[0] := .INTN[P$INTL];
+            INTL[1] := 0;
+            INTLP := INTL[0]<36,4>;
+            ASSERT(9,BETWEEN(COUNT(SEML),0,LSEML), #036);
+            M := COUNT(SEML)+1;      %FOR WORKING PURPOSES%
+            TT := HV$EMPTY;
+            UNTIL (N := SCANI(INTLP)) EQL 0 DO
+               BEGIN
+               LOCAL
+                  HNODE$ H,
+                  HTREE$I K;
+               ASSERT(7,BETWEEN(.N,1,COUNT(SEML)), #041);
+               K := .SEML[.M-.N];
+               IF .K NEQ HV$EMPTY
+                  THEN
+                     IF .TT NEQ HV$EMPTY
+                        THEN
+                           BEGIN
+                           H := .TT[H$TAIL];
+                           H[H$SUC] := .K[H$HEAD];
+                           TT[H$TAIL] := .K[H$TAIL]
+                           END
+                        ELSE TT := .K
+               END;
+            NULLSTK(SEML,LSEML)
+            END;
+
+      CASE .ACTN[P$ACT] OF SET
+   
+   %NONE%    0;
+   
+   %NEW%    BEGIN
+            LOCAL HNODE$ H;
+            ASSERT(3,@@TREEP EQL HV$EMPTY, #042);
+            H := $CGTZM(HV$NTSIZE);
+            H[H$ALTN] := .ACTN[P$ALTN];
+            H[H$VAL] := .ACTN[P$DEFV];
+            H[H$TYPE] := HV$NTERM;
+            H[H$DEFT] := .TT;
+            H[H$SUC] := HV$SIGMA;
+            TREEP[H$HEAD] := TREEP[H$TAIL] := .H
+            END;
+   
+   
+   %ADD%    BEGIN
+            LOCAL HNODE$ H, HTREE$I TR;
+            ASSERT(3,@@TREEP NEQ HV$EMPTY, #043);
+            H := .TREEP[H$HEAD];
+            ASSERT(3,.H[H$TYPE] EQL HV$NTERM, #043);
+            TR := .H[H$DEFT];
+            IF .TR NEQ HV$EMPTY
+               THEN
+                  BEGIN
+                  H := .TR[H$TAIL];
+                  TR[H$TAIL] := .TT[H$TAIL];
+                  H[H$SUC] := .TT[H$HEAD]
+                  END
+               ELSE H[H$DEFT] := .TT
+            END;
+   
+   %UP%     BEGIN
+            ASSERT(3,@@TREEP EQL HV$EMPTY, #044);
+            (.TREEP)<0,36> := .TT
+            END;
+   
+   %APPEND% BEGIN
+            LOCAL HNODE$ H;
+            IF @@TREEP NEQ HV$EMPTY
+               THEN IF .TT NEQ HV$EMPTY
+                  THEN
+                     BEGIN
+                     H := .TREEP[H$TAIL];
+                H[H$SUC] := .TT[H$HEAD];
+                     TREEP[H$TAIL] := .TT[H$TAIL]
+                     END
+                  ELSE 0
+               ELSE (.TREEP)<0,36> := .TT
+            END
+   
+            TES;
+   
+      IF .ACTN[P$ROUT] NEQ 0
+         THEN
+            BEGIN
+            LOCAL P, UDYNARY$ RTNVEC;
+            P := IF .ACTN[P$ACT] EQL PV$NONE
+               THEN TOP(SEML)
+               ELSE .TREEP;
+            RTNVEC := .PPARM$[PP$SEMANTICS];
+            TRACE(2,.ACTN[P$ROUT]);
+            TRACE(11,@@P);
+            (@P)<0,36> := (.RTNVEC[.ACTN[P$ROUT]])(@@P);
+            TRACE(3,0)
+            END;
+      TRACE(11,@@TREEP);
+      1
+      END &;
+
+
+   FUNCTION NODEACTION=
+      BEGIN
+      ASSERT(3,NODEPOK(.NODE), #040);
+      NODE := $PNODADDR(.NODE);
+      TRACE(9,0);
+      TRACE(15,0);
+      ASSERT(1,.NODE[P$TYPE] LEQ PV$MAXTYP, #045);
+      IF .NODE[P$REDUCE]
+         THEN SAVCUR;
+      IF (CASE .NODE[P$TYPE] OF SET
+            TERMINAL;
+            NONTERMINAL;
+            NULL;
+            CRATE;
+            ANY;
+            JUMP;
+            NOTANY;
+            ABORT(#045);  % ACTION %
+            ABORT(#045);  % INTEGER %
+            ABORT(#045)   % ERROR %
+         TES)
+         THEN
+            BEGIN
+            TRACE(0,1);
+            IF .NODE[P$ACTF]
+               THEN ACTION;
+            IF .NODE[P$NOBACKUP]
+               THEN
+                  BEGIN
+                  POSTERR();
+                  CLEARTKNW
+                  END;
+            1
+            END
+         ELSE
+            BEGIN
+            TRACE(0,0);
+            0
+            END
+      END;
+
+   SAVCUR;
+   UNTIL .NODE EQL PV$SIGMA OR .NODE EQL PV$PHI DO
+      IF NODEACTION()
+         THEN
+            IF .NODE[P$NOBACKUP] OR
+               .NODE[P$ALT] EQL PV$PHI OR
+               .NODE[P$ALT] EQL PV$SIGMA OR
+               .NODE[P$SUC] EQL PV$SIGMA
+               THEN
+                  BEGIN
+                  IF NOT .NODE[P$NOSAVE]
+                     THEN SAVCUR;
+                  NODE := .NODE[P$SUC]
+                  END
+               ELSE
+                  IF BEGIN
+                        TRACE(10,0);
+                        PSCAN(.NODE[P$SUC],.TREEP,.SEML)
+                        END
+                     THEN NODE := PV$SIGMA
+                     ELSE BEGIN
+                        RESTORCUR;
+                        FLUSHERRS;
+                        IF .NODE[P$SEM]
+                           THEN $PGARB(POP(SEML));
+                        NODE := .NODE[P$ALT]
+                        END
+         ELSE
+            BEGIN
+            IF .NODE[P$NOSAVE]
+               THEN RESTORCUR;
+            NODE := .NODE[P$ALT]
+            END;
+   .NODE EQL PV$SIGMA
+   END; %PSCAN%
+
+
+
+GLOBAL ROUTINE $PARSE(ENVIRN, TREE) =
+   BEGIN
+   LOCAL
+      SAVENV,           % STACKED PREVIOUS PARSER ENVIRONMENT %
+      PS$ SN,     %STARTING NODE%
+      SEML[LSEML],   %WORKING STORAGE FOR THE INTEGER LIST%
+      VAL;
+
+%  SET UP THE TOKEN WINDOW AND GET FIRST TOKEN
+%
+   SAVENV := .PPARM$;
+   PPARM$ := .ENVIRN;
+   PPARM$[PP$TOKEN] := PPARM$[PP$WINDOW] :=
+         $CGTZM((PPARM$[PP$WINDOWSZ] := NTKNW) * .PPARM$[PP$TKNSIZE]);
+   PPARM$[PP$FIRSTTKN] := PPARM$[PP$LASTTKN] := 0;
+   (.PPARM$[PP$SOURCE])(.PPARM$[PP$TOKEN]);
+
+   NULLSTK(SEML,LSEML);
+   PPARM$[PP$ERRORSTK] := 0;
+   (.TREE)<0,36> := HV$EMPTY;
+   SN := $PNODADDR(2);
+   VAL := PSCAN(.SN[P$DEF],.TREE,SEML<0,0>);  %START AT 2ND NODE DEF%
+   IF NOT .VAL
+      THEN
+         BEGIN
+         UNTIL EMPTY(SEML) DO
+            $PGARB(POP(SEML));
+         $PGARB(@@TREE)
+         END;
+   POSTERR( );
+   $CFREE(.PPARM$[PP$WINDOW]);
+   PPARM$ := .SAVENV;
+
+   .VAL
+   END;
+
+END ELUDOM
+ C HÇ
