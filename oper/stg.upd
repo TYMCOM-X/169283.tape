@@ -1,0 +1,500 @@
+PROCEDURE STG.UPD
+%VERSION 4.2 LAST UPDATED 03/15/76  L. RICKAN  %
+%CHANGED NAMES OF VAR. AND RELATIONS NAMES TO COMFORM WITH
+DESIGN GROUPS SPECS. %
+%ADDED FILE CONTROL LOGIC. OPER. NEED NOT ENTER STORAGE FILE
+NAME FROM THE TERMINAL. PROG READS SRC.FNAM.STG TO OBTAIN CORRECT FILE
+NAMES. %
+%READS ONE PS FILE AT A TIME AND PUTS USERS REC. INTO RELATION USR.VAL
+AND THE STORAGE RECS. INTO TEMP. RELATION PSI. AFTER THE CHKSUM
+HAS BEEN VERIFIED CORRECT PROG MOVES THE RECORDS INTO THE RELATION
+STORAGE AND PERFORMS UPDATING ACCORDING TO INIT.CODE TYPE.  %
+
+BEGIN
+
+FIELDS
+   CNT         AS   '11N',        % CKSUM COUNTER %
+   CUTOFF.DATE.TMP SAME AS CUTOFF.DATE,
+   BAD.REC     AS    '6Z',        % BAD REC. COUNTER %
+   SWTH        AS    '3N',        % SWTH USED IN STORAGE UPD %
+   REC.CNT     AS    '6N',        % USED TO COUNT RELAT RECDS %
+   TR.TMP      AS    '1N',        % USE FOR CKSUM VERIF. %
+   IQTY        AS   '11N',        % TEMP QTY STORAGE %
+   TOT.REC     AS    '6Z',        % COUNTER FOR # OF RECS READ %
+   BAD.STR     AS    '6Z',        % COUNTER FOR BAD STORAGE RECS. %
+   BAD.VAL     AS    '6Z',        % COUNTER FOR BAD VALID RECS %
+   ADD.REC     AS    '6Z',        % COUNTER FOR NEW RECS. %
+   NEW.VAL     AS    '6Z',        % COUNTER FOR VALID. REC. ADD TO B/B %
+   DIRFN       SAME AS SRC.FNAM,
+   DIRFNA      SAME AS SRC.FNAM,
+   SW          AS    'C',
+   TYMP1       AS    '1C',
+   IUUN        SAME AS UUN,
+   IHOST       SAME AS HOST,
+   IPROJ.CODE   SAME AS PROJ.CODE,
+   IPROD.CODE   SAME AS PROD.CODE,
+   IDSTART     SAME AS CUTOFF.DATE
+
+% MERGE INPUT (FOR 370 ONLY) %
+RELATION PSI IS
+  KEY UUN, HOST, PROJ.CODE, PROD.CODE, UNIQ1, TRAN.DATE, TRAN.TIME, UPD.TYP
+  DATA QTY, UNIT.TYP
+
+% USER VALIDATION TEMP. RELATION (FOR 370 ONLY) %
+RELATION USR.VALI IS
+  KEY IUUN, IHOST, IPROJ.CODE, IDSTART, IPROD.CODE
+
+RELATION FILDIR IS        % TEMP RELATION %
+  KEY DIRFN
+
+
+SOURCE INPT FROM SRC.FNAM
+   FIXED FORM
+   INPUT TRAN.TYP,
+   CONDITIONAL ON TRAN.TYP
+   BEGIN
+   1:  UUN, PROJ.CODE, HOST, INIT.CODE, TRAN.DATE, @CR
+
+   2:  UUN, PROJ.CODE, HOST, INIT.CODE, TRAN.DATE, TRAN.TIME, @TAB 2,
+       UNIQ1, DEV.CODE, IQTY, UNIT.TYP
+ 
+   9: @TAB 48, IQTY, @CR
+
+   END
+
+
+SOURCE FILE.CTL FROM 'FILDIR.CTL'
+   FIXED FORM
+   INPUT DIRFN
+
+REPORT TO 'STORAGE.ERR'
+   PAGE.SIZE  0
+   REPORT.HEADING
+   PRINT @TAB 5, "PERMENENT STORAGE ERR. FILE", @TAB 5, TODAY AS DATE   "ZM/ZD/YY", @CR, @CR,
+   " UPD.TYP", @TAB 3, "UUN", @TAB 6, "PROJ.CODE", @TAB 7, "PROD.CODE",
+   @TAB 3, "HOST", @TAB 3, "TRAN.DATE", @TAB 3, "DSTOP", @TAB 4, "UNIQ1",
+   @TAB 8, "QTY.", @TAB 7, "ERROR MESSAGES", @CR, @CR
+
+
+
+MOVE 3 TO ACTG.SYS.TYP
+FOR EACH FILE.CTL          % COPY ALL FILE NAMES TO TEMP RELATION %
+   INSERT INTO FILDIR
+MOVE '1' TO SW
+TYPE
+   @CR,
+   'STG.UPD - 370 STORAGE & USER VALIDATION UPDATE - VER. 4.2   03/15/76', @CR,
+   '    ', TODAY AS DATE 'ZM/ZD/YY', @CR, @CR
+
+
+WRITE REPORT
+   BEGIN
+
+FOR EACH SRC.FNAM.STG
+IF FLAG = 0 THEN
+SELECT FILDIR VIA DIRFN = SRC.FNAM THEN
+  BEGIN
+  TYPE
+     @CR,
+     'PROCESSING FILE: ', SRC.FNAM, @CR
+      MOVE 0 TO TOT.REC
+      MOVE 0 TO CNT
+      MOVE 0 TO BAD.REC
+      MOVE 0 TO BAD.VAL
+      MOVE 0 TO BAD.STR
+      MOVE 0 TO NEW.VAL
+      MOVE 0 TO ADD.REC
+      FOR EACH INPT
+LAB:     BEGIN
+         LET TOT.REC = TOT.REC + 1
+         MOVE TRAN.TYP TO TR.TMP
+         IF TRAN.TYP = 1 THEN              %USER VALADATION RECORD  %
+           BEGIN
+           IF INIT.CODE = 1 THEN           %ADD USER  %
+           LET IPROD.CODE = 76
+
+           ELSE IF INIT.CODE = 2 THEN      %CANCEL USER  %
+           LET IPROD.CODE = 77
+
+           ELSE IF INIT.CODE = 3 THEN      %CHANGE USER  %
+           LET IPROD.CODE = 78
+
+           ELSE IF INIT.CODE = 4 THEN      % CHECKPOINT RECORD %
+           LET IPROD.CODE = 75
+
+           ELSE
+             BEGIN
+             TYPE 
+                @CR,
+                'WARNING: BAD INITIATION CODE FOR USER VALADATION', @CR
+             LET BAD.VAL = BAD.VAL + 1
+             FINISH LAB
+
+             END
+
+           LET CNT = CNT + TRAN.TYP
+           INSERT INTO USR.VALI USING (UUN OF INPT FOR IUUN, HOST OF INPT FOR IHOST,
+           PROJ.CODE OF INPT FOR IPROJ.CODE, TRAN.DATE OF INPT FOR IDSTART)
+
+           LET NEW.VAL = NEW.VAL + 1
+           END
+
+         ELSE IF TRAN.TYP = 2 THEN         %STORAGE RECORD  %
+           BEGIN
+           IF INIT.CODE = 1 THEN           %ADD STORAGE REC. %
+             MOVE '4' TO UPD.TYP
+           
+           ELSE IF INIT.CODE = 2 THEN      %STOP STORAGE REC.  %
+             MOVE '5' TO UPD.TYP
+
+           ELSE IF INIT.CODE = 3 THEN      %STOP & ADD STORAGE REC.  %
+             MOVE '2' TO UPD.TYP
+
+           ELSE IF INIT.CODE = 4 THEN      %CHECKPOINT STORAGE REC.  %
+             MOVE '1' TO UPD.TYP
+ 
+           ELSE
+             BEGIN
+             ADD 1 TO BAD.STR
+             TYPE
+                @CR,
+                'WARNING: BAD INITIATION CODE FOR STORAGE', @CR
+             FINISH LAB
+
+             END
+
+
+             LET CNT = CNT + TRAN.TYP
+             LET CNT = CNT + IQTY
+             MOVE IQTY TO QTY
+             MOVE 60 TO PROD.CODE
+             INSERT INTO PSI
+
+           END
+
+         ELSE IF TRAN.TYP = 9 THEN          % EOF RECORD WITH CKSUM %
+           BEGIN
+           IF CNT = IQTY THEN
+             BEGIN
+             TYPE
+                @CR,
+                'FILE TRANSFERED CORRECTLY. CONTINUING..... ',@CR,@CR
+               MOVE 1 TO TR.TMP
+             FOR EACH USR.VALI 
+               INSERT INTO USR.VAL USING (IUUN OF USR.VALI FOR UUN,
+               IPROD.CODE OF USR.VALI FOR PROD.CODE,
+               IHOST OF USR.VALI FOR HOST, IPROJ.CODE OF USR.VALI FOR PROJ.CODE,
+               IDSTART OF USR.VALI FOR DSTART)
+               END
+
+           ELSE
+             BEGIN
+             TYPE
+                @CR,
+                'ERROR: FILE TRANSFERED INCORRECTLY.', @CR,
+                'FILE CKSUM = ', IQTY, @CR,
+                'PROG CKSUM = ', CNT, @CR, @CR,
+                'RETRANSFER FILE..........', @CR, @CR
+             ABORT
+             END
+        END
+
+        ELSE
+           BEGIN
+           TYPE
+              @CR,
+              'WARNING: INCORRECT TRANSACTION TYPE.', @CR, @CR
+           ADD 1 TO BAD.REC
+
+           END
+        END
+
+        IF TR.TMP = 9 OR 0 THEN
+           NOTHING
+        ELSE
+           BEGIN
+           IF TR.TMP # 1 THEN
+             BEGIN
+             TYPE
+                @CR,
+                'ERROR: NO CHECKSUM RECORD. RETRANSFER FILE....', @CR, @CR
+             ABORT
+             END
+
+           ELSE
+             NOTHING
+
+           END
+
+
+LET TOT.REC = TOT.REC - 1
+TYPE
+   @CR,
+   'NUMBER OF BAD TRANSACTION CODES: ', BAD.REC, @CR,
+   'NUMBER OF BAD VALIDATION CODES:  ', BAD.VAL, @CR,
+   'NUMBER OF BAD STORAGE CODES:     ', BAD.STR, @CR,
+   'NUM. OF VALID. RECS ADDED TO D/B:', NEW.VAL, @CR,
+   'NUMBER OF RECORDS READ:          ', TOT.REC, @CR
+
+
+MOVE 0 TO BAD.REC
+FOR EACH PSI
+      DO
+      BEGIN
+      MOVE 0 TO SWTH
+      IF UPD.TYP = '1' THEN               % CHECKPOINT RECORD %
+         BEGIN
+         MOVE 0 TO REC.CNT
+         FOR EACH STORAGE VIA (UUN,ACTG.SYS.TYP,HOST,PROJ.CODE,PROD.CODE,UNIQ1), WHERE
+         TRAN.DATE OF PSI >= DSTART AND TRAN.DATE OF PSI <= DSTOP
+         BEGIN
+          ADD 1 TO REC.CNT
+         IF REC.CNT = 1 THEN
+            BEGIN
+            IF QTY # QTY OF PSI THEN
+                BEGIN
+                PRINT @TAB 4,UPD.TYP OF PSI,@TAB 6,UUN OF PSI,@TAB 3,PROJ.CODE OF PSI,
+               @TAB 3,PROD.CODE OF PSI,@TAB 6,HOST OF PSI,@TAB 4,TRAN.DATE OF PSI,@TAB 11,
+                UNIQ1 OF PSI,@TAB 3,QTY OF PSI," :CKPNT CONFLICT",@CR
+                PRINT @TAB 11,UUN OF STORAGE,@TAB 3,PROJ.CODE OF STORAGE,@TAB 3,
+                PROD.CODE OF STORAGE,@TAB 6,HOST OF STORAGE,@TAB 4,DSTART OF STORAGE,@TAB 3,
+                DSTOP OF STORAGE,@TAB 3,UNIQ1 OF STORAGE,@TAB 3,QTY OF STORAGE, @CR
+                ADD 1 TO BAD.REC
+                LET SWTH = 1
+                LET UPD.TYP OF PSI = '2'
+                END
+
+           ELSE
+             NOTHING
+           END
+
+         ELSE
+           NOTHING
+
+         END
+
+          IF REC.CNT = 0 THEN
+                BEGIN
+                PRINT @TAB 4,UPD.TYP OF PSI,@TAB 6,UUN OF PSI,@TAB 3,PROJ.CODE OF PSI,
+               @TAB 3,PROD.CODE OF PSI,@TAB 6,HOST OF PSI,@TAB 4,TRAN.DATE OF PSI,@TAB 11,
+                UNIQ1 OF PSI,@TAB 3,QTY OF PSI," :MISSING STORAGE FOR CKPNT", @CR
+                MOVE 1 TO SWTH
+                LET UPD.TYP OF PSI = '4'
+
+                END
+
+          ELSE IF REC.CNT > 1 THEN
+                PRINT @TAB 4,UPD.TYP OF PSI,@TAB 6,UUN OF PSI,@TAB 3,PROJ.CODE,
+               @TAB 3,PROD.CODE OF PSI,@TAB 6,HOST OF PSI,@TAB 4,TRAN.DATE OF PSI,@TAB 11,
+                UNIQ1 OF PSI,@TAB 3,QTY OF PSI," :MORE THAN ONE MS RECORD", @CR
+
+        END
+
+      ELSE IF UPD.TYP = '2' THEN          % STOP & ADD RECORD %
+         BEGIN
+         MOVE 0 TO REC.CNT
+         FOR EACH STORAGE VIA (UUN, ACTG.SYS.TYP, HOST, PROJ.CODE, PROD.CODE, UNIQ1),WHERE
+         TRAN.DATE OF PSI >= DSTART AND TRAN.DATE OF PSI <= DSTOP
+             BEGIN
+             ADD 1 TO REC.CNT
+             IF REC.CNT = 1 THEN
+             BEGIN
+             IF DSTOP # "991231" AS DATE "YYMMDD" THEN
+                 BEGIN
+                PRINT @TAB 4,UPD.TYP OF PSI,@TAB 6,UUN OF PSI,@TAB 3,PROJ.CODE OF PSI,
+               @TAB 3,PROD.CODE  OF PSI,@TAB 6,HOST OF PSI,@TAB 4,TRAN.DATE OF PSI,@TAB 11,
+                UNIQ1 OF PSI,@TAB 3,QTY OF PSI," :STOP DATE CONFLICT", @CR
+                PRINT @TAB 11,UUN OF STORAGE,@TAB 3,PROJ.CODE OF STORAGE,@TAB 3,
+                PROD.CODE OF STORAGE,@TAB 6,HOST OF STORAGE,@TAB 4,DSTART OF STORAGE,@TAB 3,
+                DSTOP OF STORAGE,@TAB 3,UNIQ1 OF STORAGE,@TAB 3,QTY OF STORAGE, @CR
+                     ADD 1 TO BAD.REC
+                 END
+
+             ELSE
+                BEGIN
+                IF QTY # QTY OF PSI THEN
+                    BEGIN
+                    ALTER STORAGE USING (TRAN.DATE OF PSI FOR DSTOP)
+                    LET UPD.TYP OF PSI = '4'
+                    LET TRAN.DATE = TRAN.DATE +1
+                    MOVE 1 TO SWTH
+        
+                    END
+
+               ELSE
+                    BEGIN
+                     PRINT @TAB 4,UPD.TYP OF PSI,@TAB 6,UUN OF PSI,@TAB 3,PROJ.CODE OF PSI,
+                    @TAB 3,PROD.CODE OF PSI,@TAB 6,HOST OF PSI,@TAB 4,TRAN.DATE OF PSI,@TAB 11,
+                     UNIQ1 OF PSI,@TAB 3,QTY OF PSI," :QUANITY CONFLICT", @CR
+                     PRINT @TAB 11,UUN OF STORAGE,@TAB 3,PROJ.CODE OF STORAGE,@TAB 3,
+                     PROD.CODE OF STORAGE,@TAB 6,HOST OF STORAGE,@TAB 4,DSTART OF STORAGE,@TAB 3,
+                     DSTOP OF STORAGE,@TAB 3,UNIQ1 OF STORAGE,@TAB 3,QTY OF STORAGE, @CR
+                       ADD 1 TO BAD.REC
+                    END
+
+                END
+
+             END
+             END
+         IF REC.CNT = 0 THEN
+            BEGIN
+            LET UPD.TYP OF PSI = '4'
+            LET TRAN.DATE = TRAN.DATE + 1
+            MOVE 1 TO SWTH
+            END
+         ELSE IF REC.CNT >1 THEN
+         BEGIN
+         PRINT @TAB 4,UPD.TYP OF PSI,@TAB 6, UUN OF PSI,@TAB 3,PROJ.CODE OF PSI,
+         @TAB 3,PROD.CODE OF PSI,@TAB 6,HOST OF PSI,@TAB 4,TRAN.DATE OF PSI,@TAB 11,
+         UNIQ1 OF PSI,@TAB 3,QTY OF PSI," :MORE THAN 1 STORAGE ENTRY", @CR
+         ADD 1 TO BAD.REC
+         END
+
+         END
+
+       ELSE IF UPD.TYP = '4' THEN         % ADD RECORD %
+            BEGIN
+            MOVE 0 TO REC.CNT
+            FOR EACH STORAGE VIA (UUN, ACTG.SYS.TYP, HOST, PROJ.CODE, PROD.CODE, UNIQ1),WHERE
+            TRAN.DATE OF PSI <= DSTOP
+                BEGIN
+                PRINT @TAB 4,UPD.TYP OF PSI,@TAB 6,UUN OF PSI,@TAB 3,PROJ.CODE OF PSI,
+               @TAB 3,PROD.CODE OF PSI,@TAB 6,HOST OF PSI,@TAB 4,TRAN.DATE OF PSI,@TAB 11,
+                UNIQ1 OF PSI,@TAB 3,QTY OF PSI," :FOUND STORAGE WITH STOP DATE", @CR
+                PRINT @TAB 11,UUN OF STORAGE,@TAB 3,PROJ.CODE OF STORAGE,@TAB 3,
+                PROD.CODE OF STORAGE,@TAB 6,HOST OF STORAGE,@TAB 4,DSTART OF STORAGE,@TAB 3,
+                DSTOP OF STORAGE,@TAB 3,UNIQ1 OF STORAGE,@TAB 3,QTY OF STORAGE, @CR
+                ADD 1 TO BAD.REC
+                ADD 1 TO REC.CNT
+                IF TRAN.DATE OF PSI = DSTART THEN
+                  ALTER STORAGE USING (QTY OF PSI FOR QTY)
+
+                END
+
+            IF REC.CNT = 0 THEN
+               BEGIN
+               LET DSTOP = "991231" AS DATE "YYMMDD"
+               INSERT INTO STORAGE USING (UUN OF PSI FOR UUN, HOST OF PSI FOR HOST,
+               PROJ.CODE OF PSI FOR PROJ.CODE, PROD.CODE OF PSI FOR PROD.CODE,
+               UNIQ1 OF PSI FOR UNIQ1, TRAN.DATE OF PSI FOR DSTART,
+               QTY OF PSI FOR QTY, UNIT.TYP OF PSI FOR UNIT.TYP)
+               LET ADD.REC = ADD.REC + 1
+               END
+
+            END
+
+       ELSE IF UPD.TYP = '5' THEN         % STOP RECORD %
+          BEGIN
+          MOVE 0 TO REC.CNT
+          FOR EACH STORAGE VIA (UUN,ACTG.SYS.TYP, HOST, PROJ.CODE, PROD.CODE, UNIQ1),WHERE
+          TRAN.DATE OF PSI >= DSTART AND TRAN.DATE OF PSI <= DSTOP
+             BEGIN
+             ADD 1 TO REC.CNT
+             IF DSTOP # "991231" AS DATE "YYMMDD" THEN
+                BEGIN
+                PRINT @TAB 4,UPD.TYP OF PSI,@TAB 6,UUN OF PSI,@TAB 3,PROJ.CODE OF PSI,
+               @TAB 3,PROD.CODE OF PSI,@TAB 6,HOST OF PSI,@TAB 4,TRAN.DATE OF PSI,@TAB 11,
+                UNIQ1 OF PSI,@TAB 3,QTY OF PSI," :STORAGE HAS STOP DATE", @CR
+                PRINT @TAB 11,UUN OF STORAGE,@TAB 3,PROJ.CODE OF STORAGE,@TAB 3,
+                PROD.CODE OF STORAGE,@TAB 6,HOST OF STORAGE,@TAB 4,DSTART OF STORAGE,@TAB 3,
+                DSTOP OF STORAGE,@TAB 3,UNIQ1 OF STORAGE,@TAB 3,QTY OF STORAGE, @CR
+                   ADD 1 TO BAD.REC
+                END
+             ELSE IF REC.CNT = 1 THEN
+             ALTER STORAGE USING (TRAN.DATE OF PSI FOR DSTOP)
+             ELSE
+             BEGIN
+                PRINT @TAB 4,UPD.TYP OF PSI,@TAB 6,UUN OF PSI,@TAB 3,PROJ.CODE OF PSI,
+               @TAB 3,PROD.CODE OF PSI,@TAB 6,HOST OF PSI,@TAB 4,TRAN.DATE OF PSI,@TAB 11,
+                UNIQ1 OF PSI,@TAB 3,QTY OF PSI," :TWO OPEN RECS IN STORAGE", @CR
+                ADD 1 TO BAD.REC
+             END
+             END
+
+          IF REC.CNT = 0 THEN
+             BEGIN
+                PRINT @TAB 4,UPD.TYP OF PSI,@TAB 6,UUN OF PSI,@TAB 3,PROJ.CODE OF PSI,
+               @TAB 3,PROD.CODE OF PSI,@TAB 6,HOST OF PSI,@TAB 4,TRAN.DATE OF PSI,@TAB 11,
+                UNIQ1 OF PSI,@TAB 3,QTY OF PSI," :DATE NOT IN DATE RANGE", @CR
+                ADD 1 TO BAD.REC
+             END
+
+          END
+
+
+       ELSE
+          BEGIN
+          TYPE
+             @CR,
+             'WARNING: ILLEGAL TRANSACTION CODE.', @CR, @CR
+             ADD 1 TO BAD.REC
+         END
+
+       END
+
+    WHILE SWTH = 1
+
+
+TYPE
+   @CR,
+   'TOTAL NUMBER OF NEW STORAGE RECS. ADDED TO D/B: ', ADD.REC, @CR,
+   'TOTAL NUMBER OF BAD STORAGE TRANSACTION RECS:   ', BAD.REC, @CR, @CR
+ 
+DELETE FROM PSI ALL
+DELETE FROM USR.VALI ALL
+
+TYPE 
+   @CR,
+   'SUCCESSFULLY COMPLETED: ', SRC.FNAM, @CR, @CR
+   MOVE 1 TO FLAG
+   LET WR.DATE = TODAY
+   ALTER SRC.FNAM.STG
+
+   END
+
+  ELSE
+   BEGIN
+   LET TYMP1 = ' '
+   WHILE TYMP1 = ' ' DO
+     BEGIN
+     IF SW = '1' THEN
+        BEGIN
+        MOVE '0' TO SW
+        TYPE @CR,
+        'TYPE "I" IF FILE WILL NEVER EXIST', @CR,
+        '     "S" IF FILE WILL EXIST AT A LATER DATE', @CR,
+        '     "Q" TO HALT ANY FURTHER PROCESSING'
+        END
+     TYPE @CR,'FILE NOT FOUND: ', SRC.FNAM, '  ENTER "I" "S" "Q": '
+     ACCEPT TYMP1
+     IF TYMP1 = "I" THEN
+       BEGIN
+       MOVE 2 TO FLAG
+       ALTER SRC.FNAM.STG
+       END
+     ELSE IF TYMP1 = "S" THEN
+       NOTHING
+     ELSE IF TYMP1 = "Q" THEN
+       ABORT
+     ELSE
+       BEGIN
+       LET TYMP1 = ' '
+       TYPE @CR,
+         'TYPE "I" IF FILE WILL NEVER EXIST', @CR,
+         '     "S" IF WILE WILL EXIST AT A LATER DATE', @CR,
+         '     "Q" TO HALT ANY FURTHER PROCESSING'
+       END
+     END    % WHILE DO %
+
+   END
+
+
+SELECT IN.CNTL.DATE VIA LOC = 'CTLDT' THEN
+LET CUTOFF.DATE.TMP = CUTOFF.DATE
+
+SELECT IN.CNTL.DATE VIA LOC = 'PSIDT' THEN
+   ALTER IN.CNTL.DATE USING (CUTOFF.DATE.TMP FOR CUTOFF.DATE)
+
+  END        % END OF WRITE REPORT %
+
+END            % OF PROGRAM %
