@@ -1,0 +1,2004 @@
+
+
+
+			RECENT SAIL CHANGES
+
+	 This  document  describes   changes   which   have
+         occurred  (or  will soon occur) to the SAIL system
+         since the last manual, SAILON 57.2, was published.
+         Most of the text is concerned with descriptions of
+         a new system which is  now  available,  and  which
+         will  become  the standard system in the middle of
+         June, 1972.
+
+
+
+   Table of Contents:
+
+   Chapter 1 -- Documentation for Version 15, installed in July,
+		1971, which does not appear in the manual.
+		 by Dick Sweet and Dan Swinehart.
+
+   Chapter 2 -- Introduction to Version 16 (the new stuff).
+		 by Dan Swinehart.
+
+   Chapter 3 -- Internal Data- and Control- Structure Improvements --
+		and ramifications for the user.
+		 by Russ Taylor.
+
+   Chapter 4 -- Improvements to the Associative (LEAP) Features.
+		 by Jim Low.
+   
+   Chapter 5 -- Improvements to the Macro System -- Introduction of
+		a Conditional Compilation Facility.
+		 by Hanan Samet.
+
+   Chapter 6 -- Other Modifications, Chapter and Verse.
+		 by Dan Swinehart.
+
+   Chapter 7 -- How to Use It.
+
+   We  urge  people to begin using this system as soon as possible --
+   for their benefit as well as ours.
+
+   Dan Swinehart
+   11 May, 1972
+CHAPTER 1 -- Version 15 Changes to SAIL -- 7-9-71
+ D. Swinehart
+
+			RECENT CHANGES TO SAIL
+
+1. CASE J OF BEGIN [3]S1; [4]S2; [1]S3; [5]S4 END
+
+	is equivalent to
+
+   CASE J OF BEGIN
+	;	COMMENT CASE 0 OMITTED;
+      S3;	COMMENT CASE 1;
+        ;	COMMENT CASE 2 OMITTED;
+      S1;	COMMENT CASE 3;
+      S2;	COMMENT CASE 4;
+      S4	COMMENT CASE 5;
+   END.
+
+   The former is slightly more efficient in space and time if any cases
+    are omitted -- identical otherwise.  The total space used by either
+    method is approximately linear to the largest bracketed value.
+
+2. WARNING about Dump Mode IO (modes '15 through '17).  Any Dump Mode input
+    which does not specify an n*128-word count will have the effect of losing
+    the words up to the next 128-word boundary -- you'll get the first word(s)
+    of the next 128-word record on the next input.  Similarly, any Dump Mode
+    output fills out the file with 0's until a 128-word boundary is reached.
+   Therefore, Dump Mode IO is not practical for sizes other than 128-word
+    transfer multiples, in general.
+
+   For this reason, the fact that WORDIN and WORDOUT no longer operate 
+    correctly in Dump Mode should be no cause for concern.  However, we will
+    soon try to make their illegality explicit.
+
+3. It is also not clear whether ARRYIN or ARRYOUT return the number of words
+    actually read when EOF terminates a transfer early, either in Dump or 
+    Buffered modes. This should be corrected.
+
+4. A long-standing bug which forced users to insert a dummy first argument
+   in IBP calls has been fixed.  Recently, both forms (with and without)
+   were accepted as valid syntax, but only IBP(dummy,BP) generated valid
+   code.  Now everything is beautiful.
+ 
+5. If your program calls any LEAP runtime routines, you will get various
+   tables allocated for LEAP constructs (several K) the first time you
+   call LEAP.  This is true even if no reference will be made to any data
+   in the lower (local) segment.  Allocation of this storage may be inhibited
+   by the REQUIRE -1 NEWITEMS special construct.  Although this works in
+   any SAISEG-type segment system, it should only be used by those who use
+   the (hand-eye) global-model features.
+
+6. CASE n OF BEGIN "name" .... END "name" is now legal.
+
+7. REQUIRE n VERSION (n a non-zero integer) will flag the resultant RELfile
+   as version n.  When a program loaded from several such RELfiles is started,
+   the SAIL allocation code will verify that all specified versions are equal.
+   A non-fatal error message will be displayed if any disagree.  As much as will
+   fit of the version number is also stored in lh(JOBVER), where JOBVER is
+   location 137.
+Chapter 1 (cont). Statement Counter System  
+ R. Sweet
+
+GENERAL DISCUSSION:
+
+	The new SAIL compiler contains a feature which allows you  to
+determine  conveniently  the frequency of execution of each statement
+in your SAIL program.
+
+	This is accomplished by inserting an array  of  counters  and
+placing  AOS  instructions  at  various  points in the object program
+(such as in loops and conditional statements). A routine is called to
+zero  the  counter  array  before your program is entered and another
+routine is called to write out the array before calling EXIT.
+
+	Since not all programs  exit  in  the  normal  fashion  (i.e.
+falling  out  the  bottom),  it  is  possible to call either the zero
+routine or the output routine as an EXTERNAL PROCEDURE.
+
+	Another program, called PROFIL, is used to merge the  listing
+file produced by the SAIL compiler with the file of counters produced
+by the execution run of your program.    The  output  of  the  PROFIL
+program  is  an  indented listing of your SAIL program with execution
+counts in the right hand margin.  The  output  format  of  PROFIL  is
+reasonably flexible, with several "switches" to control it.
+
+	Since  the  AOS instructions access fixed locations, and they
+are placed only where needed to determine program flow,  they  should
+not  add  much overhead to the execution time.   Although I have made
+no large study, the counters do seem to contribute about  2%  to  the
+execution  time  of  the  profile  program, which has a fairly deeply
+nested structure.
+
+SAIL EXTENSION:
+
+	The mechanism for  inserting  counters  is  controlled  by  a
+compiler switch.    To tell the compiler to insert counters, you give
+it a /K switch. (/C was already used for something else.) It is  also
+necessary  to  produce a listing file, since the PROFIL program needs
+it.    In fact, the /K switch is ignored unless a listing  is  called
+for.    Specifying  /K has several effects on the listing.     First,
+macros are expanded and macro names not listed. This is necessary  so
+that  PROFIL  will know about block structure, etc. Also, the listing
+of PC and line numbers is suppressed.  The current version of  PROFIL
+is  confused by all those numbers and anyway, the lines of the PROFIL
+listing can differ somewhat from the lines of  the  original  source.
+The  final  change in the listing is the inclusion of markers telling
+where counters have been inserted.   Most of these are ignored by the
+present  PROFIL  since it is smart enough to know where they are from
+the program context.  The ones that it does use are the  markers  for
+counters inserted into conditional and case expressions.
+
+	At  the  end of each program (i.e. each separate compilation)
+is the block of counters, preceeded by a small data block used by the
+zero  and  output  routines.  This block contains such information as
+the number of counters, the name of the list  file,  and  a  link  to
+other  such  blocks  of counters. The first counter location is given
+the name .KOUNT,  which  is  accessable  from  RAID,  but  cannot  be
+referenced by the SAIL program itself.
+
+	The  routine  K.ZERO  is  called to zero the counters. If for
+some reason you wish to zero them  yourself,  (like  if  you're  only
+interested  in  steady state execution counts) you can reference this
+routine by including the declaration:
+	EXTERNAL PROCEDURE KZERO;
+
+	The  outputting of the counters is done by the routine K.OUT.
+It uses the SAIL routine GETCHAN to find  a  spare  channel,  does  a
+single dump mode output which writes out all the counters for all the
+programs loaded having counters, and then releases the channel.   The
+file  which  it  writes is xxx.KNT, where xxx is the name of the list
+file of the first program loaded having counters (usually the name of
+the  SAIL  source  file).   If  there  are  no counters, K.OUT simply
+returns.      This routine can also be referenced  by  including  the
+declaration:
+	EXTERNAL PROCEDURE KOUT;
+
+PROFILE PROGRAM:
+
+	The program PROFIL is used to produce  the  program  profile,
+i.e.  the  listing complete with statement counts. It operates in the
+following manner.  First it reads in the file xxx.KNT created by  the
+execution  of  the user program. This file contains the values of the
+counters and the names of the list files of the programs loaded which
+had  counters.  It  then  reads  the  the list files and produces the
+profile.   Currently, the SAIL compiler has a  non-trivial  bug:  the
+last  line  of  the source file is not written into the listing file.
+Since this is not an easy bug to fix, it's still in the new compiler.
+To  get  around this, the scanner of PROFIL returns an "END" whenever
+it gets an end-of-file condition.  This works fine  unless  you  have
+executable  statements on the last line.  This will probably be fixed
+sometime, but for now, ignore the "(supplied by scanner)"  after  the
+last "END".
+
+	The  format  of  the  listing  is  such  that only statements
+executed the same number of times are listed on a  single  line.   In
+the  case  of conditional statements, the statement is continued on a
+new line after the word  THEN.    Conditional  expressions  and  case
+expression, on the other hand, are still listed on a single line.  In
+order that you might know the execution  counts,  they  are  inserted
+into the text surrounded by two "brokets" (e.g. <<15>>).
+
+	PROFIL  expects  a  command  string  of the standard form for
+CUSP's, i.e.
+	<output>_<input>  {switches~ where the <input> is the name of
+the .KNT file created from the program execution.   The extension  of
+.KNT  is  assumed.  If  the output device is the DSK, the output file
+will have a default extension of .PFL.   Although  the  line  spacing
+will probably be different from the source, PROFIL makes an effort to
+keep any page spacing that was in the source.  Thus, if you happen to
+be  using  the "T" editor, you can edit the profile successfully with
+T.     There are several possibilities for switches,  for  which  the
+pertinent ones are:
+	/nB	Indent n spaces for blocks (default 4)
+	/nC	Indent n spaces for continuations (default 2)
+	/F	Fill out every 4th line with ".   .   ." (default ON)
+	/I 	Ignore comments, strip them from the listing
+	/nK	Make counter array of size n (default 200)
+	/nL	Maximum line length of n (default 120)
+	/N	Suppress /F feature
+	/S	Stop after this profile
+	/T	TTY mode = /1C/2B/F/80L
+
+SAMPLE RUN:
+
+	Suppose that you have a SAIL program named FOO.SAI for  which
+you desire a profile.  The following statements will give you one.
+
+.EX /LIST FOO(K)   (or TRY or DEB or what have you)
+. . . any input to FOO  . . .
+
+EXIT
+
+^C
+.R PROFIL
+*FOO_FOO/T/S
+
+EXIT
+
+^C
+.  At this point, the file FOO.PFL contains the profile, suitable for
+     typing on the TTY or editing.
+Chapter 2, Introduction to Version 16.
+ D. Swinehart
+
+		IMPENDING NEW SAIL SYSTEM
+
+A  new  system version of SAIL will be installed on or about June 15,
+1972. For the month beginning May 10 this system  will  be  available
+for  use.  You  should  confine  your  experiments at first to simple
+one-compilation programs.  Later in the trial period  you  should  be
+able  to  run  all your systems under the new regime. We suggest that
+you read this document early, since there are a few incompatibilities
+(mostly  pertaining to STARTCODE sequences, to adjust for changes in
+internal structures).
+
+Major improvements have been made in three areas,  described  briefly
+here:
+
+1)  Russ  Taylor has implemented a new runtime stack-structure, which
+immediately will provide extended  variable-referencing  capabilities
+("up-level"  references  to non-local procedures), and the ability to
+jump out of procedures. Later this structure will  allow  coroutines,
+multiple  processes, and interrupt facilities.  In collaboration with
+Jim Low, Russ has implemented "Procedure Items", to which  procedures
+may be bound dynamically, and *-*-*-* lists, and what you can do with
+them -- hard to say in a way  that  gives  the  flavor  of  this  new
+feature in a few words, without scaring anybody off. *-*-*-*
+
+2)  Jim  Low  has  made  important  modifications  to the associative
+features of  SAIL.   He  has  implemented  a  new  data  type,  LIST,
+providing  ordered  lists  of  items,  and  syntactic  constructs for
+manipulating them.  In addition, Datums of Items now will  have  type
+information stored with them, so that the data type of a Datum can be
+changed and queried dynamically. String Datums have been  introduced,
+and the PNAME structures have been improved.
+
+3)  Hanan  Samet  has made extensive (but compatible) improvements to
+the macro facilities of SAIL, including:
+
+a.  Optional, user-supplied delimiters for denoting macro  body  text
+   and  actual  parameters,  removing  much  of  the  strain  on  the
+   beleaguered  quote  (")  character.   Other  changes   to   actual
+   parameter  scanning  and passing combine to make the whole process
+   more civilized.
+
+b. A modified DEFINE statement, which effectively  allows  assignment
+   of  arbitrary  expressions  to  compile-time  variables.   This is
+   particularly useful in combination with the next feature.
+
+c. A conditional-compilation language, allowing sections of  programs
+   to  be  conditionally  omitted or repeated.   A variety of control
+   structures is provided by the  conditional-compilation  statements
+   IFC,  WHILEC, FORC, and FORLC.  An implementation which causes the
+   parser to be "interrupted" when these  keywords  are  seen  allows
+   conditional-compilation  statements  to  begin  and  end  anywhere
+   within a program.
+
+These gentlemen have  created  documents  describing  their  efforts.
+Said  documents  are  included  here as an interim manual supplement.
+Following them is a description of  other  modifications  which  have
+been made, some in support of the changes I've described, some not.
+CHAPTER 3 -- Stack and Control Structure Changes
+ R. Taylor
+
+LANGUAGE CHANGES
+
+1. Up-level addressing is now done correctly.  Thus, "global formals"
+are now permissable.  For instance,
+
+	BEGIN
+	PROCEDURE FOO(INTEGER X);
+		BEGIN
+		INTEGER Y;
+		PROCEDURE BAZ;
+			Y_X;
+		END;
+	END;
+
+will now do the right thing.
+
+2. It is now legal to jump out of procedures.
+
+3. PROCEDURE VARIABLES:
+
+	Procedures  may  be  bound  at  run  time  to  items  by  the
+statement:
+
+	BINDPROC(<item expression>,<procedure expression>);
+
+where
+	<procedure expression> ::= <procedure id>
+				| DATUM(<item expression>)
+
+The item specified by <item expression> will be given the type
+"procedure" at run time, and its datum will be set  to  point  at  the  procedure
+specified  by  the second argument to BINDPROC, which must be either
+the name of a (non-SIMPLE) procedure or the datum  of  a  "procedure"
+item.
+
+Procedures  thus  bound  to  items  may  be called by use of the EVAL
+primative:
+
+	EVAL (<procedure expression>)
+
+or
+
+	EVAL (<procedure expression>,<argument list>);
+
+where <procedure expression> is as before, and <argument list> is any
+list.
+
+Examples:
+
+	COMMENT Q,R,X,Y,Z are all items. L is a list;
+	BINDPROC(Q,FOO); COMMENT FOO & Baz are procedures;
+	BINDPROC(R,BAZ);
+	BINDPROC(X,DATUM(Q));
+	EVAL(DATUM(Q));
+	EVAL(FOO); COMMENT -- just a slower way to call FOO;
+	EVAL(BAZ,L);
+	EVAL(BAZ,{{X,Y,Z~~);
+	Y_EVAL(DATUM(R),L);
+	EVAL(DATUM(EVAL(DATUM(R),L)),{{Z,Y,X~~);
+
+When an argument list is  given,  the  parameters  of  the  specified
+procedure  must  all  be of type value itemvar and must agree in datum type
+with the  corresponding  elements  in  the  argument  list.  (Untyped
+itemvars  will,  however, match any item.) When the call is made, the
+parameters to the procedure are bound  to  successive  list  elements
+until  all parameters are bound.  If there are not enough items to go
+around, or if an item has  the  wrong  type,  a  runtime  error  will
+result.   EVAL returns an item as its value.  If the procedure being
+EVAL'ed is of type itemvar, then that value will be used.  Otherwise
+the invalid item number zero will be returned.
+
+4. SIMPLE PROCEDURES
+
+Standard procedures now contain a short prologue that  sets  up  some
+links  on  the  stack  and  a  descriptor that is used by the storage
+allocation system, the go to solver,  and  the  interpretive  caller.
+For most procedures (especially those that do array allocations), the
+overhaead  from  all  this  is  insignificant.  However,  for   small
+procedures  that just do a few instructions and return, this overhead
+is excessive and unneeded.  SIMPLE procedures are an attempt  to  get
+around  this  difficulty.  To declare one, just include SIMPLE in the
+attribute list for the procedure.  Thus:
+
+	SIMPLE INTEGER PROCEDURE FOOBAR(INTEGER X); RETURN(X+X*X);
+	INTEGER SIMPLE PROCEDURE BAZZAB(INTEGER Q);
+		BEGIN
+		INTEGER X,Y,Z;
+		X_FOOBAR(Q);
+		Y_FOOBAR(X+Q);
+		RETURN(FOOBAR(X)+FOOBAR(X+Y)+FOOBAR(X+Y+Q));
+		END;
+
+It  is  generally  a good idea to use SIMPLE procedures when you can.
+There are, however, some restrictions.
+
+a. SIMPLE Procedures may contain  no  local  variables  that  require
+run-time  allocations  -- non-own arrays, sets, lists, etc -- for the
+variable.  (This does not preclude the use of NEW, as in  
+
+	itmvar_NEW(ARY);
+
+however.)
+
+b.  Any  procedures declared local to a simple procedure must also be
+of type SIMPLE and may not reference any of the parameters  of  their
+simple ancestor.
+
+c. Simple procedures may not be bound to procedure variables.
+
+d. Simple procedures may not be recursive.
+
+
+MORE NEW LANGUAGE FEATURES
+
+1. NOWSAFE and NOWUNSAFE.
+
+	These "statements" are have effect only at compile time, and
+tell SAIL when it is to bounds check arrays.
+
+a. Syntax
+	NOWSAFE <array id list>;
+	NOWUNSAFE <array id list>;
+
+These constructs may appear anywhere a regular statement may appear.  
+
+b. Semantics
+
+	An array said to be NOWSAFE is not bounds checked until it is
+subsequently (in the source file) said to be NOWUNSAFE.  Similarly,
+an array which is said to be NOWUNSAFE is bounds checked until it is
+said to be NOWSAFE.  
+
+c. Example
+
+	B
+	ARRAY A[1:10];
+	SAFE ARRAY B[1:20];
+	LABEL L0,L1,L2,L3;
+	L0: A[1]_B[I]_0;
+	NOWSAFE A;
+	FOR I_1 STEP 1 UNTIL 10 DO
+		BEGIN
+		L1: A[I]_B[I]+I;
+		NOWUNSAFE B;
+		L2: B[I]_A[I]+I;
+		END;
+	L3: A[1]_B[15];
+	END;
+
+label   	A		B
+
+L0		checked		not checked
+
+L1		not checked	not checked
+
+L2		not checked	checked
+
+L3		not checked     checked
+
+GENERAL COMMENTS ABOUT IMPLEMENTATION -- caveats for old programs
+
+Perhaps the most important change has  been  in  the  environment  of
+procedures.   When  a  procedure is entered, it places three words of
+control information on the run time  (P)  stack.   This  "mark  stack
+control  packet" cntains, among other things, pointers to the control
+packets  for  the  procedure's  dynamic  and  static  parents.  Also,
+register  rF  (register  '12) is set to point at this area. Then, the
+procedure's parameters are accessed relative to rF. Similarly,  local
+variables  for recursive procedures are now kept in the stack and are
+also accessed relative to  rF.   Locals  and  parameters  for  parent
+procedures  are  accessed  by  using  the  static  chain to set up an
+accumulator to point at the right point in the  stack.   The  desired
+cell  is  then accessed as an offset from this accumulator.  Since rF
+is thus the anchor for the context chains, THE  USER  MUST  NOT  HARM
+REGISTER  '12.   The  effects of clobbering it are truly wonderful to
+behold.
+
+Another change of importance to  existing  programs  is  in  the  way
+storage allocations are remembered.  Each procedure has an associated
+descriptor,  which  includes  a  list  of   "block   local   variable
+descriptors",  which  point  off to the pointer words for all non-own
+arrays, sets, and the like. When a block is exited,  an  interpretive
+routine  looks  at  the  block descriptor and deallocates any storage
+allocated by that block.  (Strings, however, still stay around).
+
+REGISTERS AND TABLES
+
+rF -- register used essentially as the display register for the
+currently executing procedure.  Currently register '12.
+
+MSCP -- mark stack control packet -- three words used to preserve dynamic
+&static links in the stack, etc.  
+
+	wd1: old  rF 				;current rF points here
+	wd2:  addr of proc desc, static link	;
+	wd3:  SP at proc entry
+	
+STACK -- the stack environment of a procedure is thus:
+
+	:.............................:
+	:  Parameter  1		      :
+ 	:.............................:
+	:			      :
+	:.............................:
+	:  parameter  n		      :
+	:.............................:
+                       : retn addr    :
+	:.............................:
+rF 	:              : dynamic link : to MSCP of calling proc
+	:.............................:
+	: proc desc add: static link  : to MSCP of static parent.
+	:.............................:
+	:  old value of rSP	      :
+	:.............................:
+	: start of local variable area:
+	:.............................:
+	: 	    		      :  NOTE: local variables for recur-
+	:.............................:        sive procedures go here.
+rP 	: end of local variables      : ___
+	:.............................:   ^
+	: start of  working storage   :   ^
+	:.............................:   ___ NOTE: After entry to a recursive
+	:			      :    	procedure, rP will point here.
+	:.............................:
+	:			      :
+
+
+FETCHING ARGUMENTS AND THE LIKE
+
+Parameters can now be accessed either P-reletive or F-relative
+
+P-relative addressing will  in  general  only  be  done  by  "SIMPLE"
+procedures.   I.e.  only by those which can be interrupted and exited
+without restoring anything or the like.
+
+F-relative addressing should be the rule for most procedures. In  the
+case of value parameters, the p'th parameter would be accessed via
+
+	MOVE AC,p-n-2(F)
+
+where n is the number of parameters.
+
+Similarly, the k'th cell in the local storage area is accessed by
+
+	MOVE AC,k+3(F) 	(k starts at 0)
+
+To  access a global variable, one simply traces back the static links
+until  the  proper  display  level  is  reached.   Any   intermediate
+registers  picked  up  in the traceback are kept around for future
+use.  Thus, if you use several up-level references together, you only
+pay once for setting up the "display", unless some intervening procedure
+call or the like should cause SAIL to forget whatever was in its accumulators.
+Note here that if a "display" register is thrown away, there is no 
+attempt to save its value.  At some future date this may be done.  It was
+felt, however, that the minimal (usually zero) gain in speed was just not
+worth the extra hair that this would entail.
+
+ACTIONS IN THE PROLOGUE FOR NON-SIMPLE PROCEDURES
+ 
+1. Pick up proc deescriptor address.  (this may not be needed)
+
+2. Push old rF onto the stack.
+
+3. Calculate static link.
+	(a). Must loop back through the static links to grab it.
+	(b). once calculated  put together with the PDA and put on the
+		stack..
+
+4. Push current rSP onto the stack.
+
+5. Increment stack past locals & check for overflow.
+
+6. Zero out whatever you have to.
+
+7. Set rF to point at the MSCP.
+
+examples:
+
+1. A non-recursive entry (note: in this section only cases where F is needed
+   are considered.
+
+	PUSH	P,F		;SAVE DYMAMIC LINK
+	SKIPA	AC,F
+	MOVE	AC,1(AC)	;GO UP STATIC LINK
+	HLRZ	TEMP,1(AC)	;LOOK AT PDA IN STACK
+	CAIE	TEMP,PPDA	;IS IT THE SAME AS PARENTS
+	JRST	.-3		;NO
+	HRLI	AC,PDA		;PICK UP PROC DESC
+	PUSH	P,AC		;SAVE STATIC LINK
+	PUSH	P,SP
+	HRRZI	F,-2(P)		;NEW RF
+
+  In the case that the procedure has a global parent then
+we don't need to worry about the static link and the  prologue can look like
+
+	PUSH 	P,F			;SAVE DYNAMIC LINK
+	PUSH	P,[XWD PDA,0]		;STATIC LINK WORD
+	PUSH	P,SP			;SAVE STRING STACK
+	HRRZ	F,-2(P)			;NEW F REGISTER
+
+
+
+2. Recursive entry -- i.e one with locals in the stack.  
+	
+	PUSH	P,F		;SAVE DYMAMIC LINK
+	SKIPA	AC,F
+	MOVE	AC,1(AC)	;GO UP STATIC LINK
+	HLRZ	TEMP,(AC)	;LOOK AT PDA IN STACK
+	CAIE	TEMP,PPDA	;IS IT THE SAME AS PARENTS
+	JRST	.-3		;NO
+	HRLI	AC,PDA		;PICK UP PROC DESC
+	PUSH	P,AC		;SAVE STATIC LINK
+	PUSH	P,SP
+	ADD	P,[XWD #locals,#locals]
+
+;	<here do whatever zeroing & the like you need to>
+
+	HRRZI	F,-2-#locals(P)		;NEW RF
+
+  Note: The above assumes that you cannot be called from an illegal
+	context. (in this case from a procedure block outside the
+	one in which you are declared.)
+
+ACTIONS AT THE EPILOGUE FOR NON-SIMPLE PROCEDURES
+
+1. If returning a value, set it into 1 or onto right spot in string stack;
+
+2. Do any deallocataions that need to be made.
+
+4. Restore rF.
+
+5. Roll back stack.
+
+6. Return either via POPJ P,  or by JRST @mumble(P)
+
+
+Examples:
+
+1. No parameters.
+
+	<step 1>
+	<step 2>
+	MOVE	F,(F)
+	SUB	P,[XWD M+3,M+3]		;M= # LOCAL VARS
+	POPJ	P,
+
+2. N parameters
+
+	<step 1>
+	<step 2> 			;
+	MOVE	F,(F)
+	SUB	P,[XWD N+M+3,N+M+3]	;POPS THE STACK
+	JRST	@N(P)
+
+
+
+PROCEDURE DESCRIPTORS
+
+Procedure descriptors are used by the storage allocation system,
+the interpretive caller, a planned debugger, and various other 
+parts of SAIL.  They are not put out for SIMPLE procedures.
+The entries are shown as they are at the present time.
+No promise is made that they will not be different tomorrow.
+If you do not understand this page, dorry too much about it.
+
+
+-1:	link for pd list
+0:	entry address
+1:	string pointer for
+2:	procedure id
+3:	procedure tbits
+4:	#string params*2,,#arith params+1
+5:	+ss displ,,+ as displ
+6:	lexic lev,,local var info
+7:	display level,,proc param stuff
+10:	pda,,0
+11:	pcnt at end of mksemt,,parent's pda
+12:	pcnt at prdec,,loc for jrst exit
+13:	tbits for first argument
+	:
+lvi:	byte (4)type(9)level(23)location
+	:
+	:
+
+
+the local var info is organized as follows:
+	type= 17 -- block boundary.  Location gives base location of 
+			parent block's information.
+	type = 0	end of procedure area
+	type = 1	arith array
+	type = 2	string array
+	type = 3	set or list
+	type = 4	set array
+
+local variable info for each block is organized as
+	info for var
+	:
+	info for var
+	17,lev,loc of parent block bbw
+THE TRUTH ABOUT EXOTIC LOOPS.
+
+Plain, old fashioned loops are done as before, with the following 
+exceptions:
+
+1. For lists. 
+
+	FOR I_V1,V2,...,VN DO 
+		BEGIN
+		LOOP: .....
+
+		END
+
+would be compiled as:
+
+	I_V1
+	JSP	X,LOOP		;X IS AN AC
+	I_V2	
+	JSP	X,LOOP		;
+	...
+	I_VN
+	JSP	X,LOOP
+	JRST	XIT
+LOOP:	...
+	JRST	@XTEMP		;XTEMP IS EITHER X OR A TEMP INTO 
+				;WHICH	X WAS STUFFED
+XIT:
+
+2. Neednext loops.  The following example should show the essential
+features.
+
+	NEEDNEXT FOR I_ ... DO 
+		BEGIN
+		...
+	   NXT:	NEXT;
+	   OK1: ...
+		...
+		...
+	   DNE:	DONE;
+		...
+		END;
+
+would be compiled something like:
+
+	MOVEI	X,LOOPE
+	:
+NEXTONE: get next value for I
+	if no more then JRST ALLDONE
+	JSP X,(X)
+ALLDONE: JRST	1(X)		;SKIP RETURN WHEN LIST EXHAUSTED
+LOOP:	...			;START OF LOOP BODY
+
+NXT:	JSP	X,@XTEMP
+	JRST	OK1
+	go to 	LOOPE+1		;this may take several instructions
+OK1:
+	...
+DNE:	go to 	LOOPE+1
+	...
+
+	JSP	X,@XTEMP
+LOOPE:	JRST	LOOP		
+
+Chapter 4, LEAP Changes
+ J. Low
+
+change to 3-1.
+ 
+remove <type> ::= <algebraictype> ARRAY <leaptype>
+	      ::= SET ARRAY <leaptype>
+
+add    <lparray> ::= ITEM [ <boundpairlist> ] 
+		 ::= ITEMVAR
+
+       <type> ::= <algebraictype> ARRAY <lparray>
+	      ::= SET ARRAY <lparray>
+
+
+add to 3-1.
+<type>			::= LIST
+			::= LIST <leaptype>
+			::= LIST ARRAY <lparray>
+
+
+
+add to 4-1.
+
+<listassignment>	::= <listvariable> _
+				<constructionlistexpression>
+
+add to 7-1.
+
+<leapstatement>	::= <liststatement>
+
+
+<liststatement>	::= <listassignment>
+
+			::= PUT <constructionitemexpression> IN
+				<listvariable> BEFORE  <algebraicexpression> 
+
+			::= PUT <constructionitemexpression> IN
+				<listvariable> AFTER <algebraiceexpression>
+
+			::= PUT <constructionitemexpression> IN
+				<listvariable> BEFORE
+				<retrievalitemexpression>
+
+			::= PUT <constructionitemexpression> IN
+				<listvariable> AFTER
+				<retrievalitemexpression>
+
+			::= REMOVE <retrievalitemexpression>
+				FROM <listvariable>
+
+			::= REMOVE ALL <retrievalitemexpression>
+				FROM <listvariable>
+
+			::= REMOVE <aritmetic-expression>
+				FROM <listvariable>
+
+			::= <listvariable> [<arithmetic-expression>]
+				_  <construction-item-expression>
+
+<element>		::= <retrievalitemexpression> IN
+				<retrievallistexpression>
+
+
+add to 9-1.
+
+<leaprelational>	::= <retrievallistexpression> 
+				= <retrievallistexpression>
+
+			::= <retrievallistexpression>
+				 <retrievallistexpression>
+
+
+add to 10-1.
+
+<listexpression>	::= <listexpression>
+
+<listexpression>	::= <listprimary> 
+			::= <listexpression> & <listprimary>
+
+<listprimary>	::= NIL
+			::= <listvariable>
+			::= {{ <itemexprlist> ~~
+			::= (<listexpression>)
+			::= CVLIST( <setexpression> )
+			::= <listprimary> [ <substringspec> ]
+			::= <setprimary>
+
+
+<itemprimary>		::= COP (<listexpression>)
+			::= LOP ( <listvariable> )
+			::= <listprimary> [ <algebraicexpression> ]
+
+<listvariable>		::= <variable>
+
+<leaprelational>	::= <retrievalitemexpression> IN
+				<retrievallistexpression>
+
+<setprimary>		::= CVSET ( <listexpression> )
+LISTS
+
+	A list is simply a sequence of items. Though a list resembles
+a  set  in  many  respects,  including  implementation, there are two
+important distinctions.       First,  a  list  may  contain  multiple
+occurrences  of  any  item  while  a  set  contains  at most a single
+instance of an item. Second, the order in which items appear within a
+list is completely within the control of the user program, while with
+a set, the order is fixed by the internal representation of items.
+
+	An analogy may also  be  made  between  lists  and  character
+strings.    A list may be thought of as a "string" of items.  Thus we
+speak of such such  operations  as  list  concatenation,  and  taking
+sublists;  much  as  we might talk of character string concatenation,
+and the taking of substrings.
+
+	Lists may also be used as  flexible  length  itemvar  arrays.
+Thus we speak of LIST1[I], the I th element of a list.
+
+
+LISTX
+
+	One function that is very useful when dealing with  lists  is
+called  LISTX.  LISTX takes three parameters: a list, L; an item, IT;
+and an integer, N.  The value of this integer function is  0  if  the
+item IT does not have at least N different occurences within the list
+L.  Otherwise the value of LISTX is the integer K such that L[K] = IT
+and  there  are exactly N-1 integers M such that 1  M < K and L[M] =
+IT.   In other words the value of LISTX is the  index  of  the  N  th
+occurrence of IT within the list L.
+
+For example:
+
+	LISTX( {{ITEM1,ITEM2,ITEM3,ITEM2~~, ITEM2, 2) has the integer
+value 4.
+LIST PUT
+
+	There  are  four  alternative  forms of the PUT statement for
+inserting elements containing items into lists. The  most  simple  of
+these takes the form
+
+	PUT item1 IN listvariable BEFORE n
+
+where  "item1"  and "n" are expressions which evaluate to an item and
+an integer value respectively. "item1" becomes the n  th  element  of
+the  list named "listvariable". The old n th element becomes the n+1
+st element and so forth.   If n  is  less  than  0  or  greater  than
+1+LENGTH(listvariable), an error message is given.
+
+	A  similar  form  of  the  PUT  statement  is:  "PUT item1 IN
+listvariable AFTER n". This is identical in effect with  "PUT  item1
+IN listvariable BEFORE n+1".
+
+	The other two versions of the PUT statement take the forms:
+
+	PUT item1 IN listvariable BEFORE item2
+
+		and
+
+	PUT item1 IN listvariable AFTER item2
+
+With these, the listvariable is searched for the first occurrence of
+"item2".  If there is  such  an  occurrence,  an  element  containing
+"item1"  is  inserted  in  the  list before (after) the first element
+containing "item2".  If there is no occurrence of "item2" within  the
+listvariable,  an  element  containing  "item1"  is  inserted before
+(after) all elements of the list. The effect of these  two  forms  of
+the  PUT  statement  may  be  made  clearer  by writing an equivalent
+code-segment using the function LISTX and the indexed form of the PUT
+statement.
+
+The following is equivalent to the "BEFORE" form above:
+
+	BEGIN INTEGER T;
+		T_LISTX(listvariable,item2,1);
+		IF T  0 THEN PUT item1 IN listvariable BEFORE T
+			ELSE PUT item1 IN listvariable BEFORE 1
+	END
+
+Equivalent to the "AFTER" form:
+
+	BEGIN INTEGER T;
+		T_LISTX(listvariable,item2,1);
+		IF T  0 THEN PUT item1 IN listvariable BEFORE T+1
+			ELSE PUT item IN listvariable
+				BEFORE LENGTH(listvariable)+1
+	END
+LIST REMOVE
+
+	There  are  three alternative forms of REMOVE for lists.  The
+easiest to understand takes the form "REMOVE N  FROM  LISTVAR".  This
+removes  the N th element of the list variable, LISTVAR.  The old N+1
+st element becomes the N th  element  and  so  forth.   An  error  is
+indicated if N  0 or N > LENGTH(LISTVAR).
+
+	The  second form is "REMOVE ITEM1 FROM LISTVAR". This removes
+the first element containing the item denoted by ITEM1 from the list.
+It is equivalent to:
+
+	REMOVE LISTX(LISTVAR,ITEM1,1) FROM LISTVAR
+
+	The  third  form  is  "REMOVE  ALL ITEM1 FROM LISTVAR".  This
+causes the removal of all elements within  the  list  containing  the
+item denoted by ITEM1.
+
+
+
+REPLACE
+
+	Many  times  we  wish  to  change  a single element of a list
+without changing other elements of the list. To do  this,  we  use  a
+"REPLACE" statement which takes the form:
+
+	LISTVAR[N] _ ITEM2
+
+The  value  of the expression N is calculated and must satisfy 1 N 
+LENGTH(LISTVAR)+1. If the value  is  out  of  this  range,  an  error
+message is given. For valid N the statement replaces the N th element
+of the list with an element containing "ITEM2".  For example:
+
+	LIST2[LISTX(LIST2,ITEM1,1)] _ITEM2
+
+would change the first instance of ITEM1 within LIST2 to ITEM2.
+CREATION OF LISTS
+	
+	List variables are initialized to empty. To form actual lists
+we may either individually insert items into a  list  variable  using
+"PUT" statements, or assign list expressions to the list variable.
+
+	A  list  may be created by naming all the items which make up
+the list in sequence. For example to create  a  list  containing  the
+items: "item1","item2",and "item3" we may form the list expression:
+
+		{{ item1,item2,item3 ~~
+
+The  use  of "LISTO" (for list open) instead of "{{" and "LISTC" (for
+list close), instead of "~~" is also allowed.
+
+	A new list may be created containing all the elements of  one
+list,  followed  by all the elements of a second list simply by using
+the concatenation operator "&". For example:
+	{{item1,item2,item3~~&{{item2,item1~~
+
+is a list expression which stands for the list:
+		{{item1,item2,item3,item2,item1~~.
+
+
+LENGTH OF LISTS
+
+	The  length  of  a  list  is  the  total  number  of elements
+contained in the  list.  Multiple  occurences  of  single  items  are
+counted the appropriate number of times.
+
+	To  refer  to  the  length  of  a list we may use the integer
+function LENGTH, which takes as its argument a list  expression.   We
+may also use the token "" which stands for the length of the list in
+the nearest left context, where  context  may  either  be  a  sublist
+operation, PUT AFTER or BEFORE, or the bracketed. index within a list
+element selection or replacement.
+
+	For example:
+
+		LIST1[-1]_ LIST2[]
+
+	This statement would replace the next to the last element  of
+the list "LIST1" with the last element of "LIST2".
+
+
+
+SUBLISTS
+
+	We  often may want to think of a list as a "string" of items.
+Thus we may think of taking a "substring"  of  a  list;  that  is,  a
+sublist.  The  syntax  and semantics for a sublist are identical with
+those of substrings, with the natural exception that  the  result  of
+taking  a  sublist  is  a  list,  and not a string. There is also the
+difference that if the indices do not make sense an error message  is
+generated rather than the setting of the SKIP variable.
+
+	An example of taking a sublist is:
+				LISTVAR _ LISTVAR[2 TO -1];
+
+	This  statement  would  simply  remove  the  first  and  last
+elements of the list "LISTVAR".
+TYPEIT - item types.
+
+	The "type" of an item is the type of  its  datum.  Items  are
+given their types in declarations such as:
+
+		INTEGER ITEM INT;
+
+They  are  also  given  types  when  they are created by the function
+"NEW". The type of the new item is the type of the argument (an  item
+is  said  to  have no type if the argument to NEW is omitted) to NEW.
+For example, "NEW(1)" would create  an  integer  item  whose  initial
+datum was "1".  "NEW(1.0)" would create a new item of type real.
+
+	At runtime we may wish to dynamically determine the  type  of
+an  item.  To  do  so  we  call  the  integer function "TYPEIT". This
+function takes an item expression as its  parameter  and  returns  an
+integer code corresponding to the type of the item.
+
+	The codes are:
+		0 - item deleted or never allocated.
+		1 - no type (no datum for this item)
+		2 - item is bracketed triple.
+		4 - real
+		5 - integer
+		6 - set
+		7 - list
+		8 - procedure
+		11 - string array
+		12 - real array
+		13 - integer array
+		14 - set array
+		15 - list array
+		16 - invalid (runtime has screwed something up)
+
+*** THE FOLLOWING IS CURRENTLY A LIE. ***
+
+	When an item is assigned to an itemvar, a type check is  made
+to  see if the transfer is legal. E. G. that you are not assigning an
+integer item to a real itemvar, etc. When possible this check is done
+at  compile time. However, there are cases where it is impossible for
+the compiler to know the type of an item expression. One  example  of
+this is:
+
+		ITEMVARA _ COP(LISTB)
+
+To  handle  cases such as the above, the compiler will insert machine
+instructions which will test the  type  of  the  item  expression  at
+runtime  and give an error indication if that type is not the same as
+that of the itemvar.
+
+	To avoid this extra code, you may declare the itemvar as SAFE
+or  untyped, in which case the compiler will assume you know what you
+are doing. Note that if you plan to use  the  datum  of  an  item  by
+refering  to an itemvar containing the item, the itemvar should be of
+the appropriate type.
+
+
+add to section 7-14
+
+
+	There are often times when a programmer is not interested  in
+the  makes and erases in a certain procedure therefore it is handy to
+be able to turn off breakpoints.  To  do  this  we  simply  call  the
+procedure  BRKOFF  with  no  parameters.  iIt  too  must  be given an
+external declaration
+
+
+	EXTERNAL PROCEDURE BRKOFF;
+
+
+
+NEW RESERVED WORDS:
+
+CVSET,  CVLIST,  LIST,  LISTC,  LISTO, AFTER,
+BEFORE, ALL.
+
+NEW PREDECLARED IDENTIFIERS:
+
+TYPEIT, LISTX
+Chapter 5, Macro Changes
+ H. Samet
+
+		MACROS AND CONDITIONAL COMPILATION
+				by
+			   Hanan Samet           
+
+I.	MACROS
+
+A.	Overview:
+
+	The new SAIL does not contain the use of quotes to delimit macro 
+body definitions or to delimit actual parameters in a macro call when 
+commas or right parenthesis occur in the argument.  Instead, one is 
+allowed to declare any delimiters he wishes with the exception of
+double quote, carriage return, linefeed, ascii 0, ascii 40, ascii 177, 
+and (?).   These delimiters are declared with the following statement which 
+can appear anywhere in the program as long as it precedes the use of the 
+specified delimiters or their implied features (i.e. conditional
+compilation).
+
+	e.g.   REQUIRE "" DELIMITERS;
+
+	Immediately one notices that four characters appear in the
+string.  These correspond, in order, to the following:
+	a.  Macro body begin delimiter
+	b.  Macro body end delimiter
+	c.  Macro call parameter begin delimiter
+	d.  Macro call parameter end delimiter
+Note that one used two different delimiters for the macro body and identical 
+ones for the macro call.  This is purely a matter of choice; however, 
+this choice does determine the way in which the pseudo string constant
+will be scanned.  Exact details of the scanning process are given later on, 
+and the reader is strongly advised to refer to it for precise details.
+Overall, the use of different begin and end delimiters means that the
+scanning of the pseudo string will only terminate when a balanced number of 
+begin and end delimiters is seen - i.e. an end delimiter signifies the end 
+of a scan only when precisely one more begin delimiter than an end delimiter 
+has been seen.  This is a concept that is henceforth referred to as 
+"nesting".  Note that when the begin and end delimiters are identical, 
+the above criterion holds trivially.  If no delimiters are seen, then one 
+has two cases corresponding to a macro body and a macro call.  Briefly, 
+in the case of a macro body, one scans an expression whose result is 
+converted to a string via CVS if not already a string (see section on 
+compile time variables for more details), and in the case of actual macro 
+parameters one scans the text until a comma or a right parenthesis is 
+seen and the nesting count of the following  character pairs is zero:
+	( and )   < and >    and    [ and ]   { and ~ .
+
+B.	Details of the scanning process:
+
+1.	Macro bodies:
+
+	If no delimiters are seen, then the expression is scanned and the 
+result is converted to a string.  If the delimiters are present, then one 
+scans until an end delimiter appears and the count of begin delimiters 
+already seen is one greater than the count of end delimiters already seen.
+
+2.	Macro call parameters:
+
+a.	If the first character is a declared macro call begin delimiter, 
+then one will finish the scan of the parameter when the nesting count of 
+it and its macro call end delimiter is zero (i.e. the same number of 
+begin and end delimiters has been seen).  Note that if the begin and 
+end delimiters are identical, then one will simply break on the next 
+occurrence of the delimiter.
+
+b.	If the first character is not a declared delimiter and also is not 
+an internal representation of a formal parameter (e.g. a macro call within 
+a macro body - see example i. where macro A has been defined to contain a 
+macro call to macro D using one of macro A's formal parameters - i.e. C),
+then one scans the actual parameter keeping track of the following pairs of 
+characters ( and )   [ and ]    and    < and >   { and ~ , and  breaking 
+on a comma or a right parenthesis as the end of the parameter only when the 
+nested count of these character pairs is zero.  This is useful for arrays, 
+function calls, etc., and it prevents the need for usage of delimiters.  
+Note that macro calls in an actual parameter string don't get expanded
+(see example ii.), but substitutions for formal parameters are made (see 
+example iii.).  Also formal parameter expansions do not contribute to the 
+nesting count and thus one has pure string substitution in such a case 
+(see example iii.).
+
+c.	If the first character is an internal representation of a formal 
+parameter, then it is replaced by the corresponding actual string.  After 
+expansion one returns to scanning as in mode b. above.
+
+Example i.:
+
+	DEFINE A(B,C)=B_D(C)+2;;
+	DEFINE D(X)=X^2;
+	and now one sees the call A(I,J)
+
+Example ii.:
+
+	DEFINE ABC(X,Y)=X*Y;
+	DEFINE EFG(W,Z)=I_ABC(W,Z);;
+	EFG (I,J);
+	When the above call is seen, one will scan the actuals I and J and 
+	store them in a list and then scan the body of EFG which has the 
+	following internal representation:
+		I_ABC(1,2)
+	At this time when one reaches the call to the macro ABC, one 
+	substitutes for 1 the string corresponding to the first parameter 
+	to EFG and likewise for 2 and the second parameter.  Thus in effect 
+	one stores the string corresponding to the characters I and J in a 
+	list as the actual parameters.
+
+Example iii.:
+
+	DEFINE ABC(X,Y)=X*Y;
+	DEFINE KLM(W,Z)=I_ABC(A(W),Z);;
+	KLM(<B,C>,I);
+	Note the use of  and  as macro body delimiters and < and > as 
+	macro call delimiters in these examples and in all the following 
+	examples unless otherwise stated.  Also one sees that KLM is called 
+	with a string containing a comma, and, unlike the old macro system,
+	one only needs to put one set of delimiters around the  B,C  .
+	In the old system one had to anticipate the number of macro levels 
+	an actual parameter must pass through before being used and provide 
+	that many quotes around the string (this is very confusing and it 
+	is doubtful if the writer got it straight).  Finally, this example 
+	shows that when scanning the string corresponding to KLM,
+		i.e. I_ABC(A[1],2);     ,
+	upon seeing the comma in the expansion of 1, i.e.  B,C  , one does 
+	not halt the scan regardless of whether or not the nesting count is 
+	zero so far.
+
+C.	Notes and examples:
+
+1.	Macro call parameters are evaluated at instantiation time and not at 
+macro call time (in more familiar terminology one has call by name and not 
+call by value).
+
+2.	One no longer needs to compute ahead of time how many quotes one 
+will need later on in order to make the macro work properly.  This is 
+illustrated below with an example from the current SAIL manual coded to
+conform with the old macro system and also how it would be written in the 
+new system.
+
+Example:
+
+a.	Old macro system:
+
+	DEFINE DEBUGGING="TRUE";
+	DEFINE BREAKONLFD="2";
+	DEFINE SRC="2";
+	DEFINE TTY="1";
+	DEFINE TYPE(MSG)="OUT(TTY,MSG)";
+	DEFINE INP1(VBL,WHERE)=
+		"BEGIN
+		VBL_INPUT(SRC,BREAKONLFD);
+		IF DEBUGGING THEN
+			TYPE(""""""INPUT TO VBL AT WHERE IS""""&VBL"");
+		END";
+
+b.	New macro system:
+
+	DEFINE DEBUGGING=TRUE;
+	DEFINE BREAKONLFD=2;
+	DEFINE SRC=2;
+	DEFINE TTY=1;
+	DEFINE TYPE(MSG)=OUT(TTY,MSG);
+	DEFINE INP1(VBL,WHERE)=
+		BEGIN
+		VBL_INPUT(SRC,BREAKONLFD);
+		IF DEBUGGING THEN
+			TYPE("INPUT TO VBL AT WHERE IS"&VBL);
+		END;
+
+c.	A typical call is:
+
+	INP1(ABC[1,3,5],INITIAL READ);
+
+	which in both cases is expanded to:
+
+	BEGIN
+	ABC[1,3,5]_INPUT(2,2);
+	IF TRUE THEN
+		OUT(1,"INPUT TO ABC[1,3,5] AT INITIAL READ IS"&ABC[1,3,5]);
+	END;
+
+D.	Compatibility:
+
+	The new system is compatible with the old macro system.  However, 
+one can not waver between the two methods unless a REQUIRE NULLDELIMITERS 
+statement is seen (see next section for details).
+
+E.	Overriding the current set of delimiters:
+
+	There are several methods of overriding the current set of 
+delimiters and they correspond to the various lifetimes one wants to 
+attribute to the delimiters.
+
+1.	Overriding for one macro definition is accomplished by indicating 
+the two delimiters to be used within the string constant which appears 
+immediately preceding the = sign.
+
+	i.e.	DEFINE AD(X)"<>"=<X_X^X;>;
+
+2.	Overriding for one macro call is accomplished by indicating the 
+two delimiters to be used within a string constant which appears immediately 
+following the name of the macro which is being called.
+
+	i.e.	KLM"{~"({B,C~,I);
+
+3.	If one wants to permanently replace the current set of delimiters, 
+then one uses a REQUIRE <delimiter string constant> REPLACEDELIMITERS 
+statement.
+
+	i.e.	REQUIRE "{~" REPLACEDELIMITERS;
+
+4.	A variation of block structure can be attributed to macro delimiters 
+if a REQUIRE <delimiter string constant> DELIMITERS statement appears when 
+another one is already in effect.  What happens is that the current set
+of delimiters is stacked and the new set is used until either a 
+REQUIRE <delimiter string constant > REPLACEDELIMITERS or a 
+REQUIRE UNSTACKDELIMITERS statement is seen.  The effect of the former is 
+as indicated in 3. above while the latter has the effect that the current 
+set of delimiters is replaced by the set of delimiters currently on top of 
+the stack.  If no delimiters are on the stack, then one reverts to old style 
+macros.
+
+5.	Finally, one can always revert to old style macros by using a 
+REQUIRE NULLDELIMITERS statement which has the effect that the previous set 
+of delimiters is stacked and one uses no delimiters (i.e. quotes are once 
+again being used) until the end of the program or the appearance of another 
+variation of a REQUIRE DELIMITERS statement.
+
+6.	The reason for the variety of the number of types of REQUIRE 
+DELIMITERS statements is to facilitate the use of SOURCEFILE switching.
+In particular, switching to files which were defined using the old macro 
+system.  The motivation behind the "one shot" overrides is that users may 
+happen to want to use the declared delimiters in such a way which would 
+force an awkward statement of the macro body or parameters as well as pose 
+the same problems encountered in the old macro system with quotes within 
+macro definitions and macro calls.
+
+
+
+
+
+
+II.	Conditional Compilation:
+
+A.	Syntax:
+
+<progtext>		<special-const-exp>
+<booltext>		<speciallydelimitedstring>
+
+<defspec>		DEFINE <deflist> ;
+<deflist>		<def> | <def> , <deflist>
+<def>			<id> = <progtext>
+
+<compstat>		<compcond>
+			<compfor>
+			<compwhile>
+			<compcase>
+			<compforlist>
+
+<compcond>		IFC <conboolexp> THENC <ending>
+<ending>		<SAILsequence> ENDC
+			<SAILsequence> ELSEC <SAILsequence> ENDC
+
+<compfor>		FORC <id> {_|=~ <conexp> STEP(C) <conexp> UNTIL(C)
+				<conexp> DO(C) <progtext> ENDC
+
+<compforlist>		FORLC <id> {_|=~ <macroformalparameterlist> DO(C)
+				<progtext> ENDC
+
+<macroformalparameterlist>		{<overridedelimitersstring>|empty~
+						( <progtextlist> )
+
+<compwhile>		WHILEC <booltext> DO(C) <progtext> ENDC
+
+<compcase>		CASEC <conexp> OF <progtextlist> ENDC
+<progtextlist>		<progtext> | <progtext> , <progtextlist>
+
+
+
+B.	Semantics:
+
+1.	IFC <conbolexp> THENC <SAILsequence1>
+		{ENDC | ELSEC <SAILsequence2> ENDC~
+IFC has the effect of evaluating the <SAILsequence1> immediately following 
+the THENC if the <conboolexp> is true; otherwise,if an ENDC does not appear, 
+then one evaluates the <SAILsequence2> following the closest ELSEC.
+
+2.	WHILEC <booltext> DO(C) <progtext> ENDC
+WHILEC is much like an ALGOL WHILE statement in that <progtext is evaluated 
+until <booltext> is no longer true (i.e. evaluates to zero).  Note that 
+<booltext> must be a delimited statement since otherwise the expression 
+routine, which is used to scan it, will evaluate it.
+
+3.	FORC is much like its ALGOL counterpart, the FOR statement.  It 
+should be noted that <conexp> is a constant expression whose value is 
+evaluated before the repeated iteration of the loop.
+
+4.	CASEC is like the ALGOL CASE statement (with 0 as the first case) 
+and once again <conexp> is a constant which is evaluated only once 
+immediately preceding the scanning of the various <progtext> strings.
+
+5.	FORLC is used to repeatedly call a macro that requires only one 
+parameter.  In effect, one is applying a parameter list to a macro body 
+(<progtext> in this case) which is much more efficient than repeatedly 
+invoking the macro body.  Note that one has available the feature of 
+overriding the macro call delimiters in this case.
+
+6.	<progtext> is any constant expression (numerical or string).  It 
+is evaluated WHEN IT APPEARS to a single string constant, where the 
+following additional rules apply:
+	a.  Macro delimiters must be used when one wants a string expression
+	b.  Although the final <progtext> may expand to a <compstat>, no 
+	<compstat> may be used to form the <progtext> expression - i.e.
+	DEFINE FOO=IFC A THENC {FOOBAZ~ ELSEC {GARPLY~ is not allowed, while 
+	DEFINE FOO={IFC A THENC FOOBAZ ELSEC GARPLY~ is permitted.
+	c.  Some more relevant restrictions and examples can be found in the 
+	section on coercions and compile-time variables.
+
+7.	The <conboolexp> of the IFC must not contain any <compstat>.  The
+<booltext> must expand to a <conboolexp> -- THE FIRST-LEVEL EXPANSION
+MUST NOT CONTAIN ANY <compstat>s.
+
+8.	No misuse of above rules will go undetected.  Above restrictions on
+recursive appearance of <compstat>s will someday go away. (?)
+
+9.	A SAILsequence is any sequence of legal SAIL tokens, including
+properly-nested (complete)  <compstat>s.
+
+10.	Examples:
+
+	a.  Simple IFC:
+
+BEGIN "TEST" INTEGER I,J,K; DEFINE DEBUGGING = "TRUE";
+ I_J_K_3;
+ IFC DEBUGGING THENC OUTSTR(CVS(I)) ENDC;
+END "TEST";
+
+	expands to:
+
+BEGIN "TEST" INTEGER I,J,K; DEFINE DEBUGGING = "TRUE";
+ I_J_K_3;
+  OUTSTR(CVS(I)) 
+END "TEST";
+
+	b.  Nested IFC:
+
+BEGIN "CND"
+	REQUIRE "" DELIMITERS;
+	INTEGER J,K,L;
+	DEFINE I=2;
+	DEFINE IA=0;
+	IFC I THENC J_K+
+		IFC IA THENC L ELSEC J ENDC
+		ELSEC IFC IA THENC J_K+L ENDC
+		ENDC;
+	END "CND"
+
+	expands to:
+
+BEGIN "CND"
+	REQUIRE "" DELIMITERS;
+	INTEGER J,K,L;
+	DEFINE I=2;
+	DEFINE IA=0;
+	 J_K+J;
+	END "CND"
+
+	c.  WHILEC example:
+
+BEGIN "CND"
+	REQUIRE "" DELIMITERS;
+	INTEGER J,K,L;
+	DEFINE I=2;
+	WHILEC I DO J_K+I; DEFINE I=I-1; ENDC
+	END "CND"
+
+	expands to:
+
+BEGIN "CND"
+	REQUIRE "" DELIMITERS;
+	INTEGER J,K,L;
+	DEFINE I=2;
+	J_K+2; I=J_K+1;
+	END "CND"
+
+	d.  FORC example:
+
+BEGIN "CND"
+	REQUIRE "" DELIMITERS;
+	INTEGER J,K,L;
+	DEFINE I=2;
+	FORC M_1 STEP 1 UNTIL 3 DO J_K+M; ENDC
+	END "CND"
+
+	expands to:
+
+BEGIN "CND"
+	REQUIRE "" DELIMITERS;
+	INTEGER J,K,L;
+	DEFINE I=2;
+	J_K+1; J_K+2; J_K+3; 
+	END "CND"
+
+	e.  CASEC example:
+
+BEGIN "CND"
+	REQUIRE "" DELIMITERS;
+	INTEGER J,K,L;
+	DEFINE I=2;
+	CASEC I OF
+		J_K+I;,
+		J_K+K+I;,
+		J_K+K+K+K+I;,
+		J_K+K+K+K+K+I;
+		ENDC
+	END "CND"
+
+	expands to:
+
+BEGIN "CND"
+	REQUIRE "" DELIMITERS;
+	INTEGER J,K,L;
+	DEFINE I=2;
+	J_K+K+K+K+2; 
+	END "CND"
+
+	f.  FORLC example:
+
+BEGIN "CND"
+	REQUIRE "" DELIMITERS;
+	INTEGER J,K,L;
+	DEFINE I=2;
+	FORLC M=(1,I,3) DO J_K+M; ENDC
+	END "CND"
+
+	expands to:
+
+BEGIN "CND"
+	REQUIRE "" DELIMITERS;
+	INTEGER J,K,L;
+	DEFINE I=2;
+	J_K+1; J_K+2; J_K+3; 
+	END "CND"
+
+
+11.	In order to have a brief understanding of the conditional 
+compilation system the following explanation is given.  Whenever a 
+conditional compilation reserved word such as IFC, WHILEC, ... is seen, 
+the compiler traps and sets up an additional set of parse stacks so that
+conditional compilation productions can be parsed in parallel with regular 
+SAIL constructs.  From hereon, control shifts coroutinewise between the 
+regular SAIL parse controller and the conditional compilation controller 
+with traps occurring whenever a conditional compilation reserved word is 
+seen.  The production interpreter, which is at the heart of the system, 
+never knows which parser is in control since the only difference between 
+the two parsers is in the stack pointers to their parse and semantics
+stacks.  The actual decision as to whether or not to switch parsers is 
+made by the scanner upon scanning a reserved word.  This is why IFC and 
+other conditional compilation statements may occur anywhere  in a SAIL 
+program and not just at statement level.
+
+
+
+
+III	Coercions and compile-time variables:
+
+A.	Compile-time variables:
+
+	When macro bodies are defined as expressions (not as strings), then 
+the body is evaluated.  This has the same effect as a compile-time variable.
+For example, consider the following two statements:
+
+	DEFINE N=3;
+	DEFINE N=N+1;
+
+The net result is that N=4 and is converted to a string via CVS and is 
+stored along with the macro name N as a macro body which is to be treated 
+as a number.  If one had defined N to equal the string 3, as below:
+
+	DEFINE N=3;
+	DEFINE N=N+1;   ,
+
+then the end result is that N=52.  The reason for this is that upon 
+encountering the addition operation in N=N+1 , one takes the value of the 
+string constant and increments it by one (3=ASCII 51 and thus one has
+N+1=51+1=52) to get a value of 52.  This is converted to a string via CVS 
+and is stored along with the macro name N as a macro body which is to be 
+treated as a number in expressions.  This distinction between a number and 
+a string is only necessary when one is scanning a macro body definition 
+which is an expression, since in the former case (number) macros are 
+expanded in order to yield the compile-time variable effect while in the 
+latter case they are not expanded (string).
+	Another example of the usefulness of this feature is the case below:
+
+	DEFINE CR=13;
+	DEFINE N=FOO&CR;
+
+Here one has the effect of getting a carriage return to be placed after 
+every instance of FOO in the text.  This occurs because the concatenation 
+routine receives two arguments in the form of strings; one being the string 
+FOO and the other being a SAIL number having the value of 13 which is the 
+ASCII code of carriage return.
+
+B.	Concatenation of strings consisting of macro bodies to form new 
+		macro bodies:
+
+	When scanning a macro body immediately after a macro definition and 
+one sees a macro name not appearing within a delimited string, then one has 
+two choices of action:
+
+1.	If the macro name has been previously defined as a numeric constant, 
+then it is expanded.
+
+	i.e. 	DEFINE CR=13;
+		DEFINE N=FOO&CR;
+
+In the above, CR is expanded when N is defined.
+
+2.	If the macro name has been previously defined as a string, then one 
+checks to see that it does not require more parameters than the macro that 	
+one is currently defining.  If the condition is met, then concatenation will 
+occur.
+
+	i.e.	DEFINE N(X)=X_X+1;;
+		DEFINE M(Y,Z)=N&Z_Y+1;;
+
+In this case the requirement is met, concatenation occurs, and the end 
+is equicvalent to the one given below.
+
+	DEFINE M(Y,Z)=Y_Y+1;Z_Y+1;;
+Chapter 6 -- Other Changes for Version 16
+ D. Swinehart
+
+These are presented in the order in which they would  appear  in  the
+SAIL manual.  They are keyed to paragraph numbers in SAILON 57.2.
+
+
+
+SECTION 3. DECLARATIONS
+
+3-58.  REQUIRE Additions and Modifications
+
+a)  The  special  case:  REQUIRE  -1   NEWITEMS,   causes   complete
+   suppression of the allocation of local data spaces for LEAP.  This
+   is provided for programs which manipulate GLOBAL data, but have no
+   local actions.
+
+b)  REQUIRE  <integer  constant  expression>  VERSION  will cause the
+   number (low-order 18 bits)  you  specify  to  be  checked  against
+   similar  Version numbers provided in any other compilations loaded
+   at the same time.  If any do not match, the start-up routine  will
+   issue  a  warning  error  message.   A  program  without a Version
+   Requirement in it will never cause this error.
+
+   The  Version  comparison  includes  18  bits  of  system   Version
+   information. This will clearly always match in the comparison just
+   described, but it is useful when the GLOBAL system is  used.   The
+   entire  version number (system's bits and your bits) are placed in
+   location JOBVER (137).  This can be used  to  check  that  several
+   jobs  which  are  cooperating  via  a  shared  second segment data
+   structure are compatible.  The  Hand-Eye  monitor  currently  does
+   this.
+
+
+
+SECTION 5.  STATEMENTS
+
+5-24. Done, Next, Continue
+
+The long-awaited DONE,  NEXT,  and  CONTINUE  extensions  are  almost
+ready.  The syntax has been modified slightly:  if you want to escape
+from a loop which is not the innermost loop, label the loop statement
+(L1, for example), then use, for instance: DONE L1. This replaces the
+block-name argument, a feature which was  never  implemented  anyway.
+As  of  this instant, these changes have not been installed (but I've
+been assured that they have been designed).  Hopefully we  will  soon
+allow  certain  labels  (including all labels used in this way) to be
+placed without first declaring them.
+
+
+
+SECTION 8.  STARTCODE
+
+8-1. Syntax
+
+a)   The  `'  character  is  no  longer  a  substitute  for  `@'  in
+   instructions (this character is used to cause the indirect bit  to
+   be   assembled).   Continued  use  of  `'  will  cause  (probably
+   inadequate) error messages.
+
+b)  The  manual  very  handily  omits  the  syntax  for  labeling  an
+   instruction. An instruction is, therefore, heretofore, henceforth,
+   and among other things, a label, followed by a colon, followed  by
+   an  instruction,  which is, therefore, heretofore, henceforth, and
+   among other things, a la.....
+
+c) *-*-*-* Here place the description of the ACCESS  and  PROTECTACs
+   stuff, or a pointer to it in RHT's stuff. *-*-*-*
+
+
+
+SECTION 9.  ALGEBRAIC EXPRESSIONS (sic)
+
+9-15. Boolean Expressions
+
+a)  Boolean  expressions  which contain nothing but constants are now
+   evaluated at compile-time (as arithmetic expressions  have  always
+   been),  and their constant values substituted.  This was necessary
+   to  allow  for  Boolean  expressions  in   conditional-compilation
+   statements.   Some of the statements which use Boolean expressions
+   have been slightly  modified  to  produce  better  code  when  the
+   Booleans  are constants. For instance, WHILE TRUE DO BEGIN ... END
+   produces a simple loop, with no test at the top.  Some sort of  GO
+   TO  or  DONE  or RETURN should appear in such a loop, or you might
+   miss dinner.
+
+b) The syntax attempts (and fails) to say that a  Boolean  expression
+   will  be converted to a TRUE (non-zero) or FALSE (0) Integer value
+   whenever it is used in a place which requires a number.  Until now
+   the  compiler  has  kept  pace  with the syntax.  Only in certain,
+   fortunately most common, instances  did  intention  coincide  with
+   actuality.  It  is  my  belief  that  Boolean expressions now work
+   entirely as they were intended to be advertised.   WARNING:  Since
+   Boolean  EXPRESSIONS are turned into arithmetic PRIMARIES in these
+   instances, you must parenthesize  them  correctly  or  they  still
+   won't work.  This is not a bug.  It's not even a feature.  This is
+   just how it is.
+
+9-38.  Concatenation
+
+Concatenation of constants is done  at  compile-time  when  possible.
+This  has  always  been  true,  but  not  widely  advertised.  Avoid,
+however, constructs like: STRVAR&"abc"&"cde" (or STRVAR&'15&'12,  for
+that  matter.)  In  this case the compiler handles the concatenations
+from left to right and entirely misses the fact that  there  are  two
+constants there.  Use, instead: STRVAR&("abc"&"cde".)
+
+9-42. Substrings
+Substrings of constants, with constant  indices,  are  also  done  at
+
+compile  time.   I think it is still necessary to parenthesize string
+constants before applying substring operators to them, but this is  a
+bug.
+
+9-47. Function Designators
+
+Many built-in functions, which return numeric or  string  values  and
+have  no  side  effects, now are evaluated at compile time.  This was
+again done to aid the conditional-compilation effort.  The ones  that
+I  can  think  of  which work this way are: CVS, CVOS, CVE, CVF, CVG,
+CVD, CVO, EQU.  There may be more.
+
+9-39. Factors
+
+a)  Negative  integer exponents do not work.  They have never worked.
+   Instead of wasting my time writing about it, I  should  be  fixing
+   it. Maybe I will.
+
+b)  There  is  a  table in the manual which tells you this, but it is
+   hard to find unless you know it's  there  already:  the  resultant
+   type  of  an  exponentiation  (^)  operation  is that of the first
+   argument (the exponentiand?) Is this the  right  thing  to  do?  I
+   don't know.
+
+9-59. Precedence
+
+Here is a `Precedence of Operators' table.  It  will  appear  in  the
+next  manual.  Cut it out.  Put it in your purse or wallet. Operators
+in the same line have the same precedence.  If op1 appears in a  line
+above  op2,  op1  will  be  performed  first  (wherever  it makes any
+difference).  Use parentheses to alter this order.
+
+	^
+	* / % & MOD DIV LSH ROT
+	+ -   LAND LOR
+	MAX MIN
+	=  <  > 
+	 
+
+
+
+SECTION 10. ASSOCIATIVE EXPRESSIONS
+
+a) A lot of things in LEAP which haven't worked in the past will work
+   in the future.  Try them out if you have been avoiding them.
+
+b) IFGLOBAL will return TRUE for all item numbers in the GLOBAL range
+   (7777  down  to the lowest Global Item used), even for those items
+   which have since been deleted.
+
+c) See Jim Low's opus for more LEAP changes.
+
+
+
+SECTION 12. EXECUTION TIME ROUTINES
+
+12-7. Open (I/O buffer sizes)
+
+A  note  about  I/O  buffer  sizes  is  in order here.  An I/O buffer
+contains two words of system information (bits, links, etc.),  and  a
+Data  Area.   The  data area includes a Word Count as its first word.
+The system always arranges it so that the word count is not  confused
+with  data,  if  you  do the standard thing (as SAIL does).  The word
+count is irrelevant for DSK (and nearly so for magtape), since it  is
+always (usually) a fixed value ('200 for DSK these days.)
+
+The  size  which  you  specify  in  the  left  half of the `number of
+buffers' parameter is interpreted as  the  size  of  the  Data  Area,
+INCLUDING  THE  WORD  COUNT entry.  The maximum number of actual data
+words which can fill the buffer  is  one  fewer  than  this.   As  an
+example,  if  you  do  not  specify  a  buffer  size for DSK, and you
+shouldn't, the default parameter is '201.  For  DECtapes,  since  the
+word  count  is  actually  stored  as the first word of the '200 word
+records, the default parameter is '200.
+
+It is not necessary for you to do anything  about  this  word  count.
+Just provide a space for it.
+
+12-22. Fileinfo(Integer Array Infotab[1:6])
+
+This  function has been in the system for some time.  I was surprised
+to find that it was not documented.  The argument to  Fileinfo  is  a
+6-word  Integer  Array (no more, no less).  This array is filled with
+the 6 words obtained as a result of the last LOOKUP, ENTER, or RENAME
+operation.   Unless  the  channel is open in a special mode, only the
+first 4 words mean anything  (Name,  Ext  in  SIXBIT,  Dates,  Sizes,
+etc.).   This  function  was originally provided for the File Purger,
+which needs to know more about files  than  most  programs  do.   You
+should only use it if you have a similar need.
+
+12-53. Wordout
+
+Wordout  should  now  accept arguments of both INTEGER and REAL type.
+It will write  them  without  performing  any  conversions  on  them.
+WORDIN  and  WORDOUT  will work in dump mode, but the results will be
+terrible (one word per '200-word record).
+
+12-69. Outstr
+
+Outstr will stop typing either when the end of its  string  has  been
+reached,  or  when  a  null  character  is encountered in the string.
+Sometimes in the past this has been true, and  sometimes  it  hasn't.
+Outstr has been rewritten an incredible number of times.
+
+12-69. Inchwl
+
+Inchwl  will  now  be  terminated  by any activation character.  That
+character will be available in SKIP.  If it is  a  line  feed,  the
+carriage-return  which  preceded it will have been discarded.  In the
+past, only carriage-return line-feed combinations would terminate  an
+Inchwl.
+SECTION 14.  COMPILER OPERATION
+
+14-2. What the Compiler Types
+
+As each source page is encountered, SAIL will type its number on your
+console.  This will be a bit confusing if your program REQUIRES other
+source files, but it gives you something to do while waiting. If this
+is irritating to anyone, we'll have to make it an option.
+
+14-13. Legal Source Files
+
+SAIL  now continues scanning past the final END token in your program
+(in order to check the block name, if it's there, and  to  allow  the
+last  line  to  print  in the listing file.) Everything which appears
+after the final END must now be a valid token, although it  need  not
+make sense syntactically (except for the block name, of course).
+
+14-13.  Sharable Object Programs.
+
+Include  the  /H  switch  in  your  compile  options if you wish your
+program to be sharable.  When loaded, the code and constants will  be
+placed in the second (write-protected) segment, while data areas will
+be allocated in the lower, non-shared segment.  You  must  avoid  RPG
+when  loading  these  programs,  and must use the HLBSAI library (see
+Section 15 discussion).
+
+14-20. Error Message Responses
+
+The response: T {file name~ will cause  the  TV  editor  to  be  used
+instead  of  SOS.   The line in error will be CURRENT (see TV manual)
+when you get control.  The syntax for the  (optional)  file  name  is
+identical to that for the `E' response.
+
+
+
+SECTION 15. PROGRAM OPERATION
+
+15-1. Sharable Object Programs
+
+To  load  a program which has been compiled using /H (see 14-20), run
+the LOADER directly,  then  respond:  *{ddt  switches~progname{,other
+prog  names~,/LSYS:HLBSAI/G<crlf>  The  sharable  library  HLBSAI  is
+identical to LIBSAI, except that it expects  to  run  mostly  in  the
+upper (shared) segment.
+
+When  you  have  finished  loading,  in  order  to  write-protect the
+sharable (second segment) portion, you'll have to deposit  (by  hand)
+the following instructions:
+LOCATION	INSTRUCTION	EXPL
+134/	        211000 1	(MOVNI 0,1) INDICATES PROTECTION DESIRED
+135/		47000 36	(CALLI 36)  SETS THE PROTECTION
+136/		254200 0	(HALT)	    IN CASE IT DOESN'T SKIP (FAILED)
+137/		47000 12	(CALLI 12)  EXIT ON COMPLETION
+
+Then type: START 134, and SSAVE it when it exits (worry if it HALTS).
+This feature should be used only if you have a program which is likely
+to be used by a lot of people at once.
+
+
+SECTION 16. PROGRAM STRUCTURE
+
+16-12. Assembly Language Procedures
+
+This is probably an echo of a warning issued in Russ's document,  but
+it  should be repeated here.  Register '12 has been commandeered as a
+system register.  It should be  preserved  during  execution  of  any
+procedure which doesn't need it for variable access.  In addition, it
+MUST be stored in the User Table entry RACS+12  whenever  the  String
+garbage  collector  (STRNGC) might be called.  Other runtime routines
+(CAT, etc.) do this by storing '12 into this  location,  so  if  your
+routine calls CAT, etc., it should be sure that '12 is correct.  SAIL
+procedures will take care of all this automatically.
+
+SECTION 17. IMPLEMENTATION INFORMATION
+
+17-15.  Strings
+
+The string number in the left half of the  first  word  of  a  string
+descriptor  has  lost  much of its significance.  In fact, it is only
+necessary for string constants (whose byte pointer addresses  do  not
+lie  in  string  space)  to  have zero string numbers, and for string
+non-constants to have non-zero string numbers.  In fact, many of  the
+runtime routines now will set the string number to -1 (777777), since
+this is often more economical than any other action.
+
+17-31. Long Live Topstr
+
+The User Table entry TOPSTR has been eradicated.  As such, you should
+not  try to modify it.  Any procedures which you have written to keep
+TOPSTR honest should be removed. It's always honest now.
+
+
+			- 30 and Good Luck -
+Chapter 7 -- How to use the new system 
+ D. Swinehart
+
+Temporarily, the new SAIL is called NSAIL,  and  is  installed  as  a
+standard  processor on the system.  This means that it can be invoked
+by typing COMPIL, LOAD, DEBUG, or PREPARE commands.  Simply  use  the
+extension  .NSA  instead  of  .SAI,  and compile as usual.  It is not
+necessary to change the extensions of files which are  only  REQUIRED
+as  SOURCEFILES,  and  which  will  not  be  mentioned  directly  or
+indirectly to RPG (the COMPIL, LOAD, etc., interpreter).
+
+The files comprising the new SAIL system  are  (ignore  this  if  you
+don't understand it):
+NSAIL.DMP -- the oompiler
+SAILOY.REL -- the low-segment file loaded with each SAIL job.
+SAISG4.SEG -- the runtime upper segment.
+LIBSA1.REL -- the regular library
+HLBSA1.REL -- the upper-segment library (for use only with
+	      compilations which use the /H switch.
+2OPS2.OPS  -- the extended opcode file.
+
+
+Report any problems to Russ Taylor, Hanan  Samet,  Jim  Low,  or  Dan
+Swinehart,  not  necessarily  (preferably?)  in  that  order.   We'll
+guarantee about a two-day turnaround, or better -- if we can find the
+bug.
+                                                   p@‘
