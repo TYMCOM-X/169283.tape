@@ -1,0 +1,627 @@
+MODULE DOOR(DOLLAR,ENTRIES=($DLET,$DLET1,$DLETS,$DRCNT),
+        FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+BEGIN
+
+REQUIRE DDEFS.BLI[7,107355];
+REQUIRE DVDEFS.BLI[7,107355];
+REQUIRE GDEFS.BLI[7,107355];
+REQUIRE RDEFS.BLI[7,107355];
+REQUIRE SDEFS.BLI[7,107355];
+REQUIRE UDEFS.BLI[7,107355];
+
+
+MAP U$DYNARY DBASE$;
+MAP G$ DGAM$;
+MAP DL$ DLIST$;
+MAP DR$ DREGS$;
+MAP DF$I DFLAG$;
+MAP U$DYNARY DPOOL$;
+MAP U$DYNARY DEFER$;
+
+BIND TENS = PLIT (1,10,100,1000,10000,100000,1000000,10000000,
+                100000000,1000000000,10000000000);
+
+
+
+
+UNDECLARE $DLET1;  
+
+GLOBAL ROUTINE $DLET1 = 
+   BEGIN
+   %$DLET1 HANDLES PROBABLY THE SIMPLEST CASE OF THE LET
+    OPERATOR...SINGLE INTO SINGLE
+
+   THE PLOT IS AS FOLLOWS...
+        
+        (1)THE TWO OPERANDS ARE FETCHED TO THE APPROPRIATTE
+        SYMBOLIC REGISTERS, AND THE ARITHMETIC AC IS FORCED;
+
+        (2)THE NUMBER OF POSITIONS TO DECIMAL SHIFT RIGHT IS
+        COMPUTED;
+
+        (3)IF NO SHIFTS ARE REQUIRED , A SIMPLE LOAD-STORE
+        IS GENERATED;
+
+        (4)IF A POSITIVE NUMBER OF SHIFTS ARE REQUIRED, THE APPROPRIATE
+        POWER OF TEN IS GENERATED;
+
+        (5)IF THE SOURCE IS A SHORT LITERAL, ITS VALUE, THE POWER-OF-
+        TEN AND OTHER CONSIDERATIONS ARE USED TO GENERATE A SHORT
+        LITERAL APPROPRIATELY ROUNDED OR TRUNCATED, AS INDICATED
+        BY THE GAMMA CODE ITEM;
+
+        (6)THE COMPUTED SHORT LITERAL IS THEN USED IN A SIMPLE LOAD-
+        STORE SEQUENCE, AND WE EXIT;
+
+        (7)IF THE SOURCE IS A SINGLE WORD LITERAL, BUT NOT A SHORT 
+        LITERAL, WE DO MUCH THE SAME AS IN (5) AND (6);
+
+        (8)R5 IS SET TO POINT TO AC14;
+
+        (9)IF THE POWER-OF-TEN IS A SHORT LITERAL, IT IS LOADED INTO
+        R4 AND THE ROUNDING CONSTANT IS LOADED INTO R3;
+
+        (10)IF THE POWER-OF-TEN IS A WORD LITERAL, $DSYL IS
+        USED TO LOAD IT INTO R4 AND HALF ITS VALUE INTO R3(ROUNDING
+        CONSTANT); FLAGS ARE SET ACCORDINGLY;
+
+        (11)A FLAG IS SET INDICATING WHETHER TRUNCATION OR
+        ROUNDING IS TO TAKE PLACE, AND $DPCP IS CALLED TO
+        GENERATE A $LET1 SEQUENCE.
+
+    (ALL THAT TOOK MY BREATH AWAY....THERE, GOT IT BACK)
+    /JS..................................5/31/74
+    %
+   LOCAL X,T,D1,D2,P;
+   LOCAL A[2],B[2],Z;
+   LOCAL STP,ZZ;
+   MAP G$OPND P;
+   LOCAL S1,S2;
+
+   P_.DGAM$+1;
+
+        
+
+   $DFRCA();    %END OF SET UP%
+
+   D1_.DREGS$[DR$QP,1] AND #777;
+   D2_.DREGS$[DR$QP,2] AND #777;
+   S1 _ $DSIZEQP(.DREGS$[DR$QP,1]);
+   S2 _ $DSIZEQP(.DREGS$[DR$QP,2]);
+
+    D2_.D1-.D2;
+
+   IF .D2 LEQ 0 THEN
+        BEGIN
+        %GENERATE SIMPLE LOAD STORE%
+        $DPCP(DTPV$MOVE);
+        RETURN
+        END;
+
+
+%*********************************************
+MORE OF THAT OLD,BAD,SLOVENLY INDENTED CODE
+******************************************************%
+
+   %T NOW HAS THE POWER-OF-TEN%
+
+   IF .DFLAG$[0,DFV$SLIT1] EQL 1 THEN
+        BEGIN
+        %SLIT COLLAPSE%
+        T _ .TENS[.D2];
+        IF .P[3,G$OPVAL] EQL GV$ROUND THEN
+           BEGIN
+           %GENERATE A ROUNNDED SHORT LITERAL%
+           X_.T/2;
+           X_.DREGS$[DR$OFFSET,1]+.X;
+           X_.X/.T;
+           END
+        ELSE IF .P[3,G$OPVAL] EQL GV$TRUNC THEN
+           X_(.DREGS$[DR$OFFSET,1]/.T);
+
+        $DSETLIT(1,.X);
+        DFLAG$[0,DFV$SLIT1]_1;
+        DFLAG$[0,DFV$OPND1]_0;
+
+        $DPCP(DTPV$MOVE);
+
+        RETURN
+
+        END
+   ELSE
+    IF (.S1 EQL DDV$1WD) AND
+        (.S2 EQL DDV$1WD) THEN
+        BEGIN
+%****************
+WATCH THE INDENTATION
+**************%
+        T_.TENS[.D2];
+   $DSETAC(5,#16);
+
+   IF .T LEQ DMEDNUMV$ THEN
+        BEGIN
+        %WE CAN USE IMMEDIATE INSTRUCTIONS ON THIS%
+        $DSETLIT(4,.T);
+        DFLAG$[0,#16]_1;
+        $DSETLIT(3,.T/2);
+        DFLAG$[0,#17]_1;
+        END
+   ELSE
+        BEGIN
+        %AHA, A LONGER TYPE POWER-OF-TEN%
+        $DGSYL(.T,4);
+        DFLAG$[0,#16]_0;
+        $DGSYL(.T/2,3);
+        DFLAG$[0,#17]_0;
+        END;
+
+    %NOW, FLAG WHETHER TRUNCATION OR ROUNDING DESIRED%
+
+    IF .P[3,G$OPVAL] EQL GV$ROUND THEN
+        DFLAG$[0,#15]_0
+    ELSE IF .P[3,G$OPVAL] EQL GV$TRUNC THEN
+        DFLAG$[0,#15]_1;
+
+    $DPCP(DTPV$LET1);
+
+%***********************************************
+END OF OLD,BAD,UGLY CODE
+***********************************************************%
+        END
+   ELSE
+        IF (.S1 EQL DDV$2WD) THEN
+
+        BEGIN
+
+%STORE DOUBLE%
+        A[0]_0;
+        A[1]_1;
+        Z_.D2;
+
+        IF .D2 GTR 10 THEN
+           BEGIN
+           A[1]_.TENS[10];
+           D2_.D2-10;
+           END;
+
+        $UMPY(A,5*.TENS[.D2-1]);
+
+        B[0]_.A[0];
+        B[1]_.A[1];
+
+        $UMPY(B,2);
+
+        IF .P[3,G$OPVAL] EQL GV$ROUND THEN
+           BEGIN
+           IF (.DREGS$[DR$DDTYPE,1] EQL DDV$AC) THEN ZZ_1
+                ELSE ZZ_0;
+           $DGSAD(.DREGS$[DR$BASE,2],.DREGS$[DR$OFFSET,2],6);
+           STP_$DMKL2(.Z-1,0,.A[0],.A[1]);
+           $DGLIE(.STP,4);
+           $DGSAD(.DREGS$[DR$BASE,4],.DREGS$[DR$OFFSET,4],4);
+           STP_$DMKL2(.Z,0,.B[0],.B[1]);
+           $DGLIE(.STP,5);
+           $DGSAD(.DREGS$[DR$BASE,5],.DREGS$[DR$OFFSET,5],5);
+
+
+           IF .ZZ EQL 1 THEN
+                BEGIN
+                $DRTMP(0,DDV$2WD,.DGAM$[G$ID]+1,.DREGS$[DR$QP,1],1);
+                $DPCP(DTPV$SAVE2);
+                $DGSAD(.DREGS$[DR$BASE,0],.DREGS$[DR$OFFSET,0],3);
+                END
+           ELSE
+                $DGSAD(.DREGS$[DR$BASE,1],.DREGS$[DR$OFFSET,1],3);
+
+           IF (.S2 EQL DDV$2WD) THEN $DRNCL(RTRV$XRNDD,4) ELSE
+           IF (.S2 EQL DDV$1WD) THEN
+           $DRNCL(RTRV$XRNDS,4);
+           IF .ZZ EQL 1 THEN $DGTMP(.DGAM$[G$ID]+1,1);
+           END
+        ELSE IF .P[3,G$OPVAL] EQL GV$TRUNC THEN
+           BEGIN
+           $DCOPY(2,8); %SAVE DEST FOR NOW%
+
+        IF (.DREGS$[DR$DDTYPE,1] EQL DDV$AC) THEN ZZ_1 ELSE ZZ_0;
+        STP_$DMKL2(.Z,0,.B[0],.B[1]);
+        $DGLIE(.STP,4);
+        $DGSAD(.DREGS$[DR$BASE,4],.DREGS$[DR$OFFSET,4],4);
+        %R4 HAS ADDRESS OF POWER OF TEN%
+
+        $DRTMP(5,DDV$2WD,.DGAM$[G$ID]+1,.DREGS$[DR$QP,1],1);
+
+        IF .ZZ EQL 1 THEN
+           BEGIN
+           %FORCE AC INTO A TEMP%
+           $DCOPY(5,0);
+           $DPCP(DTPV$SAVE2);
+           $DCOPY(5,3);
+           END
+        ELSE
+           $DCOPY(1,3);
+
+        $DGSAD(.DREGS$[DR$BASE,3],.DREGS$[DR$OFFSET,3],3);
+        $DGSAD(.DREGS$[DR$BASE,5],.DREGS$[DR$OFFSET,5],5);
+
+        $DRNCL(RTRV$XDVDD,3);
+
+        $DGTMP(.DGAM$[G$ID]+1,1);
+        $DSETF(1);
+        $DCOPY(8,2);
+        $DSETF(2);
+        $DPCP(DTPV$MOVE);
+
+        END;
+
+        END
+
+   ELSE IF (.S1 EQL DDV$3WD) THEN
+
+        BEGIN
+
+%STORE TRIPLE%
+
+        END;
+
+    END;
+
+
+
+
+UNDECLARE $DLETS;
+
+GLOBAL ROUTINE $DLETS =
+   BEGIN
+   %$DLETS PROCESSES LET-STRING_STRING
+
+   FIRST WE USE DTPV$INIT TO MOVE THE MINIMUM NUMBER OF WORDS
+   FROM SOURCE [1] TO DEST [2], WHERE THE MINIMUM IS THE LESSER
+   OF THE TWO LENGTHS..
+
+   THEN, IF THE DESTINATION IS LONGER, AN APPROPRIATE NUMBER
+   OF BLANKS IS TRANSFERRED USING DTPV$NULL
+
+   /JS...................8/7/74
+
+  BASED ON THE MAGNITUDE OF THE CONSPIRACY OF THOSE WHO WISH
+  TO COMPARE AND OTHERWISE HOBNOB WITH STRINGS,
+  RIGHT BLANK FILLING IS AT LAST IMPLEMENTED
+  4/1/75............../JS
+   %
+
+   BIND MASK = PLIT (0,#774000000000,#777760000000,#777777700000,
+                #777777777400); %MASK WORDS%
+
+   BIND BLANKS = PLIT (0,#1004020100,#4020100,#20100,#100);
+                %BLANKS FOR THE RIGHT FILL%
+
+   LOCAL DX;
+   LOCAL D,D1,D2;
+
+   $DFRCA();
+   DFLAG$_0; %CLEAR FLAGS%
+   D1_.DREGS$[DR$QP,1];
+   D2_.DREGS$[DR$QP,2];
+
+   IF .D1 GTR .D2 THEN D_.D2 ELSE D_.D1;  %D IS MIN(D1,D2)%
+
+   IF (DX_.D MOD 5) GTR 0 THEN
+        D_(.D+4)/5-1    %ONE LESS AND BLANK FILL%
+   ELSE
+   D_(.D+4)/5;
+
+   IF .D GTR 0 THEN
+BEGIN
+%............MOVE ENOUGH FULL WORDS.........%
+   IF .D EQL 2 THEN
+         DFLAG$[0,#16]_1
+   ELSE IF .D EQL 3 THEN
+        DFLAG$[0,#16]_DFLAG$[0,#15]_1
+   ELSE IF .D GTR 3 THEN
+        BEGIN
+        %SET UP A BLT%
+        DFLAG$[0,#17]_1;
+        DREGS$[DR$BASE  ,3]_.DREGS$[DR$BASE  ,2];
+        DREGS$[DR$OFFSET,3]_.DREGS$[DR$OFFSET,2]+.D-1; %FINAL ADDRESS%
+        DREGS$[DR$STP1  ,3]_.DREGS$[DR$STP1  ,2];
+        DREGS$[DR$QP    ,3]_.DREGS$[DR$QP    ,2];
+        DREGS$[DR$DDTYPE,3]_.DREGS$[DR$DDTYPE,2];
+        END;
+
+   $DPCP(DTPV$INIT);
+%...............END OF FULL WORDS..............%
+END;
+
+   IF .DX GTR 0 THEN
+        BEGIN
+        DREGS$[DR$OFFSET,1]_.DREGS$[DR$OFFSET,1]+.D;
+        DREGS$[DR$OFFSET,2]_.DREGS$[DR$OFFSET,2]+.D;
+        $DGSYL(.MASK[.DX],4); %GET MASK%
+        $DGSYL(.BLANKS[.DX],5); %AND BLANKS%
+        $DPCP(DTPV$BFILL);
+        DREGS$[DR$OFFSET,1]_.DREGS$[DR$OFFSET,1]-.D;
+        DREGS$[DR$OFFSET,2]_.DREGS$[DR$OFFSET,2]-.D;
+        D_.D+1;
+        END;
+
+
+   %NOW TO SEE IF MORE MUST BE DONE%
+
+   D2_(.D2+4)/5;
+
+   IF .D2 EQL .D THEN RETURN; %WE'RE DONE, SO QUICK EXIT%
+   $DGSYL('     ',4); %BLANKS%
+
+   DFLAG$_0; %I SET THEM..SO I CAN CLEAR THEM%
+
+   DREGS$[DR$OFFSET,2]_.DREGS$[DR$OFFSET,2]+.D; %NEW DEST%
+   DREGS$[DR$BASE  ,1]_.DREGS$[DR$BASE  ,2];
+   DREGS$[DR$OFFSET,1]_.DREGS$[DR$OFFSET,2];
+   DREGS$[DR$STP1  ,1]_.DREGS$[DR$STP1  ,2];
+   DREGS$[DR$DDTYPE,1]_.DREGS$[DR$DDTYPE,2];
+   DREGS$[DR$QP    ,1]_.DREGS$[DR$QP    ,2];
+
+   D_.D2-.D;
+
+   IF .D EQL 2 THEN 
+        DFLAG$[0,#16]_1
+   ELSE IF .D EQL 3 THEN
+        DFLAG$[0,#16]_DFLAG$[0,#15]_1
+   ELSE IF .D GTR 3 THEN
+        BEGIN
+        %SUPER BLT%
+        DFLAG$[0,#17]_1;
+        DREGS$[DR$OFFSET,3]_.DREGS$[DR$OFFSET,2]+.D-1;
+        DREGS$[DR$BASE  ,3]_.DREGS$[DR$BASE  ,2];
+        DREGS$[DR$STP1  ,3]_.DREGS$[DR$STP1  ,2];
+        DREGS$[DR$QP    ,3]_.DREGS$[DR$QP    ,2];
+        DREGS$[DR$DDTYPE,3]_.DREGS$[DR$DDTYPE,2];
+        END;
+
+   $DPCP(DTPV$NULL);  %EMIT SOME BLANKS..%
+
+
+   %MORE%
+   END;
+
+
+
+
+UNDECLARE $DLET;
+
+GLOBAL ROUTINE $DLET =
+   BEGIN
+    %MASTER LET PROCESSOR...DOESN'T DO MUCH NOW, THOUGH%
+
+   %NEW , IMPROVED...
+    NOW DOES SOMETHING
+    E.G.
+    WE HANDLE SINGLE PRECISION AS WELL AS STRINGS..
+    /JS...............8/7/74
+    %
+
+    LOCAL T1,T2; %WORK VARIABLES%
+    LOCAL Q;
+    MAP G$OPND Q; 
+    LOCAL RIB;
+    MAP S$ RIB;
+
+    Q_.DGAM$+1;  %INITIALIZE Q%
+
+    T1_.Q[1,G$OPTYP];
+    T2_.Q[2,G$OPTYP];  %T1 AND T2 NOW HAVE THE TYPES%
+
+    IF (.T1 EQL GV$RIP) AND ((.Q[1,G$RITYP] EQL GV$TOP)
+        OR (.Q[1,G$RITYP] EQL GV$PAGEDIV)) THEN
+        BEGIN
+        $DFRCA(); %FORCE AC%
+        $DGOPD(2,1);
+
+        DFLAG$_0;
+
+        IF (.T2 EQL GV$RIP) THEN
+           DFLAG$[0,DFV$OPND1]_1
+        ELSE
+           DFLAG$[0,DFV$SLIT1]_1;
+        $DPCP(DTPV$LOD1);
+
+        RIB_$SGSTE(.Q[1,G$OPVAL]);
+        $DGETR(.RIB,0);
+
+        DFLAG$_0;
+
+        IF(.Q[1,G$RITYP] EQL GV$TOP) THEN
+          DFLAG$[0,#10]_1
+        ELSE
+          DFLAG$[0,1]_1;
+
+        $DPCP(DTPV$PUTRI);
+        $SFRNCH(.RIB);
+        END
+    ELSE IF (.T1 EQL GV$RIP) THEN
+        BEGIN
+        %ORDINARY REPORT ITEM CODE%
+        IF .Q[1,G$RITYP] EQL GV$INHIBIT THEN
+           BEGIN
+           %SPECIAL CASE..SET PAGE HEADER/FOOTER INHIBIT FLAG%
+           $DFRCA();
+           RIB_$SGSTE(.Q[1,G$OPVAL]); %GET REPORT INCRANATION%
+           $DGETR(.RIB,1); %REPORT ADDRESS TO R1%
+           $DGLIE(.Q[2,G$OPVAL],2);
+           DFLAG$_0; %CLEAR FLAGS%
+
+           IF .DREGS$[DR$OFFSET,2] EQL 1 THEN
+                BEGIN
+                %SET THE FLAG, IE , INHIBIT HEADINGS%
+                DFLAG$[0,#15]_0;
+                $DSETLIT(2,#1000); %MAGIC BIT%
+                END
+           ELSE IF .DREGS$[DR$OFFSET,2] EQL 0 THEN
+                BEGIN
+                %CLEAR THE FLAG, IE, ALLOW HEADINGS/FOOTINGS%
+                DFLAG$[0,#15]_1;
+                $DGSYL(#776777777777,2);
+                END;
+           $DPCP(DTPV$INHIB);
+           $SFRNCH(.RIB);
+           RETURN;
+           END;
+        $DGOPD(2,1); %GET OPERAND%
+        $DFRCA();
+
+        %CHECK HERE FOR DECIMAL PLACES..%
+
+        IF ((.DREGS$[DR$QP,1] MOD 512) NEQ 0) OR 
+                (.DREGS$[DR$DDTYPE ,1] EQL DDV$2WD) OR
+                (.DREGS$[DR$DDTYPE ,1] EQL DDV$3WD) THEN
+           BEGIN
+           %FIRST STORE IT (ADJUSTED) INTO A TEMP%
+           $DRTMP(2,DDV$1WD,.DGAM$[G$ID],#3000,1);
+           $DSETF(2);
+           %NOW STORE IT INTO THE TEMPORARY%
+           $DLET1();
+
+           %NOW FREE THE TEMP%
+           $DGTMP(.DGAM$[G$ID],-1);
+
+           %NOW SET THE STAGE FOR THE STORE%
+           $DCOPY(2,1);
+           DFLAG$_0;
+           $DSETF(1);
+           %R1 NOW HAS TEMP AND ALL THAT..%
+
+           END;
+        $DPCP(DTPV$LOD1);
+
+        RIB_$SGSTE(.Q[1,G$OPVAL]);
+        $DGETR(.RIB,0);
+
+        DFLAG$_0;
+
+        SELECT .Q[1,G$RITYP] OF NSET
+
+GV$PAGENO:      DFLAG$[0,2]_1;
+GV$PAGESIZ:    DFLAG$[0,3]_1;
+GV$LINENO:     DFLAG$[0,4]_1;
+GV$TOPMARG:    DFLAG$[0,5]_1;
+GV$BOTMARG:    DFLAG$[0,6]_1;
+GV$FOOTSIZ:     DFLAG$[0,7]_1;
+GV$HEADSIZ:     DFLAG$[0,#11]_1;    %1/24/74%
+          TESN;
+
+
+        $DPCP(DTPV$PUTRI);
+
+        $SFRNCH(.RIB);
+
+        END
+    ELSE IF (.T1 EQL GV$RLLIM) THEN
+        BEGIN
+        %PROCESS A SET REPORT-LINE MAX ITEM%
+        $DGOPD(2,1); %GET VALUE%
+        $DFRCA();
+
+        $DPCP(DTPV$LOD1);
+
+        RIB_$SGSTE(.Q[1,G$OPVAL]);
+        $DGETR(.RIB,1);
+
+        $DPCP(DTPV$RLLIM);
+
+        $SFRNCH(.RIB);
+        END
+    ELSE IF (.T1 EQL GV$SLLIM) THEN
+        BEGIN
+        %PROCESS A STORE INTO A SCB'S LINE MAX%
+        $DGOPD(2,1);
+        $DFRCA();
+
+        $DPCP(DTPV$LOD1);
+
+        RIB_$SGSTE(.Q[1,G$OPVAL]);
+        $DGSCB(.RIB,1);
+
+        $DPCP(DTPV$SLLIM);
+
+        $SFRNCH(.RIB);
+        END
+    ELSE IF (.T1 NEQ GV$RIP) THEN 
+        BEGIN
+        IF (.T2 EQL GV$NP) AND (.Q[2,G$OPVAL] NEQ .DXACID$) THEN
+           $DFRCA();
+        $DGOPD(2,1); %YES, DICK COULDN'T USE THE NORMAL ORDER%
+        $DGOPD(1,2);
+
+        T1_.DREGS$[DR$DDTYPE,1];
+        T2_.DREGS$[DR$DDTYPE,2];
+
+        IF ((.T1 EQL DDV$STR) OR (.T1 EQL DDV$STEMP)) AND
+                ((.T2 EQL DDV$STR) OR (.T2 EQL DDV$STEMP)) THEN
+           $DLETS()
+        ELSE
+        IF ($DSIZEQP(.DREGS$[DR$QP,2]) EQL DDV$1WD) THEN
+           $DLET1()
+        ELSE IF ($DSIZEQP(.DREGS$[DR$QP,2]) EQL DDV$2WD) THEN
+           $DLET1();
+
+
+        END;
+
+   END;
+UNDECLARE $DRCNT;
+
+GLOBAL ROUTINE $DRCNT(STP,RSTP)=
+   BEGIN
+   %GENERATE THE CALL TO $RCNT TO COUNT THOSE INSTANCES
+   AND THEN THE CODE TO STORE THEM
+
+   PARAMETERS ARE:
+        STP .. SYMBOL TABLE POINTER TO A FIELD INCARNATION FOR STORING
+           THE COUNT
+        RSTP .. SYMBOL TABLE POINTER TO THE RELATION INCARNATION WHOSE
+           INSTANCES ARE TO BE COUNTED
+
+    THIS CODE IS THE EQUIVALENT OF THE FOLLOWING MIDAS STATEMENT:
+        "LET NAME = COUNT(RELNAME)"
+   /JS....................11/12/74
+   %
+
+   LOCAL P,RIB,RDB;
+   MAP G$OPND P;
+   MAP S$ RIB;
+   MAP S$ RDB; %RELATION DEFINITION ENTRY%
+
+   $DFRCA();
+
+   $DFRCL(); %SAFETY FIRST%
+
+   P_.DGAM$+1;
+!  RDB_$SGSTE(.RSTP); %GET THE RELATION DEFINITION%
+!  IF .RDB[S$DBT] NEQ SV$LC THEN $DARSB(.RDB);
+!  DREGS$[DR$BASE  ,1]_.RDB[S$DB];
+!  DREGS$[DR$OFFSET,1]_.RDB[S$DFO];
+!  DREGS$[DR$STP1  ,1]_.RDB[S$STP1];
+!  DREGS$[DR$DDTYPE,1]_DDV$1WD;
+!  $DGSAD(.DREGS$[DR$BASE,1],.DREGS$[DR$OFFSET,1],3); %ALL I WANTED%
+! $SFRNCH(.RDB); %FREE THE DEFINITION ENTRY%
+!  $DRNCL(RTRV$RCNT,1); %RESULT SHOULD BE IN AC3%
+
+   $DOPEN(.RSTP,GV$COUNT);
+   %WE NOW NEED TO MOVE IT TO AC17%
+   $DSETAC(0,#17);
+   $DPCP(DTPV$LSTO);
+
+   %NOW GET READY TO GOOSE $DLET1%
+   DFLAG$_0;
+   $DGFIE(.STP,2);
+   $DSETAC(1,#17);
+   DREGS$[DR$QP,1]_#12000; %PRETEND FORMAT IS '10N'%
+   DFLAG$[DFV$AC,1]_DFLAG$[DFV$SINGLE,1]_1;
+   P[3,G$OPVAL]_GV$ROUND;  %A REAL GOOSING%
+   $DLET1();
+
+   END;
+
+%*******************%
+END ELUDOM
+ 
