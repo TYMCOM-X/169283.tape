@@ -1,0 +1,2870 @@
+TITLE   BATACT - VERSION C1.05
+SUBTTL  LAST UPDATE   1/30/73   W.E. MOZET
+
+        AC=0
+        A=1
+        B=2
+        C=3
+        D=4
+        E=5
+        F=6
+        G=7
+        WD=10
+        CH=11
+        TEMP=12
+        BP=13
+        BPNTR=14
+        INDEX=15
+        FLAG=16
+        P=17
+
+        NAM1==0
+        NAM2==40
+        OPLIC==100
+        PASWRD==140
+        PNTR==^D64
+        JBPNTR==^D12
+        BLKPNT==^D31
+
+        DCH1==1                         ;DATA CHANNELS
+        DCH2==2
+        DCH3==3
+        DCH4==4
+        DCH5==5
+        DCH6==6
+        DCH7==7
+
+        EXTERNAL JOBAPR,JOBCNI,JOBTPC
+
+        UUODAT==40
+        UUOLOC==41
+
+        LOC     UUOLOC
+        PUSHJ   P,TCIUUO
+        RELOC
+
+        OPDEF   TCI [1000000000]
+
+ARRAY   PDL[50],JOBNUM[1],MSGFLG[1],FINFLG[1],ERRFLG[1],JBFLG2[1]
+
+ARRAY   TMPSTO[1]
+
+START:  RESET
+        MOVE    P,[IOWD 50,PDL]         ;INITIALIZE PUSH DOWN LIST
+        MOVEI   A,ESCAPE                ;GET ADDRESS OF ESCAPE ROUTINE
+        MOVEM   A,JOBAPR                ;STORE IN TRAP LOCATION
+        MOVEI   A,2000                  ;MASK TO TRAP ESCAPES
+        APRENB  A,                      ;ARM INTERRUPT
+        TTCALL  3,[ASCIZ/
+BATCH ACCOUNTING - VERSION C1.05
+/]
+        SETZM   MSGFLG
+        SETZM   FINFLG
+        SETZM   ERRFLG
+        INIT    DCH1,0
+        SIXBIT  /TTY/
+        0
+        JRST    DCHERR+12
+        INIT    DCH2,16
+        SIXBIT  /DSK/
+        0
+        JRST    DCHERR+12
+        MOVE    E,PSWDFI+1              ;SAVE FILE EXTENSION
+        MOVE    F,PSWDFI+3              ;SAVE PPN
+        LOOKUP  DCH2,PSWDFI             ;LOOKUP OPERPS.WRD
+        JRST    LKPSWD
+        HLRE    FLAG,PSWDFI+3           ;GET BLOCK NUMBER OR WORD COUNT
+        JUMPG   FLAG,SKIP               ;JUMP IF BLOCK NUMBER
+        MOVNS   FLAG
+        ADDI    FLAG,177                ;ADD ONE TO BLOCK NUMBER
+        LSH     FLAG,-7
+SKIP:   SETZB   A,B
+        SETZ    CH,
+        MOVEI   INDEX,^D12              ;COUNTER FOR USER NAME INPUT (12 CHARACTERS MAX.)
+        MOVE    BP,[POINT 6,A]          ;SET UP BYTE POINTER FOR USER NAME
+        TTCALL  3,[ASCIZ/
+ENTER YOUR NAME /]
+GETNAM: TCI     CH
+        CAIN    CH,15                   ;CHECK FOR CARRIAGE RETURN
+        JRST    CLRTTY
+        SUBI    CH,40                   ;CONVERT TO SIXBIT
+        IDPB    CH,BP                   ;DEPOSIT FIRST HALF OF USER NAME IN A SECOND HALF IN B
+        SOJG    INDEX,GETNAM            ;CHECK CHARACTER COUNT
+        TCI     CH                      ;HAVE INPUT 12 CHARACTERS
+        CAIE    CH,15                   ;NEXT CHARACTER SHOULD BE A CARRIAGE RETURN
+        JRST    .-2                     ;IT ISN'T SO GO BACK AND INPUT UNTIL CARRIAGE RETURN IS FOUND
+CLRTTY: TCI     CH                      ;PICKUP LINE FEED
+VALNAM: INPUT   DCH2,COMLST             ;INPUT FROM PASSWORD FILE
+        STATZ   DCH2,340000
+        JRST    INPSWD
+        MOVSI   INDEX,-40
+VALNA1: SKIPN   IOBUFF+NAM1(INDEX)
+        JRST    VALNA2
+        CAMN    A,IOBUFF+NAM1(INDEX)
+        CAME    B,IOBUFF+NAM2(INDEX)
+        JRST    VALNA2
+        JRST    CKLIC
+VALNA2: AOBJN   INDEX,VALNA1
+        SOJN    FLAG,VALNAM             ;SUBTRACT ONE FROM BLOCK NUMBER
+        JRST    NONAME
+CKLIC:  MOVE    AC,IOBUFF+OPLIC(INDEX)
+        TRNN    AC,100000               ;CHECK TO SEE IF OPERATOR BIT IS ON
+        JRST    BADLIC
+        SETSTS  DCH1,200                ;TURN OFF ECHO ON TTY
+
+        TTCALL  3,[ASCIZ/
+ENTER YOUR PASSWORD /]
+
+ARRAY   X[6],OPNFLG[2],TOTCHG[1],JOBFLG[2],TOTJOB[1]
+
+REPASS: MOVE    A,[555555555555]
+        MOVEM   A,X
+        MOVEM   A,X+2
+        MOVEM   A,X+4
+        MOVE    A,[361275431652]
+        MOVEM   A,X+1
+        MOVEM   A,X+3
+        SETZB   C,D
+        SETZ    E,
+GETPAS: TCI     C
+        CAIE    C,15
+        CAIN    C,12
+        JRST    TTYCLR
+        ADDM    C,X
+        ADDM    C,X+3
+        MOVEI   TEMP,40
+RAND:   MOVE    C,X(E)
+        MUL     C,[5*5*5*5*5*5*5*5*5*5*5*5*5*5*5]
+        ADDM    D,X+1(E)
+        CAIE    E,3
+        AOJA    E,RAND1
+        MOVE    E,X+4
+        ADDM    E,X
+        LSH     E,-42
+RAND1:  SOJG    TEMP,RAND
+        JRST    GETPAS
+TTYCLR: TTCALL  15,[15]
+        TTCALL  15,[12]
+        MOVE    A,X
+        CAME    A,IOBUFF+PASWRD(INDEX)
+        JRST    ERRPAS
+        CLOSE   DCH2,
+        RELEASE DCH2,
+        TTCALL  3,[ASCIZ/
+THANK YOU!
+/]
+        SETSTS  DCH1,0                  ;RESET TTY MODE
+        RELEASE DCH1,
+        TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        INIT    DCH1,0
+        SIXBIT  /DSK/
+        XWD     OBUF,IBUF
+        JRST    DCHERR+12
+        MOVE    E,BATBUS+1              ;SAVE FILE EXTENSION
+        MOVE    F,BATBUS+3              ;SAVE PPN
+        LOOKUP  DCH1,BATBUS             ;LOOKUP BATBUS.DAT
+        JRST    LKBAT
+        MOVEM   E,BATBUS+1              ;RESTORE FILE EXTENSION
+        MOVEM   F,BATBUS+3              ;RESTORE PPN
+        ENTER   DCH1,BATBUS             ;OPEN BATBUS.DAT FOR UPDATE
+        JRST    BATUPD
+        MOVEM   E,BATBUS+1              ;RESTORE FILE EXTENSION
+        SETZM   BATBUS+2
+        MOVEM   F,BATBUS+3              ;RESTORE PPN
+        INBUF   DCH1,1                  ;INITIALIZE INPUT BUFFER
+        INPUT   DCH1,
+        STATZ   DCH1,340000
+        JRST    INBAT
+        OUTBUF  DCH1,1                  ;INITIALIZE OUTPUT BUFFER
+        OUTPUT  DCH1,                   ;DUMMY OUTPUT TO CLEAR BUFFER
+        MOVEI   TEMP,1
+        HRLI    TEMP,(USETO DCH1,)
+        XCT     TEMP                    ;PREPARE TO OUTPUT TO THE FIRST BLOCK
+        SETZB   CH,WD
+        MOVE    BP,[POINT 7,WD]
+        MOVEI   INDEX,5                 ;NUMBER OF CHARACTERS TO INPUT
+        ILDB    CH,IBUF+1               ;GET CHARACTER
+        CAIN    CH,32                   ;SKIP IF NOT CONTROL Z
+        JRST    .+3
+        IDPB    CH,BP
+        SOJG    INDEX,.-4
+        CAMN    WD,[ASCIZ/BUSY/]
+        JRST    ACTBUS
+        JUMPN   WD,BATERR
+        MOVE    BP,[POINT 7,BUSMSG]
+        MOVEI   INDEX,4
+        ILDB    CH,BP
+        IDPB    CH,OBUF+1
+        SOS     OBUF+2
+        SOJG    INDEX,.-3
+        MOVEI   CH,32
+        IDPB    CH,OBUF+1
+        SOS     OBUF+2
+        OUTPUT  DCH1,                   ;OUTPUT BUSY MESSAGE TO BATBUS.DAT
+        STATZ   DCH1,340000
+        JRST    OUTBAT
+        CLOSE   DCH1,
+        RELEASE DCH1,
+        INIT    DCH1,16
+        SIXBIT  /DSK/
+        0
+        JRST    DCHERR+12
+        MOVE    E,PPRHLD+1              ;SAVE FILE EXTENSION
+        MOVE    F,PPRHLD+3              ;SAVE PPN
+        LOOKUP  DCH1,PPRHLD             ;LOOKUP PPRHLD.DAT
+        JRST    LKPPR
+        MOVEI   INDEX,^D10
+        MOVE    G,PPRHLD+2              ;SAVE FILE PROTECTION
+        MOVEM   E,PPRHLD+1              ;RESTORE FILE EXTENSION
+        MOVEM   F,PPRHLD+3              ;RESTORE PPN
+        ENTER   DCH1,PPRHLD             ;OPEN PPRHLD.DAT FOR UPDATE
+        PUSHJ   P,PPRBUS
+        SETZM   MSGFLG
+        MOVEM   E,PPRHLD+1              ;RESTORE FILE EXTENSION
+        MOVEM   G,PPRHLD+2              ;RESTORE FILE PROTECTION
+        MOVEM   F,PPRHLD+3              ;RESTORE PPN
+        MOVE    E,HLDTMP+1              ;SAVE FILE EXTENSION
+        MOVEM   G,HLDTMP+2              ;SET FILE PROTECTION
+        MOVE    F,HLDTMP+3              ;SAVE PPN
+        RENAME  DCH1,HLDTMP             ;RENAME PPRHLD.DAT TO HLDTMP.DAT
+        JRST    RENPPR
+        MOVEM   E,HLDTMP+1              ;RESTORE FILE EXTENSION
+        MOVEM   G,HLDTMP+2              ;RESTORE FILE PROTECTION
+        MOVEM   F,HLDTMP+3              ;RESTORE PPN
+        INIT    DCH2,0
+        SIXBIT  /DSK/
+        XWD     OBUF,0
+        JRST    DCHERR+10
+        MOVE    E,PPRHLD+1              ;SAVE FILE EXTENSION
+        MOVEM   G,PPRHLD+2              ;SET FILE PROTECTION
+        MOVE    F,PPRHLD+3              ;SAVE PPN
+        ENTER   DCH2,PPRHLD             ;CREATE NEW PPRHLD.DAT
+        JRST    NEWPPR
+        MOVEM   E,PPRHLD+1              ;RESTORE FILE EXTENSION
+        MOVEM   G,PPRHLD+2              ;RESTORE FILE PROTECTION
+        MOVEM   F,PPRHLD+3              ;RESTORE PPN
+        OUTBUF  DCH2,1                  ;INITIALIZE OUTPUT BUFFER
+        OUTPUT  DCH2,                   ;DUMMY OUTPUT TO CLEAR BUFFER
+        MOVEI   A,1
+        HRLI    A,(USETO DCH2,)
+        XCT     A                       ;PREPARE TO OUTPUT TO THE FIRST BLOCK
+        MOVE    BP,[POINT 7,EOFROU]     ;SET UP BYTE POINTER FOR END OF FILE ROUTINE
+        MOVEI   INDEX,3                 ;THIS ROUTINE HAS THREE CHARACTERS
+        ILDB    CH,BP                   ;GET CHARACTER
+        IDPB    CH,OBUF+1               ;WRITE CHARACTER
+        SOS     OBUF+2
+        SOJG    INDEX,.-3
+        OUTPUT  DCH2,                   ;OUTPUT TO THE FIRST BLOCK
+        STATZ   DCH2,740000
+        JRST    OUTPPR
+        PUSHJ   P,CLOSE+6
+        INIT    DCH1,16
+        SIXBIT  /DSK/
+        0
+        JRST    DCHERR+12
+        MOVE    E,HLDTMP+1              ;SAVE FILE EXTENSION
+        MOVE    F,HLDTMP+3              ;SAVE PPN
+        LOOKUP  DCH1,HLDTMP             ;LOOKUP HLDTMP.DAT
+        JRST    LKTMP
+        HLRE    B,HLDTMP+3              ;GET BLOCK NUMBER OR WORD COUNT
+        JUMPG   B,SKIP2
+        MOVNS   B
+        ADDI    B,177                   ;ADD ONE TO BLOCK NUMBER
+        LSH     B,-7
+SKIP2:  MOVEM   E,HLDTMP+1              ;RESTORE FILE EXTENSION
+        MOVEM   F,HLDTMP+3              ;RESTORE PPN
+        INIT    DCH2,16
+        SIXBIT  /DSK/
+        0
+        JRST    DCHERR+10
+        MOVE    E,PPRBAK+1              ;SAVE FILE EXTENSION
+        MOVE    F,PPRBAK+3              ;SAVE PPN
+        LOOKUP  DCH2,PPRBAK             ;LOOKUP PPRHLD.BAK
+        JRST    LKBAK
+        SETZ    AC,
+        RENAME  DCH2,AC                 ;DELETE OLD PPRHLD.BAK
+        JRST    DELBAK
+        MOVEM   E,PPRBAK+1              ;RESTORE FILE EXTENSION
+        MOVEM   G,PPRBAK+2              ;SET FILE PROTECTION
+        MOVEM   F,PPRBAK+3              ;RESTORE PPN
+        ENTER   DCH2,PPRBAK             ;CREATE NEW PPRHLD.BAK
+        JRST    NEWBAK
+        MOVEM   E,PPRBAK+1              ;RESTORE FILE EXTENSION
+        MOVEM   G,PPRBAK+2              ;RESTORE FILE PROTECTION
+        MOVEM   F,PPRBAK+3              ;RESTORE PPN
+        PUSHJ   P,COPY                  ;COPY PRESENT PPRHLD.DAT TO PPRHLD.BAK
+        INIT    DCH1,16
+        SIXBIT  /DSK/
+        0
+        JRST    DCHERR+12
+        MOVE    E,PPRACT+1              ;SAVE FILE EXTENSION
+        MOVE    F,PPRACT+3              ;SAVE PPN
+        LOOKUP  DCH1,PPRACT             ;LOOKUP PPRACT.DAT
+        JRST    LKACT
+        HLRE    B,PPRACT+3              ;GET BLOCK NUMBER OR WORD COUNT
+        JUMPG   B,SKIP3                 ;JUMP IF BLOCK NUMBER
+        MOVNS   B
+        ADDI    B,177                   ;ADD ONE TO BLOCK NUMBER
+        LSH     B,-7
+SKIP3:  CAIE    B,^D250                 ;FIXED FILE SIZE - 250 BLOCKS
+        JRST    BADSIZ
+        MOVEM   E,PPRACT+1              ;RESTORE FILE EXTENSION
+        MOVEM   F,PPRACT+3              ;RESTORE PPN
+        INIT    DCH2,16
+        SIXBIT  /DSK/
+        0
+        JRST    DCHERR+10
+        MOVE    E,ACTBAK+1              ;SAVE FILE EXTENSION
+        MOVE    F,ACTBAK+3              ;SAVE PPN
+        LOOKUP  DCH2,ACTBAK             ;LOOKUP PPRACT.BAK
+        JRST    BAKACT
+        SETZ    AC,
+        RENAME  DCH2,AC                 ;DELETE OLD PPRACT.BAK
+        JRST    DELACT
+        MOVEM   E,ACTBAK+1              ;RESTORE FILE EXTENSION
+        MOVEM   G,ACTBAK+2              ;SET FILE PROTECTION
+        MOVEM   F,ACTBAK+3              ;RESTORE PPN
+        ENTER   DCH2,ACTBAK             ;CREATE NEW PPRACT.BAK
+        JRST    NEWACT
+        MOVEM   E,ACTBAK+1              ;RESTORE FILE EXTENSION
+        MOVEM   G,ACTBAK+2              ;RESTORE FILE PROTECTION
+        MOVEM   F,ACTBAK+3              ;RESTORE PPN
+        PUSHJ   P,COPY                  ;COPY PRESENT PPRACT.DAT TO PPRACT.BAK
+        INIT    DCH1,16
+        SIXBIT  /DSK/
+        0
+        JRST    DCHERR+12
+        MOVE    E,BAHOLD+1              ;SAVE FILE EXTENSION
+        MOVE    F,BAHOLD+3              ;SAVE PPN
+        LOOKUP  DCH1,BAHOLD             ;LOOKUP BAHOLD.ACT
+        JRST    LKHOLD
+        HLRE    B,BAHOLD+3              ;GET BLOCK NUMBER OR WORD COUNT
+        JUMPG   B,SKIP4                 ;JUMP IF BLOCK NUMBER
+        MOVNS   B
+        ADDI    B,177                   ;ADD ONE TO BLOCK NUMBER
+        LSH     B,-7
+SKIP4:  MOVEM   E,BAHOLD+1              ;RESTORE FILE EXTENSION
+        MOVEM   F,BAHOLD+3              ;RESTORE PPN
+        INIT    DCH2,16
+        SIXBIT  /DSK/
+        0
+        JRST    DCHERR+10
+        MOVE    E,BABACK+1              ;SAVE FILE EXTENSION
+        MOVE    F,BABACK+3              ;SAVE PPN
+        LOOKUP  DCH2,BABACK             ;LOOKUP BAHOLD.BAK
+        JRST    LKBABK
+        SETZ    AC,
+        RENAME  DCH2,AC                 ;DELETE OLD BAHOLD.BAK
+        JRST    DELBA
+        MOVEM   E,BABACK+1              ;RESTORE FILE EXTENSION
+        MOVEM   G,BABACK+2              ;SET FILE PROTECTION
+        MOVEM   F,BABACK+3              ;RESTORE PPN
+        ENTER   DCH2,BABACK             ;CREATE NEW BAHOLD.BAK
+        JRST    NEWBA
+        MOVEM   E,BABACK+1              ;RESTORE FILE EXTENSION
+        MOVEM   G,BABACK+2              ;RESTORE FILE PROTECTION
+        MOVEM   F,BABACK+3              ;RESTORE PPN
+        PUSHJ   P,COPY                  ;COPY PRESENT BAHOLD.ACT TO BAHOLD.BAK
+        INIT    DCH1,16
+        SIXBIT  /DSK/
+        0
+        JRST    DCHERR+12
+        MOVE    E,TABGAN+1              ;SAVE FILE EXTENSION
+        MOVE    F,TABGAN+3              ;SAVE PPN
+        LOOKUP  DCH1,TABGAN             ;LOOKUP TABLE.GAN
+        JRST    LKGAN
+        HLRE    B,TABGAN+3              ;GET BLOCK NUMBER OR WORD COUNT
+        JUMPG   B,SKIP5                 ;JUMP IF BLOCK NUMBER
+        MOVNS   B
+        ADDI    B,177                   ;ADD ONE TO BLOCK NUMBER
+        LSH     B,-7
+SKIP5:  MOVEM   E,TABGAN+1              ;RESTORE FILE EXTENSION
+        MOVEM   F,TABGAN+3              ;RESTORE PPN
+        INIT    DCH2,16
+        SIXBIT  /DSK/
+        0
+        JRST    DCHERR+10
+        MOVE    E,GANBAK+1              ;SAVE FILE EXTENSION
+        MOVE    F,GANBAK+3              ;SAVE PPN
+        LOOKUP  DCH2,GANBAK             ;LOOKUP TABGAN.BAK
+        JRST    LKTABG
+        SETZ    AC,
+        RENAME  DCH2,AC                 ;DELETE OLD TABGAN.BAK
+        JRST    DELGAN
+        MOVEM   E,GANBAK+1              ;RESTORE FILE EXTENSION
+        MOVEM   G,GANBAK+2              ;SET FILE PROTECTION
+        MOVEM   F,GANBAK+3              ;RESTORE PPN
+        ENTER   DCH2,GANBAK             ;CREATE NEW TABGAN.BAK
+        JRST    NEWGAN
+        MOVEM   E,GANBAK+1              ;RESTORE FILE EXTENSION
+        MOVEM   G,GANBAK+2              ;RESTORE FILE PROTECTION
+        MOVEM   F,GANBAK+3              ;RESTORE PPN
+        PUSHJ   P,COPY                  ;COPY PRESENT TABLE.GAN TO TABGAN.BAK
+        TTCALL  3,[ASCIZ/
+COPY ROUTINE FINISHED
+/]
+        MOVEI   AC,1
+        MOVEM   AC,FINFLG
+        INIT    DCH1,0
+        SIXBIT  /DSK/
+        XWD     0,IBUF
+        JRST    DCHERR+12
+        MOVE    E,HLDTMP+1              ;SAVE FILE EXTENSION
+        MOVE    F,HLDTMP+3              ;SAVE PPN
+        LOOKUP  DCH1,HLDTMP             ;OPEN HLDTMP.DAT - (PPRHLD.DAT)
+        JRST    LKTMP
+        MOVEM   E,HLDTMP+1              ;RESTORE FILE EXTENSION
+        MOVEM   F,HLDTMP+3              ;RESTORE PPN
+        INBUF   DCH1,1                  ;INITIALIZE INPUT BUFFER
+        INPUT   DCH1,
+        STATZ   DCH1,340000
+        JRST    INHLD
+        SETZB   CH,WD
+        MOVE    BP,[POINT 7,WD]         ;SET UP BYTE POINTER FOR REQUEST NUMBER
+CKNUM:  SETZM   OPNFLG
+        SETZM   OPNFLG+1
+        PUSHJ   P,COPCHR                ;GET FIRST CHARACTER OF HLDTMP.DAT
+        CAIN    CH,32                   ;CHECK FOR EOF
+        JRST    NOACTG                  ;FILE EMPTY
+        CAIN    CH,15                   ;CHECK FOR CARRIAGE RETURN
+        JRST    .+3
+        IDPB    CH,BP                   ;PPR NUMBER IN WD
+        JRST    CKNUM+2                 ;GET NEXT CHARACTER
+        SETZ    CH,
+        MOVEM   WD,X+4                  ;SAVE REQUEST NUMBER IN X+4
+        TTCALL  3,[ASCIZ/
+REQUEST NUMBER /]
+        TTCALL  3,WD                    ;OUTPUT REQUEST NUMBER TO TTY
+        TTCALL  15,[15]
+        TTCALL  15,[12]
+TTYIN:  TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        TTCALL  3,[ASCIZ/
+OK? /]
+        SETZB   AC,CH
+        TCI     CH
+        CAIN    CH,15
+        JRST    CKFLG2                  ;SKIP THIS REQUEST
+        TCI     AC
+        CAIE    AC,15
+        JRST    .+6
+        TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        CAIN    CH,"Y"
+        JRST    CKFLG1                  ;PROCESS THIS REQUEST
+        CAIN    CH,"Q"
+        JRST    CKFLG3                  ;THROUGH WITH ACCOUNTING - EXIT
+        PUSHJ   P,PROMPT                ;YOU DIDN'T INPUT THE RIGHT CHARACTER
+        JRST    TTYIN
+GETREQ: MOVEI   AC,1
+        MOVEM   AC,OPNFLG
+        INIT    DCH2,16
+        SIXBIT  /DSK/
+        0
+        JRST    DCHERR+10
+        MOVE    E,PPRACT+1              ;SAVE FILE EXTENSION
+        MOVE    F,PPRACT+3              ;SAVE PPN
+        LOOKUP  DCH2,PPRACT             ;LOOKUP PPRACT.DAT
+        JRST    LKACT
+        HLRE    TEMP,PPRACT+3           ;GET BLOCK NUMBER OR WORD COUNT
+        JUMPG   TEMP,CKSIZE             ;JUMP IF BLOCK NUMBER
+        MOVNS   TEMP
+        ADDI    TEMP,177                ;ADD ONE TO BLOCK NUMBER
+        LSH     TEMP,-7
+CKSIZE: CAIE    TEMP,^D250              ;FILE SIZE WILL ALWAYS BE 250 BLOCKS
+        JRST    BADSIZ
+        MOVEM   E,PPRACT+1              ;RESTORE FILE EXTENSION
+        MOVEM   F,PPRACT+3              ;RESTORE PPN
+        ENTER  ,PPRACT             ;OPEN PPRACT.DAT FOR UPDATE
+        JRST    ACTUPD
+        MOVEM   E,PPRACT+1              ;RESTORE FILE EXTENSION
+        MOVEM   G,PPRACT+2              ;RESTORE FILE PROTECTION
+        MOVEM   F,PPRACT+3              ;RESTORE PPN
+        INIT    DCH3,0
+        SIXBIT  /DSK/
+        XWD     OBUFF,IBUFF
+        JRST    DCHERR+6
+        MOVE    E,BAHOLD+1              ;SAVE FILE EXTENSION
+        MOVE    F,BAHOLD+3              ;SAVE PPN
+        LOOKUP  DCH3,BAHOLD             ;LOOKUP BAHOLD.ACT
+        JRST    LKHOLD
+        HLRE    TEMP,BAHOLD+3           ;GET BLOCK NUMBER OR WORD COUNT
+        JUMPG   TEMP,SKIP7              ;JUMP IF BLOCK NUMBER
+        MOVNS   TEMP
+        ADDI    TEMP,177                ;ADD ONE TO BLOCK NUMBER
+        LSH     TEMP,-7
+SKIP7:  MOVE    AC,TEMP
+        MOVEM   E,BAHOLD+1              ;RESTORE FILE EXTENSION
+        MOVEM   F,BAHOLD+3              ;RESTORE PPN
+        ENTER   DCH3,BAHOLD             ;OPEN BAHOLD.ACT FOR UPDATE
+        JRST    BAUPD
+        MOVEM   E,BAHOLD+1              ;RESTORE FILE EXTENSION
+        MOVEM   G,BAHOLD+2              ;RESTORE FILE PROTECTION
+        MOVEM   F,BAHOLD+3              ;RESTORE PPN
+        INBUF   DCH3,1                  ;INITIALIZE INPUT BUFFER
+        OUTBUF  DCH3,1                  ;INITIALIZE OUTPUT BUFFER
+        OUTPUT  DCH3,                   ;DUMMY OUTPUT TO CLEAR BUFFER
+        HRLI    TEMP,(USETI DCH3,)      ;FORM USETI INSTRUCTION
+        XCT     TEMP
+        INPUT   DCH3,                   ;INPUT THE LAST BLOCK
+        STATZ   DCH3,340000
+        JRST    INHOLD
+        SKIPN   IBUFF+2                 ;DID YOU INPUT ANYTHING
+        PUSHJ   P,MINBLK                ;NO - SUBTRACT ONE FROM THE BLOCK COUNT AND INPUT AGAIN
+        MOVE    TEMP,AC
+        HRLI    TEMP,(USETO DCH3,)
+        XCT     TEMP
+        SETZ    CH,
+        PUSHJ   P,GETCHR                ;FIND LOGICAL END OF BLOCK
+        CAIE    CH,32                   ;32 IS USED FOR END OF BLOCK
+        PUSHJ   P,PUTCHR
+        CAIE    CH,32
+        JRST    .-4
+        INIT    DCH4,0
+        SIXBIT  /DSK/
+        XWD     OBUF,0
+        JRST    DCHERR+4
+        MOVE    E,PPRTMP+1              ;SAVE FILE EXTENSION
+        MOVE    F,PPRTMP+3              ;SAVE PPN
+        LOOKUP  DCH4,PPRTMP             ;LOOKUP PPRTMP.HLD
+        JRST    .+2
+        PUSHJ   P,DELETE                ;IF FILE IS THERE THEN DELETE IT
+        MOVEM   E,PPRTMP+1              ;RESTORE FILE EXTENSION
+        MOVEM   G,PPRTMP+2              ;SET FILE PROTECTION
+        MOVEM   F,PPRTMP+3              ;RESTORE PPN
+        ENTER   DCH4,PPRTMP             ;CREATE NEW PPRTMP.HLD FILE
+        JRST    NEWTMP
+        MOVEM   E,PPRTMP+1              ;RESTORE FILE EXTENSION
+        MOVEM   G,PPRTMP+2              ;RESTORE FILE PROTECTION
+        MOVEM   F,PPRTMP+3              ;RESTORE PPN
+        OUTBUF  DCH4,1                  ;INITIALIZE OUTPUT BUFFER
+        OUTPUT  DCH4,                   ;DUMMY OUTPUT TO CLEAR BUFFER
+        INIT    DCH5,16
+        SIXBIT  /DSK/
+        0
+        JRST    DCHERR+2
+        MOVE    E,TABGAN+1              ;SAVE FILE EXTENSION
+        MOVE    F,TABGAN+3              ;SAVE PPN
+        LOOKUP  DCH5,TABGAN             ;LOOKUP TABLE.GAN
+        JRST    LKGAN
+        MOVEM   E,TABGAN+1              ;RESTORE FILE EXTENSION
+        MOVEM   F,TABGAN+3              ;RESTORE PPN
+        ENTER   DCH5,TABGAN             ;OPEN TABLE.GAN FOR UPDATE
+        JRST    GANUPD
+        MOVEM   E,TABGAN+1              ;RESTORE FILE EXTENSION
+        MOVEM   G,TABGAN+2              ;RESTORE FILE PROTECTION
+        MOVEM   F,TABGAN+3              ;RESTORE PPN
+        SKIPE   OPNFLG+1
+        POPJ    P,
+GETJOB: PUSHJ   P,JOBTYP
+        TCI     CH
+        CAIN    CH,"V"
+        JRST    VOID
+        TCI     AC
+        CAIE    AC,15
+        JRST    INVAL1
+        TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        CAIN    CH,"?"                  ;IF QUESTION MARK THEN SKIP THIS REQUEST AND GET NEXT ONE
+        JRST    CKFLG2
+        CAILE   CH,"0"
+        CAILE   CH,"7"
+        JRST    INVAL1
+        MOVE    A,CH                    ;SAVE JOB TYPE IN A
+        MOVEM   A,JOBNUM                ;SAVE JOB TYPE IN JOBNUM
+        PUSHJ   P,CKJOB                 ;QUESTION 2 IS DIFFERENT FOR JOB 6 AND 7
+CKQUES: TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        SETZB   AC,CH
+        TTCALL  3,[ASCIZ/
+ALL ENTRIES CORRECT? /]
+        TCI     CH
+        TCI     AC
+        CAIE    AC,15
+        JRST    CKQUES
+        TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        CAIN    CH,"Y"
+        JRST    YES
+        CAIE    CH,"N"
+        JRST    CKQUES
+        TTCALL  3,[ASCIZ/
+CHANGE QUESTION NUMBER? /]
+        TCI     CH
+        TCI     AC
+        CAIE    AC,15
+        JRST    CKQUES
+        TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        CAIL    CH,"1"
+        CAILE   CH,"4"
+        JRST    CKQUES
+        MOVEI   FLAG,1
+        CAIN    CH,"1"
+        JRST    BADJOB
+        TTCALL  15,[12]
+        CAIN    CH,"2"
+        JRST    WHICH
+        CAIN    CH,"3"
+        JRST    INDATE
+        JRST    POST
+YES:    MOVSI   INDEX,-4
+        CAIN    A,"1"                   ;IF JOB TYPE ONE THEN ASK FOR PARTS TO LISTING
+        PUSHJ   P,LSTING
+        CAIN    A,"5"                   ;IF JOB TYPE FIVE THEN ASK FOR TAPE CHARGE
+        PUSHJ   P,TAPE
+ACTG:   SETZ    TEMP,
+        SETZB   CH,WD
+        MOVE    G,X+4                   ;RECOVER REQUEST NUMBER
+        MOVE    BP,[POINT 7,G]
+        LSH     G,^D14                  ;LAST THREE DIGITS ARE USED FOR BLOCK NUMBER AND RECORD POINTER
+        MOVEI   INDEX,3
+        PUSHJ   P,OCTAL                 ;OCTAL NUMBER STORED IN WD
+        CAIG    WD,3
+        JRST    BLKONE
+        SETZ    CH,
+        MOVEM   WD,X+3                  ;STORE BLOCK POINTER CALCULATED FROM REQUEST NUMBER IN X+3
+        IDIVI   WD,4                    ;FOUR RECORDS PER BLOCK
+        ADDI    WD,1                    ;ADD ONE TO BLOCK NUMBER
+        MOVE    TEMP,WD                 ;STORE BLOCK NUMBER IN TEMP
+        MOVE    G,CH                    ;STORE RECORD NUMBER IN G
+GETBLK: HRLI    TEMP,(USETI DCH2,)
+        XCT     TEMP
+        INPUT   DCH2,COMLST
+        STATZ   DCH2,340000
+        JRST    INACT
+        HRLI    TEMP,(USETO DCH2,)
+        XCT     TEMP
+        IMULI   G,^D32                  ;STARTING LOCATION FOR THIS RECORD
+        HRLZ    TEMP,WD                 ;STORE BLOCK NUMBER IN LEFT HALF OF TEMP
+        HRR     TEMP,G                  ;STORE RECORD POINTER IN RIGHT HALF OF TEMP
+        MOVEM   TEMP,X+5                ;SAVE BLOCK AND RECORD POINTERS IN X+5 - (BLK,,REC)
+        SETZB   CH,WD
+        MOVE    TEMP,X+4                ;RECOVER REQUEST NUMBER
+        MOVE    BP,[POINT 7,TEMP]
+        MOVE    BPNTR,[POINT 6,WD]
+        SETZ    AC,
+        IDPB    AC,BPNTR                ;INSERT LEADING BLANK
+        MOVEI   INDEX,5
+        PUSHJ   P,SIXBIT                ;CONVERT TO SIXBIT AND STORE IN WD
+        MOVEM   WD,IOBUFF(G)            ;DEPOSIT REQUEST NUMBER IN COMLST - (PPRACT.DAT)
+        MOVE    TEMP,X+4                ;RECOVER REQUEST NUMBER
+        MOVE    BP,[POINT 7,TEMP]
+        MOVEI   INDEX,5
+        ILDB    CH,BP
+        PUSHJ   P,RITCHR                ;WRITE REQUEST NUMBER IN OUTPUT BUFFER - (BAHOLD.ACT)
+        SOJG    INDEX,.-2
+        MOVEI   CH,15
+        PUSHJ   P,RITCHR
+        MOVEI   INDEX,2
+        PUSHJ   P,COPCHR
+        CAIE    CH,30                   ;END OF STRING CHARACTER
+        PUSHJ   P,RITCHR                ;WRITE SYSTEM NUMBER IN OUTPUT BUFFER - (BAHOLD.ACT)
+        CAIE    CH,30
+        JRST    .-4
+        PUSHJ   P,RITCHR                ;WRITE END OF STRING CHARACTER
+        SOJG    INDEX,.-6
+        SETZB   WD,TEMP
+        MOVE    BP,[POINT 7,TEMP]
+        MOVE    BPNTR,[POINT 6,WD]
+        MOVEI   INDEX,5
+        PUSHJ   P,COPCHR                ;GET DATE
+        CAIE    CH,"-"
+        IDPB    CH,BP
+        PUSHJ   P,RITCHR                ;WRITE DATE IN OUTPUT BUFFER
+        CAIN    CH,"-"
+        JRST    .-5
+        SOJG    INDEX,.-6
+        MOVEI   INDEX,5
+        MOVE    BP,[POINT 7,TEMP]
+        PUSHJ   P,SIXBIT                ;CONVERT DATE TO SIXBIT AND STORE IN WD
+        PUSHJ   P,COPCHR                ;GET DASH
+        PUSHJ   P,RITCHR                ;WRITE DASH
+        PUSHJ   P,COPCHR                ;GET FIRST DIGIT OF YEAR
+        PUSHJ   P,RITCHR
+        SUBI    CH,40                   ;CONVERT TO SIXBIT
+        IDPB    CH,BPNTR                ;STORE IN WD
+        AOJ     G,                      ;ADVANCE WORD COUNT
+        MOVEM   WD,IOBUFF(G)            ;DEPOSIT DATE IN COMLST - (DDMMMY)
+        SETZB   WD,TEMP
+        SETZ    CH,
+        MOVE    BP,[POINT 7,TEMP]
+        MOVE    BPNTR,[POINT 6,WD]
+        MOVEI   INDEX,5
+        PUSHJ   P,COPCHR                ;GET TIME
+        CAIE    CH," "
+        IDPB    CH,BP
+        PUSHJ   P,RITCHR                ;WRITE TIME IN OUTPUT BUFFER
+        CAIN    CH," "
+        JRST    .-5
+        SOJG    INDEX,.-6
+        MOVEI   INDEX,5
+        MOVE    BP,[POINT 7,TEMP]
+        PUSHJ   P,SIXBIT                ;CONVERT TIME TO SIXBIT AND STORE IN WD
+        PUSHJ   P,COPCHR                ;GET LAST DIGIT OF TIME
+        PUSHJ   P,RITCHR
+        SUBI    CH,40                   ;CONVERT TO SIXBIT
+        IDPB    CH,BPNTR                ;STORE IN WD
+        AOJ     G,                      ;ADVANCE WORD COUNT
+        MOVEM   WD,IOBUFF(G)            ;DEPOSIT TIME IN COMLST
+        PUSHJ   P,COPCHR
+        CAIE    CH,30
+        PUSHJ   P,RITCHR                ;WRITE REST OF STRING IN OUTPUT BUFFER
+        CAIE    CH,30
+        JRST    .-4
+        PUSHJ   P,RITCHR                ;WRITE END OF STRING CHARACTER
+
+ARRAY   USRNAM[2],PROJCO[3],USRNA7[3]
+
+        SETZM   USRNA7
+        SETZM   USRNA7+1
+        SETZM   USRNA7+2
+        PUSHJ   P,USERNA                ;GET USER NAME
+        PUSHJ   P,COPCHR
+        PUSHJ   P,SETFLG
+        MOVEI   INDEX,2
+        CAIN    CH,"2"                  ;IF 2 THEN GET SECOND USER NAME
+        JRST    SECNAM
+        CAIE    CH,"1"
+        JRST    .+3
+        PUSHJ   P,SKPDAT                ;ADVANCE TO PROJECT CODE
+        JRST    .+2
+        PUSHJ   P,RITCHR
+        PUSHJ   P,PCODE                 ;SET UP TO GET PROJECT CODE
+        PUSHJ   P,USERNA+5              ;GET PROJECT CODE
+RETURN: PUSHJ   P,FNDPPN
+        PUSHJ   P,COPCHR
+        CAIE    CH,20                   ;CHECK FOR END OF RECORD
+        PUSHJ   P,RITCHR                ;COPY REST OF RECORD TO OUTPUT BUFFER - (BAHOLD.ACT)
+        CAIE    CH,20
+        JRST    .-4
+        PUSHJ   P,RITCHR                ;WRITE OUT END OF RECORD FLAG
+        AOJ     G,                      ;ADVANCE WORD COUNT
+        MOVE    AC,USRNAM
+        MOVEM   AC,IOBUFF(G)            ;DEPOSIT FIRST HALF OF USER NAME IN COMLST
+        MOVE    AC,USRNAM+1
+        AOJ     G,                      ;ADVANCE WORD COUNT
+        MOVEM   AC,IOBUFF(G)            ;DEPOSIT SECOND HALF OF USER NAME IN COMLST
+
+ARRAY   TABFLG[2],CUSFLG[1],OVFLOW[4]
+
+        HLRZ    AC,DUMFIL+1             ;GET PROJECT NUMBER
+        SETZM   TABFLG
+        SETZM   TABFLG+1
+        PUSHJ   P,TABENT                ;ENTER PROJECT NUMBER IN TABGAN
+        MOVE    AC,DUMFIL+1             ;RECOVER PROJECT AND PROGRAMMER NUMBERS
+        AOJ     G,                      ;ADVANCE WORD COUNT
+        MOVEM   AC,IOBUFF(G)            ;DEPOSIT PPN IN COMLST
+        MOVSI   INDEX,-3
+        MOVE    AC,PROJCO(INDEX)
+        AOJ     G,                      ;ADVANCE WORD COUNT
+        MOVEM   AC,IOBUFF(G)            ;DEPOSIT PROJECT CODE IN COMLST - THREE WORDS
+        AOBJN   INDEX,.-3
+        PUSHJ   P,INCUS                 ;DEPOSIT INHOUSE-CUSTOMER FLAG IN COMLST
+        MOVEI   INDEX,2
+        PUSHJ   P,PUTZRO                ;DEPOSIT TWO WORDS OF ZERO IN COMLST
+        MOVEI   AC,1
+        AOJ     G,                      ;ADVANCE WORD COUNT
+        MOVEM   AC,IOBUFF(G)            ;SET NUMBER OF JOB TYPES TO ONE
+        MOVEM   AC,TOTJOB
+        SKIPE   JOBFLG+1                ;SKIP IF THIS REQUEST NOT VOIDED
+        JRST    JBVOID
+REPEAT: SETZ    WD,
+        MOVE    A,JOBNUM                ;MOVE JOB TYPE TO A
+        MOVE    AC,A                    ;RECOVER JOB TYPE
+        SUBI    AC,60                   ;CONVERT TO NUMBER
+        HRLZ    TEMP,AC                 ;STORE JOB TYPE IN LEFT HALF OF TEMP
+        MOVE    BP,[POINT 7,B]
+        MOVEI   INDEX,5
+        PUSHJ   P,OCTAL                 ;CONVERT VOLUME TO OCTAL AND STORE IN WD
+        CAIL    A,"6"
+        JRST    SIXSEV                  ;JOB TYPE SIX OR SEVEN
+        HRR     TEMP,WD                 ;STORE VOLUME IN RIGHT HALF OF TEMP
+        AOJ     G,                      ;ADVANCE WORD COUNT
+        MOVEM   TEMP,IOBUFF(G)          ;DEPOSIT JOB TYPE AND VOLUME IN COMLST - (J,,V)
+        CAIN    A,"1"
+        JRST    ONE                     ;JOB TYPE ONE
+        CAIN    A,"5"
+        JRST    FIVE                    ;JOB TYPE FIVE
+        MOVEI   INDEX,1
+        PUSHJ   P,PUTZRO
+        CAIN    A,"2"
+        JRST    TWO                     ;JOB TYPE TWO
+        CAIN    A,"3"
+        JRST    THREE                   ;JOB TYPE THREE
+        SKIPE   JOBFLG
+        POPJ    P,
+        IMULI   WD,^D100                ;CONVERT TO CENTS
+        AOJ     G,                      ;ADVANCE WORD COUNT
+        MOVEM   WD,IOBUFF(G)            ;DEPOSIT CHARGES IN COMLST
+        ADDM    WD,TOTCHG               ;TOTAL CHARGES
+AGAIN:  TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        SETZB   AC,CH
+        TTCALL  3,[ASCIZ/
+ANOTHER JOB TYPE? /]
+        TCI     CH
+        TCI     AC
+        CAIE    AC,15
+        JRST    AGAIN
+        TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        CAIN    CH,"Y"
+        JRST    NXTJOB
+        CAIE    CH,"N"
+        JRST    AGAIN
+FINREC: MOVE    AC,TOTJOB               ;RECOVER NUMBER OF JOB TYPES
+        IMULI   AC,3
+        ADDI    AC,^D14
+        MOVEI   INDEX,^D29
+        SUB     INDEX,AC
+        CAIE    INDEX,0                 ;SKIP IF FIVE JOBS HAVE BEEN ENTERED
+        PUSHJ   P,PUTZRO                ;ZERO OUT REMAINING LOCATIONS RESERVED FOR JOB TYPES
+        SETZB   CH,WD
+        JUMPE   E,.+6
+        MOVE    BP,[POINT 7,E]
+        MOVEI   INDEX,4
+        PUSHJ   P,OCTAL                 ;CONVERT DOLLARY TO OCTAL NUMBER AND STORE IN WD - (POSTAGE)
+        MOVE    E,WD
+        IMULI   E,^D100                 ;CONVERT TO CENTS
+        JUMPE   F,HERE1
+        MOVE    BP,[POINT 7,F]
+        MOVEI   INDEX,2
+        SETZB   CH,WD
+        PUSHJ   P,OCTAL                 ;CONVERT CENTS TO OCTAL AND STORE IN WD - (POSTAGE)
+        ADD     E,WD                    ;COMBINE DOLLARS AND CENTS
+HERE1:  AOJ     G,                      ;ADVANCE WORD COUNT
+        MOVEM   E,IOBUFF(G)             ;DEPOSIT POSTAGE IN COMLST
+        MOVE    F,TOTCHG
+        SKIPE   JOBFLG+1
+        JRST    .+3
+        CAIGE   F,^D500                 ;SKIP IF EQUAL TO OR GREATER THAN MINIMUM CHARGE
+        PUSHJ   P,MINCHG
+        ADD     E,TOTCHG                ;ADD POSTAGE TO TOTAL CHARGES
+        AOJ     G,                      ;ADVANCE WORD COUNT
+        MOVEM   E,IOBUFF(G)             ;DEPOSIT TOTAL CHARGES IN COMLST
+        AOJ     G,                      ;ADVANCE WORD COUNT
+        MOVEM   D,IOBUFF(G)             ;DEPOSIT COMPLETION DATE IN COMLST
+        MOVEI   INDEX,1
+        PUSHJ   P,PUTZRO
+        PUSHJ   P,PUTBLK                ;OUTPUT BLOCK TO PRIMARY ACCOUNTING FILE - (COMLST)
+        SKIPE   TABFLG                  ;IF ZERO THEN ONLY ONE ENTRY FOR THIS PROJECT NUMBER
+        JRST    CHGPNT
+        MOVE    BP,[POINT 7,WD]
+        SETZB   CH,WD
+        TTCALL  3,[ASCIZ/
+ENTRY COMPLETED
+/]
+GETPPR: MOVE    BP,[POINT 7,WD]
+        PUSHJ   P,COPCHR
+        CAIN    CH,32                   ;CHECK FOR EOF
+        JRST    FINACT                  ;NO MORE ACCOUNTING
+        CAIN    CH,15
+        JRST    .+3
+        IDPB    CH,BP
+        JRST    GETPPR+1
+        SETZ    CH,
+        MOVEM   WD,X+4                  ;SAVE REQUEST NUMBER IN X+4
+        TTCALL  3,[ASCIZ/
+REQUEST NUMBER /]
+        TTCALL  3,WD
+        TTCALL  15,[15]
+        TTCALL  15,[12]
+TTYIN1: TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        TTCALL  3,[ASCIZ/
+OK? /]
+        SETZ    CH,
+        TCI     CH
+        TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        CAIN    CH,"Y"
+        JRST    CKFLG1
+        CAIN    CH,15
+        JRST    CKFLG2
+        CAIN    CH,"Q"
+        JRST    CKFLG3
+        PUSHJ   P,PROMPT
+        JRST    TTYIN1
+QUIT:   INIT    DCH1,0
+        SIXBIT  /DSK/
+        XWD     0,IBUF
+        JRST    DCHERR+12
+        MOVE    E,PPRHLD+1              ;SAVE FILE EXTENSION
+        MOVE    F,PPRHLD+3              ;SAVE PPN
+        LOOKUP  DCH1,PPRHLD             ;LOOKUP PPRHLD.DAT
+        JRST    LKPPR
+        MOVEI   INDEX,^D10
+        MOVE    G,PPRHLD+2              ;SAVE FILE PROTECTION
+        MOVEM   E,PPRHLD+1              ;RESTORE FILE EXTENSION
+        MOVEM   F,PPRHLD+3              ;RESTORE PPN
+        ENTER   DCH1,PPRHLD             ;OPEN PPRHLD.DAT FOR UPDATE
+        PUSHJ   P,PPRBUS
+        SETZM   MSGFLG
+        MOVEM   E,PPRHLD+1              ;RESTORE FILE EXTENSION
+        MOVEM   G,PPRHLD+2              ;RESTORE FILE PROTECTION
+        MOVEM   F,PPRHLD+3              ;RESTORE PPN
+        INBUF   DCH1,1                  ;INITIALIZE INPUT BUFFER
+        INPUT   DCH1,
+        STATZ   DCH1,340000
+        JRST    INPPR
+        MOVE    BPNTR,IBUF+1
+        SETZ    CH,
+        ILDB    CH,BPNTR
+        CAIE    CH,32
+        JRST    COPTMP                  ;COMBINE PPRTMP.HLD WITH PPRHLD.DAT
+        SETZ    AC,
+        RENAME  DCH1,AC                 ;PPRHLD.DAT IS EMPTY SO DELETE IT
+        JRST    DELPPR
+        RELEASE DCH1,
+        MOVEM   E,PPRHLD+1              ;RESTORE FILE EXTENSION
+        MOVEM   G,PPRHLD+2              ;RESTORE FILE PROTECTION
+        MOVEM   F,PPRHLD+3              ;RESTORE PPN
+        INIT    DCH2,0
+        SIXBIT  /DSK/
+        0
+        JRST    DCHERR+12
+        MOVE    E,PPRTMP+1              ;SAVE FILE EXTENSION
+        MOVE    F,PPRTMP+3              ;SAVE PPN
+        LOOKUP  DCH2,PPRTMP             ;LOOKUP PPRTMP.HLD
+        JRST    LKTMP
+        RENAME  DCH2,PPRHLD             ;RENAME PPRTMP.HLD TO PPRHLD.DAT
+        JRST    RENTMP
+        RELEASE DCH2,
+        JRST    DEL2
+COPTMP: INIT    DCH2,0
+        SIXBIT  /DSK/
+        XWD     OBUFF,IBUFF
+        JRST    DCHERR+10
+        MOVE    E,PPRTMP+1              ;SAVE FILE EXTENSION
+        MOVE    F,PPRTMP+3              ;SAVE PPN
+        LOOKUP  DCH2,PPRTMP             ;LOOKUP PPRTMP.HLD
+        JRST    LKTMP
+        HLRE    TEMP,PPRTMP+3           ;GET BLOCK NUMBER OR WORD COUNT
+        JUMPG   TEMP,HERE               ;JUMP IF BLOCK NUMBER
+        MOVNS   TEMP
+        ADDI    TEMP,177                ;ADD ONE TO BLOCK NUMBER
+        LSH     TEMP,-7
+HERE:   MOVEM   E,PPRTMP+1              ;RESTORE FILE EXTENSION
+        MOVEM   F,PPRTMP+3              ;RESTORE PPN
+        ENTER   DCH2,PPRTMP             ;OPEN PPRTMP.HLD FOR UPDATE
+        JRST    TMPUPD
+        MOVEM   E,PPRTMP+1              ;RESTORE FILE EXTENSION
+        MOVEM   G,PPRTMP+2              ;RESTORE FILE PROTECTION
+        MOVEM   F,PPRTMP+3              ;RESTORE PPN
+        INBUF   DCH2,1                  ;INITIALIZE INPUT BUFFER
+        OUTBUF  DCH2,1                  ;INITIALIZE OUTPUT BUFFER
+        MOVE    FLAG,TEMP               ;SAVE BLOCK NUMBER
+        HRLI    TEMP,(USETI DCH2,)
+        XCT     TEMP
+        INPUT   DCH2,
+        STATZ   DCH2,340000
+        JRST    INTMP
+        OUTPUT  DCH2,                   ;DUMMY OUTPUT TO CLEAR BUFFER
+        HRLI    TEMP,(USETO DCH2,)
+        XCT     TEMP
+        SKIPN   IBUFF+2                 ;SKIP IF CHARACTER COUNT IS GREATER THAN ZERO
+        PUSHJ   P,MINBLK
+        SETZ    CH,
+        MOVEI   FLAG,1
+        PUSHJ   P,GETCHR                ;FIND EOF
+        CAIE    CH,32
+        PUSHJ   P,PUTCHR
+        CAIE    CH,32
+        JRST    .-4
+        PUSHJ   P,COPCHR                ;EOF FOUND - COPY PPRHLD.DAT TO PPRTMP.HLD
+        CAIE    CH,32
+        PUSHJ   P,OUTCHR
+        CAIE    CH,32
+        JRST    .-4
+        PUSHJ   P,OUTCHR                ;OUTPUT EOF FLAG
+        MOVE    E,PPRHLD+1              ;SAVE FILE EXTENSION
+        MOVE    F,PPRHLD+3              ;SAVE PPN
+        SETZ    AC,
+        RENAME  DCH1,AC                 ;DELETE PPRHLD.DAT
+        JRST    DELPPR
+        MOVEM   E,PPRHLD+1              ;RESTORE FILE EXTENSION
+        MOVEM   G,PPRTMP+2              ;RESTORE FILE PROTECTION
+        MOVEM   F,PPRHLD+3              ;RESTORE PPN
+        RENAME  DCH2,PPRHLD             ;RENAME PPRTMP.HLD TO PPRHLD.DAT
+        JRST    RENTMP
+        MOVEM   E,PPRHLD+1              ;RESTORE FILE EXTENSION
+        MOVEM   G,PPRHLD+2              ;RESTORE FILE PROTECTION
+        MOVEM   F,PPRHLD+3              ;RESTORE PPN
+        RELEASE DCH1,
+        RELEASE DCH2,
+DEL2:   INIT    DCH1,0
+        SIXBIT  /DSK/
+        0
+        JRST    DCHERR+12
+        MOVE    E,HLDTMP+1              ;SAVE FILE EXTENSION
+        MOVE    F,HLDTMP+3              ;SAVE PPN
+        LOOKUP  DCH1,HLDTMP             ;LOOKUP HLDTMP.DAT
+        JRST    LKTMP
+        SETZ    AC,
+        RENAME  DCH1,AC                 ;DELETE HLDTMP.DAT
+        JRST    DELHLD
+        RELEASE DCH1,
+        INIT    DCH1,0
+        SIXBIT  /DSK/
+        XWD     OBUF,0
+        JRST    DCHERR+10
+        MOVE    E,BATBUS+1              ;SAVE FILE EXTENSION
+        MOVE    F,BATBUS+3              ;SAVE PPN
+        LOOKUP  DCH1,BATBUS             ;LOOKUP BATBUS.DAT
+        JRST    LKBAT
+        MOVEM   E,BATBUS+1              ;RESTORE FILE EXTENSION
+        MOVEM   F,BATBUS+3              ;RESTORE PPN
+        ENTER   DCH1,BATBUS             ;OPEN BATBUS.DAT FOR UPDATE
+        JRST    BATUPD
+        MOVEM   E,BATBUS+1              ;RESTORE FILE EXTENSION
+        MOVEM   G,BATBUS+2              ;RESTORE FILE PROTECTION
+        MOVEM   F,BATBUS+3              ;RESTORE PPN
+        OUTBUF  DCH1,1                  ;INITIALIZE OUTPUT BUFFER
+        OUTPUT  DCH1,                   ;DUMMY OUTPUT TO CLEAR BUFFER
+        MOVEI   TEMP,1
+        HRLI    TEMP,(USETO DCH1,)
+        XCT     TEMP                    ;PREPARE TO OUTPUT TO THE FIRST BLOCK
+        MOVEI   CH,32
+        IDPB    CH,OBUF+1
+        SOS     OBUF+2
+        OUTPUT  DCH1,
+        STATZ   DCH1,340000
+        JRST    OUTBAT
+        CLOSE   DCH1,
+        RELEASE DCH1,
+        TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        TTCALL  3,[ASCIZ/
+BATCH ACCOUNTING COMPLETED
+/]
+        EXIT
+NXTJOB: MOVE    AC,TOTJOB
+        CAIL    AC,5                    ;MAXIMUM NUMBER OF JOB TYPES IS 5
+        JRST    MAXJOB
+RET2:   PUSHJ   P,JOBTYP
+        TCI     CH
+        TCI     AC
+        CAIE    AC,15
+        JRST    NOTVAL
+        TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        CAIN    CH,"?"
+        JRST    AGAIN
+        CAILE   CH,"0"
+        CAILE   CH,"7"
+        JRST    NOTVAL
+        SETZ    FLAG,
+        MOVEI   AC,1
+        MOVEM   AC,JOBFLG
+        MOVE    A,CH                    ;SAVE JOB TYPE IN A
+        MOVEM   A,JOBNUM                ;SAVE JOB TYPE IN JOBNUM
+        PUSHJ   P,CKJOB
+CKQUE1: TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        SETZB   AC,CH
+        TTCALL  3,[ASCIZ/
+ALL ENTRIES CORRECT? /]
+        TCI     CH
+        TCI     AC
+        CAIE    AC,15
+        JRST    CKQUE1
+        TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        CAIN    CH,"Y"
+        JRST    YES1
+        CAIE    CH,"N"
+        JRST    CKQUE1
+        SETZB   AC,CH
+        TTCALL  3,[ASCIZ/
+CHANGE QUESTION NUMBER? /]
+        TCI     CH
+        TCI     AC
+        CAIE    AC,15
+        JRST    CKQUE1
+        TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        CAIL    CH,"1"
+        CAILE   CH,"2"
+        JRST    CKQUE1
+        CAIN    CH,"1"
+        JRST    JOBIN
+        TTCALL  15,[12]
+        MOVEI   AC,1
+        MOVEM   AC,JBFLG2
+        SETZM   JOBFLG
+        PUSHJ   P,CKJOB
+        JRST    CKQUE1
+JOBIN:  SETZB   AC,CH
+        PUSHJ   P,JOBTYP
+        TCI     CH
+        TCI     AC
+        CAIE    AC,15
+        JRST    JOBMSG
+        TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        CAIN    CH,"?"
+        JRST    AGAIN
+        CAILE   CH,"0"
+        CAILE   CH,"7"
+        JRST    JOBMSG
+        MOVE    A,CH                    ;STORE JOB TYPE IN A
+        MOVEM   A,JOBNUM
+        JRST    CKQUE1
+YES1:   MOVE    AC,TOTJOB               ;RECOVER NUMBER OF JOB TYPES
+        ADDI    AC,1                    ;ADD ONE
+        MOVEM   AC,TOTJOB
+        HRRZ    INDEX,X+5               ;RECOVER STARTING LOCATION FOR THIS RECORD
+        MOVEM   AC,IOBUFF+JBPNTR(INDEX) ;DEPOSIT UPDATED NUMBER OF JOB TYPES IN COMLST
+        CAIN    A,"1"
+        PUSHJ   P,LSTING
+        CAIE    A,"5"
+        JRST    .+4
+        MOVE    WD,G                    ;SAVE WORD COUNT
+        PUSHJ   P,TAPE
+        MOVE    G,WD                    ;RESTORE WORD COUNT
+        PUSHJ   P,REPEAT
+        IMULI   WD,^D100                ;CONVERT VOLUME TO CENTS
+        AOJ     G,                      ;ADVANCE WORD COUNT
+        MOVEM   WD,IOBUFF(G)            ;DEPOSIT CHARGES IN COMLST
+        ADDM    WD,TOTCHG               ;ADD TO TOTAL CHARGES
+        JRST    AGAIN
+ABORT:  MOVEI   AC,1
+        MOVEM   AC,ERRFLG
+        INIT    DCH1,0
+        SIXBIT  /DSK/
+        XWD     0,IBUF
+        JRST    DCHERR+12
+        MOVE    E,PPRHLD+1              ;SAVE FILE EXTENSION
+        MOVE    F,PPRHLD+3              ;SAVE PPN
+        MOVEI   INDEX,^D10              ;IF FILE BUSY THEN TRY TO OPEN TEN TIMES
+        LOOKUP  DCH1,PPRHLD             ;LOOKUP PPRHLD.DAT
+        JRST    LKPPR
+        MOVE    G,PPRHLD+2              ;SAVE FILE PROTECTION
+        MOVEM   E,PPRHLD+1              ;RESTORE FILE EXTENSION
+        MOVEM   F,PPRHLD+3              ;RESTORE PPN
+        ENTER   DCH1,PPRHLD             ;OPEN PPRHLD.DAT FOR UPDATE
+        PUSHJ   P,PPRBUS
+        SETZM   MSGFLG
+        MOVEM   E,PPRHLD+1              ;RESTORE FILE EXTENSION
+        MOVEM   G,PPRHLD+2              ;RESTORE FILE PROTECTION
+        MOVEM   F,PPRHLD+3              ;RESTORE PPN
+        INBUF   DCH1,1                  ;INITIALIZE INPUT BUFFER
+        INPUT   DCH1,
+        STATZ   DCH1,340000
+        JRST    INPPR
+        MOVE    BPNTR,IBUF+1            ;SAVE BYTE POINTER
+        SETZ    CH,
+        ILDB    CH,BPNTR
+        CAIE    CH,32                   ;CHECK TO SEE IF FILE IS EMPTY
+        JRST    COPBAK                  ;NO - APPEND TO OLD PPRHLD.DAT
+        SETZ    AC,
+        RENAME  DCH1,AC                 ;FILE IS EMPTY SO DELETE IT - (PPRHLD.DAT)
+        JRST    DELPPR
+        RELEASE DCH1,
+        MOVEM   E,PPRHLD+1              ;RESTORE FILE EXTENSION
+        MOVEM   G,PPRHLD+2              ;SET UP FILE PROTECTION
+        MOVEM   F,PPRHLD+3              ;RESTORE PPN
+        INIT    DCH2,0
+        SIXBIT  /DSK/
+        0
+        JRST    DCHERR+10
+        MOVE    E,PPRBAK+1              ;SAVE FILE EXTENSION
+        MOVE    F,PPRBAK+3              ;SAVE PPN
+        LOOKUP  DCH2,PPRBAK             ;LOOKUP PPRHLD.BAK
+        JRST    LKBAK
+        RENAME  DCH2,PPRHLD             ;RENAME PPRHLD.BAK TO PPRHLD.DAT
+        JRST    RENBAK
+        MOVEM   E,PPRBAK+1              ;RESTORE FILE EXTENSION
+        MOVEM   G,PPRBAK+2              ;RESTORE FILE PROTECTION
+        MOVEM   F,PPRBAK+3              ;RESTORE PPN
+        RELEASE DCH2,
+        JRST    NEWDEL
+COPBAK: INIT    DCH2,0
+        SIXBIT  /DSK/
+        XWD     OBUFF,IBUFF
+        JRST    DCHERR+10
+        MOVE    E,PPRBAK+1              ;SAVE FILE EXTENSION
+        MOVE    F,PPRBAK+3              ;SAVE PPN
+        LOOKUP  DCH2,PPRBAK             ;LOOKUP PPRHLD.BAK
+        JRST    LKBAK
+        HLRE    TEMP,PPRBAK+3           ;GET BLOCK NUMBER OR WORD COUNT
+        JUMPG   TEMP,SKIP6              ;JUMP IF BLOCK NUMBER
+        MOVNS   TEMP
+        ADDI    TEMP,177                ;ADD ONE TO BLOCK NUMBER
+        LSH     TEMP,-7
+SKIP6:  MOVEM   E,PPRBAK+1              ;RESTORE FILE EXTENSION
+        MOVEM   F,PPRBAK+3              ;RESTORE PPN
+        ENTER   DCH2,PPRBAK             ;OPEN PPRHLD.BAK FOR UPDATE
+        JRST    BAKUPD
+        MOVEM   E,PPRBAK+1              ;RESTORE FILE EXTENSION
+        MOVEM   G,PPRBAK+2              ;RESTORE FILE PROTECTION
+        MOVEM   F,PPRBAK+3              ;RESTORE PPN
+        INBUF   DCH2,1                  ;INITIALIZE INPUT BUFFER
+        OUTBUF  DCH2,1                  ;INITIALIZE OUTPUT BUFFER
+        MOVE    FLAG,TEMP               ;SAVE BLOCK NUMBER
+        HRLI    TEMP,(USETI DCH2,)
+        XCT     TEMP
+        INPUT   DCH2,
+        STATZ   DCH2,340000
+        JRST    INBAK
+        OUTPUT  DCH2,                   ;DUMMY OUTPUT TO CLEAR BUFFER
+        HRLI    TEMP,(USETO DCH2,)
+        XCT     TEMP
+        SKIPN   IBUFF+2                 ;IS CHARACTER COUNT GREATER THAN ZERO
+        PUSHJ   P,MINBLK                ;NO - SUBTRACT ONE FROM BLOCK NUMBER AND INPUT AGAIN
+        SETZ    CH,
+        MOVEI   FLAG,1
+        PUSHJ   P,GETCHR                ;FIND EOF CHARACTER
+        CAIE    CH,32
+        PUSHJ   P,PUTCHR
+        CAIE    CH,32
+        JRST    .-4
+        PUSHJ   P,COPCHR                ;EOF FOUND - NOW COPY PPRHLD.DAT TO PPRHLD.BAK
+        CAIE    CH,32
+        PUSHJ   P,OUTCHR
+        CAIE    CH,32
+        JRST    .-4
+        PUSHJ   P,OUTCHR                ;OUTPUT EOF FLAG
+        MOVE    E,PPRHLD+1              ;SAVE FILE EXTENSION
+        MOVE    F,PPRHLD+3              ;SAVE PPN
+        SETZ    AC,
+        RENAME  DCH1,AC                 ;DELETE PPRHLD.DAT
+        JRST    DELPPR
+        MOVEM   E,PPRHLD+1              ;RESTORE FILE EXTENSION
+        MOVEM   G,PPRHLD+2              ;SET UP FILE PROTECTION
+        MOVEM   F,PPRHLD+3              ;RESTORE PPN
+        RENAME  DCH2,PPRHLD             ;RENAME PPRHLD.BAK TO PPRHLD.DAT
+        JRST    RENBAK
+        RELEASE DCH1,
+        RELEASE DCH2,
+NEWDEL: INIT    DCH1,0
+        SIXBIT  /DSK/
+        XWD     OBUF,0
+        JRST    DCHERR+12
+        MOVE    E,PPRBAK+1              ;SAVE FILE EXTENSION
+        MOVEM   G,PPRBAK+2              ;RESTORE FILE PROTECTION
+        MOVE    F,PPRBAK+3              ;SAVE PPN
+        ENTER   DCH1,PPRBAK             ;CREATE NEW PPRHLD.BAK
+        JRST    NEWBAK
+        MOVEM   E,PPRBAK+1              ;RESTORE FILE EXTENSION
+        MOVEM   G,PPRBAK+2              ;RESTORE FILE PROTECTION
+        MOVEM   F,PPRBAK+3              ;RESTORE PPN
+        OUTBUF  DCH1,1                  ;INITIALIZE OUTPUT BUFFER
+        OUTPUT  DCH1,                   ;DUMMY OUTPUT TO CLEAR BUFFER
+        MOVEI   CH,32                   ;CONTROL Z USED FOR END OF FILE
+        IDPB    CH,OBUF+1
+        SOS     OBUF+2
+        OUTPUT  DCH1,
+        STATZ   DCH1,340000
+        JRST    OUTBAK
+        CLOSE   DCH1,
+        RELEASE DCH1,
+        INIT    DCH1,0
+        SIXBIT  /DSK/
+        0
+        JRST    DCHERR+12
+        MOVE    E,PPRTMP+1              ;SAVE FILE EXTENSION
+        MOVE    F,PPRTMP+3              ;SAVE PPN
+        LOOKUP  DCH1,PPRTMP             ;LOOKUP PPRTMP.HLD
+        JRST    .+4
+        SETZ    AC,
+        RENAME  DCH1,AC                 ;DELETE PPRTMP.HLD
+        JRST    DELTMP
+        MOVEM   E,PPRTMP+1              ;RESTORE FILE EXTENSION
+        MOVEM   G,PPRTMP+2              ;RESTORE FILE PROTECTION
+        MOVEM   F,PPRTMP+3              ;RESTORE PPN
+        RELEASE DCH1,
+        TTCALL  3,OKMSG
+        EXIT
+INVAL1: TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        TTCALL  3,[ASCIZ/
+VALID JOB TYPES ARE 1 THRU 7 OR VOID
+/]
+        JUMPE   FLAG,GETJOB
+        JRST    BADJOB
+VOID:   SETZ    A,
+        MOVE    BP,[POINT 7,A]
+        IDPB    CH,BP
+        MOVEI   INDEX,3
+        TCI     CH
+        CAIN    CH,15
+        JRST    INVAL1
+        IDPB    CH,BP
+        SOJG    INDEX,.-4
+        TCI     AC
+        CAIE    AC,15
+        JRST    INVAL1
+        TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        CAME    A,[ASCIZ/VOID/]
+        JRST    INVAL1
+        JRST    VOIDED
+INVAL2: TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        TTCALL  3,[ASCIZ/
+VOLUME MUST BE GREATER THAN 0 AND LESS THAN 100000
+/]
+        TTCALL  15,[12]
+        JRST    VOLUME
+INVAL3: TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        TTCALL  3,[ASCIZ/
+DATE FORMAT INCORRECT - (M-D-YY)
+/]
+        TTCALL  15,[12]
+        JRST    INDATE
+CKMON:  CAMLE   E,[ASCIZ/0/]
+        CAMLE   E,[ASCIZ/9/]
+        JRST    INVAL3
+        LDB     CH,F
+        MOVE    F,BP
+        MOVEI   WD,"0"
+        IDPB    WD,F
+        IDPB    CH,F
+        MOVEI   INDEX,2
+        PUSHJ   P,SIXBIT                ;CONVERT TO SIXBIT
+        JUMPE   G,DAY
+        JRST    YEAR
+CKJOB:  MOVE    A,JOBNUM
+        CAIGE   A,"6"
+        JRST    VOLUME
+JOB67:  SETZB   AC,CH                   ;THESE TWO JOB NUMBERS HAVE DIFFERENT QUESTION NUMBER TWO
+        SETZB   B,C
+        MOVE    BP,[POINT 7,B]
+        TTCALL  3,[ASCIZ/2. CHARGE   ? /]
+        MOVEI   INDEX,4
+        TCI     CH
+        CAIN    CH,"."
+        JRST    CENTS1
+        CAIN    CH,15
+        JRST    .+12
+        PUSHJ   P,CHRCK
+        JRST    INVAL7
+        IDPB    CH,BP                   ;DOLLARS ARE STORED IN B
+        SOJG    INDEX,.-10
+        TCI     AC
+        CAIN    AC,"."
+        JRST    CENTS1
+        CAIE    AC,15
+        JRST    INVAL7
+        TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        CAML    B,[ASCIZ/0/]
+        CAMLE   B,[ASCIZ/9999/]
+        JRST    INVAL7
+        SKIPE   JBFLG2
+        JRST    CKQUE1
+        SKIPE   JOBFLG
+        POPJ    P,
+        JUMPE   FLAG,INDATE
+        JRST    CKQUES
+CENTS1: JUMPE   B,.+4
+        CAML    B,[ASCIZ/0/]
+        CAMLE   B,[ASCIZ/9999/]
+        JRST    INVAL7
+        MOVE    BPNTR,[POINT 7,C]
+        TCI     CH
+        PUSHJ   P,CHRCK
+        JRST    INVAL7
+        IDPB    CH,BPNTR
+        TCI     CH
+        PUSHJ   P,CHRCK
+        JRST    INVAL7
+        IDPB    CH,BPNTR                ;CENTS ARE STORED IN C
+        TCI     AC
+        CAIE    AC,15
+        JRST    INVAL7
+        TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        CAMLE   C,[ASCIZ/0/]
+        CAMLE   C,[ASCIZ/99/]
+        JRST    INVAL7
+        SKIPE   JBFLG2
+        JRST    CKQUE1
+        SKIPE   JOBFLG
+        POPJ    P,
+        JUMPE   FLAG,INDATE
+        JRST    CKQUES
+INVAL7: TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        TTCALL  3,[ASCIZ/
+CHARGE MUST BE GREATER THAN 0 AND LESS THAN 10000.00
+/]
+        TTCALL  15,[12]
+        JRST    JOB67
+CENTS:  JUMPE   E,.+4
+        CAML    E,[ASCIZ/0/]
+        CAMLE   E,[ASCIZ/999/]
+        JRST    INVAL4
+        MOVE    BPNTR,[POINT 7,F]
+        TCI     CH
+        PUSHJ   P,CHRCK
+        JRST    INVAL4
+        IDPB    CH,BPNTR                ;CENTS ARE STORED IN F
+        TCI     CH
+        PUSHJ   P,CHRCK
+        JRST    INVAL4
+        IDPB    CH,BPNTR
+        TCI     AC
+        CAIE    AC,15
+        JRST    INVAL4
+        TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        CAML    F,[ASCIZ/0/]
+        CAMLE   F,[ASCIZ/99/]
+        JRST    INVAL4
+        JUMPN   FLAG,CKQUES
+        POPJ    P,
+INVAL4: TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        TTCALL  3,[ASCIZ/
+POSTAGE MUST BE >= 0 OR LESS THAN 1000.00
+/]
+        TTCALL  15,[12]
+        JRST    POST
+GETDAT: TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        SETZB   D,E
+        SETZB   F,G
+        MOVE    BP,[POINT 6,D]
+        CALLI   E,14                    ;GET DATE FROM MONITOR
+        IDIVI   E,^D31
+        AOJ     F,                      ;ADD ONE TO DAY
+        MOVE    TEMP,F                  ;DAY STORED IN TEMP
+        MOVE    F,E
+        SETZ    E,
+        DIVI    E,^D12
+        ADDI    F,1                     ;ADD ONE TO MONTH
+        MOVEM   F,TMPSTO
+        PUSHJ   P,DECNT                 ;CONVERT MONTH TO DECIMAL AND STORE IN D IN SIXBIT
+        MOVE    F,TMPSTO
+        PUSHJ   P,CKFORM
+        MOVE    F,TEMP
+        SETZ    G,
+        MOVEM   F,TMPSTO
+        PUSHJ   P,DECNT                 ;CONVERT DAY TO DECIMAL AND STORE IN D IN SIXBIT
+        MOVE    F,TMPSTO
+        PUSHJ   P,CKFOR1
+        MOVEI   F,^D64(E)
+        SETZ    G,
+        PUSHJ   P,DECNT                 ;CONVERT YEAR TO DECIMAL AND STORE IN D IN SIXBIT
+        SKIPE   JOBFLG+1
+        POPJ    P,
+        JRST    POST
+LSTING: SETZ    CH,
+        SETZM   X
+        SETZM   X+1
+        TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        TTCALL  3,[ASCIZ/
+PARTS TO LISTING? /]
+        TCI     CH
+        TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        SUBI    CH,60                   ;CONVERT TO NUMBER
+        CAILE   CH,0
+        CAILE   CH,6
+        JRST    INVAL5
+        MOVEM   CH,X                    ;STORE PARTS TO LISTING IN X
+        CAIG    CH,1
+        JRST    QUESOK
+LSTDEC: TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        TTCALL  3,[ASCIZ/LISTINGS DECOLLATED? /]
+        TCI     CH
+        TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        SUBI    CH,60                   ;CONVERT TO NUMBER
+        CAIL    CH,0
+        CAILE   CH,7
+        JRST    INVAL6
+        MOVEM   CH,X+1                  ;STORE NUMBER OF LISTING DECOLLATED IN X+1
+QUESOK: TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        TTCALL  3,[ASCIZ/
+OK? /]
+        TCI     CH
+        TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        CAIN    CH,"Y"
+        POPJ    P,                      ;NO MORE QUESTIONS - WRITE THIS RECOED OUT TO PRIMARY ACCOUNTING FILE
+        CAIN    CH,"N"
+        JRST    LSTING
+        JRST    QUESOK
+INVAL5: TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        TTCALL  3,[ASCIZ/
+PARTS TO LISTING MUST BE GREATER THAN 0 AND LESS THAN 7
+/]
+        JRST    LSTING
+INVAL6: TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        TTCALL  3,[ASCIZ/
+LISTINGS DECOLLATED MUST BE >= 0 OR LESS THAN 8
+/]
+        TTCALL  15,[12]
+        JRST    LSTDEC
+WHICH:  MOVE    A,JOBNUM
+        CAIGE   A,"6"
+        JRST    VOLUME
+        JRST    JOB67
+TAPE:   TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        SETZB   AC,CH
+        TTCALL  3,[ASCIZ/
+ENTER TAPE CHARGE? /]
+        MOVEI   INDEX,4
+        MOVE    BP,[POINT 7,G]
+        TCI     CH
+        CAIN    CH,15
+        JRST    ZROTAP                  ;IF CR. THEN DEFAULT TO ZERO CHARGE
+        JRST    .+2
+        TCI     CH
+        CAIN    CH,"."
+        JRST    CENTS2
+        CAIN    CH,15
+        JRST    .+12
+        PUSHJ   P,CHRCK
+        JRST    INVAL8
+        IDPB    CH,BP
+        SOJG    INDEX,.-10
+        TCI     AC
+        CAIN    AC,"."
+        JRST    CENTS2
+        CAIE    AC,15
+        JRST    INVAL8
+        TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        CAML    G,[ASCIZ/0/]
+        CAMLE   G,[ASCIZ/9999/]
+        JRST    INVAL8
+        MOVEM   G,X                     ;STORE DOLLARS IN X
+        SETZM   X+1
+OKQUES: TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        SETZB   AC,CH
+        TTCALL  3,[ASCIZ/
+OK? /]
+        TCI     CH
+        TCI     AC
+        CAIE    AC,15
+        JRST    OKQUES
+        TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        CAIN    CH,"Y"
+        POPJ    P,                      ;NO MORE QUESTIONS - WRITE THIS RECORD OUT TO THE PRIMARY ACCOUNTING FILE
+        CAIN    CH,"N"
+        JRST    TAPE
+        JRST    OKQUES
+ZROTAP: TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        SETZM   X
+        SETZM   X+1
+        JRST    OKQUES
+CENTS2: JUMPE   G,.+4
+        CAML    G,[ASCIZ/0/]
+        CAMLE   G,[ASCIZ/9999/]
+        JRST    INVAL8
+        MOVEM   G,X                     ;STORE DOLLARS IN X
+        SETZ    AC,
+        SETZB   G,CH
+        MOVE    BP,[POINT 7,G]
+        TCI     CH
+        PUSHJ   P,CHRCK
+        JRST    INVAL8
+        IDPB    CH,BP
+        TCI     CH
+        PUSHJ   P,CHRCK
+        JRST    INVAL8
+        IDPB    CH,BP
+        TCI     AC
+        CAIE    AC,15
+        JRST    INVAL8
+        TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        CAML    G,[ASCIZ/0/]
+        CAMLE   G,[ASCIZ/99/]
+        JRST    INVAL8
+        MOVEM   G,X+1                   ;STORE CENTS IN X+1
+        JRST    OKQUES
+INVAL8: TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        TTCALL 3,[ASCIZ/
+TAPE CHARGE MUST BE >= 0 OR LESS THAN 10000.00
+/]
+        JRST    TAPE
+SECNAM: MOVEI   INDEX,1
+        PUSHJ   P,SKPDAT                ;SKIP TO SECOND USER NAME
+        SETZM   USRNA7
+        SETZM   USRNA7+1
+        SETZM   USRNA7+2
+        PUSHJ   P,USERNA                ;GET SECOND USER NAME
+        PUSHJ   P,PCODE                 ;SET UP TO GET PROJECT CODE
+        PUSHJ   P,USERNA+5              ;GET PROJECT CODE
+        JRST    RETURN
+BLKONE: MOVE    G,WD                    ;RECORD NUMBER
+        MOVEI   TEMP,1                  ;BLOCK NUMBER
+        MOVEI   WD,1
+        MOVEM   G,X+3                   ;STORE BLOCK POINTER CALCULATED FROM REQUEST NUMBER IN X+3
+        JRST    GETBLK
+BADNAM: RELEASE DCH6,
+        SETZ    CH,
+        TTCALL  3,[ASCIZ/
+USER NAME /]
+        MOVE    BP,[POINT 7,USRNA7]
+        ILDB    CH,BP
+        CAIN    CH,0
+        JRST    .+3
+        TTCALL  1,CH
+        JRST    .-4
+        TTCALL  3,[ASCIZ/ IS NO LONGER VALID ON THE SYSTEM.
+/]
+RET1:   TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        TTCALL  3,[ASCIZ/
+ENTER NEW USER NAME? /]
+        SETZM   USRNAM
+        SETZM   USRNAM+1
+        SETZM   USRNA7
+        SETZM   USRNA7+1
+        SETZM   USRNA7+2
+        MOVE    BP,[POINT 7,USRNA7]
+        MOVE    BPNTR,[POINT 6,USRNAM]
+        SETZB   AC,CH
+        MOVEI   INDEX,^D12
+        TCI     CH
+        CAIN    CH,15
+        JRST    BATNAM                  ;IF C.R. THEN SUBSTITUTE *1BATCH FOR USER NAME
+        IDPB    CH,BP
+        SUBI    CH,40                   ;CONVERT TO SIXBIT
+        IDPB    CH,BPNTR
+        SOJ     INDEX,
+        TCI     CH
+        CAIN    CH,15
+        JRST    .+10
+        IDPB    CH,BP
+        SUBI    CH,40                   ;CONVERT TO SIXBIT
+        IDPB    CH,BPNTR
+        SOJG    INDEX,.-6
+        TCI     AC
+        CAIE    AC,15
+        JRST    TOLONG
+        TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        JRST    FNDPPN
+BATNAM: TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        MOVE    AC,[SIXBIT/*1BATC/]
+        MOVEM   AC,USRNAM
+        MOVE    AC,[SIXBIT/H/]
+        MOVEM   AC,USRNAM+1
+        MOVE    AC,[1,,2]
+        MOVEM   AC,DUMFIL+1
+        SETZM   CUSFLG                  ;SET FLAG TO INHOUSE
+        POPJ    P,
+TABRIT: MOVEM   AC,INBUFF(INDEX)        ;DEPOSIT NEW PROJECT NUMBER IN TABGAN
+        HRLZ    AC,X+3                  ;FIRST BLOCK POINTER FOR THIS PROJECT NUMBER
+        HRR     AC,X+3                  ;CURRENT BLOCK POINTER FOR THIS PROJECT NUMBER
+        MOVEM   AC,INBUFF+PNTR(INDEX)   ;DEPOSIT POINTERS IN TABGAN
+        JRST    PUTTAB
+TASORT: MOVE    TEMP,INBUFF(INDEX)      ;PREPARE TO MOVE ALL ENTRIES DOWN BY ONE
+        MOVEM   AC,INBUFF(INDEX)        ;INSERT NEW PROJECT NUMBER IN TABGAN
+        MOVE    WD,INBUFF+PNTR(INDEX)   ;MOVE CORRESPONDING BLOCK POINTER
+        HRLZ    AC,X+3                  ;FIRST BLOCK POINTER FOR THIS PROJECT NUMBER
+        HRR     AC,X+3                  ;CURRENT BLOCK POINTER FOR THIS PROJECT NUMBER
+        MOVEM   AC,INBUFF+PNTR(INDEX)   ;DEPOSIT POINTERS IN TABGAN
+FINTAB: AOBJP   INDEX,OUTTAB
+        JUMPE   TEMP,PUTTAB             ;IF NEXT ENTRY ZERO THEN EXIT
+        MOVE    AC,INBUFF(INDEX)        ;SORT REST OF TABGAN
+        MOVEM   TEMP,INBUFF(INDEX)
+        MOVE    TEMP,INBUFF+PNTR(INDEX)
+        MOVEM   WD,INBUFF+PNTR(INDEX)
+        MOVE    WD,TEMP
+        MOVE    TEMP,AC
+        JRST    FINTAB
+OUTTAB: OUTPUT  DCH5,IOLIST
+        STATZ   DCH5,340000
+        JRST    OUTGAN
+        SETZM   INBUFF
+        INPUT   DCH5,IOLIST
+        STATZ   DCH5,340000
+        JRST    INGAN
+        MOVSI   INDEX,-^D64
+        JRST    FINTAB+1
+PUTTAB: OUTPUT  DCH5,IOLIST
+        STATZ   DCH5,340000
+        JRST    OUTGAN
+        POPJ    P,
+TABOUT: OUTPUT  DCH5,IOLIST
+        STATZ   DCH5,340000
+        JRST    OUTGAN
+        SETZM   INBUFF
+        INPUT   DCH5,IOLIST
+        STATZ   DCH5,340000
+        JRST    INGAN
+        JRST    TABENT+^D10
+TABEQU: HRRZ    AC,INBUFF+PNTR(INDEX)   ;RECOVER OLD BLOCK POINTER
+        MOVEM   AC,TABFLG+1             ;STORE IN TABFLG+1
+        MOVE    AC,X+3                  ;RECOVER CURRENT BLOCK POINTER
+        HRRM    AC,INBUFF+PNTR(INDEX)   ;DEPOSIT CURRENT BLOCK POINTER IN TABGAN
+        OUTPUT  DCH5,IOLIST
+        STATZ   DCH5,340000
+        JRST    OUTGAN
+        SETZM   INBUFF
+        INPUT   DCH5,IOLIST
+        STATZ   DCH5,340000
+        JRST    INGAN
+        SKIPE   INBUFF
+        JRST    .-^D8
+        POPJ    P,
+MINCHG: MOVEI   AC,^D500                ;MINIMUM CHARGE IN CENTS
+        MOVEM   AC,TOTCHG
+        POPJ    P,
+CKFLG1: SETZ    FLAG,
+        SETZM   JOBFLG
+        SETZM   JOBFLG+1
+        SETZM   TOTCHG
+        SETZM   TABFLG
+        SETZM   JBFLG2
+        SKIPE   OPNFLG
+        JRST    GETJOB
+        MOVEI   AC,1
+        MOVEM   AC,OPNFLG+1
+        PUSHJ   P,GETREQ
+        JRST    GETJOB
+CKFLG2: SETZ    FLAG,
+        SETZM   JOBFLG
+        SETZM   JOBFLG+1
+        SETZM   TOTCHG
+        SETZM   TABFLG
+        SETZM   JBFLG2
+        TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        SKIPE   OPNFLG
+        JRST    NXTREQ
+        MOVEI   AC,1
+        MOVEM   AC,OPNFLG+1
+        PUSHJ   P,GETREQ
+        JRST    NXTREQ
+CKFLG3: SKIPN   OPNFLG
+        JRST    OPNTMP
+        PUSHJ   P,PUTREQ                ;OUTPUT REQUEST NUMBER TO PPRTMP.HLD
+        SETZB   FLAG,CH
+        PUSHJ   P,COPCHR
+        CAIE    CH,32
+        PUSHJ   P,OCHAR                 ;COPY REMAINING PPRHLD.DAT TO PPRTMP.HLD
+        CAIE    CH,32
+        JRST    .-4
+FINACT: PUSHJ   P,OCHAR                 ;WRITE EOF ON PPRTMP.HLD
+        PUSHJ   P,OBLOCK                ;OUTPUT BLOCK TO PPRTMP.HLD
+        PUSHJ   P,RITCHR                ;WRITE EOF ON BAHOLD.ACT
+        PUSHJ   P,RITBLK                ;OUTPUT BLOCK TO BAHOLD.ACT
+        PUSHJ   P,CLOSE
+        JRST    QUIT
+OPNTMP: MOVEI   AC,1
+        MOVEM   AC,OPNFLG+1
+        PUSHJ   P,GETREQ
+        PUSHJ   P,PUTREQ                ;OUTPUT REQUEST NUMBER TO PPRTMP.HLD
+        JRST    CKFLG3+3
+PUTREQ: MOVE    BP,[POINT 7,WD]
+        MOVEI   INDEX,5
+        ILDB    CH,BP
+        PUSHJ   P,OCHAR                 ;OUTPUT REQUEST NUMBER TO PPRTMP.HLD
+        SOJG    INDEX,.-2
+        MOVEI   CH,15
+        PUSHJ   P,OCHAR
+        POPJ    P,
+CHGPNT: MOVE    AC,TABFLG+1             ;RECOVER PREVIOUS BLOCK POINTER
+        CAIG    AC,3
+        JRST    SETONE
+        SETZ    A,
+        IDIVI   AC,4                    ;BLOCK POINTER IN AC, RECORD POINTER IN A
+        ADDI    AC,1                    ;ADD ONE TO BLOCK POINTER
+HERE2:  HRLI    AC,(USETI DCH2,)
+        XCT     AC
+        INPUT   DCH2,COMLST             ;INPUT PREVIOUS BLOCK FOR THIS PROJECT NUMBER
+        STATZ   DCH2,340000
+        JRST    INACT
+        IMULI   A,^D32                  ;MULTIPLY RECORD POINTER BY 32
+        MOVE    B,X+3                   ;RECOVER CURRENT BLOCK POINTER
+        MOVEM   B,IOBUFF+BLKPNT(A)      ;DEPOSIT CURRENT BLOCK POINTER IN PREVIOUS BLOCK FOR THIS PROJECT NUMBER
+        HRLI    AC,(USETO DCH2,)
+        XCT     AC
+        PUSHJ   P,PUTBLK                ;OUTPUT BLOCK TO FILE
+        JRST    GETPPR-3
+SETONE: MOVE    A,AC                    ;STORE RECORD POINTER IN A
+        MOVEI   AC,1                    ;SET BLOCK POINTER EQUAL TO ONE
+        JRST    HERE2
+MAXJOB: TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        TTCALL  3,[ASCIZ/
+MAXIMUM NUMBER OF JOB TYPES EXCEEDED - REQUEST BEING PROCESSED
+/]
+        JRST    FINREC+1
+ONE:    MOVE    AC,X                    ;RECOVER PARTS TO LISTING
+        CAIN    AC,1
+        JRST    ONEONE
+        HRLZ    TEMP,AC                 ;STORE IN LEFT HALF ON TEMP
+        HRR     TEMP,X+1                ;STORE IN RIGHT HALF OF TEMP
+        AOJ     G,                      ;ADVANCE WORD COUNT
+        MOVEM   TEMP,IOBUFF(G)          ;DEPOSIT IN COMLST
+        MOVE    INDEX,X
+        SUBI    INDEX,1
+        IMUL    WD,CHGLST(INDEX)        ;CONVERT VOLUME TO CENTS
+        MOVE    AC,X+1
+        IMULI   AC,^D500                ;CONVERT LISTING DECOLLATED TO CENTS
+        ADD     WD,AC                   ;ADD TO CHARGES
+        AOJ     G,                      ;ADVANCE WORD COUNT
+        MOVEM   WD,IOBUFF(G)            ;DEPOSIT CHARGES IN COMLST
+        ADDM    WD,TOTCHG               ;ADD TO TOTAL CHARGES
+        JRST    AGAIN
+ONEONE: HRLZ    TEMP,X                  ;STORE IN LEFT HALF OF TEMP
+        AOJ     G,                      ;ADVANCE WORD COUNT
+        MOVEM   TEMP,IOBUFF(G)          ;DEPOSIT IN COMLST
+        IMULI   WD,^D10                 ;CONVERT VOLUME TO CENTS
+        AOJ     G,                      ;ADVANCE WORD COUNT
+        MOVEM   WD,IOBUFF(G)            ;DEPOSIT CHARGES IN COMLST
+        ADDM    WD,TOTCHG               ;ADD TO TOTAL CHARGES
+        JRST    AGAIN
+FIVE:   MOVE    A,WD                    ;SAVE VOLUME
+        SETZB   CH,WD
+        SETZ    TEMP,
+        MOVE    BP,[POINT 7,AC]
+        MOVE    AC,X                    ;RECOVER DOLLARS
+        JUMPE   AC,.+6
+        PUSHJ   P,OCTAL                 ;CONVERT TO OCTAL NUMBER AND STORE IN WD
+        IMULI   WD,^D100                ;CONVERT TO CENTS
+        MOVE    TEMP,WD                 ;STORE IN TEMP
+        SETZB   CH,WD
+        MOVE    BP,[POINT 7,AC]
+        MOVE    AC,X+1                  ;RECOVER CENTS
+        JUMPE   AC,.+3
+        PUSHJ   P,OCTAL                 ;CONVERT TO OCTAL NUMBER AND STORE IN WD
+        ADD     TEMP,WD                 ;COMBINE DOLLARS AND CENTS AND STORE IN TEMP
+        AOJ     G,                      ;ADVANCE WORD COUNT
+        MOVEM   TEMP,IOBUFF(G)          ;DEPOSIT TAPE CHARGE IN COMLST
+        ADDM    TEMP,TOTCHG             ;ADD TO TOTAL CHARGES
+        IMULI   A,^D100                 ;CONVERT VOLUME TO CENTS
+        AOJ     G,                      ;ADVANCE WORD COUNT
+        MOVEM   A,IOBUFF(G)             ;DEPOSIT CHARGES IN COMLST
+        ADDM    A,TOTCHG                ;ADD TO TOTAL CHARGES
+        JRST    AGAIN
+SIXSEV: AOJ     G,                      ;ADVANCE WORD COUNT
+        MOVEM   TEMP,IOBUFF(G)          ;DEPOSIT JOB TYPE IN COMLST
+        IMULI   WD,^D100                ;CONVERT DOLLARS TO CENTS
+        MOVE    TEMP,WD                 ;STORE IN TEMP
+        MOVE    BP,[POINT 7,C]
+        SETZB   CH,WD
+        PUSHJ   P,OCTAL                 ;CONVERT CENTS TO OCTAL NUMBER
+        ADD     TEMP,WD                 ;COMBINE DOLLARS AND CENTS
+        AOJ     G,                      ;ADVANCE WORD COUNT
+        MOVEM   TEMP,IOBUFF(G)          ;DEPOSIT OTHER AMOUNT OR TAPE CONVERSION CHARGES IN COMLST
+        ADDM    TEMP,TOTCHG             ;ADD TO TOTAL CHARGES
+        AOJ     G,                      ;ADVANCE WORD COUNT
+        MOVEM   TEMP,IOBUFF(G)          ;DEPOSIT CHARGES IN COMLST
+        JRST    AGAIN
+THREE:  IMULI   WD,2                    ;CONVERT VOLUME TO CENTS - TWO CENTS PER CARD
+        AOJ     G,                      ;ADVANCE WORD COUNT
+        MOVEM   WD,IOBUFF(G)            ;DEPOSIT CHARGES IN COMLST
+        ADDM    WD,TOTCHG               ;ADD TO TOTAL CHARGES
+        JRST    AGAIN
+TWO:    IDIVI   WD,2                    ;HALF A CENT PER CARD FOR READING
+        AOJ     G,                      ;ADVANCE WORD COUNT
+        MOVEM   WD,IOBUFF(G)            ;DEPOSIT CHARGES IN COMLST
+        ADDM    WD,TOTCHG               ;ADD TO TOTAL CHARGES
+        JRST    AGAIN
+NXTREQ: MOVE    WD,X+4                  ;RECOVER REQUEST NUMBER
+        MOVE    BP,[POINT 7,WD]
+        MOVEI   INDEX,5
+        SETZ    CH,
+        ILDB    CH,BP
+        PUSHJ   P,OCHAR                 ;OUTPUT REQUEST NUMBER TO PPRTMP.HLD
+        SOJG    INDEX,.-2
+        MOVEI   CH,15
+        PUSHJ   P,OCHAR                 ;OUTPUT CARRIAGE RETURN
+        PUSHJ   P,COPCHR                ;COPY REST OF RECORD TO PPRTMP.HLD
+        CAIE    CH,20                   ;CHECK FOR END OF RECORD CHARACTER
+        PUSHJ   P,OCHAR
+        CAIE    CH,20
+        JRST    .-4
+        PUSHJ   P,OCHAR                 ;WRITE END OF RECORD FLAG
+        JRST    GETPPR
+VOIDED: TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        SETZB   AC,CH
+        TTCALL  3,[ASCIZ/
+ALL ENTRIES CORRECT? /]
+        TCI     CH
+        TCI     AC
+        CAIE    AC,15
+        JRST    VOIDED
+        TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        CAIN    CH,"N"
+        JRST    GETJOB
+        CAIE    CH,"Y"
+        JRST    VOIDED
+        MOVEI   AC,1
+        MOVEM   JOBFLG+1
+        JRST    ACTG
+JBVOID: MOVE    AC,[SIXBIT/VOID/]
+        AOJ     G,                      ;ADVANCE WORD COUNT
+        MOVEM   AC,IOBUFF(G)            ;DEPOSIT IN COMLST
+        MOVEI   INDEX,1
+        PUSHJ   P,PUTZRO
+        AOJ     G,                      ;ADVANCE WORD COUNT
+        SETZM   IOBUFF(G)               ;ZERO OUT CHARGES
+        SETZM   TOTCHG                  ;ZERO OUT TOTAL CHARGES
+        MOVE    INDEX,G                 ;SAVE WORD COUNT
+        PUSHJ   P,GETDAT
+        MOVE    G,INDEX                 ;RESTORE WORD COUNT
+        SETZB   E,F
+        JRST    FINREC
+JOBTYP: TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        SETZB   AC,CH
+        TTCALL  15,[12]
+        TTCALL  3,[ASCIZ/1. JOB TYPE ? /]
+        POPJ    P,
+VOLUME: SETZB   B,C
+        SETZB   AC,CH
+        MOVE    BP,[POINT 7,B]
+        TTCALL  3,[ASCIZ/2. VOLUME   ? /]
+        MOVEI   INDEX,5
+        TCI     CH
+        CAIN    CH,15
+        JRST    .+10
+        PUSHJ   P,CHRCK
+        JRST    INVAL2
+        IDPB    CH,BP                   ;SAVE VOLUME IN B
+        SOJG    INDEX,.-6
+        TCI     AC
+        CAIE    AC,15
+        JRST    INVAL2
+        TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        CAMLE   B,[ASCIZ/0/]
+        CAMLE   B,[ASCIZ/99999/]
+        JRST    INVAL2
+        SKIPE   JBFLG2
+        JRST    CKQUE1
+        SKIPE   JOBFLG
+        POPJ    P,
+        JUMPN   FLAG,CKQUES
+INDATE: SETZB   D,E
+        SETZB   CH,G
+        MOVE    BP,[POINT 7,E]
+        MOVE    BPNTR,[POINT 6,D]
+        TTCALL  3,[ASCIZ/3. DATE     ? /]
+        TCI     CH
+        CAIN    CH,15                   ;IF CARRIAGE RETURN THEN PUT IN TODAYS DATE
+        JRST    GETDAT
+        MOVE    F,BP                    ;SAVE BYTE POINTER
+        PUSHJ   P,CHRCK
+        JRST    INVAL3
+        IDPB    CH,F
+        TCI     CH
+        CAIN    CH,"-"                  ;ADD LEADING ZERO TO MONTH
+        JRST    CKMON
+        PUSHJ   P,CHRCK
+        JRST    INVAL3
+        IDPB    CH,F
+        CAMLE   E,[ASCIZ/0/]
+        CAMLE   E,[ASCIZ/12/]
+        JRST    INVAL3
+        MOVEI   INDEX,2
+        PUSHJ   P,SIXBIT                ;CONVERT TO SIXBIT AND STORE IN D
+        TCI     CH                      ;INPUT THE DASH
+DAY:    SETZ    E,
+        MOVEI   G,1
+        MOVE    BP,[POINT 7,E]
+        MOVE    F,BP                    ;SAVE BYTE POINTER
+        TCI     CH
+        PUSHJ   P,CHRCK
+        JRST    INVAL3
+        IDPB    CH,F
+        TCI     CH
+        CAIN    CH,"-"                  ;ADD LEADING ZERO TO DAY
+        JRST    CKMON
+        PUSHJ   P,CHRCK
+        JRST    INVAL3
+        IDPB    CH,F
+        CAMLE   E,[ASCIZ/0/]
+        CAMLE   E,[ASCIZ/31/]
+        JRST    INVAL3
+        MOVEI   INDEX,2
+        PUSHJ   P,SIXBIT                ;CONVERT TO SIXBIT AND STORE IN D
+        TCI     CH                      ;INPUT THE DASH
+YEAR:   SETZB   E,G
+        MOVE    BP,[POINT 7,E]
+        MOVE    F,BP                    ;SAVE BYTE POINTER
+        TCI     CH
+        PUSHJ   P,CHRCK
+        JRST    INVAL3
+        IDPB    CH,F
+        TCI     CH
+        PUSHJ   P,CHRCK
+        JRST    INVAL3
+        IDPB    CH,F
+        CAME    E,[ASCIZ/73/]
+        JRST    INVAL3
+        TCI     CH
+        CAIE    CH,15
+        JRST    INVAL3
+        TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        MOVEI   INDEX,2
+        PUSHJ   P,SIXBIT                ;CONVERT TO SIXBIT AND STORE IN D
+        JUMPN   FLAG,CKQUES
+POST:   SETZB   E,F
+        SETZB   AC,CH
+        MOVE    BP,[POINT 7,E]
+        TTCALL  3,[ASCIZ/4. POSTAGE  ? /]
+        MOVEI   INDEX,3
+        TCI     CH
+        CAIN    CH,15
+        JRST    ZROPOS                  ;IF CR. THEN DEFAULT TO ZERO CHARGE
+        JRST    .+2
+        TCI     CH
+        CAIN    CH,"."
+        JRST    CENTS
+        CAIN    CH,15
+        JRST    .+10
+        PUSHJ   P,CHRCK
+        JRST    INVAL4
+        IDPB    CH,BP                   ;DOLLARS ARE STORED IN E
+        SOJG    INDEX,.-10
+        TCI     AC
+        CAIE    AC,15
+        JRST    INVAL4
+        TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        CAML    E,[ASCIZ/0/]
+        CAMLE   E,[ASCIZ/999/]
+        JRST    INVAL4
+        JUMPN   FLAG,CKQUES
+        POPJ    P,
+ZROPOS: TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        SETZB   E,F
+        JRST    .-4
+BADJOB: SETZB   AC,CH
+        PUSHJ   P,JOBTYP
+        TCI     CH
+        CAIN    CH,"V"
+        JRST    VOID
+        TCI     AC
+        CAIE    AC,15
+        JRST    INVAL1
+        TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        CAIN    CH,"?"
+        JRST    NXTREQ
+        CAILE   CH,"0"
+        CAILE   CH,"7"
+        JRST    INVAL1
+        MOVE    A,CH                    ;STORE JOB TYPE IN A
+        MOVEM   A,JOBNUM
+        JRST    CKQUES
+SKPDAT: PUSHJ   P,RITCHR
+        SETZ    CH,
+        PUSHJ   P,COPCHR
+        CAIE    CH,30
+        PUSHJ   P,RITCHR
+        CAIE    CH,30
+        JRST    .-4
+        PUSHJ   P,RITCHR
+        SOJG    INDEX,.-6
+        POPJ    P,
+COPY:   INPUT   DCH1,COMLST
+        STATZ   DCH1,340000
+        JRST    INCOP
+        OUTPUT  DCH2,COMLST
+        STATZ   DCH2,340000
+        JRST    OUTCOP
+        SOJN    B,COPY                  ;BLOCK COUNT
+        CLOSE   DCH1,
+        RELEASE DCH1,
+        CLOSE   DCH2,
+        RELEASE DCH2,
+        POPJ    P,
+MINBLK: SUBI    AC,1                    ;SUBTRACT ONE FROM BLOCK NUMBER
+        MOVE    TEMP,AC
+        MOVEI   INDEX,^D8
+        SOS     (P)
+        SOJG    INDEX,.-1
+        POPJ    P,
+GETCHR: SOSGE   IBUFF+2                 ;SUBTRACT ONE FROM CHARACTER COUNT
+        JRST    EOFMIS                  ;BUFFER EMPTY WITH OUT DETECTING EOF FLAG
+        ILDB    CH,IBUFF+1
+        POPJ    P,
+PUTCHR: SOSGE   OBUFF+2                 ;SUBTRACT ONE FROM CHARACTER COUNT
+        JRST    BLKERR                  ;BUFFER IS FULL AND SHOULD NOT BE
+        IDPB    CH,OBUFF+1
+        POPJ    P,
+COPCHR: SOSGE   IBUF+2                  ;SUBTRACT ONE FROM CHARACTER COUNT
+        PUSHJ   P,NXTBLK                ;BUFFER EMPTY - INPUT NEXT BLOCK
+        ILDB    CH,IBUF+1
+        POPJ    P,
+NXTBLK: INPUT   DCH1,
+        STATZ   DCH1,340000
+        JRST    IBLK
+        SOS     IBUF+2                  ;SUBTRACT ONE FROM CHARACTER COUNT
+        POPJ    P,
+SIXBIT: SETZ    CH,
+        ILDB    CH,BP
+        SUBI    CH,40                   ;CONVERT TO SIXBIT
+        IDPB    CH,BPNTR
+        SOJG    INDEX,SIXBIT
+        POPJ    P,
+OUTCHR: SOSGE   OBUFF+2                 ;SUBTRACT ONE FROM CHARACTER COUNT
+        PUSHJ   P,OUTBLK                ;BUFFER FULL - OUTPUT TO FILE
+        IDPB    CH,OBUFF+1
+        POPJ    P,
+OUTBLK: OUTPUT  DCH2,
+        STATZ   DCH2,340000
+        JRST    OBLK
+        SOS     OBUFF+2                 ;SUBTRACT ONE FROM CHARACTER COUNT
+        POPJ    P,
+DECNT:  IDIVI   F,12                    ;CONVERT TO DECIMAL
+        PUSH    P,G                     ;SAVE REMAINDER
+        JUMPE   F,.+2                   ;ALL DIGITS CONVERTED
+        PUSHJ   P,DECNT                 ;NO - GET NEXT DIGIT
+        POP     P,F                     ;YES
+        ADDI    F,20                    ;CONVERT TO SIXBIT
+        IDPB    F,BP                    ;STORE IN D
+        POPJ    P,
+RITCHR: SOSGE   OBUFF+2
+        PUSHJ   P,RITBLK
+        IDPB    CH,OBUFF+1
+        POPJ    P,
+RITBLK: OUTPUT  DCH3,
+        STATZ   DCH3,340000
+        JRST    OUTBA
+        SOS     OBUFF+2
+        POPJ    P,
+USERNA: SETZM   USRNAM
+        SETZM   USRNAM+1
+        MOVE    BP,[POINT 7,USRNA7]
+        MOVE    BPNTR,[POINT 6,USRNAM]
+        MOVEI   INDEX,^D12
+        PUSHJ   P,COPCHR                ;GET USER NAME
+        CAIN    CH,15
+        JRST    .+10
+        PUSHJ   P,RITCHR                ;WRITE USER NAME IN OUTPUT BUFFER
+        IDPB    CH,BP
+        SUBI    CH,40                   ;CONVERT TO SIXBIT
+        IDPB    CH,BPNTR                ;STORE USER NAME IN USRNAM
+        SOJG    INDEX,USERNA+5
+        PUSHJ   P,COPCHR                ;GET REST OF STRING
+        CAIE    CH,30
+        PUSHJ   P,RITCHR                ;WRITE REST OF STRING IN OUTPUT BUFFER
+        CAIE    CH,30
+        JRST    .-4
+        PUSHJ   P,RITCHR                ;WRITE END OF STRING CHARACTER
+        SETZ    AC,                     ;SPACE
+        IDPB    AC,BPNTR                ;FILL UP REST OF ARRAY WITH SPACES
+        SOJG    INDEX,.-1
+        POPJ    P,
+PCODE:  SETZM   PROJCO
+        SETZM   PROJCO+1
+        SETZM   PROJCO+2
+        MOVE    BPNTR,[POINT 6,PROJCO]
+        MOVE    BP,[POINT 7,OVFLOW]
+        MOVEI   INDEX,^D18
+        POPJ    P,
+DELETE: MOVEM   E,PPRTMP+1              ;RESTORE FILE EXTENSION
+        MOVEM   F,PPRTMP+3              ;RESTORE PPN
+        SETZ    AC,
+        RENAME  DCH4,AC                 ;DELETE PPRTMP.HLD
+        JRST    DELTMP
+        POPJ    P,
+FNDPPN: INIT    DCH6,0
+        SIXBIT  /DSK/
+        0
+        JRST    DCHERR
+        HRRZI   AC,USRNAM               ;GET ADDRESS OF TWO WORD ARRAY CONTAINING USER NAME IN SIXBIT
+        MOVEM   AC,DUMFIL+1
+        LOOKUP  DCH6,DUMFIL             ;EXTENDED LOOKUP USED TO GET PPN
+        JFCL                            ;NOP
+        MOVE    TEMP,DUMFIL+1
+        CAIN    TEMP,USRNAM             ;SKIP IF TEMP CONTAINS PPN
+        JRST    BADNAM
+        RELEASE DCH6,
+        POPJ    P,
+TABENT: MOVEM   A,JOBNUM                ;STORE JOB TYPE IN JOBNUM
+        MOVEI   A,1
+        HRLI    A,(USETI DCH5,)
+        XCT     A
+        INPUT   DCH5,IOLIST
+        STATZ   DCH5,340000
+        JRST    INGAN
+        MOVEI   A,1
+        HRLI    A,(USETO DCH5,)
+        XCT     A
+        MOVSI   INDEX,-^D64
+        MOVE    TEMP,INBUFF(INDEX)      ;GET PROJECT NUMBER FROM TABGAN
+        JUMPE   TEMP,TABRIT
+        CAME    AC,TEMP                 ;HAS THIS PROJECT NUMBER BEEN ENTERED ALREADY
+        JRST    .+4
+        MOVEI   AC,1
+        MOVEM   AC,TABFLG               ;SET FLAG TO WRITE BLOCK POINTER IN COMLST
+        JRST    TABEQU
+        CAML    AC,TEMP
+        JRST    .+2
+        JRST    TASORT
+        AOBJN   INDEX,TABENT+^D11
+        JRST    TABOUT
+CHRCK:  CAIL    CH,"0"
+        CAILE   CH,"9"
+        POPJ    P,
+        AOS     (P)
+        POPJ    P,
+PUTZRO: AOJ     G,                      ;ADVANCE WORD COUNT
+        SETZM   IOBUFF(G)               ;DEPOSIT ZERO IN COMLST
+        SOJG    INDEX,.-2
+        POPJ    P,
+CKFORM: CAILE   F,^D9
+        POPJ    P,
+        SETZB   WD,CH
+        MOVEI   WD,20
+        LDB     CH,BP
+        DPB     WD,BP
+        IDPB    CH,BP
+        POPJ    P,
+CKFOR1: CAILE   F,^D9
+        POPJ    P,
+        JRST    CKFORM+2
+OCTAL:  ILDB    CH,BP
+        CAIN    CH,0
+        POPJ    P,
+        SUBI    CH,60                   ;CONVERT TO NUMBER
+        EXCH    CH,WD
+        IMULI   CH,^D10                 ;CONVERT TO OCTAL
+        ADD     WD,CH                   ;OCTAL NUMBER STORED IN WD
+        SETZ    CH,
+        SOJG    INDEX,OCTAL
+        POPJ    P,
+PUTBLK: OUTPUT  DCH2,COMLST             ;OUTPUT RECORD TO PRIMARY ACCOUNTING FILE
+        STATZ   DCH2,340000
+        JRST    OUTACT
+        POPJ    P,
+OCHAR:  SOSGE   OBUF+2
+        PUSHJ   P,OBLOCK
+        IDPB    CH,OBUF+1
+        POPJ    P,
+OBLOCK: OUTPUT  DCH4,
+        STATZ   DCH4,340000
+        JRST    OUTTMP
+        SOS     OBUF+2
+        POPJ    P,
+SETFLG: CAIN    CH,"0"                  ;SKIP IF CUSTOMER REQUEST
+        JRST    INHOUS
+        MOVEI   AC,1
+        MOVEM   AC,CUSFLG
+        POPJ    P,
+INHOUS: SETZM   CUSFLG
+        POPJ    P,
+INCUS:  AOJ     G,                      ;ADVANCE WORD COUNT
+        MOVE    AC,CUSFLG               ;RECOVER INHOUSE-CUSTOMER FLAG
+        MOVEM   AC,IOBUFF(G)            ;DEPOSIT INHOUSE-CUSTOMER FLAG IN COMLST
+        POPJ    P,
+PROMPT: TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        TTCALL  3,[ASCIZ/
+PLEASE RESPOND WITH (Y, Q, OR C.R.)
+/]
+        POPJ    P,
+NOTVAL: TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        TTCALL  3,[ASCIZ/
+VALID JOB TYPES ARE 1 THRU 7
+/]
+        JRST    RET2
+JOBMSG: TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        TTCALL  3,[ASCIZ/
+VALID JOB TYPES ARE 1 THRU 7
+/]
+        JRST    JOBIN
+TOLONG: TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        TTCALL  3,[ASCIZ/
+12 CHARACTER MAXIMUM INPUT FOR USER NAME
+/]
+        JRST    RET1
+PPRBUS: SKIPE   MSGFLG
+        JRST    .+4
+        MOVEI   AC,1
+        MOVEM   MSGFLG
+        TTCALL  3,[ASCIZ/
+PPRHLD.DAT BUSY - PLEASE STAND BY
+/]
+        MOVEI   A,^D10
+        CALLI   A,31                    ;DISMISS FOR 10 SECONDS
+        SOJE    INDEX,OPNPPR
+        MOVEI   A,4
+        SOS     (P)
+        SOJG    A,.-1
+        POPJ    P,
+OPNPPR: PUSHJ   P,CLOSE+11
+        TTCALL  3,[ASCIZ/
+UNABLE TO OPEN PPRHLD.DAT FOR UPDATE
+/]
+        SKIPE   ERRFLG
+        JRST    .+3
+        TTCALL  3,ERRMSG
+        EXIT
+        TTCALL  3,FATMSG
+        EXIT
+LKPSWD: TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        RELEASE DCH2,
+        RELEASE DCH1,
+        TTCALL  3,[ASCIZ/
+PASSWORD FILE MISSING - PLEASE NOTIFY YOUR SUPERVISOR
+/]
+        EXIT
+INPSWD: PUSHJ   P,CLOSE+6
+        TTCALL  3,[ASCIZ/
+ERROR ON INPUT - OPERPS.WRD
+/]
+        EXIT
+NONAME: PUSHJ   P,CLOSE+6
+        TTCALL  3,[ASCIZ/
+NAME DOES NOT APPEAR IN THE PASSWORD FILE
+/]
+        EXIT
+ERRPAS: TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        SETZB   C,D
+        TTCALL  3,[ASCIZ/
+ERROR, TYPE PASSWORD /]
+        JRST    REPASS
+BADLIC: PUSHJ   P,CLOSE+10
+        TTCALL  3,[ASCIZ/
+OPERATOR LICENSE REQUIRED
+/]
+        EXIT
+LKBAT:  PUSHJ   P,CLOSE+11
+        TTCALL  3,[ASCIZ/
+UNABLE TO DO A LOOKUP ON BATBUS.DAT
+/]
+        TTCALL  3,ERRMSG
+        EXIT
+BATUPD: PUSHJ   P,CLOSE+10
+        TTCALL  3,[ASCIZ/
+UNABLE TO OPEN BATBUS.DAT FOR UTDATE
+/]
+        SKIPE   FINFLG
+        JRST    .+3
+        TTCALL  3,[ASCIZ/
+FILE PROBABLY BUSY - PLEASE TRY LATER
+/]
+        EXIT
+        TTCALL  3,ERRMSG
+        EXIT
+BATERR: PUSHJ   P,CLOSE+10
+        TTCALL  3,[ASCIZ/
+DATA FILE FORMAT INCORRECT - BATBUS.DAT
+/]
+        TTCALL  3,ERRMSG
+        EXIT
+ACTBUS: PUSHJ   P,CLOSE+10
+        TTCALL  3,[ASCIZ/
+BATCH ACCOUNTING BUSY - PLEASE TRY LATER
+/]
+        EXIT
+OUTBAT: PUSHJ   P,CLOSE+10
+        TTCALL  3,[ASCIZ/
+ERROR ON OUTPUT - BATBUS.DAT
+/]
+        TTCALL  3,ERRMSG
+        EXIT
+INBAT:  PUSHJ   P,CLOSE+10
+        TTCALL  3,[ASCIZ/
+ERROR ON INPUT - BATBUS.DAT
+/]
+        TTCALL  3,ERRMSG
+        EXIT
+LKPPR:  PUSHJ   P,CLOSE+11
+        TTCALL  3,[ASCIZ/
+UNABLE TO DO A LOOKUP ON PPRHLD.DAT
+/]
+        SKIPE   ERRFLG
+        JRST    .+3
+        TTCALL  3,ERRMSG
+        EXIT
+        TTCALL  3,FATMSG
+        EXIT
+RENPPR: PUSHJ   P,CLOSE+7
+        TTCALL  3,[ASCIZ/
+UNABLE TO RENAME PPRHLD.DAT TO HLDTMP.DAT
+/]
+        TTCALL  3,ERRMSG
+        EXIT
+NEWPPR: PUSHJ   P,CLOSE+7
+        TTCALL  3,[ASCIZ/
+UNABLE TO CREATE NEW PPRHLD.DAT
+/]
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+OUTPPR: PUSHJ   P,CLOSE+6
+        TTCALL  3,[ASCIZ/
+ERROR ON OUTPUT - PPRHLD.DAT
+/]
+        TTCALL  3,ERRMSG
+        EXIT
+NOACTG: PUSHJ   P,CLOSE+10
+        TTCALL  3,[ASCIZ/
+THERE ARE NO BATCH ACCOUNTING RECORDS PENDING
+/]
+        JRST    DEL2
+LKTMP:  PUSHJ   P,CLOSE+11
+        TTCALL  3,[ASCIZ/
+UNABLE TO DO A LOOKUP ON HLDTMP.DAT
+/]
+        SKIPE   FINFLG
+        JRST    .+5
+        SKIPE   ERRFLG
+        JRST    .+3
+        TTCALL  3,ERRMSG
+        EXIT
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+LKBAK:  PUSHJ   P,CLOSE+7
+        TTCALL  3,[ASCIZ/
+UNABLE TO DO A LOOKUP ON PPRHLD.BAK
+/]
+        SKIPE   ERRFLG
+        JRST    .+3
+        TTCALL  3,ERRMSG
+        EXIT
+        TTCALL  3,FATMSG
+        EXIT
+DELBAK: PUSHJ   P,CLOSE+6
+        TTCALL  3,[ASCIZ/
+UNABLE TO DELETE PPRHLD.BAK
+/]
+        TTCALL  3,ERRMSG
+        EXIT
+NEWBAK: PUSHJ   P,CLOSE+7
+        TTCALL  3,[ASCIZ/
+UNABLE TO CREATE NEW PPRHLD.BAK
+/]
+        SKIPE   ERRFLG
+        JRST    .+3
+        TTCALL  3,ERRMSG
+        EXIT
+        TTCALL  3,FATMSG
+        EXIT
+LKACT:  PUSHJ   P,CLOSE+11
+        TTCALL  3,[ASCIZ/
+UNABLE TO DO A LOOKUP ON PPRACT.DAT
+/]
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+BADSIZ: PUSHJ   P,CLOSE+10
+        TTCALL  3,[ASCIZ/
+PPRACT.DAT HAS INCORRECT BLOCK SIZE
+/]
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+BAKACT: PUSHJ   P,CLOSE+7
+        TTCALL  3,[ASCIZ/
+UNABLE TO DO A LOOKUP ON PPRACT.BAK
+/]
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+DELACT: PUSHJ   P,CLOSE+6
+        TTCALL  3,[ASCIZ/
+UNABLE TO DELETE PPRACT.BAK
+/]
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+NEWACT: PUSHJ   P,CLOSE+7
+        TTCALL  3,[ASCIZ/
+UNABLE TO CREATE NEW PPRACT.BAK
+/]
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+LKHOLD: PUSHJ   P,CLOSE+5
+        TTCALL  3,[ASCIZ/
+UNABLE TO DO A LOOKUP ON BAHOLD.ACT
+/]
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+LKBABK: PUSHJ   P,CLOSE+7
+        TTCALL  3,[ASCIZ/
+UNABLE TO DO A LOOKUP ON BAHOLD.BAK
+/]
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+DELBA:  PUSHJ   P,CLOSE+6
+        TTCALL  3,[ASCIZ/
+UNABLE TO DELETE BAHOLD.BAK
+/]
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+NEWBA:  PUSHJ   P,CLOSE+7
+        TTCALL  3,[ASCIZ/
+UNABLE TO CREATE NEW BAHOLD.BAK
+/]
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+LKGAN:  PUSHJ   P,CLOSE+1
+        TTCALL  3,[ASCIZ/
+UNABLE TO DO A LOOKUP ON TABLE.GAN
+/]
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+LKTABG: PUSHJ   P,CLOSE+7
+        TTCALL  3,[ASCIZ/
+UNABLE TO DO A LOOKUP ON TABGAN.BAK
+/]
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+DELGAN: PUSHJ   P,CLOSE+6
+        TTCALL  3,[ASCIZ/
+UNABLE TO DELETE TABGAN.BAK
+/]
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+NEWGAN: PUSHJ   P,CLOSE+7
+        TTCALL  3,[ASCIZ/
+UNABLE TO CREATE NEW TABGAN.BAK
+/]
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+INHLD:  PUSHJ   P,CLOSE+10
+        TTCALL  3,[ASCIZ/
+ERROR ON INPUT - HLDTMP.DAT
+/]
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+ACTUPD: PUSHJ   P,CLOSE+6
+        TTCALL  3,[ASCIZ/
+UNABLE TO OPEN PPRACT.DAT FOR UPDATE
+/]
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+BAUPD:  PUSHJ   P,CLOSE+4
+        TTCALL  3,[ASCIZ/
+UNABLE TO OPEN BAHOLD.ACT FOR UPDATE
+/]
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+INHOLD: PUSHJ   P,CLOSE+4
+        TTCALL  3,[ASCIZ/
+ERROR ON INPUT - BAHOLD.ACT
+/]
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+NEWTMP: PUSHJ   P,CLOSE+3
+        TTCALL  3,[ASCIZ/
+UNABLE TO CREATE NEW PPRTMP.HLD
+/]
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+GANUPD: PUSHJ   P,CLOSE
+        TTCALL  3,[ASCIZ/
+UNABLE TO OPEN TABLE.GAN FOR UPDATE
+/]
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+INACT:  PUSHJ   P,CLOSE
+        TTCALL  3,[ASCIZ/
+ERROR ON INPUT - PPRACT.DAT
+/]
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+INPPR:  PUSHJ   P,CLOSE+10
+        TTCALL  3,[ASCIZ/
+ERROR ON INPUT - PPRHLD.DAT
+/]
+        SKIPE   ERRFLG
+        JRST    .+3
+        TTCALL  3,ERRMSG
+        EXIT
+        TTCALL  3,FATMSG
+        EXIT
+DELPPR: PUSHJ   P,CLOSE+10
+        TTCALL  3,[ASCIZ/
+UNABLE TO DELETE PPRHLD.DAT
+/]
+        SKIPE   ERRFLG
+        JRST    .+3
+        TTCALL  3,ERRMSG
+        EXIT
+        TTCALL  3,FATMSG
+        EXIT
+RENTMP: PUSHJ   P,CLOSE+6
+        TTCALL  3,[ASCIZ/
+UNABLE TO RENAME PPRTMP.HLD TO PPRHLD.DAT
+/]
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+TMPUPD: PUSHJ   P,CLOSE+6
+        TTCALL  3,[ASCIZ/
+UNABLE TO OPEN PPRTMP.HLD FOR UPDATE
+/]
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+INTMP:  PUSHJ   P,CLOSE+6
+        TTCALL  3,[ASCIZ/
+ERROR ON INPUT - PPRTMP.HLD
+/]
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+DELHLD: PUSHJ   P,CLOSE+10
+        TTCALL  3,[ASCIZ/
+UNABLE TO DELETE HLDTMP.DAT
+/]
+        TTCALL  3,ERRMSG
+        EXIT
+RENBAK: PUSHJ   P,CLOSE+6
+        TTCALL  3,[ASCIZ/
+UNABLE TO RENAME PPRHLD.BAK TO PPRHLD.DAT
+/]
+        TTCALL  3,FATMSG
+        EXIT
+BAKUPD: PUSHJ   P,CLOSE+6
+        TTCALL  3,[ASCIZ/
+UNABLE TO OPEN PPRHLD.BAK FOR UPDATE
+/]
+        TTCALL  3,FATMSG
+        EXIT
+INBAK:  PUSHJ   P,CLOSE+6
+        TTCALL  3,[ASCIZ/
+ERROR ON INPUT - PPRHLD.BAK
+/]
+        TTCALL  3,FATMSG
+        EXIT
+OUTBAK: PUSHJ   P,CLOSE+10
+        TTCALL  3,[ASCIZ/
+ERROR ON OUTPUT - PPRHLD.BAK
+/]
+        TTCALL  3,FATMSG
+        EXIT
+DELTMP: PUSHJ   P,CLOSE+2
+        TTCALL  3,[ASCIZ/
+UNABLE TO DELETE PPRTMP.HLD
+/]
+        SKIPN   ERRFLG
+        JRST    .+4
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+        TTCALL  3,FATMSG
+        EXIT
+OUTGAN: PUSHJ   P,CLOSE
+        TTCALL  3,[ASCIZ/
+ERROR ON OUTPUT - TABLE.GAN
+/]
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+INGAN:  PUSHJ   P,CLOSE
+        TTCALL  3,[ASCIZ/
+ERROR ON INPUT - TABLE.GAN
+/]
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+INCOP:  PUSHJ   P,CLOSE+6
+        TTCALL  3,[ASCIZ/
+ERROR ON INPUT - COPY ROUTINE
+/]
+        TTCALL  3,ERRMSG
+        EXIT
+OUTCOP: PUSHJ   P,CLOSE+6
+        TTCALL  3,[ASCIZ/
+ERROR ON OUTPUT - COPY ROUTINE
+/]
+        TTCALL  3,ERRMSG
+        EXIT
+IBLK:   PUSHJ   P,CLOSE
+        TTCALL  3,[ASCIZ/
+BLOCK INPUT ERROR
+/]
+        SKIPE   ERRFLG
+        JRST    .+4
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+        TTCALL  3,FATMSG
+        EXIT
+OBLK:   PUSHJ   P,CLOSE
+        TTCALL  3,[ASCIZ/
+BLOCK OUTPUT ERROR
+/]
+        SKIPE   ERRFLG
+        JRST    .+4
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+        TTCALL  3,FATMSG
+        EXIT
+OUTBA:  PUSHJ   P,CLOSE
+        TTCALL  3,[ASCIZ/
+ERROR ON OUTPUT - BAHOLD.ACT
+/]
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+OUTACT: PUSHJ   P,CLOSE
+        TTCALL  3,[ASCIZ/
+ERROR ON OUTPUT - PPRACT.DAT
+/]
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+OUTTMP: PUSHJ   P,CLOSE
+        TTCALL  3,[ASCIZ/
+ERROR ON OUTPUT - PPRTMP.HLD
+/]
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+EOFMIS: PUSHJ   P,CLOSE
+        TTCALL  3,[ASCIZ/
+END OF FILE FLAG MISSING
+/]
+        SKIPE   ERRFLG
+        JRST    .+4
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+        TTCALL  3,FATMSG
+        EXIT
+BLKERR: PUSHJ   P,CLOSE
+        TTCALL  3,[ASCIZ/
+EXCEEDED OUTPUT BUFFER
+/]
+        SKIPE   ERRFLG
+        JRST    .+4
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+        TTCALL  3,FATMSG
+        EXIT
+CLOSE:  CLOSE   DCH5,
+        RELEASE DCH5,
+        CLOSE   DCH4,
+        RELEASE DCH4,
+        CLOSE   DCH3,
+        RELEASE DCH3,
+        CLOSE   DCH2,
+        RELEASE DCH2,
+        CLOSE   DCH1,
+        RELEASE DCH1,
+        TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        POPJ    P,
+DCHERR: CLOSE   DCH5,
+        RELEASE DCH5,
+        CLOSE   DCH4,
+        RELEASE DCH4,
+        CLOSE   DCH3,
+        RELEASE DCH3,
+        CLOSE   DCH2,
+        RELEASE DCH2,
+        CLOSE   DCH1,
+        RELEASE DCH1,
+        TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        TTCALL  3,[ASCIZ/
+UNABLE TO INITIALIZE DATA CHANNEL
+/]
+        SKIPE   FINFLG
+        JRST    .+3
+        TTCALL  3,ERRMSG
+        EXIT
+        SKIPE   ERRFLG
+        JRST    .+4
+        TTCALL  3,ERRMSG
+        TTCALL  3,RECMSG
+        JRST    ABORT
+        TTCALL  3,FATMSG
+        EXIT
+ERRMSG: ASCIZ/
+***DO NOT RESTART BATCH ACCOUNTING
+
+PLEASE NOTIFY YOUR SUPERVISOR***
+/
+RECMSG: ASCIZ/
+ATTEMPTING TO RESTORE PPRHLD.DAT
+/
+OKMSG:  ASCIZ/
+PPRHLD.DAT RESTORED
+/
+FATMSG: ASCIZ/
+UNABLE TO RESTORE PPRHLD.DAT
+/
+TCIUUO: PUSH    P,INDEX                 ;SAVE CONTENTS OF INDEX
+        PUSH    P,WD                    ;SAVE CONTENTS OF WD
+        SETZ    WD,
+        MOVSI   INDEX,-4
+        TTCALL  4,WD
+        CAMN    WD,ESCTAB(INDEX)        ;CHECK FOR ESCAPE CHARACTER
+        JRST    ESCMSG
+        AOBJN   INDEX,.-2
+        MOVEM   WD,@UUODAT              ;SAVE CHARACTER THAT WAS INPUT
+        POP     P,WD                    ;RESTORE CONTENTS OF WD
+        POP     P,INDEX                 ;RESTORE CONTENTS OF INDEX
+        POPJ    P,
+ESCMSG: TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        TTCALL  3,[ASCIZ/   <ESC>   ? /]
+        JRST    TCIUUO+2                ;CHECK NEXT CHARACTER
+ESCAPE: MOVEM   A,TMPSTO                ;SAVE CONTENTS OF A
+        MOVEI   A,2000                  ;MASK TO TRAP ESCAPES
+        APRENB  A,                      ;RE-ARM INTERRUPT
+        HLRZ    A,JOBCNI                ;REASON FOR INTERRUPT
+        ANDI    A,1
+        CAIE    A,1                     ;SKIP IF INTERRUPT CAUSED BY ESCAPE
+        JRST    .+3
+        TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        TTCALL  3,[ASCIZ/
+ESCAPES ARE INHIBITED
+/]
+        MOVE    A,TMPSTO                ;RESTORE CONTENTS OF A
+        JRSTF   @JOBTPC                 ;RETURN TO PROGRAM
+PSWDFI: SIXBIT /OPERPS/                 ;PASSWORD FILE
+        SIXBIT /WRD/
+        0
+        XWD     1,4
+PPRHLD: SIXBIT /PPRHLD/                 ;PPRHLD.DAT
+        SIXBIT /DAT/
+        0
+        XWD     1,2
+HLDTMP: SIXBIT /HLDTMP/                 ;CONTAINS PPRHLD.DAT
+        SIXBIT /DAT/
+        0
+        XWD     1,2
+PPRACT: SIXBIT /PPRACT/                 ;PRIMARY ACCOUNTING RECORDS - (BINARY)
+        SIXBIT /DAT/
+        0
+        XWD     1,2
+BAHOLD: SIXBIT /BAHOLD/                 ;REQUESTS THAT HAVE BEEN ENTERED INTO ACCOUNTING
+        SIXBIT /ACT/
+        0
+        XWD     1,2
+PPRBAK: SIXBIT /PPRHLD/                 ;BACKUP VERSION OF PPRHLD.DAT BEFORE THIS ACCOUNTING RUN
+        SIXBIT /BAK/
+        0
+        XWD     1,2
+ACTBAK: SIXBIT /PPRACT/                 ;BACKUP VERSION OF PPRACT.DAT BEFORE THIS ACCOUNTING RUN
+        SIXBIT /BAK/
+        0
+        XWD     1,2
+BABACK: SIXBIT /BAHOLD/                 ;BACKUP VERSION OF BAHOLD.ACT BEFORE THIS ACCOUNTING RUN
+        SIXBIT /BAK/
+        0
+        XWD     1,2
+PPRTMP: SIXBIT /PPRTMP/                 ;REQUESTS NOT ENTERED INTO ACCOUNTING
+        SIXBIT /HLD/
+        0
+        XWD     1,2
+TABGAN: SIXBIT /TABLE/                  ;INDEX USED FOR EOM REPORT - SORTED BY GAN
+        SIXBIT /GAN/
+        0
+        XWD     1,2
+GANBAK: SIXBIT /TABGAN/                 ;BACKUP VERSION OF TABLE.GAN BEFORE THIS ACCOUNTING RUN
+        SIXBIT /BAK/
+        0
+        XWD     1,2
+BATBUS: SIXBIT /BATBUS/                 ;USED FOR ACCOUNTING BUSY MESSAGE
+        SIXBIT /DAT/
+        0
+        XWD     1,2
+DUMFIL: 3                               ;EXTENDED LOOKUP RETURNING THREE WORDS
+        0                               ;ADDRESS OF TWO WORD ARRAY CONTAINING USER NAME IN SIXBIT
+        SIXBIT /WEM/                    ;DUMMY FILE NAME
+        SIXBIT /WEM/
+BUSMSG: ASCIZ /BUSY/
+COMLST: IOWD 200,IOBUFF
+        0
+IOBUFF: BLOCK 200
+IOLIST: IOWD 200,INBUFF
+        0
+INBUFF: BLOCK 200
+EOFROU: BYTE (7)32,15,12
+ESCTAB: EXP 3,33,37,175
+IBUF:   BLOCK 3
+OBUF:   BLOCK 3
+IBUFF:  BLOCK 3
+OBUFF:  BLOCK 3
+CHGLST: ^D10
+        ^D15
+        ^D20
+        ^D25
+        ^D30
+        ^D35
+        VAR
+        END START
+jbBi¨
