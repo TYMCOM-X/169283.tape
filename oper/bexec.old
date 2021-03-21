@@ -1,0 +1,89 @@
+MODULE BEXEC(DOLLAR,ENTRIES=($BEXEC),FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+BEGIN
+
+REQUIRE BDEFS.BLI[7,107355];
+REQUIRE EDEFS.BLI[7,107355];
+REQUIRE PDEFS.BLI[7,107355];
+REQUIRE SDEFS.BLI[7,107355];
+
+UNDECLARE $BEXEC;
+
+%  THIS IS THE DRIVER ROUTINE TO SET UP AND CONTROL THE PARSER FOR THE
+   MIDAS PROCEDURE SYNTAX PROCESSING.
+%
+
+GLOBAL ROUTINE $BEXEC=
+   BEGIN
+
+   LOCAL
+      TREE,		% FOR $PARSE CALL %
+      S$ NAMEN:DEFEN,	% NAME AND DEFINITION ENTRIES %
+      STP;		% SYMBOL TABLE POINTER %
+
+   % (RE-)INITIALIZE GLOBAL STORAGE %
+   BEXTN$ _ 0;
+   BNDEF$ _ SV$NULL;
+   BCTMX$ _ 0;
+   BRPSP$ _ SV$NULL;
+   BDRPT$ _ SV$NULL;
+   BRCSW$ _ 0;
+   BRDEF$ _ SV$NULL;
+   BFLDN$ _ 0;
+   BLRCL$ _ 0;
+   BFNUM$ _ 0;
+
+   $BPSYN();
+   $PARSE(P$<0,0>,P$$ROUT<0,0>,TREE<0,0>);
+
+   IF .BDBG$ NEQ 0
+      THEN
+         BEGIN
+         $SIGNE();
+         UNTIL (STP _ $SGNE()) EQL SV$NULL
+         DO 
+            BEGIN
+            NAMEN _ $SGSTE(.STP);
+            IF .NAMEN[S$ENFL] NEQ SV$TRUE
+               THEN	% NOT CREATED AT SCANNER INITIALIZATION %
+                  BEGIN
+                  IF .NAMEN[S$TYPE] NEQ SV$RW
+                     THEN	% LITERAL OR NAME %
+                        BEGIN
+                        $SPSTB(.NAMEN);
+                        IF .NAMEN[S$TYPE] EQL SV$NAME
+                           THEN
+                              BEGIN
+                              DEFEN _ $SGSTE(.NAMEN[S$DSTP]);
+                              $SPSTB(.DEFEN);
+                              SELECT .DEFEN[S$TYPE] OF NSET
+
+SV$FIELD:                     IF .DEFEN[S$VCSTP] NEQ SV$NULL
+                                 THEN $SPSTE(.DEFEN[S$VCSTP]);
+
+SV$RELDEF:                    UNTIL (STP _ .DEFEN[S$ISTP]) EQL SV$NULL
+                              DO BEGIN
+                                 $SFRNCH(.DEFEN);
+                                 DEFEN _ $SGSTE(.STP);
+                                 $SPSTB(.DEFEN)
+                                 END;
+
+SV$SRC:                       UNTIL (STP _ .DEFEN[S$ISTP]) EQL SV$NULL
+                              DO BEGIN
+                                 $SFRNCH(.DEFEN);
+                                 DEFEN _ $SGSTE(.STP);
+                                 $SPSTB(.DEFEN)
+                                 END
+
+                              TESN;
+                              $SFRNCH(.DEFEN)
+                              END
+                           ELSE $SPSTE(.NAMEN[S$LITINCP]);
+                        END
+                  END;
+            $SFRNCH(.NAMEN)
+            END
+         END
+
+   END;
+
+END ELUDOM
