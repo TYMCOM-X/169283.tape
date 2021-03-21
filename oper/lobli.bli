@@ -1,0 +1,4701 @@
+
+
+
+
+
+%%
+%              ----------LOLEXA.BLI----------
+               16 MAY 72-A
+%
+%%
+
+
+
+
+
+!                   LEXICAL  ANALYZER  
+!          --------------------------------------  
+
+
+
+
+! SUPPORT ROUTINES 
+!-------------------
+
+    ROUTINE LEXERR=
+	!  THIS ROUTINE IS CALLED ONLY FOR SOME QUEER
+	!  ERRORS WHERE A DELIMITER WAS NOT PLACED BETWEEN
+	!  TWO OPERANDS.
+	BEGIN  ERROR(.NDEL,#776); HRUND();
+	  SYM_LITLEXEME(0)
+	END;
+
+    ROUTINE PUNT(ERR)=
+	!
+	! THIS ROUTINE IS CALLED FOR CATISTROPHIC COMPILER
+	! ERRORS WHICH FORCE US TO DO A COMPLETE RESTART. WE
+	! GIVE AN ERROR TO THE USER AND JRST BACK TO REINIT
+	! THE MAIN LOOP. SORRY FOLKS!!
+	!
+	BEGIN EXTERNAL FINIO;
+	ERROR(.NDEL,.ERR); EOCHAR(#77); EOCHAR(#11); EMESSAGE("PUNT!",1);
+%2.19%	!ZERO XREFLG SO THAT WE WON'T GET INTO AN INFINITE LOOP
+%2.19%	!BETWEEN XEOB AND PUNT.
+%2.19%	ENEWLINE(); FINIO(); XREFLG_0; SWAPPER(NDRIVER,0);
+	END;
+
+
+
+
+
+
+! DYNAMIC STORAGE MANAGEMENT  
+!-----------------------------  
+
+
+GLOBAL ROUTINE DOCOREUUO (UUOARG) =
+
+  !DO A STANDARD CORE UUO WITH ARG OF .UUOARG.
+  !RETURN 1 IF SUCCESS, ELSE 0
+
+    BEGIN
+
+      REGISTER R;
+      MACHOP CALLI = #047, TDZA = #634, MOVEI = #201;
+
+	R_.UUOARG;
+
+	CALLI	(R,#11);	!CORE  UUO
+	TDZA	(R,R);		!ERROR RETURN
+	MOVEI	(R,1);		!SUCCESSFUL RETURN
+
+	.R
+
+    END;
+
+
+ROUTINE CALLEXECFORSPACE=
+  BEGIN
+    REGISTER R;
+    MACHOP HLRO=#564;
+    EXTERNAL JOBREL,JOBSYM,JOBDDT;
+IF DOCOREUUO(.JOBREL<0,18> + #2000) EQL 0 THEN PUNT(#770);
+    ENDOFSPACE _ .ENDOFSPACE + #2000/TIMXMF;
+    IF
+	(.JOBSYM<RIGHTHALF> GTR 0) AND (.JOBSYM<RIGHTHALF> LSS #400000)
+     THEN
+      BEGIN
+        BIND
+            L=NOT HLRO(R,JOBSYM),
+            NEWSYM=(.JOBREL<,18>)[-L],
+            OLDSYM=(.JOBSYM<,18>)[0];
+        DECR I FROM L TO 0 DO
+            NEWSYM[.I] _ .OLDSYM[.I];
+        JOBSYM<,18> _ NEWSYM
+      END
+  END;
+
+
+
+
+    ROUTINE GARBAGECOLLECT=
+        BEGIN REGISTER R1, LST;
+
+      NOGBGCOL_.NOGBGCOL+1;
+	R1_.FREEHEAD;
+	DECR I FROM (.TOPOFTABLE^(-4-TIMXGF)) TO 0 DO (AVL+.I)<0,36>_0;
+	DO AVL[.R1/TIMXGF]_1 UNTIL (R1_.TABLE[.R1,1]) LEQ 1;
+	LST_R1_0;
+	WHILE (R1_.R1+TIMXGF) LEQ .TOPOFTABLE DO
+	    IF .AVL[.R1/TIMXGF] THEN
+		BEGIN
+		TABLE[.LST,1]_.R1; LST_.R1;
+		WHILE (R1_.R1+(TIMXGF*.TABLE[.R1,0]); .AVL[.R1/TIMXGF]) DO
+		    TABLE[.LST,0]_.TABLE[.LST,0]+.TABLE[.R1,0];
+		END;
+	TABLE[.LST,1]_0;
+	END;
+
+
+    ROUTINE ZEROIT(LOC,NUM)=
+	BEGIN
+	INCR I FROM .LOC TO .LOC+2*(.NUM-1) BY 2 DO
+	    TABLE[.I,0]_TABLE[.I,1]_0;
+	.LOC
+	END;
+
+
+    ROUTINE RELEASESPACE(LOC,NUM)=
+	BEGIN
+	TABLE[.LOC,0]_.NUM; TABLE[.LOC,1]_.FREEHEAD; 
+	FREEHEAD_.LOC; AMNTFREE_.AMNTFREE+.NUM 
+	END;
+
+
+    ROUTINE GETTER(NUM)=
+	BEGIN LOCAL L,LL,N,M;
+
+	L_.FREEHEAD; LL_0; AMNTFREE_.AMNTFREE-.NUM;
+	WHILE .L GTR  1 DO
+	    IF (M_.TABLE[.L,0]) LSS .NUM
+		THEN (LL_.L; L_.TABLE[.L,1])
+		ELSE IF .M EQL .NUM
+			THEN (TABLE[.LL,1]_.TABLE[.L,1]; RETURN .L)
+			ELSE (M_TABLE[.L,0]_.M-.NUM;  RETURN .L+.M*TIMXGF );
+	AMNTFREE_.AMNTFREE+.NUM; RETURN -1
+	END;
+
+
+    ROUTINE GET12(NUM)=
+	BEGIN LOCAL L,LL,N,M;
+
+	L_.FREEHEAD; LL_0; AMNTFREE_.AMNTFREE-.NUM;
+	WHILE .L GTR 1 DO
+	    IF .TABLE[.L,0] NEQ .NUM
+		THEN (LL_.L; L_.TABLE[.L,1])
+		ELSE (TABLE[.LL,1]_.TABLE[.L,1]; RETURN .L);
+	AMNTFREE_.AMNTFREE+.NUM; RETURN -1
+	END;
+
+
+    ROUTINE GETSPACE(NUM)=
+	BEGIN LOCAL X;EXTERNAL CALLEXECFORSPACE,RETOT;
+
+	IF .NUM LEQ 2 THEN IF (X_GET12(.NUM)) GTR 0 
+		THEN RETURN ZEROIT(.X,.NUM);
+	IF (X_GETTER(.NUM)) GTR 0 THEN RETURN ZEROIT(.X,.NUM);
+	IF .AMNTFREE GTR .NUM*4 THEN       ! IF AVAIL SPACE IIS 4*REQUEST
+	    IF .AMNTFREE GTR (.ENDOFSPACE-.TOPOFTABLE) THEN
+		BEGIN
+		GARBAGECOLLECT();
+		IF (X_GETTER(.NUM)) GTR 0 THEN RETURN ZEROIT(.X,.NUM);
+		END;
+	WHILE (.TOPOFTABLE+TIMXGF*.NUM) GTR .ENDOFSPACE DO CALLEXECFORSPACE();
+	X_.TOPOFTABLE; TOPOFTABLE_.TOPOFTABLE+TIMXGF*.NUM;
+	ZEROIT(.X,.NUM)
+	END;
+
+
+
+
+
+! LITERAL TABLE MANAGEMENT AND LIT-LEXEMES  
+!---------------------------------------------  
+
+
+%2.9%	GLOBAL ROUTINE LTINSERT(LIT)=
+%2.9%	  !LTINSERT RETURNS AS ITS VALUE THE INDEX INTO THE
+%2.9%	  !LT WHERE THE LITERAL .LIT IS STORED.
+%2.9%	  !.LIT IS A LITERAL VALUE.
+%2.9%	  BEGIN
+%2.9%	    !ALWAYS RETURN THE LARGEST POSSIBLE OFFSET FOR THE LITERAL 0.
+%2.9%	    IF .LIT EQL 0 THEN RETURN #37777;
+
+%2.9%	    BEGIN
+%2.9%	      REGISTER	R1,	!INDEX THRU LT SEARCH
+%2.9%			R2,	!HASH FUNCTION VALUE
+%2.9%			TVAL,	!LT ENTRY FOR COMPARISONS WITH .LIT
+%2.9%			RBASE;	!BASE ADDRES OF CURRENT LT MODULE
+
+%2.9%	      !FIRST COMPUTE THE HASH FUNCTION
+%2.9%	      R2_((.LIT +.LIT^(-9) +.LIT^(-18) +.LIT^(-27)) AND LTMASK);
+%2.9%	      !NOW SEARCH EACH MODULE FROM NUMBER LTNUM-1 TO 0
+%2.9%	      DECR TNUM FROM LTNUM-1 TO 0 DO
+%2.9%		BEGIN
+%2.9%		  !IF WE HAVEN'T SET UP THIS MODULE YET, WE DO SO
+%2.9%		  IF .LTBASE[.TNUM] EQL 0
+%2.9%		    THEN LTBASE[.TNUM]<RIGHTHALF>_CT[GETSPACE(LTSIZE^(-1)),0];
+%2.9%		  RBASE_.LTBASE[.TNUM]<RIGHTHALF>;
+
+%2.9%		  R1_.R2;
+
+%2.9%		  !NOW LET'S SEARCH THIS PARTICULAR MODULE.
+%2.9%		  WHILE 1 DO
+%2.9%		    BEGIN
+%2.9%		      !IF THIS ENTRY EQUALS .LIT RETURN WITH THE APPROP INDEX
+%2.9%		      IF ((TVAL_@(@RBASE)[R1_((.R1+1) AND LTMASK)]) EQL .LIT)
+%2.9%			THEN
+%2.9%			  RETURN (.R1 + .TNUM*LTSIZE);
+
+%2.9%			!IF THIS ENTRY IS 0, WE INSERT THE LITERAL HERE IF WE
+%2.9%			!HAVE NOT YET EXCEEDED LTLIM FOR THIS MODULE.
+%2.9%			IF .TVAL EQL 0
+%2.9%			  THEN IF .LTBASE[.TNUM]<LEFTHALF> LEQ LTLIM
+%2.9%			    THEN
+%2.9%			    BEGIN
+%2.9%			      LTBASE[.TNUM]_.LTBASE[.TNUM]+1^18;	!UP COUNT
+%2.9%			      (@RBASE)[.R1]<0,36>_.LIT;	!INSERT LIT
+%2.9%			      RETURN (.R1 + .TNUM*LTSIZE);	!RETURN INDEX
+%2.9%			    END
+%2.9%			  ELSE EXITLOOP		!TO %B%
+%2.9%			ELSE EXITCOMPOUND	!TO %A%
+%2.9%		    END;	!%A% TO HERE IF ENTRY IS NOT THE RIGHT LIT
+%2.9%		END;		!%B% TO HERE IF HAVE FINISHED THIS MODULE
+
+%2.9%	  END;
+%2.9%	  END;
+
+
+
+
+%2.9%	GLOBAL ROUTINE GETLITVAL(IND)=
+%2.9%	  !RETURNS THE 36 BIT VALUE OF THE LITERAL WHOSE INDEX IS IND
+%2.9%	  IF .IND EQL #37777 THEN RETURN 0 ELSE
+%2.9%	  .(.LTBASE[(.IND)/LTSIZE])[(.IND AND LTMASK)]<0,36>;
+
+
+
+%2.9%	GLOBAL ROUTINE GETADDLIT(IND)=
+%2.9%	  !RETURN THE ADDRESS OF THE LITERAL POINTED TO BY IND
+%2.9%	  IF .IND EQL #37777 THEN ZEROAD ELSE
+%2.9%	  (.LTBASE[(.IND)/LTSIZE])[(.IND AND LTMASK)]<0,36>;
+
+
+
+
+
+  ROUTINE LITLEXEME(VALUE)=
+    BEGIN
+     LOCAL L1;
+      !
+      !  THIS ROUTINE CREATES, AND RETURNS, A LEXEME FOR THE
+      !  LITERAL WHOSE VALUE IS IN 'VALUE'.
+      !
+
+      IF .VALUE LEQ #37777 AND .VALUE GTR 0
+        THEN
+          BEGIN
+            L1_LITLEX1;  L1<LTEF>_.VALUE;
+          END
+        ELSE
+          BEGIN
+            L1_LITLEX2;  L1<LTEF>_LTINSERT(.VALUE);
+          END;
+      .L1
+    END;
+
+
+
+! SYMBOL TABLE ROUTINES  
+!------------------------ 
+
+
+  ROUTINE HASH(SYMBOL)=
+    BEGIN
+      ! 
+      !  THIS ROUTINE COMPUTES THE HASH FUNCTION OF SYMBOL
+      !
+      LOCAL L;
+      IF (L_.SYMBOL MOD HTSIZE) LSS 0 THEN -.L ELSE .L
+    END;
+
+  ROUTINE STINSERT(LEX,ADDINFO)=
+    BEGIN LOCAL L1,L2;
+      !
+      !  THIS ROUTINE CREATES A ST ENTRY AT THE CURRENT BLOCK
+      !  AND FUNCTION LEVELS.  THE SYMBOL IS ASSUMED TO BE IN
+      !  ACCUM.
+      !
+
+      L1_HASH(.ACCUM);
+      L2_GETSPACE(2);
+      LEX<BLF>_.BLOCKLEVEL;
+      LEX<FLF>_.FUNCTIONLEVEL;
+      LEX<LINKF>_.HT[.L1];
+      HT[.L1]_.L2;
+      ST[.L2,0]_.LEX;
+      ST[.L2,1]_.ADDINFO;
+      ST[.L2,2]_.ACCUM;
+      ST[.L2,3]_.(ACCUM+1);
+      IF .XREFLG THEN IF .ADDINFO EQL 0 THEN XREFINS(.LEX);
+      .L2
+    END;
+
+
+
+  GLOBAL ROUTINE GLOBALCHECK(STINDEX) =
+
+    !CHECK TO SEE IF THIS NAME HAS BEEN DECLARED GLOBAL AT ANY
+    !BLOCKLEVEL.  IF SO, RETURN THE INDEX OF THE STE, OTHERWISE 0.
+    !STINDEX IS THE ST INDEX OF THE NAME WE CURRENTLY WISH TO
+    !DECLARE GLOBAL.
+
+      BEGIN
+
+	LOCAL L1;
+
+	L1_.HT[HASH(.ST[.STINDEX,2])];
+
+	WHILE .L1 NEQ 0 DO
+	  BEGIN
+	    IF .ST[.STINDEX,2] EQL .ST[.L1,2] THEN	!IF NAME IS ...
+	    IF .ST[.STINDEX,3] EQL .ST[.L1,3] THEN	!THE SAME
+	    IF ((1^(.ST[.L1,0]<TYPEF>)AND GLOBALTYPE) NEQ 0)	!CHECK FOR GLOBAL
+	      THEN RETURN .L1;
+	    L1_.ST[.L1,0]<LINKF>
+	  END;
+
+	RETURN 0	!TO INDICATE NOT PREVIOUSLY DECLARED GLOBAL
+
+      END;
+
+
+  ROUTINE SEARCH=
+    BEGIN LOCAL L1;
+      !
+      !  THIS ROUTINE SEARCHES FOR THE SYMBOL IN ACCUM, AND RETURNS
+      !  ITS SYMBOL TABLE INDEX.  NOTE THAT IF NOT FOUND AN "UNDECLARED"
+      !  ENTRY IS MADE IN THE SYMBOL TABLE.
+      !
+
+      L1_.HT[HASH(.ACCUM)];
+      WHILE .L1 NEQ 0 DO
+        BEGIN
+          IF .ACCUM EQL .ST[.L1,2] THEN
+          IF .(ACCUM+1) EQL .ST[.L1,3] THEN
+	    BEGIN
+	    IF .XREFLG THEN XLINE();
+            RETURN .L1;
+	    END;
+	  L1_.ST[.L1,0]<LINKF>;
+        END;
+      RETURN(STINSERT(.UNDECLEX,0));
+    END;
+
+
+
+
+
+
+
+
+! CHARACTER SCAN ROUTINES  
+!--------------------------  
+
+
+
+
+
+
+
+
+  ROUTINE SKAN(COED)=
+    BEGIN
+      !
+      !  THIS ROUTINE DOES THE PRIMARY CHARACTER SCANNING FOR
+      !  THE COMPILER.  THE ACTION OF THE ROUTINE DEPENDS UPON
+      !  THE VALUE OF THE PARAMETER 'CODE' AS FOLLOWS (WHERE
+      !  'CODE' IS XXX0YZ):
+      !
+      !       Z=1   :  READ A NEW (LOGICAL) LINE BEFORE SCANNING
+      !       Y=1   :  DEBLANK BEFORE SCANNING
+      !       XXX=0 :  DO NOTHING (OTHER THAN AS SPECIFIED BY 'YZ')
+      !           1 :  SCAN FOR NEXT ATOM
+      !           2 :  CONTINUE SCAN FOR <IDENTIFIER>
+      !           3 :  CONTINUE SCAN FOR DECIMAL NUMBER
+      !           4 :  CONTINUE SCAN FOR OCTAL NUMBER
+      !           5 :  CONTINUE SCAN FOR QUOTED STRING
+      !
+      !
+      !  THE VALUE RETURNED BY THE ROUTINE IS:
+      !
+      !       0:   NO SCANNING PERFORMED
+      !       1:   <IDENTIFIER> FOUND (IT IS IN ACCUM)
+      !       2:   <LITERAL> FOUND (VALUE IN VAL)
+      !       3:   (LONG) STRING FOUND (CHAR COUNT IN VAL,
+      !                                 STRING IN STRING)
+      !       4:   SPECIAL CHARACTER FOUND
+      !
+      !
+      !  THE LENGTH OF THE ITEM SCANNED IS RECORDED IN
+      !  "ACCUMLENGTH".
+      !
+    IF .COED THEN UNTIL .CHAR EQL EOL DO SCANNER();
+    IF .CHAR EQL EOL THEN SCANNER();
+    IF .COED^(-1) THEN WHILE .CHAR LEQ #40 DO SCANNER();
+
+      CASE .COED^(-3) OF
+        SET
+
+          RETURN 0;   !  XXX=0, WE DO NOTHING ELSE
+
+          BEGIN       !  XXX=1, SCAN FOR NEXT ATOM
+            VAL_ACCUMLENGTH_STRINFIXED_STRING_0;
+            PACCUM_(ACCUM-1)<1,7>;
+            ACCUM_(ACCUM+1)_-2;
+
+
+		CASE .TYPE OF
+		  SET
+			(SKAN(#30);2);    ! DIGITS 0-7
+
+			(SKAN(#30);2);    ! DIGITS 8,9
+
+			(SKAN(#20);1);    ! LETTERS
+
+			BEGIN             ! QUOTED STRING
+			  QUOTETYPE_.CHAR;
+			  SCANNER(); SKAN(#50)
+			END;
+
+			BEGIN             ! OCTAL NUMBER (#)
+			  SCANNER(); SKAN(#40);
+			  2
+			END;
+
+			BEGIN		!FOR ! OR EOL(#15)
+			  DO SKAN(3) UNTIL .TYPE NEQ 5;
+			  SKAN(#10)
+			END;
+
+			BEGIN             ! COMMENT (%)
+                          DO SCANNER() UNTIL .CHAR EQL "%";
+			  SCANNER(); SKAN(#12)
+			END;
+
+			BEGIN             ! SPECIAL DELIMITER
+			  REPLACEI(PACCUM,.CHAR);
+			  VAL_.CHAR-(
+			    IF .CHAR LEQ #57 THEN #40 ELSE
+			    IF .CHAR LEQ #100 THEN #52 ELSE
+			    #104);
+			  SCANNER();
+			  4
+			END;
+
+			BEGIN             ! SUPER ESCAPE (?)
+			  REPLACEI(PACCUM,.CHAR);
+			  SCANNER();
+			  REPLACEI(PACCUM,.CHAR);
+			  VAL_.CHAR+#40;
+			  SCANNER();
+			  4
+			END;
+
+			BEGIN             ! MACRO FORMAL (FORMALT)
+			  REPLACEI(PACCUM,.CHAR);
+			  SCANNER(); ACCUMLENGTH_1;
+			  SKAN(#20);
+			  1
+			END;
+
+			0;                ! INVALID TYPE-CODE
+
+			0;                ! INVALID TYPE-CODE
+
+			0;		  ! INVALID TYPE-CODE
+
+			0;		  ! INVALID TYPE-CODE
+
+			0;		  ! INVALID TYPE-CODE
+
+			(SCANNER();SKAN(#12));	  ! IGNORE CHARACTER
+
+		  TES
+
+          END;        ! THIS IS THE END OF XXX=1
+
+          BEGIN       !   XXX=2, CONTINUE SKAN FOR IDENTIFIER
+              WHILE .TYPE LEQ 2 DO
+              BEGIN
+                REPLACEI(PACCUM,.CHAR); ACCUMLENGTH_.ACCUMLENGTH+1;
+                SCANNER();
+              END;
+             END;
+
+             BEGIN      !  XXX=3, CONTINUE SKAN FOR DECIMAL CONSTANT
+               WHILE .TYPE LEQ 1 DO
+                  BEGIN
+                    VAL _ .VAL*10+ (.CHAR-"0");
+                    ACCUMLENGTH _ .ACCUMLENGTH + 1;
+                    REPLACEI(PACCUM,.CHAR);
+                    SCANNER();
+                  END;
+
+                  %NOW LOOK FOR FLOATING VALUES%
+                  IF .CHAR EQL "." THEN
+                     BEGIN LOCAL SCALE,ONETENTH,EXP,M1,M2,SIGNUM;
+                        ONETENTH_SCALE_(#175631463146);
+                        VAL _ FLOAT .VAL;
+                        SCANNER();
+                        WHILE .TYPE LEQ 1 DO
+                          (VAL_.VAL FADR .SCALE FMPR
+                              (FLOAT (.CHAR - "0"));
+                        SCALE _ .SCALE FMPR .ONETENTH;
+                           SCANNER()
+                          );
+
+                        IF .CHAR EQL "E" THEN %WE HAVE AN EXPONENT%
+                        BEGIN
+                           SCANNER();
+                           SIGNUM_0;
+                           IF .CHAR EQL "+" THEN SCANNER()
+                           ELSE IF  .CHAR EQL "-" THEN(SIGNUM_1;SCANNER());
+                           EXP_0;
+                           ACCUMLENGTH_0;
+                           WHILE .TYPE LEQ 1 DO
+                             (ACCUMLENGTH_.ACCUMLENGTH+1;
+                              EXP_.EXP*10+(.CHAR-"0");
+                              SCANNER()
+                             );
+                           IF .ACCUMLENGTH EQL 0 THEN WARNEM(.NFUTDEL,#200);
+                           M1_#201400^18;   !FLOATING ONE
+                           M2_#204500^18;   !FLOATIMG TEN
+                           WHILE .EXP NEQ 0 DO
+                             (IF .EXP THEN M1_.M1 FMPR .M2;
+                              M2_.M2 FMPR .M2;
+                              EXP_.EXP^(-1)
+                             );
+                           VAL_IF .SIGNUM THEN .VAL FDVR .M1
+                               ELSE .VAL FMPR .M1;
+                        END
+                     END
+                 ;
+             END;
+
+             BEGIN    !  XXX=4,  CONTINUE SKAN FOR OCTAL CONSTANT
+               WHILE .TYPE EQL 0 DO
+                 BEGIN
+                   VAL _ .VAL ^3+(.CHAR-"0");
+                   ACCUMLENGTH _ .ACCUMLENGTH+1;
+                   REPLACEI(PACCUM,.CHAR);
+                   SCANNER();
+                 END;
+              END;
+
+  BEGIN       ! XXX=5.   FINISH SCAN FOR QUOTED STRING
+
+    LOCAL ZBIT, COED, SIZES, CALLFORDEL;
+    MACRO NOCHAR=.SIZES<0,18>$,
+          BSIZE=.SIZES<18,18>$,
+          SEVENBIT=(.COED EQL 0)$,
+          SIXBITS=(.COED EQL 1)$,
+          RAD50=(.COED EQL 2)$;
+
+    ROUTINE PRWORD(COED,SIZES)=
+      BEGIN
+        LOCAL RV;
+        MACRO INRANGE(X,Y)=(.CHAR GEQ X AND .CHAR LEQ Y)$,
+              CONVERT=(CASE .COED OF
+                SET
+                  IF .CHAR NEQ #77 THEN .CHAR ELSE ! QUESTION MARK
+                    (SCANNER();
+                     IF INRANGE("A","_") THEN .CHAR-"A"+1 ELSE
+                     IF .CHAR EQL "0"    THEN 0           ELSE
+                     IF .CHAR EQL "1"    THEN #177        ELSE
+                     IF .CHAR EQL #77    THEN #77         ELSE
+                     (WARNEM(.NFUTSYM,ERSYIQC); .CHAR));
+                  .CHAR+(IF NOT INRANGE(("A"+#40),("Z"+#40)) THEN #40);
+                  IF INRANGE("0","9") THEN 1+.CHAR-"0" ELSE
+                  IF INRANGE("A","Z") THEN #13+.CHAR-"A" ELSE
+                  IF .CHAR EQL "." THEN #45 ELSE
+                  IF .CHAR EQL #44 THEN #46 ELSE
+                  IF .CHAR EQL #45 THEN #47 ELSE 0
+                TES)$;
+
+        PSTRING_STRING[-1]<1,BSIZE>;
+        STRING_0;
+
+        RV_INCR I FROM 0 TO NOCHAR DO    
+          BEGIN
+            IF .CHAR EQL .QUOTETYPE
+              THEN (SCANNER();
+                    IF .CHAR NEQ .QUOTETYPE THEN EXITLOOP (NOCHAR-.I));
+            IF .I EQL NOCHAR THEN EXITLOOP (-1);
+            REPLACEI(PSTRING,CONVERT);
+            SCANNER()
+          END;
+
+        IF .QUOTETYPE NEQ "'" THEN
+          STRING_.STRING^(-(SEVENBIT+(IF .RV LSS 0 THEN 0 ELSE BSIZE*.RV)));
+
+        IF RAD50 THEN
+          BEGIN
+            REGISTER AC;
+            AC_0;
+            PSTRING_STRING[-1]<1,6>;
+            INCR I FROM 1 TO 5 DO AC_(.AC+SCANI(PSTRING))*#50;
+            STRING_.AC+SCANI(PSTRING)
+          END;
+        .RV EQL -1
+      END;     ! ROUTINE PRWORD
+
+
+    MACRO BL(A)='A' AND -2$,
+          BS(N,A)='A' OR ((-1)^(-N*7) AND -2)$;
+
+    BIND KEY= PLIT (
+                    BL(ASCIZ),-2,
+                    BL(ASCII),-2,
+                    BL(SIXBI),BS(1,T),
+                    BL(RADIX),BS(2,50));
+    MAP STVEC REALFS;
+    LOCAL SPEC;
+
+    % SET UP CODE, SIZES, AND ZBIT. %
+
+    SPEC_IF .REALFS NEQ 0 THEN
+      (INCR I FROM 0 TO 3 DO
+      IF .REALFS[2] EQL .KEY[2*.I] THEN
+        IF .REALFS[3] EQL .KEY[2*.I+1] THEN EXITLOOP .I) ELSE -1;
+
+    IF .SPEC GEQ 0 THEN CALLFORDEL_1 ELSE (SPEC_1; CALLFORDEL_0);
+    COED_IF ZBIT_(.SPEC EQL 0) THEN 0 ELSE .SPEC-1;
+    SIZES _ IF .COED EQL 0 THEN 7^18+5 ELSE 6^18+6;
+
+    % PROCESS SHORT OR LONG STRINGS. %
+
+    SPEC_0;
+    IF (SPEC_PRWORD(.COED,.SIZES)) OR
+       (.ZBIT AND ((.STRING AND #377) NEQ 0)) THEN
+      BEGIN
+        ACCUMLENGTH_0;
+        FSTRHED_HEADER(0,0,0);
+        DO CT[NEWBOT(.FSTRHED,1),1]_.STRING !NOTE: NORELOC=0(!)
+          WHILE (IF .SPEC
+                   THEN (SPEC_PRWORD(.COED,.SIZES); 1)
+                   ELSE IF .ZBIT THEN 
+                     IF (.STRING AND #377) NEQ 0 THEN (STRING_0; 1))
+              AND
+                (ACCUMLENGTH_.ACCUMLENGTH+1) LSS LONGESTPLIT;
+        IF (FSTRHED<LEFTHALF>_.ACCUMLENGTH) GEQ LONGESTPLIT THEN
+          (ERROR(.NFUTSYM,ERSYMRQ); PUNT(0));
+        STRING_0
+      END;
+    VAL_.STRING;
+    2+.CALLFORDEL
+  END;       ! END CASE XXX=5.
+
+        TES
+    END;
+
+
+
+
+
+
+! PRAL LEXICAL PROCESSOR  
+!------------------------------  
+
+
+
+
+
+  GLOBAL ROUTINE IDFIXFS=
+    BEGIN
+
+    !  THIS ROUTINE IS CALLED TO FIX FUTSYM ONLY.  NO DEPENDENCY
+    !  ON RUND IS REQUIRED EXCEPT THAT REALFS BE FILLED.  IT SHOULD
+    !  BE CALLED AFTER ALL THE DECLARATIONS FOR A BLOCK HAVE BEEN
+   !  MADE.
+
+      LOCAL STVEC SYM, TYPE;
+
+      IF (SYM_.REALFS) EQL 0 THEN RETURN 0;
+
+      WHILE (TYPE_.SYM[0]<TYPEF>) EQL ABSOLUTET OR (.TYPE EQL GABSOLUTET)
+        DO IF .SYM[1]<LSF>
+             THEN SYM_.SYM[1]<STEF>
+             ELSE (FUTSYM_0;
+                   FUTSYM<ADDRESSF>_.SYM[1]<ADDRESSF>;
+                   RETURN 1);
+
+      IF .TYPE EQL LEXEMT
+        THEN (FUTSYM_.ST[.SYM[1]<ADDRESSF>,0]; RETURN 1);
+
+      IF (.TYPE EQL REGT) AND (NOT .INDECS)
+        THEN
+          IF .TGRBLEVEL GEQ .SYM[0]<BLF> AND .FCNSTATE EQL 3
+            THEN (ERROR(.NFUTSYM,#40); FUTSYM_0; REALFS_0; RETURN 1)
+            ELSE (FUTSYM_.SYM[1]<ADDRESSF>; FUTSYM<VEF>_1; RETURN 1);
+
+      IF (.TYPE GEQ UNDEDT AND .TYPE LEQ GPLITT) OR (.TYPE EQL STRT)
+        OR (.TYPE EQL MACHT)  OR  (.TYPE EQL SPLFT)  OR  (.TYPE EQL SPUNOPT)
+        THEN
+          BEGIN
+            FUTSYM_0;
+            IF .SYM[0]<LSF> THEN (FUTSYM<LSF>_1; FUTSYM<POSNSIZEF>_36);
+            FUTSYM<STEF>_.SYM;
+            IF .TYPE EQL BINDT THEN FUTSYM<DOTF>_1;
+            RETURN 1
+            END;
+      0
+    END;
+
+    ROUTINE IDFIXER(COED)=
+        BEGIN LOCAL L1,L2;
+        !  THIS ROUTINE TAKES CARE OF SEARCHING FOR ID'S AND
+	!  BUILDING THE APPROPRIATE LEXEME IN FUTSYM.
+
+          L1_.ST[L2_SEARCH(),0]<TYPEF>;
+	  IF .COED NEQ 0 THEN IF .L1 NEQ DELMT THEN REALFS_.L2;
+          IF .L1 EQL DELMT
+            THEN
+              BEGIN  !   DELIMITER
+                FUTDEL_.ST[.L2,1]; HOLD_0;
+		RETURN
+              END;
+	  IF .COED EQL 0 THEN IF .L1 NEQ MACROT
+            THEN
+              BEGIN  !   ERROR, 2ND NAME NOT A DELIMITER
+                FUTDEL_ERRLEX;
+		RETURN
+              END;
+          IF .L1 EQL MACROT
+            THEN
+              BEGIN  !  MACRO IDENTIFIER
+                EXTERNAL EXPMCR;
+		IF .COED NEQ 0 THEN REALFS_0; 
+                EXPMCR(.L2);
+                HOLD_0;
+                IF .COED GEQ 0 THEN WRUND(IF .COED EQL 1 THEN 2 ELSE .COED);
+		RETURN
+              END;
+          IF .COED NEQ 0 THEN
+	          (IF IDFIXFS() THEN (IF .COED GEQ 0 THEN 
+                               (HOLD_0; WRUND(0);
+	!IF .FUTSYM IS A SPECIAL FUNCTION (SPLFT) OR A SPECIAL
+	!UNARY OPERATOR (SPUNOPT) OR A MACHOP NOT IN A DECLARATION
+	!THEN .FUTDEL MUST BE AN OPEN PAREN.  OTHERWISE WE HAVE A
+	!FATAL SYNTAX ERROR IN WHICH CASE WE OUTPUT THE ERROR MESSAGE,
+	!ZERO FUTSYM, AND RETURN.
+
+	IF .L1 EQL MACHT AND (NOT .INDECS) OR
+	   .L1 EQL SPLFT OR
+	   .L1 EQL SPUNOPT
+	  THEN IF .FUTDEL <LEFTHALF> NEQ HPAROPEN
+		THEN (ERROR(.NCBUFF,ERRUNOP); FUTSYM_REALFS_0);
+	);RETURN));
+          ERROR(.NSYM,#776); IF .COED GEQ 0 THEN ( HOLD_0; WRUND(.COED));
+        END;  
+
+
+  FORWARD WRUND;
+  ROUTINE WRUND1(COED)=
+    BEGIN LOCAL L1,L2;
+      !
+      !       RUND (READ-UNTIL-NEXT-DELIMITER) IS CALLED TO
+      !       FILL "FUTSYM" AND "FUTDEL".  THE ROUTINE CALLS
+      !       ITSELF RECURSIVELY IN THE EVENT THAT THE FIRST
+      !       ATOM SCANNED IS NOT A DELIMITER.
+      !
+%     THE PARAMETER 'CODE' CAUSES THE FOLLOWING:
+        =0  THEN FIND A DELIMITER FOR FUTDEL,
+        =1  THEN MOVE WINDOW AND FIND A DELIMITER FOR FUTDEL AND
+            POSSIBLY ALSO A SYMBOL FOR FUTSYM,
+        =2  THEN LIKE 1 EXCEPT DON'T MOVE WINDOW.
+%
+
+    IF .COED THEN
+      BEGIN
+        IF .STRHED NEQ 0 THEN ERROR (.NSYM,ERSMLONG);
+        STRHED_.FSTRHED; FSTRHED_0;
+        DEL_.FUTDEL; SYM_.FUTSYM; FUTSYM_0; NSYM_.NFUTSYM; NDEL_.NFUTDEL;
+        NFUTSYM_.NCBUFF; REALS_.REALFS; REALFS_0;
+      END;
+    NFUTDEL_.NCBUFF;
+	!V2G- BECAUSE OF THE ROUGH HANDLING OF ACCUM ELSEWHERE IN
+	!V2G- THE COMPILER, IT SEEMS ADVANTAGEOUS TO SAVE ITS CONTENTS
+	!V2G- HERE SO THAT WE CAN RECOVER THEM SAFELY IN THE CASE OF
+	!V2G- LEXICAL SCAN AFTER AN IMPLICIT MAP.  THIS FIXES A BUG
+	!V2G- CAUSED BY THE CLOBBERING OF ACCUM DURING PLIT BUILDING.
+	!V2G- THE CODE (IN TEST T026) 
+	!V2G-		BIND A=PLIT(0,1,2),
+	!V2G-		     VECTOR B=1;
+	!V2G- RESULTED IN GENERATION OF A SPURIOUS ALREADY DEFINED
+	!V2G- SYMBOL ERROR.
+	  IF .HOLD EQL 0 THEN (HOLD_SKAN(#12); SACCUM_.ACCUM; SACCUM[1]_.ACCUM[1])	!V2G-
+			 ELSE (ACCUM_.SACCUM; ACCUM[1]_.SACCUM[1]);	!V2G-
+
+    CASE .HOLD OF
+      SET
+
+        0;      !   ERROR, SKAN SHOULD NOT RETURN THIS VALUE
+
+	IDFIXER(.COED);	!CASE ONE, IDINTIFIER FOUND BY SKAN
+
+        BEGIN    !  CASE TWO, LITERAL FOUND BY SKAN
+          IF .COED GEQ 1
+            THEN
+              BEGIN  !  FIRST CALL, LITERALS ARE ACCEPTIBLE
+                FUTSYM_LITLEXEME(.VAL);
+                HOLD_0; WRUND(0);
+              END
+            ELSE
+              BEGIN  !  2ND CALL, LITERALS ARE IN ERROR
+                FUTDEL_ERRLEX;
+              END;
+        END;
+
+
+        BEGIN   ! CASE 3, PREFIXED (ASCII,ASCIZ,SIXBIT,RADIX50) STRING
+          REALFS_0; FUTSYM_LITLEXEME(.VAL);
+          HOLD_0; WRUND(.COED);
+        END;
+
+        BEGIN   !   CASE FOUR, SPECIAL CHARACTER
+          HOLD_0;
+          IF (FUTDEL_.DT[.VAL]) EQL 0 THEN (ERROR(.NSYM,#776); WRUND(.COED))
+        END;
+
+      TES;
+   %NOW IS OKAY TO FORGET ANY INUSEBITS ON MACROS THAT
+    HAVE TERMINATED SINCE WE ENTERED WRUND.%
+   UNTIL (COED_.FORGET<LEFTF>) EQL 0 DO
+     ((.COED)<INUSEBIT>_0;
+      FORGET<LEFTF>_.(.COED)<LEFTF>;
+      (.COED)<LEFTF>_0
+     );
+    END;
+
+%SMLA-B%
+  ROUTINE WRUND2 =
+        BEGIN
+!          EXTERNAL CSTIL;     ! LAST LEXEME STREAM POINTER
+
+!          EXTERNAL CSTI;     ! CURRENT LEXEME STREAM (INPUT) POINTER
+!          EXTERNAL INDECS;    ! WE ARE PROCESSING DECLARATIONS--USE DOTTED FORMAL
+          LOCAL SIMPLE,       ! NO STRUCTURE FORMAL IN FUTSYM
+                USERDOT,      ! USER HAS DOTTED THE SYMBOL IN FUTSYM
+                CANADDRESS,  ! ABLE TO ADDRESS THE FORMAL AT THE CURRENT BLOCKLEVEL
+                ISSTRNAME,    ! THE FORMAL IS THE STRUCTURE NAME (AND HENCE NOT
+                              !   AVAILABLE AS AN INCARNATION ACTUAL EVEN UNDOTTED)
+                PREVEMPTY,    ! PREVIOUS SYMBOL (SYM) WAS EMPTY
+                OPENBFOLLOWS, ! OPEN BRACKET FOLLOWS THIS SYMBOL
+                MUSTDOT;      ! WE MUST TURN DOTTED BIT OF LEXEME BEFORE COPY AND
+                              !  POSSIBLE IN GENERATION.
+
+          LOCAL NEWFUTSYM,    ! FUTURE SYMBOL FOR COPY
+                OFFST,       ! PARAMETER OFFSET FOR LEXEME
+                ROFFSET,      ! PARAMETER OFFSET FOR ACTUALS TABLE
+                NEWIV,        ! VALUE OF WORD 0 OF LXT ENTRY
+                DFORMAL,       ! DOTTEF FORMAL STE INDEX
+                IFORMAL,      ! INCARNATION FORMAL STE INDEX
+                TYPECODE;     ! CODE FOR FORMALS IN LEXEME TABLE
+
+          % ASSUME SIMPLE %
+          SIMPLE _ 1;
+
+          % SET BOOLEANS IF WE HAVE A SYMBOL AND THAT SYMBOL IS A STRUCTURE FORMAL %
+          IF .FUTSYM<LSF> THEN
+            (IF .ST[DFORMAL_.FUTSYM<STEF>,0]<TYPEF> EQL STRFPT THEN
+              (USERDOT_.DEL<LEFTHALF> EQL HDOT;
+               CANADDRESS_CHKULA(.DFORMAL);
+               ISSTRNAME_.ST[IFORMAL_.ST[.DFORMAL,0]<LINKF>,0]<TYPEF>
+                           EQL STRT; %DIRTY CODE--DEPENDS ON ST STRUCTURE!!!%
+               PREVEMPTY_.LXT[.CSTI,2] EQL 0; %FIX THIS%
+               OPENBFOLLOWS_.FUTDEL<LEFTHALF> EQL HSQOPEN;
+               SIMPLE_0;
+
+               % DETERMINE WHETHER CURRENT LEXEME IN FUTSYM NEEDS MODIFICATION,
+                   EVEN IF WE ARE NOT COPYING THE LEXEME STREAM ANY MORE; WE MODIFY
+                   IT BY TURNING ON THE DOT BIT OF THE INCARNATION FORMAL. %
+
+                 IF MUSTDOT_ 1 - (.USERDOT OR
+                                  .ISSTRNAME OR
+                                  .OPENBFOLLOWS OR
+                                  .INDECS)
+                   THEN (FUTSYM<DOTF>_1; FUTSYM<LSF>_1;
+                         FUTSYM<STEF>_.IFORMAL);));
+          
+          % IF NOT COPYING LEXEMES FOR THE STRUCTURE, LEAVE. %
+
+          IF NOT .STRDEF THEN RETURN;
+
+          NEWIV_-1; %WORD 0 OF LXT ENTRY IS NORMALLY -1 %
+          % DETERMINE WHERE TO COPY THE LEXEMES AND THE VALUE OF NEWFUTSYM %
+
+          IF .SIMPLE
+            THEN (CSTIL_.CSTI;
+                  LXT[.CSTI,1]<NEXTF>_CSTI_GETSPACE(2);
+                  NEWFUTSYM_IF.REALFS NEQ 0 THEN .REALFS+LSM ELSE .FUTSYM)            ELSE
+              BEGIN
+
+                % DETERMINE THE 2 BIT CODE INDICATING THE TYPE OF LEXEME FOR 
+                    THE GENERATION:
+
+                       00--NO MODIFICATION
+                       01--TURN ON DOT BIT WHEN GENERATING (UNADDRESSABLE FORMALS)
+                       10--USE ACTUAL AS PARAMETER
+                       11--USE INCARNATION ACTUAL AS PARAMETER  %
+
+                  NEWFUTSYM_0;
+                  NEWFUTSYM<0,34>_
+                    CASE
+                      (NEWFUTSYM<34,2>_TYPECODE_
+                         (IF .CANADDRESS
+                            THEN (IF (.USERDOT OR .ISSTRNAME)
+                                    THEN 2 ELSE 3)
+                            ELSE .MUSTDOT))
+                    OF
+                      SET
+
+                      (.DFORMAL+LSM);       !NORMAL FORMAL
+                      (.IFORMAL+LSM);       ! DOTTED INCARNATION FORMAL
+                      (OFFST_(-(#777777000000 OR .ST[.DFORMAL,1]<ADDRESSF>)); ! NEG OF STACK OFFSET FOR NORMAL FORMAL
+                       IF .STRDEF<TACCESS> THEN
+                          IF (ROFFSET_.ST[.STRDEF<LEFTHALF>,.STRDEF<NPF>+2-.OFFST]) EQL 0
+                            THEN NEWIV_0
+                            ELSE LXT[.ROFFSET,0]_.LXT[.ROFFSET,0]+1;
+                         .OFFST);
+                      -(#777777000000 OR .ST[.IFORMAL,1]<ADDRESSF>)  ! NEG OF STACK OFFSET FOR INC FORMAL
+
+                      TES;
+
+                  % DETERMINE WHETHER OR NOT TO GENERATE A NEW LEXEME TABLE ENTRY %
+ 
+                  IF NOT .PREVEMPTY AND .USERDOT THEN TYPECODE_0;
+                  IF .TYPECODE NEQ 2
+                    THEN (CSTIL_.CSTI;
+                          LXT[.CSTI,1]<NEXTF>_CSTI_GETSPACE(2));
+             END;
+          IF (LXT[.CSTI,0]_.NEWIV) GEQ 0 THEN
+            ST[.STRDEF<LEFTHALF>,.STRDEF<NPF>+2-.OFFST]_.CSTI;
+
+          LXT[.CSTI,1]_0;
+          LXT[.CSTI,2]_.NEWFUTSYM;
+          LXT[.CSTI,3]_.FUTDEL;
+      END;
+
+
+
+  ROUTINE WRUND3 =
+      BEGIN
+
+      %%
+      %  CODE FOR LEXEME EXPANSION.  INSTEAD OF COPYING FROM THE INPUT STREAM, WE
+       GRAB THE LEXEMES FROM THE CURRENT LEXEME STREAM, INDEXED BY CURSTE.  THE ONLY
+       "ODD" OCCURRENCE WOULD BE INDICATED BY THE NEW FUTSYM<34,2> BEING NONZERO:
+       IN PARTICULAR THE CODE BELOW HAVE THE INDICATED MEANING:
+
+          1--MUST TURN ON THE "DOTTED" BIT BEFORE PASSING IT ON;
+          2--THIS IS A STRUCTURE NORMAL FORMAL PARAMETER--SUBSTITUTE NORMAL ACTUAL LEXEME;
+          3--THIS IS AN INCARNATION FORMAL PARAMETER--SUBSTITUTE INCARNATION ACTUAL VALUE.
+      %
+      %%
+
+        SYM_.FUTSYM; DEL_.FUTDEL;
+        NSYM_.NFUTSYM; NDEL_.NFUTDEL;
+	REALS_.REALFS; REALFS_0;
+
+        IF .CURSTE EQL 0
+          THEN  %END OF LEXEME STREAM--RESTORE EXPANSION VARIABLES%
+
+            BEGIN
+              REGISTER L;;
+              L_.SSTREX;
+              SSTREX_.ST[.L,0];
+              STREXP_.ST[.L,1];
+              CURSTE_.ST[.L,2];
+              CURSTAP_.ST[.L,3];
+              CURSTIP_.ST[.L,4];
+              CURSTNP_.ST[.L,5];
+
+              IF .ST[.L,8]<LSF>
+               THEN (REALFS_.ST[.L,8]<STEF>; IDFIXFS())
+               ELSE (REALFS_0; FUTSYM_.ST[.L,8]);
+              FUTDEL_.ST[.L,9];
+              NFUTSYM_.ST[.L,10];
+              NFUTDEL_.ST[.L,11];
+    
+              RELEASESPACE(.L,6);
+              % WE JUST DID THE RUND ! %
+            END
+          ELSE
+            BEGIN
+            LOCAL SFUTSYM;
+
+            MAP STVEC CURSTAP;
+
+            % DECREASE OCCF. AND USE ON GT ENTRIES WHOSE USE IS UP
+              BECAUSE THEY ARE DOTTED STRUCTURE FORMALS, BUT FOR
+              WHICH NO CODE IS BEING GENERATED BECAUSE OF A CONSTANT
+              IF OR CASE EXPRESSION.  IT IS IMPORTANT THAT CODETOG
+              BE ACCURATE FOR THE SYMBOL IN "FUTSYM" (MOVING INTO SYM)!!!!!%
+
+            IF (.MUSTDU NEQ 0) AND NOT .CODETOG
+              THEN CURSTAP[.MUSTDU]_FOCGPH(.CURSTAP[.MUSTDU],-1);
+            MUSTDU_0;
+            % GENERATE A LEXEME PAIR INTO FUTSYM AND FUTDEL %
+
+            
+            REALFS_0;
+            FUTSYM_.LXT[.CURSTE,2];
+            FUTDEL_.LXT[.CURSTE,3];
+
+            CASE .FUTSYM<34,2> OF
+              SET
+                IF .FUTSYM<LSF> THEN (REALFS_.FUTSYM<STEF>; IDFIXFS());
+                FUTSYM_.FUTSYM<0,34>+DOTM;
+
+                %%
+                % FOR NEXT TWO, NOTE E.G.: STRUCTURE A[X,Y,Z,0]=...
+
+                  ACTUALS:  OFFSET  REPRESENTS  FUTSYM<ADDRESSF>=-STACK OFFSET
+
+                              0        .A         5
+                              1        .X         4
+                              2        .Y         3
+                              3        .Z         2
+
+                  INCARNATION ACTUALS:
+
+                              0       ----       ---
+                              1         X         8
+                              2         Y         7
+                              3         Z         6  
+                %
+                %%
+    
+                (FUTSYM_.ST[.CURSTAP,.CURSTNP+2-(SFUTSYM_.FUTSYM<ADDRESSF>)];
+                IF NOT .STREXP<1,1> THEN
+                  (MUSTDU_.CURSTNP+2-.SFUTSYM;
+                 IF .LXT[.CURSTE,0] NEQ -1
+                    THEN FUTSYM_CURSTAP[.MUSTDU]_
+                     FOCGPH(.FUTSYM,.LXT[.CURSTE,0])););
+                FUTSYM_.ST[.CURSTIP,(.CURSTNP^1)+3-.FUTSYM<ADDRESSF>];
+              TES;
+            CURSTE_.LXT[.CURSTE,1]<NEXTF>;
+            END;
+      END;   % END OF IF STATEMENT THAT IS WRUND3 %
+
+
+
+
+GLOBAL ROUTINE WRUND(COED)=
+  IF NOT .STREXP
+    THEN % NOT EXPANDING A STRUCTURE--BUT WE MAY BE DECLARING ONE %
+      BEGIN
+      WRUND1(.COED); %O L D   W R U N D  C A L L %
+      IF .COED AND .STRDEF NEQ 0 THEN WRUND2();
+      END
+    ELSE
+      WRUND3();
+
+
+
+ROUTINE HRUND =
+	BEGIN  
+	!
+	! THIS ROUTINE IS THE SYNTAX ANALYSERS INTERFACE TO THE
+	! LEXICAL ANALYZER .. IN PARTICULAR, 'HRUND' CALLS 'WRUND'
+	! AND THEN MAKES UNIQUE LEXEMES FOR SOME OF THE AMBIGUOUS
+	! ONES. FOR EXAMPLE, 'DO' MAY BE USED IN THE CONTEXT
+	!        	' WHILE  E  DO  E '
+	! OR
+	!		' DO  E  WHILE  E '
+	!SIMILARLY AN OPEN-PAREN, '(', CAN BE USED AS A COMPOUND-
+	! EXPRESSION OPENER -- OR AS A FUNCTION CALLER. 'HRUND'
+	! SORTS ALL THIS TYPE OF STUFF OUT FROM MINIMAL CONTEXT.
+	!
+	WRUND(1);
+        IF .FUTDEL<LEFTHALF> EQL HSESEMCOL
+          THEN (SESTOG_.SESTOG OR 8; FUTDEL<LEFTHALF>_HSEMCOL; RETURN);
+	IF .FUTSYM EQL HEMPTY AND
+	   .DEL<LEFTHALF> NEQ HEND AND
+	   .DEL<LEFTHALF> NEQ HPTCLO AND
+	   .DEL<LEFTHALF> NEQ HROCLO AND
+           .DEL<LEFTHALF> NEQ HTES AND
+           .DEL<LEFTHALF> NEQ HTESN
+	THEN BEGIN
+	 IF .FUTDEL<LEFTHALF> EQL HPAROPEN
+                THEN (FUTDEL_NSCOMPOUND<0,0>; FUTDEL<LEFTHALF>_HROPEN)
+		ELSE IF .FUTDEL<LEFTHALF> EQL HMIN
+
+
+
+                        AND .DEL<LEFTHALF> NEQ HSQCLO
+		THEN (FUTDEL_NGNEG<0,0>;FUTDEL<LEFTHALF>_HNEG)
+		ELSE IF .FUTDEL<LEFTHALF> EQL HPLUS
+
+
+
+                        AND .DEL<LEFTHALF> NEQ HSQCLO
+		THEN BEGIN LOCAL A,B;A_.SYM;B_.DEL;
+			WRUND(1);SYM_.A;DEL_.B
+		     END
+	END
+%V2H%	ELSE IF .FUTDEL<LEFTHALF> EQL HCOLON
+%V2H%	  THEN 
+%V2H%	    BEGIN
+%V2H%	      IF .FUTSYM<LSF> THEN
+%V2H%	      IF .ST[.FUTSYM<STEF>,0]<TYPEF> EQL LABELT	!WE HAVE A LABEL.
+%V2H%	        THEN FUTDEL_HLABCOLON^18+SLABEL<0,0>;	!SO USE LABEL TYPE LEXEME.
+%V2H%	    END
+%V2H%	  ELSE
+%V2H%		     IF .FUTDEL<LEFTHALF> EQL HWHILE OR
+		.FUTDEL<LEFTHALF> EQL HUNTIL OR
+		.FUTDEL<LEFTHALF> EQL HDOOPEN
+	THEN (FUTDEL<HPRIORITY>_32; FUTDEL<24,1>_0)
+	END;
+
+
+
+
+!END OF LOLEXA.BLI
+ 
+
+
+
+
+%%
+%              ----------LOMACR.BLI----------
+               17 DEC 71-A
+%
+%%
+
+
+
+%   MCSAV---
+
+  COLLECT A STRING OF CHARACTERS INTO CHUNCKS IN CORE.
+  A BLOCK OF 'NOBLKS' CELLS IS ACQUIRED. IT HOLDS ALL CHARS IN
+  NORMAL FORMAT. THE LAST TWO CHAR POSITIONS + EXTRA BIT
+  GIVE THE INDEX OF THE NEXT CELL OF CHARS.
+
+%
+
+ROUTINE MCSAV (A) =
+
+BEGIN
+   LOCAL T;
+   REGISTER R;
+   MACHOP IDPB=#136;
+   IF .POSITC GEQ TOOBIG THEN
+     (POSITC_1;
+      T_(@BODYMC)<NEXTF> _ GETSPACE(NOBLKS);
+      BODYMC _ (ST[.T,0]-1)<1,7>;
+     );
+   R_.A;
+   IDPB(R,BODYMC);
+   POSITC_.POSITC+1;
+
+END;
+
+
+!   ***** SECTION TWO *****
+!         MACRO EXPANSION
+!
+
+GLOBAL ROUTINE EXPMCR (STI) =
+
+%WINDOW IN:  ( XXX , XXX , XXX , <NAME> )
+
+   SETUP AN EXPANSION OF THE MACRO GIVEN AS PARAMETER.
+   FIRST CHECK IF THIS MACRO IS ALREADY IN USE AS SHOWN
+   BY <INUSEBIT> IN STENTRY. IF SO THEN TRACE BACK THE
+   MACRO EXPANSION CHAIN AS A DIAGNOSTIC AND DON'T EXPAND
+   THE MACRO. THE IDENTIFIER ITSELF IS DELETED.
+
+   OTHERWISE CALLECT ACTUAL PARAMETERS IF REQUIRED AND SAVE
+   AS STRINGS JUST LIKE THE BODY WITH RESPECTIVE STIS IN THE
+   FORMAL BLOCK OF THE MACRO. NULL PARAMETERS, AND TOO FEW
+   PARAMETERS ARE OKAY. EXTRA PARAMETERS ARE SCANNER FOR
+   BALANCE JUST LIKE THE OTHERS, THEN IGNORED.
+%
+
+BEGIN
+   LOCAL S,T,ST1,NFORMALS,I;
+
+   ST1_ST[.STI,1]<0,0>;
+   IF .(.ST1)<INUSEBIT> THEN
+     (WARNEM(.NFUTDEL,#175);
+      S_T_MCBUFF<0,0>;   !GIVE TRACEBACK OF MACRO NESTING
+      OUTSTR("MACRO",5);OCHAR(" ");
+      OUTSTN(.STI);
+      UNTIL .S EQL 0 DO
+        (OUTSTR(" CALL",5);OUTSTR("ED FR",5);OUTSTR("OM ",3);
+         IF @.T EQL 0 THEN
+           (OUTSTR("SOURC",5);OCHAR("E"))
+         ELSE IF .(.T+1)<ACTUALF> EQL 0 THEN
+            OUTSTN(.(.T+1)<NAMEF>)
+         ELSE
+           (OUTSTR("PARAM",5);OUTSTR(" #",2);
+            OUTMOC(.(.T+1)<ACTUALF>)
+           )
+         ;
+         T_ST[S_.(.T+1)<NEXTF>,0]<0,0>
+        );
+      OCHAR(".");
+      NEWLINE();
+      RETURN
+     )
+   ELSE (.ST1)<INUSEBIT>_1;
+   FBLKMC_ST[.(.ST1)<NEXTF>,0]<0,0>;   !THIS IS AN ADDRESS - NOT AN INDEX!
+   NFORMALS_.(.FBLKMC)<LEFTF>;   !NUMBER OF FORMAL PARAMETERS
+
+   IF .NFORMALS NEQ 0 THEN
+     (INCR J FROM .FBLKMC<RIGHTF>+1 TO .FBLKMC<RIGHTF>+.NFORMALS DO @J_0;
+      SKAN(#2);
+      IF .CHAR EQL "(" THEN SCANNER() ELSE WARNEM(.NFUTSYM,#177);
+      I_1;
+      DO(
+         T_GETACTUAL(S_.I LEQ .NFORMALS);
+         IF .S THEN (.FBLKMC+.I)<WORDF>_.T;
+         I_.I+1
+        )
+      UNTIL (T_.CHAR EQL ")";SCANNER();.T);
+     );
+   PUSHEXP( .FBLKMC,TOOBIG,.STI,0,.CHAR,.FBLKMC) ;
+   SCANNER();
+
+END;
+
+%   GETACTUAL---
+
+   SETUP TO COLLECT A STRING.
+   COUNT LEFT AND RIGHT PARENS TO ENFORCE BALANCE.
+
+%
+
+ROUTINE GETACTUAL(KEEP) =
+
+  % COLLECT UP TO THE NEXT COMMA OR RIGHT DELIMITER IN
+    THE CONTEXT OF MATCHED LEFT AND RIGHT BRACKETS: "()",
+    "[]", OR "<>". %
+
+  BEGIN
+    LOCAL STKP,STACK[30],STACKP[30];
+    MACRO BALANCED=(.STKP EQL 0)$,
+          PUSHSTK(CODE,POS)=(STKP_.STKP+1; STACKP[.STKP]_POS;
+                             STACK[.STKP]_CODE)$,
+          POPSTK=(STKP_.STKP-1)$,
+          TOPCODE=.STACK[.STKP]$,
+          TOPPOS=.STACKP[.STKP]$;
+    LOCAL WHICH, TRUE;
+
+    IF .KEEP THEN
+      (BODYMC_STEMC<0,0>; ! USED ONLY AS A TEMPORARY
+       POSITC_TOOBIG);
+
+    STKP_0;
+
+    TRUE_1;
+    WHILE .TRUE DO
+      (CASE (WHICH_SELECT .CHAR OF
+                         NSET
+                           "," : 0;
+                           "(" : 1^18+0;
+                           "[" : 1^18+1;
+                           "<" : 1^18+2;
+                           ")" : 2^18+0;
+                           "]" : 2^18+1;
+                           ">" : 2^18+2
+                         TESN)^(-18)
+        OF
+          SET
+
+            !  COMMA FOUND--IF BALANCED, EXIT WITH STE INDEX OF STRING
+            IF BALANCED THEN EXITLOOP;
+
+            !  LEFT DELIMITER FOUND--STACK IT
+            PUSHSTK(.WHICH<RIGHTHALF>,.NCBUFF);
+
+            !  RIGHT DELIMITER FOUND--IF BALANCED EXIT, OTHERWISE CHECK
+            !  THE MATCHING LEFT AT TOP OF STACK.
+            (IF BALANCED THEN EXITLOOP;
+             IF .WHICH<RIGHTHALF> EQL TOPCODE
+               THEN POPSTK
+               ELSE (ERROR(TOPPOS,ERSYUNMTCH); ERROR(.NCBUFF,ERSYUNMTCH); EXITLOOP))
+          TES;
+
+       IF .KEEP THEN MCSAV(.CHAR);
+       SCANNER());  % END OF DO %
+
+    IF .KEEP THEN MCSAV(TERMINATOR);
+    .STEMC
+  END;
+
+
+%   PUSHEXP---
+   PUSH A NEW MACRO ON THE EXPANSION STACK.
+   PARAMETERS ARE:
+      PTR - STINDEX FOR NEW CHAR STRING FOR EXPANSION
+            (MAY BE BODY OR ACTUAL)
+      COUNT - INITIAL COUNT IN ABOVE STRING (NOW ALWAYS "TOOBIG")
+      NAME  - STINDEX OF THE NAME OF THIS MACRO
+      NPAR  - ACTUAL PARAMETER NUMBER (0 IMPLIES THE BODY ITSELF)
+      CCHAR - NEXT CHAR VALUE FROM CURRENT EXPANSION TO BE SAVED
+      FBLK  - ADDRESS OF THE FORMAL BLOCK OF THIS MACRO EXPANSION
+
+%
+
+ROUTINE PUSHEXP(PTR,COUNT,NAME,NPAR,CCHAR,FBLK) =
+
+BEGIN
+   REGISTER T,S;
+
+   IF .EMFLG THEN
+     (FORCELINE(0);
+      NEWLINE();
+      IF .NPAR EQL 0 THEN
+        (OUTSTR("CALL ",5);OUTSTN(.NAME);OCHAR(":"))
+      ELSE
+        (OUTSTR("ACTUA",5);OUTSTR("L #",3);OUTMOC(.NPAR);OCHAR(":")
+        );
+     );
+   T_ST[S_GETSPACE(2),0]<0,0>;
+   (.T)<0,36>_.MCBUFF;
+   (@T+1)<WORDF>_.(MCBUFF+1);
+   (@T+2)<POSITF>_.POSIT;
+   (@T+2)<CHARF>_.CCHAR;
+   (@T+3)<WORDF>_.(MCBUFF+2);
+
+   MCBUFF_.PTR;
+   (MCBUFF+1)<NEXTF>_@S;
+   (MCBUFF+1)<NAMEF>_.NAME;
+   (MCBUFF+1)<ACTUALF>_.NPAR;
+   (MCBUFF+2)<WORDF>_.FBLK;
+   POSIT_.COUNT;
+
+   IF .PTR EQL 0 THEN POPEXP();   !TEST FOR NULL ACTUAL PARAMETER
+
+END;
+
+%   POPEXP---
+
+%
+
+ROUTINE POPEXP =
+
+BEGIN
+   LOCAL T,S,U;
+
+   T_ST[S_.(MCBUFF+1)<NEXTF>,0];
+   IF .(MCBUFF+1)<ACTUALF> EQL 0 THEN
+     (%WE HAVE FINISHED A MACRO EXPANSION - TIME
+       TO RELEASE THE ACTUAL PARAMETER STRINGS
+      %
+      IF (U_.(.(MCBUFF+2))<LEFTF>) GEQ 1 THEN
+         INCR J FROM .(MCBUFF+2)<0,36>+1 TO .(MCBUFF+2)<0,36>+.U DO
+           PRGSTR(@.J);
+      %RECORD THAT THIS STENTRY IS TO BE UNMARKED INUSE%
+      U_ST[.(MCBUFF+1)<NAMEF>,1]<0,0>;
+      IF .FORGET<LEFTF> NEQ 0 THEN (.U)<LEFTF>_.FORGET<LEFTF>;
+      FORGET<LEFTF>_.U;
+
+     );
+   MCBUFF_@@T;
+   (MCBUFF+1)<WORDF>_@(@T+1);
+   POSIT_.(@T+2)<POSITF>;
+   CHAR_.(@T+2)<CHARF>;
+   (MCBUFF+2)<WORDF>_@(.T+3);
+
+   RELEASESPACE(.S,2);
+
+   IF .EMFLG THEN
+     (NEWLINE();
+      OUTSTR("RETUR",5);OUTSTR("N TO ",5);
+      IF (T_.(MCBUFF+1)<NAMEF>) EQL 0
+      THEN (OUTSTR("SOURC",5);OUTSTR("E.",2);NEWLINE())
+      ELSE (OUTSTN(.T);OCHAR(":"));
+     );
+
+
+END;
+
+%     PRGSTR---
+
+ RELEASE A BODY TYPE STRING FROM CORE.
+ USED WITH BOTH THE BODY AND THE ACTUAL PARAMETERS
+ OF A MACRO CALL.
+%
+GLOBAL ROUTINE PRGSTR(T) =
+
+BEGIN
+   LOCAL S;
+   UNTIL .T EQL 0 DO
+     (S_.ST[.T,2*NOBLKS-1]<NEXTF>;
+      RELEASESPACE(.T,NOBLKS);
+      T_.S
+     );
+
+END;
+
+%     DUMPMACRO---
+
+ ROUTINE TO DELETE THE DEFINITION OF A MACRO.
+ CALLED ONLY BY BLOCKPURGE.
+
+   NOTE: IF MACRO IS CURRENTLY EXPANDING THIS
+   DEFINITION THEN IT IS NOT PURGED BUT SIMPLY ALLOWED
+   TO BE DISCONNECTED FROM THE SYMBOL TABLE. IT TERMINATES
+   EXPANSION NORMALLY AND THEN IS EFFECTIVELY GONE.
+   THE SPACE IS NEVER RECOVERD.
+
+%
+
+GLOBAL ROUTINE DUMPMACRO (STI) =
+
+BEGIN
+   LOCAL FORMAL,NAME,T;
+   %CHECK THAT NAME NOT ON MACRO EXPANSION LIST%
+   T_ST[.STI,1];
+   IF .(.T)<INUSEBIT> THEN
+     (WARNEM(.NDEL,#176);
+      OUTSTR("MACRO",5);OUTSTR(": ",2);
+      OUTSTN(.STI);
+      NEWLINE();
+      RETURN
+     );
+   %GOT HERE THEN DELETE DEFINITION%
+   FORMAL_.ST[.STI,1]<NEXTF>;
+   PRGSTR(.(T_ST[.FORMAL,0])<NEXTF>); !DELETE THE BODY
+   RELEASESPACE(.STI,2);   !NOW THE STENTRY ITSELF
+   RELEASESPACE(.FORMAL,.(.T)<LEFTF>/2+1); !AND THE FORMAL BLOCK
+END;
+
+
+!**********************SECTION 3****************************
+
+%     SCANNER---
+
+%
+
+FORWARD SCAN2;
+
+GLOBAL ROUTINE SCANNER =
+
+BEGIN
+   REGISTER R;
+   MACHOP ILDB=#134;
+
+   IF .MCBUFF NEQ 0 THEN %READING FROM MACRO TEXT%
+     (SCAN2();
+      IF .EMFLG AND (.MCBUFF NEQ 0) THEN
+         IF .CHAR EQL EOL THEN NEWLINE() ELSE OCHAR(.CHAR)
+     )
+   ELSE  %READING FROM SOURCE%
+     (IF .CHAR EQL EOL THEN READALINE();
+      CHAR _ ILDB(R,PBUFF);
+      NCBUFF _ .NCBUFF + (IF .CHAR EQL #11 %TAB% THEN 8 ELSE 1);
+     );
+   TYPE _ .TYPETAB[.CHAR]
+
+END;
+
+ROUTINE SCAN2 =
+
+%DO THE ACTUAL PROCESSING OF MACRO TEXT%
+
+BEGIN
+   REGISTER R;
+   MACHOP ILDB=#134;
+   IF .POSIT GEQ TOOBIG THEN
+     (POSIT _ 1;
+      MCBUFF _ (ST[.(.MCBUFF)<NEXTF>,0]-1)<1,7>
+     );
+   POSIT _ .POSIT + 1;
+   CHAR _ ILDB(R,MCBUFF);
+   WHILE .CHAR EQL TERMINATOR DO POPEXP();
+   IF .CHAR EQL #176 THEN %INVOKE ACTUAL ACTUAL PARAMETER%
+     (PUSHEXP(.(MCBUFF+2)+(SCAN2();.CHAR),
+              TOOBIG,
+              .(MCBUFF+1)<NAMEF>,
+              .CHAR,
+              0,
+              .(MCBUFF+2)
+             );
+      SCAN2()
+     );
+   IF .CHAR EQL 0 THEN SCAN2();
+
+END;
+
+%END OF THE MODULE%
+
+    
+
+
+
+
+%%
+%              ---------LOXREF.BLI---------
+               30 DEC 71
+%
+%%
+
+
+
+
+%
+
+
+
+				BLISS
+			CROSS-REFERENCE MODULE
+			----------------------
+
+					C. WEINSTOCK
+					DEC.  1970
+
+
+
+%
+
+
+
+
+! XREF CHANGE OF 11:55  20 NOV 1970
+
+
+
+MACRO TRUE=1$;
+! *** ***  XREF ENTRY  *** ***
+
+
+!	+-----------------------------------------+
+!	!					  !
+!	!		   XID1			  !
+!	!					  !
+!	+-----------------------------------------+
+!	!					  !
+!	!		   XID2			  !
+!	!					  !
+!	+-----------------------------------------+
+!	!		     !			  !
+!	!	XCBL	     !	     NXREF	  !
+!	!		     !			  !
+!	+-----------------------------------------+
+!	!		     !			  !
+!	!	XFLAG	     !	     DBLK	  !
+!	!		     !			  !
+!	+-----------------------------------------+
+
+
+
+!	+-----------------------------------------+
+!	!		     !			  !
+!	!	DTPTR	     !	     DBPTR	  !
+!	!		     !			  !
+!	+-----------------------------------------+
+!	!		     !			  !
+!	!	DLINE	     !	     DBKWD	  !
+!	!		     !			  !
+!	+-----------------------------------------+
+!	!		     !			  !
+!	!	DBLEV	     !	     DFWRD	  !
+!	!		     !			  !
+!	+-----------------------------------------+
+!	!		     !			  !
+!	!	DFLAG	     !	     DSUBS	  !
+!	!		     !			  !
+!	+-----------------------------------------+
+
+
+
+
+%
+BLISS CROSS-REFERENCE INTERFACES WITH THE BLISS 
+COMPILER AT FIVE POINTS.
+
+1.	IN THE INITIALIZATION PHASE WHERE SWITCHES ARE SET
+
+2.	IN THE SYMBOL TABLE INSERT ROUTINE
+
+3.	IN THE SYMBOL TABLE LOOKUP ROUTINE
+
+4.	IN THE END OF BLOCK ROUTINE
+5.	BEFORE BLISS EXITS - TO PRINT OUT CROSS-REFERENCE
+
+THE ROUTINE THAT INTERFACES AT THE SYMBOL TABLE
+
+INSERT ROUTINE IS CALLED XREFINS. IT TAKES ONE PARAMETER
+THE ADDINFO PARAMETER TO STINSERT. IT WORKS AS FOLLOWS:
+
+1.	USE THE HASH FUNCTION TO FIND THE PROPER INDEX
+	INTO XHT (XREF HASH TABLE).
+
+2.	USING ROUTINE XFIND, SEE IF THE XREF TABLE ALREADY
+	HAS AN XREF ENTRY FOR .ACCUM AND .ACCUM+1
+3.	IF ONE DOES NOT EXIST, CREATE ONE, GOTO 8.
+4.	IF ONE DOES EXIST, FIND MOST RECENT
+	DECLARATION BLOCK FOR IT. (THE MOST RECENT DECLARATION
+	BLOCK IS THAT FOUND BY SEARCHING DOWN DSUBS OR DBLK
+	FOR THE LAST ONE WITHOUT THE END-OF-SCOPE FLAG ON.)
+5.	IF NO SUCH DECLARATION BLOCK IS FOUND, LINK A NEW
+	DECLARATION BLOCK ONTO THE TOP LEVEL LIST. (THIS IS
+	DONE BY CAUSING DBLK TO POINT TO IT AND THE OLD VALUE
+	OF DBLK GOES TO DFWRD).
+6.	IF ONE IS FOUND, COMPARE BLOCKLEVELS AND IF EQUAL,
+	SET ON DUPLICATE FLAG ON OLD ONE.
+7.	LINK NEW DECLARATION BLOCK ONTO CHAIN POINTED TO
+	BY DSUBS OF CURRENT DECLARATION BLOCK.
+8.	IF .ADDINFO NEQ 0 THEN SET DLINE=.LINCNT.
+9.	RETURN
+
+THE ROUTINE THAT INTERFACES AT THE SYMBOL TABLE
+
+LOOKUP ROUTINE IS CALLED XLINE.  IT TAKES NO
+PARAMETERS.  IT ASSUMES THAT IF IT CANT FIND THE
+SYMBOL BEING USED, IT WILL BE UNDECLARED BY BLISS
+IT WORKS AS FOLLOWS:
+
+1.	USE THE HASH FUNCTION TO FIND THE PROPER INDEX
+	INTO XHT.
+2.	USE XFIND TO FIND ENTRY.
+3.	USE XDFIND TO FIND MOST RECENT ENTRY.
+4.	IF THE MOST RECENT ENTRY IS THE XREF ENTRY OR
+	IF THE XREF ENTRY DOESNT EXIST, EXIT
+5.	IF IT DOES EXIST FIND LINE BLOCK POINTED TO BY
+	DBPTR.
+6.	IF IT EXISTS, FIND FREE ENTRY. IF NO FREE ENTRY, 0R
+	DOESNT EXIST, LINK NEW ONE ON CHAIN AND SET CELL1 TO
+	LINCNT.
+
+THE ROUTINE THAT SETS UNDECLARED FLAGS AT BLOCKEND
+IS CALLED XEOB.  IT TAKES ONE PARAMETER, THE POINTER
+TO THE SYMBOL TABLE ENTRY WITH THE NAME IN IT
+IT WORKS AS FOLLOWS:
+
+1.	FIND SYMBOL IN XT
+2.	FIND CURRENT USAGE.
+3.	SET FLAG
+4.	EXIT - NOTE, SINCE THE DUPLICATE IS  ON FWRD CHAIN,
+	WE NEED ONLY PURGE FIRST OCCURRANCE
+%
+
+ROUTINE XDFIND(PTR) =
+	BEGIN
+	LOCAL T1;
+	WHILE .XT[.PTR,3]<0,18> NEQ 0 DO
+		IF NOT (T1_.XT[.PTR,3]<0,18>; .XT[.T1,3]<19,1>) THEN
+		    PTR_.T1 ELSE EXITLOOP;
+	RETURN .PTR
+	END;
+
+ROUTINE XFIND(X,Y,Z) =
+	BEGIN
+	WHILE .X NEQ 0 DO
+		IF .XT[.X,0] EQL .Y AND .XT[.X,1] EQL .Z THEN
+		RETURN .X ELSE X_.XT[.X,2]<0,18>;
+	RETURN 0
+	END;
+
+ROUTINE XREFINS(LEX) =  
+	BEGIN
+	LOCAL T1,T2,T3;
+	T2_HASH(.ACCUM); 	! FIND ENTRY IN XHT
+	T1_.XHT[.T2];	! POINT AT FIRST XREF ENTRY HERE
+	IF (T1_XFIND(.T1,.ACCUM,.(ACCUM+1))) EQL 0 THEN 	! IF XREF ENTRY DOESN'T EXIST YET
+		BEGIN		! CREATE IT
+		T1_GETSPACE(2);
+		XT[.T1,2]<0,18>_.XHT[.T2];	! LINK NEW
+		XHT[.T2]_.T1;	! ENTRY ON CHAIN
+		XT[.T1,0]_.ACCUM;	! INITIALIZE
+		XT[.T1,1]_.(ACCUM+1);
+		XT[.T1,2]<18,18>_.BLOCKLEVEL;
+		T2_GETSPACE(2);	! SET UP A DECLARATION BLOCK
+		XT[.T1,3]<0,18>_.T2;	! LINK ON
+		END
+	ELSE
+		BEGIN
+		XT[.T1,2]<18,18>_.BLOCKLEVEL;
+		XT[.T1,3]<18,18>_0;	! CLEAR PENDING LINE ********
+		T1_XDFIND(.T1);		! FIND CURRENT OF
+						! SAME BLOCK LEVEL
+		T2_GETSPACE(2);	! SET UP A DECLARATION BLOCK
+		T3_.XT[.T1,3]<0,18>;	! INIT USED VALUE
+		IF .XT[.T1,3]<18,18> LSS 0 THEN
+			IF .XT[.T1,2]<18,18> EQL .BLOCKLEVEL THEN
+			XT[.T1,3]<18,1> _ TRUE;	! SET DUP FLAG
+		XT[.T2,2]<0,18>_.T3;		! SET FORWARD LINK
+		IF .XT[.T2,2]<0,18> NEQ 0 THEN XT[.XT[.T2,2]<0,18>,1]<0,18>_.T2;
+					! SET BACKWARD LINK
+		XT[.T1,3]<0,18>_.T2;	! SET SUBSIDIARY LINK
+		END;	! AT THIS POINT STEPS 1 THROUGH 7 DONE
+	XT[.T2,2]<18,18>_.BLOCKLEVEL;
+        XT[.T2,3]<35,1>_TRUE;
+		XT[.T2,1]<18,18>_.LINCNT;
+	RETURN 0;
+	END;
+
+ROUTINE XLINE =
+	BEGIN
+	LOCAL T1,T2,T3;
+	T2_HASH(.ACCUM);	! FIND ENTRY IN XHT
+	IF (T3_.XHT[.T2]) EQL 0 THEN RETURN;
+	IF (T3_XFIND(.T3,.ACCUM,.(ACCUM+1))) EQL 0 THEN RETURN;
+	IF .XT[T1_XDFIND(.T3),3]<18,18> EQL 0 THEN RETURN;
+
+	!IF WE HAVE PURGED THE XT ENTRY, SIMPLY RETURN.
+	!SOMETIMES XEOB CALLS XLINE IN THIS CASE FROM BLOCKPURGE
+	!WHEN THE SYMBOL TO BE PURGED IS ONE THAT REMAINS PERMANENTLY
+	!IN THE SYMBOL TABLE SUCH AS A GLOBALT SYMBOL.
+	!XEOB ATTEMPTS TO PURGE IT FROM THE XT AT EVERY OUTER BLOCK
+	!EXIT
+
+	IF .T1 EQL .T3 THEN IF .XT[.T1,3]<19,1> THEN RETURN;
+
+	IF .LINCNT NEQ 0 THEN XNCBUFF_.NCBUFF;
+	IF .XT[.T3,3]<18,18> EQL 0 THEN
+		( XT[.T3,3]<18,18>_.LINCNT;RETURN);
+	IF .XT[.T1,0]<0,18> NEQ 0 THEN
+		BEGIN
+		IF .XT[.XT[.T1,0]<0,18>,0]<18,18> GTR 3 THEN
+			BEGIN
+			T2_GETSPACE(1);
+			XT[.XT[.T1,0]<0,18>,0]<18,18>_.T2;
+			XT[.T1,0]<0,18>_.T2;
+			XT[.T2,0]<18,18>_2;
+			XT[.T2,0]<0,18>_.XT[.T3,3]<18,18>;
+			XT[.T3,3]<18,18>_.LINCNT;
+			END
+		ELSE	BEGIN
+			XT[.XT[.T1,0]<0,18>,1]<0,0><(IF .XT[.XT[.T1,0]<0,18>,0]<18,18> EQL 2 THEN 18
+				ELSE 0),18>_.XT[.T3,3]<18,18>;
+			XT[.T3,3]<18,18>_.LINCNT;
+			XT[.XT[.T1,0]<0,18>,0]<18,18>_.XT[.XT[.T1,0]<0,18>,0]<18,18>+1;
+			END;
+		END
+	ELSE	BEGIN
+		T2_GETSPACE(1);
+		XT[.T1,0]<18,18>_.T2;
+		XT[.T1,0]<0,18>_.T2;
+		XT[.T2,0]<18,18>_2;
+		XT[.T2,0]<0,18>_.XT[.T3,3]<18,18>;
+		XT[.T3,3]<18,18>_.LINCNT;
+		END;
+	END;
+
+ROUTINE XEOB(PTR) =
+	BEGIN
+	LOCAL T1,T2,T3,T4,T5;
+	T2_HASH(.XT[.PTR,2]);		! FIND DISP TO XHT
+	T1_.XHT[.T2];	! FIND XT ENTRY
+	T1_XFIND(.T1,.XT[.PTR,2],.XT[.PTR,3]);
+	IF .T1 EQL 0 THEN RETURN;
+	IF .NCBUFF EQL .XNCBUFF THEN XT[.T1,3]<18,18>_0 ELSE
+		(T3_.LINCNT;LINCNT_0;T4_.ACCUM;T5_.(ACCUM+1);
+		 ACCUM_.XT[.PTR,2];ACCUM+1_.XT[.PTR,3];XLINE();
+		 LINCNT_.T3;ACCUM_.T4;ACCUM+1_.T5);
+	XT[.T1,2]<18,18>_.BLOCKLEVEL;
+	T1_XDFIND(.T1);			! FIND OPEN ENTRY
+	XT[.T1,3]<19,1>_TRUE;		! SET PURGED BIT
+	RETURN
+        END;
+   
+
+
+
+%%
+%              ----------LODECL.BLI----------
+               30 JUN 71-A
+%
+%%
+
+
+
+GLOBAL ROUTINE CHECKEXTER(STE)=
+  IF .ST[.STE,0]<TYPEF> EQL UNDEDT
+    THEN (IDERROR(0,.STE);
+          ST[.STE,0]<TYPEF>_EXTRNT;
+          ST[.STE,1]<ADDRESSF>_#777777);
+
+
+
+
+
+
+%%
+%  "DECSYM" AND "DECSYN" ARE USED TO DECLARE A NEW SYMBOL
+IN FUTSYM.  IT IS REJECTED WITH ERROR CODE DMCODE (PASSED
+PARAMETER) WHEN:
+   1.  IT IS NOT A SYMBOL;
+   2.  IT HAS BEEN DECLARED AT THE CURRENT BLOCKLEVEL.
+RECOVER IS CALLED IN THE ABOVE TWO CASES; THE RETURNED VALUE
+IS 0.
+   OTHERWISE, THE SYMBOL IS DELCARED AT THE CURRENT BLOCKLEVEL
+WITH THE TYPE PASSED (DMTYPE); THE STE INDEX IS STORED
+IN THE LOCATION POINTED TO BY DMWHERE.  THE VALUE RETURNED IS
+TRUE.
+   DECSYN(DNWHERE:<ADDRESS FOR RETURNED STE INDEX>,
+          DNTYPE:<TYPE WHICH THE SYMBOL IS TO BE DECLARED>)
+(DECSYM IS THE SAME ONLY THE WINDOW IS MOVED AFTER THE CALL).
+%
+%%
+  FORWARD DECSYQ;
+
+  GLOBAL  ROUTINE DECSYN(DNWHERE,DNTYPE)=
+    BEGIN
+            LOCAL DNWORD0,DNSTE;
+      IF .REALFS EQL 0
+        THEN (RECOVER(.NFUTSYM,ERSYNAME); 0)
+        ELSE IF (DNWORD0_.ST[DNSTE_.DNWHERE_.REALFS,0]; .DNWORD0<BLF>)
+                  EQL .BLOCKLEVEL
+          THEN IF .DNWORD0<TYPEF> EQL UNDEDT
+            THEN (ST[.DNSTE,0]<TYPEF>_.DNTYPE; 1)
+            ELSE (RECOVER(.NFUTSYM,ERSMPREV); 0)
+          ELSE (.DNWHERE_DECSYQ(.DNSTE,.DNTYPE,0);1)
+    END;
+
+   ROUTINE DECSYM(DMWHERE,DMTYPE)=
+    IF DECSYN(.DMWHERE,.DMTYPE)
+      THEN (HRUND(); 1)
+      ELSE 0;
+%%
+%    DECSYQ(DQSTE:<STE OF OLD NAME>,
+            DQTYPE:<TYPE FOR NEW NAME>,
+            DQADDL:<ADDITIONAL INFORMATION WORD>)
+
+   DECLARE THE SYMBOL WITH OLD NAME AS NEW N CURRENT CONTEXT.
+  VALUE IS NEW STE INDEX.
+%
+%%
+
+   ROUTINE DECSYQ(DQSTE,DQTYPE,DQADDL)=
+    BEGIN
+            ACCUM_.ST[.DQSTE,2];
+      (ACCUM+1)_.ST[.DQSTE,3];
+      STINSERT((.DQTYPE^TYPEFP)+LSM, .DQADDL)
+    END;
+
+%%
+%  THE ROUTINE "GENFCN" IS USED TO CREATE A NEW FUNCTION-HEADER
+   AND SUB-HEADERS FOR SYMBOLS NOT ALREADY DECLARED
+   FORWARD. WHEN IT HAS NOT BEEN DECLARED FORWARD, WE:
+
+   1.  GET SPACE FOR THE HEADER (A 2 CELL HEADER WITH 4 SUBHEADERS);
+   2.  INITIALIZE IT FOR THE LOADER (WITH STE INDEX OF FUNCTION
+       AND OCTAL 7S TO INDICATE NO PROCESSING YET);
+   3.  PUSH IT ONTO THE FUNCTION LIST.
+   4.  SET THE ADD'L INF. WORD ADDRESS PORTION TO POINT TO THE
+       CREATED HEADER.
+
+   PARAMETER: THE FUNCTION/ROUTINE/STRUCTURE STE INDEX.
+       RETURNED VALUE: THE CTE FOR THE CREATED HEADER.
+%
+%%
+
+    GLOBAL ROUTINE GENFCN(GENSTE) =
+      BEGIN
+                LOCAL SAVE;
+        IF (SAVE_.ST[.GENSTE,1]<LXTEAF>) EQL 0
+          THEN
+            (ST[.GENSTE,1]<LXTEAF>_SAVE_SKELETON(2,FRC,4);
+             PUSHBOT(.FCNLIST,.SAVE);
+             CT[.SAVE,2]_.GENSTE;
+             CT[.SAVE,3]_-1);
+        .SAVE
+      END;
+
+   
+
+
+
+%%
+%              ----------LOGTRE.BLI --------- 
+               30 JUN 71-A
+%
+%%
+
+
+
+
+ROUTINE GTHASH(X)= .X AND GTMASK;
+ 
+
+ROUTINE MAXER(X,Y)=(IF .X GTR .Y THEN .X ELSE .Y);
+
+
+
+
+    ROUTINE GTLEXP(X,Y)=
+	(X_.CT[.X,1];.X<LEFTHALF> EQL GTLEX) AND (.X<LINKF> EQL .Y);
+
+ROUTINE CLEARRTGT= IF .CODETOG THEN (CLEARSOME(); GTPURGE(1));
+
+
+
+
+%               ----- END OF MODULE LOGTRE.BLI -----               %
+ROUTINE RESTORERESULT(LEX,REGNAME)=
+    BEGIN
+    !
+    ! THIS ROUTINE IS CALLED FROM RESRT TO RESTORE THE
+    ! GRAPH-TABLE NODE RESULT WORDS AT INTERIOR POINTS IN
+    ! A FORK.
+    !
+    LEX_.LEX<LINKF>;
+    GT[.LEX,0]<RESULTF>_1;
+    GT[.LEX,1]<RTEF>_.REGNAME;
+    END;
+
+
+ROUTINE LEXNPSD(N,P,S,D)=
+  ! MAKE UP A LEXEME WITH N,P,S,D AS THE LSSTEF,POSNF,SIZEF,AND COPF RESPECTIVELY
+
+  BEGIN
+    N<POSNF>_.P;
+    N<SIZEF>_.S;
+    N<COPF>_.D;
+    .N
+  END;
+
+
+
+
+  GLOBAL ROUTINE FULLWORD(LEX)=
+  !PREDICATE TO INDICATE A FULLWORAD LEXEME, NOT REQUIRING
+  ! BYTE TYPE LOAD
+
+          BEGIN
+            LOCAL VALUE;
+            IF (.LEX AND (POSNM OR SIZEM OR LSM OR VEM)) EQL VEM
+              THEN
+                (VALUE_LITV(.LEX);
+                 LEX<POSNSIZEF>_.VALUE<24,12>);
+            .LEX<POSNSIZEF> EQL 36
+          END;
+
+
+
+
+
+
+%%
+%              ----------LOADDR.BLI----------
+               17 APR 71-A
+%
+%%
+
+
+
+
+ROUTINE TVMP(X)=
+!  (TEMPORARY VALUE IN MEMORY PREDICATE)
+!  X MUST BE A LEXEME.   TVMP IS A PREDICATE WITH VALUE 1
+!  (OTHERWISE 0) IF THE LEXEME IS OF THE FORM @R (POSSIBLY
+!  WITH A UNARY - OR NOT) WHERE R IS A HAS-BEEN TEMPORARY
+!  REGISTER NOW DUMPED INTO CORE TO LOOK LIKE A LOCAL
+!  VARIABLE.   THE IDEA OF TVMP IS TO DECIDE WHETHER THAT
+!  CORE LOCATION CAN PROFITABLY BE USED TO FURTHER EVALUATE
+!  AN EXPRESSION.   FOR INSTANCE @R+@D, WHERE D IS A DECLARED
+!  REGISTER, COULD BE CODED AS  ADDM D,R.
+  BEGIN REGISTER E;
+    IF ((E_.X AND (NOT NGNTM AND NOT RTEM);.E) EQL ZERO
+           OR .E EQL 0) AND .X<DTF> THEN
+      .RT[.E]<RSF> AND (.RT[.E]<USEF> EQL 1)
+  END;
+
+
+
+
+ROUTINE LITV(X)=
+!  (LITERAL VALUE)
+!  X MUST BE THE LEXEME FOR A LITERAL.   LITV RETURNS
+!  THE 36 BIT VALUE OF THAT LITERAL.
+  IF .X<VEF> THEN GETLITVAL(.X<LTEF>) ELSE .X<LTEF>;
+
+
+
+
+ROUTINE LITA(X)=
+!  (LITERAL ADDRESS)
+!  X MUST BE THE LEXEME FOR A LITERAL.   LITA RETURNS
+!  A VALUE WITH TWO FIELDS COMPATIBLE WITH CODE-3 FORMAT.
+!  THE RIGHT HALF HOLDS THE ENTRY OF THAT LITERAL IN THE
+!  LT.   THIS WILL CAUSE A SMALL LITERAL TO BE ENTERED IF
+!  IT IS NOT ALREADY IN THE TABLE - NECESSARY SINCE THE
+!  PDP-10 DOES NOT HAVE IMMEDIATE INSTRUCTIONS FOR ALL
+!  OPERATIONS, E.G. PUSH.   THE RELOCF HOLDS LTRELOC.
+  BEGIN
+  X_IF .X<VEF> THEN .X<LTEF>
+     ELSE LTINSERT(.X<LTEF>);
+  X<RELOCF>_7;
+  .X
+  END;
+
+
+
+
+ROUTINE RAGLAR(X)=
+!  (REGISTER ADDRESS - GENERATE LOAD ARBITRARY REGISTER)
+!  X MUST BE A LEXEME.   RAGLAR GENERATES CODE TO FORCE
+!  THE EXPRESSION INTO AN ARBITRARY REGISTER WHOSE ADDRESS
+!  IT RETURNS IN CODE-3 FORMAT.
+  BEGIN LOCAL D;
+    D_X_GLAR(.X);
+    X_.RT[.X<RTEF>]<ARTEF>;
+    RMA(IF .D<DTF> THEN .X,0,.X)
+  END;
+
+
+
+
+ROUTINE RMA(R,M,Y)=
+!  (RELEASE - MODIFY - ADDRESS)
+!  Y MUST BE AN ADDRESS, POSSIBLY WITH THE RELOCF SET.
+!  R AND M MUST BE ACTUAL REGISTER ADDRESSES.   RMA PUTS
+!  R AND M IN THE RELRF AND INDXF OF Y AND RETURNS THE
+!  RESULT (CODE-3 FORMAT).   MEANTIME IT SANCTIFIES M.
+  BEGIN
+    IF .ART[.R]<DTF> THEN Y<RELRF>_.R;
+    Y<INDXF>_.M;
+    IF (M_.ART[.M]<RTEF>) NEQ 0 THEN RT[.M]<HOLYF>_1;
+    .Y
+  END;
+
+
+
+
+
+ROUTINE LEXRA(X)=
+  ! RETURNS LEXEME OF A REGISTER WHOSE ADDRESS IS X.  IF X DOES NOT HAVE
+  ! A NAME, LEXRA GETS ONE
+
+  IF .ART[.X]<RTEF> EQL 0 THEN
+    IF (1^.X AND .MODREGM) EQL 0 THEN
+      BEGIN
+        RMFRLST(.X);
+        LEXRN(GETRN(.X,0,0))
+      END
+    ELSE LEXRN(GETRN(.X,1,0))
+  ELSE LEXRN(.ART[.X]<RTEF>);
+
+
+
+ROUTINE REGAR(X)=
+!  (REGISTER ADDRESS - RELEASE)
+!  X SHOULD BE A LEXEME OF THE FORM @R.   REGAR PROVIDES
+!   THE ACTUAL REGISTER ADDRESS OF R AS WITH REGAK, BUT 
+!  WITH THE RELRF ALSO SET TO THIS ADDRESS (TO SIGNAL TO
+!  CODEN TO RELEASE THE REGISTER) UNLESS R IS DECLARED.
+  BEGIN LOCAL A,T;
+    T_TVMP(.X);
+    A_REGAK(.X);
+    IF .X<DTF> AND NOT .T THEN RMA(.A,0,.A) ELSE .A
+  END;
+
+
+
+
+ROUTINE REGAK(X)=
+!  (REGISTER ADDRESS - KEEP)
+!  X SHOULD BE A LEXEME OF THE FORM @R.   REGAK PROVIDES
+!  THE ACTUAL REGISTER ADDRESS OF R SETTING HOLINESS TO
+!  PREVENT SWAPPING.   THE VALUE IS COMPATIBLE WITH CODE-2
+!  AND CODE-3 FORMATS.
+  BEGIN LOCAL T;
+    (T_RT[.X<RTEF>])<HOLYF>_1;
+    IF NOT(.(.T)<RSF> AND .X<DTF>) THEN .(.T)<ARTEF>
+    ELSE GMA(.X)
+  END;
+
+
+
+
+ROUTINE TVRP(X)=
+!  (TEMPORARY VALUE IN REGISTER PREDICATE)
+  %1 IF THE LEXEME X REPRESENTS AN EXPRESSION PROVIDING AN UNIQUE
+   TEMPORARY REGISTER(UNLESS THE EXPRESSION IS READY) WHICH MAY BE
+   USED WITHOUT POSSIBLE LOSS IN THE A FIELD OF A MEMORY TO REGISTER
+   INSTRUCTION. 0 OTHERWISE%
+  BEGIN REGISTER N;
+    IF (IF REGP(.X) THEN
+	 ITRP(.X) OR (.RT[N_.X<RTEF>]<ARTEF> EQL .OPTTOREGADDR)
+	ELSE 0) THEN
+      RT[.N]<HOLYF>_1
+    ELSE 0
+  END;
+
+
+
+
+ROUTINE ITRP(X)=
+!  (INVOLVES TEMPORARY REGISTER PREDICATE)
+!  X MUST BE A LEXEME.   ITRP IS A PREDICATE WITH VALUE 1
+!  (OTHERWISE 0) IF THE LEXEME INCLUDES @R WHERE R IS AN 
+!  UNDUMPED TEMPORARY REGISTER.
+  BEGIN REGISTER N;
+    IF (N_.X<RTEF>) GEQ 16 THEN
+      NOT .RT[.N]<RSF> AND .RT[.N]<USEF> EQL 1
+    ELSE 0
+  END;
+
+
+
+ROUTINE DCRP(X)=
+!  (DECLARED REGISTER PREDICATE)
+  %1 IF THE LEXEME REPRESENTS AN EXPRESSION OF THE FORM @D, WHERE D
+   IS EITHER A DECLARED REGISTER OR A NON-UNIQUE TEMPORARY REGISTER.
+   NON-UNIQUENESS RESULTS FROM A SUCCESSFUL MATCH IN THE
+   TRCT BEFORE THE REGISTER HAS BEEN RELEASED.
+   E.G. IN  (T_EXPR)+.T  AND IN THIS CASE HOLINESS IS SET
+   TO PREVENT SWAPPING.
+   IN EITHER CASE THE REGISTER CONTENTS MAY NOT BE CHANGED.
+   0 OTHERWISE%
+  BEGIN REGISTER E;
+    IF REGP(.X) THEN E_.X<RTEF> ELSE RETURN(0);
+    IF .E LSS 16 THEN RETURN 1;
+    IF NOT .RT[.E]<RSF> THEN IF .RT[.E]<USEF> GTR 1 THEN
+        RETURN RT[.E]<HOLYF>_1;
+    0
+  END;
+
+
+
+
+GLOBAL ROUTINE REGP(X)=
+  ! PREDICATE: X IS A LEXEME REPRESENTING A REGISTER
+
+  BEGIN
+    IF .X EQL 0 THEN RETURN 0;
+    (.X AND NOT RTEM) EQL 0
+  END;
+
+
+GLOBAL ROUTINE SMPOSLITVP(X)=
+  ! (SMALL-POSITIVE-LITERAL-VALUE-PREDICATE)  X IS AN 18-BIT LITERAL VALUE
+
+  BEGIN
+    IF .X LSS 0 THEN RETURN 0;
+    .X LEQ RIGHTM
+  END;
+
+
+GLOBAL ROUTINE SMNEGLITVP(X)=
+  ! (SMALL-NEGATIVE-LITERAL-VALUE-PREDICATE) -X IS AN 18-BIT LITERAL VALUE
+
+  BEGIN
+    IF .X GEQ 0 THEN RETURN 0;
+    .X GEQ -RIGHTM
+  END;
+
+
+ 
+
+
+
+
+%%
+%              ----------LOLSTP.BLI----------
+               15 JUL 71-A
+%
+%%
+
+
+
+
+!			GENERAL DOCUMENTATION FOR LSTPKG.BLI
+!	
+!		THIS MODULE CONTAINS THE ROUTINES WHICH CREATE, MANIPULATE,
+!	AND DELETE THE LIST USED FOR BUILDING CODE.  THESE LISTS ARE DOUBLY-
+!	LINKED.  THE HEADER OF A LIST (SUBLIST) LOOKS LIKE:
+!	
+!	
+!		.............................................................................................................
+!		!  !              !                                            !                                            !
+!		! H!              !                                            !                                            !
+!		! D!              !                                            !                                            !
+!		! R!    CLASSF    !                  P R E V F                 !                  N E X T F                 !
+!		! F!              !                                            !                                            !
+!		!  !              !                                            !                                            !
+!		!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!
+!		!  !              !                                            !                                            !
+!		! H!              !                                            !                                            !
+!		! D!              !                                            !                                            !
+!		! R!    CLASSF    !                  P R E V F                 !                  N E X T F                 !
+!		! F!              !                                            !                                            !
+!		!  !              !                                            !                                            !
+!		!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!
+!		                30                24                18                12                 6
+!	
+!	
+!	
+!		A HEADER ELEMENT (INDEX H) OF A CODE SKELETON IS DEFINED:
+!	
+!			CT[.H,0]<HDRF>=CT[.H,1]<HDRF>=1
+!			CT[.H,0]<CLASSF>= CLASS OF CONTROL EXPRESSION
+!			CT[.H,1]<CLASSF>= # OF CELLS IN THIS HEADER 
+!					  (NOTE: ATOM=CELL=2 WORDS)
+!			CT[.H,0]<PREVF>,CT[.H,0]<NEXTF>: BACKWARD AND FORWARD
+!					  (RESPECTIVELY) LINKS TO SAME LEVEL OR
+!					  ABOVE
+!			CT[.H,1]<PREVF>: LINK TO LAST ELEMENT (SUBHEADER) ON
+!					 H'S SUBLIST
+!			CT[.H,1]<NEXTF>: LINK TO FIRST ELEMENT ON H'S SUBLIST
+!	
+!		A SUBHEADER ELEMENT OF A CODE SKELETON IS DEFINED:
+!	
+!			CT[.H,0]<HDRF>=1
+!			CT[.H,1]<HDRF>=0
+!			CT[.H,0]<CLASSF>= CLASS OF CONTROL EXPRESSION
+!			CT[.H,1]<CLASSF>= SUBCLASS # OF SUBHEADER
+!			LINK-FIELDS ARE THE SAME AS THE HEADER CASE.
+!	
+!		A NON-HEADER ELEMENT OF A LIST IS DISTINGUISHED FROM A HEADER
+!	OR SUB-HEADER BY CT[.H,0]<HDRF> BEING ZERO.  A HEADER IS EMPTY (I.E.
+!	NO ELEMENTS HANGING FROM IT) WHEN CT[.H,1]<PREVF>=CT[.H,1]<NEXTF>=H.
+!	A HEADER IS DETATCHED (NOT AN ELEMENT OF ANY LIST) WHEN CT[.H,0]<PREVF>=
+!	CT[.H,0]<NEXTF>=H.
+
+
+
+
+
+
+
+FORWARD ACPDB,ACPDT,ACPR1,ACPR2,ADVDB,ADVDT,ADVR1,ADVR2,ADVR3,AFTER;
+FORWARD ALLNOS,BEFORE,CLASSLAB,CLASSP,CODELESS,DROP;
+FORWARD ERASEBOT,ERASETOP,FIRST,FOLLCPH,FOLLOW;
+FORWARD FRONT,HEADER,LOSECONV,NEWBOT,NONCLASSP,PCIVR;
+FORWARD POPBOT,POPTOP,PRECEDE,PREVCODE,PROMOTE,PUSHBOT,PUSHCODE;
+FORWARD PUSHCPH,PUSHTOP,SCAN,SCAN0,SKELETON,SWALABEL,SYPHON;
+FORWARD TEMPLATE,UNTEMPLATE,UNSKELETON;
+	
+
+
+ROUTINE TEMPLATE(H,C,N)=
+
+  %   FOLLOW CODEPTR WITH SKELETON AND UPDATE CODEPTR.   %
+
+  CODEPTR_FOLLOW(.CODEPTR,SKELETON(.H,.C,.N));
+
+
+
+GLOBAL ROUTINE SKELETON(H,C,N)=
+
+  %   OBTAIN A NEW HEADER OF H CELLS AND GIVE IT CLASS C.
+    HANG N HEADER CELLS OF 1 CELL EACH FROM THE NEW HEADER WITH
+    CLASS C AND SUBCLASSES 1 THROUGH N.   RETURN THE INDEX TO
+    THE NEW HEADER.   %
+
+  BEGIN
+    LOCAL I;
+    I_HEADER(.H,.C,1);
+    INCR J FROM 1 TO .N DO PUSHBOT(.I,HEADER(.J,.C,0));
+    .I
+  END;
+
+
+
+GLOBAL ROUTINE HEADER(H,C,N)=
+
+  %   OBTAIN A NEW HEADER.   IF N=1 GET H CELLS OTHERWISE 1.
+    GIVE THE HEADER CLASS C AND IF N=0 SUBCLASS H.   %
+
+  BEGIN
+    REGISTER I;
+    I_GETSPACE(IF .N THEN .H ELSE 1);
+    CT[.I,0]<HDRF>_1;
+    CT[.I,0]<CLASSF>_.C;
+    CT[.I,0]<PREVF>_CT[.I,0]<NEXTF>_.I;
+    CT[.I,1]<HDRF>_.N;
+    CT[.I,1]<CLASSF>_.H;
+    CT[.I,1]<PREVF>_CT[.I,1]<NEXTF>_.I;
+    .I
+  END;
+
+
+
+ROUTINE UNTEMPLATE=
+  BEGIN
+    CODEPTR_UNSKELETON(.CODEPTR);
+    IF .CT[.CODEPTR,0]<CLASSF> NEQ CODEC THEN FOLLCPH(0,CODEC,0);
+  END;
+
+
+
+ROUTINE UNSKELETON(H)=
+
+  %   H IS A HEADER FORMERLY GENERATED BY SKELETON.   ALL
+    SUBHEADERS OTHER THAN LABELS GET FLATTENED.   THIS
+    REDUCES ALL SUBHEADERS TO BE LABELC, CODEC, CNVEYC,
+    BREAKC OR EXITC.   THESE SUBHEADERS ARE THEN SYPHONED OFF
+    AND H IS ERASED.   THE VALUE OF UNSKELETON IS THE INDEX
+    OF THE LAST CELL TO BE SYPHONED.   %
+
+  BEGIN
+    REGISTER V;
+    SCAN(.H,LABELC,NONCLASSP,FLATTEN);
+    SYPHON(.H);
+    V_.CT[.H,0]<PREVF>;
+    ERASE(.H);
+    .V
+  END;
+
+
+
+ROUTINE SYPHON(H)=
+
+  %   SYPHON EXPECTS THE HEADER H TO HAVE HANGING FROM IT
+    A SUBLIST OF SUBHEADERS OF CLASS LABELC, CODEC, ETC..
+    THESE SUBHEADERS ARE SYPHONED OFF TO THE LEFT OF H AND IN
+    THE PROCESS ADJACENT CODEC'S ARE CONCATENATED.   %
+
+  BEGIN REGISTER TOP,CLASS,PREV,PREVCLASS;
+  UNTIL NULL(.H) DO
+    BEGIN
+      TOP_POPTOP(.H);
+      CLASS_.CT[.TOP,0]<CLASSF>;
+      IF NULL(.TOP) THEN
+	IF .CLASS NEQ LABELC THEN
+	  EXITCOMP ERASE(.TOP);
+      IF ALLNOS(.TOP) THEN EXITCOMP ERASE(.TOP);
+      PREV_.CT[.H,0]<PREVF>;
+      PREVCLASS_.CT[.PREV,0]<CLASSF>;
+      IF .CLASS EQL CODEC THEN
+	IF .PREVCLASS EQL CODEC THEN
+	  IF NOT FIRST(.H) THEN FRONT(.TOP,TAKE(.PREV));
+      PRECEDE(.H,.TOP)
+    END;
+  END;
+
+
+
+ROUTINE FIRST(X)=
+  BEGIN
+    REGISTER P;
+    P_.CT[.X,0]<PREVF>;
+    IF .CT[.P,0]<HDRF> THEN
+      .CT[.P,1]<NEXTF> EQL .X
+    ELSE 0
+  END;
+
+
+
+ROUTINE LAST(X)=
+  BEGIN REGISTER N;
+    N_.CT[.X,0]<NEXTF>;
+    IF .CT[.N,0]<HDRF> THEN
+      .CT[.N,1]<PREVF> EQL .X
+    ELSE 0
+  END;
+
+
+
+ROUTINE FRONT(H,D)=
+
+  %   H,D ARE TWO HEADERS.   THE SUBLIST HANGING FROM D IS
+    TAKEN AND CONCATENATED AT THE FRONT OF THE SUBLIST
+    HANGING FROM H.   D IS ERASED.   FRONT HAS THE
+    VALUE H.   %
+
+  BEGIN
+    IF NOT NULL(.D) THEN
+      BEGIN
+        REGISTER F,L;
+	L_.CT[.D,1]<PREVF>;
+	F_.CT[.H,1]<NEXTF>;
+	CT[.F,.F EQL .H]<PREVF>_.L;
+	CT[.L,0]<NEXTF>_.F;
+	F_.CT[.D,1]<NEXTF>;
+	CT[.F,0]<PREVF>_.H;
+	CT[.H,1]<NEXTF>_.F;
+	CT[.D,1]<NEXTF>_CT[.D,1]<PREVF>_.D
+      END;
+    ERASE(.D);
+    .H
+  END;
+
+
+
+ROUTINE SWALABEL=
+ %USED IN DWUC AND WUDC WHERE FIRST SUBHEADER IS A LABEL.
+  SEARCHES BACK FOR THE FIRST CELL WHICH IS A LABEL OR
+  CONTAINS CODE.  IF IT ENCOUNTERS A LABEL THEN THE INITIAL
+  CELL OF THE PRESENT SKELETON IS DISCARDED AND BACKWARD
+  JUMPS ARE TO THE ENCOUNTERED LABEL.%
+
+  BEGIN REGISTER CLASS,P,SUBCLASS;
+    P_.CODEPTR;
+    DO P_.CT[.P,0]<PREVF>
+      UNTIL
+	BEGIN
+	  CLASS_.CT[.P,0]<CLASSF>;
+	  IF .P EQL .PROGRAM THEN EXITCOMP 1;
+	  IF .CLASS GTR LABELC THEN
+	    IF NOT .CT[.P,1]<HDRF> THEN
+	      IF NOT CODELESS(.P) THEN
+		EXITCOMP 1;
+	  NOT (NULL(.P) OR ALLNOS(.P))
+	END;
+    IF .CLASS EQL LABELC THEN
+      IF (SUBCLASS_.CT[.P,1]<CLASSF>) NEQ 1 THEN
+        BEGIN
+          CT[.CODEPTR,3]_CT[.P,0]<0,0>;
+          CT[.CODEPTR,3]<LEFTF>_.SUBCLASS;
+          CT[.P,1]<CLASSF>_1;
+	END;
+    ACPDT();
+    IF .CLASS EQL LABELC THEN
+      BEGIN
+        ACPR1();
+        ERASE(.CT[.CODEPTR,0]<PREVF>);
+      END
+    ELSE CLASSLAB()
+  END;
+
+
+
+ROUTINE CODELESS(H)=
+  ! PREDICATE: LIST HANGING FROM H CONTAINS NO INSTRUCTIONS
+
+  BEGIN REGISTER N;
+    N_.CT[.H,1]<NEXTF>;
+    UNTIL .N EQL .H DO
+      BEGIN
+      IF .CT[.N,0]<CLASSF> EQL CODEC THEN
+	IF NOT NULL(.N) THEN
+	  IF NOT ALLNOS(.N) THEN
+	        RETURN(0);
+      N_.CT[.N,0]<NEXTF>
+      END
+  END;
+
+
+
+ROUTINE CLASSP(H,C)=
+  ! PREDICATE: CLASS OF HEADER H IS EQUAL TO C
+
+  .CT[.H,0]<CLASSF> EQL .C;
+
+
+
+ROUTINE NONCLASSP(H,C)=
+  ! PREDICATE: CLASS OF HEADER H IS NOT EQUAL TO C
+
+  .CT[.H,0]<CLASSF> NEQ .C;
+
+
+
+ROUTINE CLASSLAB=
+
+  %   GIVE HEADER POINTED AT BY CODEPTR NEW CLASS LABELC.   %
+
+  BEGIN
+    CT[.CODEPTR,0]<CLASSF>_LABELC;
+    ACPR1()
+  END;
+
+
+
+ROUTINE ACPR1=
+  ! (ADVANCE-CODEPTR-RIGHT-ONE)
+
+  CODEPTR_.CT[.CODEPTR,0] AND NEXTM;
+
+
+
+ROUTINE ACPR2=
+  ! (ADVANCE-CODEPTR-RIGHT-TWO)
+
+  CODEPTR_.CT[.CT[.CODEPTR,0] AND NEXTM,0] AND NEXTM;
+
+
+
+ROUTINE ACPR3=
+  ! (ADVANCE-CODEPTR-RIGHT-THREE)
+
+  CODEPTR_.CT[.CT[.CT[.CODEPTR,0] AND NEXTM,0] AND NEXTM,0] AND NEXTM;
+
+
+ROUTINE ACPDT=
+  ! (ADVANCE-CODEPTR-DOWN-FORWARD)
+
+ CODEPTR_.CT[.CODEPTR,1] AND NEXTM;
+
+
+
+ROUTINE ACPDB=
+  ! (ADVANCE-CODEPTR-DOWN-BACKWARD)
+
+  CODEPTR_.CT[.CODEPTR,1]<PREVF>;
+
+
+
+ROUTINE ADVR1(I)=
+  ! MOVE THE POINTER AT ADDR .I ONE CELL TO THE RIGHT
+  WORD(.I)_.CT[@.I,0] AND NEXTM;
+
+
+
+ROUTINE ADVR2(I)=
+  ! MOVE THE POINTER AT ADDR .I TWO CELLS TO THE RIGHT
+
+  WORD(.I)_.CT[.CT[@.I,0] AND NEXTM,0] AND NEXTM;
+
+
+
+ROUTINE ADVR3(I)=
+  ! MOVE THE POINTER AT ADDR .I THREE CELLS TO THE RIGHT
+
+  WORD(.I)_.CT[.CT[.CT[@.I,0] AND NEXTM,0] AND NEXTM,0] AND NEXTM;
+
+
+
+ROUTINE ADVDT(I)=
+  ! MOVE THE POINTER AT ADDR .I DOWN AND FORWARD
+
+  WORD(.I)_.CT[@.I,1] AND NEXTM;
+
+
+
+ROUTINE ADVDB(I)=
+  ! MOVE THE POINTER AT ADDR .I DOWN AND BACKWARD
+
+  WORD(.I)_.CT[@.I,1]<PREVF>;
+
+
+
+ROUTINE PUSHCODE=
+  ! PUSHES NEW CODEC HEADER ON LIST POINT TO BY CODEPTR AND UPDATES CODEPTR
+
+  PUSHCPH(CODEC);
+
+
+
+ROUTINE PUSHCPH(C)=
+  ! CREATE NEW HEADER AND PUSH IT ON BOTTOM OF LIST HANGING FROM CODEPTR
+  ! AND POINT CODEPTR TO IT
+
+  CODEPTR_PUSHBOT(.CODEPTR,HEADER(0,.C,0));
+
+
+
+ROUTINE FOLLCPH(H,C,N)=
+  ! CREATE A NEW HEADER ON SAME LEVEL AS CODEPTR AND AFTER IT. UPDATE CODEPTR
+
+  CODEPTR_FOLLOW(.CODEPTR,HEADER(.H,.C,.N));
+
+
+
+ROUTINE LOSECONV=
+  %   ERASE ALL ELEMENTS OF CLASS CNVEYC FROM THE SUBLIST HANGING
+    FROM THE HEADER H.   %
+  SCAN(.CODEPTR,CNVEYC,CLASSP,ERASE);
+
+
+
+
+ROUTINE PROMOTE(N)=
+    !OPERATES ON ELEMENTS OF SUBLIST HANGING FROM CODEPTR
+    !  BIT    ACTION
+    !	0	CNVEYC --> CODEC
+    !	1	RELC --> CODEC
+    !	2	XBLOCKC --> CNVEYC -\
+    !	3	XLOOPC --> CNVEYC    \
+    !	4	XCMPEXC --> CNVEYC    \  CONDITIONAL ON COUNT IN SUBCLASSF
+    !	5	XCONDC --> CNVEYC     / GOING TO ZERO. SEE GXEXIT.
+    !	6	XCOSTC --> CNVEYC    /
+    !	7	XSELECTC --> CNVEYC-/
+
+  BEGIN REGISTER I,CLASS;
+    I_.CT[.CODEPTR,1]<NEXTF>;
+    UNTIL .I EQL .CODEPTR DO
+      BEGIN
+	CLASS_.CT[.I,0]<CLASSF>;
+	CT[.I,0]<CLASSF>_
+	  IF (1^.CLASS AND .N) NEQ 0 THEN
+	    IF .CLASS LEQ RELC THEN CODEC ELSE
+	    IF (CT[.I,1]<HDRCLASSF>_.CT[.I,1]<HDRCLASSF>-1) EQL 0 THEN CNVEYC
+	    ELSE .CLASS
+	  ELSE .CLASS;
+	I_.CT[.I,0]<NEXTF>
+      END
+  END;
+
+
+
+ROUTINE DROP(N)=
+
+  %   ERASE CELLS INDICATED BY BITS IN N FROM SUBLIST
+    HANGING FROM HEADER POINTED TO BY CODEPTR.   %
+
+  BEGIN
+    REGISTER J,I;
+    J_.(CT[.CODEPTR,1])<NEXTF>;
+    UNTIL (I_.J) EQL .CODEPTR DO
+      BEGIN
+        J_.CT[.I,0]<NEXTF>;
+        IF .N^(-.CT[.I,1]<CLASSF>) THEN ERASE(.I);
+      END;
+  END;
+
+
+
+ROUTINE SCAN(H,Y,P,F)=
+
+  %   SCANS A CIRCULAR LIST WHOSE HEADER IS H AND UPON
+    SATISFACTION OF PREDICATE P, THE ROUTINE F IS EXECUTED.
+    Y IS A PARAMETER PASSED TO P.   %
+
+  BEGIN
+    REGISTER I,J;
+    I_.CT[.H,1]<NEXTF>;
+    UNTIL .I EQL .H DO
+      BEGIN
+        J_.CT[.I,0]<NEXTF>;
+        IF (.P)(.I,.Y) THEN (.F)(.I);
+        I_.J
+      END;
+  END;
+
+
+
+ROUTINE SCAN0(H,F)=
+
+  %   SAME AS SCAN EXCEPT FOR MISSING PARAMETER Y.   %
+
+  BEGIN
+    REGISTER I,J;
+    I_.CT[.H,1]<NEXTF>;
+    UNTIL .I EQL .H DO
+      BEGIN
+        J_.CT[.I,0]<NEXTF>;
+        (.F)(.I);
+        I_.J
+      END;
+  END;
+
+
+
+ROUTINE ERASETOP(H)=
+
+  %   H IS A HEADER.   ERASE THE FIRST ITEM ON ITS SUBLIST.   %
+
+  ERASE(.CT[.H,1]<NEXTF>);
+
+
+
+ROUTINE ERASEBOT(H)=
+
+  %   H IS A HEADER.   ERASE THE LAST ITEM ON ITS SUBLIST.   %
+
+  ERASE(.CT[.H,1]<PREVF>);
+
+
+
+
+ROUTINE NEWBOT(H,N)=
+
+  %   H IS A HEADER, N IS AN INTEGER.   NEWBOT PUSHES A NEW BLOCK OF
+    N CELLS AT THE BOTTOM OF THE SUBLIST HANGING FROM H.   %
+
+  PUSHBOT(.H,GETSPACE(.N));
+
+
+
+ROUTINE PUSHTOP(H,D)=
+
+  %   H IS A HEADER;  D IS A DETACHED CELL.   D IS PUSHED AT
+    THE TOP OF THE SUBLIST HANGING FROM H.   %
+
+  AFTER(.H,CT[.H,1]<0,0>,.D);
+
+
+
+ROUTINE FOLLOW(A,D)=
+
+  %   A IS A CELL, POSSIBLY ATTACHED;  D IS A DETACHED CELL.
+    D IS INSERTED FOLLOWING A.   %
+
+  AFTER(.A,CT[.A,0]<0,0>,.D);
+
+
+
+ROUTINE AFTER(A,A1,D)=
+
+  %   WORKHORSE FOR PUSHTOP AND FOLLOW.   %
+
+  BEGIN
+    REGISTER N;
+    N_.(.A1)<NEXTF>;
+    (IF .N EQL .A THEN .A1
+     ELSE CT[.N,0]<0,0> + (.CT[.N,0]<PREVF> NEQ .A))<PREVF>_.D;
+    (.A1)<NEXTF>_.D;
+    CT[.D,0]<PREVF>_.A;
+    CT[.D,0]<NEXTF>_.N;
+    .D
+  END;
+
+
+
+GLOBAL ROUTINE PUSHBOT(H,D)=
+
+  %   H IS A HEADER;  D IS A DETACHED CELL.   D IS PUSHED AT
+    THE BOTTOM OF THE SUBLIST HANGING FROM H.   %
+
+  BEFORE(.H,CT[.H,1]<0,0>,.D);
+
+
+
+ROUTINE PRECEDE(A,D)=
+
+  %   A IS A CELL, POSSIBLY ATTACHED;  D IS A DETACHED CELL.
+    D IS INSERTED PRECEDING A.   %
+
+  BEFORE(.A,CT[.A,0]<0,0>,.D);
+
+
+
+ROUTINE BEFORE(A,A1,D)=
+
+  %   WORKHORSE FOR PUSHBOT AND PRECEDE.   %
+
+  BEGIN
+    REGISTER P;
+    P_.(.A1)<PREVF>;
+    (IF .P EQL .A THEN .A1
+     ELSE CT[.P,0]<0,0> + (.CT[.P,0]<NEXTF> NEQ .A))<NEXTF>_.D;
+    (.A1)<PREVF>_.D;
+    CT[.D,0]<PREVF>_.P;
+    CT[.D,0]<NEXTF>_.A;
+    .D
+  END;
+
+
+
+ROUTINE POPTOP(H)=
+
+  %   H IS A HEADER.   POP UP THE FIRST ITEM ON ITS SUBLIST.   %
+
+  TAKE(.CT[.H,1]<NEXTF>);
+
+
+
+ROUTINE POPBOT(H)=
+
+  %   H IS A HEADER.   POP UP THE LAST ITEM ON ITS SUBLIST.   %
+
+  TAKE(.CT[.H,1]<PREVF>);
+
+
+
+ROUTINE ALLNOS(T)=
+  ! PREDICATE: ALL THE ELEMENTS HANGING FROM HEADER T ARE LINE NOS
+
+  BEGIN REGISTER H;
+    H_.CT[.T,1]<NEXTF>;
+    IF .H EQL .T THEN RETURN(0);
+    UNTIL .H EQL .T DO
+      IF .CT[.H,1]<FUNCF> NEQ 0 THEN EXITLOOP 0
+      ELSE H_.CT[.H,0]<NEXTF>
+  END;
+
+
+
+ROUTINE PREVCODE(C,P)=
+  ! SEARCH LIST HEADED BY CT[.P,0] BACKWARDS STARTING FROM ELEMENT
+  ! CT[.C,0] FOR THE FIRST INSTRUCTION AND RETURNS ITS INDEX.
+
+  BEGIN
+  UNTIL .C EQL .P DO
+    IF .CT[.C,1]<FUNCF> NEQ 0 THEN RETURN(.C)
+    ELSE C_.CT[.C,0]<PREVF>;
+  .C
+  END;
+
+
+
+ROUTINE PCIVR(X,Y)=
+  ! (PROMOTE-CONVEY-IF-VALUE-REGISTER)
+  ! INSURES THAT IF A CONTROL EXPRESSION'S VALUE IS NEEDED (E.G. ARITHMETIC
+  ! OPERAND) THE CONVEYC CELLS OF THAT EXPRESSION GET PROMOTED
+  ! TO CODE
+
+  BEGIN REGISTER C;
+    IF .RT[.X<RTEF>]<ARTEF> EQL .VREG OR
+      .RT[.Y<RTEF>]<ARTEF> EQL .VREG THEN
+      IF .CODEPTR NEQ .FREEVHEADER THEN
+      BEGIN
+	C_.CODEPTR;
+	CODEPTR_.CT[.C,0]<NEXTF>;
+        PROMOTE(1^CNVEYC OR 1^RELC);
+	CODEPTR_.C
+      END;
+  END;
+
+
+
+ROUTINE LOCATE(C,S)=
+  %   SCAN THE CODE TABLE RIGHTWARDS (AND HENCE UPWARDS) FROM
+    CODEPTR UNTIL CLASS C IS FOUND.   THEN SCAN LEFT OR RIGHT
+    AS APPROPRIATE FOR SUBCLASS S.   %
+  BEGIN
+    REGISTER P,CLASS,W,N; LOCAL COPYOFP;
+    P_.CODEPTR;
+    UNTIL .CT[.P,0]<CLASSF> EQL .C
+      DO P_.CT[.P,0]<NEXTF>;
+    IF .S EQL 0 THEN (COPYOFP_.P; SURFACE(COPYOFP<0,0>); RETURN .COPYOFP);
+    N_.S-.CT[.P,1]<CLASSF>;
+    IF .N EQL 0 THEN RETURN(.P);
+    W_
+      IF .N GTR 0 THEN CT[.P,0]<NEXTF>
+      ELSE CT[.P,0]<PREVF>;
+      DO W<RIGHTF>_CT[P_..W,0]<0,0>
+	UNTIL
+	  BEGIN
+	    CLASS_.(.W+1)<CLASSF>;
+	    IF .CLASS EQL .S THEN
+	      IF .SFORLABEL THEN
+		.(.W)<CLASSF> EQL LABELC
+	      ELSE 1
+	    ELSE 0
+	  END;
+    .P
+  END;
+
+
+
+
+
+
+ROUTINE SURFACE(I)=
+%   I REFERS TO A CODE TABLE INDEX POINTING IN TO A LIST OF
+  HEADERS.   THE INDEX IS MOVED TO THE RIGHT UNTIL THE MASTER
+  HEADER IS REACHED.   %
+  BEGIN
+    UNTIL .CT[@.I,1]<HDRF> DO WORD(.I)_.CT[@.I,0]<NEXTF>;
+    0
+  END;
+
+
+
+FORWARD
+    DELCELL,
+    DETCELL,
+    EMPTY,
+    EMPTYDET,
+    ERASE,
+    ERASEDET,
+    FLATTEN,
+    LNKARND,
+    TAKE;
+
+
+
+
+
+
+
+GLOBAL ROUTINE DELCELL(IND)=
+  ! DELETE (RELEASE) CELL IWTH INDEX IND
+
+  BEGIN
+    LOCAL VAL;
+    VAL _ .CTPREV[.IND];
+    RELEASESPACE
+     (
+        .IND
+     ,
+        IF
+            NOT HEADERP(.IND) OR CURRENTP(.IND) OR NOT HEADER1P(.IND)
+         THEN
+            1
+         ELSE
+            .CTCLASS1[.IND]
+      );
+    .VAL
+   END;
+
+
+
+
+GLOBAL ROUTINE DETCELL(IND)=
+  ! DETACHES CELL IND FROM LIST
+
+  BEGIN
+    IF
+        .CTPREV[.IND] NEQ .IND
+     THEN
+        LNKARND(.IND,0);
+    .IND
+  END;
+
+
+
+
+GLOBAL ROUTINE EMPTY(H)=
+  ! EMPTIES (ERASE) LIST HANGING FROM H BUT LEAVES H
+
+  BEGIN
+    EMPTYDET(.H);
+    CTPREV1[.H] _ CTNEXT1[.H] _ .H
+   END;
+
+
+
+
+GLOBAL ROUTINE EMPTYDET(H)=
+  ! WORKHORSE FOR EMPTY
+
+  BEGIN
+    LOCAL CURS;
+    CURS _ .CTPREV1[.H];
+    WHILE
+        .CURS NEQ .H
+     DO
+        CURS _ (IF HEADERP(.CURS) THEN ERASEDET ELSE DELCELL)(.CURS);
+    .H
+   END;
+
+
+
+
+
+GLOBAL ROUTINE ERASE(IND) =
+  ! ERASE CELL INDEX IND
+
+    ERASEDET(DETCELL(.IND));
+
+
+
+
+
+
+GLOBAL ROUTINE ERASEDET(IND)=
+  ! WORKHORSE FOR ERASE
+
+  BEGIN
+    IF
+        HEADERP(.IND)
+     THEN
+        EMPTYDET(.IND);
+    DELCELL(.IND)
+   END;
+
+
+
+
+GLOBAL ROUTINE FLATTEN(H)=
+  ! REMOVE NON-LABEL SUBHEADER AND LINK ITS SUBLIST ONTO LIST TO
+  ! THE LEFT OF IT
+
+  BEGIN
+    IF
+        .CTNEXT1[.H] NEQ .H
+     THEN
+      BEGIN
+        LNKARND(.H,1);
+        CTPREV[.CTNEXT1[.H]] _ .CTPREV[.H];
+        CTNEXT[.CTPREV1[.H]] _ .CTNEXT[.H]
+       END
+     ELSE
+        DETCELL(.H);
+    DELCELL(.H)
+   END;
+
+
+
+
+GLOBAL ROUTINE LNKARND(IND,WD)=
+  ! RELINKS LIST "AROUND" ABOUT-TO-BE-DETACHED CELL
+
+  BEGIN
+    NEXTOFPREV(.IND) _ .CT[.IND,.WD]<NEXTF>;
+    PREVOFNEXT(.IND) _ .CT[.IND,.WD]<PREVF>;
+    .IND
+   END;
+
+
+
+
+
+GLOBAL ROUTINE TAKE(IND)=
+  ! DETATCHS CELL IND FROM LIST
+
+  BEGIN
+    DETCELL(.IND);
+    CTPREV[.IND] _ CTNEXT[.IND] _ .IND
+  END;     !TAKE
+
+
+
+
+
+%%
+%              ----------LOREGI.BLI----------
+%
+%%
+
+
+
+
+!			GENERAL DOCUMENTATION FOR REGIST.BLI
+!	
+!	
+!		THE SET OF 16 ACCUMULATORS ARE PUT INTO FOUR SETS BY THE BLISS
+!	MACHINE USING THE FOLLOWING STRATEGY:
+!	
+!		1. FIRST THE REGISTERS DECLARED IN THE MODULE HEAD AS "RESERVED"
+!		   ARE SET ASIDE AND NOT USED IN THE REMAINING THREE SUBSETS.
+!	
+!		2. THEN THE FOUR RUN-TIME REGISTERS SREG,BREG,FREG, AND VREG ARE
+!		   DEFINED.  IN THE ABSENCE OF USER SPECIFICATION THESE ARE
+!		   GENERALLY THE LOWEST FOUR AVAILABLE REGISTERS.
+!	
+!		3. THE REMAINING REGISTERS ARE BROKEN INTO TWO CLASSES: DECLARABLE
+!		   (SAVABLE) AND TEMPORARY.  THE NUMBER OF DECLARABLE IS EITHER
+!		   SET BY THE USER (DREGS=) OR IS DEFAULTED TO FIVE.  THESE
+!		   SAVABLE REGISTERS ARE SAVED IN ROUTINE PROLOGS AND
+!		   RESTORED IN THE EPILOGS.  THE TEMPORARIES ARE SAVED
+!		   AT CALL SITES OF ROUTINES IF THEIR VALUES MUST BE PRESERVED.
+!	
+!		THE INITIALIZATION OF THE NAMES SREG, ... ,VREG AND THE DEFINITION
+!	OF THEIR ADDRESSES, ETC. IS DONE IN THE ROUTINE RGINIT(H3REGIST).
+!	
+!	
+!		THE ALLOCATION OF REGISTERS IS CONTROLLED BY TWO TABLES: ART AND
+!	RT.  THEIR FORMAT IS SPECIFIED BELOW.  THE ART TABLE MAINTAINS A "MAP"
+!	OF AVAILABLE SPACE AND THE RT TABLE MAINTAINS THE "NAME" OF INTERMEDIATE
+!	RESULTS.  REFERENCES TO INTERMEDIATE RESULTS FROM LEXEMES ALWAYS REFER
+!	TO THE RT TABLE SO THAT IF A REGISTER MUST BE SAVED ON THE STACK, SUBSEQUENT
+!	CODE GENERATION FOR THAT RESULT WILL BE AWARE THAT THE RESULT IS NO
+!	LONGER IN A REGISTER.
+!	
+!	    ART[0:19]
+!	
+!		.............................................................................................................
+!		!                 !                 !\  \  \ !              !  !\  \  \  \  \  \  \  \  \  \ !              !
+!		!                 !                 ! \  \  \!              ! F! \  \  \  \  \  \  \  \  \  \!              !
+!		!                 !                 !  \  \  !              ! R!  \  \  \  \  \  \  \  \  \  !              !
+!		!     FCHAINF     !     BCHAINF     !\  \  \ !     RTEF     ! E!\  \  \  \  \  \  \  \  \  \ !     LRTEF    !
+!		!                 !                 ! \  \  \!              ! E! \  \  \  \  \  \  \  \  \  \!              !
+!		!                 !                 !  \  \  !              ! F!  \  \  \  \  \  \  \  \  \  !              !
+!		!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!
+!		                30                24                18                12                 6
+!	
+!	
+!		THE ART TABLE CONTAINS TWO DOUBLY LINKED CHAINS: ONE FOR THE
+!	TEMPORARY REGISTERS AND ONE FOR THE SAVABLE REGISTERS.  THE RUN-TIME
+!	REGISTERS AND THE RESERVED REGISTERS ARE NOT LINKED INTO EITHER CHAIN.
+!	THE TEMPORARY REGISTER ARE ALLOCATED IN ROUND-ROBIN FASHION TO PROLONG
+!	THE LIFE OF VALUES IN REGISTERS.  THE SAVABLE REGISTERS ARE ALLOCATED
+!	AS A STACK TO MINIMIZE THE SAVING AND RESTORING.  THE ROUTINE REGINIT
+!	INITIALIZES THE ART (AND RT) TABLE.
+!	
+!		THE ENTRIES A[0] THROUGH A[15] CORRESPOND TO THE ACTUAL
+!	REGISTERS 0 THROUGH 15:  A[I] CONTAINING INFORMATION RELATING TO REGISTER I.
+!	
+!		A[16]: TAIL OF TEMPORARY  CHAIN
+!		A[17]: TAIL OF SAVABLE CHAIN
+!		A[18]: HEAD OF TEMPORARY CHAIN
+!		A[19]: HEAD OF SAVABLE CHAIN
+!	
+!		THE FIELDS ARE INTERPRETED AS FOLLOWS:
+!	
+!		FCHAINF: INDEX IF NEXT REGISTER IN CHAIN
+!		BCHAINF: INDEX OF PREVIOUS REGISTER IN CHAIN
+!		RTEF:    INDEX OF "NAME" IN RT TABLE
+!		FREEF:   BIT INDICATING REGISTER IS ALLOCATABLE
+!		LRTEF:   INDEX OF MOST RECENT "NAME" IN RT TABLE.  (AT ONE POINT
+!			  IN THE IMPLEMENTATION THIS FIELD WAS NECESSARY BUT NOW
+!			  SERVES MAINLY AS A CONVENIENCE WHEN OBTAINING A NEW NAME.)
+!	
+!	    RT-TABLE
+!	
+!		RT[0]: NOT USED, SET TO 0
+!		RT[1]: BIT-MASK OF AVAILABLE, SAVABLE REGISTERS
+!		RT[2:3]: NOT USED, SET TO -1
+!		RT[4]: LINK TO THE PREVIOUS VERSION OF ART AND RT TABLE(SEE SAVRT)
+
+!	
+!		RT[5:15]
+!	
+!		.............................................................................................................
+!		!           !  !\ !           !                       !\  \ !  !                                            !
+!		!           ! H! \!           !                       ! \  \!  !                                            !
+!		!           ! O!  !           !                       !  \  ! R!                                            !
+!		!   ARTEF   ! L!\ ! BLOCKSIZEF!          USEF         !\  \ ! S!                  S T E F                   !
+!		!           ! Y! \!           !                       ! \  \! F!                                            !
+!		!           ! F!  !           !                       !  \  !  !                                            !
+!		!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!
+!		                30                24                18                12                 6
+!	
+!	
+!		THIS PORTION OF THE RT TABLE IS USED TO NAME: (1) DECLARED
+!	REGISTERS; (2) RUN-TIME REGISTERS; AND (3) RESERVED REGISTERS.  THUS
+!	WHENEVER A LEXEME IS CREATEED WHICH REFERS TO THE VALUE OF A REGISTER FROM
+!	ONE OF THE ABOVE THREE CLASSES, ITS RTEF IS AN INDEX IN THE RANGE 5 TO 15.
+!	
+!	
+!		FIELDS:
+!	
+!		ARTEF:  REGISTER ADDRESS (INDEX INTO ART)
+!		HOLYF:  SET TO 1 (IGNORED)
+!		BLOCKSIZEF: # OF REGISTERS ALLOCATED IN SAME CHUNK WITH THIS
+!			    ONE:  E.G. REGISTER R[3];
+!		USEF: SET TO 1 (IGNORED)
+!		LSF: SET TO 1
+!		STEF: IF THE REGISTER IS EXPLICITLY DECLARED THEN THE ST-INDEX
+!		      OF THE SYMBOL.  ZERO OTHERWISE (E.G. 4<>_ ...)
+!	
+!	
+!	    RT[16:31]
+!	
+!		.............................................................................................................
+!		!           !  !\  \  \  \  \ !                       !\  \ !  !                                            !
+!		!           ! H! \  \  \  \  \!                       ! \  \!  !                                            !
+!		!           ! O!  \  \  \  \  !                       !  \  ! R!                                            !
+!		!   ARTEF   ! L!\  \  \  \  \ !          USEF         !\  \ ! S!                 NEXTF/STEF                 !
+!		!           ! Y! \  \  \  \  \!                       ! \  \! F!                                            !
+!		!           ! F!  \  \  \  \  !                       !  \  !  !                                            !
+!		!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!
+!		                30                24                18                12                 6
+!	
+!	
+!		THIS PORTION OF THE TABLE IS USED TO NAME TEMPORARY RESULTS (INCLUDING
+!	VREG WHEN IS CONTAINS THE RESULT OF A CONTROL EXPRRESSION OR ROUTINE).
+!	NAMES IN THIS RANGE CAN REFER BOTH TO ACTUAL REGISTERS AND TEMPORARY LOCALS
+!	(I.E. REGISTERS SAVED ON THE STACK).
+!	
+!		FIELDS:
+!	
+!		ARTEF: REGISTER ADDRESS (INDEX INTO ART).  NOTE: REGISTER 0 IS
+!		       NEVER USED AS A TEMPORARY.
+!		HOLYF: WHEN SET IT INDICATES THAT ONE OF THE OPERATOR ROUTINES HAS
+!		       TESTED ONE OF ITS OPERAND LEXEMES AND HAS FOUND ITS
+!		       RTEF REFERENCING A REAL REGISTER.  HENCE THIS BIT BEING
+!		       SET PREVENTS A REGISTER FROM BEING SAVED ON THE STACK
+!		       UNTIL IT IS USED IN AN INSTRUCTION.
+!		USEF: A COUNT OF THE NUMBER OF TIMES THIS TEMPORARY RESULT
+!		      WILL BE USED IN COMPILING THE PRESENT EXPRESSION.
+!		RSF: 0 IF THIS NAME REFERENCES A REAL REGISTER. 1 IF IT REFERENCES
+!		     A TEMPORARY VALUE WHICH IS NOW A LOCAL.
+!		NEXTF/STEF: IF RSF IS 0 THEN THIS IS THE INDEX OF THE HEADER OF A
+!		            DOUBLY LINKED LIST OF LEXEMES WHICH: (1) DEPEND UPON THIS
+!			    TEMPORARY VALUE (GRAPH-TABLE LEXEMES) OR (2) REPRESENT VALUES IN THIS
+!			    REGISTER (ORDINARY LEXEMES).   IF RSF IS 1  THEN THIS IS THE INDEX OF A
+!			    GENSYMS (GENERATED-SYMBOL) ENTRY IN THE SYMBOL TABLE.
+!	GLOBALS USED BY REGIST.BLI:
+!		HITREGM:	TEMPORARY REGISTER MASK
+!		MODREGM:	(4-RUN-TIME REGS) OR RESREGM
+!		NOSVR:		NUMBER OF SAVABLE REGISTERS
+!		RESREGM:	RESERVED REGISTER MASK
+!		SVREGM:		SAVABLE REGISTER MASK
+!		CODEPROP:	SET TO 1 WHEN CODEN PRODUCES INST.
+!		GENSYMS:	SEE GENLOCAL BELOW
+!		VTARGET:	IF >0 THEN USE VREG AS A TEMP
+
+
+
+
+
+
+
+FORWARD ACQUIRE,CHGNG,CHGNGF,CLEARONE,CODEN,CTRCTH;
+FORWARD DUA,DUM,DUAN,DUMPREG,ENTER;
+FORWARD FREERN,GENLOCAL,GETAR,GETMIN,GETRN,GLAR,GLR,GLTR;
+FORWARD INCRUSEN,MATCH,MOVEREG,OPENSPACE,RELREG;
+FORWARD RMALL,RMFRLST,SAVEWORTHY,SWAP,TRCTSEARCH;
+FORWARD UNUSEOLDNAMP;
+
+
+
+ROUTINE GLR(X,F,N)=
+
+!	PRIMARY ROUTINE TO GENERATE CODE TO LOAD A REGISTER WITH THE LEXEME X.
+!	CALLED BY THE FOUR ROUTINES:
+!	
+!		(1) GLTR (GENERATE-LOAD-TEMP-REGISTER)
+!			N=1, F=0
+!	
+!		(2) GLTR2 (GENERATE-LOAD-TWO-ADJACENT-REGISTERS)
+!			N=2, F=0
+!	
+!		(3) GLPR (GENERATE-LOAD-PARTICULAR-REGISTER)
+!			N=ADDRESS OF REG, F=2
+!	
+!		(4) GOLTR (GENERATE-LOAD-TEMP-REGISTER---BUT ONLY NEGATE
+!			   IF YOU GET IT FOR FREE, E.G. MOVN)
+!			N=1 OR 2, F=1
+!	
+!	GLOBAL VARIABLES USED BY GLR:
+!		OPTTOREGADDR:
+!			SET BY GOTM FOR EXPRESSIONS OF THE FORM
+!			REG_.REG OP EXP.  IF NOT -1, THEN IT CONTAINS
+!			THE ADDRESS OF REG.
+!
+!		LOADECREG:
+!			IF F=2 (GLPR CASE), THEN LOADECREG IS SET TO
+!			.N BEFORE CALLING GMA SO THAT IF GMA MUST
+!			LOAD A REGISTER IT WILL USE THE ONE POINTED TO
+!			LOADECREG.
+!
+
+  BEGIN
+    REGISTER R;
+    MACRO NEGBIT=R<0,1>$,	! NEG-BIT SET IN X
+	  NOTBIT=R<1,1>$,	! NOT-BIT SET IN X
+	  ALLWORD=R<2,1>$,	! 36-BIT LOAD
+	  HALFWORD=R<3,1>$,	! 18-BIT LOAD
+	  RIGHTHLF=R<4,1>$,	! 18-BIT LOAD (RIGHT, I.E. <0,18>)
+	  INDIRBIT=R<5,1>$,	! INDIRECT ADDRESSING (IF \ EVER HAPPENS)
+	  ANDCASE=R<6,1>$,	! A BYTE WITH POSITION 0 CAN BE LOADED
+				! BY "ANDING" A REGISTER WHICH NOW CONTAINS
+				! .X<0,36>
+	  SINGTEMPCASE=R<7,1>$; ! ONE, TEMPORARY TO BE LOADED
+
+    REGISTER OPCODE;	! FUNCTION FOR LOAD INSTRUCTION
+
+    LOCAL REG,		! ADDRESS OF LOADED REGISTER
+	  COPFIELD,	! .X<COPF>
+	  ADDRESS,	! CODE-3 FORMAT OF ADDRESS IN LOADING INSTRUCTION
+	  VALUE,	! USED TO HOLD VALUE OF LITERAL
+	  NGNTMASK,	! MASK : NEGM XOR NOTM XOR EMPTY
+	  OLDX,		! A COPY OF THE INPUT LEXEME X
+	  PSFIELD,	! POSN-SIZEFIELD OF X
+	  ANDMASK,	! MASK TO BE ANDED FOR ANDCASE
+	  ANDLEX;	! .X<0,36> USED IN ANDCASE
+
+!	THESE FIRST FOUR 'IF' STATEMENTS CHECK TO SEE IF THE LEXEME X
+!	IS ALREADY IN A REGISTER AND  ALSO ('IF' #3) ADJUST THE INPUT
+!	LEXEME TO A MORE STANDARD FORM.
+
+    SINGTEMPCASE_.F NEQ 2 AND .N NEQ 2;
+    IF REGP(.X AND NOT NGNTM) THEN IF .SINGTEMPCASE THEN
+      IF .RT[.X<RTEF>]<ARTEF> EQL .OPTTOREGADDR THEN
+	RETURN IF .X<NGNTF> NEQ 0 THEN GLPR(.X,.OPTTOREGADDR) ELSE .X;
+    IF .X<COPF> NEQ 0 THEN
+      IF (.X AND (POSNM OR SIZEM OR RTEM OR LSM OR VEM)) EQL VEM THEN
+	X<POSNSIZEF>_LITV(.X<LSSTEF>)^(-24);
+    IF .SINGTEMPCASE THEN
+      IF TVRP(.X) THEN RETURN .X;
+    IF .F NEQ 2 THEN
+      (IF (REG_MATCH(.X,(.N-1)*2)) NEQ .X THEN RETURN .REG)
+    ELSE REGSEARCH(X,0);
+
+!	NOW WE LOAD X IF IT IS A LITERAL
+
+    IF LITP(.X) THEN
+      BEGIN
+	VALUE_LITV(.X);
+	IF .VALUE EQL 0 THEN (OPCODE_SETZ; ADDRESS_0) ELSE
+	IF .VALUE EQL -1 THEN (OPCODE_SETO; ADDRESS_0) ELSE
+	IF SMNEGLITVP(.VALUE) THEN (OPCODE_MOVNI; ADDRESS_-.VALUE) ELSE
+	IF SMPOSLITVP(.VALUE) THEN (OPCODE_MOVEI; ADDRESS_.VALUE) ELSE
+	IF .VALUE<RIGHTF> EQL 0 THEN (OPCODE_HRLZI;ADDRESS_.VALUE<LEFTF>) ELSE
+	IF .VALUE<RIGHTF> EQL 1^18-1 THEN (OPCODE_HRLOI; ADDRESS_.VALUE<LEFTF>)
+	ELSE (OPCODE_MOVE; ADDRESS_LITA(.X));
+	CODEN(.OPCODE,
+	      REG_IF .F EQL 2 THEN .N ELSE ACQUIRE(-1,.N),
+	      .ADDRESS,3,.X);
+	RETURN(LEXRA(.REG))
+      END;
+    COPFIELD_.X<COPF>;
+    NEGBIT_.X<NEGF>;
+    NOTBIT_.X<NOTF>;
+    OLDX_.X;
+    X_.X AND NOT (NEGM OR NOTM OR COPM);
+    OPCODE_0;
+    INDIRBIT_0;
+    NGNTMASK_0;
+    ANDCASE_0;
+
+!	THIS MESSY IF-THEN-ELSE STATEMENT DETERMINES WHETHER
+!	TO GENERATE A FULL OR HALF WORD LOAD AND IN THE CASE WHERE WE
+!	HAVE A DOTTED LEXEME WITH A SIZE FIELD OF ZERO AND ITS
+!	RTEF FIELD IS SET, WE MANIPULATE X SO THAT WHEN GMA IS CALLED
+!	LATER IT CAN DO ITS THING CORRECTLY.  TO UNDERSTAND THIS
+!	YOU MUST READ THROUGH GMA.
+
+    IF .COPFIELD NEQ 0 THEN
+      IF .X<SIZEF> EQL 0 AND .X<RTEF> NEQ 0 THEN
+	BEGIN
+	  OPCODE_CASE .COPFIELD OF SET
+		   0;
+		   (COPFIELD_0; LDB);
+		   MOVE;
+		   (COPFIELD_0; SESTOG_.SESTOG OR 2;
+		    INDIRBIT_1; MOVE)
+		 TES;
+	  ALLWORD_1;
+	  HALFWORD_0
+	END
+      ELSE
+	BEGIN
+	  PSFIELD_.X<POSNSIZEF>;
+	  HALFWORD_(RIGHTHLF_.PSFIELD EQL 18) OR .PSFIELD EQL #2222;
+	  ALLWORD_.PSFIELD EQL 36;
+	  IF .PSFIELD NEQ 0 THEN
+	    IF NOT .ALLWORD THEN IF .F NEQ 2 THEN
+	      IF .RIGHTHLF OR ((.PSFIELD AND #77^6) EQL 0) THEN
+		BEGIN
+		  ANDLEX_(.X AND NOT (POSNM OR SIZEM)) OR (ZERO36 OR DOTM);
+		  REG_MATCH(.ANDLEX,(.N-1)*2);
+		  IF .REG NEQ .ANDLEX THEN
+		    BEGIN
+		      ANDCASE_1; REG_.RT[.REG<RTEF>]<ARTEF>;
+		      ANDMASK_
+		        IF .RIGHTHLF THEN RIGHTM ELSE 1^.PSFIELD-1;
+		      OPCODE_ANDI-(.ANDMASK<LEFTF> NEQ 0);
+		      CODEN(.OPCODE,.REG,
+			    IF .OPCODE THEN .ANDMASK
+			    ELSE LITA(LITLEXEME(.ANDMASK)),
+			    3,.OLDX AND NOT NGNTM)
+		    END
+		END
+	END
+    ELSE
+      BEGIN
+	IF ZERONAMP(.X) THEN (OPCODE_MOVEI; COPFIELD_1);
+	ALLWORD_1;
+	HALFWORD_0
+      END;
+    LOADECREG_IF .F EQL 2 THEN .N ELSE -1;
+    X<COPF>_.COPFIELD;
+    ADDRESS_IF NOT .ANDCASE THEN IF .ALLWORD OR .HALFWORD THEN GMA(.X) ELSE GPA(.X);
+    LOADECREG_-1;
+    IF .OPCODE EQL 0 THEN
+      IF .ADDRESS<RELOCF> NEQ 0 OR
+	(IF .ADDRESS<IXYF> LEQ 15 THEN
+	   IF .F EQL 2 THEN (.ADDRESS<IXYF> NEQ .N OR NOT .ALLWORD)
+	   ELSE NOT ITRP(LEXRN(.ART[.ADDRESS<IXYF>]<RTEF>))
+	 ELSE 1) THEN
+	OPCODE_
+	  CASE 2*.HALFWORD+.ALLWORD OF SET
+	    LDB;
+	    IF .NEGBIT THEN (NEGBIT_0;NGNTMASK_NEGM;MOVN) ELSE
+	    IF .NOTBIT THEN (NOTBIT_0;NGNTMASK_NOTM; SETCM)
+	    ELSE MOVE;
+	    IF .RIGHTHLF THEN HRRZ ELSE HLRZ TES;
+    IF NOT .ANDCASE THEN
+      IF .OPCODE NEQ 0 THEN
+        CODEN(.OPCODE,
+	      REG_IF .F EQL 2 THEN .N ELSE ACQUIRE(-1,.N),
+	      .ADDRESS OR .INDIRBIT^23,3,(.OLDX AND NOT NGNTM) OR .NGNTMASK)
+      ELSE
+        REG_
+	  IF .F EQL 2 THEN .N ELSE
+	  IF .N THEN .ADDRESS<RELRF>
+	  ELSE ACQUIRE(.ADDRESS<RELRF>,2);
+    IF .NOTBIT THEN CODE(SETCA,.REG,0,1) ELSE
+    IF .NEGBIT AND NOT .F THEN CODE(MOVN,.REG,.REG,4);
+    LEXRA(.REG) OR (IF .F AND .NEGBIT THEN NEGM)
+  END;
+
+
+GLOBAL ROUTINE GLTR(X)=GLR(.X,0,1);
+
+
+
+GLOBAL ROUTINE GOLTR(X)=GLR(.X,1,1);
+
+
+
+GLOBAL ROUTINE GLTR2(X)=GLR(.X,0,2);
+
+
+
+GLOBAL ROUTINE GLPR(X,A)=GLR(.X,2,.A);
+
+
+
+ROUTINE GLAR(X)=
+  !(GENERATE-LOAD-ANY-REGISTER)
+  !CALLED TO LOAD A VALUE INTO A (POTENTIALLY) READ ONLY REGISTER.  IT
+  !FIRST ATTEMPTS TO FIND X INS SOME REGISTER (EVEN IF THAT REGISTER'S
+  !USE IS GREATER THAN 1) AND FAILING THAT CALLS GLTR.
+
+  BEGIN LOCAL R;
+    IF DCRP(.X) THEN RETURN .X;
+    IF (R_MATCH(.X,1)) NEQ .X THEN RETURN .R;
+    GLTR(.X)
+  END;
+
+
+
+GLOBAL ROUTINE RELOADTEMP(ADDRESS,NAME)=
+  !RELOADS TEMPORARY MEMORY INTO A REGISTER.  USED BY THE GCREATE
+  !ROUTINES FOR THEIR TEMPORARY STACK AND BASE REGISTERS.  ALSO USED
+  !BY GMA.  IF ADDRESS=0, THEN ANY REGISTER IS LOADED, OTHERWISE
+  !THAT PARTICULAR REGISTER IS LOADED AFTER ITS CONTENTS (IF IN USE)
+  !ARE DUMPED.  RETURNS THE ADDRESS OF THE REGISTER.  CARE IS TAKEN
+  !NOT TO USE THE VREG SINCE WEIRD SIDE-EFFECTS ARE CAUSED AT THE
+  !POPPING OF REGISTER TABLES.
+
+  BEGIN REGISTER SAVVTARGET;
+  ROUTINE FUNMARK(L)=
+    IF .L<LEFTF> EQL GTLEX THEN MARKFUNNY(.L)
+    ELSE SETFUNBIT(.L);
+
+    IF NOT .RT[.NAME]<RSF> THEN RETURN .RT[.NAME]<ARTEF>;
+    IF .ADDRESS NEQ 0 THEN
+      BEGIN
+	IF NOT .ART[.ADDRESS]<FREEF> THEN DUMPREG(.ADDRESS);
+	RMFRLST(.ADDRESS)
+      END
+    ELSE (SAVVTARGET_.VTARGET; VTARGET_-1; ADDRESS_GETAR(-1,1); VTARGET_.SAVVTARGET);
+    CODE(MOVE,.ADDRESS,GMA(LEXNPSD(.RT[.NAME]<LSSTEF>,0,36,1)),1);
+    RT[.NAME]<LSSTEF>_.ST[.RT[.NAME]<NEXTF>,1]<LEFTF>;
+    SCAN0(.RT[.NAME]<STEF>,FUNMARK);
+    IF .RT[.ART[.ADDRESS]<LRTEF>]<ARTEF> EQL .ADDRESS THEN
+      BEGIN
+	RT[.ART[.ADDRESS]<LRTEF>]<LEFTF>_0;
+	CLEARONE(RT[.ART[.ADDRESS]<LRTEF>])
+      END;
+    ART[.ADDRESS]<LRTEF>_ART[.ADDRESS]<RTEF>_.NAME;
+    RT[.NAME]<ARTEF>_.ADDRESS
+  END;
+
+
+
+
+GLOBAL ROUTINE ACQUIRE(A,N)=
+    !THIS ROUTINE ACQUIRES REGISTERS, BOTH TEMPORARY AND DECLARED.
+    !PARAMETERS:
+    !   DECLARED:    A=ST-INDEX + 16; N=BLOCKSIZE
+    !   INCR-DECR:   A=-(ST-INDEX); N=1
+    !   TEMPORARY:   A=-1; N=1 OR 2
+    !   DIV/MOD:     -1<A<16; N=2
+    !RETURNS THE ADDRESS OF THE FIRST OF THE N REGISTERS.  IN THE
+    !DIV/MOD CASE, THE RETURNED REGISTER CONTAINS THE CONTENTS OF A.
+  BEGIN LOCAL M,R;
+    IF .A EQL -1 THEN
+      BEGIN
+        R_GETAR(-1,.N); GETRN(.R,0,0);
+        IF .N EQL 2 THEN GETRN(.R+1,0,0)
+      END ELSE
+    IF .A LSS 0 THEN
+      IF (R_.ART[19]<FCHAINF>) LSS 17 THEN (RMFRLST(.R);GETRN(.R,.N,-.A))
+      ELSE
+        BEGIN
+          R_INCR I FROM 16 TO 31 DO
+              IF (1^.RT[.I]<ARTEF> AND .SVREGM) NEQ 0 THEN
+                IF NOT .RT[.I]<HOLYF> THEN BREAK(DUMPREG(.RT[.I]<ARTEF>));
+          IF .R LSS 0 THEN RETURN(ERROR(.NSYM,#761))
+          ELSE GETRN(.R,.N,-.A)
+        END ELSE
+    IF .A GTR 15 THEN
+      BEGIN
+        M_(1^.N)-1;
+        R_DECR I FROM 16-.N TO 0 DO
+            IF (.RT[1]^(-.I) AND .M) EQL .M THEN BREAK(.I);
+        IF .R LSS 0 THEN RETURN(ERROR(.NSYM,#762))
+        ELSE INCR I FROM .R TO .R+.N-1 DO RMFRLST(.I);
+        GETRN(.R,.N,.A-16)
+      END
+    ELSE
+      BEGIN R_GETAR(.A,.N);GETRN(.R+1,0,0) END;
+    .R
+  END;
+
+
+
+ROUTINE RMFRLST(R)=
+    !THIS ROUTINE REMOVES THE REGISTER R FROM THE FREE LIST IN ART
+    !(IF IT IS THERE).  IF R IS A SAVABLE TEMPORARY,THE
+    !APPROPRIATE BIT IN RT[1] IS SET TO 0.
+  BEGIN
+    IF .ART[.R]<CHAINF> NEQ 0 THEN
+      BEGIN
+        ART[.ART[.R]<FCHAINF>]<BCHAINF>_.ART[.R]<BCHAINF>;
+        ART[.ART[.R]<BCHAINF>]<FCHAINF>_.ART[.R]<FCHAINF>;
+        ART[.R]<CHAINF>_0;
+        REGUSE_.REGUSE OR 1^.R;
+        ART[.R]<FREEF>_0;
+        IF (1^.R AND .SVREGM) NEQ 0 THEN RT[1]<.R,1>_0
+      END;
+    .R
+  END;
+
+
+
+ROUTINE ENTFRLST(J)=
+
+    !ENTERS REGISTER J IN THE FREE LIST OF ART AND IF J IS
+    !A SAVABLE REGISTER SETS THE APPROPRIATE BIT IN RT[1]
+
+  BEGIN REGISTER T;
+  IF (1^.J AND .MODREGM) EQL 0 THEN
+    BEGIN
+    ART[.J]<15,6>_1;
+    IF (1^.J AND .SVREGM) EQL 0 THEN
+      BEGIN
+        ART[T_.ART[16]<BCHAINF>]<FCHAINF>_.J;
+        ART[16]<BCHAINF>_.J;
+        ART[.J]<FCHAINF>_16;
+        ART[.J]<BCHAINF>_.T
+      END
+    ELSE
+      BEGIN
+        ART[T_.ART[19]<FCHAINF>]<BCHAINF>_.J;
+        ART[19]<FCHAINF>_.J;
+        ART[.J]<FCHAINF>_.T;
+        ART[.J]<BCHAINF>_19;
+        RT[1]<.J,1>_1
+      END
+    END
+  ELSE IF .J EQL .VREG THEN ART[.J]_0
+  END;
+
+
+
+ROUTINE TRYVREG=
+  !A FIRST ATTEMPT AT TRYING TO OPTIMIZE MINI-ROUTINE AND MINI EXPRESSIONS
+  !WHICH RESULT IN LOADING THE VALUE REGISTER FROM A TEMPORARY.  THIS
+  !ALGORITHM SAYS THAT IF VTARGET IS GTR 0 THEN TRY TO USE VREG
+  !RATHER THAN ANOTHER TEMP. VTARGET IS MANIPULATED BY THE SYNTAX ROUTINES
+  !AND GENCODE AND IN A (CLEVER-KLUDGEY) WAY BY GREL.
+
+  IF .VTARGET GTR 0 THEN
+  BEGIN
+    IF .ART[.VREG]<LRTEF> GEQ 16 THEN
+      RETURN
+	IF .RT[.ART[.VREG]<LRTEF>]<ARTEF> EQL .VREG THEN
+	  .RT[.ART[.VREG]<LRTEF>]<USEF> EQL 0
+	ELSE  .RT[.ART[.VREG]<LRTEF>]<ARTEF> EQL 0;
+    .ART[.VREG]<LRTEF> EQL 0
+  END;
+
+
+
+ROUTINE GETAR(A,N)=
+    !THIS ROUTINE IS CALLED BY ACQUIRE AND FINDS THE N(=1 OR 2)
+    !TEMPORARY REGISTERS.  IT FIRST ATTEMPTS TO RETURN A HI-TEMP
+    !FAILING THIS IT SELECTS A SAVABLE TEMP AND FAILING THIS IT
+    !CALLS SWAP TO PUT TEMPORARY VALUES ON THE STACK. IF A IS NOT
+    !-1, THEN A (AND A+1 IF N=2) ARE TO BE ACQUIRED.
+
+
+  BEGIN LOCAL R;
+    IF .A GEQ 0 THEN IF
+      (IF .ART[.A+1]<RTEF> NEQ 0 THEN
+	 IF .ART[.A+1]<DTF> THEN NOT .RT[.ART[.A+1]<RTEF>]<HOLYF>
+	 ELSE 0
+       ELSE (1^(.A+1) AND (.SVREGM OR .MODREGM)) EQL 0) THEN
+      BEGIN
+	IF NOT .ART[.A+1]<FREEF> THEN DUMPREG(.A+1);
+	RMFRLST(.A+1); RETURN .A
+      END;
+    IF .N EQL 2 THEN
+      BEGIN
+        R_INCR I FROM 18 TO 19 DO
+          BEGIN
+            R_.ART[.I]<FCHAINF>;
+            WHILE .R LSS (.I-2) DO
+              IF .ART[.R+1]<FREEF> THEN EXITLOOP[2] .R
+              ELSE R_.ART[.R]<FCHAINF>
+          END;
+        IF .R LSS 0 THEN A_SWAP(.A,2)
+        ELSE
+          BEGIN
+            RMFRLST(.R);RMFRLST(.R+1);
+            A_IF .A GEQ 0 THEN MOVEREG(.A,.R) ELSE .R
+          END;
+        RETURN .A
+      END;
+    IF TRYVREG() THEN RETURN RMFRLST(.VREG);
+    IF (R_.ART[18]<FCHAINF>) LSS 16 THEN RMFRLST(.R) ELSE
+    IF (R_.ART[19]<FCHAINF>) LSS 17 THEN RMFRLST(.R) 
+    ELSE SWAP(.A,2)
+  END;
+
+
+
+ROUTINE GETRN(A,TDN,S)=
+
+  %ACQUIRES A NAME FOR REGISTER A. IF TDN IS 0, THEN THE REGISTER
+   IS TEMPORARY ELSE TDN IS THE NUMBER OF DECLARED REGISTERS IN A
+   BLOCK AND S IS THEIR SYMBOL TABLE ENTRY%
+
+  BEGIN 
+    REGISTER T;
+    IF .TDN GTR 0 THEN
+    BEGIN
+      INCR I FROM .A TO .A+.TDN -1 DO
+	BEGIN
+	  T_
+	    INCR J FROM 5 TO 15 DO
+	      IF .RT[.J]<ARTEF> EQL .I THEN EXITLOOP(.J);
+	  IF .T LSS 0 THEN
+	    T_
+	      INCR J FROM 5 TO 15 DO
+		IF .RT[.J]<LEFTF> EQL 0 THEN EXITLOOP(.J);
+	  IF .T GTR 15 THEN RETURN(ERROR(.NSYM,#761));
+	  IF .ART[.I]<LRTEF> GEQ 16 AND NOT .RT[.ART[.I]<LRTEF>]<RSF> THEN
+	  BEGIN
+	    RT[.ART[.I]<LRTEF>]<LEFTF>_0;
+	    CLEARONE(RT[.ART[.I]<LRTEF>])
+	  END;
+	  RT[.T]<BLOCKSIZEF>_.TDN;
+	  RT[.T]<ARTEF>_.I;
+	  RT[.T]<USEF>_(RT[.T]<LSF>_1);
+	  RT[.T]<STEF>_.S;
+	  ART[.I]<RTEF>_ART[.I]<LRTEF>_.T;
+	END;
+      .ART[.A]<RTEF>
+    END
+    ELSE
+      BEGIN
+	IF UNUSEOLDNAMP(.A) OR
+	   (.RT[.ART[.A]<LRTEF>]<ARTEF> EQL .A AND .ART[.A]<LRTEF> GEQ 16) THEN
+	  T_.ART[.A]<LRTEF>
+	ELSE
+	BEGIN
+          T_16;
+          UNTIL .RT[.T]<LEFTF> EQL 0 AND NOT .RT[.T]<RSF>
+            DO T_.T+1;
+          IF .T GTR 31 THEN RETURN(ERROR(.NSYM,#760));
+	  INCR I FROM 0 TO 15 DO
+	    IF .ART[.I]<LRTEF> EQL .T THEN
+	      BREAK(ART[.I]<LRTEF>_0)
+	END;
+        RT[.T]<ARTEF>_.A;
+        RT[.T]<USEF>_1;
+	CLEARONE(RT[.T]);
+        ART[.A]<LRTEF>_ART[.A]<RTEF>_.T
+      END
+  END;
+
+
+
+ROUTINE UNUSEOLDNAMP(A)=
+    !PREDICATE TO SEE IF THE NAME REFERENCED BY .ART[.A]<LRTEF>
+    !IS FREE TO BE USED.
+
+  IF .ART[.A]<LRTEF> NEQ 0 AND NOT .RT[.ART[.A]<LRTEF>]<RSF>
+    THEN .RT[.ART[.A]<LRTEF>]<LEFTF> EQL 0
+  ELSE 0;
+
+
+ROUTINE SWAP(A,N)=
+
+  %MOVES N REGISTERS INTO TEMPORARY MEMORY AND REACQUIRES THEM.
+   IF A IS NOT -1, THEN THE CONTENTS OF A WILL BE IN THE
+   FIRST OF THE N REGISTERS%
+
+  BEGIN LOCAL T;
+    IF .A EQL -1 THEN OPENSPACE(0,.N) ELSE
+    IF (T_OPENSPACE(.A+1,.N)) EQL .A THEN .A
+    ELSE MOVEREG(.A,.T)
+  END;
+
+
+
+ROUTINE MOVEREG(A,R)=
+
+  %MOVES REGISTER A TO REGISTER R AND ADJUSTS REGISTER TABLE%
+
+  IF .A EQL .R THEN .A ELSE
+  BEGIN
+    CODE(MOVE,.R,.A,1);
+    IF NOT UNUSEOLDNAMP(.R) AND .RT[.ART[.R]<LRTEF>]<ARTEF> EQL .R THEN
+      CLEARONE(RT[.ART[.R]<LRTEF>]);
+    RT[ART[.R]<LRTEF>_ART[.R]<RTEF>_.ART[.A]<RTEF>]<ARTEF>_.R;
+    ART[.A]<LRTEF>_ART[.A]<RTEF>_0;
+    IF .A NEQ .R+1 THEN ENTFRLST(.A);
+    .R
+  END;
+
+
+
+ROUTINE OPENSPACE(A,N)=
+
+  %FREES N(=1 OR 2) REGISTERS BY MOVING THE N 'LEAST USED' REGISTER(S)
+   TO TEMPORARY MEMORY%
+
+  BEGIN REGISTER R;
+    R_GETMIN(.N);
+    IF .N EQL 1 THEN (DUMPREG(.R); RMFRLST(.R)) 
+    ELSE
+      BEGIN
+        IF .RT[.ART[.R]<RTEF>]<USEF> NEQ 0 AND .R NEQ (.A-1)
+          THEN DUMPREG(.R);
+        IF .N EQL 2 THEN
+	  BEGIN
+	    IF .RT[.ART[.R+1]<RTEF>]<USEF> NEQ 0 AND (.R+1) NEQ (.A-1)
+              THEN DUMPREG(.R+1);
+	    RMFRLST(.R+1)
+	  END;
+	RMFRLST(.R)
+      END
+  END;
+
+
+
+ROUTINE DUMPREG(A)=
+
+  %A IS THE ADDRESS OF A REGISTER DUE TO BE DUMPED IN TEMPORARY
+   MEMORY. DUMPREG ACQUIRES LOCAL MEMORY; GENERATES THE DUMPING
+   CODE AND SETS THE RT ENTRY%
+
+  BEGIN LOCAL M; REGISTER N;
+    N_.ART[.A]<RTEF>;
+    M_GENLOCAL();
+    GSTO(.M,LEXRN(.N));
+    ST[.M<NEXTF>,1]<LEFTF>_.RT[.N]<NEXTF>;
+    RT[.N]<NEXTF>_.M;
+    RT[.N]<RSF>_1;
+    RT[.N]<ARTEF>_0;
+    ENTFRLST(.A);
+    .A
+  END;
+
+
+
+!		A GLOBAL COMMENT ON THE GENSYMS(GENERATED-SYMBOLS) LIST:
+!	
+!		GENSYMS IS A GLOBAL VARIABLE WHOSE VALUE IS THE INDEX OF THE
+!	TOP ITEM ON A PUSHDOWN LIST OF TWO-WORD CELLS WHICH HAVE
+!	THE FORMAT OF THE FIRST TWO WORDS OF A ST-ENTRY. 
+!		THE LIST IS USED BY TWO ROUTINE:
+!	
+!		GENLOCAL:
+!	
+!		    THIS ROUTINE GENERATES LOCAL VARIABLES (1) FOR SAVING TEMPORARY
+!		REGISTERS AT FUNCTION CALLS AND ACROSS CONTROL EXPRESSIONS,
+!		(2) FOR USE IN CONTROL EXPRESSIONS TO HOLD
+!		TEMPORARY VALUES (E.G. INCR-DECR COMPUTED TO-VALUES).
+!	
+!		GANL:
+!	
+!		    THIS ROUTINE GENERATES NEW NAMES FOR SYMBOLS WHICH RESULT
+!		FROM ADDING CONSTANTS TO GLOBALS, OWNS, LOCALS, ETC.  FOR
+!		MORE DETAILS SEE THE ROUTINE GANL (IN H2ARITH).
+!	
+
+
+ROUTINE GENLOCAL=
+
+  %GENERATE A SINGLE UNNAMED LOCAL FOR THE CURRENT FUNCTION LEVEL
+   AND BLOCK LEVEL AND LINK IT TO GENSYMS%
+
+  BEGIN LOCAL I;
+    I_GETSPACE(1);
+    CT[.I,0]<BLF>_.BLOCKLEVEL;
+    CT[.I,0]<FLF>_.FUNCTIONLEVEL;
+    CT[.I,0]<TYPEF>_LOCALT;
+    CT[.I,0]<LSF>_1;
+    CT[.I,0]<LINKF>_.GENSYMS;
+    GENSYMS_.I;
+    CT[.I,1]<ADDRESSF>_.NEXTLOCAL;
+    NEXTLOCAL_.NEXTLOCAL+1;
+    IF .NEXTLOCAL GTR .MAXLOCAL THEN MAXLOCAL_.NEXTLOCAL;
+    .I+(LSM OR ZERO36)
+  END;
+
+
+
+ROUTINE GETMIN(N)=
+
+  %RETURNS THE ART INDEX OF THE FIRST REGISTER OF THE 'LEAST
+   EXPENSIVE' BLOCK OF N REGISTERS.  N MUST BE 1 OR 2%
+
+  BEGIN LOCAL I,J,M,S,T;
+    T_1^13-1;
+    CASE .N-1 OF SET
+      INCR P FROM 0 TO 15 DO
+	IF ((1^.P) AND .MODREGM) EQL 0 THEN
+        IF .T GEQ (IF .RT[I_.ART[.P]<RTEF>]<RSF>
+                     OR .RT[.I]<HOLYF> THEN S_1^12
+                  ELSE S_.RT[.I]<USEF>)
+        THEN (T_.S;M_.P);
+      INCR P FROM 0 TO 14 DO
+	IF ((3^.P) AND .MODREGM) EQL 0 THEN
+        IF .T GEQ (IF .RT[I_.ART[.P]<RTEF>]<RSF> OR
+                     .RT[J_.ART[.P+1]<RTEF>]<RSF> OR
+                     .RT[.I]<HOLYF> OR
+                     .RT[.J]<HOLYF> THEN S_1^12
+                  ELSE S_(I_.RT[.I]<USEF>)*(J_.RT[.J]<USEF>)+.I+.J)
+        THEN (T_.S;M_.P) TES;
+    IF .T EQL 1^12 THEN RETURN(ERROR(.NSYM,#760)) ELSE .M
+  END;
+
+
+
+ROUTINE REACQUIRE(A,N)=
+
+    !REMOVES THE REGISTER A (NAME N) FROM THE FREE LIST AND LINKS
+    !IT TO NAME N.  CALLED WHEN A VALUE IS REFOUND IN  A REGISTER.
+
+  BEGIN
+    RMFRLST(.A);
+    ART[.A]<RTEF>_.N;
+    RT[.N]<USEF>_1;
+    .A
+  END;
+
+
+
+ROUTINE MATCH(X,F)=
+
+  %SEARCHES TRCT FOR AN EXACT MATCH WITH THE LEXEME X.  IF F IS ONE,
+   THEN THE USE FIELD IS IGNORED.  OTHERWISE THE USE FIELD MUST BE
+   0. ACQUIRE IS CALLED WITH N=2 IF F IS TWO ELSE REACQUIRE. IF
+   SUCCESSFUL, THE LEXEME .R FOR THE APPROPRIATE REGISTER IS RETURNED
+   IN PLACE OF X%
+
+  BEGIN LOCAL A,C,N,R;
+    C_.CODEPROP;CODEPROP_0;
+    R_IF .X<RTEF> EQL 0 AND NOT .X<NOTF> THEN
+        IF (N_TRCTSEARCH(.X)) GTR 0 THEN
+          IF .F THEN INCRUSEN(.N) ELSE
+	  IF .RT[.N]<USEF> NEQ 0 THEN .X
+	  ELSE
+	    BEGIN
+	      A_.RT[.N]<ARTEF>;
+	      REACQUIRE(.A,.N);
+	      IF .F NEQ 0 THEN A_ACQUIRE(.A,2);
+	      LEXRA(.A)
+	    END
+        ELSE .X
+      ELSE .X;
+    IF .R NEQ .X AND .CODEPROP EQL 0 THEN NORECVAL_.NORECVAL+1;
+    CODEPROP_.CODEPROP OR .C;
+    .R
+  END;
+
+
+
+ROUTINE TRCTSEARCH(X)=
+
+  %TRCT IS SEARCHED FOR THE LEXEME X.  IF THE SEARCH IS SUCCESS-
+   FUL, THE REGISTER NAME IS RETURNED AS THE VALUE, OTHERWISE -1%
+
+  BEGIN REGISTER H,I,J;
+    INCR K FROM 16 TO 31 DO
+      IF .RT[.K]<LEFTF> NEQ 0 THEN IF NOT .RT[.K]<RSF> THEN
+        BEGIN
+          I_.CT[H_.RT[.K]<NEXTF>,1]<NEXTF>;
+          UNTIL .I EQL .H DO
+            (J_.CT[.I,0]<NEXTF>;
+             IF .X EQL .CT[.I,1] THEN RETURN .K;
+             I_.J)
+        END
+  END;
+
+
+
+GLOBAL ROUTINE REGSEARCH(X,Y)=
+  !CALLED TO SEE IF LEXEMES POINTED TO BY X AND Y ALREADY ARE IN
+  !REGISTERS.  IF SO THE LEXEMES ARE REPLACED BY APPROPRIATE REGISTER
+  !LEXEMES.
+  BEGIN
+    INCR I FROM -1 TO 0 DO
+      BEGIN LOCAL R,COPY; BIND A=.Y[.I];
+	IF A EQL 0 THEN EXITBLOCK;
+	IF NOT SAVEWORTHY(.A) THEN EXITBLOCK;
+	COPY_.A;
+	IF FULLWORD(.COPY) AND (.COPY<COPF> NEQ 0) THEN
+	  COPY<POSNSIZEF>_36;
+	IF (R_MATCH(.COPY,1)) NEQ .COPY THEN A_.R
+      END
+  END;
+
+
+ROUTINE SAVEWORTHY(L)=
+    !PREDICATE TO CHECK IF LEXEME L IS TO BE PRESERVED IN A
+    !TRCT (TEMPORARY-REGISTER-CONTENTS-LIST).  NOTE IN PARTICULAR
+    !THAT THIS IMPLIES THAT WE DO NOT PRESERVE LEXEMES IN
+    !THESE LISTS IF THEIR NOT-BIT IS SET NOR IF THEY ARE LEXEMES WITH
+    !NON-ZERO REGISTER FIELDS.
+    .L<RTEF> EQL 0 AND NOT .L<NOTF>;
+
+
+
+ROUTINE GTUPDATE(REGNAME,LEXEME)=
+  !CALLED FROM CODEN TO UPDATE THE GRAPH TABLE AND TRCT LIST
+  !WHICH IS HANGING FROM RT[.REGNAME]
+  BEGIN
+    RMALL(.LEXEME);
+    IF SAVEWORTHY(.LEXEME)
+	AND .REGNAME GEQ 16 THEN ENTER(.REGNAME,.LEXEME);
+    SETFUNBIT(.LEXEME);
+    SESTOG_.SESTOG OR 1
+  END;
+
+
+!	WHENEVER CODEN IS CALLED IT PLANTS AN INSTRUCTION AT THE BOTTOM
+!	OF THE LIST WHOSE HEADER IS PRESENTLY POINTED TO BY CODEPTR.
+!	THE FORMAT OF ITS OUTPUT IS:
+!
+!
+!	.............................................................................................................
+!	!  !              !                                            !                                            !
+!	!  !              !                                            !                                            !
+!	!  !              !                                            !                                            !
+!	! 0!    RELOCF    !                  P R E V F                 !                  N E X T F                 !
+!	!  !              !                                            !                                            !
+!	!  !              !                                            !                                            !
+!	!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!
+!	!                          !           !  !           !                                                     !
+!	!                          !           !  !           !                                                     !
+!	!                          !           !  !           !                                                     !
+!	!             F            !     A     ! I!     X     !                          Y                          !
+!	!                          !           !  !           !                                                     !
+!	!                          !           !  !           !                                                     !
+!	!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!..!
+!	                30                24                18                12                 6
+!
+!	THE RELOCF IS A CODE TO THE LOADER INTERFACE INDICATED THE KIND
+!	OF RELOCATION (IF ANY) TO BE DONE ON THE Y FIELD.  F,A,I,X
+!	CORRESPOND TO THE FIELDS OF A NORMAL PDP10 INSTRUCTION.
+
+
+ROUTINE CODEN(F,A,M,U,L)=
+
+  %CODEN PLANTS THE PDP10 INSTRUCTION CODE WITH FUNCTION F,
+   ACCUMULATOR A, AND ADDRESS FIELD M(CODE-3 FORMAT (SEE FSA)).  U INDICATES THE UPDATE
+   ROUTINE FOR TRCT AND L IS THE LEXEME(DEFAULT 0) INVOLVED IN
+   THE UPDATE%
+
+  BEGIN LOCAL R,T,Z; REGISTER I;
+    CODEPROP_1;
+    Z_CT[I_NEWBOT(.CODEPTR,1),1]_(.F AND 1^9-1)^27 OR
+                                    (R_.A AND 1^4-1)^23 OR
+                                    (.M AND 1^23-1);
+    T_.ART[.R]<RTEF>;
+    CT[.I,0]<RELOCF>_.M<RELOCF>;
+    IF (I_.A<RELRF>) NEQ 0 THEN DUA(.I);
+    IF (I_.M<RIGHTF>) LEQ 15 AND .M<RELOCF> EQL 0 THEN
+       RT[.ART[.I]<RTEF>]<HOLYF>_0;
+    IF (I_.M<INDXF>) NEQ 0 THEN
+      (RT[.ART[.I]<RTEF>]<HOLYF>_0;
+      IF .U EQL 2 AND .I NEQ .FREG THEN U_5
+      ELSE IF .U EQL 3 AND .I NEQ .FREG THEN SESTOG_.SESTOG OR 2);
+    IF (I_.M<RELRF>) NEQ 0 THEN DUA(.I);
+    IF .L<RTEF> NEQ 0 THEN
+      IF .RT[.L<RTEF>] NEQ .FREG THEN
+	BEGIN
+	  IF .U EQL 2 THEN U_5 ELSE
+	  IF .U EQL 3 THEN SESTOG_.SESTOG OR 2;
+	  RT[.L<RTEF>]<HOLYF>_0
+	END;
+    IF .T GEQ 16 OR .U GEQ 5 OR .U EQL 2 THEN
+      BEGIN
+        RT[.T]<HOLYF>_0;
+        CASE .U OF SET
+          !0: NO CHANGE
+             0;
+          !1: CLEAR TRCT ENTRY
+	     CLEARONE(RT[.T]);
+          !2: MOVEM,DPB,HALF-WORD TO MEMORY
+		GTUPDATE(.T,.L);
+          !3: MOVE,LDB,HALF-WORD TO ACCUMULATOR
+	     (CLEARONE(RT[.T]);IF SAVEWORTHY(.L) THEN ENTER(.T,.L));
+          !4: MOVN   T,T
+             CHGNG(.T);
+          !5: AN INDEXED ADDRESS WAS GENERATED
+             SESTOG_.SESTOG OR 3;
+          !6: OP-TO-M
+		GTUPDATE(0,.L);
+          !7: OP-TO-B
+	     BEGIN
+               CLEARONE(RT[.T]);
+		GTUPDATE(.T,.L)
+	     END
+               TES;
+        FREERN(RT[.T]);
+      END;
+    .Z
+  END;
+
+
+
+!  THE FOLLOWING SHOULD BE A MACRO BUT THERE ARE TOO MANY FORMALS, ETC.
+!  AROUND TO MAKE IT EASY TO CHANGE
+
+GLOBAL ROUTINE CODE(F,A,M,U)=CODEN(.F,.A,.M,.U,0);
+
+
+
+ROUTINE CHGNG(T)=
+
+  %CHANGES THE NEG BITS OF ALL ENTRIES IN THE TRCT LIST OF REGISTER
+   NAME T%
+
+    SCAN0(CTRCTH(.T),CHGNGF);
+
+
+
+ROUTINE CHGNGF(I)=
+  !CALLED FROM CHGNG TO XOR THE NEG-BIT OF  ITEMS HANGING FROM RT[.I]
+
+    IF .CT[.I,1]<LEFTF> EQL GTLEX THEN
+      (GT[.CT[.I,1]<NEXTF>,0]<RESULTF>_0; ERASE(.I))
+    ELSE CT[.I,1]_.CT[.I,1] XOR NEGM;
+
+
+ROUTINE ENTER(T,L)=
+
+  %ENTERS LEXEME L ON THE TRCT LIST OF REGISTER NAME T%
+
+  CT[NEWBOT(CTRCTH(.T),1),1]_.L;
+
+
+
+GLOBAL ROUTINE RMREFREG(REG)=
+  !REMOVES ALL REFERENCES TO CONTENTS OF REG IN TRCT
+  BEGIN
+    ROUTINE RMREGP(I,REG)=
+      (.CT[.I,1] AND (DOTM OR LSSTEM)) EQL (.REG OR DOTM);
+    INCR I FROM 16 TO 31 DO
+      (SCAN(CTRCTH(.I),.REG,RMREGP,ERASE);
+      FREERN(RT[.I]))
+  END;
+
+
+ROUTINE RMALL(L)=
+  !REMOVES ALL OCCURENCES OF ITEMS IN TRCT WITH THE SAME STE AS L
+
+  BEGIN
+    ROUTINE RMALLP(I,X)=.X<LSSTEF> EQL .CT[.I,1]<LSSTEF>;
+
+    INCR I FROM 16 TO 31 DO
+      (SCAN(CTRCTH(.I),.L,RMALLP,ERASE); FREERN(RT[.I]))
+  END;
+
+
+ROUTINE CLEARONE(I)=
+  !CALLED TO CLEAR TRCT LIST HANGING FROM .I
+  BEGIN
+    ROUTINE CLTRCT(I)=
+      !(CLEAR-TEMPORARY-REGISTER-CONTENTS-LIST)
+    
+      BEGIN
+        IF .CT[.I,1]<LEFTF> EQL GTLEX THEN
+          GT[.CT[.I,1]<NEXTF>,0]<RESULTF>_0;
+        ERASE(.I)
+      END;
+    
+    IF .I<RIGHTF> GEQ RT[16]<0,0> THEN
+    BEGIN
+      SCAN0(IF NOT .(.I)<RSF> THEN .(.I)<NEXTF>
+	    ELSE .ST[.(.I)<NEXTF>,1]<LEFTF>,CLTRCT);
+      FREERN(.I)
+    END
+  END;
+
+
+ROUTINE CLEARSOME=
+    !CLEAR TRCT LIST OF EACH REGISTER WHOSE USE IS ZERO
+
+  BEGIN 
+    INCR I FROM RT[16] TO RT[31] DO
+      IF .(.I)<USEF> EQL 0 THEN CLEARONE(.I)
+  END;
+
+
+ROUTINE CLEARTEMP=
+    !CLEARS TRCT LIST OF EACH TEMPORARY LOCAL WHOSE USE IS ZERO
+
+  BEGIN
+  INCR I FROM RT[16] TO RT[31] DO
+    IF .(.I)<USEF> EQL 0 THEN
+    IF .(.I)<RSF> THEN CLEARONE(.I)
+  END;
+
+
+
+ROUTINE FREERN(I)=
+
+  %FREES REGISTER NAME(ADDR. I) IF USE IS 0 AND TRCT
+   ENTRY IS NULL.%
+
+  IF .(.I)<USEF> EQL 0 THEN
+    IF NOT .(.I)<RSF> THEN
+      (IF NULL(.(.I)<NEXTF>) THEN (.I)<LEFTF>_0)
+    ELSE (IF NULL(.ST[.(.I)<NEXTF>,1]<LEFTF>) THEN WORD(.I)_HEADER(0,0,0));
+
+
+
+ROUTINE DUA(R)=
+  !(DECREASE-USE-ADDRESS)  DECREASE USE OF REGISTER ADDRESS A
+    DUAN(.R,.ART[.R]<RTEF>);
+
+
+
+ROUTINE DUN(N)=
+  !(DECREASE-USE-NAME) DECREASE USE OF REGISSTER NAME N
+    DUAN(.RT[.N]<ARTEF>,.N);
+
+
+
+ROUTINE DUAN(R,N)=
+
+  %ATTEMPTS TO DECREASE THE USE COUNT OF REGISTER R(NAME N)
+   AND RELEASE IT IF THE USE BECOMES 0%
+
+  IF .N GEQ 16 THEN
+    BEGIN
+      IF .RT[.N]<RSF> THEN DUM(.N) ELSE
+      IF (IF .RT[.N]<USEF> NEQ 0 THEN
+        (RT[.N]<USEF>_.RT[.N]<USEF>-1) EQL 0 ELSE 1) THEN
+        RELREG(.R,1);
+      .RT[.N]<USEF>
+    END
+  ELSE 0;
+
+
+
+ROUTINE DUM(N)=
+
+  %GIVEN THE NAME OF A DUMPED REGISTER, ATTEMPT TO DECREASE ITS USE
+   COUNT AND RELEASE IT%
+
+  BEGIN
+      IF (RT[.N]<USEF>_.RT[.N]<USEF>-1) EQL 0 THEN
+        CLEARONE(RT[.N])
+  END;
+
+
+
+ROUTINE INCRUSEN(N)=
+
+  %INCREASES USE COUNT OF UNLOCKED REGISTER NAMED N, REACQUIRING IT
+   IF NECESSARY, AND RETURNS LEXEME OF REGISTER%
+
+  IF .N GEQ 16 THEN
+  BEGIN
+    IF (RT[.N]<USEF>_.RT[.N]<USEF>+1) GTR 1^8-1 THEN RETURN ERROR(.NSYM,#772);
+    IF .RT[.N]<USEF> EQL 1 THEN LEXRA(REACQUIRE(.RT[.N]<ARTEF>,.N))
+    ELSE LEXRN(.N)
+  END
+  ELSE 0;
+
+
+
+ROUTINE DULEX(X)=
+
+  %X IS AN ARBITRARY LEXEME.  DULEX DECREASES THE USE COUNT OF
+   ANY TEMPORARY REGISTER TO WHICH IT REFERS%
+
+  IF .X<DTF> THEN
+    IF .RT[.X<RTEF>]<RSF> THEN DUM(.X<RTEF>)
+    ELSE DUN(.X<RTEF>);
+
+
+
+ROUTINE RELREG(A,N)=
+    !THIS ROUTINE RELEASES N REGISTERS BEGINNING WITH A FROM THE ART
+    !TABLE AND IF THE TRCT LIST IS EMPTY OR THE REGISTER IS DECLARED,
+    !IT ALSO RELEASES THE CORRESPONDING REGISTER NAME.
+  BEGIN LOCAL B,B1,NAME;
+    NAME_.ART[.A]<LRTEF>;
+    B_(NULL(.RT[.NAME]<NEXTF>) AND NOT .RT[.NAME]<RSF>) OR .NAME LEQ 15;
+    DECR J FROM .A+.N-1 TO .A DO
+      BEGIN
+	IF .B THEN ART[.J]<LRTEF>_RT[.ART[.J]<RTEF>]<LEFTF>_0;
+	IF (B1_(1^.J AND .MODREGM) EQL 0) AND .ART[.J]<CHAINF> EQL 0 THEN
+	  ENTFRLST(.J)
+	ELSE IF NOT .B1 THEN ART[.J]<RTEF>_0
+      END
+  END;
+
+
+
+ROUTINE REGINIT(GR)=
+    !INITIALIZES THE REGISTER TABLES AT THE BEGINNING OF THE MODULE
+    !AND AT THE BEGINNING OF EACH ROUTINE OR FUNCTION COMPILATION.
+    !PARAMETER: 0 FOR FCNS AND ROUTINES
+    !           1 FOR GLOBAL ROUTINE
+    !           2 FOR MODULE
+  BEGIN LOCAL M,B,T;
+    IF .GR EQL 2 THEN
+      INCR I FROM 16 TO 31 DO RT[.I]_HEADER(0,0,0)
+    ELSE (CLEARSOME();SAVRT(1));
+    RT[2]_RT[3]_-1;
+    IF .GR GTR 0 THEN
+      BEGIN
+        RT[1]_.SVREGM;
+        INCR I FROM 0 TO 15 DO ART[.I]_0;
+        INCR I FROM 5 TO 15 DO
+	  IF ((1^.RT[.I]<ARTEF>) AND .MODREGM) EQL 0 THEN RT[.I]_0
+      END;
+    ART[16]_63^30 OR 18^24 OR 2^16;
+    ART[17]_63^30 OR 19^24 OR 3^16;
+    ART[18]_16^30;
+    ART[19]_17^30;
+    M_.MODREGM;
+    MODREGM_.MODREGM OR (.SVREGM AND NOT .RT[1]);
+    INCR I FROM 0 TO 15 DO ENTFRLST(.I);
+    MODREGM_.M;
+    REGUSE_0
+  END;
+
+
+
+
+
+ROUTINE SAVREG(F)=
+  !CALLED TO SAVE ANY REGISTERS THAT ARE IN USE AT THE CALL SITE OF
+  !A FUNCTION OR ROUTINE.  F IS THE LEXEME OF THE FUNCTION CALL
+  !WHICH MIGHT INCLUDE A REGISTER.  IF IT DOES THEN IF THAT REGISTER
+  !HAS A USE OF ONE, IT IS NOT SAVED SINCE ITS SINGLE-USE WILL OCCUR
+  !IN THE PUSHJ INSTRUCTION
+
+  BEGIN LOCAL N,R;
+    INCR I FROM 0 TO 15 DO
+      IF (R_.ART[.I]<RTEF>;.R) GEQ 16 AND NOT .RT[.R]<RSF> THEN
+	IF (N_.RT[.R]<USEF>) GTR 0 THEN
+	  IF NOT(.R EQL .F<RTEF> AND .N EQL 1) THEN
+	    (NOCSAV_.NOCSAV+1;DUMPREG(.I))
+  END;
+
+
+GLOBAL ROUTINE LIVR(LEX)=
+  !(LINK-IN-THE-VALUE-REGISTER) A SEMI-KLUDGE TO INSERT A NAME
+  !FOR THE VALUE REGISTER IN THE RT TABLE AT THE END OF A FORKED
+  !CONTROL STRUCTURE.
+
+  BEGIN
+    ART[.VREG]_.LEX; ART[.VREG]<LRTEF>_.LEX<RTEF>;
+    RT[.LEX<RTEF>]<LEFTF>_.VREG^14 OR 1
+  END;
+
+
+
+ROUTINE CTRCTH(I)=
+  !RETURNS THE INDEX OF THE HEADER OF THE TRCT LIST APPENDED
+  !FROM RT[.I] IF IT IS THE NAME OF A REGISTER OR FROM THE LEFT-HALF
+  !OF THE SYMBOL TABLE ENTRY FOR THE GENERATED SYMBOL IF IT IS
+  !A TEMPORARY LOCAL
+
+  IF .RT[.I]<RSF> THEN .ST[.RT[.I]<NEXTF>,1]<LEFTF>
+  ELSE .RT[.I]<NEXTF>;
+
+
+!		A GLOBAL COMMENT ON THE NEXT THREE ROUTINES AND THE RT TABLE:
+!	
+!	
+!		IN ORDER TO PRESERVE THE STATE OF THE REGISTER TABLES SO THAT
+!	AT EACH ENTRY POINT TO A NODE OF A FORK THE STATE IS THE SAME, WE USE
+!	THE ROUTINES SAVRT AND RESRT TO PUSH AND POP RESPECTIVELY COPIES OF THE
+!	TABLES AS THEY APPEARED AT ENTRY TO THE FIRST NODE.  HENCE IF, FOR EXAMPLE,
+!	WE ARE COMPILING AN IF-THEN-ELSE EXPRESSION AND .X IS IN REGISTER R
+!	UPON ENTRY TO THE "THEN", THE SAVING OF THE TABLES AT THAT POINT AND
+!	RESTORING THEM UPON ENTERING THE "ELSE" ALLOWS ONE TO USE THE FACT THAT
+!	.X IS STILL IN R ON ENTRY TO THE "ELSE".  NO APOLOGY IS MADE FOR THE
+!	OBSCURITY OF THESE ROUTINES--SAVE THE EXCUSE THAT THEY WERE NOT DESIGNED
+!	BUT RATHER WERE BORN OVER THE PERIOD (RATHER LENGTHY PARTUM) DURING
+!	WHICH WE PAINFULLY LEARNED THE INTRICACIES OF THE INTERACTIONS
+!	BETWEEN THE REGISTER TABLES AND THE GRAPHTABLE. (PHEW!)
+!	
+!		SAVRT:
+!	
+!		(1):	GETS A CHUNK OF SPACE
+!		(2):	COPIES ART AND RT[0:15] DIRECTLY
+!		(3):	RT[4] IS ASSIGNED THE INDEX OF THE CHUNK ALLOCATED IN (1).
+!			THUS WE ARE IN EFFECT CREATING A PUSHDOWN LIST OF COPIES
+!			OF THE TABLES (DEPTH DETERMINED BY THE DEPTH OF NESTING
+!			OF FORKED EXPRESSIONS).
+!		(4):	THEN THE CELLS RT[16:31] ARE COPIED:
+!			(A):	IF RT[.I] IS A REGISTER, THEN ITS TRCT LIST IS
+!				DUPLICATED ITEM FOR ITEM.
+!			(B):	IF RT[.I] IS TEMPORARY MEMORY, THEN ITS TRCT LIST
+!				IS COPIED BUT WITH AN EXTRA CELL APPENDED AT THE
+!				BOTTOM CONTAINING THE ST-INDEX OF THE GENSYMS
+!				SYMBOL ENTRY.  THIS IS NECESSARY SINCE THIS
+!				SYMBOL INDEX MIGHT DISAPPEAR FROM RT WHILE THE
+!				PRESENT BRANCH IS BEING COMPILED.
+!	
+!		RESRT:
+!	
+!		---	NOTE THAT RESRT "POPS" THE PUSHDOWN LIST OF TABLES IF
+!			ITS PARAMETER IS 1 AND ONLY REFRESHES THE ART AND RT
+!			TABLES FROM THE COPY ON THE TOP OF THE LIST IF THE
+!			PARAMETER IS ZERO.
+!	
+!		(1):	COPIES BACK INTO ART AND RT[0:15]
+!		(2):	FOR EACH ENTRY IN RT[16:31]:
+!			(A):	IT ERASES THE OLD LIST
+!			(B):	COPIES IN A NEW RT[I]
+!			(C):	IF THE RESTORED ENTRY IS TEMPORARY MEMORY, IT
+!				RESTORES THE STEF FROM THE BOTTOM OF THE LIST
+!				(CF. SAVRT 4-B)
+!			(D):	IF THIS IS A "REFRESH" AND NOT A "POP", IT MAKES
+!				A NEW COPY OF THE LIST (CALLS COPYTRCT)
+!			(E):	THE LIST IS SCANNED TO RESTORE THE RESULT BITS OF
+!				ANY GT-NODES IN THE LIST
+!		(3):	IF IT IS A "POP", THE OLD COPY IS RELEASED
+!	
+
+
+
+ROUTINE COPYTRCT(RRBIT,I,E,BASE)=
+  !CALLED TO COPY THE TRCT LIST APPENDED TO RT[.I].
+  !ACTUALLY THE NEW CELLS BECOME THE LISTS HANGING OFF THE RT ENTRIES
+  !AND THE OLD CELLS ARE LEFT HANGING OFF THE COPY IN TABLE
+  !	RRBIT:  RESTORERESULTBIT (RESRT CALLED)
+  !	I: INDEX INTO RT TABLE
+  !	E: 1 WHEN SAVRT CALLS AND WE ARE MAKING UP A FRESH RT TABLE FOR A NEW ROUTINE
+  !	BASE: INDEX OF THE BASE OF THE CHUNK OF CT WHERE THE COPY IS BEINGSTORED
+
+  BEGIN LOCAL B,H; REGISTER C,J,K;
+	IF .RT[.I]<RSF> THEN B_.(C_ST[.RT[.I]<NEXTF>,1]<LEFTF>)
+	ELSE B_.(C_RT[.I]<NEXTF>);
+	IF .E THEN RT[.I]_HEADER(0,0,0) ELSE
+        IF NULL(.B) THEN .C_HEADER(0,0,0)
+        ELSE
+          BEGIN
+            .C_HEADER(0,0,0);
+            K_.CT[.B,1]<NEXTF>;
+            UNTIL .K EQL .B DO
+              BEGIN
+                J_.CT[.K,0]<NEXTF>;
+                CT[H_GETSPACE(1),1]_.CT[.K,1];
+		IF .RRBIT THEN
+		  IF .CT[.K,1]<LEFTF> EQL GTLEX THEN
+		    RESTORERESULT(.CT[.K,1],.I);
+                PUSHBOT(..C,.H);
+                K_.J
+              END
+          END;
+       IF .RT[.I]<RSF> THEN (CT[.BASE,20]+.I)<0,15>_.B
+  END;
+
+
+
+ROUTINE SAVRT(E)=
+    !THIS ROUTINE IS CALLED TO SAVE THE REGISTER TABLES
+    !PARAMTERS;
+    !   0  CASE,IF-THEN-ELSE
+    !   1  FCN OR RTN OR NEW MODULE
+  BEGIN LOCAL A,B;
+    A_CT[B_GETSPACE(26),0];
+    INCR I FROM 0 TO 19 DO (.A+@I)<0,36>_.ART[.I];
+    A_.A+20;
+    INCR I FROM 0 TO 15 DO (.A+@I)<0,36>_.RT[.I];
+    RT[4]_.B;
+    INCR I FROM 16 TO 31 DO
+      BEGIN
+        (.A+@I)<0,36>_.RT[.I];
+	IF .RT[.I]<RSF> THEN
+	  CT[NEWBOT(CTRCTH(.I),1),1]_.RT[.I]<STEF>;
+	COPYTRCT(0,.I,.E,.B);
+	IF .RT[.I]<RSF> THEN ERASEBOT(CTRCTH(.I))
+      END
+  END;
+
+
+
+
+ROUTINE RESRT(KRFLG)=
+    !RESTORES THE REGISTER TABLES.  KEEPS THE PRESENTLY STACKED
+    !COPY IF KRFLG IS 0 AND RELEASES IT IF IT IS 1.
+  BEGIN LOCAL A,B; REGISTER C,D;
+    CLEARSOME();
+    A_CT[B_.RT[4]<NEXTF>,0];
+    INCR I FROM 0 TO 19 DO ART[.I]_.(.A+@I)<0,36>;
+    A_.A+20;
+    INCR I FROM 0 TO 15 DO RT[.I]_.(.A+.I)<0,36>;
+    INCR I FROM 16 TO 31 DO
+      BEGIN
+	IF  .RT[.I]<USEF> NEQ 0 AND NOT .RT[.I]<RSF> THEN CLEARONE(RT[.I]);
+        ERASE(CTRCTH(.I));
+        RT[.I]_.(.A+@I)<0,36>;
+	IF .RT[.I]<RSF> THEN
+	  BEGIN
+	    D_.RT[.I]<NEXTF>;
+	    C_RT[.I]<NEXTF>_.CT[.CT[.D,1]<PREVF>,1]<STEF>;
+	    ST[.C,1]<LEFTF>_.D
+	  END;
+	IF NOT .KRFLG THEN COPYTRCT(1,.I,0,.B);
+        IF .RT[.I]<RSF> THEN ERASEBOT(CTRCTH(.I));
+	D_CTRCTH(.I);
+	C_.CT[.D,1]<NEXTF>;
+	WHILE .C NEQ .D DO
+	  (IF .CT[.C,1]<LEFTF> EQL GTLEX THEN RESTORERESULT(.CT[.C,1],.I);
+	   C_.CT[.C,0]<NEXTF>)
+      END;
+    IF .KRFLG THEN RELEASESPACE(.B,26) ELSE RT[4]_.B
+  END;
+
+
+
+ROUTINE FREEVREG=
+  !THE NAME OF THIS ROUTINE IS RATHER A MISNOMER NOW.  ITS PURPOSE
+  !NOW IS TO SAVE ON THE STACK ANY REGISTER WHOSE USE IS NON-ZERO AT
+  !THE BEGINNING OF A CONTROL EXPRESSION.
+
+  BEGIN
+    INCR I FROM 16 TO 31 DO
+      IF .RT[.I]<USEF> NEQ 0 AND NOT .RT[.I]<RSF> THEN
+	DUMPREG(.RT[.I]<ARTEF>)
+  END;
+
+
+
+ROUTINE GETVREG=
+  %MOVES .VREG TO A TEMPORARY IF ITS USE IS NON-ZERO AND RETURNS
+   NAME OF .VREG%
+  BEGIN
+    IF .RT[.ART[.VREG]<RTEF>]<USEF> NEQ 0
+      THEN IF NOT .RT[.ART[.VREG]<RTEF>]<LSF>  THEN DUMPREG(.VREG);
+    LEXRN(ART[.VREG]<RTEF>_GETRN(.VREG,0,0))
+  END;
+
+
+   
+
+
+
+
+%%
+%              ----------LODRIV.BLI----------
+               5 MAY 72-A
+%
+%%
+
+
+
+
+
+
+
+
+!		UTILITY ROUTINES FOR BLISS
+!	------------------------------------------
+
+
+
+! IO ROUTINES
+!-------------
+
+ROUTINE OUTPUT(DEV,CHUNK)=
+    ! OUTPUT A CHUNK (ALLWORD OR CHAR) ON 'DEV', WHERE
+    !    DEV=0    TTY
+    !        1    BINARY DEVICE(HIGH SEGMENT
+    !        2    LISTING DEVICE
+  
+    IF .DEV EQL 0 THEN TTYLIST(.CHUNK) ELSE
+    BEGIN MACHOP IDPB=#136;
+    IF (DEVBUF[.DEV,2]_.DEVBUF[.DEV,2]-1) LEQ 0 THEN FORCE(.DEV);
+    3<0,36>_.CHUNK; IDPB(3,DEVBUF[.DEV,1])
+    END;
+
+ROUTINE OCHAR(CHAR)=
+    ! OUTPUT ONE CHARACTER ON THE LISTING DEVICE
+    (IF NOT .LSTFLG THEN OUTPUT(2,.CHAR);1);
+
+ROUTINE OUTREL(ALLWORD)=
+    ! OUTPUT ONE ALLWORD ON THE HIGH-SEG BINARY FILE
+    ( IF NOT .BINFLG THEN OUTPUT(1,.ALLWORD);1);
+
+ROUTINE OUTSTR(STR,N)=
+    IF NOT .LSTFLG THEN
+    BEGIN LOCAL P; MACHOP ILDB=#134;
+    ! OUTPUT A (SHORT) STRING, N CHARS L.J., ON LISTING DEVICE
+    P_STR<7*.N,7>;
+    INCR I FROM 1 TO .N DO OUTPUT(2,ILDB(3,P));
+    .N
+    END;
+
+ROUTINE OUTSTN(I)=
+    IF NOT .LSTFLG THEN
+    BEGIN LOCAL P,N,C; MACHOP ILDB=#134;
+    ! OUTPUT A NAME FROM THE ST, INDEX OF ENTRY IS 'I'.
+    P_ST[.I,1]<1,7>; N_0;
+    WHILE (C_ILDB(3,P)) NEQ #177 AND .N LSS 10 DO (OUTPUT(2,.C);N_.N+1);
+    .N
+    END;
+
+ROUTINE OUTBLANK(N)=
+    IF NOT .LSTFLG THEN
+    BEGIN LOCAL DUMDUM;
+    ! OUTPUT 'N' BLANKS ON THE LISTING DEVICE
+    INCR I FROM 1 TO .N DO OUTPUT(2," ")
+    END;
+
+ROUTINE OUTOCT(ALLWORD,DIGITS)=
+    IF NOT .LSTFLG THEN
+    BEGIN LOCAL DUMDUM;
+    ! OUTPUT AN OCTAL NUMBER OF SPECIFIED NO. OF DIGITS
+    DECR I FROM (.DIGITS-1) TO 0 DO OUTPUT(2,"0"+.ALLWORD<3*.I,3>);
+    END;
+
+ROUTINE OUTMOC(ALLWORD)=
+    IF NOT .LSTFLG THEN
+    BEGIN LOCAL T; T_0;
+    ! OUTPUT MINIMAL LENGTH OCTAL CONSTANT
+    DECR I FROM 11 TO 1 DO
+        IF .ALLWORD<3*.I,3> NEQ 0 THEN BREAK(T_.I);
+    DECR I FROM .T TO 0 DO OUTPUT(2,"0"+.ALLWORD<3*.I,3>);
+    .T+1
+    END;
+
+ROUTINE OUTCONOC(A)=
+!OUTPUT-CONCISE-OCTAL.  CALLED FOR 18BIT CONSTANTS.  PUTS THEM IN
+!NEGATIVE FORMAT IF .A<17,1>=1.
+IF .A<17,1> THEN (OCHAR("-"); OUTMOC(-(.A OR LEFTM)) + 1)
+ELSE OUTMOC(.A);
+
+
+ROUTINE NEWLINE=
+    IF NOT .LSTFLG THEN
+    BEGIN
+    ! WRITE NEW LINE SYMBOL, HANDLE REQ'D PAGINATION.
+    OCHAR(#15); OCHAR(#12); IF .TTYLST THEN (OCHAR(#15); OCHAR(#15));
+     IF (NLINES_.NLINES+1) GTR 56 THEN (PAGE(); NLINES_0);
+    IF .TTYLST THEN FORCE(2);
+    END;
+
+
+
+! ERROR IO ROUTINES
+!-------------------
+
+
+ROUTINE EOCHAR(CHAR)=
+    BEGIN
+    ! ERROR OUTPUT (ONE CHARACTER). OUTPUT GOES TO THE LISTING
+    ! DEVICE, IF THERE IS ONE, AND TO THE TTY -- IF: 1) TTY IS
+    ! NOT THE LISTING DEVICE ALREADY, 2) ERROR MESSAGES TO TTY
+    ! HAVE NOT BEEN SPECIFICALLY SUPRESSED.
+
+    IF NOT .LSTFLG THEN OUTPUT(2,.CHAR);
+    IF NOT (.ERRBIT OR .TTYLST OR .CCLCTL<2,1>) THEN OUTPUT(0,.CHAR);
+    1
+    END;
+
+
+ROUTINE EOUTSTR(STR,N)=
+    BEGIN LOCAL P; MACHOP ILDB=#134;
+    ! OUTPUT (SHORT) STRING ON ERROR DEVICE(S)
+    P_STR<7*.N,7>;
+    INCR I FROM 1 TO .N DO EOCHAR(ILDB(3,P));
+    END;
+
+
+
+ROUTINE EOSTN(I)=
+    BEGIN LOCAL P,N,C; MACHOP ILDB=#134;
+    !OUTPUT A NAME FROM THE ST. INDEX OF ENTRY 'I' ON ERROR DEVICES
+    P_ST[.I,1]<1,7>; N_0;
+    WHILE (C_ILDB(3,P)) NEQ #177 AND .N LSS 10 DO (EOCHAR(2,.C);N_.N+1);
+    .N
+    END;
+
+
+ROUTINE EOUTBLANK(N)=
+    BEGIN LOCAL DUMDUM;
+    ! OUTPUT SPECIFIED NO. BLANKS ON ERROR DEVICE(S)
+    INCR I FROM 1 TO .N DO EOCHAR(" ");
+    END;
+
+ROUTINE EOUTOCT(ALLWORD,DIGITS)=
+    BEGIN LOCAL DUMDUM;
+    ! OUTPUT OCTAL NO. ON ERROR DEVICE(S), SPECIFIED LENGTH
+    DECR I FROM (.DIGITS-1) TO 0 DO EOCHAR("0"+.ALLWORD<3*.I,3>);
+    END;
+
+ROUTINE EOUTDEC(N)=
+    BEGIN LOCAL R;
+    ! OUTPUT DECIMAL VALUE TO THE ERROR DEVICE(S)
+    IF .N LSS 0 THEN (EOCHAR("-"); N_-.N);
+    IF .N EQL 0 THEN RETURN(EOCHAR("0"));
+    R_.N MOD 10;
+    IF (N_.N/10) NEQ 0 THEN EOUTDEC(.N);
+    EOCHAR(.R+"0");
+    END;
+
+ROUTINE ENEWLINE=
+    BEGIN
+    ! OUTPUT NEWLINE ON THE ERROR DEVICE(S). CHECK PAGINATION
+    EOCHAR(#12); EOCHAR(#15); EOCHAR(#15);
+    IF NOT .LSTFLG THEN
+        IF (NLINES_.NLINES+1) GTR 56 THEN (PAGE(); NLINES_0);
+    END;
+
+ROUTINE EMESSAGE(N)=
+    BEGIN LOCAL DUMDUM;
+    ! WRITE OUT A LIST OF N ONE-FULLWORD STRINGS ON THE ERROR
+    ! DEVICE(S). THE STRINGS ARE ASSUMED BELOW N ON THE
+    ! STACK, AND HENCE THE CALL LOOKS LIKE:
+    !
+    !       EMESSAGE( -STR-,-STR-, ... ,-STR-, N )
+    !                <------ N OF 'EM ------>
+    !
+    !
+    DECR I FROM .N TO 1 DO EOUTSTR(@(N-.I),5);
+    END;
+
+ROUTINE FORCELINE(TOG)=
+    BEGIN REGISTER P,C; MACHOP ILDB=#134;  EXTERNAL BXA;
+    ! THIS ROUTINE FORCES OUT THE CURRENT INPUT BUFFER LINE
+    ! IF IT IS VALID (IE, IT HASN'T BEEN PRINTED ALREADY.
+    ! THE VALUE OF TOG SPECIFIES WHETHER THE LINE IS WRITTEN
+    ! TO BOTH THE LISTING AND ERROR DEVICES. TOG=1 => ALSO
+    ! TO THE ERROR DEVICE.
+    IF .VALIDBUF THEN
+	BEGIN
+	IF .FFSEEN THEN
+	  BEGIN
+	    FFSEEN_-1;
+	    SOSPGC_.SOSPGC+1;
+	    PAGE();
+	    NLINES_FFSEEN_0
+	  END;
+	P_@@(BXA+#16)^(-1);
+	IF .TOG
+	    THEN (EOUTSTR(.P,5); EOCHAR(#11); EOUTOCT(.LINCNT^(-4),4);EOUTBLANK(3))
+	    ELSE (OUTSTR(.P,5); OCHAR(#11); OUTOCT(.LINCNT^(-4),4);OUTBLANK(3));
+	P_(BUFF-1)<1,7>;
+        WHILE ( C_ILDB(3,P) ) NEQ #177 DO
+	    IF .C GEQ " "  OR  .C EQL #11 THEN
+		IF .TOG THEN EOCHAR(.C) ELSE OCHAR(.C);
+        IF .TOG THEN ENEWLINE() ELSE NEWLINE();
+	VALIDBUF_0;
+        END;
+    END;
+
+
+ROUTINE IDERROR(NUM,STE)=
+  BEGIN
+    FORCELINE(1); EOUTSTR("WARN",4); EOCHAR("#"); EOUTOCT(.NUM,3);
+    EOUTBLANK(6); EOUTSTR("::",2); WARNINGFOUND_.WARNINGFOUND+1;
+    EOSTN(.STE); ENEWLINE();
+  END;
+
+
+ROUTINE ERROUT(TYPE,NUM,POSN)=
+    BEGIN LOCAL DUMDUM;
+    ! OUTPUT ERROR MESS, OR WARNING MESS, WITH POINTER, ETC.
+    FORCELINE(1);
+    EOUTSTR(.TYPE,4); EOCHAR("#"); EOUTOCT(.NUM,3);
+    IF .POSN<LEFTHALF> EQL .LINCNT
+	THEN EOUTBLANK(8)
+	ELSE (EOUTSTR(" L:",3);EOUTOCT(.POSN<22,14>,4);EOCHAR(" "));
+    INCR I FROM 1 TO (.POSN<0,7>-1) DO EOCHAR(".");
+    EOCHAR("*"); ENEWLINE();
+    END;
+
+ROUTINE ERROR(POSN,NUM)=
+    IF NOT .ERRLEVEL THEN
+%V2H%	  !ZERO LABIND SO WE WON'T ATTEMPT TO LABEL AN ERRONEOUS EXPRESSION.
+%V2H%	    (ERROUT("ERR ",.NUM,.POSN);ERRORFOUND_.ERRORFOUND+1; LABIND_0; CODETOG_0);
+
+
+
+
+
+
+ROUTINE WARNEM(POSN,NUM)=
+    (ERROUT("WARN",.NUM,.POSN); WARNINGFOUND_.WARNINGFOUND+1;0);
+
+
+
+
+! LOGICAL (?) IO ROUTINES
+!-------------------------
+
+ROUTINE READALINE=
+    BEGIN LOCAL L1;
+    ! READ THE NEXT INPUT LINE INTO 'BUFF', PRINTING THE PREVIOUS
+    ! LINE IF THIS HAS NOT ALREADY BEEN DONE (EG., BY AN ERROR
+    ! MESSAGE. A LINE NUMBER IS ASSIGNED TO THE INPUT LINE AND
+    ! A RECORD OF THIS IS PLACED IN THE CODE STRING.
+    FORCELINE(0); VALIDBUF_1; LINCNT_.LINCNT+16;
+    IF .CT[.CT[.CODEPTR,1]<PREVF>,1]<LEFTHALF> NEQ 0
+	THEN BEGIN
+	     CT[L1_GETSPACE(1),1]_.LINCNT;
+	     PUSHBOT(.CODEPTR,.L1);
+             END;
+    IF READTEXT() THEN RECOVER (.LINCNT^18,ERILTL);	!IF 1 INPUT LINE IS LONGER THAN 135 CHARS
+    IF .FINFLG THEN ( BUFF_'END);'; BUFF+1_'$;%"'''; BUFF+2_#067777777777 );
+    IF .BUFF 
+	THEN (PBUFF_BUFF<1,7>; NCBUFF_5+.LINCNT^18)
+	ELSE (PBUFF_(BUFF-1)<1,7>; NCBUFF_0+.LINCNT^18);
+    END;
+
+
+
+
+
+
+
+!END OF LODRIV.BLI
+;@L
