@@ -1,0 +1,676 @@
+MODULE GUPD(DOLLAR,ENTRIES=($GUSNG,$GFOR,$GBUPD,$GUPD),FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+  BEGIN
+
+  REQUIRE ADEFS.BLI[7,107355];
+  REQUIRE CDEFS.BLI[7,107355];
+  REQUIRE FDEFS.BLI[7,107355];
+  REQUIRE GDEFS.BLI[7,107355];
+  REQUIRE SDEFS.BLI[7,107355];
+  REQUIRE TDEFS.BLI[7,107355];
+  REQUIRE UDEFS.BLI[7,107355];
+  REQUIRE ZDEFS.BLI[7,107355];
+
+  UNDECLARE $GUSNG, $GFOR, $GBUPD, $GUPD;
+
+  MAP A$ GBTKN$;
+  MAP Z$ ZBSTK$;
+  MAP G$ GGBFP$;
+  MAP G$OPND GGBOP$;
+
+  MACRO WRITEM(TYPE,BUFP,NUM)=
+      BEGIN
+      $GIREC(TYPE,.NUM+3);
+      $UMOVE(.NUM+1,.BUFP,.GGBOP$);
+      $GWBUF(.GGBFP$,.GOB1I$);
+      $UZERO(.NUM,.BUFP+1);
+      END     &;
+
+
+  MACRO STUFFM(INCSTP)=
+      BEGIN
+      SOPCNT := .SOPCNT +1;
+      SOPNDP[.SOPCNT,G$OPTYP] := GV$STP;
+      SOPNDP[.SOPCNT,G$OPVAL] := .INCSTP;
+      IF .SOPCNT EQL GV$MAXGREC - 3
+        THEN
+          BEGIN
+          WRITEM(GV$STUFF,SOPNDP,SOPCNT);
+          SOPCNT := 0;
+          END;
+      END      &;
+
+
+  MACRO STUFFUM(INCSTP,USGSTE,STKPFL)=
+      BEGIN
+      STUFFALL := ZV$FALSE;
+      SUOPCNT := .SUOPCNT + 1;
+      SUOPNDP[.SUOPCNT,G$OPTYP] := GV$STP;
+      SUOPNDP[.SUOPCNT,G$OPVAL] := .INCSTP;
+      SUOPCNT := .SUOPCNT + 1;
+      IF STKPFL EQL ZV$TRUE  AND  .ZBSTK$[Z$GOPND,.STKPTR] NEQ ZV$NULL
+        THEN
+          SURECP[G$OPNDN][.SUOPCNT] := .ZBSTK$[Z$GOPND,.STKPTR]
+        ELSE
+          BEGIN
+          SUOPNDP[.SUOPCNT,G$OPTYP] := IF .USGSTE[S$TYPE] EQL SV$FLDINC
+                                         THEN
+                                           GV$STP
+                                         ELSE
+                                           GV$LIT;
+          SUOPNDP[.SUOPCNT,G$OPVAL] := .USGSTE[S$STPX];
+            END;
+      IF .SUOPCNT EQL GV$MAXGREC - 4
+        THEN
+          BEGIN
+          WRITEM(GV$STUFFU,SUOPNDP,SUOPCNT);
+          SUOPCNT := 0;
+          END;
+      END    &;
+
+
+  ROUTINE TYPSIZ(STKPTR,NAMESTP) =
+    BEGIN                       %**  STKPTR : FIELD TO BE USED IN THE ALTER/INSERT  **%
+                                %**  NAMESTP : FIELD IN THE RELATION     **%
+    LOCAL S$ DEFSTE : NAMESTE : WVNSTE;
+    LOCAL RESULT, WVSTP;
+
+    IF .ZBSTK$[Z$STP,.STKPTR] EQL .NAMESTP
+      THEN
+        RETURN ZV$TRUE;
+    NAMESTE := $SGSTE(.NAMESTP);
+    DEFSTE :=  $SGSTE(.NAMESTE[S$DSTP]);
+    IF .ZBSTK$[Z$DATATYP,.STKPTR] EQL ZV$STRING
+      THEN
+        IF .DEFSTE[S$DTYP] NEQ SV$SLIT
+          THEN
+            RESULT := ZV$FALSE
+          ELSE
+            IF .DEFSTE[S$LCHAR] LSS .ZBSTK$[Z$LCHAR,.STKPTR]
+              THEN
+                RESULT := ZV$FALSE
+              ELSE
+                BEGIN
+                RESULT := ZV$TRUE;
+                IF .DEFSTE[S$LCHAR] GTR .ZBSTK$[Z$LCHAR,.STKPTR]
+                  THEN
+                    BEGIN
+                    WVNSTE := $GWVAR(ZV$STRING,.DEFSTE[S$LCHAR],0);
+                    WVSTP  := .WVNSTE[S$CISTP];
+                    $SFNME(.WVNSTE,3);
+                    $GIREC(GV$STORE,5);
+                    GGBOP$[0,G$OPTYP] := GV$STP;
+                    GGBOP$[0,G$OPVAL] := .WVSTP;
+                    GGBFP$[G$OPND2]   := $GOPND(.STKPTR);
+                    GGBFP$[G$OPND3]   := GV$ROUND;
+                    $GWBUF(.GGBFP$,.GOB1I$);
+                    ZBSTK$[Z$GOPND,.STKPTR] := .GGBFP$[G$OPND1];
+                    END
+                  ELSE
+                    ZBSTK$[Z$GOPND,.STKPTR] := ZV$NULL;
+                END
+      ELSE
+        IF .DEFSTE[S$DTYP] EQL SV$SLIT
+          THEN
+            RESULT := ZV$FALSE
+          ELSE
+            IF .DEFSTE[S$INTD] LSS .ZBSTK$[Z$ICNT,.STKPTR]     OR
+               .DEFSTE[S$DECD] LSS .ZBSTK$[Z$DCNT,.STKPTR]
+              THEN
+                RESULT := ZV$FALSE
+              ELSE
+                BEGIN
+                IF .DEFSTE[S$DECD] GTR .ZBSTK$[Z$DCNT,.STKPTR]
+                  THEN
+                    ZBSTK$[Z$GOPND,.STKPTR] := $GALIGN(.STKPTR,.DEFSTE[S$DECD])
+                  ELSE
+                    ZBSTK$[Z$GOPND,.STKPTR] := ZV$NULL;
+                IF .DEFSTE[S$INTD] + .DEFSTE[S$DECD] GTR 10      AND
+                   .ZBSTK$[Z$ICNT,.STKPTR] + .ZBSTK$[Z$DCNT,.STKPTR] LSS 10
+                  THEN
+                    BEGIN
+                    WVNSTE := $GWVAR(ZV$NUMERIC,ZV$FP,.DEFSTE[S$FP]);
+                    WVSTP  := .WVNSTE[S$CISTP];
+                    $SFNME(.WVNSTE,3);
+                    $GIREC(GV$STORE,5);
+                    GGBOP$[0,G$OPTYP] := GV$STP;
+                    GGBOP$[0,G$OPVAL] := .WVSTP;
+                    GGBFP$[G$OPND2] := IF .ZBSTK$[Z$GOPND,.STKPTR] EQL ZV$NULL
+                                         THEN
+                                           $GOPND(.STKPTR)
+                                         ELSE
+                                           .ZBSTK$[Z$GOPND,.STKPTR];
+                    GGBFP$[G$OPND3] := GV$ROUND;
+                    $GWBUF(.GGBFP$,.GOB1I$);
+                    ZBSTK$[Z$GOPND,.STKPTR] := .GGBFP$[G$OPND1];
+                    END;
+                RESULT := ZV$TRUE;
+                END;
+    $SFRNCH(.NAMESTE);
+    $SFRNCH(.DEFSTE);
+
+    .RESULT
+
+    END;
+
+
+  ROUTINE SETVRF(NAMESTP)=
+    BEGIN
+
+    LOCAL S$ NAMESTE : DEFSTE;
+
+    NAMESTE := $SGSTE(.NAMESTP);
+    DEFSTE  := $SGSTE(.NAMESTE[S$DSTP]);
+    IF .DEFSTE[S$DTYP] NEQ SV$SLIT    OR 
+       .DEFSTE[S$DTYP] EQL SV$SLIT AND .DEFSTE[S$CNSTL] GTR 0
+      THEN
+        DEFSTE[S$VRF] := SV$TRUE;                % ONLY NEED VERIFY CODE FOR NUMERIC FIELDS! %
+    $SFRNCH(.NAMESTE);
+    $SFRCH(.DEFSTE);
+
+    END;
+
+
+
+
+%*****
+  GENERAL PROCESSING FOR $GUSNG.
+*****%
+  ROUTINE USING =
+    BEGIN
+
+    LOCAL S$ RNAMESTE : RINCSTE : FNAMESTE;
+    MAP GF$ GFINH$;
+    LOCAL GF$ INSLPTR;
+    LOCAL RELPTR, LABSAV, INSFLAG;
+    LABEL INSSEARCH;
+
+    RELPTR := .ZBSTK$[Z$SUCP,.GINSP$];           % LOCATE WHAT IS SUPPOSED TO BE THE RELATION NAME ENTRY %
+    IF .ZBSTK$[Z$SBID,.RELPTR] NEQ ZV$REL       % IS IT A RELATION? %
+      THEN
+        BEGIN                                   % NO; ERROR  %
+        $GERR(522,.RELPTR);
+        ZBSTK$[Z$ERFL,.RELPTR] := AV$TRUE;
+        RETURN -1;
+        END;
+    IF .GALTF$ EQL ZV$SET                       % IS THIS AN ALTER STATEMENT? %
+      THEN
+        BEGIN                                   % YES %
+        RNAMESTE := $SGSTE(.ZBSTK$[Z$STP,.RELPTR]);
+        IF .RNAMESTE[S$CISTP] EQL SV$NULL       % DOES THE RELATION HAVE AN ACTIVE INCARNATION? %
+          THEN
+            BEGIN                               % NO! ERROR %
+            $GERR(530,.RELPTR);
+            ZBSTK$[Z$ERFL,.RELPTR] := AV$TRUE;
+            $SFRNCH(.RNAMESTE);
+            RETURN -1;
+            END;
+        ZBSTK$[Z$INCSTP,.RELPTR] := .RNAMESTE[S$CISTP];  % SAVE THE INCARNATION'S STP IN THE STACK %
+        RINCSTE := $SGSTE(.RNAMESTE[S$CISTP]);
+        RINCSTE[S$IOMODE] := SV$UPDATE;
+        $SFRNCH(.RNAMESTE);
+        $SFRCH(.RINCSTE);
+        END
+      ELSE                                      % INSERT STATEMENT %
+        BEGIN
+        RNAMESTE := $SGSTE(.ZBSTK$[Z$STP,.RELPTR]);
+        INSLPTR := .GFINH$;
+        INSFLAG := ZV$FALSE;
+     INSSEARCH:
+        UNTIL .INSLPTR LEQ ZV$NULL    OR    % LOOK FOR AN ENTRY FOR THIS RELATION , IN THE INSERT LIST %
+              .INSLPTR[GF$BGSTMP] LSS .GFEAP$
+          DO
+            BEGIN
+            IF (.INSLPTR[GF$RNSTP] EQL .ZBSTK$[Z$STP,.RELPTR]    AND
+                .INSLPTR[GF$FATYPE] EQL GFV$INS)
+              THEN
+                BEGIN
+                INSFLAG := ZV$TRUE;
+                LEAVE INSSEARCH;
+                END;
+            INSLPTR := .INSLPTR[GF$PREDP];
+            END;
+        IF .INSFLAG EQL ZV$FALSE           % WAS THERE ONE? %
+          THEN
+            BEGIN                           % NO; SET ONE UP %
+            ZBSTK$[Z$INSERTF,.RELPTR] := ZV$SET;
+            $GASCOPE(.RELPTR);              % ALLOCATE THE RELATION INCARNATION %
+            RINCSTE := $SGSTE(.ZBSTK$[Z$INCSTP,.RELPTR]);
+            RINCSTE[S$IOMODE] := SV$OUTPUT;
+            INSLPTR := $GFINAPND(.RELPTR,GFV$INS);
+            $SFRCH(.RINCSTE);
+            END
+          ELSE                              % TERE WAS ALREADY AN INSERT LIST ENTRY FOR THIS RELATION %
+            ZBSTK$[Z$INCSTP,.RELPTR] := .INSLPTR[GF$RISTP];  % SAVE THE RELATION'S INCARNATION STP %
+        $GCOPEN(.INSLPTR);
+        $SFRNCH(.RNAMESTE);
+        END;
+    INSLPTR := .GFINH$;
+    UNTIL .INSLPTR LEQ 0        OR
+         (.INSLPTR[GF$RNSTP] EQL .ZBSTK$[Z$STP,.RELPTR]    AND
+          .INSLPTR[GF$IOMODE] EQL GFV$UPDATE )
+      DO
+        BEGIN
+        IF .INSLPTR[GF$RNSTP] EQL .ZBSTK$[Z$STP,.RELPTR]  AND
+           .INSLPTR[GF$IOMODE] EQL GFV$INPUT
+          THEN
+            BEGIN
+            RINCSTE := $SGSTE(.INSLPTR[GF$RISTP]);
+            RINCSTE[S$IOMODE] := SV$UPDATE;
+            $SFRCH(.RINCSTE);
+            INSLPTR[GF$IOMODE] := GFV$UPDATE;
+            END;
+        INSLPTR := .INSLPTR[GF$PREDP];
+        END;
+    END;
+
+
+%*****
+  PROCESS THE TV$8BGALT AND TV$8BGINS TOKENS.
+*****%
+  GLOBAL ROUTINE $GBUPD =
+    BEGIN
+
+    $GPUSH(.GBTKN$,AV$SZTOK+2);                 % STACK THE TV$8BGALT/TV$8BGINS TOKEN %
+    ZBSTK$[Z$ELSELAB,.ZSTKP$] := .GELSL$;        % SAVE THE ELSE LABEL STUFF %
+    ZBSTK$[Z$ELSEFLG,.ZSTKP$] := .GELSF$;
+    ZBSTK$[Z$ELSEP,.ZSTKP$]   := .GELSP$;
+    GINSP$ := .ZSTKP$;                           % SAVE THE LOCATION OF THE TOKEN JUST STACKED %
+    GELSF$ := GNOKF$ := ZV$RESET;
+    GELSP$ := .ZSTKP$;
+
+    IF .GBTKN$[A$ID] EQL TV$8BGALT
+      THEN
+        GALTF$ := ZV$SET
+      ELSE
+        GALTF$ := ZV$RESET;
+
+    END;
+
+
+%*****
+  PROCESS THE TV$ALTER AND TV$INSERT TOKENS.
+*****%
+  GLOBAL ROUTINE $GUPD =
+    BEGIN
+
+    LOCAL TYPE;
+
+    IF .ZBSTK$[Z$ERFL,.ZSTKP$] NEQ AV$TRUE      % ANY ERROR OCCUR DURING PROCESSING OF USING? %
+      THEN
+        BEGIN                                   % NO %
+        TYPE := IF .GBTKN$[A$ID] EQL TV$ALTER
+                 THEN
+                   GV$ALTER
+                 ELSE
+                   GV$INSERT;
+        $GIREC(.TYPE,3);                        % GENERATE EITHER THE ALTER OR INSERT N-TUPLE %
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .ZBSTK$[Z$INCSTP,.ZSTKP$];
+        $GWBUF(.GGBFP$,.GOB1I$);
+        END;
+    $GPOP();                                    % CLEAR THE RELATION NAME %
+
+    GELSL$ := .ZBSTK$[Z$ELSELAB,.ZSTKP$];        % RESTORE THE ELSE LABEL STUFF %
+    GELSF$ := .ZBSTK$[Z$ELSEFLG,.ZSTKP$];
+    GELSP$ := .ZBSTK$[Z$ELSEP,.ZSTKP$];
+    GALTF$ := ZV$RESET;
+    $GPOP();                                    % CLEAR THE TV$8BGALT/TV$8BGINS TOKEN %
+
+    END;
+
+
+  GLOBAL ROUTINE $GFOR = 
+    BEGIN                       %**  ZSTKP$ : FIELD IN THE RELATION       **%
+                                %**  STKPTR : FIELD TO BE USED IN THE ALTER/INSERT  **%
+    LOCAL S$ USNGSTE;
+    LOCAL USNGSTP, STKPTR;
+
+    STKPTR := .ZBSTK$[Z$PREDP,.ZSTKP$];
+    IF $GICHK(.STKPTR) EQL ZV$FALSE
+      THEN
+        $GERR(526,.STKPTR);
+    IF TYPSIZ(.STKPTR,.ZBSTK$[Z$STP,.ZSTKP$]) EQL ZV$FALSE
+      THEN
+        BEGIN
+        $GERR(535,.STKPTR);
+        $GPOP();
+        $GPOP();
+        END
+      ELSE
+        BEGIN
+        ZBSTK$[Z$USNGSTP,.STKPTR] := .ZBSTK$[Z$STP,.ZSTKP$];
+        $GPOP();
+        END;
+    END;
+
+%*****
+  PROCESS THE USING TOKENS TV$USING, TV$8USNGL, AND TV$8USNGS.
+*****%
+  GLOBAL ROUTINE $GUSNG =
+    BEGIN
+
+    LOCAL S$ RELSTE : PREDSTE : CURSTE : NAMESTE : DEFSTE : NULLSTE : ACTVSTE;
+    LOCAL G$ SRECP : SURECP;
+    LOCAL G$OPND SOPNDP : SUOPNDP;
+    LOCAL STKPTR, PREDPTR, SUCPTR, STUFFALL;
+    LOCAL NEXTSTP, SOPCNT, SUOPCNT, RELPTR, SBUF[GV$MAXGREC], SUBUF[GV$MAXGREC];
+    LABEL PACKIT, FINDIT, LONGLIST;
+    BIND PRIMEOUT = 0;
+
+
+  FUNCTION STUFFUSNG(STKPTR,CURSTE)=
+    BEGIN
+
+    MAP S$ CURSTE;
+    LOCAL S$ ACTVSTE;
+
+    IF $GICHK(.STKPTR) EQL ZV$FALSE
+      THEN
+        $GERR(526,.STKPTR);
+    ACTVSTE := $SGSTE(.ZBSTK$[Z$INCSTP,.STKPTR]);
+    STUFFUM(CURSTE[S$STPX],ACTVSTE,ZV$TRUE);
+    SETVRF(.CURSTE[S$STP1]);
+    $SFRNCH(.ACTVSTE);
+
+    END;
+
+
+
+  %**  START OF USING PROCESSING  **%
+    IF USING() NEQ -1
+      THEN
+
+        BEGIN
+        RELPTR := .ZBSTK$[Z$SUCP,.GINSP$];
+        RELSTE := $SGSTE(.ZBSTK$[Z$INCSTP,.RELPTR]);
+        NEXTSTP := .RELSTE[S$FISTP];             % GET THE FIRST FIELD ENTRY'S INCARNATION STP %
+        STUFFALL := ZV$TRUE;
+        GOB1I$ := $GNBUF(256);
+        SRECP := SBUF;
+        SOPNDP := .SRECP + 2;
+        SURECP := SUBUF;
+        SUOPNDP := .SURECP + 2;
+        SOPCNT := SUOPCNT := 0;
+
+        $UZERO(GV$MAXGREC,.SRECP);
+        $UZERO(GV$MAXGREC,.SURECP);
+        SOPNDP[0,G$OPTYP] := SUOPNDP[0,G$OPTYP] := GV$STP;
+        SOPNDP[0,G$OPVAL] := SUOPNDP[0,G$OPVAL] := .RELSTE[S$STPX];
+        PREDSTE := .RELSTE;
+        STKPTR := .ZBSTK$[Z$SUCP,.RELPTR];
+
+     PACKIT:
+        WHILE .NEXTSTP NEQ SV$NULL
+          DO
+            BEGIN
+            $SFRNCH(.PREDSTE);
+            CURSTE := $SGSTE(.NEXTSTP);
+            SELECT .GBTKN$[A$ID]  OF
+                      NSET
+                TV$USING :
+                        BEGIN
+                        IF .GALTF$ EQL ZV$SET
+                          THEN                  % ALTER STATEMENT %
+                            IF .CURSTE[S$KDFLG] EQL SV$DATAF
+                              THEN
+                                BEGIN
+                                STUFFM(CURSTE[S$STPX]);
+                                SETVRF(.CURSTE[S$STP1]);
+                                END
+                              ELSE
+                                IF .CURSTE[S$VALCHGF] EQL SV$TRUE
+                                  THEN
+                                    BEGIN
+                                    $GPUSH(ZBSTK$[Z$ID,.RELPTR]<0,36>,AV$SZTOK);
+                                    ZBSTK$[Z$ID,.ZSTKP$]  := TV$NAME;
+                                    ZBSTK$[Z$STP,.ZSTKP$] := .CURSTE[S$STP1];
+                                    $GERR(533,.ZSTKP$);
+                                    $GPOP();
+                                    END
+                                  ELSE
+                                    0
+                          ELSE                  % INSERT STATEMENT %
+                            BEGIN
+                            NAMESTE := $SGSTE(.CURSTE[S$STP1]);
+                            IF .NAMESTE[S$CISTP] EQL SV$NULL
+                              THEN
+                                BEGIN
+                                IF .CURSTE[S$KDFLG] EQL SV$KEYF
+                                  THEN
+                                    BEGIN
+                                    $GPUSH(ZBSTK$[Z$ID,.RELPTR]<0,36>,AV$SZTOK);
+                                    ZBSTK$[Z$ID,.ZSTKP$]  := TV$NAME;
+                                    ZBSTK$[Z$STP,.ZSTKP$] := .CURSTE[S$STP1];
+                                    $GERR(532,.ZSTKP$);
+                                    $GPOP();
+                                    END;
+                                DEFSTE := $SGSTE(.NAMESTE[S$DSTP]);
+                                IF .DEFSTE[S$DFLT] EQL SV$NULL
+                                   THEN
+                                     NULLSTE := $GDFVAL(.DEFSTE)
+                                   ELSE
+                                     NULLSTE := $SGSTE(.DEFSTE[S$DFLT]);
+                                STUFFUM(CURSTE[S$STPX],NULLSTE,ZV$FALSE);
+                                $SFRNCH(.NULLSTE);
+                                $SFRNCH(.DEFSTE);
+                                END
+                              ELSE
+                                BEGIN
+                                ACTVSTE := $SGSTE(.NAMESTE[S$CISTP]);
+                                STUFFUM(CURSTE[S$STPX],ACTVSTE,ZV$FALSE);
+                                $SFRNCH(.ACTVSTE);
+                                SETVRF(.CURSTE[S$STP1]);
+                                END;
+                            $SFRNCH(.NAMESTE);
+                            END;
+                        END;
+
+
+                TV$8USNGL:
+                    LONGLIST:
+                        BEGIN
+                        IF .CURSTE[S$KDFLG] EQL SV$KEYF   AND
+                           .GALTF$ EQL ZV$SET
+                          THEN
+                            LEAVE LONGLIST;
+                        IF .STKPTR NEQ ZV$NULL          %IS THERE A MATCHING ENTRY IN THE USING LIST %
+                          THEN
+                            BEGIN
+                            $GICHK(.STKPTR);
+                            IF .CURSTE[S$KDFLG] EQL SV$KEYF
+                              THEN
+                                IF .GALTF$ EQL ZV$SET
+                                  THEN
+                                    $FATAL(#123)
+                                  ELSE
+                                    IF TYPSIZ(.STKPTR,.CURSTE[S$STP1]) EQL ZV$TRUE
+                                      THEN
+                                        STUFFUSNG(.STKPTR,.CURSTE)
+                                      ELSE
+                                        $GERR(535,.STKPTR)
+                              ELSE
+                                IF TYPSIZ(.STKPTR,.CURSTE[S$STP1]) EQL ZV$TRUE
+                                  THEN
+                                    STUFFUSNG(.STKPTR,.CURSTE)
+                                  ELSE
+                                    $GERR(535,.STKPTR);
+                            END
+                          ELSE                  % NO MATCHING USING LIST ENTRY%
+                            BEGIN
+                            IF .CURSTE[S$KDFLG] EQL SV$KEYF
+                              THEN
+                                IF .GALTF$ EQL ZV$SET
+                                  THEN
+                                    BEGIN
+                                    $GPUSH(ZBSTK$[Z$ID,.RELPTR]<0,36>,AV$SZTOK);
+                                    ZBSTK$[Z$ID,.ZSTKP$]  := TV$NAME;
+                                    ZBSTK$[Z$STP,.ZSTKP$] := .CURSTE[S$STP1];
+                                    $GERR(550,.ZSTKP$);
+                               $GPOP();
+                                    LEAVE PACKIT;
+                                    END
+                                  ELSE
+                                    BEGIN
+                                    $GPUSH(ZBSTK$[Z$ID,.RELPTR]<0,36>,AV$SZTOK);
+                                    ZBSTK$[Z$ID,.ZSTKP$] := TV$NAME;
+                                    ZBSTK$[Z$STP,.ZSTKP$] := .CURSTE[S$STP1];
+                                    $GERR(532,.ZSTKP$);
+                                    $GPOP();
+                                    END;
+                            NAMESTE := $SGSTE(.CURSTE[S$STP1]);
+                            IF .NAMESTE[S$CISTP] EQL SV$NULL
+                              THEN
+                                BEGIN
+                                DEFSTE := $SGSTE(.NAMESTE[S$DSTP]);
+                                IF .DEFSTE[S$DFLT] EQL SV$NULL
+                                  THEN
+                                    NULLSTE := $GDFVAL(.DEFSTE)
+                                  ELSE
+                                    NULLSTE := $SGSTE(.DEFSTE[S$DFLT]);
+                                STUFFUM(CURSTE[S$STPX],NULLSTE,ZV$FALSE);
+                                $SFRNCH(.NULLSTE);
+                                $SFRNCH(.DEFSTE);
+                                END
+                              ELSE
+                                BEGIN
+                                ACTVSTE := $SGSTE(.NAMESTE[S$CISTP]);
+                                STUFFUM(CURSTE[S$STPX],ACTVSTE,ZV$FALSE);
+                                $SFRNCH(.ACTVSTE);
+                                SETVRF(.CURSTE[S$STP1]);
+                                END;
+                            $SFRNCH(.NAMESTE);
+                            END;
+                        IF .STKPTR NEQ ZV$NULL
+                          THEN
+                            STKPTR := .ZBSTK$[Z$SUCP,.STKPTR];
+                        END;
+
+
+                TV$8USNGS:
+                        BEGIN
+                        STKPTR := ZV$NULL;
+                        PREDPTR := .RELPTR;
+                        SUCPTR  := .ZBSTK$[Z$SUCP,.PREDPTR];
+                    FINDIT:
+                        WHILE .SUCPTR NEQ ZV$NULL
+                          DO                    % LOOK FOR A MATCHING ENTR YIN THE USING LIST%
+                            BEGIN
+                            IF .ZBSTK$[Z$USNGSTP,.SUCPTR] EQL .CURSTE[S$STP1]
+                              THEN
+                                BEGIN
+                                STKPTR := .SUCPTR;
+                                ZBSTK$[Z$SUCP,.PREDPTR] := .ZBSTK$[Z$SUCP,.SUCPTR];
+                                LEAVE FINDIT;
+                                END;
+                            PREDPTR := .SUCPTR;
+                            SUCPTR := .ZBSTK$[Z$SUCP,.PREDPTR];
+                            END;
+                        IF .STKPTR NEQ ZV$NULL          % IS THERE A MATCHING LIST ENTRY? %
+                          THEN                  % YES %
+                            IF .CURSTE[S$KDFLG] EQL SV$KEYF
+                              THEN
+                                IF .GALTF$ EQL ZV$SET
+                                  THEN
+                                    $GERR(536,.STKPTR)
+                                  ELSE
+                                    STUFFUSNG(.STKPTR,.CURSTE)
+                              ELSE
+                                STUFFUSNG(.STKPTR,.CURSTE)
+                          ELSE
+                            BEGIN
+                            NAMESTE := $SGSTE(.CURSTE[S$STP1]);
+                            IF .NAMESTE[S$CISTP] EQL SV$NULL    % DOES THE FIELD HAVE AN ACTIVE INCARNATION? %
+                              THEN
+                                BEGIN                           % NO %
+                                IF .CURSTE[S$KDFLG] EQL SV$KEYF
+                                  THEN
+                                    BEGIN
+                                    $GPUSH(ZBSTK$[Z$ID,.RELPTR]<0,36>,AV$SZTOK);
+                                    ZBSTK$[Z$ID,.ZSTKP$] := TV$NAME;
+                                    ZBSTK$[Z$STP,.ZSTKP$] := .CURSTE[S$STP1];
+                                    $GERR(532,.ZSTKP$);
+                                    $GPOP();
+                                    END;
+                                DEFSTE := $SGSTE(.NAMESTE[S$DSTP]);
+                                IF .DEFSTE[S$DFLT] EQL SV$NULL
+                                  THEN
+                                    NULLSTE := $GDFVAL(.DEFSTE)
+                                  ELSE
+                                    NULLSTE := $SGSTE(.DEFSTE[S$DFLT]);
+                                STUFFUM(CURSTE[S$STPX],NULLSTE,ZV$FALSE);  % STUFF TYE NULL VALUE %
+                                $SFRNCH(.NULLSTE);
+                                $SFRNCH(.DEFSTE);
+                                END
+                              ELSE
+                                BEGIN                           % HAS AN ACTIVE INCARNATION %
+                                ACTVSTE := $SGSTE(.NAMESTE[S$CISTP]);
+                                IF .GALTF$ EQL ZV$SET
+                                  THEN
+                                    IF .CURSTE[S$KDFLG] EQL SV$KEYF
+                                      THEN
+                                        IF .CURSTE[S$VALCHGF] EQL SV$TRUE
+                                          THEN
+                                            BEGIN
+                                            $GPUSH(ZBSTK$[Z$ID,.RELPTR]<0,36>,AV$SZTOK);
+                                            ZBSTK$[Z$ID,.ZSTKP$]  := TV$NAME;
+                                            ZBSTK$[Z$STP,.ZSTKP$] := .CURSTE[S$STP1];
+                                            $GERR(533,.ZSTKP$);
+                                            $GPOP();
+                                            $SFRNCH(.ACTVSTE);
+                                            LEAVE PACKIT;
+                                            END
+                                          ELSE
+                                            ZV$NULL
+                                      ELSE
+                                        BEGIN
+                                        STUFFM(ACTVSTE[S$STPX]);
+                                        SETVRF(.CURSTE[S$STP1]);
+                                        END
+                                  ELSE
+                                    STUFFUM(CURSTE[S$STPX],ACTVSTE,ZV$FALSE);
+                                $SFRNCH(.ACTVSTE);
+                                END;
+                            $SFRNCH(.NAMESTE);
+                            END;
+                        END;
+
+
+                      TESN;
+            NEXTSTP := .CURSTE[S$FISTP];
+            PREDSTE := .CURSTE;
+            END;
+        $SFRNCH(.PREDSTE);
+        IF .STUFFALL EQL ZV$TRUE
+          THEN
+            BEGIN
+            $GRBUF(.GOB1I$);
+            GOB1I$ := 0;
+            $GIREC(GV$STUFFALL,3);
+            GGBFP$[G$OPND1] := .SRECP[G$OPND1];
+            $GWBUF(.GGBFP$,.GOB1I$);
+            END
+          ELSE
+            BEGIN
+            IF .SOPCNT GTR 0
+              THEN
+                WRITEM(GV$STUFF,SOPNDP,SOPCNT);
+            IF .SUOPCNT GTR 0
+              THEN
+                WRITEM(GV$STUFFU,SUOPNDP,SUOPCNT);
+            $GMBUF(.GOB1I$,PRIMEOUT,$GFREC(.GOB1I$),$GLREC(.GOB1I$));
+            $GRBUF(.GOB1I$);
+            GOB1I$ := 0;
+            END;
+        END;
+
+    IF .GBTKN$[A$ID] EQL TV$8USNGL  OR  .GBTKN$[A$ID] EQL TV$8USNGS
+      THEN
+        WHILE .ZSTKP$ NEQ .ZBSTK$[Z$SUCP,.GINSP$]
+          DO
+            $GPOP();
+
+    END;
+
+  END
+ELUDOM
+ TIH
