@@ -1,0 +1,251 @@
+        DECLARE('SNOBOL.MAIN' , 'DESTRY')
+        DECLARE('OPTION' , 'NO.STNO')
+        DECLARE('INTEGER' , 'M,N,I,J,LC,TLC,QC1,QC2')
+*
+*       THIS PROGRAM DRIVES A FILE TRANSFORMATION PROCESS
+*       THAT STARTS FROM A LIST OF INPUT FILES AND A USER SUPPLIED
+*       PATTERN.  EACH FILE IN THE LIST IS READ LINE BY LINE AND
+*       MATCHED AGAINST THE PATTERN.  IF A MATCH IS FOUND IN THE FILE
+*       THE IDENTIFIED STRINGS ARE REPLACED BY USER SUPPLIED STRINGS.
+*       UNMATCHED LINES ARE COPIED TO THE OUTPUT FILE.
+*       THE PATTERN LANGUAGE IS AS FOLLOWS:
+*          <PAT1>!
+*          <PAT2>!
+*          ...
+*          <PATN>
+*
+*       EACH PATTERN IS OF THE FORM:
+*          <ELE1>...<ELE2>...  (ETC)   ...<ELEN>
+*       EACH ELEMENT IS CURRENTLY LIMITED TO A LITERAL STRING.
+*
+        &ANCHOR = 1
+        DEFINE('ANSWER()','ANS')   :(ANSE)
+ANS     ANSWER = INPUT
+        IDENT(ANSWER,"Y")       :S(RETURN)
+        IDENT(ANSWER,"N")       :S(RETURN)
+        OUTPUTC = "Y OR N PLEASE: "     :(ANS)
+ANSE
+*
+*       THE FOLLOWING SECTION IS THE USER REPLACABLE FUNCTION FOR
+*       DEFINING THE SEARCH PATTERN
+*
+        DEFINE('USERFUNC()PATL,WPATL,PAT,PELE,KEY,Z,QUOTE,NUM,PC','UF') :(UFE)
+UF      PC = TABLE(10)
+*       INITIALIZE THE DISPATCH TABLE FOR PATTERN TYPES
+        PC[""""] = 1
+        PC["'"] = 2
+        PC["."] = 3
+        PC[";"] = 4
+        PC["\"] = 5
+        PC["["] = 6
+        PC["]"] = 7
+        PC["@"] = 8
+        PC["#"] = 9
+        PC["%"] = 10
+*
+UFL0    OUTPUTC = "MATCH PATTERN: "
+        I = 0
+        N = 0
+        PATL = ''
+UFL1       WPATL = INPUT
+*       THE FOLOWING ATROCITIES ARE TO MAKE SURE QUOTED STRINGS ARE
+*       VALID, VIZ HAVE MATCHING QUOTES.
+           QC1 = 0
+           QC2 = 0
+           Z = WPATL
+UFL11         Z BREAK('"''') LEN(1) . QUOTE = ''        :F(UFL11E)
+              ?IDENT(QUOTE,"'")                         :F(UFL12)
+              QC1 = ?IGT(QC1,0) 0                       :S(UFL11)
+              QC1 = ?IEQ(QC2,0) 1                       :(UFL11)
+UFL12         QC2 = ?IGT(QC2,0) 0                       :S(UFL11)
+              QC2 = ?IEQ(QC1,0) 1                       :(UFL11)
+UFL11E     ?IEQ(QC1 + QC2,0)                            :F(PATERR)
+           PATL = PATL WPATL
+           WPATL RTAB(1) "!"                    :F(UFL1E)
+           OUTPUTC = "+ "                       :(UFL1)
+UFL1E   PATL = PATL "!"
+        WPATL = ''
+UFL2       PATL BREAKQ("!") . PAT LEN(1) = ''   :F(UFL2E)
+           I = I + 1
+           J = 0
+UFL21         PAT NSPAN(" ") LEN(1) . KEY = ''  :F(UFL21E)
+              J = J + 1                         :($('CASE1' PC[KEY]))
+*
+*       FIRST PASS PARSING OF PATTERN TYPES
+CASE1         OUTPUT = 'UNKNOWN PATTERN CHAR: ' KEY     :(UFL0)
+CASE11
+CASE12
+QS1              PAT BREAK(KEY) . PELE LEN(1) = ''      :F(PATERR)
+                 WPATL = WPATL KEY PELE KEY
+                 PAT KEY = ''                           :S(QS1)F(UFL21)
+CASE13        PAT ".." = ''                             :F(PATERR)
+WINDUP        WPATL = WPATL KEY                         :(UFL21)
+CASE14        PAT ";;" = ''                             :F(PATERR)S(WINDUP)
+CASE15        PAT "\\" = ''                             :F(PATERR)S(WINDUP)
+CASE16
+CASE17                                                  :(WINDUP)
+CASE18        PAT SPAN('0123456789') . NUM = ''         :F(PATERR)
+              WPATL = WPATL KEY NUM                     :(UFL21)
+CASE19
+CASE110                                                 :(WINDUP)
+*
+UFL21E     WPATL = WPATL "!"
+           N = ?IGT(J,N) J                      :(UFL2)
+*
+UFL2E   M = I
+        P = ARRAY(M)
+        LIM = ARRAY(M)
+        ONCEF = ARRAY(M)
+        A = ?IDENT(REPLF,"Y") ARRAY(M ",0:" N)
+        I = 0
+UFL3       WPATL BREAKQ("!") . PAT LEN(1) = ''  :F(UFL3E)
+           I = I + 1
+           P[I] = ?IDENT(REPLF,"Y") ARB . A[I,0]
+           P[I] = ?IDENT(REPLF,"N") ARB
+           J = 0
+UFL31         PAT LEN(1) . KEY = ''             :F(UFL31E)
+              J = J + 1                         :($('CASE2' PC[KEY]))
+*
+*       SECOND PASS DISPATCH ON PATTERN TYPE
+CASE21
+CASE22
+              PELE = ''
+QS2              PAT BREAK(KEY) . WPELE LEN(1) = ''
+                 PELE = PELE WPELE
+                 PAT KEY = ''                           :F(QS3)
+                 PELE = PELE KEY                        :(QS2)
+QS3           P[I] = P[I] PELE
+              IDENT(REPLF,"Y")                          :F(UFL31)
+QS31          OUTPUTC = "REPLACE " KEY PELE KEY " WITH: "
+              Z = INPUT
+              DIFFER(Z)                                 :F(UFL31)
+              Z "..." RPOS(0)                           :S(QS32)
+              Z KEY BREAK(KEY) . A[I,J] RPOS(1)         :S(UFL31)
+              OUTPUT "INVALID REPLACEMENT SPEC"         :(QS31)
+QS32          A[I,J] = PELE                             :(UFL31)
+*
+CASE23        P[I] = ?IDENT(REPLF,"Y") P[I] ARB . A[I,J] :S(UFL31)
+              P[I] = P[I] ARB                   :(UFL31)
+CASE24        P[I] = ?IDENT(REPLF,"Y") P[I] BAL . A[I,J] :S(UFL31)
+              P[I] = P[I] BAL                           :(UFL31)
+CASE25        P[I] = P[I] ARB                           :(UFL31)
+CASE26        P[I] = P[I] POS(0)                        :(UFL32)
+CASE27        P[I] = P[I] RPOS(0)                       :(UFL32)
+CASE28        PAT SPAN('0123456789') . NUM = ''
+              P[I] = P[I] POS(NUM - 1)                  :(UFL32)
+CASE29        P[I] = ?IDENT(REPLF,"Y") P[I] LEN(1) . A[I,J] :S(UFL31)
+              P[I] = P[I] LEN(1)                        :(UFL31)
+CASE210       P[I] = P[I] LEN(1)                        :(UFL31)
+*
+
+UFL32      ONCEF[I] = '1'                  :(UFL31)
+UFL31E     LIM[I] = J                   :(UFL3)
+UFL3E                                   :(RETURN)
+PATERR  OUTPUT = 'INVALID PATTERN'      :(UFL0)
+UFE
+*
+*
+        DEFINE('PRLIN(FILE,LINE)')           :(PRLE)
+PRLIN   IDENT(PRINTF,"Y")               :F(PRL2)
+        OUTPUT = ?IDENT(MATCHFNF) ''        :F(PRL1)
+        OUTPUT = "*** FILE: " FILE
+PRL1    OUTPUT = LC ": " LINE
+PRL2    MATCHFNF = "1"                      :(RETURN)
+PRLE
+*
+*
+        DEFINE('CATCHUP()ZOO','CUP')    :(CUPE)
+CUP     CLOSE(2)
+        LOOKUP(FILEN,2)
+        OUTFN = USERN FN "." NEWEXT
+        OUTPUT = ''
+        OUTPUT = "*** CREATING FILE " OUTFN
+        MATF = OUTFN
+        MATCHFNF = "1"
+        OUTPUT('OUTF',ENTER(OUTFN,OPEN('DSK',3)),160)   :F(E3)
+        TLC = 1
+CUP1       TLC = ?ILT(TLC,LC) TLC + 1           :F(CUP1E)
+           OUTF = SRCHFILE                      :(CUP1)
+CUP1E   ZOO = SRCHFILE
+        CAUGHTUP = "Y"                          :(RETURN)
+CUPE
+*
+*
+        ALPHA = ANY("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+        ANSTR = NSPAN("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+        FNPAT = ("(" ALPHA ANSTR ")" ! NULL) . USERN
++               (ALPHA ANSTR) . FN   ("." ! RPOS(0))  ANSTR . EXT RPOS(0)
+START   OUTPUTC = "FILE LIST FILE NAME: "
+        FLFN = INPUT
+        FLFN FNPAT                      :F(START)
+        INPUT('INF',LOOKUP(FLFN,OPEN('DSK',1)),160)  :F(E1)
+        OUTPUTC = "REPLACE? "
+        REPLF = ANSWER()
+S0      OUTPUTC = "FILE NAME FOR MATCHING FILE LIST (CR FOR NONE): "
+        MATFN = INPUT
+        DIFFER(MATFN)                   :F(S1)
+        MATFN FNPAT                     :F(S0)
+        OUTPUT('MATF',ENTER(MATFN,OPEN('DSK',4)))       :F(E5)
+S1
+        USERFUNC()
+        OUTPUTC = "PRINT? "
+        PRINTF = ANSWER()
+        JUSTLSTF = ?DIFFER(MATFN) ?IDENT(REPLF,"N") ?IDENT(PRINTF,"N") '1'
+        OUTPUTC = ?IDENT(REPLF,"Y") "WAIT? "            :F(STARTE)
+        WAITF = ANSWER()
+        OUTPUTC = "NEW EXTENSION: "
+        NEWEXT = INPUT
+STARTE
+*
+L       FILEN = INF             :F(LE)
+        FILEN FNPAT                     :F(E4)
+        INPUT('SRCHFILE',LOOKUP(FILEN,OPEN('DSK',2)),160)    :F(E2)
+        MATCHFNF = ''
+        CAUGHTUP = ''
+        LC = 0
+L1         LINE = SRCHFILE              :F(L1E)
+           LC = LC + 1
+           I = 0
+           DIDIT = ''
+L11           I = ?ILT(I,M) I + 1        :F(L11E)
+                 WLINE = ''
+L111             LINE P[I] . TLINE = ''    :F(L111E)
+                 IDENT(REPLF,"N")          :F(L112)
+                 MATF = ?IDENT(MATCHFNF) FILEN
+                 ?DIFFER(JUSTLSTF)                      :S(L1E)
+                 PRLIN(FILEN, TLINE LINE)               :(L1)
+L112             OUTPUT = ?IDENT(WAITF,"Y") LC ": " WLINE "\\" TLINE "\\" LINE         :F(L113)
+                 OUTPUTC = "PATTERN " I ", OK? "
+                 IDENT(ANSWER(),"N")                    :F(L113)
+                 WLINE = WLINE TLINE                    :(L114)
+L113             DIDIT = "Y"
+                 ?IDENT(CAUGHTUP) ?CATCHUP()
+                 J = -1
+L1131               J = ?ILT(J,LIM[I]) J + 1        :F(L114)
+                    WLINE = WLINE A[I,J]                :(L1131)
+L114          ?DIFFER(ONCEF[I])             :F(L111)
+L111E         LINE = WLINE LINE            :(L11)
+L11E       OUTF = LINE
+           DIFFER(DIDIT)                :F(L1)
+           PRLIN(OUTFN, LINE)          :(L1)
+*
+*
+L1E     RELEASE(3)
+        RELEASE(2)                      :(L)
+*
+*
+E1      OUTPUT = "FILE NOT FOUND"
+        RELEASE(1)                      :(START)
+E2      OUTPUT = FILEN " NOT FOUND"
+        RELEASE(2)                      :(L)
+E3      OUTPUT = "UNABLE TO CREATE " OUTFN
+        RELEASE(3)                      :(L1E)
+E4      OUTPUT = FILEN " NOT A PROPER FILE NAME"        :(L)
+E5      OUTPUT = "UNABLE TO CREATE " MATFN              :(S0)
+*
+LE      RELEASE(1)
+        RELEASE(4)
+        OUTPUT = "THAT'S ALL FOLKS!"
+        &OUTPUT = 0
+END
+ 
