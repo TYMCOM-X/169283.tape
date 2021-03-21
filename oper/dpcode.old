@@ -1,0 +1,1496 @@
+!*********************************************
+!       PSEUDO CODE FOR CODE GENERATOR
+!       VERSION OF 2/21/75
+!       JOHN SLIMICK IS USUALLY RESPONSIBLE FOR THIS MESS
+!       COMPLAINTS CHEERFULLY IGNORED
+!***************************************************
+!FIRST, LOTS AND LOTS OF EQUATES
+!FOR USE LATER..REMEMBER THIS IS A ONE PASS, NO FORWARD REFERNCE
+!ASSEMBLER (EXCEPT FOR PAGES)
+        *JFS = 1
+        *JFN = 2
+        *JMP = 3
+        *EXIT = 4
+        *ENT = 5
+        *BR = 6
+        *UUO = 7
+        *INCR = 10
+        *DECR = 11
+        *STPC = 12
+
+!INSTRUCTIONS...
+        MOVE = 200
+        MOVEI = 201
+        JUMPL = 321
+        JUMPE = 322 
+        JUMPN = 326 
+        JRST = 254 
+        PUSH = 261 
+        PUSHJ = 260 
+        SUB = 274 
+        SUBI = 275
+        HRRZI = 551
+        HLR = 544
+        HRL = 504
+        HRLZI = 515
+        HLRZ = 554
+        HRLM = 506
+        HLLZS = 513
+        HRRM = 542
+        SETZ = 400
+        POPJ = 263
+        HRRZ = 550 
+        POP = 262 
+        MOVN = 210
+        MOVNI = 211
+        CAIG = 307
+        CAIL = 301
+        CAMG = 317
+        CAML = 311
+        CAILE = 303
+        CAIGE = 305
+        CAMLE = 313
+        CAMGE = 315
+        CAIE = 302
+        CAME = 312
+        CAIN = 306
+        CAMN = 316
+        MOVEM = 202 
+        AND = 404 
+        ANDI = 405
+        ORI = 435
+        OR = 434    !DEC CALLS THIS "IOR"
+        ORM = 436
+        IMUL = 220
+        IMULI = 221
+        SKIPL = 331
+        ADD = 270
+        ADDI = 271
+        IDIV = 230
+        IDIVI = 231
+        DMOVM = 124
+        SKIPG = 337
+        SETZM = 402
+        BLT = 251
+        HRLI = 505
+        HRRI = 541
+        DMOVE = 120
+        TRNE = 602
+        TDNE = 612
+        SKPGE = 335
+        TRNN = 606
+        SETO = 474
+        AOJ = 340
+        SOJ = 360
+        TLZ = 621
+        JMPGE = 325
+        MUL = 224
+        MULI = 225
+        TLO = 661
+        DIV = 234
+        DIVI = 235
+        SKPLE = 333
+        SKIPE = 332
+        SKIPN = 336
+        MOVM = 214
+        TRC = 640
+        SOJG = 367
+        ANDM = 406
+        LDB = 135
+
+
+!REGISTER ASSIGNMENTS
+        R0 = 0
+        R1 = 1 
+        R2 = 2 
+        R3 = 3 
+        R4 = 4
+        R5 = 5
+        R6 = 6
+        R7 = 7
+        R13 = 13 
+        R14 = 14
+        R15 = 15
+        R16 = 16
+        R17 = 17
+        R36 = 36   !AC 0(ALWAYS)
+        R35 = 35    !AC 1(ALWAYS)
+        R34  = 34  !AC 17
+        R33 = 33   !AC 16
+        R32 = 32   !#400000
+        R31 = 31   !AC 15
+
+
+!FLAG ASSIGNMENTS
+        AC1 = 1
+        AC2 = 2
+        OPND1 = 3
+        OPND2 = 4
+        LIT1 = 5
+        LIT2 = 6
+        SLIT1 = 7
+        SLIT2 = 10
+        SING1 = 11
+        SING2 = 12
+        DBL1 = 13
+        DBL2 = 14
+
+
+!BRANCHING SEQUENCE
+
+^BRCHF  *JFS AC2,TAG1
+        MOVE 3,R2
+TAG1    JUMPE 3,R1
+        *EXIT
+        END
+
+^BRCHT  *JFS AC2,TAG1
+        MOVE 3,R2
+TAG1    JUMPN 3,R1
+        *EXIT
+        END
+
+^BRNCH  JRST 0,R1
+        *EXIT
+        END
+
+
+!STANDARD ONE PARAM CALLING SEQ
+!R1 HAS PARAM ADCON(ADDRESS OF THE ADDRESS)
+!R2 HAS DEST WRT TO OFFSET IN PDB
+!R3 HAS [1,,1] IN IT
+
+^CALL1  *EXIT
+        END
+
+
+!THE FOLLOWING TEMPLATES CONTROL THE GENERATION OF
+!CONDITIONAL RETURNS AND UNCONDITIONAL RETURNS
+!WHICH ARE INDICATED BY THE GAMMA CODE ITEM GV$SEXIT
+!..IN THE FOLLOWING, DREGS$[0] IS SET TO AC 0
+!..AND DREGS$[1] IS SET TO SHORT LITERAL 1(ONE)
+
+^POPJ   POPJ 0,R1
+        *EXIT
+        END
+
+^SEXTT  HRRZI 3,R35 !R3_1
+        POP 0,R2
+        *BR  POPJ
+        END
+
+^SEXTF  SETZ  3,R36
+        POP 0,R2
+        *BR POPJ 
+        END
+
+
+!THE FOLLOWING IS THE PROCEDURE ENTRY TEMPLATE
+!IF IT LOOKS FAMILIAR, THAT'S BECAUSE IT IS THE BLISS .ENT.5
+!ROUTINE...R1=AC0,R2=SLIT(2),R13-R17=AC'S13-17
+^PENTR  PUSH 0,R2
+        HRRZ 2,R1
+        *EXIT
+        END
+
+
+!THE FOLLOWING IS THE PROCEDURE EXIT TEMPLATE(FOR NOW)
+!AGAIN IF IT LOOKS FAMILIAR, THAT IS BECAUSE IT IS THE 
+!BLISS .EXT.5 ROUTINE...REGISTER ASSIGNMENTS AS ABOVE
+^PEXIT  POP 0,R2
+        *BR POPJ
+        END
+
+
+!SINGLE PRECISION UNARY MINUS
+
+^MIN1   *JFS SLIT1, TAG1  !CHECK FOR SHORT LITERAL
+        MOVN 17,R1      !R1 HAS SYMBOLLIC OPERAND
+        *EXIT
+TAG1    MOVNI 17,R1     !SHORT LITERAL
+        *EXIT
+        END
+
+
+!GTR1 IS SINGLE PRECISION GREATER THAN ROUTINE
+! R1 HAS FIRST OPERAND..AC,SLIT, OR OPND
+! R2 HAS SECOND OPERAND..LIKEWISE
+! R3 HAS THE SLIT 1 IN IT
+! R4 HAS THE SLIT 0
+
+^GTR1   HRRZI 3,R3
+        *JFS SLIT2,TAG1
+        *JFS AC2, TAG2
+        *JFS AC1,TAG3
+        *JFS OPND1,TAG4
+        MOVE 17,R2      !R2=OPND,R1=SLIT
+        CAIL 17,R1
+        *JMP TAG5
+TAG4    MOVE 17,R1      !OPND-OPND
+TAG3    CAMG 17,R2      !EITHER OPND-OPND OR AC-OPND
+        *JMP TAG5
+
+TAG1    *JFS AC1,TAG6
+        MOVE 17,R1      !R1=OPND,R2=SLIT
+TAG6    CAIG 17,R2
+        *JMP TAG5
+
+TAG2    *JFS OPND1,TAG7
+        CAIL 17,R1  !R1=SLIT,R2=AC
+        *JMP TAG5
+TAG7    CAML 17,R1  !R1=OPND,R2=AC
+TAG5    SETZ 3,R4
+        *EXIT
+        END
+
+!GEQ1 IS SINGLE PRECISION GREATER THAN OR EQUAL TO ROUTINE
+!REFISTERS ARE AS IN GTR1
+^GEQ1   HRRZI 3,R3
+        *JFS SLIT2,TAG1
+        *JFS AC2, TAG2
+        *JFS AC1,TAG3
+        *JFS OPND1,TAG4
+        MOVE 17,R2      !R2=OPND,R1=SLIT
+        CAILE 17,R1
+        *JMP TAG5
+TAG4    MOVE 17,R1      !OPND-OPND
+TAG3    CAMGE 17,R2      !EITHER OPND-OPND OR AC-OPND
+        *JMP TAG5
+
+TAG1    *JFS AC1,TAG6
+        MOVE 17,R1      !R1=OPND,R2=SLIT
+TAG6    CAIGE 17,R2
+        *JMP TAG5
+
+TAG2    *JFS OPND1,TAG7
+        CAILE 17,R1  !R1=SLIT,R2=AC
+        *JMP TAG5
+TAG7    CAMLE 17,R1  !R1=OPND,R2=AC
+TAG5    SETZ 3,R4
+        *EXIT
+        END
+!EQU1 IS THE SINGLE PRECISION EQUAL RELATIONAL ROUTINE
+!REGISTERS ARE AS IN GTR1
+^EQU1   HRRZI 3,R3
+        *JFS SLIT2,TAG1
+        *JFS AC2, TAG2
+        *JFS AC1,TAG3
+        *JFS OPND1,TAG4
+        MOVE 17,R2      !R2=OPND,R1=SLIT
+        CAIE  17,R1
+        *JMP TAG5
+TAG4    MOVE 17,R1      !OPND-OPND
+TAG3    CAME  17,R2      !EITHER OPND-OPND OR AC-OPND
+        *JMP TAG5
+
+TAG1    *JFS AC1,TAG6
+        MOVE 17,R1      !R1=OPND,R2=SLIT
+TAG6    CAIE  17,R2
+        *JMP TAG5
+
+TAG2    *JFS OPND1,TAG7
+        CAIE  17,R1  !R1=SLIT,R2=AC
+        *JMP TAG5
+TAG7    CAME  17,R1  !R1=OPND,R2=AC
+TAG5    SETZ 3,R4
+        *EXIT
+        END
+
+!NEQ1 IS THE SINGLE PRECISION NOT-EQUAL ROUTINE
+!REGISTER ASSIGNMENT IS AS IN GTR1
+^NEQ1   HRRZI 3,R3
+        *JFS SLIT2,TAG1
+        *JFS AC2, TAG2
+        *JFS AC1,TAG3
+        *JFS OPND1,TAG4
+        MOVE 17,R2      !R2=OPND,R1=SLIT
+        CAIN  17,R1
+        *JMP TAG5
+TAG4    MOVE 17,R1      !OPND-OPND
+TAG3    CAMN  17,R2      !EITHER OPND-OPND OR AC-OPND
+        *JMP TAG5
+
+TAG1    *JFS AC1,TAG6
+        MOVE 17,R1      !R1=OPND,R2=SLIT
+TAG6    CAIN  17,R2
+        *JMP TAG5
+
+TAG2    *JFS OPND1,TAG7
+        CAIN  17,R1  !R1=SLIT,R2=AC
+        *JMP TAG5
+TAG7    CAMN  17,R1  !R1=OPND,R2=AC
+TAG5    SETZ 3,R4
+        *EXIT
+        END
+
+!LSTO STORES THE LOGICAL ACCUMULATOR
+!R1 HAS A BASE,DISP (PROBABLY A TEMP)
+^LSTO   MOVEM 3,R0
+        *EXIT
+        END
+
+
+!THE TWO LOGICAL ROUTINES "AND" AND "OR" ARE NEXT
+!R1 POINTS TO FIRST OPERAND WHICH IS EITHER (BASE,DISP) OR R3;
+!LIKEWISE FOR R2..
+
+^AND    *JFS AC1,TAG1  !GO
+        *JFS AC2,TAG2   !R1 = OPND
+        MOVE 3,R2
+TAG2    AND 3,R1
+        *EXIT
+TAG1    *JFS AC2,TAG3
+        AND 3,R2
+TAG3    *EXIT
+        END
+
+^OR     *JFS AC1,TAG1
+        *JFS AC2,TAG2
+        MOVE 3,R2
+TAG2    OR  3,R1
+        *EXIT
+TAG1    *JFS AC2,TAG3
+        OR 3,R2
+TAG3    *EXIT
+        END
+
+
+!MPSSS MEANS "MULTIPLY SINGLE BY SINGLE GIVING SINGLE"
+!OPERANDS ARE IN THE USUAL PLACES
+
+^MPSSS  *JFS SLIT1,TAG1
+        *JMP    TAG3
+TAG1    *JFS AC2,TAG2
+        MOVE 17,R2
+TAG2    IMULI 17,R1
+        *EXIT
+
+TAG3    *JFS AC2,TAG4
+        *JFS AC1,TAG8
+        MOVE 17,R1
+TAG8    *JFS SLIT2,TAG9
+        IMUL 17,R2
+        *EXIT
+
+TAG9    IMULI 17,R2
+        *EXIT
+TAG4    *JFS AC1,TAG10
+        IMUL 17,R1
+        *EXIT
+TAG10   IMUL 17,R34
+        *EXIT
+        END
+
+
+!STO1 STORES A COMPATBILE INTEGER FROM R1 INTO R2
+
+^LOD1  *JFS AC1,TAG1
+        *JFS OPND1,TAG2
+        MOVEI 17,R1
+        *JMP TAG1
+TAG2    MOVE 17,R1
+TAG1    *EXIT
+        END
+
+
+!SAVE1 SHOULD BE SELF EXPLANATORY
+
+^SAVE1  MOVEM 17,R0
+        *EXIT
+        END
+
+^STO1   *ENT LOD1
+        MOVEM 17,R2
+        *EXIT
+        END
+
+
+^SAVE2  DMOVM 16,R0   !SAVE IN A TEMP
+        *EXIT
+        END
+
+^SAVE3  MOVEM 15,R0
+        *INCR 0,R0
+        *BR  SAVE2
+        END
+
+
+!LET1 PROCESSES SINGLE PRECISION "LET"S
+!R1 HAS THE OPERAND WHOSE VALUE IS TO BE STORED
+!R2 HAS THE DESTINATION OPERAND
+!R3 HAS THE ROUNDING CONSTANT..FL 17 TELLS WHETHER IT IS A SLIT OR NOT
+!R4 HAS THE POWER-OF-TEN..FL 16 TELLS WHETHER IT IS AN SLIT OR NOT
+!R5 HAS AC16
+!FLAG 15 SPECIFIES TRUNCATION (AS OPPOSED TO ROUNDING)
+
+^LET1   *JFS 15,TAG1
+        *JFS 17,TAG2
+        MOVE 16,R3
+        *JMP TAG3
+TAG2    MOVEI 16,R3
+TAG3    SKIPG 0,R1
+        MOVN 16,R5
+        ADD 16,R1
+        *JMP TAG6   !GO SCALE IT
+TAG1    *JFS SLIT1,TAG7  !TRUNCATION ONLY, SO LOAD R1 INTO AC16
+        MOVE 16,R1
+        *JMP TAG6
+TAG7    MOVEI 16,R1
+TAG6    *JFS 16,TAG4
+        IDIV 16,R4
+        *JMP TAG5
+TAG4    IDIVI 16,R4
+TAG5    MOVEM 16,R2
+        *EXIT
+        END
+
+
+!INIT IS USED TO INITIALIZE FIELD INCARNATIONS
+!TO NON-NULL NULL VALUES
+! R1 = ADDRESS OF LITERAL NULL VALUE
+! R2 = ADDRESS OF FIELD INCARNATION
+! R3 = FINAL ADDRESS OF DEST(FOR BLT)
+! FLAG 17 = DO A BLT
+! FLAG 16 = AT LEAST TWO WORDS
+! FLAG 15 = THREE WORDS
+
+^INIT   *JFS 17,TAG1  !BLT
+        *JFS 16,TAG2   !TWO OR MORE WORDS
+        *JFS SLIT1,TAG4
+        MOVE 16,R1
+        *JMP TAG5
+TAG4    MOVEI 16,R1     !A SHORT LITERAL
+TAG5    MOVEM 16,R2
+        *EXIT
+
+TAG2    DMOVE 16,R1     !AT LEAST TWO WORDS
+        DMOVM 16,R2
+        *JFS 15,TAG3    !THREE WORDS
+        *EXIT
+
+TAG3    *INCR 0,R1
+        *INCR 0,R1
+        *INCR 0,R2
+        *INCR 0,R2
+        MOVE 16,R1
+        MOVEM 16,R2
+        *DECR 0,R1      !RESTORE REGISTERS
+        *DECR 0,R1
+        *DECR 0,R2
+        *DECR 0,R2
+        *EXIT
+
+TAG1    HRLI 17,R1
+        HRRI 17,R2
+        BLT 17,R3
+        *EXIT
+        END
+
+
+!NULL IS USED TO SET NUMERIC SCALARS TO ZERO(1,2,OR 3 WORDS)
+!OR TO SET STRINGS TO BLANKS
+!R1 = R2 = DESTINATION
+!R3 = FINAL WORD  (FOR BLTS)
+!FLAG 17 = DO A BLT
+!FLAG 16 = AT LEAST TWO WORDS
+!FLAG 15 = THREE WORDS
+!FLAG 14 = NUMERIC
+
+^NULL   *JFS 14,TAG5
+        MOVE 16,R4      !R4 HAS A WORD OF BLANKS
+        MOVEM 16,R2
+        *JFS 17,TAG1  !BLT
+        *JFS 16,TAG2    !TWO WORDS
+        *EXIT
+
+TAG2    *INCR 0,R2
+        MOVEM 16,R2     !SECOND WORD
+        *JFS 15,TAG3
+        *EXIT
+
+TAG3    *INCR 0,R2
+        MOVEM 16,R2
+        *EXIT
+
+TAG1    *INCR 0,R2      !A BLT IS CALLED  FOR
+        HRLI  17,R1
+        HRRI  17,R2
+        BLT     17,R3
+        *EXIT
+
+TAG5    SETZM 0,R2
+        *JFS 16,TAG6
+        *EXIT
+
+TAG6    *INCR 0,R2
+        SETZM 0,R2
+        *JFS 15,TAG7
+        *EXIT
+
+TAG7    *INCR 0,R2
+        SETZM 0,R2
+        *EXIT
+        END
+
+
+!JRSTI GENERATES A JRST TAG,I
+^JRSTI  JRST 10,R1
+        *EXIT
+        END
+
+!RBINT GENERATES THE INITIALIZATION CODE FOR INITIALIZING
+!A REPORT BLOCK
+!R1 = ADDRESS OF RB
+!R2 = #400000
+!R3 = #050000
+!R4 = #1
+
+^RBINT  HLR 17,R1       !LOAD STATUS
+        ANDI 17,R2      !SAVE APPEND BIT
+        ORI 17,R3       !NEEDS PAGE HEADER AND IS FIRST TIME
+        HRLM 17,R1      !DONE
+
+        *INCR 0,R1
+        *INCR 0,R1
+        *INCR 0,R1
+        HLLZS 0,R1      !SET COLUMN TO 0
+        HRRZI 17,R4     !AC17_#1
+        *INCR 0,R1
+        HRRM 17,R1      !LINE_1
+        *INCR 0,R1
+        HRRM 17,R1      !PAGE_1
+        *EXIT
+        END
+
+
+!RCALL IS USED TO BUILD GENERALIZED CALLS TO
+!RUN TIME ROUTINES..
+!R1 = DESTINATION ADDRESS
+!R2 = ADDRESS OF [N,,N] FOR SUBTRACTING FROM AC0
+!R3 = ADDRESS OF FIRST PARAMETER
+!R4 =    "    "  SECOND   "
+!R5 =    "    "  THIRD    "
+!R6 =    "    "  FOURTH   "
+
+^RCALL  *JFN 1,TAG1
+        PUSH 0,R3
+        *JFN 2,TAG1
+        PUSH 0,R4
+        *JFN 3,TAG1
+        PUSH 0,R5
+        *JFN 4,TAG1
+        PUSH 0,R6
+        *JFN 5,TAG1
+        PUSH 0,R7
+TAG1    *JFS 17,TAG5
+        PUSHJ 10,R1
+        *JMP TAG6
+TAG5    PUSHJ 0,R1
+!SOMETIMES ONE MUST NOT JUMP INDIRECT...
+!2/1/75
+TAG6    *JFN 1, TAG2
+        SUB 0,R2
+TAG2    *EXIT
+        END
+
+!SREOF IS FOR SOURCE FILE END-OF-FILE
+!R1 = ADDR(SCB)+1
+!R2 = E-O-F DEST
+
+^SREOF  SKPGE  0,R1
+        JRST 0,R2
+        *EXIT
+        END
+
+!SRBAD IS THE BAD BIT TEST FOR SOURCES
+!R1 = ADDR(SCB)+1
+!R2 = #4000 (BIT MASK)
+!R3 = DEST
+
+^SRBAD  HLR 17,R1
+        TRNE 17,R2
+        JRST 0,R3
+        *EXIT
+        END
+
+
+!SCOND CONVERTS THE CONDITION RETURNED FROM $VCOMP TO A TRUE(1)
+!OR FALSE(0)
+!R1 = LIT 1
+!R2 = LIT(COND)
+!R3 = AC 0
+!R4 = AC 17
+
+^SCOND  MOVEI 17,R1
+        TRNN 3,R2
+        SETZ 17,R3
+        MOVE 3,R4
+        *EXIT
+        END
+
+
+!CVD CONVERTS SINGLE TO DOUBLE
+!R36 = AC 0
+!R32 = #400000
+
+^CVD    SETZ 16,R36
+        *STPC 0,3
+        JMPGE 17,R0
+        SETO 16,R36
+        TLZ 17,R32
+        *EXIT
+        END
+
+!DOFLO CORRECTS A DOUBLE PRECISION OVERFLOW IN THE LOW ORDER WORD
+!R36 = AC0
+!R32 = #400000
+
+^DOFLO  *STPC 0,3
+        JMPGE 17,R0
+        AOJ 16,R36
+        TLZ 17,R32
+        *EXIT
+        END
+
+!DMADJ ADJUST THE ARITH AC FOR A NEGATIVE SINGLE PRECISION
+!ADDEND AND FIXES THE ADDEND AS WELL
+!R36 = AC 0
+!R32 = #400000
+
+^DMADJ *STPC 0,3
+        JMPGE 15,R0
+        SOJ 16,R36
+        TLZ 15,R32
+        *EXIT
+        END
+
+!ADDSD ADDS SINGLE TO DOUBLE(SORT-OF)
+!R31 HAS AC 15
+
+^ADDSD  *ENT  DMADJ
+        ADD 17,R31
+        *ENT DOFLO
+        *EXIT
+        END
+
+
+!SADD...SINGLE PRECISION ADD
+!OPERANDS ARE AS THEY SHOULD BE
+
+^SADD   *JFS AC1,T1
+        *JFS OPND1,T2
+        *JFS SLIT1,T3
+        *EXIT
+T1      *JFS OPND2,T4
+        *JFS SLIT2,T5
+        ADD 17,R34    !(AC)+(AC)..CANNOT HAPPEN
+        *EXIT
+T2      *JFS OPND2,T6
+        *JFS SLIT2,T7
+        ADD 17,R1       !(AC)+OPND1
+        *EXIT
+T6      MOVE 17,R1      !AC_OPND1
+        *JMP T4
+T7       MOVE 17,R1     !AC_OPND1
+T5      ADDI 17,R2      !AC_AC+SLIT
+        *EXIT
+
+T3      *JFS AC2,T8
+        MOVEI 17,R1     !AC_SLIT
+T4      ADD 17,R2       !AC_AC+OPND2
+        *EXIT
+
+T8      ADDI 17,R1      !AC_AC+SLIT
+        *EXIT
+        END
+
+
+!DADD IS THE DOUBLE PRECISION ADD ROUTINE(TEMPLATE)
+!REGISTER ASSIGNMENTS ARE OBVIOUS
+
+^DADD   *JFN  OPND2,TAG1
+        *JFS DBL2,TAG2
+        *JFS OPND1,TAG3
+        *JFS AC1,TAG4
+        MOVE 17,R2      !DAC_SLIT
+        *ENT CVD
+        *JMP A1
+
+TAG3    *JFS DBL1,TAG5
+        MOVE 17,R1
+        *ENT CVD        !DAC_CVD(1WD OPND)
+        *JMP TAG6
+
+TAG5    DMOVE 16,R1
+        *JMP TAG6
+TAG4    *JFS DBL1,TAG6
+        *ENT CVD
+TAG6    MOVE 15,R2
+        *ENT ADDSD
+        *EXIT
+
+TAG1    *JMP TAG20      !INTERMEDIATE STOP
+
+TAG2    *JFS    AC1,TAG7
+        *JFS    OPND1,TAG8
+        DMOVE 16,R2
+A1      ADDI    17,R1
+        *ENT DOFLO
+        *EXIT
+
+TAG8    *JFS DBL1,TAG9
+        DMOVE   16,R2
+        MOVE 15,R1
+        *ENT    ADDSD
+        *EXIT
+
+TAG9    DMOVE 16,R1
+        *JMP TAG10
+TAG7    *JFS DBL1,TAG10
+        *ENT CVD
+TAG10   ADD 16,R2
+        *INCR 0,R2
+        ADD 17,R2
+        *ENT DOFLO
+        *EXIT
+
+TAG20   *JFS SLIT2,TAG40
+        *JFS DBL2,TAG21
+        *ENT CVD
+        *JFS SING1,B1
+        *JFS DBL1,C1
+        *JMP A2
+TAG21   *JFS    DBL1,C1
+        *JFS    SING1,B1
+A2      ADDI    17,R1
+        *ENT    DOFLO
+        *EXIT
+
+B1      MOVE 15,R1
+        *ENT ADDSD
+        *EXIT
+
+C1      ADD 16,R1
+        *INCR 0,R1
+        ADD 17,R1
+        *ENT DOFLO
+        *EXIT
+
+TAG40   *JFS OPND1,TAG41
+        *JFS AC1,TAG42
+        SETZ 16,R36
+        MOVEI 17,R2
+         ADDI 17,R1
+        *EXIT
+
+TAG41   *JFS DBL1,TAG43
+        MOVE 17,R1
+        *ENT CVD
+        *JMP TAGD
+TAG43   DMOVE 16,R1
+        *JMP TAGD
+TAG42   *JFS DBL1,TAGD
+        *ENT CVD
+TAGD    ADDI 17,R2
+        *ENT DOFLO
+        *EXIT
+
+        END
+
+!AT LAST
+
+
+!SUBB IS SINGLE PRECISION SUBTRACT
+!R1 = FIRST OPERAND
+!R2 = SECOND OPERAND
+!SPECIAL CODE HAS BEEN ADDED
+!TO TAKE CARE OF THE CASE OF SLIT-SLIT
+!...RESULTANT SLIT IS IN R1..FLAG #17  TELLS WHETHER TO DO
+!A MOVEI OR A MOVNI
+
+^SUBB   *JFS OPND2,T1
+        *JFS SLIT2,T2
+        *JFS OPND1,T3
+        *JFS SLIT1,T4
+        SUB 17,R34
+        *EXIT
+T3      SUB 17,R1
+        *JMP T5
+T4      SUBI 17,R1
+T5      MOVN 17,R34
+        *EXIT
+
+T1      *JFS AC1,T6
+        *JFS SLIT1,T7
+        MOVE 17,R1
+        *JMP T6
+T7      MOVEI 17,R1
+T6      SUB 17,R2
+        *EXIT
+
+T2      *JFS AC1,T8
+        *JFS SLIT1,T10
+        MOVE 17,R1
+T8      SUBI 17,R2
+        *EXIT
+
+T10     *JFS 17,T11
+        MOVEI 17,R1
+        *EXIT
+T11     MOVNI 17,R1
+        *EXIT
+        END
+
+
+!MIN2 IS DOUBLE PRECISION UNARY MINUS
+!OPERAND IS IN R1
+
+^MIN2   *JFS AC1,TAG1
+        DMOVE 16,R1
+TAG1    MOVN 16,R33   !NEGATE R16
+        *STPC 0,4     !PC=.+4
+        JUMPE 17,R0   !R17=0..IF SO,DO NOTHING
+        SOJ 16,R36     !R16=R16-1
+        MOVN 17,R34     !R17=-R17
+        TLZ 17,R32      !R17 = R17 AND #3777...7
+        *EXIT
+        END
+
+
+!DSUB1 PROCESSES A BORROW DURING A DOUBLE PRECISION SUBTRACT
+
+^DSUB1  *STPC 0,3
+        JMPGE 17,R0
+        SOJ 16,R36
+        TLZ 17,R32
+        *EXIT
+        END
+
+!DSUB2 DOES MOST OF THE WORK IN DOUBLE PRECISION SUBTRACT
+!IF THE SECOND OPERAND IS SINGLE PRECISION
+
+^DSUB2  MOVE 15,R2
+        *STPC 0,3
+        JMPGE 15,R0
+        AOJ 16,R36
+        TLZ 17,R32
+        SUB 17,R31
+        *ENT DSUB1
+        *EXIT
+        END
+
+!NOW...DOUBLE PRECISION SUBTRACT
+
+^DSUB   *JFS DBL2,TAG20
+        *JFS SLIT2,TAG40
+        *JFS AC1,TAG1
+        *JFS SING1,TAG2
+        *BL1,TAG3
+        *JFS SLIT1,TAG4
+        *EXIT
+
+TAG4    MOVEI 17,R1
+        *JMP TAG10
+TAG2    MOVE 17,R1
+        *JMP TAG10
+TAG3    DMOVE 16,R1
+        *JMP TAG15
+TAG1    *JFS DBL1,TAG15
+TAG10   *ENT CVD
+TAG15   *ENT DSUB2
+        *EXIT
+
+TAG40   *JMP TAG50
+
+TAG20   *JFS AC1,TAG21
+        *JFS SING1,TAG22
+        *JFS DBL1,TAG23
+        *JFS SLIT1,TAG24
+        *EXIT
+
+TAG24   MOVEI 17,R1
+        *JMP TAG30
+TAG22   MOVE 17,R1
+        *JMP TAG30
+TAG23   DMOVE 16,R1
+        *JMP TAG35
+TAG21   *JFS DBL1,TAG35
+TAG30   *ENT CVD
+TAG35   SUB 16,R2
+        *INCR 0,R2
+        SUB 17,R2
+        *ENT DSUB1
+        *EXIT
+
+TAG50   *JFS AC1,TAG41
+        *JFS SING1,TAG42
+        *JFS DBL1,TAG43
+        *JFS SLIT1,TAG44
+        *EXIT
+TAG44   MOVEI 17,R1
+        *JMP TAG60
+TAG42   MOVE 17,R1
+        *JMP TAG60
+TAG43   DMOVE 16,R1
+        *JMP TAG65
+TAG41   *JFS DBL1,TAG65
+TAG60   *ENT CVD
+TAG65   SUBI 17,R2
+        *ENT DSUB1
+        *EXIT
+        END
+
+
+!SINGLE PRECISION DIVIDE
+
+^SDIV   *JFS OPND2,T1
+        *JFS SLIT2,T2
+        *JFS OPND1,T3
+        *JFS SLIT1,T4
+        MOVE 16,R34
+        *JMP T5
+T3      MOVE 16,R1
+        *JMP T5
+T4      MOVEI 16,R1
+T5      IDIV 16,R34
+        MOVE 17,R33
+        *EXIT
+
+T1      *JFS OPND1,T10
+        *JFS SLIT1,T6
+        MOVE 16,R34
+        *JMP T7
+T10     MOVE 16,R1
+        *JMP T7
+T6      MOVEI 16,R1
+T7      IDIV 16,R2
+        MOVE 17,R33
+        *EXIT
+
+T2      *JFS OPND1,T8
+        MOVE 16,R34
+        *JMP T9
+T8      MOVE 16,R1
+T9      IDIVI 16,R2
+        MOVE 17,R33
+        *EXIT
+        END
+
+
+!MULTIPLE SINGLE BY SINGLE GIVING DOUBLE
+
+^MPSSD  *JFS OPND2,T1
+        *JFS SLIT2,T2
+        *JFS OPND1,T3
+        *JFS AC1,T4
+        MOVE 16,R34
+        *JMP T5
+T4      MOVE 16,R34
+        MUL 16,R34
+        *JMP T99
+T3      MOVE 16,R34
+        MUL 16,R1
+        *JMP T99
+T1      *JFS AC1,T10
+        *JFS OPND1,T11
+        MOVE 16,R2
+T5      MULI 16,R1
+        *JMP T99
+T10     MOVE 16,R34
+        *JMP T12
+T11     MOVE 16,R1
+T12     MUL 16,R2
+        *JMP T99
+T2      *JFS SLIT1,T50
+        *JFS OPND1,T21
+        MOVE 16,R34
+        *JMP T22
+T21     MOVE 16,R1
+T22     MULI 16,R2
+T99     TLZ 17,R32
+        *EXIT
+
+T50     SETZ 16,R36
+        *JFS 17,T51
+        MOVEI 17,R1
+        *EXIT
+T51     MOVE 17,R1
+        *EXIT
+        END
+
+
+!DIVIDE DOUBLE BY SINGLE..
+!R1 = DOUBLE PRECISION DIVIDEND
+!R2 = SINGLE PRECISION DIVISOR
+!DOUBLE PRECISION RESULT
+
+^PASSP  *JFS DBL1,TAG1
+        MOVE 7,R1
+        MOVEM 16,R2
+        *EXIT
+TAG1    DMOVE 7,R1
+        DMOVM 16,R2
+        *EXIT
+        END
+
+
+!CONVERT DOUBLE TO SINGL
+!NO CHECKING FOR SIZE, ETC
+
+^CVDS   SKPGE 0,R33  !CHECK HIGH ORDER BIT
+        TLO 17,R32   !TURN IT ON IF NEED BE
+        *EXIT
+        END
+
+
+!MOVE MOVES A SINGLE OR DOUBLE PRECCISION VALUE FROM
+!EITHER MEMORY OR THE AC TO A DOUBLE PRECISION OR SINGLLE
+!PRECISION FIELD
+
+^MOVE   *JFS DBL2,T10
+        *JFS DBL1,T5
+        *JFS SLIT1,T8
+        *JFS AC1,T9
+        MOVE 17,R1
+        *JMP T9
+T5      *JFS AC1,T6
+        DMOVE 16,R1
+T6      *ENT CVDS
+        *JMP T9
+T8      MOVEI 17,R1
+T9      MOVEM 17,R2
+        *EXIT 
+
+T10     *JFS SING1,T15
+        *JFS SLIT1,T18
+        *JFS AC1,T19
+        DMOVE 16,R1
+        *JMP T19
+T15     *JFS AC1,T16
+        MOVE 17,R1
+T16     *ENT CVD
+        *JMP T19
+T18     SETZ 16,R36
+        MOVEI 17,R1
+T19     DMOVM 16,R2
+        *EXIT
+        END
+
+
+!NOW DOUBLE PRECISION CONDITIONALS..
+!WHEN WE COME HERE WE HAVE ALREADY PERFORMED A DSUB
+!ON THE OPERANDS, SO NOW WE CHECK OUT THE DIFFERENCE
+
+^GEQ2   HRRZI 3,R35
+        OR 17,R33
+        SKPGE 0,R34
+        SETZ 3,R36
+        *EXIT
+        END
+
+^GTR2   HRRZI 3,R35
+        OR 17,R33
+        SKIPG 0,R34
+        SETZ 3,R36
+        *EXIT
+        END
+
+^LEQ2   HRRZI 3,R35
+        OR 17,R33
+        SKPLE 0,R34
+        SETZ 3,R36
+        *EXIT
+        END
+
+^LSS2   HRRZI 3,R35
+        OR 17,R33
+        SKIPL 0,R34
+        SETZ 3,R36
+        *EXIT
+        END
+
+^EQU2   HRRZI 3,R35
+        OR 17,R33
+        SKIPE 0,R34
+        SETZ 3,R36
+        *EXIT
+        END
+
+^NEQ2   HRRZI 3.R35
+        OR 17,R33
+        SKIPN 0,R34
+        SETZ 3,R36
+        *EXIT
+        END
+
+!RCHK PERFORMS A RANGE CHECK
+!R1 = OPERAND
+!R2 = VALUE TO BE COMPARED TO
+
+^RCHK   *JFS DBL1,T5
+        HRRZI 3,R35
+        MOVM 16,R1
+        *JFS SLIT2,T2
+        CAMLE 16,R2
+        *JMP T3
+T2      CAILE 16,R2
+T3      SETZ 3,R36
+        *EXIT
+
+T5      HRRZI 3,R35
+        DMOVE 16,R1
+        *STPC 0,6
+        JMPGE 16,R0
+        MOVN 16,R33
+        *STPC 0,4
+        JUMPE 17,R0
+        MOVN 17,R34
+        TLZ 17,R32
+        SOJ 16,R36
+        CAMLE 16,R2
+        *STPC 0,4
+        JRST 0,R0
+        CAME 16,R2
+        *STPC 0,3
+        JRST 0,R0
+        *INCR 0,R2
+        CAMLE 17,R2
+        SETZ 3,R36
+        *EXIT
+        END
+
+
+!NOT DOES THE EXPECTED
+!OPERAND IN R1
+
+^NOT    *JFS AC1,T1
+        MOVE 3,R1
+T1      TRC 3,R35
+        *EXIT
+        END
+
+!REOF IS A BRCH EOF ON A RELATION
+!(IN FACT THIS TESTS THE RCB FOR A RCV$ST4 CONDITION)
+!R1 = <RCB>
+!RC = <DEST>
+!R3 = #400
+!R4 = #700
+!FLAG 17 = ( =0, BREOF; =1, BRNEOF)
+
+^REOF   HLRZ 17,R1
+        ANDI 17,R4
+        *JFS 17,T1
+        CAIN 17,R3
+        *JMP T2
+T1      CAIE 17,R3
+T2      JRST 0,R2
+        *EXIT
+        END
+
+
+!SEOF IS GENERALIZED SOURCE END-OF-FILE
+!R1 = <SCB>
+!R2 = <DEST>
+!FLAG 17 = (=0, BREOF; =1, BRNEOF)
+
+^SEOF   *INCR 0,R1
+        *JFS 17,T1
+        SKPGE 0,R1
+        *JMP T2
+T1      SKIPL 0,R1
+T2      JRST 0,R2
+        *EXIT
+        END
+
+
+!SPARA MOVES A STRING PARAMETER FROM THE ADDRESS PUSED ON THE STACK
+!TO A LOCAL TEMPORARY FOR VERIFY CODE, ETC.
+!R1 = -2
+!R2 = DEST
+!R3 = FINAL WORD(FOR BLT)
+!FLAG 17 = BLT OR NO
+!FLAG 16 = DOUBLE OR SINGLE
+
+^SPARA  *JFS 17,TAG2
+        *JFS 16,TAG1
+        MOVE 7,R1       ! MOVE 16,-2(2),I
+        MOVEM 16,R2
+        *EXIT
+
+TAG1    DMOVE   7,R1    ! DMOVE 16,-2(2),I
+        DMOVM 16,R2
+        *EXIT
+
+TAG2    HRL 6,R1        ! HRL 16,-2(2)
+        HRRI 16,R2
+        BLT 16,R3
+        *EXIT
+        END
+
+
+!RESET IS USED TO RESET THE CHANGED FLAGS IN AN RCB
+!R1 = <RCB>+5+(NUMBER OF FIELDS/INSTANCE)
+!R2 = #577777 (MASK)
+!R3 = (NUMBER OF ITEMS IN SORT LIST
+
+^RESET  *JFS 17,TAG1
+        HRRZI 5,R3
+        MOVE 16,R2
+        *STPC 0,0
+        ANDM 11,R1
+        SOJG 5,R0
+        *EXIT
+
+
+TAG1    *INCR 0,R1
+        MOVE 16,R2
+        ANDM 16,R1
+        *EXIT
+        END
+
+
+!GETRI GETS A REPORT ITEM TO EITHER REGISTER 4 OR 5
+!IF 4 IS BUSY
+!R0 CONTAINS THE ADDRESS OF THE REPORT BLOCK WHOSE RI'S WE ARE
+!FETCHING
+
+^GETRI  *INCR 0,R0
+        *INCR 0,R0
+        *JFS 11,LEFT    !PAGE HEADER SIZE (12/5/74)
+        *INCR 0,R0
+        *INCR 0,R0
+        *JFS 1,LEFT     !PAGE DIVIDER
+        *JFS 2,RIGHT    !PAAGE NUMBER
+        *INCR 0,R0
+        *JFS 3,LEFT     !PAGE SIZE
+        *JFS 4,RIGHT    !LINE NUMBER
+        *INCR 0,R0
+        *JFS 5,LEFT     !TOP MARGIN
+        *JFS 6,RIGHT    !BOTTOM MARGIN
+        *INCR 0,R0
+        *JFS 7,LEFT     !FOOTING SIZE
+        *INCR 0,R0
+        *INCR 0,R0
+        *JFS 10,LEFT    !@TOP
+        *EXIT
+
+LEFT    *JFS 17,L5      !FLAG 17 SAYS..INTO R5
+        HLRZ 4,R0
+        *EXIT
+L5      HLRZ 5,R0
+        *EXIT
+
+RIGHT   *JFS 17,RT5
+        HRRZ 4,R0
+        *EXIT
+RT5     HRRZ 5,R0
+        *EXIT
+        END
+
+!TWO MISC SAVE ROUTINES
+
+^SAVE4  MOVEM 4,R0
+        *EXIT
+        END
+
+^SAVE5  MOVEM 5,R0
+        *EXIT
+        END
+
+
+!GETDD GETS THE DD TO REAL AC9 VIA 4 AND 5
+!R1 = AC5
+
+^GETDD  MOVEM 4,R1
+        SOJ 5,R36
+        MOVE 11,R36
+        *EXIT
+        END
+
+!PUTRI PUTS A REPORT ITEM IN ITS PLACE(HA HA)
+!AND IS EXACTLY ANALOGOUS TO GETRI
+
+^PUTRI  *INCR 0,R0
+        *INCR 0,R0
+        *JFS 11,LEFT    !PAGE HEADER SIZE (12/5/74)
+        *INCR 0,R0
+        *INCR 0,R0
+        *JFS 1,LEFT
+        *JFS 2,RIGHT    !PAGE NUMBER..FLG 1 IS PAGE DIVIDER
+        *INCR 0,R0      !NEXT WORD
+        *JFS 3,LEFT     !PAGE SIZE
+        *JFS 4,RIGHT    !LINE NUMMBER
+        *INCR 0,R0
+        *JFS 5,LEFT     !TOP MAARGIN
+        *JFS 6,RIGHT    !BOTTOM MARGIN
+        *INCR 0,R0
+        *JFS 7,LEFT
+        *INCR 0,R0
+        *INCR 0,R0
+        *JFS 10,LEFT    !@TOP
+        *EXIT
+
+LEFT    HRLM 17,R0
+        *EXIT
+
+RIGHT   HRRM 17,R0
+        *EXIT
+
+        END
+
+!RLLIM STORES A NEW VALUE FOR LINE MAX IN AN RB
+!R1 HAS THE ADDRESS OF THE REPORT BLOCK
+
+^RLLIM  *INCR 0,R1
+        *INCR 0,R1
+        *INCR 0,R1
+        HRLM 17,R1
+        *EXIT
+        END
+
+!SLLIM STORES A NEW VALUE FOR LINE MAX IN A SOURCE CONTROL BLOCK
+!R1 HAS THE ADDRESS OF THE SCB
+
+^SLLIM  *INCR 0,R1
+        *INCR 0,R1
+        HRRM 17,R1
+        *EXIT
+        END
+
+
+!RETRY GENERATES A FORCE "BAD-BIT" AND A JRST TO THE $TSEQI
+!R1 HAS THE ADDRESS OF THE SCB
+!R2 HAS THE LITERAL #2000
+!R3 HAS THE ADDRESS OF THE $TSEQI
+
+^RETRY  *INCR 0,R1
+        HRLZI 4,R2
+        ORM  4,R1
+        *EXIT
+        END
+
+
+!SCOMP COMPARES THE CONTENTS OF R16 AND R17
+!FLAG 1 = EQU
+!FLAG 2 = NEQ
+!FLAG 3 = LSS
+!FLAG 4 = GTR
+!FLAG 5 = LEQ
+!FLAG 6 = GEQ
+!SCOMP IS USED BY BYTCP AND CP1WD
+
+^SCOMP  HRRZI 3,R35
+        *JFN 1,T1
+        CAME 16,R34
+        *JMP T6
+T1      *JFN 2,T2
+        CAMN 16,R34
+        *JMP T6
+T2      *JFN 3,T3
+        CAML 16,R34
+        *JMP T6
+T3      *JFN 4,T4
+        CAMG 16,R34
+        *JMP T6
+T4      *JFN 5,T5
+        CAMLE 16,R34
+        *JMP T6
+T5      *JFN 6,T6
+        CAMGE 16,R34
+T6      SETZ 3,R36
+        *EXIT
+        END
+
+
+!BYTCP SETS UP A SINGLE BYTE COMPARE .. USED BY @TOP
+!R1 = SRC ADDR1
+!R2 = SRC ADDR2
+!R3 = #350700000000
+!R4 = AC 14
+!R5 = AC 15
+
+^BYTCP  MOVE 14,R1
+        OR 14,R3
+        MOVE 15,R2
+        OR 15,R3
+        LDB 16,R4
+        LDB 17,R5
+        *ENT SCOMP
+        *EXIT
+        END
+
+
+!TCHNG TESTS THE CONDITION OF THE CHANGED FLAG OF A DESIRED FIELD
+!R1 = ADDRESS INSIDE RCB THAT HOLDS CHANGED FLAG
+!R2 = #200000 FOR MASKIN PURPOSES
+
+^TCHNG  SETZ 3,R36
+        HRLZI 17,R2
+        TDNE 17,R1
+        HRRZI 3,R35
+        *EXIT
+        END
+
+!INHIBIT SETS OR CLEARS THE INHIBIT FLAG IN THE RB
+!AS DESIRED..THE INHIBIT FLAG IS KNOWN AS RB$DPGHDG
+!R1 HAS THE ADDRESS OF THE RB
+!R2 HAS EITHER #00100 (FOR SETTING
+!   OR #776777777777 (FOR CLEARING)
+
+^INHIB  *JFS 15,CLEAR
+        HRLZI 17,R2
+        ORM   17,R1
+        *EXIT
+CLEAR   MOVE  17,R2
+        ANDM  17,R1
+        *EXIT
+        END
+
+
+!MTRUE MAKES REG3 TRUE, IE, 1
+
+^MTRUE  HRRZI 3,R35
+        *EXIT
+        END
+
+!MFALS MAKES REG 3 FALSE, IE, 0
+
+^MFALS  SETZ 3,R36
+        *EXIT
+        END
+
+!DRCHK IS THE POSITIVE DATE/FIELD RANGE CHECK
+!R1 = OPERAND TO BE TESTED
+!R2 = MAX VALUE OPERAND
+
+^DRCHK  HRRZI 3,R35
+        *JFS DBL1,T1  !IF DOUBLE
+        *JFS SLIT1,T2
+        MOVE 17,R1
+        *JMP T3
+T2      MOVEI 17,R1
+T3      *STPC 0,2
+        JUMPL 17,R0
+        *JFS SLIT2,T4
+        CAMLE 17,R2
+        *JMP T5
+T4      CAILE 17,R2
+T5      SETZ 3,R36  !DONE
+        *EXIT
+
+T1      DMOVE 16,R1
+        *STPC 0,6
+        JUMPL 16,R0
+        CAMLE 16,R2     !TEST HIGH ORDER WORD FIRST
+        *STPC 0,4
+        JRST 0,R0
+        CAME 16,R2
+        *STPC 0,3
+        JRST 0,R0       !IT WAS LESS THAN
+        *INCR   0,R2
+        CAMLE 17,R2     !IT WAS EQUAL, SO TRY LOW ORDER WORD
+        SETZ 3,R36      !IT WAS OUT OF RANGE
+        *EXIT
+        END
+
+    #2ª
