@@ -1,0 +1,524 @@
+C              CASCADE - PROGRAM TO COMPUTE THE TRANSMISSION
+C                        AND REFLECTION PROPERTIES OF CASCADED
+C                        FOUR-PORT DIRECTIONAL COUPLERS
+C
+      REAL KP,LOSDB[40],MINUS[2,2],JUGL[4,4]
+      DIMENSION YMODE[4],THETA[20],VODD[20],YOEA[20],YOOA[20],YOEB[20],Y
+     1OOB[20],CODE[4],RESIST[4],REACT[4],SGN[2,2],FLIP[4,4],ROW[4,4,20],
+     2KLAS[20],RW[4,4],PSI[40]
+      COMPLEX ZL[4,20],RL[2,2],Y[4,4],Y11[2,2],Y12[2,2],Y21[2,2],Y22[2,2
+     1],A[4,4],A11[2,2],A12[2,2],A21[2,2],A22[2,2],B[4,4],B11[2,2],B12[2
+     2,2],B21[2,2],B22[2,2],X[4,4],X1[2,2],X2[2,2],U[2,2],UI[2,2, 40],AA
+     3[4,4],AI[4,4, 40],R[ 40],R4,YL,G1,G2,GAM,TRAN,Z2PT[2,2],ONE[2,2]
+      COMMON /COUP/YOEA,YOOA,YOEB,YOOB,THETA,VODD/PORT/CODE,RESIST,REACT
+     1,ZL/UNIT/ONE,MINUS,SGN,JUGL,FLIP
+      EQUIVALENCE [Y[1],X[1],X1[1]],[Y[9],X2[1]],[B[1],AA[1]]
+      READ [5,990]
+      READ [5,991] F0,FL,FU,FDEL
+      READ [5,991] NS,Z0
+      NF>[FU-FL]/FDEL<1
+    5 WRITE [6,999]
+      WRITE [6,990]
+      WRITE [6,998]
+      WRITE [6,905] F0,Z0,NS
+      WRITE [6,910]
+      LIN>0
+      DO 1000 IS>1,NS
+      READ [5,992] I,YMODE,THETA[I],VODD[I]
+      IF [I.EQ.0] GO TO 100
+C  ADJUST YMODE TO EQUALIZE Y12; COMPUTE MATCH, COUPLING
+      YD>0.5*SQRT[[YMODE[1]-YMODE[2]]*[YMODE[3]-YMODE[4]]]
+      YA>0.5*[YMODE[1]<YMODE[2]]
+      YB>0.5*[YMODE[3]<YMODE[4]]
+      YOEA[I]>[YA-YD]
+      YOOA[I]>[YA<YD]
+      YOEB[I]>[YB-YD]
+      YOOB[I]>[YB<YD]
+      ZOEA>1./YOEA[I]
+      ZOOA>1./YOOA[I]
+      ZOEB>1./YOEB[I]
+      ZOOB>1./YOOB[I]
+      ZZ>SQRT[YA*YB-YD*YD]
+      ZIN>SQRT[YB/YA]/ZZ
+      ZOUT>SQRT[YA/YB]/ZZ
+      KP>YD/SQRT[YA*YB]
+      KP>-20.*ALOG10[KP]
+      READ [5,993][CODE[IP],RESIST[IP],REACT[IP],IP>1,4]
+      WRITE [6,994] IS,ZOEA,ZOOA,ZOEB,ZOOB,ZIN,ZOUT,KP,THETA[IS],VODD[IS
+     1],[CODE[I],RESIST[I],REACT[I],I>1,4]
+C ASSIGN PORTS TO STANDARD POSITIONS _ CLASSIFY CKT
+      LOWIN>LIN
+      CALL ASSIGN[IS,RW,LIN,LTO,KLAS]
+      IF [LTO.NE.LOWIN] KLAS[IS]>-KLAS[IS]
+      CALL ADSBRL[RW,ROW,IS,4]
+ 1000 CONTINUE
+      WRITE [6,915]
+      DO 2000 IF>1,NF
+      F>FL<[IF-1]*FDEL
+      FF0>F/F0
+      NL>0
+      N2>0
+      N4>0
+      DO 2100 IS>1,NS
+      DO 2110 I>1,2
+      DO 2110 J>1,2
+ 2110 RL[I,J]>[0.,0.]
+      CALL ADMIT[IS,FF0,Y]
+      CALL DPSBRL[ROW,RW,IS,4]
+      CALL MATMCR[Y,RW,AA,4]
+      DO 2120 I>1,4
+      DO 2120 J>1,4
+      Y[I,J]>[0.,0.]
+      DO 2120 K>1,4
+      Y[I,J]>Y[I,J]<RW[K,I]*AA[K,J]
+ 2120 CONTINUE
+      CALL SUBMAT[Y,Y11,Y12,Y21,Y22]
+      CALL INTCHG[Y11,Y12,Y21,Y22,A11,A12,A21,A22,1]
+      CALL SPRMAT[A11,A12,A21,A22,A]
+      CALL MATMCR[A,JUGL,X,4]
+      CALL MATMRC[JUGL,X,A,4]
+      KLASS>IABS[KLAS[IS]]
+      GO TO [20,30,40,50,60,20],KLASS
+   20 CALL SUBMAT[A,A11,A12,A21,A22]
+      CALL INTCHG[A11,A12,A21,A22,B11,B12,B21,B22,0]
+      CALL SPRMAT[B11,B12,B21,B22,B]
+      IF [KLASS.EQ.6] GO TO 22
+      RL[1,1]>ZL[2,IS]
+      RL[2,2]>ZL[4,IS]
+      CALL MATMCR[B,JUGL,X,4]
+      CALL MATMRC[JUGL,X,B,4]
+      CALL REDUCE[B,RL,Z2PT]
+      CALL ZUCON[Z2PT,U,NERR]
+      GO TO 24
+   22 RL[1,1]>-ZL[1,IS]
+      RL[1,2]> ZL[2,IS]
+      RL[2,1]>-ZL[4,IS]
+      RL[2,2]> ZL[1,IS]
+      CALL REDUCE[B,RL,Z2PT]
+      CALL MATMCR[Z2PT,SGN,U,2]
+   24 IF [IS.GT.1] GO TO 26
+      R[1]>ZL[3,1]
+      CALL ADSBCX[U,UI,1,2]
+      NL>1
+      N2>1
+      GO TO 2100
+   26 DO 2140 IL>1,NL
+      CALL MATMY3[U,UI,IL]
+ 2140 CONTINUE
+      GO TO 2100
+   30 RL[1,1]>ZL[2,IS]
+      RL[2,2]>ZL[4,IS]
+      CALL SUBMAT[A,A11,A12,A21,A22]
+      IF [IS.GT.1] GO TO 31
+      NL>1
+      CALL ADSBCX[ONE,UI,1,2]
+      R[1]>ZL[3,1]
+   31 NN>NL<2
+      DO 2150 IL>1,NN
+      IF [IL-NN<1] 36,34,32
+   32 IF[REAL[RL[1,1]].LT.1.E-9.OR.REAL[RL[1,1]].GT.1.E9] GO TO 2150
+      CALL MATEQ[A,B,4]
+      R[IL]>RL[1,1]
+      RL[1,1]>R[IL-1]
+      NL>IL
+      GO TO 38
+   34 CALL INTCHG[A12,X1,A22,X2,B11,B12,B21,B22,0]
+      R[IL]>RL[2,2]
+      RL[2,2]>R[IL-1]
+      NL>IL
+      GO TO 38
+   36 CALL DPSBCX[UI,U,IL,2]
+      CALL MATMCC[A11,U,X1,2]
+      CALL MATMCC[A21,U,X2,2]
+      CALL INTCHG[X1,A12,X2,A22,B11,B12,B21,B22,0]
+   38 CALL SPRMAT[B11,B12,B21,B22,B]
+      CALL MATMCR[B,JUGL,X,4]
+      CALL MATMRC[JUGL,X,B,4]
+      CALL REDUCE[B,RL,Z2PT]
+      CALL ZUCON[Z2PT,U,NERR]
+      CALL ADSBCX[U,UI,IL,2]
+ 2150 CONTINUE
+      N2>NL
+      GO TO 2100
+   40 IF [KLAS[IS].GT.0] GO TO 41
+      CALL MATMCR[A,FLIP,X,4]
+      CALL MATEQ[X,A,4]
+   41 RL[1,1]>ZL[2,IS]
+      IF[TAG.EQ.0] RL[2,2]>R4
+      IF [TAG.EQ.1] RL[2,2]>R[NL]
+      NN>N4<1<TAG
+      DO 2160 IL>1,NN
+      IF [IL.LE.N4] GO TO 44
+      IF [TAG.EQ.0] GO TO 42
+      CALL MATMCR[AA,FLIP,X,4]
+      CALL MATEQ[X,AA,4]
+      RL[2,2]>R[NL-1]
+      TAG>0
+      GO TO 46
+   42 IF [REAL[ZL[2,IS]].LT.1.E-9.OR.REAL[ZL[2,IS]].GT.1.E9] GO TO 2160
+      CALL MATEQ[AA,B,4]
+      R[NL<1]>RL[1,1]
+      RL[1,1]>R[NL]
+      NL>NL<1
+      GO TO 48
+   44 CALL DPSBCX[AI,X,IL,4]
+      CALL MATMCC[A,X,AA,4]
+   46 CALL SUBMAT[AA,A11,A12,A21,A22]
+      CALL INTCHG[A11,A12,A21,A22,B11,B12,B21,B22,0]
+      CALL SPRMAT[B11,B12,B21,B22,B]
+   48 CALL MATMCR[B,JUGL,X,4]
+      CALL MATMRC[JUGL,X,B,4]
+      CALL REDUCE[B,RL,Z2PT]
+      CALL ZUCON[Z2PT,U,NERR]
+      CALL ADSBCX[U,UI,IL,2]
+ 2160 CONTINUE
+      N4>0
+      N2>NL
+      GO TO 2100
+   50 IF [IS.GT.1] GO TO 52
+      NL>1
+      CALL ADSBCX[ONE,UI,1,2]
+   52 DO 2170 IL>1,NL
+      CALL DPSBCX[UI,U,IL,2]
+      CALL MATMCC[A11,U,X1,2]
+      CALL MATMCC[A21,U,X2,2]
+      CALL SPRMAT[X1,A12,X2,A22,A]
+ 2170 CALL ADSBCX[A,AI,IL,4]
+      N4>NL
+      N2>0
+      TAG>0
+      IF [REAL[ZL[4,IS]].LT.1.E-9.OR.REAL[ZL[4,IS]].GT.1.E9] GO TO 54
+      TAG>1
+      NL>NL<1
+      R[NL]>ZL[4,IS]
+      GO TO 2100
+   54 R4>ZL[4,IS]
+      GO TO 2100
+   60 IF [KLAS[IS].GT.3] GO TO 62
+      CALL MATMCR[A,FLIP,X,4]
+      CALL MATEQ[X,A,4]
+   62 DO 2180 I>1,N4
+      CALL DPSBCX[AI,X,I,4]
+      CALL MATMCC[A,X,AA,4]
+ 2180 CALL ADSBCX[AA,AI,I,4]
+ 2100 CONTINUE
+      DO 2200 IL>1,NL
+      YL>Z0/R[IL]
+      G1>UI[1,1,IL]<UI[1,2,IL]*YL/Z0
+      G2>UI[2,1,IL]*Z0<UI[2,2,IL]*YL
+      IF [IL.EQ.1] GAM>[G1-G2]/[G1<G2]
+      TRAN>[1.<YL]/[G1<G2]
+      LOSDB[IL]>-20.*ALOG10[CABS[TRAN]]
+ 2200 PSI[IL]>ATAN2[AIMAG[TRAN],REAL[TRAN]]
+      RETLS>-20.*ALOG10[CABS[GAM]]
+      PHI>ATAN2[AIMAG[GAM],REAL[GAM]]
+      WRITE[6,995] F,RETLS,PHI,[LOSDB[I],PSI[I],I>1,NL]
+ 2000 CONTINUE
+      GO TO 5
+  100 CALL EXIT
+  905 FORMAT [: CENTER FREQUENCY >:,F8.2,: GHZ:,/: GEN IMPEDANCE    >:,F
+     18.2,: OHMS:,/: NUMBER SECTIONS  >:,I8,/]
+  910 FORMAT [T9,:LINE A:,T24,:LINE B:,T76,: PORT INTERCONNECTIONS + TER
+     1MINATIONS:,/,:  =  1/YOE  1/YOO   1/YOE  1/YOO   ZIN   ZOUT K[DB]
+     2THETA VODD:,8X,:1:,14X,:2:,14X,:3:,14X,:4:,/]
+  915 FORMAT [//T21,:OUTPUT =  1:,13X,:2:,13X,:3:,13X,:4:,13X,:5:,13X,:6
+     1:,13X,:7:,/,:  FREQ  RTN LS   ANG    LOSS   ANG    LOSS   ANG    L
+     2OSS   ANG    LOSS   ANG    LOSS   ANG    LOSS   ANG    LOSS   ANG:
+     3,/,:   GHZ    DB     DEG     DB    DEG     DB    DEG     DB    DEG
+     4     DB    DEG     DB    DEG     DB    DEG     DB    DEG:,/]
+  990 FORMAT [80H
+     1                         ]
+  991 FORMAT [6G10.0]
+  992 FORMAT [I3,G7.0,5G10.0]
+  993 FORMAT [4[A1,F9.0,F10.0]]
+  994 FORMAT [I3,2F7.1,F8.1,2F7.1,3F6.1,F5.2,4[2X,A1,2F6.1]]
+  995 FORMAT [F7.2,8[F8.2,F6.1]]
+  996 FORMAT [21X,7[F8.2,F6.1]]
+  997 FORMAT [1H<]
+  998 FORMAT [1H0]
+  999 FORMAT [1H1]
+      END
+      BLOCK DATA
+      COMMON /PORT/CODE,RESIST,REACT,ZL/UNIT/ONE,MINUS,SGN,JUGL,FLIP
+      DIMENSION CODE[4],RESIST[4],REACT[4]
+      REAL MINUS[2,2]/-1.,2*0.,-1./,SGN[2,2]/1.,2*0.,-1./,JUGL[4,4]/1.,5
+     1*0.,1.,2*0.,1.,5*0.,1./,FLIP[4,4]/2*0.,1.,4*0.,2*1.,4*0.,1.,2*0./
+      COMPLEX ZL[4,20]/ 80*[0.,0.]/,ONE[2,2]/[1.,0.],2*[0.,0.],[1.,0.]/
+      END
+      SUBROUTINE ASSIGN[IS,ROW,LIN,LTO,KLAS]
+      INTEGER PT[4],ROWTST
+      DIMENSION ROW[4,4],CODE[4],RESIST[4],REACT[4],KLAS[20]
+      COMPLEX ZL[4,20]
+      COMMON /PORT/CODE,RESIST,REACT,ZL
+      DATA CF/:F:/,CT/:T:/,CK/:K:/,CZ/:Z:/,CY/:Y:/
+      JI>0
+      JO>0
+      JX>0
+      JK>0
+      JL>0
+      JT>0
+      ROWTST>0
+      KLAS[IS]>0
+      DO 1000 I>1,4
+      ZL[I,IS]>[0.,0.]
+      PT[I]>0
+      DO 1000 J>1,4
+ 1000 ROW[I,J]> 0.
+C  ASSIGN INPUT PORTS
+      DO 2000 IP>1,4
+      IF [CODE[IP].NE.CF] GO TO 2000
+      JI>JI<1
+      ROW[IP,JI]>1.
+      PT[IP]>1
+      IF [JI.EQ.1] LIN>IP
+      IF [JI.EQ.2] KLAS[IS]>4
+ 2000 CONTINUE
+C  ASSIGN OUTPUT PORTS
+      IF [IS.EQ.1] GO TO 10
+      DO 3000 IP>1,4
+      IF [PT[IP].EQ.1] GO TO 3000
+      IF [CODE[IP].NE.CT] GO TO 3000
+      JO>JO<1
+      ROW[IP,JO<2]>1.
+      PT[IP]>1
+      IF [JO.EQ.1] LTO>RESIST[IP]<REACT[IP]<0.1
+      IF [JO.EQ.2] KLAS[IS]>3
+ 3000 CONTINUE
+   10 JT>JI<JO
+      IF [JT.EQ.4] KLAS[IS]>5
+      IF [JT.EQ.4] GO TO 25
+C  ASSIGN JOINED PORTS
+      DO 4000 IP>1,4
+      IF [PT[IP].EQ.1] GO TO 4000
+      IF [CODE[IP].NE.CK] GO TO 4000
+      JK>JK<1
+      JT>JT<1
+      IF [JK.EQ.2] GO TO 12
+      ZK>RESIST[IP]
+      TH>REACT[IP]*3.14159/180.
+      ZL[1,IS]>CMPLX[COS[TH],0.]
+      ZL[2,IS]>CMPLX[0.,ZK*SIN[TH]]
+      ZL[4,IS]>CMPLX[0.,SIN[TH]/ZK]
+   12 ROW[IP,2*JK]>1.
+      PT[IP]>1
+      KLAS[IS]>6
+ 4000 CONTINUE
+C  ASSIGN TERMINATED PORTS
+      IF [JT.EQ.4] GO TO 25
+      DO 5000 IP>1,4
+      IF [PT[IP].EQ.1] GO TO 5000
+      IF [RESIST[IP].GT.1.E-9] GO TO 15
+      JX>JX<1
+      JP>2*JX*JI
+      IF[CODE[IP].EQ.CZ] GO TO 20
+      IF [REACT[IP].LT.1.E-9] REACT[IP]>1.E-9
+      GO TO 20
+   15 JL>JL<1
+      DO 5100 I>1,4
+ 5100 ROWTST>ROWTST<ROW[I,4]
+      IF [ROWTST.EQ.0] JP>4
+      IF [ROWTST.EQ.1] JP>2
+      IF [IS.EQ.1.AND.JL.EQ.1] JP>3
+   20 ROW[IP,JP]>1.
+      ZL[JP,IS]>CMPLX[RESIST[IP],REACT[IP]]
+      IF [CODE[IP].EQ.CY]ZL[JP,IS]>1./ZL[JP,IS]
+ 5000 CONTINUE
+      IF [JX.EQ.2] KLAS[IS]>1
+   25 RETURN
+      END
+      SUBROUTINE ADMIT[IS,FF0,Y]
+      COMPLEX Y[4,4]
+      COMMON /COUP/YOEA[20],YOOA[20],YOEB[20],YOOB[20],THETA[20],VODD[20
+     1]
+      YEA>YOEA[IS]
+      YOA>YOOA[IS]
+      YEB>YOEB[IS]
+      YOB>YOOB[IS]
+      THE>THETA[IS]*FF0*3.14159/180.
+      THO>THE/VODD[IS]
+      CSC>1./SIN[THE]
+      CTN>COS[THE]*CSC
+      BETA>1./[CSC*SIN[THO]]
+      ALPHA>CTN/[CSC*BETA*COS[THO]]
+      Y[1,1]>CMPLX[0.0,-0.5*[YOA*ALPHA<YEA]*CTN]
+      Y[1,2]>CMPLX[0.0,<0.5*[YOA*ALPHA-YEA]*CTN]
+      Y[2,1]>CMPLX[0.0,<0.5*[YOB*ALPHA-YEB]*CTN]
+      Y[2,2]>CMPLX[0.0,-0.5*[YOB*ALPHA<YEB]*CTN]
+      Y[1,3]>CMPLX[0.0,-0.5*[YOA*BETA <YEA]*CSC]
+      Y[1,4]>CMPLX[0.0,<0.5*[YOA*BETA -YEA]*CSC]
+      Y[2,3]>CMPLX[0.0,<0.5*[YOB*BETA -YEB]*CSC]
+      Y[2,4]>CMPLX[0.0,-0.5*[YOB*BETA <YEB]*CSC]
+      DO 1000 I>3,4
+      DO 1000 J>1,4
+ 1000 Y[I,J]>Y[5-I,5-J]
+      RETURN
+      END
+      SUBROUTINE INTCHG[A11,A12,A21,A22,B11,B12,B21,B22,INDEX]
+      REAL MINUS[2,2],JUGL[4,4]
+      COMPLEX A11[2,2],A12[2,2],A21[2,2],A22[2,2],B11[2,2],B12[2,2],B21[
+     12,2],B22[2,2],DM1[2,2],DM2[2,2],ONE[2,2]
+      COMMON /UNIT/ONE,MINUS,SGN[2,2],JUGL,FLIP[4,4]
+C  IF INDEX>1 CONVERTS Y TO A; IF INDEX>0 CONVERTS A: TO B:
+      CALL MATINV[A21,B21,NERR]
+      CALL MATMCC[B21,A22,DM1,2]
+      CALL MATMRC[MINUS,DM1,B11,2]
+      IF [INDEX.EQ.0] CALL MATMRC [SGN,B11,B22,2]
+      CALL MATMCC[A11,B21,DM1,2]
+      IF [INDEX.EQ.1] CALL MATMRC[MINUS,DM1,B22,2]
+      IF [INDEX.EQ.0] CALL MATMCR[DM1,SGN,B11,2]
+      CALL MATMCC[DM1,A22,DM2,2]
+      CALL MATADD[A12,-1.,DM2,A21,2]
+      IF [INDEX.EQ.1] GO TO 10
+      CALL MATMCR[B21,SGN,DM1,2]
+      CALL MATMRC[SGN,DM1,B21,2]
+      CALL MATEQ[A21,B12,2]
+      RETURN
+   10 CALL MATMRC[MINUS,B21,B12,2]
+      CALL MATEQ[A21,B21,2]
+   15 RETURN
+      END
+      SUBROUTINE REDUCE[B,RL,Z]
+      COMPLEX B[4,4],B11[2,2],B12[2,2],B21[2,2],B22[2,2],RL[2,2],Z[2,2]
+      CALL SUBMAT[B,B11,B12,B21,B22]
+      CALL MATMCC[B21,RL,Z,2]
+      CALL MATADD[Z,-1.,B22,B21,2]
+      CALL MATINV[B21,B22,NERR]
+      CALL MATMCC[B11,RL,Z,2]
+      CALL MATADD[Z,-1.,B12,B11,2]
+      CALL MATMCC[B11,B22,Z,2]
+      RETURN
+      END
+      SUBROUTINE ZUCON[Z,U,NERR]
+      COMPLEX Z[2,2],U[2,2],Z21
+      NERR>0
+      Z21>Z[2,1]
+      ZTST>REAL[Z21]<AIMAG[Z21]
+      ZTST>ABS[ZTST]
+      IF[ZTST.GT.1.E-20] GO TO 10
+      NERR>1
+      Z21>[1.E-20,0.]
+   10 U[1,1]>Z[1,1]/Z21
+      U[1,2]>[Z[1,1]*Z[2,2]-Z[1,2]*Z[2,1]]/Z21
+      U[2,1]>1./Z21
+      U[2,2]>Z[2,2]/Z21
+      RETURN
+      END
+      SUBROUTINE MATEQ[A,B,N]
+      COMPLEX A[N,N],B[N,N]
+      DO 1000 I>1,N
+      DO 1000 J>1,N
+ 1000 B[I,J]>A[I,J]
+      RETURN
+      END
+      SUBROUTINE MATADD[A,SUB,B,C,N]
+      COMPLEX A[N,N],B[N,N],C[N,N]
+      DO 1000 I>1,N
+      DO 1000 J>1,N
+ 1000 C[I,J]>A[I,J]<SUB*B[I,J]
+      RETURN
+      END
+      SUBROUTINE MATMCC[A,B,C,N]
+      COMPLEX A[N,N],B[N,N],C[N,N]
+      DO 1000 I>1,N
+      DO 1000 J>1,N
+      C[I,J]>[0.,0.]
+      DO 1000 K>1,N
+ 1000 C[I,J]>C[I,J]<A[I,K]*B[K,J]
+      RETURN
+      END
+      SUBROUTINE MATMRC[A,B,C,N]
+      DIMENSION A[N,N]
+      COMPLEX B[N,N],C[N,N]
+      DO 1000 I>1,N
+      DO 1000 J>1,N
+      C[I,J]>[0.,0.]
+      DO 1000 K>1,N
+ 1000 C[I,J]>C[I,J]<A[I,K]*B[K,J]
+      RETURN
+      END
+      SUBROUTINE MATMCR [A,B,C,N]
+      DIMENSION B[N,N]
+      COMPLEX A[N,N],C[N,N]
+      DO 1000 I>1,N
+      DO 1000 J>1,N
+      C[I,J]>[0.,0.]
+      DO 1000 K>1,N
+ 1000 C[I,J]>C[I,J]<A[I,K]*B[K,J]
+      RETURN
+      END
+      SUBROUTINE MATMY3[A,B,IL]
+      COMPLEX A[2,2],B[2,2, 40],DM[2,2]
+      DO 1000 I>1,2
+      DO 1000 J>1,2
+      DM[I,J]>[0.,0.]
+      DO 1000 K>1,2
+ 1000 DM[I,J]>DM[I,J]<A[I,K]*B[K,J,IL]
+      DO 2000 I>1,2
+      DO 2000 J>1,2
+ 2000 B[I,J,IL]>DM[I,J]
+      RETURN
+      END
+      SUBROUTINE MATINV[A,B,NERR]
+      COMPLEX A[2,2],B[2,2],DET
+      NERR>0
+      DET>A[1,1]*A[2,2]-A[1,2]*A[2,1]
+      D>REAL[DET]<AIMAG[DET]
+      D>ABS[D]
+      IF [D.GT.1.E-20] GO TO 10
+      NERR>1
+      DET>[1.E-20,0.]
+   10 B[1,1]>A[2,2]/DET
+      B[1,2]>-A[1,2]/DET
+      B[2,1]>-A[2,1]/DET
+      B[2,2]> A[1,1]/DET
+      RETURN
+      END
+      SUBROUTINE ADSBRL[A,B,IS,N]
+      DIMENSION A[N,N],B[N,N,100]
+      DO 1000 I>1,N
+      DO 1000 J>1,N
+ 1000 B[I,J,IS]>A[I,J]
+      RETURN
+      END
+      SUBROUTINE ADSBCX[A,B,IS,N]
+      COMPLEX A[N,N],B[N,N,100]
+      DO 1000 I>1,N
+      DO 1000 J>1,N
+ 1000 B[I,J,IS]>A[I,J]
+      RETURN
+      END
+      SUBROUTINE DPSBRL[A,B,IS,N]
+      DIMENSION A[N,N,100],B[N,N]
+      DO 1000 I>1,N
+      DO 1000 J>1,N
+ 1000 B[I,J]>A[I,J,IS]
+      RETURN
+      END
+      SUBROUTINE DPSBCX[A,B,IS,N]
+      COMPLEX A[N,N,100],B[N,N]
+      DO 1000 I>1,N
+      DO 1000 J>1,N
+ 1000 B[I,J]>A[I,J,IS]
+      RETURN
+      END
+      SUBROUTINE SUBMAT[A,A11,A12,A21,A22]
+      COMPLEX A[4,4],A11[2,2],A12[2,2],A21[2,2],A22[2,2]
+      DO 1000 I>1,2
+      DO 1000 J>1,2
+      A11[I,J]>A[I,J]
+      A12[I,J]>A[I,J<2]
+      A21[I,J]>A[I<2,J]
+ 1000 A22[I,J]>A[I<2,J<2]
+      RETURN
+      END
+      SUBROUTINE SPRMAT[A11,A12,A21,A22,A]
+      COMPLEX A11[2,2],A12[2,2],A21[2,2],A22[2,2],A[4,4]
+      DO 1000 I>1,2
+      DO 1000 J>1,2
+      A[I,J ]  >A11[I,J]
+      A[I,J<2]  >A12[I,J]
+      A[I<2,J]  >A21[I,J]
+ 1000 A[I<2,J<2]>A22[I,J]
+      RETURN
+      END
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
