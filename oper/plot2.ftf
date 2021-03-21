@@ -1,0 +1,1342 @@
+*
+
+*
+* TEKTRONICS DISPLAY, MAP GENERATION AND CODE GENERATION FOR TYMNET.
+*
+*
+*       **  MAIN PROGRAM  **
+*
+*
+*       REQUIREMENTS:
+*               
+*               REL FILES :
+*                               DISMP#.REL - MAIN PROGRAM
+*                               SUBS#.REL  - SUBROUTINE PACKAGE
+*                               SYMBOL.REL - SYMBOL PLOT SUB PACKAGE
+*                               PLTDI#.REL - TEKTRONICS DRIVERS
+*
+*                       PLOTX#.SAV - THE RUN ( OR GO ) PROGRAM
+*
+*                       # = NUMBER FROM 1 TO 9 WHICH REPRESENTS
+*                           A SEQUENTIAL ORDER OF VERSIONS OF THIS
+*                             PACKAGE.
+*
+*       APPROX MEMORY REQUIRED = 28K
+*
+
+
+*               BLANK COMMON
+*
+*
+        COMMON NODNUM,LINE,NODNAM,NODORD,LINORD,XX,YY,XX1,YY1,A,B,C,D
+        COMMON N3,BLANK,NOLIN,NODMAP,PRAT,NONOD
+
+*
+*       NODNUM : THE NODE NUMBER IN SEQUENTIAL ORDER
+*                AS PRESENTED IN THE DATA BASE.
+*
+*       LINE   : CONTAINS 8 PARTS.
+*               1 FIRST HALF OF LINE NAME (5 CHR.)
+*               2 SECOND HALF OF LINE NAME (5 CHR.)
+*               3 4 CHARACTOR SUB-NAME (4800) ETC.
+*               4 NOD NUMBER OF ONE END OF LINE
+*               5 PORT ON THAT NODE OF THIS END OF THE LINE
+*               6 NODNUMBER OF OTHER END OF LINE
+*               7 PORT ON OTHER END
+*               8 NUMBER OF GROUPS ON THIS LINE
+*
+*
+*       P      : TEMP STORAGE FOR DECODE AND ENCODE
+*
+*       BLANK  : SWITCH FOR BLANKING OUT THE LETTERING DURING A PLOT.
+*
+*
+*
+        INTEGER NODNUM(500),LINE(500,8),NODNAM(400,4,3),P(12),N3,BLANK
+        INTEGER NOLIN,NONOD
+*       NODNAM : CONTAINS THE NODE NAME (1 CHAR/WORD) (8 CHAR TOTAL)
+*                AND 201 INDICATOR (1 CHAR/WORD) (4 CHAR TOTAL)
+*                FOR BASES THE INDEX INTO THE ARRAY IS THE NODE
+*                NUMBER. FOR REMOTES IT IS THE NODE NUMBER-800.
+*       THIS ALLOWS US TO KEEP THE SIZE OF OUR ARRAYS TO A MINIMUM.
+*
+*
+*
+*       GROUP  : TEMP STORAGE FOR GROUPS
+*
+        INTEGER G(2),GROUP,P1,P2,K,K1
+*       NODMAP : CONTAINS ASSEMBLY INFORMATION
+*                1 NEIGHBOR ON LINE 1 + GROUPS*10000
+*                2 NEIGHBOR ON LINE 2 + GROUPS*10000
+*                .
+*                .
+*                8 NEIGHBOR ON LINE 8 + GROUPS*10000
+*                9 5 ASSEMBLY SWITCHS IN A5 FORMAT
+*               10 5 MORE ASSEMBLY SWITCHS
+*
+*
+        INTEGER NODMAP(400,10)
+*
+*       NODORD : CONTAINS CO-ORDINATES OF NODE K
+*                1 X ORDINATE
+*                2 Y ORDINATE
+*
+*       LINORD : CONTAINS CO-ORDINATES OF LINE NAME AND NUMBER OF GROUPS
+*                INDEX INTO LINORD, IS SEQUENTIAL AS IN NODNUM.
+*                WHERE NODNUM(K) =-1, LINORD(K,L),L=1,4
+*                IS REAL.
+*                1 X ORDINATE FOR GROUPS
+*                2 Y ORDINATE FOR GROUPS
+*                3 X ORDINATE FOR LINE NAME
+*                4 Y ORDINATE FOR LINE NAME
+*
+*
+        REAL    NODORD(400,2),LINORD(500,4)
+*
+* INITALIZATION, FILE OPEN  ETC.
+*
+        INTEGER N,NTERM
+*
+* HARD COPY ON THE CALCOMP PLOTER SWITCH
+*
+*
+
+        INTEGER HARD
+*
+*
+
+
+100     INPUT=5HNODFI
+        CALL IFILE(1,INPUT)
+        REAL PRAT
+        INTEGER NUMSW
+
+*
+*       NUMBER OF EXISTING ASSEMBLY SWITCHES
+*
+
+
+        NUMSW=17
+*
+*       SET HARD =-1 FOR CALCOMP LINKAGE OR =0 FOR TEKTRONICS.
+*
+
+        HARD=-1
+
+        NONOD=0
+        NOLIN=0
+        PRAT=1.
+        IRAT=1.
+        DO 99 I=1,400
+        DO 98 L=1,8
+98      NODMAP(I,L)=0
+        DO 97 L=9,10
+97      NODMAP(I,L)=(1H )
+99      CONTINUE
+        INTEGER Z,M(14),MK(70)
+8       FORMAT(' XMAX='$)
+9       FORMAT(' YMAX='$)
+6       FORMAT(G)
+5       FORMAT(' X='$)
+7       FORMAT( ' Y='$)
+4       FORMAT(1A1,14A5)
+3       FORMAT(8A1)
+1       FORMAT(I,2(4A1),1X,4A1,1X,2F,2A5)
+
+
+*
+*       READ DATA BASE, AND CHECK FOR LINE OR NODE DATA TYPE
+
+
+        DO 120 K=1,500
+101     DO 111 I=1,14
+111     M(I)=0
+        READ(1,4,END=818),Z,M
+        DO 115 I=1,14
+115     IF (M(I).NE.5H     ) GO TO 116
+        GO TO 101
+116     IF(K-1)301,302,301
+        
+302     KON=Z
+        GO TO 300
+301     IF(Z-KON)200,300,200
+
+
+*       NODE PREPERATION IN CORE
+*
+
+300     DECODE(70,1,M)N,(P(L),L=1,12),X,Y,IS1,IS2
+        NODMAP(INDEX(N),9)=IS1
+        NODMAP(INDEX(N),10)=IS2
+
+        NODORD(INDEX(N),1)=X
+        NODORD(INDEX(N),2)=Y
+        DO 110 I=1,4
+        NODNAM(INDEX(N),I,3)=P(I+4)
+        NODNAM(INDEX(N),I,2)=P(I+8)
+110     NODNAM(INDEX(N),I,1)=P(I)
+        GO TO 120
+
+
+*
+* HASH COMMAND EXECUTION
+*
+
+320     DO 325 I=1,21
+        XI=FLOAT(I-1)
+        IF((XI-YY).LT..5) GO TO 325
+        CALL NUMBER(0.,(XI-YY),.12,XI,0.,-1)
+325     CONTINUE
+        DO 330 I=1,33
+        XI=FLOAT(I-1)
+        IF ((XI-XX).LT..5) GO TO 330
+        CALL NUMBER((XI-XX),0.,.12,XI,0.,-1)
+330     CONTINUE
+        CALL FMAG(1.,1.)
+        CALL PLOT(0,7.67,-3)
+        CALL FMAG(PRAT,IRAT)
+
+        GO TO 700
+
+
+*
+*       SET BLANK SWITCH
+*
+
+370     BLANK=-1
+        GO TO 700
+
+*       DO NOT PRINT LINE NAMES OR GROUPS.
+*
+380     IF (NOLIN.EQ.0) GO TO 382
+        NOLIN=0
+        GO TO 700
+382     NOLIN=-1
+        GO TO 700
+*
+*       NONOD SWITCH
+*
+
+390     IF (NONOD.EQ.0) GO TO 392
+        NONOD=0
+        GO TO 700
+
+392     NONOD=-1
+        GO TO 700
+
+
+
+*
+*       DOT COMMAND EXECUTION
+*
+
+400     DO 425 I=1,33
+        DO 424 L=1,33
+        CALL PLOT((FLOAT(I-1)-.001),FLOAT(L-1),3)
+        CALL PLOT(FLOAT(I-1),FLOAT(L-1),2)
+424     CONTINUE
+425     CONTINUE
+        CALL FMAG(1.,1.)
+        CALL PLOT(0,7.67,-3)
+        CALL FMAG(PRAT,IRAT)
+
+        GO TO 700
+
+
+
+2       FORMAT(2A5,1X,A4,1X,4F,5I)
+201     FORMAT(' TWO PORTS ARE THE SAME ON ',8A1,' OR ',8A1/)
+202     FORMAT(' TOO MANY LINES ON ',8A1,' OR ',8A1/)
+203     FORMAT(' TOO MANY GROUPS ON ',8A1/)
+204     FORMAT(1X,8(I5,1X))
+205     FORMAT(' ZERO GROUPS ON NODE ',8A1,' IS ILLEGAL !!')
+
+
+
+
+*
+*
+*       LINE PREPERATION IN CORE
+*
+
+200     DECODE(70,2,M)P(1),P(2),P(3),X,Y,Q,R,N1,P1,N2,P2,GROUP
+        IF (NODMAP(INDEX(N1),(P1+1)).NE.0) GO TO 222
+        IF ((N1.GT.999).AND.(P1.GT.2)) GO TO 225
+        IF ((N1.LT.1000).AND.(P1.GT.7)) GO TO 225
+
+        NODMAP(INDEX(N1),(P1+1))=N2+GROUP*10000
+
+        IF (NODMAP(INDEX(N2),(P2+1)).NE.0) GO TO 222
+        IF ((N2.GT.999).AND.(P2.GT.2)) GO TO 225
+        IF ((N2.LT.1000).AND.(P2.GT.7)) GO TO 225
+        NODMAP(INDEX(N2),(P2+1))=N1+GROUP*10000
+        GO TO 223
+225     TYPE 202,(NODNAM(INDEX(N1),J,1),J=1,4),(NODNAM(INDEX(N1),
+     X  J,3),J=1,4),(NODNAM(INDEX(N2),J,1),J=1,4),(NODNAM(INDEX(N2),J,3)
+     X  ,J=1,4)
+        ERRORS=1
+        GO TO 223
+222     TYPE 201,(NODNAM(INDEX(N1),J,1),J=1,4),(NODNAM(INDEX(N1),
+     X  J,3),J=1,4),(NODNAM(INDEX(N2),J,1),J=1,4),(NODNAM(INDEX(N2)
+     X  ,J,3),J=1,4)
+        ERRORS=1
+223     DO 210 I=1,3
+210     LINE(K,I)=P(I)
+        LINORD(K,1)=X
+        LINORD(K,2)=Y
+        LINE(K,4)=N1
+        LINE(K,5)=P1
+        
+        LINE(K,6)=N2
+        LINE(K,7)=P2
+        LINE(K,8)=GROUP
+        LINORD(K,3)=Q
+        LINORD(K,4)=R
+        N=-1
+120     NODNUM(K)=N
+*
+*
+* THIS IS THE END OF INITAL DATA READ IN AND CONVERSION
+*
+* IF THERE ARE MORE THAN 500 ENTRIES IN THE DATA FILE,
+* INCLUDING LINES AND NODES, THE ABOVE DO LOOP WILL 
+* FALL THROUGH CAUSING THE PROGRAM TO EXIT.
+*       IN THIS EVENT THE DO LOOP PARAMETERS WILL HAVE TO BE
+*       CHANGED.
+*
+*
+
+
+*
+*       PROGRAM CONTROLL IS TRANSFERED TO STATMENT #818
+*       BY VURTUE OF THE READ STATMENT, AND THE END OF FILE.
+*
+
+
+*
+*       END
+*
+
+999     CALL PLOT(0.,0.,-3)
+        CALL EXIT
+
+
+*
+*       DELETE COMMAND EXECUTION
+*
+
+600     CALL FMAG(1.,1.)
+        CALL PLOT(0.,6.35,-3)
+        CALL FMAG(PRAT,IRAT)
+        TYPE 1001
+        ACCEPT 702,P1
+        IF((P1.EQ.5HL    ).OR.(P1.EQ.5HLI   ).OR.(P1.EQ.5HLIN  ))GOTO650
+        IF((P1.EQ.5HN    ).OR.(P1.EQ.5HNO   ).OR.(P1.EQ.5HNOD  ))GOTO601
+        GO TO 700
+
+*
+*       NODE DELETION
+*
+
+601     CALL FMAG(1.,1.)
+        CALL PLOT(0.,5.91,-3)
+        CALL FMAG(PRAT,IRAT)
+        TYPE 861
+        ACCEPT 704,N3
+        IF(N3.EQ.0) GO TO 700
+        L=1
+        DO 610 I=1,(J-1)
+
+        IF(NODNUM(I).EQ.-1) GO TO 620
+        IF(NODNUM(I).EQ.N3) GO TO 610
+        NODNUM(L)=NODNUM(I)
+        L=L+1
+        GO TO 610
+
+620     IF(LINE(I,4).EQ.N3) GO TO 610
+        IF(LINE(I,6).EQ.N3) GO TO 610
+        NODNUM(L)=NODNUM(I)
+        DO 608 K=1,4
+        LINORD(L,K)=LINORD(I,K)
+        LINE(L,(2*K))=LINE(I,(2*K))
+608     LINE(L,(2*K-1))=LINE(I,(2*K-1))
+        L=L+1
+610     CONTINUE
+
+        J=L
+        GO TO 700
+
+
+
+*
+*       LINE DELETION
+*
+
+650     CALL FMAG(1.,1.)
+        CALL PLOT(0.,5.47,-3)
+        CALL FMAG(PRAT,IRAT)
+        TYPE 703
+        ACCEPT 704,N1,N2
+        L=1
+        DO 660 I=1,(J-1)
+        IF (NODNUM(I).EQ.-1) GO TO 651
+        NODNUM(L)=NODNUM(I)
+        L=L+1
+        GO TO 660
+
+651     IF ((LINE(I,4).EQ.N1).AND.(LINE(I,6).EQ.N2)) GO TO 660
+        IF ((LINE(I,6).EQ.N1).AND.(LINE(I,4).EQ.N2)) GO TO 660
+
+        NODNUM(L)=NODNUM(I)
+        DO 655 K=1,4
+        LINORD(L,K)=LINORD(I,K)
+        LINE(L,(2*K))=LINE(I,(2*K))
+655     LINE(L,(2*K-1))=LINE(I,(2*K-1))
+        L=L+1
+660     CONTINUE
+        J=L
+        GO TO 700
+
+
+
+
+
+*
+*       CHECK FOR DATA CONSISTENCY ERRORS
+*       AND SAVE K FOR FUTUR REFFERENCE
+*
+
+818     J=K
+        NTERM=JTERM(N)
+
+* NEXT STATMENT PREVENTS TERMINALS FROM TRYING TO DRAW GRAPHICS
+
+        IF ((NTERM.EQ."520000).OR.(NTERM.EQ."320000).OR.
+     X  (NTERM.EQ."120000)) CALL PLOTS(IXI)
+        IF (HARD.EQ.-1) CALL PLOTS(IXI)
+        DO 880 K=1,400
+        IF (NODMAP(K,1).EQ.0) GO TO 880
+        NGROUP=0
+        DO 885 L=1,8
+885     NGROUP=NGROUP+NODMAP(K,L)/10000
+
+        IF(NGROUP.EQ.0) GO TO 891
+        IF ((K.GT.199).AND.(NGROUP.GT.7)) GO TO 890
+        GO TO 880
+890     ERRORS=1
+        TYPE 203,(NODNAM(K,KK,1),KK=1,4),(NODNAM(K,KK,3),KK=1,4)
+        GO TO 880
+891     ERRORS=1
+        TYPE 205,(NODNAM(K,KK,1),KK=1,4),(NODNAM(K,KK,3),KK=1,4)
+        GO TO 880
+880     CONTINUE
+        IF (ERRORS.EQ.1) ACCEPT 6,XCAL
+        ERRORS=0
+
+*       TRANSFER CONTROLL TO COMMAND EXECUTIVE
+
+*
+*       INITILIZE VISIBLE BOX OR IF X=0 USE PREVIOUS BOX.
+*
+
+        GO TO 700
+887     CALL PLOTS(IXI)
+        TYPE 5
+        ACCEPT 6,XY1
+        IF ((XX1.EQ.0).AND.(HARD.EQ.0)) GO TO 889
+        XX=XY1
+        TYPE 7
+        ACCEPT 6,YY
+        TYPE 8
+        ACCEPT 6,XX1
+        TYPE 9
+        ACCEPT 6,YY1
+        XX1=XX1-XX
+        YY1=YY1-YY
+
+*
+*       PLOT A MAP ON THE TEKTRONICS DISPLAY
+*
+889     CALL PLOTS(IXI)
+        DO 500 K=1,(J-1)
+        CALL DRAW(K,R)
+
+500     CONTINUE
+        IF (HARD.EQ.-1) GO TO 501
+        CALL PLOT(0.,7.67,-3)
+        GO TO 700
+
+501     CALL PLOT(0.,0.,-3)
+        GO TO 700
+
+
+        
+        
+705     FORMAT(' SAVE? '$)
+701     FORMAT(' # '$)
+702     FORMAT(1A5)
+
+*
+**
+***     COMMAND EXECUTIVE
+**
+*
+
+
+*       LIN - MOVE LINE NAME AND GROUPS
+*       NOD - MOVE NODE
+*       MAP - DRAW ANOTHER MAP WITH ANY CHANGES IN THE DATA.
+*       ADD - ADD A LINE OR A NODE TO THE EXISTING DATA STRUCTURE.
+*       SAV - SAVE NEW DATA ON THE MAIN DATA BASE.
+*       HAS - DISPLAY HASH MARKS ON THE ORDINATES OF THE DISPLAY.
+*       DOT - DISPLAY DOT'S AT THE INTEGER INTERSECTIONS OF HASH MARKS
+*       DEL - DELETE A LINE OR NODE
+*       BLA - BLANK ALL GRAPHICS INTERNAL TO THE NODE FOR FAST MAP
+*       GEN - GENERATE TYMSAT CODE AS PER THE MAP FILE JUST READ IN.
+*      SORT - GENERATE A DISPLAY OF SORTED NODE INFORMATION.
+*             INFORMATION INCLUDES NODE NAME, ASSEMBLY SWITCHES
+*             AND X,Y CO-ORDINATES ON THE MAP.
+*
+*
+
+711     FORMAT(1X,I)
+700     CALL FMAG(1.,1.)
+        IF ((NTERM.EQ."520000).OR.(NTERM.EQ."320000).OR.
+     X  (NTERM.EQ."120000).AND.(HARD.EQ.0)) CALL PLOT(0.,7.67,-3)
+        IF (HARD.EQ.-1) CALL PLOT(0.,0.,-3)
+
+        CALL FMAG(PRAT,IRAT)
+        TYPE 701
+        ACCEPT 702,P1
+        IF ((NTERM.NE."520000).AND.(NTERM.NE."320000).AND.
+     X  (NTERM.NE."120000).AND.(HARD.EQ.0)) GO TO 710
+        IF((P1.EQ.5HL    ).OR.(P1.EQ.5HLI   ).OR.(P1.EQ.5HLIN  ))GOTO720
+
+        IF((P1.EQ.5HN    ).OR.(P1.EQ.5HNO   ).OR.(P1.EQ.5HNOD  ))GOTO860
+        IF((P1.EQ.5HM    ).OR.(P1.EQ.5HMA   ).OR.(P1.EQ.5HMAP  ))GOTO887
+        IF((P1.EQ.5HA    ).OR.(P1.EQ.5HADD  ))GO TO 1000
+        IF((P1.EQ.5HS    ).OR.(P1.EQ.5HSA   ).OR.(P1.EQ.5HSAV  ))GOTO800
+        IF((P1.EQ.5HH    ).OR.(P1.EQ.5HHA   ).OR.(P1.EQ.5HHAS  ))GOTO320
+        IF(P1.EQ.5HDOT   ) GO TO 400
+        IF((P1.EQ.5HD    ).OR.(P1.EQ.5HDE   ).OR.(P1.EQ.5HDEL  ))GOTO600
+        IF((P1.EQ.5HB    ).OR.(P1.EQ.5HBL   ).OR.(P1.EQ.5HBLA  ))GOTO370
+        IF(P1.EQ.5HNONOD) GO TO 390
+        IF(P1.EQ.5HNOLIN) GO TO 380
+        IF(P1.EQ.5HSCALE) GO TO 1600
+        IF(P1.EQ.5HSORT ) GO TO 1500
+710     IF((P1.EQ.5HG    ).OR.(P1.EQ.5HGE   ).OR.(P1.EQ.5HGEN  ))
+     X  GO TO 1200
+        IF((P1.EQ.5HREAD )) GO TO 100
+        IF((P1.EQ.5HQ    ).OR.(P1.EQ.5HQUIT )) GO TO 999
+        GO TO 902
+        
+901     FORMAT(' QUIT? '$)
+
+*
+*       QUIT COMMAND EXECUTION
+*
+
+902     CALL FMAG(1.,1.)
+        IF ((NTERM.EQ."520000).OR.(NTERM.EQ."320000).OR.
+     X  (NTERM.EQ."120000)) CALL PLOT(0.,6.79,-3)
+        CALL FMAG(PRAT,IRAT)
+        TYPE 901
+        ACCEPT 702,P1
+        IF((P1.EQ.5HY    ).OR.(P1.EQ.5HYE   ).OR.(P1.EQ.5HYES  ))GOTO999
+        GO TO 700
+
+*
+*       LINE COMMAND EXECUTION
+*
+
+703     FORMAT(' LINE? '$)
+704     FORMAT(2I)
+706     FORMAT(' NONEXISTANT LINE !')
+720     CALL FMAG(1.,1.)
+        CALL PLOT(0.,5.47,-3)
+        CALL FMAG(PRAT,IRAT)
+        TYPE 703
+        ACCEPT 704,N1,N2
+        DO 722 K=1,(J-1)
+        IF(NODNUM(K)+1)999,721,722
+721     IF((LINE(K,4).EQ.N1).AND.(LINE(K,6).EQ.N2))GO TO 723
+        IF((LINE(K,6).EQ.N1).AND.(LINE(K,4).EQ.N2))GO TO 723
+722     CONTINUE
+
+        CALL FMAG(1.,1.)
+        CALL PLOT(0.,.63,-3)
+        CALL FMAG(PRAT,IRAT)
+        TYPE 706
+        GO TO 700
+723     CALL CROSS(L,M)
+        A=FLOAT(L)/(100.*PRAT)
+        B=FLOAT(M)/(100.*PRAT)
+
+        LINORD(K,1)=A+XX
+        LINORD(K,2)=B+YY
+
+        CALL CROSS(L,M)
+        A=FLOAT(L)/(100.*PRAT)
+        B=FLOAT(M)/(100.*PRAT)
+        LINORD(K,3)=A+XX
+        LINORD(K,4)=B+YY
+
+*
+*       SAVE QUESTION FOLLOWING A LINE OR NODE COMMAND.
+*
+
+777     CALL FMAG(1.,1.)
+        CALL PLOT(0.,7.23,-3)
+        CALL FMAG(PRAT,IRAT)
+        TYPE 705
+        ACCEPT 702,P1
+        IF((P1.EQ.5HY    ).OR.(P1.EQ.5HYE   ).OR.(P1.EQ.5HYES  ))GOTO800
+        GO TO 700
+        
+        
+
+*
+*       SAVE COMMAND EXECUTION
+*
+
+803     FORMAT(14A5)
+804     FORMAT(70A1)
+801     FORMAT(1H*,I4,1H,,8A1,1H,,4A1,2(1H,,F7.3),1H,,2A5)
+802     FORMAT(1H:,2A5,1H,,A4,4(1H,,F7.3),2(1H,,I4,1H,,I2),1H,,I2)
+800     CALL RELEAS(1)
+        CALL OFILE(1,INPUT)
+        DO 850 K=1,(J-1)
+        IF(NODNUM(K)+1)999,810,830
+810     ENCODE(70,802,M)(LINE(K,I),I=1,3),(LINORD(K,I),I=1,4),
+     X  (LINE(K,I),I=4,8)
+        IF ((M(1).EQ.5H:    ).AND.(M(2).EQ.5H     )) GO TO 850
+        DECODE(70,804,M)(MK(L),L=1,70)
+        II=17
+        DO 811 I=17,70
+        IF(MK(I).EQ.(5H     ))GO TO 811
+        MK(II)=MK(I)
+        II=II+1
+811     CONTINUE
+        WRITE(1,804)(MK(L),L=1,(II-1))
+        GO TO 850
+830     ENCODE(70,801,M)NODNUM(K),(NODNAM(INDEX(NODNUM(K)),I,1),I=1,4)
+     X  ,(NODNAM(INDEX(NODNUM(K)),I,3),I=1,4)
+     X  ,(NODNAM(INDEX(NODNUM(K)),I,2),I=1,4)
+     X  ,NODORD(INDEX(NODNUM(K)),1),
+     X  NODORD(INDEX(NODNUM(K)),2),(NODMAP(INDEX(NODNUM(K)),I),I=9,10)
+        DECODE(70,804,M)(MK(L),L=1,70)
+        II=1
+        DO 831 I=1,10
+        IF(MK(I).EQ.(5H,    ))GO TO 836
+        IF(MK(I).EQ.(5H     ))GO TO 831
+832     MK(II)=MK(I)
+        II=II+1
+831     CONTINUE
+
+
+        
+*       FATAL ERROR
+*
+
+        STOP
+
+  
+836     MMM=I+14
+        DO 833 L=I,MMM
+        MK(II)=MK(L)
+        II=II+1
+833     CONTINUE
+
+        L=MMM+1
+        DO 835 I=L,70
+        IF(MK(I).EQ.(5H     ))GO TO 835
+        MK(II)=MK(I)
+        II=II+1
+835     CONTINUE
+
+839     WRITE(1,804)(MK(L),L=1,(II-1))
+
+850     CONTINUE
+
+        GO TO 700
+        
+
+*
+*       NODE COMMAND EXECUTION
+*
+
+861     FORMAT(' NODE ? '$)
+862     FORMAT(' NONEXISTANT NODE !'/)
+860     CALL FMAG(1.,1.)
+        CALL PLOT(0.,5.91,-3)
+        CALL FMAG(PRAT,IRAT)
+        TYPE 861
+        ACCEPT 704,N1
+        DO 863 K=1,(J-1)
+        IF (NODNUM(K).EQ.N1)GO TO 865
+863     CONTINUE
+        CALL FMAG(1.,1.)
+        CALL PLOT(0.,1.51,-3)
+        CALL FMAG(PRAT,IRAT)
+        TYPE 862
+        GO TO 700
+865     CALL CROSS(L,M)
+        N9=INDEX(NODNUM(K))
+866     A=FLOAT(L)/(100.*PRAT)
+        B=FLOAT(M)/(100.*PRAT)
+        NODORD(N9,1)=A+XX
+        NODORD(N9,2)=B+YY
+        GO TO 777
+
+*
+*       ADD COMMAND EXECUTION
+*
+
+1001    FORMAT (' LINE OR NODE ? '$)
+1000    CALL FMAG(1.,1.)
+        CALL PLOT(0.,6.35,-3)
+        CALL FMAG(PRAT,IRAT)
+        BLANK=0
+        TYPE 1001
+        ACCEPT 702,P1
+       IF((P1.EQ.5HL    ).OR.(P1.EQ.5HLI   ).OR.(P1.EQ.5HLIN  ))GOTO1100
+       IF((P1.EQ.5HN    ).OR.(P1.EQ.5HNO   ).OR.(P1.EQ.5HNOD  ))GOTO1020
+        GO TO 700
+
+
+*
+*       ADD NODE SUB-COMMAND
+*
+
+1010    FORMAT (' NAME: '$)
+1011    FORMAT (I)
+1012    FORMAT (' 201 : '$)
+
+1020    CALL FMAG(1.,1.)
+        CALL PLOT(0.,5.91,-3)
+        CALL FMAG(PRAT,IRAT)
+        TYPE 861
+        ACCEPT 1011,N2
+        IF (N2.EQ.0) GO TO 1000
+1006    FORMAT (' WHERE ? '$)
+1005    FORMAT (' NODE ALREADY EXISTS !'/)
+
+        DO 1031 K=1,(J-1)
+        IF (NODNUM(K).EQ.N2) GOTO 1024
+        
+1031    CONTINUE
+        GO TO 1025
+
+1024    CALL FMAG(1.,1.)
+        CALL PLOT(0.,1.07,-3)
+        CALL FMAG(PRAT,IRAT)
+        TYPE 1005
+        GO TO 1000
+
+1025    CALL FMAG(1.,1.)
+        CALL PLOT(0.,2.39,-3)
+        CALL FMAG(PRAT,IRAT)
+        TYPE 1006
+        ACCEPT 1011,N3
+        J=J+1
+
+        K1=J
+        CALL FIND(K1)
+        K=K1
+        NODNUN2
+        N9=INDEX(N2)
+
+        CALL FMAG(1.,1.)
+        CALL PLOT(0.,5.03,-3)
+        CALL FMAG(PRAT,IRAT)
+        TYPE 1010
+        ACCEPT 3,(NODNAM(N9,I,1),I=1,4),(NODNAM(N9,I,3),I=1,4)
+        CALL FMAG(1.,1.)
+        CALL PLOT(0.,4.59,-3)
+        CALL FMAG(PRAT,IRAT)
+        TYPE 1012
+        ACCEPT 3,(NODNAM(N9,I,2),I=1,4)
+        CALL CROSS(L,M)
+        A=FLOAT(L)/(100.*PRAT)
+        B=FLOAT(M)/(100.*PRAT)
+        NODORD(N9,1)=A+XX
+        NODORD(N9,2)=B+YY
+        CALL DRAW(K,R)
+
+        CALL FMAG(1.,1.)
+        CALL PLOT(0,7.67,-3)
+        CALL FMAG(PRAT,IRAT)
+        GO TO 777
+
+*
+*       ADD LINE SUB-COMMAND
+*
+
+1106    FORMAT (2I)
+1105    FORMAT (A4)
+1104    FORMAT (' GROUPS : '$)
+1103    FORMAT (' NODE,PORT : '$)
+1102    FORMAT (' 4800 : '$)
+1101    FORMAT (2A5)
+
+1100    CALL FMAG(1.,1.)
+        CALL PLOT(0.,5.03,-3)
+        CALL FMAG(PRAT,IRAT)
+        TYPE 1010
+        ACCEPT 1101,P(1),P(2)
+        CALL FMAG(1.,1.)
+        CALL PLOT(0.,4.15,-3)
+        CALL FMAG(PRAT,IRAT)
+        TYPE 1102
+        ACCEPT 1105,P(3)
+        CALL FMAG(1.,1.)
+        CALL PLOT(0.,3.71,-3)
+        CALL FMAG(PRAT,IRAT)
+        TYPE 1104
+        ACCEPT 1011,GROUP
+        CALL FMAG(1.,1.)
+        CALL PLOT(0.,3.27,-3)
+        CALL FMAG(PRAT,IRAT)
+        TYPE 1103
+        ACCEPT 1106,N1,P1
+
+        CALL FMAG(1.,1.)
+        CALL PLOT(0.,2.83,-3)
+        CALL FMAG(PRAT,IRAT)
+        TYPE 1103
+        ACCEPT 1106,N2,P2
+
+        CALL FMAG(1.,1.)
+        CALL PLOT(0.,2.39,-3)
+        CALL FMAG(PRAT,IRAT)
+        TYPE 1006
+        ACCEPT 6,N3
+        DO 1120 K=1,(J-1)
+        IF (NODNUM(K).EQ.N3) GO TO 1122
+1120    CONTINUE
+
+        CALL FMAG(1.,1.)
+        CALL PLOT(0.,1.51,-3)
+        CALL FMAG(PRAT,IRAT)
+        TYPE 862
+        GO TO 1000
+
+1122    J=J+1
+        K1=J
+        CALL FIND(K1)
+        K=K1
+        NODNUM(K)=-1
+        DO 1123 I=1,8
+1123    LINE(K,I)=4H    
+        LINE(K,4)=N1
+        LINE(K,5)=P1
+        LINE(K,6)=N2
+        LINE(K,7)=P2
+
+        DO 1124 I=1,4
+1124    LINORD(K,I)=-30.
+
+        CALL DRAW(K,R)
+        CALL FMAG(1.,1.)
+        CALL PLOT(0,7.67,-3)
+        CALL FMAG(PRAT,IRAT)
+        LINE(K,1)=P(1)
+        LINE(K,2)=P(2)
+        LINE(K,3)=P(3)
+        LINE(K,8)=GROUP
+
+        CALL CROSS(L,M)
+        LINORD(K,1)=FLOAT(L)/(100.*PRAT)+XX
+        LINORD(K,2)=FLOAT(M)/(100.*PRAT)+YY
+        CALL CROSS(L,M)
+        LINORD(K,3)=FLOAT(L)/(100.*PRAT)+XX
+        LINORD(K,4)=FLOAT(M)/(100.*PRAT)+YY
+        CALL DRAW(K,R)
+        CALL FMAG(1.,1.)
+        CALL PLOT(0,7.67,-3)
+
+        CALL FMAG(PRAT,IRAT)
+        GO TO 777
+
+*       END OF ADD COMMAND EXECUTION
+*
+*
+*
+
+*
+*       ASSEMBLY DATA
+*
+
+        INTEGER SWITCH(20,8)
+
+9000    FORMAT('MACHNUM         E ',I4,'  MACHINE NUMBER')
+9001    FORMAT('NLINES          E ',I4,'D NUMBER OF 201 LINES')
+9002    FORMAT('NEIGH',I1,10X,'E ',I4,'  NEIGHBOR FOR LINE ',I1)
+9003    FORMAT('NGRPS',I1,10X,'E ',I4,'D NUMBER OF GROUPS ON LINE ',I1)
+9004    FORMAT('NUMGRP',10X,'E 32')
+9005    FORMAT('HOST0NUM',8X,'E',I4,'D HOST ZERO')
+9006    FORMAT('HOST1NUM',8X,'E',I4,'D HOST ONE')
+9007    FORMAT('NUMHOST',9X,'E',I2,2X,'NUMBER OF HOSTS')
+        DATA (SWITCH(1,I),I=1,8)/'CARD2','01   ',' ',
+     X  '  201',' CARD',' INST','ALLED',' '/
+        DATA (SWITCH(2,I),I=1,8)/'EBCD2','741  ',' ',
+     X  '  EBC','D 274','1S   ',2*' '/
+        DATA (SWITCH(3,I),I=1,8)/'MARKX','V    ',' ','  MAR','K XV ',
+     X  3*' '/
+        DATA (SWITCH(4,I),I=1,8)/'ONLY1','6    ',' ',
+     X  '  TER','MINAT','ES 16',' LINE','S    '/
+        DATA (SWITCH(5,I),I=1,8)/'PRINT','ER   ',' ','  PRI','NTER ',
+     X  3*' '/
+        DATA (SWITCH(6,I),I=1,8)/'MACH1','2K   ',' ',
+     X  '  12K',' MACH','INE  ',2*' '/
+        DATA (SWITCH(7,I),I=1,8)/'COMS ',2*' ',
+     X  '  COM','NET  ',3*' '/
+        DATA (SWITCH(8,I),I=1,8)/'MGHS ',2*' ',
+     X  '  MAS','GEN  ',3*' '/
+        DATA (SWITCH(9,I),I=1,8)/'OSUS ',2*' ',
+     X  '  OHI','O ST.',3*' '/
+        DATA (SWITCH(10,I),I=1,8)/'DRIS ',2*' ',
+     X  '  DRI',4*' '/
+        DATA (SWITCH(11,I),I=1,8)/'PDP10',2*' ',
+     X  '  PDP','10   ',3*' '/
+        DATA (SWITCH(12,I),I=1,8)/'QUASI','SBOD ',' ',
+     X  '  NEW',' STAR','T BAU','D COD','E    '/
+        DATA (SWITCH(13,I),I=1,8)/'DUALB','ASE  ',' ',
+     X  '  DUA','L BAS','E    ',2*' '/
+        DATA (SWITCH(14,I),I=1,8)/'NLMS ',2*' ',
+     X  '  NLM',4*' '/
+        DATA (SWITCH(15,I),I=1,8)/'BAUD1','2    ',' ',
+     X  '  120','0 BAU','D LIN','E    ',' '/
+        DATA (SWITCH(16,I),I=1,8)/'BAUD4','8    ',' ',
+     X  '  480','0 BAU','D  DE','FAULT','=2400'/
+        DATA (SWITCH(17,I),I=1,8)/'BAUD9','6    ',' ',
+     X  '  960','0 BAU','D    ',2*' '/
+
+
+9106    FORMAT('*')
+9107    FORMAT(1X,2A5)
+
+9108   FORMAT(3I1,A2,A5)
+9109    FORMAT(I3)
+9110    FORMAT(3I1)
+9111    FORMAT(' NON-EXISTANT NODE ',I4,' !!')
+9112    FORMAT(10A1)
+9113    FORMAT (3A5,3H E ,I2,5A5)
+
+*
+        INTEGER TFIL(2)
+
+
+*
+
+*
+
+*
+*       GENERATE TYMSAT CODE COMMAND EXECUTION
+*
+
+        INTEGER ASMBL(400)
+1200    CALL RELEAS(1)
+*
+*
+
+
+*
+*
+*
+        IF ((NTERM.EQ."520000).OR.(NTERM.EQ."320000).OR.
+     X  (NTERM.EQ."120000)) CALL PLOTS(IXI)
+1201    FORMAT(1X,': '$)
+
+1209    TYPE 1201
+        ACCEPT 702,P1
+        DO 1241 NI=1,400
+        
+1241    ASMBL(NI)=0
+        NDIF=0
+
+*
+*       ASSEMBLE FROM SEQUENTIAL TTY INPUT STRING.
+*
+
+        IF((P1.EQ.5HA    ).OR.(P1.EQ.5HAS   ).OR.(P1.EQ.5HASS  ))
+     X  GO TO 1250
+
+*
+*       ASSEMBLE BY COMPARING DATA AGINST SOME PREVIOUS DATA
+*       TO DETERMINE CHANGES.
+*
+
+        IF((P1.EQ.5HG    ).OR.(P1.EQ.5HGE   ).OR.(P1.EQ.5HGEN  ))
+     X  GO TO 1210
+
+*
+*       MANUAL LINK TO THE VARIAN ASSEMBLER.
+*
+
+        IF((P1.EQ.5HL    ).OR.(P1.EQ.5HLI   ).OR.(P1.EQ.5HLIN  ).OR.
+     X  (P1.EQ.5HLINK )) GO TO 1300
+
+        IF((P1.EQ.1HQ).OR.(P1.EQ.5HQU   ).OR.(P1.EQ.5HQUI  ))GOTO1208
+        GO TO 1209
+1208    IF ((NTERM.EQ."520000).OR.(NTERM.EQ."320000).OR.
+     X  (NTERM.EQ."120000)) CALL PLOTS(IXI)
+        GO TO 700
+
+
+
+*
+*       GENERATE SUB-COMMAND EXECUTION
+*
+
+1205    FORMAT(' OLD BASE FILE ? '$)
+
+1210    TYPE 1205
+        INTEGER REF(2)
+        ACCEPT 1101,(REF(LX),LX=1,2)
+        OPEN (1,REF,INPUT)
+        IPS = 1
+        DO 1212 K=1,500
+        DO 1213 I=1,14
+1213    M(I)=0
+
+        READ (1,4,END=1211),Z,M
+
+        IF (Z-KON)1218,1215,1218
+1215    DECODE(70,1,M)N,(P(L),L=1,12),X,Y,IS1,IS2
+
+        
+        IF (NODMAP(INDEX(N),1).EQ.0) GO TO 1212
+        NOD=N
+        IF((IS1.EQ.NODMAP(INDEX(N),9)).AND.(IS2.EQ.NODMAP(INDEX(N),10)))
+     X  NOD=-N
+
+        IF (ASMBL(INDEX(N)).LT.1) ASMBL(INDEX(N))=NOD
+        GO TO 1212
+
+1218    DECODE(70,2,M)P(1),P(2),P(3),X,Y,Q,R,N1,P1,N2,P2,GROUP
+
+        IF(NODMAP(INDEX(N1),1).EQ.0) GO TO 1217
+        
+
+
+        NOD=N1
+        IF(NODMAP(INDEX(N1),(P1+1)).EQ.(N2+GROUP*10000)) NOD=-N1
+        IF (ASMBL(INDEX(N1)).LT.1) ASMBL(INDEX(N1))=NOD
+1217    IF (NODMAP(INDEX(N2),1).EQ.0) GO TO 1212
+        NOD =N2
+        IF(NODMAP(INDEX(N2),(P2+1)).EQ.(N1+GROUP*10000)) NOD =-N2
+        IF (ASMBL(INDEX(N2)).LT.1) ASMBL(INDEX(N2))=NOD
+
+
+1212    CONTINUE
+        STOP
+
+1211    K=1
+
+
+
+        DO 1275 L=1,500
+
+
+        IF (NODNUM(L).LT.1) GO TO 1275
+        IF (ASMBL(INDEX(NODNUM(L))).EQ.0)
+     X  ASMBL(INDEX(NODNUM(L)))=NODNUM(L)
+        IF (ASMBL(INDEX(NODNUM(L))).LT.0)
+     X  ASMBL(INDEX(NODNUM(L)))=0
+
+
+
+
+1275    CONTINUE
+
+
+
+        CLOSE (1)
+        GO TO 1255
+
+*
+*       ASSEMBLE SUB-COMMAND EXECUTION
+*
+
+1250    TYPE 1202
+1202    FORMAT(1X,'* '$)
+1203    FORMAT(400I)
+1204    FORMAT(1X,I4)
+1206    FORMAT(2A1)
+1207    FORMAT(' NO DIFFERENCES !'/)
+
+        ACCEPT 1203,ASMBL
+
+*
+*       ENTRY FOR GENERATE SUB-COMMAND
+*
+
+1255    NN=JOB(L)
+        NT=2HVA
+        NT1=5HS.TMP
+        ENCODE(3,9109,L)NN
+        DECODE(3,9110,L)NN1,NN2,NN3
+        ENCODE(10,9108,TFIL)NN1,NN2,NN3,NT,NT1
+        OPEN(1,TFIL,OUTPUT)
+
+*
+        DO 1260 II=1,400
+        NLM=0
+        IF (ASMBL(II).EQ.0) GO TO 1260
+        IF(((ASMBL(II).GT.30).AND.(ASMBL(II).LT.41)).OR.
+     X  ((ASMBL(II).GT.50).AND.(ASMBL(II).LT.61))) NLM=-1
+        
+        NHOST0=0
+        NHOST1=0
+        NDUAL=0
+
+        DO 1219 K=1,4
+        IF(NODNAM(INDEX(ASMBL(II)),K,1).EQ.5H     ) GO TO 1224
+
+        MK(K)=NODNAM(INDEX(ASMBL(II)),K,1)
+        IF (MK(K).NE.1H-) GO TO 1219
+        MK(K)=1HX
+        NDUAL=-1
+        KS=K
+        LT=K-2
+        L=0
+        ENCODE(3,1206,L)(MK(KL),KL=2,(K-1))
+        DECODE(3,9109,L)NHOST0
+        NHOST0=NHOST0/(10**(3-LT))
+1219    CONTINUE
+        K=5
+        DO 1223 KK=1,2
+        IF (NODNAM(INDEX(ASMBL(II)),KK,3).EQ.5H     ) GO TO 1224
+        MK(K)=NODNAM(INDEX(ASMBL(II)),KK,3)
+        IF (MK(K).NE.1H-) GO TO 1223
+        MK(K)=1HX
+        NDUAL=-1
+        KS=K
+        LT=K-2
+        L=0
+        ENCODE(3,1206,L)(MK(KL),KL=2,(K-1))
+        DECODE(3,9109,L)NHOST0
+
+        NHOST0=NHOST0/(10**(3-LT))
+1223    K=K+1
+1224    IF (ASMBL(II).GT.999) GO TO 1227
+        IF (NDUAL.EQ.-1) GO TO 1226
+        LT=K-3
+        L=0
+        ENCODE(3,1206,L)(MK(KL),KL=2,(K-2))
+        DECODE(3,9109,L)NHOST0
+        NHOST0=NHOST0/(10**(3-LT))
+        GO TO 1227
+
+1226    LT=K-KS-2
+        L=0
+        ENCODE(3,1206,L)(MK(KL),KL=(KS+1),(K-2))
+        DECODE(3,9109,L)NHOST1
+        NHOST1=NHOST1/(10**(3-LT))
+
+1227    MK(K)=1H,
+        L=K+1
+        K=K-1
+        
+        DO 1220 I=L,(L+K-1)
+1220    MK(I)=MK(I-K-1)
+
+        L=L+K
+*
+*       "575004020100 = OCTAL FOR 1H_ (BACK ARROW), NOT IN FIV SET.
+*
+
+        MK(L)="575004020100
+        L=L+1
+        JI=L
+
+        DO 1225 I=L,(L+K-1)
+1225    MK(I)=MK(I-2*K-2)
+        L=L+K
+
+        MK(L)=1H.
+        L=L+1
+        MK(L)=1HT
+        L=L+1
+        MK(L)=1HY
+        L=L+1
+        MK(L)=1HM
+
+        ENCODE(70,804,M)(MK(MM),MM=JI,L)
+**
+        DO 1230 KK=1,8
+1230    IF (NODMAP(INDEX(ASMBL(II)),KK).EQ.0) GO TO 1231
+        KK=9
+1231    IF (KK.NE.1) GO TO 1235
+        TYPE 9111,ASMBL(II)
+        GO TO 1260
+1235    OPEN(4,M,OUTPUT)
+        NDIF=-1
+        KK=KK-1
+        WRITE(4,9000)ASMBL(II)
+        WRITE(4,9001)KK
+
+        IF (ASMBL(II).GT.999) GO TO 1228
+        WRITE(4,9005)NHOST0
+        IF (NLM.EQ.-1) GO TO 1229
+        WRITE(4,9006)NHOST1
+        WRITE (4,9004)
+
+        NP=2
+        IF (NDUAL.NE.-1)GO TO 1229
+
+        WRITE(4,9007)NP
+        GO TO 1228
+
+1229    NP=1
+        WRITE(4,9007)NP
+        NP=2
+        IF (NLM.NE.-1) GO TO 1228
+        LN=1
+        GO TO 1236
+
+
+1228    LN=3
+        IF (ASMBL(II).LT.1000) LN=8
+        IF ((NDUAL.EQ.0).AND.(ASMBL(II).LT.1000)) LN=5
+1236    DO 1232 LL=1,LN
+        N0=NODMAP(INDEX(ASMBL(II)),LL)
+        P(LL)=N0/10000
+        N0=N0-P(LL)*10000
+        LX=LL-1
+1232    WRITE(4,9002)LX,N0,LX
+
+        DO 1233 LL=1,LN
+        LX=LL-1
+1233    WRITE(4,9003)LX,P(LL),LX
+        WRITE(4,9106)
+        P(11)=NODMAP(INDEX(ASMBL(II)),9)
+        P(12)=NODMAP(INDEX(ASMBL(II)),10)
+        DECODE(10,9112,P(11))(P(LX),LX=1,10)
+        DO 1240 LX=1,NUMSW
+        NTRUE=-1
+
+        DO 1245 LXX=1,10
+        NX="77+P(LXX)/"4000000000
+        IF (NX.EQ.LX) GO TO 1243
+1245    CONTINUE
+        NTRUE=0
+1243    WRITE (4,9113)(SWITCH(LX,LK),LK=1,3),NTRUE,(SWITCH(LX,LK),LK
+     X  =4,8)
+
+        
+1240    CONTINUE
+        CLOSE(4)
+        
+        TYPE 9107,(M(IL),IL=1,2)
+        L=L+1
+        MK(L)=1H,
+        L=L+1
+        MK(L)=1HR
+        IF (ASMBL(II).LT.1000) MK(L)=1HB
+        IF (NLM.EQ.-1) MK(L)=1HN
+        L=L+1
+        MK(L)=1HS
+        L=L+1
+        MK(L)=1HY
+        L=L+1
+        MK(L)=1HM
+        L=L+1
+        MK(L)=1H.
+        L=L+1
+        MK(L)=1HV
+        L=L+1
+        MK(L)=1HC
+        L=L+1
+        MK(L)=1HD
+        
+*
+        WRITE (1,804)(MK(I),I=1,L)
+1260    CONTINUE
+        IF (NDIF.EQ.0) TYPE 1207
+1270    CLOSE (1)
+
+        GO TO 1209
+*
+*       LINK SUB-COMMAND EXECUTION
+*
+
+        INTEGER NB(3)
+1300    NB(1)=5H6,360
+        NB(2)=(5H22   )
+        CALL RUN('SYS','VAS',0,1)
+        STOP
+
+
+*
+*       SORT COMMAND EXECUTION
+*
+
+1500    Y=18.-YY
+        X=26.5-XX
+1501    FORMAT(I4,2H  ,8A1,2H  ,2A5,2(2H   ,F5.1),4H    )
+1502    FORMAT(9A5)
+
+        DO 1520 LL=1,400
+        L=LL
+        IF (LL.GT.199) L=LL+800
+        IF (NODMAP(LL,1).EQ.0) GO TO 1520
+
+        ENCODE(45,1501,M)L,(NODNAM(LL,I,1),I=1,4),
+     X  (NODNAM(LL,I,3),I=1,4),
+     X  (NODMAP(LL,I),I=9,10),(NODORD(LL,I),I=1,2)
+
+        DECODE(45,1502,M)(MK(I),I=1,8)
+        A=X
+        DO 1522 I=1,8
+
+        CALL SYMBOL(A,Y,.12,MK(I),0.,5)
+
+1522    A=A+.59
+        Y=Y-.20
+1520    CONTINUE
+
+*
+*       DISPLAY LEDGEND
+*
+
+        X=23.-XX
+        Y=13.-YY
+
+        LED=4HA = 
+        DO 1525 I=1,NUMSW
+        CALL SYMBOL(X,Y,.12,LED,0.,4)
+        Y=Y-.2
+1525    LED=LED+"4000000000
+
+        X=23.3-XX
+        Y=13.-YY
+        DO 1530 I=1,NUMSW
+        XL=X
+        DO 1533 LK=4,8
+        CALL SYMBOL (XL,Y,.12,SWITCH(I,LK),0.,5)
+1533    XL=XL+.59
+1530    Y=Y-.2
+        
+        GO TO 700
+
+*
+*
+*       SCALE COMMAND EXECUTION
+*
+*
+
+1602    FORMAT(F4.2)
+1600    TYPE 1601
+1601    FORMAT(' RATO ? '$)
+
+        ACCEPT 1602,PRAT
+        IRAT=1./PRAT
+        CALL FMAG(PRAT,IRAT)
+        CALL PLOTS(IXI)
+        GO TO 700
+
+        END
+    
+h.]
