@@ -1,0 +1,753 @@
+
+
+
+
+
+                          DUMP.MAN
+
+     PRELIMINARY Design Specification For DUMP Program
+
+          Date:     Mar 5, 1970
+
+          Author:   Don Black
+
+          File:     DUMP.RNO %004
+
+                The information in this memorandum
+                is   subject   to  change  without
+                notice and should not be construed
+                as   a   commitment   by   Digital
+                Equipment Corporation.
+
+                     This   is    a    PRELIMINARY
+                specification  and  will  probably
+                change during implementation.
+
+PRELIMINARY Design Specification for DUMP Program   PAGE   2
+
+
+
+1.0  OVERVIEW
+
+1.1  Function
+
+DUMP is a program to provide printable dumps of  data  files
+in  modes  and  forms  selected by the user, with particular
+emphasis on core image files.
+
+1.2  Relations to other Programs
+
+DUMP will accept as input any data file, and will produce as
+output   an  ASCII  file  suitable  for  listing  by  output
+spoolers, PIP, or other listing program.  In particular,  it
+will  accept  a  core  image  file  prepared  by  the DAEMON
+program, or any SAVE file produced by the  monitor,  or  any
+file in the same format.
+
+1.3  Design Goals
+
+      1.  To provide enough flexibility to be able to  print
+          reasonable information from a core-image file of a
+          crashed  monitor,  thus  replacing  FILDDT  as   a
+          monitor debugging tool.
+
+      2.  To provide enough flexibility to be able to  print
+          a user's data base in the format he desires.
+
+      3.  To provide an easier syntax that DDT
+
+      4.  To run faster than DDT
+
+      5.  To  dump  arbitrary  files  in  commonly   desired
+          formats.
+
+      6.  NOT to provide an  arbitrary  magnetic  tape  dump
+          program.
+
+1.4  References
+
+2.0  General Description
+
+The user describes his  input  file,  its  format,  and  any
+control  over output format he wishes.  Quite frequently the
+file will be prepared  by  the  DAEMON  program.   User  may
+describe  his  data  base and have those portions he selects
+listed.
+
+PRELIMINARY Design Specification for DUMP Program   PAGE   3
+
+
+
+3.0  Glossary and Definitions
+
+expression               a  number  (octal  or  decimal),  a
+                         symbol,  or  arithmetic  operations
+                         using  expressions   [+,-,*,/,   ^,
+                         grouping with ()]
+
+symbol                   a string of SIXBIT  characters,  or
+                         symbol1:symbol2,    where   symbol1
+                         defines  the  symbol  table   which
+                         contains symbol2
+
+text string              any string of  characters  enclosed
+                         in   single  quotes  (').   Special
+                         characters may  be  represented  by
+                         patterns  of  graphic characters so
+                         the   string   need   not   contain
+                         non-graphic     characters.      To
+                         override these special patterns,  a
+                         double  quote  (",  not  two single
+                         quotes  '')  means  take  the  next
+                         character  as is, without including
+                         it as part of a special pattern.
+
+special characters       the following patterns are  defined
+                         to  represent  special  non-graphic
+                         characters and will be replaced  in
+                         output  strings  by  the characters
+                         represented, unless a double  quote
+                         (") occurrs.
+                         <EL>=new line <CR-LF>
+                         <VT>=vertical tab
+                         <FF>=form feed
+                         <AL>=altmode
+                         <HT>=horizontal tab
+                         ^<letter>= control  <letter>  (i.e.
+                         -100)
+                         \<letter>= lower case letter  (i.e.
+                         +40)
+
+byte descriptor          description of byte in  input  file
+                         to be dumped.  Format is
+                         WORDS<POS,SIZE>
+
+                         WORDS specifies the address of  the
+                         word  desired.   Finding  the  word
+                         depends on the type  of  the  input
+                         file.
+
+                         POS specifies position in the  word
+                         of  the beginning of the byte.  POS
+                         specifies the number of bits to the
+                         left  of  the  leftmost  bit in the
+
+PRELIMINARY Design Specification for DUMP Program   PAGE   4
+
+
+
+                         byte (i.e the leftmost bit  in  the
+                         word is referenced as 0).
+
+                         SIZE specifies the number  of  bits
+                         in the byte.  SIZE may be any size;
+                         it  may   cross   word   or   block
+                         boundaries.
+
+                         Any  of  the   arguments   may   be
+                         expressions.   Any of the arguments
+                         may be modified  by  the  following
+                         operators:
+
+                         X specifies a 36 bit quantity which
+                         is  the  value  of  the  symbol  or
+                         expression
+
+                         [X specifies the 36 bit contents of
+                         the  location  named  in  the  file
+                         being dumped by the value of symbol
+                         or expression X
+
+                         @X specifies that the rightmost  23
+                         bits  of  the value or expression X
+                         are to be evaluated as an effective
+                         address,   including  indexing  and
+                         indirect evaluation
+
+                         \X specifies that the rightmost  18
+                         bits  of  the value or expression X
+                         are the value specified.
+
+
+byte descriptor addition byte descriptor addition is defined
+                         as follows:
+
+                         A<B,C>+A1<B1,C1>=
+
+                         A+A1+[INT (B+B1)/36] + [1 if  D  GT
+                         35 else 0 if D LE 35]
+                           <[D if D LE 35 else  0  if  D  GT
+                         35], C>
+
+                         where D=[(B+B1) MODULO 36] + C1
+
+                         Thus addresses add,  positions  add
+                         and  may overflow, then the size of
+                         the second byte descriptor is added
+                         to  the  position of the first, and
+                         if  it  overflows  the  word,   the
+                         position  is  reset to beginning of
+                         the next word, thus acting like the
+                         PDP-10  byte incrementing hardware.
+
+PRELIMINARY Design Specification for DUMP Program   PAGE   5
+
+
+
+                         Observe that this addition  is  not
+                         symmetric.             Subtraction,
+                         multiplication,  and  division  are
+                         not defined.
+
+dump descriptor          a dump descriptor has the form
+
+                         byte descriptor 1 & byte descriptor
+                         2 & byte descriptor 3
+
+                         byte  descriptor  1  specifies  the
+                         first  byte  to  be  dumped.   byte
+                         descriptor 2 if  present  specifies
+                         the  last  byte  to be dumped (note
+                         that if size is specified in  both,
+                         they   must   agree   or  an  error
+                         results).  Byte  descriptor  3,  if
+                         present,  specifies an increment to
+                         be  added  to  the   current   byte
+                         descriptor  to get the next byte to
+                         be dumped.  The process is repeated
+                         until  a  byte  descriptor which is
+                         greater than the  terminating  byte
+                         descriptor    is   reached.    Byte
+                         descriptor a is greater  than  byte
+                         descriptor  b  if  address  of a is
+                         greater than address of  b,  or  if
+                         addresses are equal, if position of
+                         a is greater than  position  of  b.
+                         Thus,   the   input   file  may  be
+                         considered  a   string   of   bits,
+                         starting  with bit 0 of word 0, and
+                         is   bit   addressable.    A   byte
+                         descriptor    is   similar   to   a
+                         fractional  representation  of  the
+                         bits,   with  the  integer  portion
+                         being  the  word  address  and  the
+                         fraction portion being the position
+                         of the bit in the word.
+
+4.0  Command Format
+
+4.1  Asterisk Format
+
+DUMP accepts commands of the form
+
+verb arguments
+
+Lines may be continued by typing - (hyphen)  followed  by  a
+break character.  See section 4.1.2 for the verbs.
+
+4.1.1  Positional Arguments
+
+PRELIMINARY Design Specification for DUMP Program   PAGE   6
+
+
+
+none
+
+4.1.2  Keyword arguments (verbs)
+
+MODES=  any of ASCII, SIXBIT, RADIX50,OCTAL, SOCTAL, DECIMAL
+FLOATING,  SYMBOLIC,  NULL,  SMART, ALL.  RADIX50, FLOATING,
+SYMBOLIC, and SMART are  not  yet  implemented  but  may  be
+specified; they are no-ops.
+
+ASCII, SIXBIT, RADIX50, FLOATING, ALL are  self-explanatory.
+OCTAL dumps as half words separated by 2 commas, i.e.  n,,m.
+SOCTAL dumps as signed octal, i.e.  + or - n.  DECIMAL dumps
+as  signed  decimal, i.e.  + or - n.  SYMBOLIC tries to find
+symbols for  quantities.   NULL  declares  that  nothing  be
+printed, SMART makes the best guess.
+
+ALL
+
+Dumps the whole file.
+
+APPEND
+
+Specifies that output is to be appended to the output file
+
+AUTOFORM ON or OFF
+
+If on, DUMP tries to make the output neat; if off,  user  is
+responsible for all formatting.
+
+BEGIN
+
+Specifies the beginning of a block of verbs.  The  following
+are  saved  and  restored  at  the corresponding END: none -
+BEGIN is currently a no-op.
+
+CATEGORY mnemonic
+
+DAEMON dumps have several  categories;  DDB'S,  monitor  job
+tables,  core  image,  etc.   This  specifies which is to be
+selected.  Categories include JOB (job information),  CONFIG
+(configuration  table from monitor), DDB (user's DDB's), and
+CORE  (user's  core).   Addressing  begins  with  0  at  the
+beginning of the category.
+
+CLOSE
+
+Closes the output file.
+
+COFILE <file descriptor>
+
+Specifies  the  file  to  be  used  in  a  comparison  dump.
+Defaults=DSK:,the   same   file  name  as  the  input  file,
+extension one of the type of  SAVE  file  extensions  (.SAV,
+
+PRELIMINARY Design Specification for DUMP Program   PAGE   7
+
+
+
+.SHR, .HGH, .LOW, .XPN), directory 0.
+
+COMPARE dump descriptor, dump descriptor, ...
+
+Performs a comparison dump, listing only differences between
+input file and comparison file.  NOT YET IMPLEMENTED.
+
+DELSYM symbol
+
+Deletes symbol from its symbol table.  NOT YET IMPLEMENTED.
+
+DENSITY expression
+
+Specifies the density of the input file in bpi
+
+D dump descriptor, dump descriptor, ...
+
+Same as DUMP.
+
+DO
+
+Do statement.  NOT YET IMPLEMENTED.
+
+DUMP dump descriptor, dump descriptor, ...
+
+Dumps specified bytes in the current modes.
+
+EJECT
+
+Starts a new page in the output file.
+
+END
+
+Terminates a block of verbs and  restores  values  saved  at
+BEGIN.  END is currently a no-op.
+
+EXIT
+
+Closes the output file if any and exits to monitor.
+
+IF (expression) <verb>
+
+<verb> may be any verb, including IF, or BEGIN <sequence  of
+verbs>  END.  Nesting is allowed; IF may be specified in the
+sequence of  verbs.   <verb>  will  performed  once  if  the
+expression   is   true,   not  if  it  is  false.   NOT  YET
+IMPLEMENTED.
+
+INDEX
+
+Specifies that an index is to be added to  be  output  file.
+(FUTURE) NOT YET IMPLEMENTED.
+
+PRELIMINARY Design Specification for DUMP Program   PAGE   8
+
+
+
+INPUT <file descriptor>
+
+Specifies the input file.   Defaults=DSK:,  file  nnnDAE.TMP
+where  nnn  is  the job number, directory 0.  This file will
+not  be  read  from  TMPCOR.   If  any  part  is  specified,
+defaults=DSK:,  extension  one  of  .DAE,  .SAV, .SHR, .HGH,
+.LOW, .XPN, checked in that order, directory 0.  If the file
+type  is  specified,  that determines the default extension.
+If no file type is specified, if an extension is found, that
+determines the file type.
+
+INSTRUCTION ON or OFF
+
+Specifies that bytes are to be dumped as instructions or  36
+bit words.  NOT YET IMPLEMENTED.
+
+IOFFSET expression, expression, expression
+
+The first two arguments specify the beginning and the end of
+a  region  in  the  input  file  to  be  offset by the third
+expression.  If a location  requested  falls  in  the  range
+specfied,  the offset will be added to the specified address
+to get the actual address of the  location  to  be  fetched.
+NOT YET IMPLEMENTED.
+
+IRADIX expression
+
+Specify radix for numbers for input.  Initially  set  to  10
+(decimal).  If expression=0, revert to standard.
+
+JUSTIFY LEFT or CENTER or RIGHT
+
+Specifies how the output is to be justified  in  the  output
+field.   If the output overflows the output field, the whole
+output appears; it is not truncated.  NOT YET IMPLEMENTED.
+
+LEFTMARGIN expression
+
+Sets the left margin of the output file.
+
+LINEPAGE expression
+
+Specifies the number of lines per page for output.
+
+LISTAB symbol, symbol,..., symbol  table,  symbol  table,...
+INPUT, OUTPUT, ALL.
+
+This defines the current list of  symbols  to  be  searched.
+May  be  for  both  input  and  output  or  either.  NOT YET
+IMPLEMENTED.
+
+M is the same as MODES.
+
+PRELIMINARY Design Specification for DUMP Program   PAGE   9
+
+
+
+NUMPAGE expression
+
+If expression=0, turn off page numbering.  If expression not
+equal   0,   turn   on  page  numbering  to  begin  at  page
+<expression>.
+
+OOFFSET expression, expression, expression
+
+The first two expressions specify the beginning and the  end
+of  a  region  in  the  output  to  be  offset  by the third
+expression.  If a value to be  output  falls  in  the  range
+specified,  the offset will be added to the value to get the
+actual value to be output.  NOT YET IMPLEMENTED.
+
+ORADIX expression
+
+Specifies the radix for output numbers.  Initially set to 10
+(decimal).  If expression=0, revert to standard.
+
+OUTPUT <file descriptor>
+
+Specifies the output file.  Defaults=LPT:, same file name as
+input file, extension .LSD, DIRECTORY 0.
+
+PAGELIMIT expression
+
+Expression specifies the  maximum  number  of  pages  to  be
+listed
+
+PARITY EVEN or ODD
+
+Sets parity
+
+POP symbol
+
+The top item on the stack is popped off the stack and stored
+as the value of the symbol.  NOT YET IMPLEMENTED.
+
+PROGSYM ON or OFF
+
+If ON symbols are output as symbol1:symbol2 where symbol1 is
+the  program  in  which  symbol2 is found.  If OFF, only the
+symbol itself is output.  On  input  the  program  name  may
+always be typed.  NOT YET IMPLEMENTED.
+
+PUSH expression
+
+Pushes the expression onto the top of the  stack.   NOT  YET
+IMPLEMENTED.
+
+RIGHTMARGIN expression
+
+PRELIMINARY Design Specification for DUMP Program   PAGE  10
+
+
+
+Expression sets the right margin for the output file.
+
+SKPBLOCKS expression
+
+Specifies that expression blocks are to  be  skipped  before
+the next input.  NOT YET IMPLEMENTED.
+
+SKPFILES expression
+
+Specifies that expression files are to be skipped before the
+next input.  NOT YET IMPLEMENTED.
+
+SORT dump descriptor, dump descriptor, ...
+
+Specifies that a sorted list of the area  is  to  be  dumped
+(FUTURE) NOT YET IMPLEMENTED.
+
+SUBTITLE ON or OFF
+
+If ON, specifies that the last DUMP verb is to be output  in
+page headings.  NOT YET IMPLEMENTED.
+
+SUPERSEDE
+
+Specifies that the output is to supersede any  file  of  the
+same name (if it exists).
+
+SYMBOL symbol=expression
+
+Defines  symbol  to  have   value   expression.    NOT   YET
+IMPLEMENTED.
+
+SYFILE <file descriptor>
+
+Specifies the file from which to extract symbols  if  XTRACT
+switch specified.  Defaults=same as COFILE defaults.
+
+TABSYM symbol1=symbol, symbol, ...  , symbol  table,  symbol
+table, ...
+
+A symbol table  consisting  of  symbols  and  symbol  tables
+listed is created and named symbol1.  NOT YET IMPLEMENTED.
+
+TCOMPARE dump descriptor, dump descriptor
+
+Performs a comparison dump, listing only differences between
+the  input  file and the comparison file in bytes specified,
+with  output  on  both  output  file  and  TTY.    NOT   YET
+IMPLEMENTED.
+
+TDUMP dump descriptor, dump descriptor,...
+
+PRELIMINARY Design Specification for DUMP Program   PAGE  11
+
+
+
+Dumps  bytes  specified  to  both  output  file   and   TTY.
+Otherwise the same as DUMP.  NOT YET IMPLEMENTED.
+
+TITLE <string of characters>
+
+Specifies a title to be included in page headers.
+
+TSORT dump descriptor, dump descriptor, ...
+
+Same as SORT with output to both output file and  TTY.   NOT
+YET IMPLEMENTED.
+
+TYPE one of DAEMON, DATA, DECDIR, DECTAPE,  HGH,  LOW,  SAV,
+SHR, SDSK, XPN
+
+Specifies what type of input is to be processed.
+
+     DAEMON specifies the input file to be a  file  prepared
+     by DAEMON.
+
+     DATA specifies that the input file is a data  file  (no
+     special type).
+
+     DECDIR specifies that a directory dump  of  the  input,
+     which is a DECtape, is to be performed.
+
+     DECTAPE specifies that the input file is a DECtape, and
+     that no special directory listing is to be included.
+
+     HGH sies that the  input  file  is  in  .HGH  file
+     format.
+
+     LOW specifies that the  input  file  is  in  .LOW  file
+     format.
+
+     SAV specifies that the input  file  is  in  .SAVE  file
+     format
+
+     SHR specifies that the  input  file  is  in  .SHR  file
+     format
+
+     SDSK specifies that a SUPER-USETI dump of the  disk  is
+     to be performed
+
+     XPN specifies that the  input  file  is  in  .XPN  file
+     format.
+
+WIDTH expression
+
+Specifies the width in characters of the output field.   All
+bytes dumped will be written in a field of this width (until
+changed by another WIDTH switch), justified in  the  current
+justification  mode, unless the byte overflows the field, in
+
+PRELIMINARY Design Specification for DUMP Program   PAGE  12
+
+
+
+which case the whole byte is listed.  NOT YET IMPLEMENTED.
+
+XTRACT symbol
+
+Extracts the symbol table from the current symbol  file  and
+gives  the  symbol  table  the  name  specified.  If no name
+specified, no name is given to the symbol  table.   NOT  YET
+IMPLEMENTED.
+
+4.1.3  Indirect File Format
+
+Indirect files have the same form as asterisk format.
+
+4.1.4  Examples
+
+'DUMP SOME MONITOR TABLES'
+SYMBOL TABLEN=36*JBTMAX
+MODES OCTAL,SIXBIT
+DUMP [JBTPRG<0,TABLEN>
+MODES OCTAL
+DUMP          [JBTDIR<0,TABLEN>,          [JBTSWP<0,TABLEN>,
+[JBTSTS<0,TABLEN>, [JBTADR<0,TABLEN>
+'DUMP PARALLEL TABLES'
+DO INDEX=1,JBTMAX<MODES OCTAL,SIXBIT
+DUMP [(JBTDIR+INDEX)
+MODES OCTAL
+DUMP [(JBTSWP+INDEX),[(JBTSTS+INDEX),[(JBTADR+INDEX)>
+
+4.2   MONITOR COMMAND FORMAT
+
+4.2.1  DUMP command
+
+The dump command is a monitor command which first causes the
+DAEMON  program to write a core-image file, then to call the
+DUMP program to dump the appropriate parts.  Its format is
+
+DUMP  /verb /verb
+or DUMP   @<file descriptor>
+switches are the same as section 4.1.2.
+
+The indirect file has the same form as the  asterisk  format
+in section 4.1.1
+
+DUMP <CR> prints a standard short dump of the user's job; it
+is equivalent to
+DUMP @SYS:QUIKDM.CCL
+
+4.2.2  THE DCORE command is a monitor command  which  causes
+the  DAEMON program to write a core-image file of the user's
+core area (without destroying user's core).  It is different
+from  DUMP  in that it does not call DUMP; however, the file
+produced may be  processed  later  by  DUMP.   It  takes  an
+optional  argument,  the disk file (structure:name.ext[PPN])
+
+PRELIMINARY Design Specification for DUMP Program   PAGE  13
+
+
+
+on which to write the core-image file.   If  no  file  name,
+goes  to  nnnDAE.TMP.   If name specified, defaults are DSK:
+.DAE[0,0].
+
+4.3  CCL Entry Point
+
+The CCL entry point  causes  core  file  DMP  or  disk  file
+nnnDMP.TMP  to  be read as commands.  Its format is the same
+as the asterisk file format described in section 4.1.1.   If
+no file is found, asterisk mode begins.
+
+4.4 Alternate Entries
+
+4.4.1 REENTER will return to asterisk mode.
+
+5.0 Associated TTY Messages
+
+6.0 Listable Output
+
+7.0 File Formats
+
+7.1 Input file formats
+
+The input file may be of  any  form,  and  is  specified  by
+switches  or  verbs.   DAEMON  files  have  a  header  which
+contains a category number and the length  of  the  category
+(in  words  that  follow  the header), followed by the data.
+This is repeated for any number of categories.
+
+ Category 1=JOB=job information
+
+     word 0=the version number of DAEMON that wrote the file
+          1=the date the file was written in standard system
+            format
+          2=the time of day in  milliseconds  the  file  was
+            written
+          3=XWD job number, high segment number
+          4=RH=TTY line number, LH=reserved
+          5=JBTSTS (job status word) for job
+          6=JBTSTS for high segment
+          7=PRGPRG (project-programmer number) for job
+          8=PRJPRG for high segment
+          9=JBTPRG (user program name) for job
+         10=JBTPRG for high segment
+         11=TTIME (total time used) for job
+         12=JBTKCT (kilo-core-ticks) for job
+         13=JBTPRV (privilege bits) for job
+         14=JBTSWP (swapping parameters) for job
+         15=JBTSWP for high segment
+         16=JBTRCT (disk blocks read) for job
+         17=JBTWCT (disk blocks written) for job
+         18=JBTTDB   (time   of    day    of    last    disk
+            allocation+number  of disk blocks allocated) for
+
+PRELIMINARY Design Specification for DUMP Program   PAGE  14
+
+
+
+            job
+         19=JBTDEV (device or file structure name) for  high
+            segment
+         20=JBTNM1 (first half of user's name) for job
+         21=JBTNM2 (second half of user's name) for job
+         22=JBTCNO (charge number) for job
+         23=JBTTMP (TMPCOR parameters) for job
+         24=JBTWAT (WATCH bits) for job
+         25=JBTSPL (spooling control bits) for job
+         26=JBTRTD (real time status word) for job
+         27=JBTLIM (time limit in clock ticks) for job
+
+ Category 2=CONFIG=configuration table from GETTAB
+
+ Category 3=DDB=DDB's
+
+            Each DDB is preceeded by one word containing the
+            length of the DDB.
+
+ Category 4=CORE=job's core
+
+            The core is in zero-compressed format.
+
+9.0 Core Layout
+
+The low segment contains storage, the high segment  contains
+code and constants.  No other segments are called.
+
+10.  General Flow
+
+11.  Specific Critical Algorithms
+
+12.  Maintenance Aids
+
+13.  Coding Techniques
+
+13.1 Language - MACRO-10
+
+13.2 Register usage - 5 series monitor conventions
+
+14.  Assembling and Loading Considerations
+ 2@p=
