@@ -1,0 +1,1260 @@
+COMMENT    VALID 00017 PAGES VERSION 16-2(29)
+RECORD PAGE   DESCRIPTION
+ 00001 00001
+ 00003 00002	HISTORY
+ 00005 00003	
+ 00006 00004	
+ 00011 00005	These macros come in pairs, and exist so that the above-mentioned
+ 00015 00006	VARIOUS HANDY MACRO DEFINITIONS TO TRY TO MAKE THE CODE
+ 00021 00007	 MACHINE-EXTENDING MACROS (SOME USEFUL CONSTANT, STORAGE/STORAGE MANIPULATORS)
+ 00025 00008	  TELETYPE COMMUNICATION MACROS
+ 00028 00009	  INPUT/OUTPUT AIDS
+ 00033 00010	  MACROS FOR MANIPULATING SEMBLKS (SEE SAIL DATA DESCRIPTIONS)
+ 00035 00011	  MACROS FOR MANIPULATING SEMANTICS, CALLING GENERATOR ROUTINES,
+ 00040 00012	 Q-STACK HANDLERS
+ 00044 00013	 RANDOM OTHER MACROS
+ 00046 00014	TBITS DEFINITIONS
+ 00050 00015	 VARIOUS DEFINITIONS OF USER UUO'S.
+ 00052 00016	DSCR USER DATA AREA TEMPLATE  
+ 00060 00017	Global AC Definitions, Indices, Bits
+ 00065 ENDMK
+;
+COMMENT HISTORY
+AUTHOR,REASON
+021  202000000035  ;
+
+
+COMMENT 
+VERSION 16-2(29) 8-6-72 BY RHT ADD PRILIS TO USER TABLE
+VERSION 16-2(28) 8-3-72 BY JRL ADD MPBIND TO TBITS DEFS FOR MATCHING PROCEDURES
+VERSION 16-2(27) 7-27-72 BY RHT MAKE MACRO FOR DECLARING PD. ENTRIES
+VERSION 16-2(26) 7-20-72 BY JRL CHANGE ARRTYP VALUE
+VERSION 16-2(25) 7-20-72 BY RHT ADD PROCESS ITEM (TYPE 11)
+VERSION 16-2(24) 6-20-72 BY DCS BUG #HU# BETTER TTY INFORMATION
+VERSION 16-2(23) 5-16-72 BY DCS INTRODUCE VERSION 16
+VERSION 15-2(9-22) 5-4-72 LOTS OF THINGS
+VERSION 15-2(8) 2-19-72 BY RHT THE BRAVE NEW WORLD
+VERSION 15-2(7) 2-5-72 BY DCS BUG #GJ# ADD LSTON LISTING CONTROL STUFF
+VERSION 15-2(6) 2-5-72 BY DCS BUG #GI# REMOVE TOPSTR DUE TO NEW `CAT'
+VERSION 15-2(5) 2-1-72 BY DCS BUG #GE# INSTALL SYMB %ALLOC BLK INDICES
+VERSION 15-2(4) 1-31-72 BY DCS BUG #GE# UPDATE USER TABLE, %ALLOC BITS, INDICES
+VERSION 15-2(3) 1-3-72 BY DCS BUG #FX# REMOVE COM2, COM2SW COMPLETELY
+VERSION 15-2(2) 12-24-71 BY DCS BUG #FF# REMOVE SAILRUN(ASSUME RUNTIM OR LIB)
+VERSION 15-2(1) 12-2-71 BY DCS INSTALL VERSION NUMBER
+
+;
+COMMENT 
+	THIS IS THE FILE OF MACRO DEFINITIONS AND GLOBAL AC
+	ASSIGNMENTS FOR THE SAIL COMPILER, THE SAIL RUNTIME
+	ROUTINES.  NEEDLESS TO SAY, NOT ALL PORTIONS ARE USED
+	BY ALL PEOPLE.
+
+
+
+
+EXTERNAL  JOBSA,JOBREN,JOBUUO
+EXTERNAL JOBSYM,JOBFF,JOBREL,JOB41,JOBDDT,JOBCNI,JOBTPC,JOBUUO
+EXTERNAL JOBAPR
+
+
+
+SUBTTL	SAIL/GOGOL MACROS
+COMMENT 
+Conditional assembly runs rampant in SAIL.  Most of the switches are used to
+ select options (debug or no debug, etc.) Some are only valid at Stanford.
+ There is one, EXPORT, tested by the macros NOEXPO and EXPO, which decides
+ whether this is for Stanford or somebody else.
+
+We have a program which, by reading the SAIL files and looking for switch-
+ testing macros, can do the conditional assembly once and for all (removing
+ the conditional stuff from the files.  It is such a set of files which
+ we normally send out, so if you see some switches and macros below that
+ never get referenced, it's because that code was taken out of your files.
+
+The conditional assembly switches are assigned in the following files:
+
+DCS	DCS	_2				;SLS (experimental) system
+	FTDEBUG _1				;include debugging in cmplr
+
+;NOCOM	COM2SW	_0				;OBSOLETE SWITCH, WAS TO
+						; DISTINGUISH 2-SEG COMPILER
+WOM	DCS	_1				;WOM (experimental) system
+
+HEAD	EXPORT	_if NDEF then 0 else EXPORT
+	DCS	_if NDEF then 0 else DCS
+;	COM2SW	_if NDEF then 1 else 0
+	SIXSW	_if NDEF then (if EXPO then 0 else 1) else SIXSW ;sixbit PPN's
+	HEDSYM	_if NDEF then 0 else HEDSYM	;With HEDSYM on, assembling HEAD
+						; yields HEAD.REL, a symbol
+						; file for the USERCON function
+
+GLB	GLOBSW	_1				;runtimes know about glb mdl
+	FILXXX	_GLBSGn				;global model upper segment name
+	SLOFIL	_GLBLOW				;global model lower segment name
+
+LOW	SEGS	_1				;upper or lower assembly
+	LOWER	_1				;assembles SAILOW or GLBLOW
+	UPPER	_0
+
+UP	SEGS	_1
+	LOWER	_0
+	UPPER	_1				;assembles UPPER or GLOBAL
+
+FILSPC	FILXXX	_SAISGn				;SAIL upper segment name
+	SLOFIL	_SAILOW				;SAIL lower segment name
+	SGDEVC	_SYS				;device for segment files
+	SGPPNN	_0				;PPN for segment files
+	LOCSYM	_0				;no local uppers in lower file
+	NOPROT	_0				;want upper segment protected
+
+DB	FTDEBUG	_1
+
+SAIL	LEAPSW	_1				;LEAP exists
+	FTDEBUG	_if NDEF then 0 else FTDEBUG
+	GLOBC	_if LEAP and NOEXPO then 1 else if NDEF then 0 else GLOBC
+	PATSW	_if NDEF then 0 else PATSW	;compile AOS/SOS to PAT words
+	RENSW	_if NDEF then 1 else RENSW	;compile Re-entrant Code
+	TMPCSW	_if NDEF then (if EXPO then 1 else 0) else TMPCSW
+					;TMPCOR UUO available and used
+	 SAILRUN was a switch controlling some runtimes.  Now runtimes will
+	  be assembled to assume a compiler (since that's common anyway).
+
+GOGOL	UPPER	_if NDEF then 0 else 
+	UPPER	_if NDEF then 0 else UPPER
+	LOWER	_if NDEF then 0 else LOWER
+	SEGS	_UPPER or LOWER
+	GLOBSW	_if NDEF then 0 else GLOBSW
+	RENSW	_if NDEF then 1 else RENSW	;assemble Upper-Segment Library
+	 SAILRUN  no longer exists.
+These macros come in pairs, and exist so that the above-mentioned
+ program will have an easy job of it.  The meaning of each pair is
+ obvious.  They may be used only as in the following example:
+SW <			;or NOSW, starting in col. 1 (any comment out here)
+(code to appear under this switch)
+>;SW			or NOSW, must be same, any comment out here
+ These things may be nested without confusing anyone.
+
+Here are the macros
+
+
+DEFINE EXPO <IFN EXPORT, >	;code for export only
+DEFINE NOEXPO <IFE EXPORT, >	;code for Stanford only
+DEFINE GAG <IFN DCS, >		;SLS or WOM systems (experimental)
+DEFINE NOGAG <IFE DCS, >	;not included in SLS or WOM systems
+DEFINE WOM <IFGE DCS-1, >	;WOM system
+DEFINE NOWOM <IFE DCS,>		;not included in WOM system
+DEFINE SLS <IFE DCS-2, >	;SLS system
+DEFINE NOSLS <IFN DCS-2, >	;etc.
+DEFINE GLOB <IFN GLOBSW, >	;since global compiler (GLOBC) can service
+DEFINE NOGLOB <IFE GLOBSW, >	; non-global code, GLOBC is different
+DEFINE GLOC <IFN GLOBC, >	; from GLOB (global model)
+DEFINE NOGLOC <IFE GLOBC, >
+;DEFINE COM2<IFN COM2SW, >	;two-segment compiler OBSOLETE
+;DEFINE NOCOM2 <IFE COM2SW, >	;not same
+DEFINE UP <IFN UPPER,>		;upper segment code (only used in runtime)
+DEFINE NOUP <IFE UPPER,>	;not
+DEFINE LOW <IFN LOWER,>		;lower bootstrap for 2 seg thing (ditto)
+DEFINE NOLOW <IFE LOWER,>	;not
+DEFINE LEP <IFN LEAPSW,>	;this compiler understands LEAP
+DEFINE NOLEP <IFE LEAPSW,>	;doesn't (applies to runtime too)
+DEFINE REN <IFN RENSW,>		;Re-entrant output (comp), runtimes (runtim)
+DEFINE NOREN <IFE RENSW,>
+DEFINE DIS <IFN DISSW,>		;Display registeers -- very Stygian code
+DEFINE NODIS <IFE DISSW,>	;not
+
+; ** CONDITIONAL SETTINGS **
+
+DEFINE STSW (V,VL) <IFNDEF V,<V__VL>>
+
+STSW (EXPORT,1);NOT USUALLY EXPORT VERSION
+STSW (DCS,0);NOT USUALLY SLS OR WOM
+;STSW (COM2SW,1);USUALLY 2 SEGMENT COMPILER -- OBSOLETE
+STSW (HEDSYM,0)		;USUALLY NOT A USER-TABLE SYMBOL GENERATOR
+STSW (DISSW,0)	;FOR DISPLAY REGISTERS & OTTER GOODIES
+EXPO <
+STSW (SIXSW,0)
+>;EXPO
+NOEXPO <
+STSW (SIXSW,1)
+>;NOEXPO
+;VARIOUS HANDY MACRO DEFINITIONS TO TRY TO MAKE THE CODE
+;SOMEWHAT MORE READABLE.
+
+II__1
+FOR @' JJ(HEAD,SAIL,PARSE,PDEFS,PRODS,SUBRS,SMTB,SYM,GEN,ARRAY) <
+..'JJ__II
+II__II1
+>
+FOR @' JJ(EXPRS,STATS,LEAP,TOTAL,COMSER,GOGOL,STRSER,IOSER,LEPRUN,MESPRO) <
+..'JJ__II
+II__II1
+>
+IFDEF SETLST,<SETLST>
+
+IFNDEF ..LIST,<
+..LIST__0
+FOR @' JJ(HEAD,SAIL,PARSE,SYM,GEN,ARRAY,EXPRS,STATS,LEAP,TOTAL,COMSER) <
+..LIST__..LIST!..'JJ
+>
+FOR @' JJ(GOGOL,STRSER,IOSER,LEPRUN,MESPRO) <
+..LIST__..LIST!..'JJ
+>>
+IFDEF SETLS2,<
+	SETLS2
+>
+DEFINE LSTON ' (JJ) <
+	XLIST
+IFN ..LIST & ..'JJ,<
+	LIST>
+>
+	LSTON	(HEAD)
+
+DEFINE DSCR <COMMENT  > ; FOR DIRECTORY MAKER
+
+DEFINE GEN <IFE .NOGEN,<LALL>>
+DEFINE NOGEN <XALL>
+.NOGEN__1	;DON'T EXPAND MACROS AT ALL AFTER FIRST NOGEN
+	NOGEN
+
+DEFINE IFNB (X) <IFDIF <><X>,>
+DEFINE IFB (X) <IFIDN <><X>,>
+
+
+DSCR  STORAGE MANAGEMENT MACROS
+
+
+DSCR  HERE
+CAL MACRO
+PAR ROUTINE NAME
+DES For runtime routine vector.  If this is a library or one-segment
+ run, this is equivalent to placing a label "HERE".  Otherwise, the
+ label is placed on a JRST instruction in a vector of JRST's in the
+ upper segment.  The  JRST is to "HERE".  This allows the code for
+ runtimes to be changed without forcing everyone to forsake their
+ SAIL-compiled core images.
+
+
+DEFINE HERE(X) <
+UP <
+	FQQQQ __ .
+	USE DSPCH	;SO THAT THE LABELS HAVE THE SAME ADDRESS
+			;FROM ONE ASSEMBLY TO ANOTHE.
+^^ X :	JRST	FQQQQ
+	USE
+>;UP
+NOUP <
+^^ X :			;IF NOT MAKING AN UPPER SEGMENT, DOES NOT MATTER.
+>;NOUP
+>
+
+DSCR DATA, ZERODATA, TABLEDATA,--etc.
+CAL MACRO
+PAR One argument, a description
+RES For ZERODATA, the ZVBLS PC is switched to for the data.  For others,
+ the VBLS PC.  A check is made to ensure that the appropriate area is
+ big enough for the new data.
+DES This allows data to be concentrated in one area (for reentrancy
+ consideration, one-instruction CLEAR operations, etc.), but to
+ be defined locally.  Some special purpose programs can examine the
+ CREF listing file to print summaries, sorted cross-references, etc.
+
+
+DEFINE DATA (MSG) <
+	USE	VBLS
+	IFGE	.-DBASE-DSIZE,<#DATERR	;DATA AREA TOO SMALL
+>>
+
+DEFINE TABLEDATA (MSG) <
+	ZERODATA ()
+>
+
+DEFINE TABCONDATA (MSG) <
+	DATA ( )
+>
+
+DEFINE ZERODATA (MSG) <
+	USE	ZVBLS
+	IFGE	.-ZBASE-ZSIZE,<#DATERR	;ZEROED DATA AREA TOO SMALL
+>>
+
+DEFINE BITDATA (MSG) <	USE>
+
+DEFINE BITDDATA (MSG) <	USE>
+
+DEFINE BIT2DATA (MSG) <	USE>
+
+DEFINE BITD2DATA (MSG) < USE>
+
+DEFINE ACDATA (MSG) <	USE>
+
+DEFINE AC2DATA (MSG) <	USE>
+
+DEFINE ENDDATA <
+IFDEF ZBASE, <
+	DATA ()		;CHECK
+	ZERODATA ()		;CHECK
+	USE
+>>
+
+
+
+DSCR SETCOR (SIZE,FIRST,LAST)
+CAL MACRO
+PAR SIZE is CORGET size desired
+ FIRST (optional) is vbl which will  first word
+ LAST (optional) is vbl which will  first word after block
+RES CORGET called, B put into FIRST, LAST computed
+ERR if not enough core, complains
+DES used in ALLOC (SAILOR sequence)
+SEE ALLOC
+
+
+DEFINE SETCOR (SIZE,FIRST,LAST) <
+	MOVE	C,SIZE
+	PUSHJ	P,CORGET
+	ERR	<CAN'T GET CORE FOR FIRST ALLOCATION>
+	IFDIF <FIRST><>, <MOVEM	B,FIRST>
+	IFDIF <LAST><>,<
+		ADD	C,B
+		MOVEM	C,LAST
+>>
+
+COMMENT 
+
+DSCR LEVPOINT
+DES CHEAP MACRO TO GENERATE POINTERS TO DISPLAY LEVEL FIELD OF WORDS
+
+
+DEFINE LEVPOINT(AD)< POINT DLFLDL,AD,35-LLFLDL>
+
+
+; MACHINE-EXTENDING MACROS (SOME USEFUL CONSTANT, STORAGE/STORAGE MANIPULATORS)
+
+DSCR MOVEWI, MOVEW, MOVE6, MOVEI7, LOAD6, LOADI7
+CAL MACRO
+DES Provide extended "instructions" for data movement
+ MOVEWI(I,J) moves J (immed) to I via TEMP
+ MOVEW(I,J)  moves J to I via TEMP
+ MOVE6(I,J)  moves SIXBIT /J/ to I via TEMP
+ MOVEI7(I,J) moves addr of ASCIZ /J/ to I via TEMP
+ LOAD6 (I,J) moves SIXBIT /J/ to AC I
+ LOADI7(I,J) moves addr of ASCIS /J/ to AC I
+SID TEMP -- sometimes changed
+
+
+DEFINE MOVEWI (I,J) <
+		MOVEI TEMP,J
+		MOVEM TEMP,I
+>
+
+DEFINE MOVEW (I,J) <
+		MOVE	TEMP,J
+		MOVEM	TEMP,I
+>
+
+DEFINE MOVE6 (I,J) <
+		MOVE	TEMP,[SIXBIT /J/]
+		MOVEM	TEMP,I
+>
+
+DEFINE MOVEI7 (I,J) <
+		MOVEI	TEMP,[ASCIZ /J/]
+		MOVEM	TEMP,I
+>
+
+DEFINE LOAD6 (I,J) <
+		MOVE	I,[SIXBIT /J/]
+>
+
+DEFINE LOADI7 (I,J) <
+		MOVEI	I,[ASCIZ /J/]
+>
+
+DSCR CALL6(I,J)
+CAL MACRO
+PAR I is AC# if J is present, else see J
+ J is symbolic value for a system CALL
+RES does CALLI AC,U&INDEX for NOEXPO system,
+ CALL AC,[SIXBIT /J/] for EXPO system.
+ AC defaulted to 0
+
+
+EXPO <
+DEFINE CALL6 (I,J) <
+	IFDIF <><J>,<
+		IFDIF <><I>,<CALL I,[SIXBIT /J/];>  CALL [SIXBIT /J/]
+>
+	IFIDN <><J>,<
+		CALL	[SIXBIT /I/]
+>>
+>;EXPO
+
+NOEXPO <
+DEFINE CALL6 ' (I,J) <
+	IFDIF <><J>,<
+		IFDIF <><I>,<CALLI I,U'J;> CALLI U'J
+>
+	IFIDN <><J>,<
+		CALLI U'I
+>>
+>;NOEXPO
+
+NOEXPO <
+
+DEFINE DPYPOS (LINE) <
+		XWD 702100,LINE>
+
+DEFINE DPYSIZ (NUMGLT,GLTSIZ) <
+		702140B17+NUMGLT9+GLTSIZ>
+
+DEFINE DPYSTO (LOC) <
+		XWD LOC,64>
+
+DEFINE DPYRST (LOC) <
+		XWD LOC,74>
+
+DEFINE AIVECT & (X,Y)   <
+		X&B10+Y&B21+146>
+
+DEFINE RIVECT & (X,Y) <
+		X&B10+Y&B21+46>
+
+
+DEFINE DPYJMP (ADDR) <
+		XWD ADDR,20>
+
+>;NOEXPO
+
+DSCR EXCHOP
+DES Exchange Semantic entries in PNT,TBITS,SBITS with those
+ in PNT2,TBITS2,SBITS2 -- since "GENMOV" routines generally
+ operate on the first set of ACs.
+
+DEFINE EXCHOP	<
+	EXCH	PNT,PNT2
+	EXCH	TBITS,TBITS2
+	EXCH	SBITS,SBITS2	>
+
+DSCR MOVOPS
+DES Copy Semantic entries from PNT,TBITS,SBITS into
+ PNT2,TBITS2,SBITS2
+;
+DEFINE MOVOPS	<
+	MOVE	PNT2,PNT
+	MOVE	TBITS2,TBITS
+	MOVE	SBITS2,SBITS
+>
+
+DSCR SAVACS, RESTACS (L)
+CAL MACRO
+PAR a list like <A,C,LPSA>
+RES specified AC's pushed on (popped from) P-stack
+
+DEFINE SAVACS (L) <
+ FOR II L ,<
+	PUSH	P,II
+>>
+DEFINE RESTACS (L) <
+FOR II  L, <
+	POP	P,II
+>>
+
+;  TELETYPE COMMUNICATION MACROS
+
+DEFINE OP1 &(OPR,MS,ACC)  <
+	IFIDN <ACC><>, <II__0>
+	IFDIF <ACC><>, <II__ACC>
+	OPR&. II,[ASCIZ /MS/]
+>
+
+DSCR IOERR (STR)
+CAL MACRO
+PAR ASCII string to be printed
+RES calls IOERR. UUO to print message, either restart
+ compiler or EXIT
+
+
+DSCR ERR (STR,CODE,ROUT)
+CAL MACRO -- calls ERR. UUO
+PAR STR ASCII string to be printed
+ CODE determines how UUO functions
+ ROUT is address or literal to jump to if ERR continues
+RES If SAIL is on DPY, displays input line
+ Prints STR
+ CODE%2 determines what else to print -- if CODE is:
+  0-1:  Print nothing more
+  2-3:  Ident name for Semantics in LPSA (SAIL only)
+  4-5:  Ident name for Semantics in UUO instr (SAIL only)
+  6-7:  Value of AC in AC field of instr preceding UUO
+ 10-11: The UUO in octal
+ 12-13: Value of AC field of instr preceding that indicated
+        by UUO1(GOGTAB)
+
+ If CODE is even, don't allow continuation -- otherwise
+  allow continuation in manner described by error message.
+ If ROUT is present, jump to it -- else continue in line
+
+FOR OP  (ERR,IOERR) <
+DEFINE OP (MSG,AC,ADDR) <
+	IFIDN	<ADDR><>,<OP1 (OP,<MSG>,AC)>
+	IFDIF <ADDR><>,<JRST	[OP1 (OP,<MSG>,AC)
+			   JRST	ADDR ]>
+>>
+
+
+DSCR PRINT, TERPRI (STR)
+CAL MACRO -- issues TTYUUO
+PAR Ascii message
+RES Types string -- types CRLF after if TERPRI
+SID none
+
+DEFINE PRINT (X) <
+	TTCALL	3,[ASCIZ /X/]
+>
+
+DEFINE TERPRI (X) <
+	TTCALL	3,[ASCIZ /X
+/]>
+
+;  INPUT/OUTPUT AIDS
+
+DSCR MAKCDB (CHN, NAM, MODE, I, O)
+CAL MACRO
+PAR CHN channel number
+ NAM Prefix for symbols defined
+ MODE data mode
+ I,O # input, # output buffers
+RES generates a table to specify all (most?) data about
+ a file (Source, Rel, Command, etc.), instructions
+ tailored for this channel -- it takes the form: 
+
+DEFINE MAKCDB &  (CHN,NAM,MODD,I,O)  <
+NAM&CDB:
+NAM&MOD: MODD			;DATA MODE
+NAM&DEV: 0			;DEVICE NAME IN SIXBIT
+NAM&HED:
+	IFN O,<XWD NAM&HDR,0;> NAM&HDR  ;BLOCK HEADER POINTER
+NAM&HDR: 0			;I/O HEADER BLOCK
+NAM&PNT: 0			;I/O BYTE POINTER
+NAM&CNT: 0			;I/O CHAR COUNT
+^NAM&FIL: 0			;I/O FILE NAME
+^NAM&EXT: 0			;I/O EXTENSION
+NAM&OP:	OPEN	CHN,NAM&CDB	;OPEN INSTRUCTION
+NAM&NT:
+	IFN I,<LOOKUP CHN,NAME;> ENTER CHN,NAME
+NAM&SPC:
+	IFN O,<OUTBUF CHN,O>
+IFE O,<
+EXPO <
+	 IFIDN <NAM> <SRC>, <
+		PUSHJ P,[MOVEI TEMP,.+1 ;DESCRIPTOR, CALL UINBF ROUTINE
+			 JRST	UINBF] ;>INBUF CHN,I
+>;EXPO
+NOEXPO <
+		    UINBF CHN,.+1
+>;NOEXPO
+>;IFE O
+NAM&BFS: IFN O,<O;>	I		;# OF BUFFERS
+	202	;MAKE BIGGER BUFFERS THAN NORMAL (INPUT ONLY)
+>
+COMMENT 
+
+
+DSCR LODBLK (TYPE,TYP1,NAME,NAME1,COUNT,COUNT1,RELOC)
+CAL MACRO
+PAR TYPE, TYP1 are the symbolic and numeric reps of
+  a LOADER block type
+ NAME, NAME1 are the labels to be given the block and
+  its descriptor (optional, see below)
+ COUNT, COUNT1 are the data count and the total count
+  for the descriptor (optional, etc.)
+ RELOC describes the initial relocation bits
+RES if NAME1 is present, a descriptor word is put out
+  to provide GBOUT with count info for entire block
+ Then the Type,,count word is output, labeled NAME
+ Following is the RELOC word, then a block long enough
+  to hold data
+SEE GBOUT, Loader blocks (ENTTAB, BINTAB, etc.)
+
+DEFINE LODBLK (TYPE,TYP1,NAME,NAME1,COUNT,COUNT1,RELOC) <
+
+; Create LOADER OUTPUT BLOCK of type TYPE (really the
+;  integer TYP1.  Name it NAME.  Give it a data count
+;  of COUNT.  If there is a NAME1, create a descriptor
+;  for GBOUT of the form [(COUNT1 or COUNT+2),,NAME].
+;  Issue a reloc word of (RELOC or 0).
+;  Put out a COUNT-word block for holding the data
+
+IFNB (NAME1) <
+
+
+;DESCRIPTOR FOR GBOUT ROUTINE
+^^NAME1:
+IFNB (COUNT1) <
+	XWD	COUNT1,NAME;>	XWD   COUNT+2,NAME
+>
+
+;LOADER BLOCK HEADER
+^^NAME: XWD	TYP1,COUNT
+
+;RELOCATION BITS
+IFNB (RELOC) <
+	RELOC;>			0
+
+;DATA WORDS
+	BLOCK	COUNT
+>;LODBLK
+
+DSCR CHKCHN, TSTERR, TSTEOF
+CAL MACRO
+PAR First argument is channel # (AC containing same for CHKCHN)
+ 2d argument is routine name for CHKCHN, address for TSTEOF
+RES CHKCHN makes sure channel # in AC is legal
+  prints error message using routine name, if not legal
+ TSTERR does an error STATZ
+ TSTEOF jumps to Address if EOF is present on the channel
+
+DEFINE CHKCHN (AA,ROUTIN) & <
+		TRZE	AA,777760	;ZERO BITS AND TEST VALID
+		ERR <ROUTIN&: INVALID CHANNEL NUMBER>
+>
+
+DEFINE TSTERR (CHAN) <
+		STATZ CHAN,740000 ;ANY ERRORS?
+>
+
+DEFINE TSTEOF (CHAN,EOFADD) <
+		STATZ CHAN,20000  ;END OF FILE?
+		JRST EOFADD	  ; YES
+>
+
+;  MACROS FOR MANIPULATING SEMBLKS (SEE SAIL DATA DESCRIPTIONS)
+
+DSCR GETBLK (X)
+CAL MACRO
+PAR X is address (optional)
+RES into LPSA (and X) is put address of new Semblk (zeroed)
+SID LPSA, X changed -- probably TEMP too
+SEE BLKGET, the routine it calls, and main SAIL data descriptions
+
+DEFINE GETBLK ( X ) <
+	PUSHJ	P,BLKGET
+	IFDIF <X><>,<HRRM	LPSA,X>>
+
+DSCR FREBLK (X)
+CAL MACRO
+PAR X (optional) is address of Semblk (LPSA is default)
+RES Semblk is released to free Semblk list
+SID TEMP, LPSA changed
+SEE BLKFRE, the routine used, and main SAIL data descriptions
+
+DEFINE FREBLK ( X ) <
+	IFIDN <><X>,<PUSH P,LPSA;>  PUSH P,X
+	PUSHJ	P,BLKFRE
+	>
+
+;	TAKE CDR OF A LINKED LIST, GOING ALONG LINK Y. GO TO Z
+;		IF LIST IS EXHAUSTED.
+DEFINE RIGHT (X,Y,Z ) <
+	IFDIF <X><>,<MOVE LPSA,X>
+	HRRZ	LPSA,Y(LPSA)
+	IFDIF <Z><>,<JUMPE	LPSA,Z>>
+
+;	SAME FOR MOVING LEFT ALONG A LINK.
+DEFINE LEFT (X,Y,Z) <
+	IFDIF <><X>,<MOVE LPSA,X>
+	HLRZ	LPSA,Y(LPSA)
+	IFDIF <><Z>,<JUMPE LPSA,Z>>
+;  MACROS FOR MANIPULATING SEMANTICS, CALLING GENERATOR ROUTINES,
+;  GENERATING CALLS ON RUNTIME ROUTINES ON BEHALF OF COM CODE, ETC.
+
+; PICK UP SEMANTICS WORDS FOR A PARSER TEMPORARY.
+DEFINE GETSEM (X) <
+	MOVE	PNT,GENLEF+X
+	PUSHJ	P,GETAD	>
+
+; SAME, BUT PUT SEMANTICS IN TBITS2,SBITS2
+DEFINE GETSM2 (X) <
+	MOVE	PNT2,GENLEF+X
+	PUSHJ	P,GETAD2 >
+
+
+DSCR GENMOV (Z,X,Y)
+DES MACRO TO FACILITATE CALLING GENERATOR SUBROUTINES.
+PAR Z IS ROUTINE NAME.
+ X IS FLAGS (OPTIONAL)
+ Y IS TYPE (INTEGER,,,) TO BE PASSED IN REGISTER B.
+RES Calls routine after setting up AC's.
+;
+DEFINE	GENMOV (Z,X,Y) <
+	IFDIF <X><>,<HRRI FF,X>
+	IFDIF <Y><>,<HRRI B,Y>
+	PUSHJ	P,Z>
+
+
+
+DSCR XCALL (X)
+CAL MACRO
+DES Facilitates calling runtine functions.
+PAR X is the "NAME" of such a function, all of which
+ are named in the beginning of the file "GEN"
+RES a call (PUSHJ) to the routine is generated and fixed up
+SID AC A is clobbered.
+SEE XCALLQ
+;
+NOGAG <
+DEFINE	XCALL	' (X)	<
+	MOVEI	A,LIBTAB+R'X	;FIXUP LOCATION.
+	PUSHJ	P,XCALLQ
+	>
+>;NOGAG
+GAG <
+	DEFINE XCALL ' (X) <
+	HRLI	C,X		;ADDRESS OF ROUTINE (OH, WOW!)
+	PUSHJ	P,[
+	MOVE	A,[PUSHJ RP,NOUSAC!USADDR]
+	JRST	EMITER]
+	>
+>;GAG
+
+DSCR LPCALL (X,Y,Z)
+CAL MACRO
+DES Facilitates EMITting calls to LEAP interpreter
+ functions. 
+PAR X is function "NAME" (list is located at beginning of file "LEAP")
+ Y (optional) displacement from X.
+ Z tells what kind of call it is.  If non-null, we use the
+  index computed by STCHK (Q.V.) to add to X, otherwise
+  just the type bits computed by STCHK.
+SEE LEAPC1, LEAPC2, STCHK
+;
+DEFINE LPCALL ' (X,Y,Z) <
+	MOVEI	A,L'X		;ROUTINE NAME.
+	IFDIF <Y><>,<ADD A,Y>
+	IFIDN <Z><>,<PUSHJ P,LEAPC1;> PUSHJ P,LEAPC2
+	>
+
+DSCR XPREP
+CAL MACRO
+DES Make sure AC 1 is free (I.E. erase the ACKTAB entry for it --
+ so that a call on a runtime routine which returns a result
+ in AC 1 can now be EMITted.
+SEE STORZ
+;
+DEFINE XPREP	<
+	PUSHJ	P,[
+		HRRI	D,1
+		JRST	STORZ]
+	>
+
+SLS <
+DEFINE SALCAL (ROUT,PLIS,SLIS) <
+	INDXNO__0
+	SWITCH__0
+	PUSHJ	P,SALSAV	;SAVE ALL NON-DEDICATED ACS
+IFDIF <><PLIS>,<
+FOR ARG(PLIS), <
+	FOR JJ<ARG>,<
+	   IFIDN <JJ><->,<
+		SWITCH__-1>>
+	IFGE SWITCH,<
+	IFDIF <ARG><>,<
+	PUSH	P,ARG(INDXNO)
+>
+	INDXNO__0;ELSE>INDXNO__-ARG
+	SWITCH__0
+>
+>
+	EXCH	SP,STPSAV	;STRING STACK FROM MOTHBALLS
+	INDXNO__0
+	SWITCH__0
+IFDIF <><SLIS>,<
+FOR ARG(SLIS), <
+	FOR JJ<ARG>,<
+	 IFIDN <-><JJ>,<
+		SWITCH__-1>>
+	IFGE SWITCH,<
+	IFDIF <ARG><>,<
+	PUSH	SP,ARG(INDXNO)
+	PUSH	SP,ARG+1(INDXNO) ;STRING ARGUMENT
+>
+	INDXNO__0;ELSE>INDXNO__-ARG
+	SWITCH__0
+>
+>
+	EXTERNAL ROUT
+	PUSHJ	P,ROUT		;CALL SAIL PROCEDURE
+	EXCH	SP,STPSAV	;STOW THE STACK
+	PUSHJ	P,SALRST	;GET AC VALUES BACK, SIL VOUS PLAIS.
+>;SALCAL
+>;SLS
+
+DSCR EMIT (INSTR)
+CAL MACRO
+DES Facilitates calling the EMITTER for us.
+PAR INSTR is the instruction and "DIRECTIVE" bits to the
+ EMITTER.
+;
+DEFINE	EMIT	(INSTR) <
+	MOVE	A,[INSTR]
+	PUSHJ	P,EMITER	;CALL EMITER
+>
+
+; Q-STACK HANDLERS
+
+DSCR QPUSH (X,Y)
+CAL MACRO
+DES calls the generalized stack routine BPUSH.
+PAR X (optional) is name of stack to be used.
+ Y (optional) is data word to be pushed (AC A).
+SID A, LPSA, TEMP changed
+SEE BPUSH
+
+DEFINE	QPUSH (X,Y)	<
+	IFDIF <X><>,<MOVEI LPSA,X>
+	IFDIF <Y><>,<MOVE A,Y>
+	PUSHJ	P,BPUSH		>
+
+DSCR QPOP
+CAL MACRO
+DES Facilitates calls on generalized stack routine BPOP
+PAR X is name of the stack to be used (optional).. otherwise
+ pointer in LPSA.
+RES Popped entry is returned in AC A.
+SEE BPOP
+;
+DEFINE	QPOP (X)	<
+	IFDIF <X><>,<MOVEI LPSA,X>
+	PUSHJ 	P,BPOP		>
+
+DSCR QLOOK
+CAL MACRO
+DES Allows one to get hold of the top element in the Qstack X
+PAR X is the name of the stack to be used
+RES the pointer to the top element in the stack is returned in AC A.
+
+DEFINE  QLOOK (X)	<	
+	HLRZ	A,X		>
+
+DSCR QTAKE (X)
+CAL MACRO
+DES facilitates "taking" things out of one of the generalized
+ QSTACKS (uses routine QTAK).
+PAR X is name of Qstack to be used.
+ AC B must have a QPUSH/QPOP-like pointer to the element requested.
+RES Popped result returned in register A.
+ **** SKIPS IF SUCCESSFUL ****
+SEE QTAK
+;
+DEFINE	QTAKE	(X)	<
+	IFDIF <X><>,<MOVEI LPSA,X>
+	PUSHJ	P,QTAK		>
+
+DSCR QBACK 
+CAL MACRO
+PAR In AC B must be a QSTACK descriptor
+RES B's descriptor is "popped" by one, word put in AC A.
+ No storage is released
+ **** SKIPS IF SUCCESSFUL ****
+DES See BBACK routine in TOTAL for details of operation, AC usage, etc.
+SEE BBACK
+
+
+DEFINE QBACK <
+	PUSHJ	P,BBACK
+>
+
+
+DSCR QFLUSH (X) 
+CAL MACRO
+PAR Qstack descriptor address
+RES All storage is released for the stack, and the descriptor
+ address is zeroed.
+DES Used when QBACK and QTAKE operations have left blocks around.
+ There should always be one actual PDP-type cell which points
+ to the top (is only used in QPUSH and QPOPs).  This should be
+ pointed at to flush the stack.
+SEE BFLUSH
+
+
+DEFINE QFLUSH (X) <
+IFDIF <><X> <
+	MOVEI	LPSA,X
+>
+	PUSHJ	P,BFLUSH
+>
+
+DSCR QBEGIN (X)
+CAL MACRO
+PAR X  A QPDP, LOADED TO LPSA IF PRESENT
+RES B contains QPDP for QTAKEing first word, 0 if no stack
+SEE BBEG
+
+DEFINE QBEGIN (X)<
+IFDIF <><X> <
+	MOVEI	LPSA,X
+>
+	PUSHJ	P,BBEG
+>
+; RANDOM OTHER MACROS
+
+DEFINE SETNIT <
+	MOVE	TEMP,[JSR UUO0]	;MAKE SURE WE CAN DO UUOS
+	MOVEM	TEMP,41
+	MOVE	P,ALLPDP	;AND PUSHJ'S
+>
+
+DSCR SETPOV(AC,STR)
+CAL MACRO
+PAR AC REPRESENTING PUSH-DOWN POINTER
+STR REPRESENTING SOME SUGGESTIONS FOR ACTION WHEN THIS PTR OVERFLOWS
+RES POVTAB has one entry for each AC.  the string pointer (0 if none)
+ is put into this entry.  If a PDP in this AC overflows,  POVTRP, which
+ is enabled in SALNIT for PDL-OV, prints the string as a standard fatal
+ error message.  POVTRP is in  COMSER.
+SEE POVTRP
+
+
+DEFINE SETPOV (AC,STR) <
+ IFIDN <STR><><MOVEI TEMP,0;>MOVEI TEMP,[ASCIZ ?STR?] ;GET VALUE
+ II__(AC+17)&17			;BETWEEN 0 AND 17
+ JJ__II-(2*(II/2))		;ODD OR EVEN
+ IFE JJ,<HRLM TEMP,POVTAB+(II/2); EVEN-- LEFT> HRRM TEMP,POVTAB+(II/2)
+>;SETPOV
+;TBITS DEFINITIONS
+
+DEFINE BIT(NAME,BITT) <IFDIF <NAME><SPARE>,<NAME__BITT>>
+DEFINE DEFTBS <
+	BIT	(RES,400000)	;RESERVED WORD
+	BIT	(CNST,200000)	;CONSTANT ENTRY
+	BIT	(SPARE,100000)	;****
+	BIT	(INTRNL,40000)	;INTERNAL SYMBOL (SYMBOL EXPORTED)
+	BIT	(EXTRNL,20000)	;EXTERNAL SYMBOL (STORAGE FOUND ELSEWHERE)
+	BIT	(MPBIND,10000)	;MATCHING PROCEDURE OR BINDING ITEMVAR
+	BIT	(VALUE,4000)	;FORMAL PARAMETER CALL BY VALUE
+	BIT	(REFRNC,2000)	;FORMAL PARAMETER CALL BY REFERENCE
+	BIT	(CONOK,1000)	;OK TO CALL INTRINSIC WITH CONST ARGS AT COMPTIME
+	BIT	(SIMPLE,400)	;FOR DISPLAY SYSTEMS ONLY
+	BIT	(MESSAGE,200)	;A MESSAGE PROCEDURE !!!!!(STANFORD ONLY).
+	BIT	(OWN,100)	;OWN VARIABLE ?
+	BIT	(ANYTYP,40)	;ANYTYPED VARIABLE (USED IN PROCEDURE CALLS)
+	BIT	(SAFE,20)	;SAFE -- FOR ARRAYS AND SUCH.
+	BIT	(DEFINE,10)	;DEFINED MACRO IDENTIFIER
+	BIT	(RECURS,4)	;THIS ROUTINE IS REENTRANT
+	BIT	(BILTIN,2)	;IF ON IN TBITS, DON'T SAVE AC'S ON CALL.
+	BIT	(SBSCRP,1)	;SUBSCRIPED VARIABLE (ARRAY)
+
+;RIGHT HALF BITS -- TBITS WORD.
+
+	BIT	(INPROG,400000)	;PROCEDURE BEING DEFINED, KEEP FIXUP CHAIN
+	BIT	(GLOBL,200000)	;GLOBAL LEAP VARIABLE
+	BIT	(FORTRAN,100000);FORTRAN PROCEDURE (EXTERNAL)
+	BIT	(FORWRD,40000)	;FORWARD PROCEDURE OR LABEL
+	BIT	(PROCED,20000)	;PROCEDURE
+	BIT	(SHORT,10000)	;SHORT INTEGER OR SHORT REAL
+	BIT	(ITMVAR,4000)	;LEAP ITEMVAR
+	BIT	(PNTVAR,2000)	;POINTER VARIABLE ?? (NOT IMPLEMENTED YET)
+	BIT	(BOOLEAN,1000)	;BOOLEAN VARIABLE ?? (SAME AS INTEGER FOR NOW
+				; SEE TYPSET IN FILE "GEN"
+	BIT	(ITEM,400)	;LEAP ITEM
+	BIT	(STRING,200)	;A FHQ STRING
+	BIT	(LPARRAY,100)	;TYPE OF THIS ITEM IS ARRAY
+	BIT	(SET,40)	;LEAP SET
+	BIT	(LABEL,20)	;LABEL
+	BIT	(LSTBIT,10)	; COMPLEX NUMBER ?? (NOT IMPLEMENTED)
+	BIT	(DBLPRC,4)	; DOUBLE PRECISION NUMBER ?? (NOT IMPLEMENTED)
+	BIT	(FLOTNG,2)	;REAL NUMBER
+	BIT	(INTEGR,1)	;INTEGER NUMBER
+
+>
+
+DEFTBS		;DEFINE THE TBITS
+; VARIOUS DEFINITIONS OF USER UUO'S.
+PDLOF_1B8	OPDEF	PDLOF	[1B8]
+FLOAT_2B8	OPDEF	FLOAT	[2B8]
+NOEXPO <
+PDPFIX_<FIX>	OPDEF	PDPFIX	[FIX]
+>;NOEXPO
+FIX_3B8		OPDEF	FIX	[3B8]
+IOERR._4B8	OPDEF	IOERR.	[4B8]
+ERR._5B8	OPDEF	ERR.	[5B8]
+SIXPNT_6B8	OPDEF	SIXPNT	[6B8]
+DECPNT_11B8	OPDEF	DECPNT	[11B8]
+OCTPNT_12B8	OPDEF	OCTPNT	[12B8]
+FLTPNT_13B8	OPDEF	FLTPNT	[13B8]
+JFOV_<JFCL 1,0>	OPDEF	JFOV	[JFCL 1,0]
+DPYOUT_703B8	OPDEF	DPYOUT	[703B8]
+DPYCLR_701B8	OPDEF	DPYCLR	[701B8]
+ARERR_7B8	OPDEF	ARERR	[7B8]
+UINBF_704B8	OPDEF 	UINBF	[704B8]
+
+NOEXPO <
+SEGSIZUUO 	_ 400022	;GET SIZE OF SECOND SEGMENT.
+CORE2UUO	_ 400015	;GET SOME MORE SECOND SEGMENT.
+GLBAR		__ 1000		;CURRENT LENGTH OF GLOBAL MODEL AREA.
+>;NOEXPO
+
+
+
+SUBTTL	SAIL/GOGOL USER TABLE DESCRIPTION
+DSCR USER DATA AREA TEMPLATE  
+DES These values serve as indices for the run-time routines
+  into the user's data table. The table is necessary to allow
+  the routines to be re-entrant.  The table is allocated
+  in the SAILOR sequence at startup time; many of its values
+  (data area bounds, etc.) are placed in it at that time.
+ One can force re-initialization of this and all other dynamic
+  areas by setting GOGTAB to 0 before next CORGET.
+SEE XX descriptions for all these goodies directly below
+
+
+DEFINE XX (SYMBOL,SIZE,BACKUP) <
+	SYMBOL__LOCAT
+IFN HEDSYM,<
+	ENTRY	SYMBOL			;FOR HEAD.REL SYMBOL FILE
+>;N HEDSYM
+	LOCAT__LOCAT+1
+	IFDIF<SIZE><>< LOCAT__LOCAT+SIZE-1>
+	IFDIF<BACKUP><>< LOCAT__LOCAT-BACKUP>
+>
+
+LOCAT__0		;MAKES SYMBOLS ABSOLUTE
+
+; THESE VARIABLES WILL NOT BE RE-INITIALIZED BY THE INIT ROUTINE
+
+
+; LINK TO STRING BLOCKS FOR STRING GARBAGE COLLECTOR
+
+ XX CLER,,1
+
+ XX UUO1	;TRADITIONAL LOC FOR GOGOL RETRN ADRS FOR ERROR MSGS.
+
+;LOADER LINK CHAINS
+ XX STRLNK
+ XX SPLNK	;LINK END FOR SPACE ALLOCATION.
+ XX SETLNK	;LINK END FOR SETS.
+ XX SGROUT	;LINK UP STRING DSCRPTR GENERATOR ROUTINES HERE
+ XX KNTLNK	;PROFILE COUNTER LINK END
+
+;IMPORTANT STRING SPACE ENTRIES
+ XX ST		;BOTTOM OF STRING SPACE
+ XX STTOP	;TOP OF SAME
+ XX TOPBYTE	;NEXT FREE BYTE
+ XX REMCHR	;-REMAINING FREE CHARS
+;;#GI# DCS 2-5-72 REMOVE TOPSTR
+ XX SGLIGN	;ON IF MUST BE ALIGNED TO FW BDRY (COMPILER ONLY).
+
+; I/O CHANNEL POINTER TABLE
+; EACH POINTS TO A "CHANNEL DATA BLOCK" FULL OF GOODIES
+ XX CHANS,20
+
+; I/O BREAK TABLES (FOR INPUT SCANNING ROUTINES)
+ XX DSPTBL,=19,,	;BREAK CHAR DISPOSITION TABLE
+ XX LINTBL,=19,,	;LINE NUMBER     "       "
+ XX BRKTBL,=128,,	;CHARACTER BREAK TABLES
+ XX BRKDUM		;EXTRA TO HELP STDBRK ALONG WITH DUMP MODE
+
+
+ XX PDL		;IOWD SIZE,BASE  FOR SYSTEM PDL
+ XX SPDL	;XWD SIZE,BASE FOR STRING PDL
+
+NOEXPO <
+XX  ZAPBEG,,1	;BEGINNING OF SECOND SEGMENT COPY OF STUFF.
+		;FOR GLOBAL MODEL ONLY.
+>;NOEXPO
+
+;LEAP   THINGS.
+
+NOEXPO <
+ XX CURMES		;CURRENT MESSAGE.
+>;NOEXPO
+ XX MAXITM		;CURRENT TOP ITEM NUMBER.
+ XX OLDITM		;LINKED LIST OF OLD ITEMS (DUMP HEAP).
+ XX INFOTAB		;POINTER TO "GOOD POINTER" BLOCK OF CORE.
+ XX DATAB		;POINTER TO DATUM AREA.
+ XX HASTAB		;POINTER TO THE LEAP HASH TABLE.
+ XX FP1			;FREE STORAGE -- 1 WORD.
+ XX FP2			;FREE STORAGE -- 2 WORDS.
+ XX HASMSK		;THE MASK FOR HASHING INTO OUR HASH SPACE.
+ XX HASHP		;FOR PNAMES. XWD NEXT FREE ARRAY ENTRY,ARRAY BASE.
+ XX MKBP		;MAKE BREAK-POINT
+ XX ERBP		;ERASE BREAK-POINT
+ XX PUBP		;PUT BREAK-POINT (NOT IMPLEMENTED)
+ XX REBP		;REMOVE BREAK-POINT.(NOT IMPLEMENTED)
+ XX ITMTOP		;MAXIMUM PERMISSIBLE ITEM NUMBER.
+ XX LEABOT		;SEARCH CONTROL BLOCK FOR DERIVED SETS ERASE. 
+ XX FRLOC		;CURRENT ACTIVE FOREACH CONTROL BLOCK POINTER
+ XX SCBCHN		;CHAIN OF ABANDONED SCB'S
+ XX FREITM	;NUMBER OF FREE ITEMS REMAINING
+
+; MISC. ARRAY THINGS.
+ XX ARYDIR	;FOR TELLING FOUR ARRAY ROUTINES WHICH END IS UP.
+ XX ARYLS	;A LINKED LIST (LUCKILY) OF STRING ARRAYS IN LEAP, AND SO FORTH.
+		;THIS IS SO STRING GARB COLLECTOR CAN FIND THEM ALL.
+
+; BLOCK CONTROL TABLE INFORMATION
+;THIS IS FOR SAIL'S CORE MANAGEMENT ROUTINES (CORGET,CORREL,CORINC...)
+
+XX BLKTAB,3,3	;BASE OF BLOCK CONTROL TABLE
+   XX LOWC	;LOW LIMIT OF ALLOCATABLE "BLOCK" CORE
+   XX TOP	;UPPER LIMIT OF SAME
+   XX FRELST	;POINTER TO BLOCK FREE STORAGE LIST
+
+ XX XPAND	;PERMISSION TO EXPAND IN CORREL IF 0
+ XX ATTOP	;REQUEST TO ALLOCATE OFF TOP OF CORE IF NON-0
+ XX NOSHRK	;IF ON, CORREL NOT GIVEN PERMISSION TO SHRINK CORE
+NOEXPO <
+ XX USCOR2	;IF ON, CORGET WILL USE CORE2 ROUTINES.
+>;NOEXPO
+
+ XX BUFACS,10,,	;FOR BUFFER ALLOCATOR
+NOEXPO <
+XX ZAPEND,,1	;END OF SECOND SEGMENT AREA.
+>;NOEXPO
+
+; INTERNAL VARIABLES FOR RE-ENTRANT ROUTINES
+
+ XX SGFRE	;[XWD -REMAINING-1,NEXT FREE LINK WORD-1] WHEN NON-ZERO
+ XX STBUCK	;USED IN STRING GC TO KEEP TRACK OF BLOCKS
+		;  (USED FOR STRING GC LIST STRUCTURE)
+ XX INKY
+ XX NUMCHR
+ XX STMAX		;LENGTH OF STRING SPACE.
+ XX SRELOC
+ XX CODAC		;SAVE AC 1 OVER CALLS ON "CODE" RUNTIME ROUTINE
+ XX WDTH		;GLOBAL WIDTH FOR STRING CONVERSION ROUTNES
+ XX DIGS		; "" FOR # OF DECIMAL DIGITS
+ XX SGCCNT		;NUMBER OF TIMES STRNGC HAS BEEN CALLED
+
+; I/O INTERNAL VARIABLES
+
+ XX CDBLOC	;IF CHNL IS A CH #, @CDBLOC(USER) GETS ITS CDB ADDR
+
+ XX FNAME	;ENTER-LOOKUP TABLE
+ XX EXT
+ XX WD3
+ XX PRPN
+ XX LONGWD	;LONG FORM LOOKUPS AND ENTERS POKE THIS
+ XX LONG2	; AND THIS -- FILEINFO ROUTINE GIVES TO USER
+
+ XX PROJ		;USED BY FILNAM ROUTINE
+
+; AC SAVE AREAS
+
+ XX RACS,13,,	;RE-ENTRANT ROUTINES SAVE HERE
+ XX SGACS,14,,	;AVAILABLE ANY TIME IF YOU ARE NOT
+ XX STACS,12,,	; LIKELY TO CALL STRNGC
+ XX PGNNFL
+
+;SOME STUFF FOR MULTIPLE PROCESSES
+
+NPRIS__20	;NUMBER OF PRIORITIES
+ XX PRILIS,NPRIS,, 	;PRIORITY LIST HEADERS
+ XX GGDAD		;THE BASE FOR THE MAIN PROCESS (IF HAVE ONE)
+ XX TIMER		;COUNTED DOWN FOR CLOCK INTERRUPTS
+
+
+ XX ENDREN	; END OF USER DATA TABLE
+
+SUBTTL	Global AC Definitions, Indices, Bits
+
+AC2DATA (GLOBAL AC ASSIGNMENTS)
+P	_17
+SP	_16
+USER	_15
+TEMP	_14
+LPSA	_13
+RF	__12			;THE ALMIGHTY F REGISTER
+TAC1	__TEMP
+TAC2	__LPSA
+
+BITDATA (BITS FOR %ALLOC SPACE REQUEST BLOCK ENTRIES)
+STDSPC __400000	;"INDIRECT" SPECIFICATION OF STANDARD AREA
+WNTADR __200000	;ADDRESS OF AREA TO BE STORED AS SPECIFIED
+WNTEND __100000	;ADDRESS OF NEXT AREA TO BE STORED AS SPECIFIED
+WNTPDP __ 40000	;PDP TO AREA TO BE STORED " "
+WNTPDL __ WNTPDP	;WNTPDP, WNTPDL -- WHAT'S THE DIFFERENCE?
+USRTB  __ 20000	;RESULT ADDRESSES ARE IN THE USER TABLE
+MINSZ  __ 10000	;THIS SIZE TO BE USED ONLY IF NO OTHERS GIVEN
+
+BITDATA (INDICES OF STANDARDLY ALLOCATED AREAS (SEE %ALLOC))
+SYSPD	__ 1		;SYSTEMPDL
+SYSSPD	__ 2		;STRINGPDL
+STRSP	__ 3		;STRINGSPACE
+
+BITDATA (INDICES INTO THE FIXED PORTION OF EACH %ALLOC SPACE REQ. BLOCK)
+$ITNO	__1		;MAX ITEM NUMBER DECLARED THIS COMPILATION
+$NWITM __2		;REQUIRE n NEWITEMS PUTS n HERE
+$GITNO	__3		;MAX (MIN?) GLOBAL ITEM NUMBER DECLARED
+$MSLNK	__4		;POINTER TO MESSAGE PROCEDURE LIST PUT HERE
+$PNMNO	__5		;REQUIRE n PNAMES PUTS n HERE
+$VRNO	__6		;VERSION NUMBER
+$SGNM	__7		;REQUIRED GLOBAL SEGMENT NAME (USUALLY EMPTY)
+$SGD	__10		;REQUIRED GLOBAL SEGMENT FILE DEVICE
+$SGF	__11		;" FILE NAME
+$SGPP	__12		;" PPN
+$TINIT __13
+$PINIT __14
+
+
+$SPREQ	__ 15		;OFFSET OF SPACE REQUEST ENTRIES WITHIN SPACE BLOCKS
+ENDDATA
+
+
+BITDATA (LINK NAMES)
+%STLNK __ 1
+%SPLNK __ 2
+%SETLK __ 3
+%SGROT __ 4
+%KTLNK __ 5
+%PDLNK __ 6
+%INLNK __ 7
+
+BITDATA (PROCEDURE DESCRIPTOR INDICES)
+
+	DEFINE PDX(I),
+		<I __ PD.XXX
+		PD.XXX__PD.XXX+1
+>
+PD.XXX	__ 0
+	PDX	PD.	;0
+	PDX	PD.ID1	;1
+	PDX	PD.ID2	;2
+	PDX	PD.PDB	;3
+	PDX	PD.NPW	;4
+	PDX	PD.DSW	;5
+	PDX	PD.LLW	;6
+	PDX	PD.DLW	;7
+	PDX	PD.PDA	;10
+	PDX	PD.PPD	;11
+	PDX	PD.PCW	;12
+	PDX	PD.BDI	;13
+
+PD.XXX__PD.XXX
+
+BITDATA (TYPE CODES WITHIN RH OF INFOTAB ENTRY)
+        BRKITM __ 2	;BRACKETED TRIPLE
+	STTYPE __ 3	;STRING ITEM
+	FLTYPE __ 4	;REAL ITEM
+	INTYPE __ 5	;INTEGER ITEM
+	LSTYPE __ 7	;LIST ITEM (TYPE SHOULD ALWAYS BE 1 MORE THN SETYPE
+	SETYPE __ 6	;SET ITEM
+	PITTYP __ 10	;PROCEDURE ITEM
+	PRCTYP __ 11	;PROCESS ITEM
+	INVTYP __ 25	;NON-VALID TYPE CODE
+	ARRTYP __ 15	;ARRAYS ARE THIS PLUS SIMPLE TYPE CODE
+
+BITDATA (USE OF THE RESERVED ITEMS)
+	MAINPI __ 1	;ITEM NUMBER OF THE MAIN PROCESS ITEM
+	NIC    __ 2	;ITEM GET BACK FROM EMPTY NOTICE QUEUE
+
+ENDDATA
+
+IFN HEDSYM, <		;MAKE AN HONEST ASSEMBLY OUT OF IT
+	TITLE	HEAD
+	END
+>;IFN HEDSYM
+
+
+SUBTTL	SAIL ASSEMBLY SPECIFICATIONS
+   vrFm{
