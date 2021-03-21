@@ -1,0 +1,566 @@
+MODULE GRPCND(DOLLAR,ENTRIES=($GRPHD,$GPGHD,$GPGFT,$GERPC,$GCTRL),FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+  BEGIN
+
+  REQUIRE ADEFS.BLI[7,107355];
+  REQUIRE BDEFS.BLI[7,107355];
+  REQUIRE FDEFS.BLI[7,107355];
+  REQUIRE GDEFS.BLI[7,107355];
+  REQUIRE SDEFS.BLI[7,107355];
+  REQUIRE TDEFS.BLI[7,107355];
+  REQUIRE UDEFS.BLI[7,107355];
+  REQUIRE ZDEFS.BLI[7,107355];
+
+
+  UNDECLARE $GRPHD, $GPGHD, $GPGFT, $GERPC,$GRPFT, $GGPHD, $GGPFT, $GCTRL;
+
+  MAP A$ GBTKN$;
+  MAP Z$ ZBSTK$;
+  MAP G$ GGBFP$;
+  MAP G$OPND GGBOP$;
+
+
+%*****
+  GENERAL PROCESSING FOR REPORT HEADING, PAGE HEADING, AND PAGE FOOTING TOKENS.
+*****%
+  ROUTINE RPCOND =
+    BEGIN
+
+    LOCAL LABSAV, ERRFLG;
+    LOCAL S$ RPINCSTE;
+
+    IF .GFRCF$ EQL ZV$RESET                     % IS THE FORCE FLAG SET? %
+      THEN
+        BEGIN                                   % NO %
+        IF .GRCNF$ NEQ ZV$SET                   % IS THE REPORT CONDITIPN FLAG SET? %
+          THEN
+            BEGIN                               % NO %
+            GRCNF$ := ZV$SET;
+            $GIREC(GV$BRANCH,3);
+            GGBOP$[0,G$OPTYP] := GV$STP;
+            GGBOP$[0,G$OPVAL] := GERCL$ := $GNLAB();
+            $GWBUF(.GGBFP$,.GRCBI$);
+            END;
+        ERRFLG := ZV$RESET;
+        LABSAV := $GNLAB();
+        RPINCSTE := $SGSTE(.GRPTP$);
+        SELECT .GBTKN$[A$ID] OF
+                    NSET
+                TV$REPRTHD  :  IF .RPINCSTE[S$RHL] NEQ SV$NULL
+                                 THEN
+                                   ERRFLG := ZV$SET
+                                 ELSE
+                                   RPINCSTE[S$RHL] := .LABSAV;
+                TV$PAGEHD   :  IF .RPINCSTE[S$PHL] NEQ SV$NULL
+                                 THEN
+                                   ERRFLG := ZV$SET
+                                 ELSE
+                                   RPINCSTE[S$PHL] := .LABSAV;
+                TV$PAGEFT   :  IF.RPINCSTE[S$PFL] NEQ SV$NULL
+                                 THEN
+                                   ERRFLG := ZV$SET
+                                 ELSE
+                                   RPINCSTE[S$PFL] := .LABSAV;
+                    TESN;
+        $SFRCH(.RPINCSTE);
+        IF .ERRFLG EQL ZV$SET
+          THEN
+            BEGIN
+            $GPUSH(.GBTKN$,AV$SZTOK);
+            $GERR(554,.ZSTKP$);
+            $GPOP();
+            RETURN -1;
+            END;
+        $GIREC(GV$ENTRY,4);
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .LABSAV;
+        GGBFP$[G$OPND2]    := 0;
+        $GWBUF(.GGBFP$,.GRCBI$);
+        END;
+    $GPUSH(.GBTKN$,AV$SZTOK);
+    GOB1I$ := .GRCBI$;
+    END;
+
+
+%*****
+  GENERAL ENTRY POINT FOR THE PROCESSING OF THE REPORT HEADING, PAGE HEADING, AND THE PAGE FOOTING TOKENS.
+*****%
+  GLOBAL ROUTINE $GRPHD = RPCOND();
+
+  GLOBAL ROUTINE $GPGHD = RPCOND();
+
+  GLOBAL ROUTINE $GPGFT = RPCOND();
+
+%****
+  PROCESS THE TV$8NDRPT TOKEN.
+****%
+  GLOBAL ROUTINE $GERPC =
+    BEGIN
+
+    LOCAL FRECP;
+
+    IF .GRPFF$ EQL ZV$SET                       % IS THE REPORT FOOTING FLAG SET? %
+      THEN
+        BEGIN                                   % YES %
+        IF .ZBSTK$[Z$ID,.ZSTKP$] NEQ TV$REPRTFT   AND
+           .ZBSTK$[Z$ID,.ZSTKP$] NEQ TV$GROUPFT
+          THEN
+            BEGIN
+            $UOUTM(FTLMS$<36,7>,0);
+            $UAPSZ($USPTR('** TOKEN VALUE : '));
+            $UAPDC(.ZBSTK$[Z$ID,.ZSTKP$]);
+            $UOUTL();
+            $FATAL(#117);
+            END;
+        $GIREC(GV$SEXIT,3);
+        GGBFP$[G$RETURNF] := GV$NORSLT;
+        $GWBUF(.GGBFP$,.GRB3I$);
+
+        FRECP := $GFREC(.GRB2I$);
+        IF .FRECP NEQ 0
+          THEN
+            $GMBUF(.GRB2I$,.GRCBI$,.FRECP,$GLREC(.GRB2I$));
+        $GCBUF(.GRB2I$);
+        FRECP := $GFREC(.GRB3I$);
+        IF .FRECP NEQ 0
+          THEN
+            $GMBUF(.GRB3I$,.GRCBI$,.FRECP,$GLREC(.GRB3I$));
+        $GCBUF(.GRB3I$);
+        GRPFF$ := ZV$RESET;
+        END
+      ELSE
+        BEGIN
+    
+        $GIREC(GV$SEXIT,3);
+        GGBFP$[G$RETURNF] := GV$NORSLT;
+        $GWBUF(.GGBFP$,.GRCBI$);
+        END;
+
+    $GPOP();
+    GOB1I$ := GRB1I$ := 0;
+
+    END;
+
+
+%******
+  PROCESS THE REPORT FOOTING TOKEN TV$REPRTFT.
+******%
+  GLOBAL ROUTINE $GRPFT =
+    BEGIN
+
+    LOCAL S$ RPINCSTE;
+    LOCAL LABSAV;
+
+    IF .GFRCF$ EQL ZV$SET                       % IS FORCE FLAG SET? %
+      THEN
+        $GPUSH(.GBTKN$,AV$SZTOK)
+      ELSE
+        BEGIN                                   % NO %
+        IF .GRCNF$ NEQ ZV$SET                   % IS REPORT CONDITION FLAG SET ?%
+          THEN
+            BEGIN                               % NO GENERATE BRANCH AROUND THE REPORT COND. CODE %
+            GRCNF$ := ZV$SET;
+            $GIREC(GV$BRANCH,3);
+            GGBOP$[0,G$OPTYP] := GV$STP;
+            GGBOP$[0,G$OPVAL] := GERCL$ := $GNLAB();
+            $GWBUF(.GGBFP$,.GRCBI$);
+            END;
+        RPINCSTE := $SGSTE(.GRPTP$);
+        IF .RPINCSTE[S$RFINIL] NEQ SV$NULL      % DOES A REPORT FOOTING EXIST? %
+          THEN
+            BEGIN                               % YES ERROR %
+            $GPUSH(.GBTKN$,AV$SZTOK);
+            $GERR(554,.ZSTKP$);
+            $GPOP();
+            RETURN -1;
+            END;
+        RPINCSTE[S$RFINIL] := $GNLAB();
+        RPINCSTE[S$RFDTLL] := $GNLAB();
+        RPINCSTE[S$RFINCL] := $GNLAB();
+        $GIREC(GV$ENTRY,4);                     % INCREMENTATION CODE ENTRY PT.%
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .RPINCSTE[S$RFINCL];
+        GGBFP$[G$OPND2]   := 0;
+        $GWBUF(.GGBFP$,.GINCI$);
+
+        $GIREC(GV$SEXIT,3);                     % INCR. CODE EXIT %
+        GGBFP$[G$RETURNF] := GV$NORSLT;
+        $GWBUF(.GGBFP$,.GDETI$);
+
+        $GIREC(GV$ENTRY,4);                     % DETAIL CODE ENTRY PT. %
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .RPINCSTE[S$RFDTLL];
+        GGBFP$[G$OPND2]    := 0;
+        $GWBUF(.GGBFP$,.GDETI$);
+
+        $GIREC(GV$BRANCH,3);                    % BRANCH AROUND INIT. ENTRY PT.%
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := LABSAV := $GNLAB();
+        $GWBUF(.GGBFP$,.GINII$);
+
+        $GIREC(GV$ENTRY,4);                     % INIT. CODE ENTRY POINT %
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .RPINCSTE[S$RFINIL];
+        GGBFP$[G$OPND2]   := 0;
+        $GWBUF(.GGBFP$,.GINII$);
+
+        $GIREC(GV$LABEL,3);
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .LABSAV;
+        $GWBUF(.GGBFP$,.GINII$);
+
+        $SFRCH(.RPINCSTE);
+        GRPFF$ := ZV$SET;                       % SET REPORT FOOTING FLAG %
+        $GPUSH(.GBTKN$,AV$SZTOK);
+        GOB1I$ := GRB1I$ := .GDETI$;
+        END;
+    END;
+
+
+%*****
+  PROCESS GROUP HEADING AND FOOTING TOKENS.
+*****%
+  ROUTINE RPGROUP =
+    BEGIN
+
+    LABEL FINDRCGPI;
+    LOCAL S$ FINCSTE : RPINCSTE : RELINCSTE : RCGPISTE : PREDSTE : NXTRCIE ;
+    LOCAL S$ SUCSTE : RPNSTE  : RPDSTE;
+    LOCAL RPNSTKP, RCGPISTP, ERRFLG, RELISTP, LABSAV, PREDSTP, NEXTSTP, REPTSTP;
+    LOCAL RELSTKP, ERRFLAG;
+
+    IF .GFRCF$ EQL ZV$SET                       % IS THE FORCE FLAG SET? %
+      THEN
+        $GPUSH(.GBTKN$,AV$SZTOK)                % YES %
+      ELSE
+        BEGIN                                   % NO %
+        ERRFLAG := ZV$RESET;
+        RELSTKP := .ZBSTK$[Z$SUCP,.GFEAP$];
+        IF .GFEAF$ EQL ZV$SET  AND  .ZBSTK$[Z$SBID,.RELSTKP] EQL ZV$REL
+          THEN
+            IF .ZBSTK$[Z$SBID,.ZSTKP$] NEQ ZV$FLD     % IS CONTROL ITEM A FIELD %
+              THEN                                      % NO %
+                BEGIN
+                $GERR(552,.ZSTKP$);
+                ERRFLAG := ZV$SET;
+                END
+              ELSE
+                IF $GICHK(.ZSTKP$) EQL -1               % IS THE FIELD ACTIVE %
+                  THEN
+                    BEGIN                               % NO %
+                    $GERR(526,.ZSTKP$);
+                    ERRFLAG := ZV$SET;
+                    END
+                  ELSE
+                    BEGIN
+                    FINCSTE := $SGSTE(.ZBSTK$[Z$INCSTP,.ZSTKP$]);
+                    IF .FINCSTE[S$RNSTP] EQL SV$NULL  % IS THIS A SCALAR? %
+                      THEN
+                        BEGIN                           % YES! %
+                        $GERR(553,.ZSTKP$);
+                        ERRFLAG := ZV$SET;
+                        END
+                      ELSE
+                        BEGIN                           % DOES IT BELONG TO A RELATION? %
+                        RELINCSTE := $SGSTE(.FINCSTE[S$RNSTP]);
+                        IF .RELINCSTE[S$TYPE] NEQ SV$RELINC  OR
+                           .RELINCSTE[S$STPX] NEQ .ZBSTK$[Z$INCSTP,.RELSTKP]
+                          THEN                          % NO! %
+                            BEGIN
+                            $GERR(553,.ZSTKP$);
+                            ERRFLAG := ZV$SET;
+                            END
+                          ELSE                          % IS IT A SORT KEY? %
+                            IF .FINCSTE[S$SORTC] EQL SV$NULL    AND
+                               .FINCSTE[S$SORTCPRED] EQL SV$NULL
+                              THEN
+                                BEGIN                   % NO! %
+                                $GERR(558,.ZSTKP$);
+                                ERRFLAG := ZV$SET;
+                                END;
+                        RELISTP := .RELINCSTE[S$STPX];
+                        $SFRNCH(.RELINCSTE);
+                        END;
+                    IF .ERRFLAG EQL ZV$SET
+                      THEN
+                        $SFRNCH(.FINCSTE);
+                    END
+          ELSE
+            BEGIN                                       % GROUP COND. CAN ONLY OCCUR IN A FOR EACH
+                                                          ON A RELATION 
+                                                        %
+            $GERR(567,.ZSTKP$);
+            ERRFLAG := ZV$TRUE;
+            END;
+        IF .ERRFLAG EQL ZV$SET
+          THEN
+            RETURN -1;
+        RPINCSTE := $SGSTE(.GRPTP$);
+        RCGPISTP := .RPINCSTE[S$RCGPI];
+    FINDRCGPI:
+        WHILE .RCGPISTP NEQ SV$NULL             % LOOK FOR A GROUP CONTROL INCARNATION FOR THIS %
+          DO                                    % FIELD, IN THE INDICATED REPORT %
+            BEGIN
+            RCGPISTE := $SGSTE(.RCGPISTP);
+            IF .RCGPISTE[S$STP1] EQL .ZBSTK$[Z$STP,.ZSTKP$]
+              THEN
+                LEAVE FINDRCGPI;
+            RCGPISTP := .RCGPISTE[S$RCGPI];
+            $SFRNCH(.RCGPISTE);
+            END;
+
+        IF .RCGPISTP EQL SV$NULL                % WAS THERE ONE? %
+          THEN
+            BEGIN                               % NO CREATE ONE %
+            RCGPISTE := $SGSTSP(SV$RPTCNDI);
+            RCGPISTE[S$STP1]     := .ZBSTK$[Z$STP,.ZSTKP$];
+            RCGPISTE[S$RCGPI]    := SV$NULL;
+            RCGPISTE[S$PRPINC]   := .RPINCSTE[S$STPX];
+            RCGPISTE[S$PHDG]     := SV$NULL;
+            RCGPISTE[S$PFTGINC]  := SV$NULL;
+            RCGPISTE[S$PFTGDTL]  := SV$NULL;
+            RCGPISTE[S$PFTGINIT] := SV$NULL;
+            RCGPISTE[S$PHDGDTL]  := SV$NULL;
+            RCGPISTE[S$FLDINCP]  := .FINCSTE[S$STPX];
+            RCGPISTE[S$CGC]      := .FINCSTE[S$CGC];
+            FINCSTE[S$CGC]       := .RCGPISTE[S$STPX];
+            PREDSTP := .FINCSTE[S$SORTCPRED];
+            DO
+              BEGIN
+              PREDSTE := $SGSTE(.PREDSTP);
+              IF .PREDSTE[S$TYPE] EQL SV$RELINC
+                THEN
+                  BEGIN
+                  RCGPISTE[S$RCGPRED] := .RPINCSTE[S$STPX];
+                  IF .RPINCSTE[S$RCGPI] NEQ SV$NULL
+                    THEN
+                      BEGIN
+                      SUCSTE := $SGSTE(.RPINCSTE[S$RCGPI]);
+                      RCGPISTE[S$RCGPI] := .SUCSTE[S$STPX];
+                      SUCSTE[S$RCGPRED] := .RCGPISTE[S$STPX];
+                      $SFRCH(.SUCSTE);
+                      END;
+                  RPINCSTE[S$RCGPI] := .RCGPISTE[S$STPX];
+                  $SFGCH(.RPINCSTE);
+                  PREDSTP := SV$NULL;
+                  END
+                ELSE                                % FOUND A FIELD INCARNATION %
+                  BEGIN
+                  NEXTSTP := .PREDSTE[S$CGC];
+                  IF .NEXTSTP EQL SV$NULL
+                    THEN
+                      PREDSTP := .PREDSTE[S$SORTCPRED]
+                    ELSE
+                      DO
+                        BEGIN
+                        NXTRCIE := $SGSTE(.NEXTSTP);
+                        IF .NXTRCIE[S$PRPINC] EQL .RPINCSTE[S$STPX]
+                          THEN
+                            BEGIN
+                            RCGPISTE[S$RCGPRED] := .NXTRCIE[S$STPX];
+                            RCGPISTE[S$RCGPI]   := .NXTRCIE[S$RCGPI];
+                            NXTRCIE[S$RCGPI]    := .RCGPISTE[S$STPX];
+                            IF .RCGPISTE[S$RCGPI] NEQ SV$NULL
+                              THEN
+                                BEGIN
+                                SUCSTE := $SGSTE(.RCGPISTE[S$RCGPI]);
+                                SUCSTE[S$RCGPRED] := .RCGPISTE[S$STPX];
+                                $SFRCH(.SUCSTE);
+                                END;
+                            $SFGCH(.NXTRCIE);
+                            NEXTSTP := PREDSTP := SV$NULL;
+                            END
+                          ELSE
+                            NEXTSTP :=.NXTRCIE[S$CGC];
+                        $SFRNCH(.NXTRCIE);
+                        END
+                      UNTIL .NEXTSTP EQL SV$NULL
+                  END;
+              $SFRNCH(.PREDSTE);
+              END
+            UNTIL .PREDSTP EQL SV$NULL;
+            END;
+
+        $SFRCH(.FINCSTE);
+        $SFRNCH(.RPINCSTE);
+        ERRFLG := ZV$RESET;                     % RESET THE ERROR FLAG %
+        IF .GRCNF$ NEQ ZV$SET                   %IS THE REPORT CONDITION FLAG SET? %
+          THEN
+            BEGIN                               % NO. GENERATE THE BRANCH %
+            GRCNF$ := ZV$SET;
+            $GIREC(GV$BRANCH,3);
+            GGBOP$[0,G$OPTYP] := GV$STP;
+            GGBOP$[0,G$OPVAL] := GERCL$ := $GNLAB();
+            $GWBUF(.GGBFP$,.GRCBI$);
+            END;
+        IF .GBTKN$[A$ID] EQL TV$GROUPHD         % IS THIS A GROUP HEADER? %
+          THEN                                  % YES %
+            IF .RCGPISTE[S$PHDG] NEQ SV$NULL    % DOES ONE ALREADY EXIST? %
+              THEN
+                ERRFLG := ZV$SET                % YES ERROR %
+              ELSE
+                BEGIN
+                $GIREC(GV$ENTRY,4);             % GROUP HEADING ENTRY POINT %
+                GGBOP$[0,G$OPTYP] := GV$STP;
+                GGBOP$[0,G$OPVAL] := RCGPISTE[S$PHDG] := $GNLAB();
+                GGBFP$[G$OPND2]   := 0;
+                $GWBUF(.GGBFP$,.GRCBI$);
+
+                $GIREC(GV$TEST,5);
+                GGBFP$[G$UCNT] := 1;
+                GGBFP$[G$OPND1] := GV$CHGFLS;
+                GGBOP$[1,G$OPTYP] := GV$STP;
+                GGBOP$[1,G$OPVAL] := .ZBSTK$[Z$INCSTP,.ZSTKP$];
+                GGBOP$[2,G$OPTYP] := GV$STP;
+                GGBOP$[2,G$OPVAL] := .RELISTP;
+                $GWBUF(.GGBFP$,.GRCBI$);
+
+                $GIREC(GV$BRCHT,4);
+                GGBOP$[0,G$OPTYP] := GV$NP;
+                GGBOP$[0,G$NPTYPE]:= GV$LOGICAL;
+                GGBOP$[0,G$OPVAL] := .GGFID$ -2;
+                GGBOP$[1,G$OPTYP] := GV$STP;
+                GGBOP$[1,G$OPVAL] := LABSAV := $GNLAB();
+                $GWBUF(.GGBFP$,.GRCBI$);
+
+                $GIREC(GV$SEXIT,3);
+                GGBFP$[G$RETURNF] := GV$NORSLT;
+                $GWBUF(.GGBFP$,.GRCBI$);
+
+                $GIREC(GV$ENTRY,4);
+                GGBOP$[0,G$OPTYP] := GV$STP;
+                GGBOP$[0,G$OPVAL] := RCGPISTE[S$PHDGDTL] := $GNLAB();
+                GGBFP$[G$OPND2]   := 0;
+                $GWBUF(.GGBFP$,.GRCBI$);
+
+                $GIREC(GV$LABEL,3);
+                GGBOP$[0,G$OPTYP] := GV$STP;
+                GGBOP$[0,G$OPVAL] := .LABSAV;
+                $GWBUF(.GGBFP$,.GRCBI$);
+                GOB1I$ := GRB1I$ := .GRCBI$;
+                END
+          ELSE
+            IF .RCGPISTE[S$PFTGINC] NEQ SV$NULL  % DOES A GROUP FOOTING EXIST? %
+              THEN
+                ERRFLG := ZV$SET                % YES ERROR %
+              ELSE
+                BEGIN
+                $GIREC(GV$ENTRY,4);             % GROUP FOOTING INCR. CODE ENTRY %
+                GGBOP$[0,G$OPTYP] := GV$STP;
+                GGBOP$[0,G$OPVAL] := RCGPISTE[S$PFTGINC] := $GNLAB();
+                GGBFP$[G$OPND2]   := 0;
+                $GWBUF(.GGBFP$,.GINCI$);
+
+                $GIREC(GV$SEXIT,3);
+                GGBFP$[G$RETURNF]  := GV$NORSLT;
+                $GWBUF(.GGBFP$,.GDETI$);
+
+                $GIREC(GV$ENTRY,4);             % GROUP FOOTING DETAIL CODE ENTRY POINT %
+                GGBOP$[0,G$OPTYP] := GV$STP;
+                GGBOP$[0,G$OPVAL] := RCGPISTE[S$PFTGDTL] := $GNLAB();
+                GGBFP$[G$OPND2]   := 0;
+                $GWBUF(.GGBFP$,.GDETI$);
+
+                $GIREC(GV$BRANCH,3);
+                GGBOP$[0,G$OPTYP] := GV$STP;
+                GGBOP$[0,G$OPVAL] := LABSAV := $GNLAB();
+                $GWBUF(.GGBFP$,.GINII$);
+
+                $GIREC(GV$ENTRY,4);             % GROUP FOOTING INIT. CODE ENTRY POINT %
+                GGBOP$[0,G$OPTYP] := GV$STP;
+                GGBOP$[0,G$OPVAL] := RCGPISTE[S$PFTGINIT] := $GNLAB();
+                GGBFP$[G$OPND2]   := 0;
+                $GWBUF(.GGBFP$,.GINII$);
+
+                $GIREC(GV$LABEL,3);
+                GGBOP$[0,G$OPTYP] := GV$STP;
+                GGBOP$[0,G$OPVAL] := .LABSAV;
+                $GWBUF(.GGBFP$,.GINII$);
+                GOB1I$ := GRB1I$ := .GDETI$;
+                GRPFF$ := ZV$SET;
+                END;
+        $SFRCH(.RCGPISTE);
+        IF .ERRFLG EQL ZV$SET
+          THEN
+            BEGIN
+            $GPUSH(.GBTKN$,AV$SZTOK);
+            $GERR(554,.ZSTKP$);
+            $GPOP();
+            END
+          ELSE
+            BEGIN
+            $GPOP();
+            $GPUSH(.GBTV$SZTOK);
+            END;
+        END;
+    END;
+
+
+  GLOBAL ROUTINE $GGPHD = RPGROUP();
+
+  GLOBAL ROUTINE $GGPFT = RPGROUP();
+
+%******
+  PROCESS THE TV$CNTRLD TOKEN.
+******%
+  GLOBAL ROUTINE $GCTRL =
+    BEGIN
+
+    LOCAL S$ RCDEFSTE : RPTNSTE : RPTDSTE : RPTISTE : PREDSTE : RELISTE;
+    LOCAL RPTISTP, RELSTKP;
+
+    RELSTKP := .ZBSTK$[Z$SUCP,.GFEAP$];
+    IF .ZBSTK$[Z$SBID,.RELSTKP] NEQ ZV$REL
+      THEN
+        BEGIN
+        $GERR(567,.ZSTKP$);
+        WHILE .ZSTKP$ NEQ .RELSTKP
+          DO
+            $GPOP();
+        RETURN -1;
+        END;
+    WHILE .ZSTKP$ NEQ .RELSTKP
+      DO
+        BEGIN
+        IF .ZBSTK$[Z$SBID,.ZSTKP$] NEQ ZV$RPTCND
+          THEN
+            $GERR(568,.ZSTKP$)
+          ELSE
+            BEGIN
+            RCDEFSTE := $SGSTE(.ZBSTK$[Z$DEFSTP,.ZSTKP$]);
+            RELISTE  := $SGSTE(.ZBSTK$[Z$INCSTP,.ZBSTK$[Z$SUCP,.GFEAP$]]);
+            RPTISTE  := $SGSTE(.ZBSTK$[Z$RPISTP,.ZSTKP$]);
+            IF .RPTISTE[S$RSISTP] NEQ .RELISTE[S$STPX]
+              THEN                          % REPORT NOT ATTACHED TO THE RELATION %
+                BEGIN
+                PREDSTE := .RPTISTE;
+                RPTNSTE := $SGSTE(.RCDEFSTE[S$RNMSTP]);
+                RPTISTE := $GNRPI(.RPTNSTE);
+                RPTDSTE := $SGSTE(.RPTNSTE[S$DSTP]);
+                RPTISTE[S$USECNT] := RPTDSTE[S$USECNT] := .RPTDSTE[S$USECNT] + 1;
+                RPTISTE[S$RSISTP] := .RELISTE[S$STPX];
+                RPTISTE[S$RICSTP] := .RELISTE[S$RICSTP];
+                RPTISTE[S$PHL]    := .PREDSTE[S$PHL];
+                RPTISTE[S$PFL]    := .PREDSTE[S$PFL];
+                RELISTE[S$RICSTP] := .RPTISTE[S$STPX];
+                RELISTE[S$RNUM]   := .RELISTE[S$RNUM] + 1;
+                RPTNSTE[S$CISTP]:= .RPTISTE[S$STPX];
+                $SFRCH(.PREDSTE);
+                $SFRCH(.RPTNSTE);
+                $SFRCH(.RPTDSTE);
+                END;
+            GRPTP$ := .RPTISTE[S$STPX];
+            $SFRCH(.RELISTE);
+            $SFRCH(.RPTISTE);
+            $GNXSTN(RCDEFSTE[S$RPTCND],ZV$FALSE);
+            $GNXSTN(RCDEFSTE[S$RCSTMT],ZV$FALSE);
+            $SFRNCH(.RCDEFSTE);
+            END;
+        $GPOP();
+        END;
+    GRPTP$ := ZV$NULL;
+    END;
+
+
+  END
+ELUDOM
+ \<-dÖ
