@@ -1,0 +1,222 @@
+      SUBROUTINE SANST                                                  ANST0050
+C     LOCAL SUBROUTINE OF SLNK9-SANST TO PUNCH REQUESTED OUTPUT.        ANST0060
+C     STRESS PROGRAMMING SYSTEM FOR IBM 1130                            ANST0070
+C     DIMENSION AND COMMON STATEMENTS WHICH MUST APPEAR IN ALL ROUTINES ANST0080
+C     SYSTEM PARAMETERS  -  14 WORDS                                    ANST0090
+      DIMENSION NSYSF(6)                                                ANST0100
+C     PROBLEM PARAMETERS  -  32 WORDS                                   ANST0110
+      DIMENSION NPRBF(6)                                                ANST0120
+      DIMENSION NARRF(32)                                               ANST0130
+      DIMENSION  JMIN(250),JPLS(250),MTYP(250)                                  
+C     SCRATCH AREA CAN BE INSERTED AS DESIRED FOR EACH ROUTINE          ANST0160
+C     SCRATCH AREA                                                      ANST0170
+      DIMENSION A(40),B(40),C(10),D(10)                                 ANST0180
+      COMMON NTMP,KCUR,NAVAL,NOVER,ISOLV,ISUCC,ISCAN,ITRAC,NSYSF        ANST0190
+      COMMON NJ,NB,NDAT,NFJS,NLDS,NLDSI,ID,NCORD,JF,NSQ,IMETH,NMR,NJR,  ANST0200
+     1IBETA,IYOUN,ISHEA,GSHEA,EYOUN,FILL1,FILL2, IPZER,ISTRS,NPRBF      $NST0210
+C     PLATE PARAMETERS                                                  $NST0214
+      COMMON IPLAT,NPLAT,KPLA1,KPLAT,KTHI1,KTHIK                        $NST0216
+C     ARRAY CODEWORDS  40 PAIRS = 80 WORDS                              ANST0220
+      COMMON KNAM1,KNAME,KXY1,KXYZ,KJRE1,KJREL,MEGA1,MEGAZ,KMEM1,KMEMB, ANST0230
+     1KBET1,KBETA,KYON1,KYOUN,KSHE1,KSHEA,KMRE1,KMREL,KMEG1,KMEGA,      ANST0240
+     2KMKS1,KMKST,KROT1,KROTE,KPPL1,KPPLS,KPMN1,KPMNS,LOAD1,LOADS,      ANST0250
+     3KLIN1,KLINT,MLOA1,MLOAD,JLOA1,JLOAD,KDIA1,KDIAG,KOFD1,KOFDG,      ANST0260
+     4KPPR1,KPPRI,KSTA1,KSTAT,KJIN1,KJINT,KJEX1,KJEXT                   ANST0270
+      COMMON NARRF                                                      ANST0280
+      COMMON JMIN,JPLS,MTYP                                             ANST0290
+      COMMON A,B,C,D,JLX,NLI,NPAIR,IPRIN                                ANST0300
+C     IPRIN=1,  PRINT FORCES                                            ANST0310
+C     IPRIN=2,  PRINT REACTIONS AND STATICS CHECK                       ANST0320
+C     IPRIN=3,  PRINT DISPLACEMENTS                                     ANST0330
+C     PRINT (PUNCH) FOR EXTERNAL LOADING JLX, IN COMMON                 ANST0340
+100   FORMAT(///,10X,14H MEMBER FORCES//)                               ANST0350
+C     SPACE FRAME                                                       ANST0360
+  110 FORMAT(69H MEMB JOINT  AXIAL    SHEAR     SHEAR    TORSION    MOMEANST0370
+     1NT     MOMENT   )                                                 ANST0380
+ 1011 FORMAT (  13X,   35HFORCE   FORCE Y   FORCE Z    MOMENT,7X,1HY,9X,ANST0390
+     11HZ)                                                              ANST0400
+C     PLANE FRAME                                                       ANST0410
+120   FORMAT(61H  MEMBER   JOINT   AXIAL FORCE     SHEAR FORCE         MANST0420
+     10MENT)                                                            ANST0430
+C     GRID                                                              ANST0440
+130   FORMAT(65H  MEMBER  JOINT  SHEAR FORCE    TORSION MOMENT     BENDIANST0450
+     1NG MOMENT)                                                        ANST0460
+C     TRUSS                                                             ANST0470
+140   FORMAT(29H  MEMBER JOINT    AXIAL FORCE           )               ANST0480
+C     JOINT LOADS                                                       ANST0490
+200   FORMAT(///8X,35H APPLIED JOINT LOADS,   FREE JOINTS //)           ANST0500
+C     SPACE FRAME                                                       ANST0510
+210   FORMAT(67H JOINT FORCE X   FORCE Y   FORCE Z   MOMENT X   MOMENT YANST0520
+     1  MOMENT Z          )                                             ANST0530
+C     PLANE FRAME                                                       ANST0540
+220   FORMAT(42H JOINT   FORCE X     FORCE Y      MOMENT Z    )         ANST0550
+C     GRID                                                              ANST0560
+230   FORMAT(42H JOINT   FORCE Z     MOMENT X     MOMENT Y     )        ANST0570
+C     TRUSS, SPACE                                                      ANST0580
+240   FORMAT(42H JOINT   FORCE X     FORCE Y     FORCE Z     )          ANST0590
+C     PLANE TRUSS                                                       ANST0600
+250   FORMAT(28H JOINT   FORCE X     FORCE Y        )                   ANST0610
+C     SUPPORT REACTIONS                                                 ANST0620
+201   FORMAT(///6X,40H REACTIONS,APPLIED LOADS SUPPORT JOINTS  //)      ANST0630
+C     DISPLACEMENTS                                                     ANST0640
+300   FORMAT(///10X,25H FREE JOINT DISPLACEMENTS//)                     ANST0650
+301   FORMAT(///10X,28H SUPPORT JOINT DISPLACEMENTS//)                  ANST0660
+C     SPACE FRAME                                                       ANST0670
+310   FORMAT(66H JOINT X DISPL   Y DISPL   Z DISPL   X-ROTAT   Y-ROTAT  ANST0680
+     1  Z-ROTAT          )                                              ANST0690
+C     PLANE FRAME                                                       ANST0700
+320   FORMAT(50H JOINT  X-DISPLACEMENT   Y-DISPLACEMENT   ROTATION   )  ANST0710
+C     GRID                                                              ANST0720
+330   FORMAT(52H JOINT  Z-DISPLACEMENT      X-ROTATION    Y-ROTATION )  ANST0730
+C     SPACE TRUSS                                                       ANST0740
+340   FORMAT(54H JOINT  X-DISPLACEMENT  Y-DISPLACEMENT  Z-DISPLACEMENT) ANST0750
+C     PLANE TRUSS                                                       ANST0760
+350   FORMAT (38H JOINT  X-DISPLACEMENT  Y-DISPLACEMENT)                ANST0770
+C     MEMBER FORCES                                                     ANST0780
+111   FORMAT(I4,I6,3F10.3,3F10.2)                                       ANST0790
+123   FORMAT(I6,I8,F12.3,F17.3,F19.2)                                   ANST0800
+141   FORMAT(2I6,F15.3)                                                 ANST0810
+C     JOINT LOADS                                                       ANST0820
+211   FORMAT(I4,3F10.3,3F11.2)                                          ANST0830
+2234  FORMAT(I5,F12.3,F11.3,F14.2)                                      ANST0840
+251   FORMAT(I5,2F12.3)                                                 ANST0850
+C     DISPLACEMENTS                                                     ANST0860
+311   FORMAT(I4,4F10.4,2F11.4)                                          ANST0870
+3234  FORMAT(I5,F13.4,F16.4,F15.4)                                      ANST0880
+351   FORMAT(I5,F12.4,F16.4)                                            ANST0890
+      N=NSYSF(1)                                                        ANST0900
+      LNB=(NLI-1)*NB                                                    ANST0910
+      LNJ=(NLI-1)*NJ                                                    ANST0920
+      GO TO (9100,9200,9300),IPRIN                                      ANST0930
+C     MEMBER FORCES                                                     ANST0940
+C     PUNCH HEADINGS                                                    ANST0950
+ 9100 IF (NB)20,20,9105                                                         
+ 9105 WRITE(N,100)                                                              
+      GO TO (9140,9120,9130,9140,9110),ID                               ANST0970
+9140  WRITE(N,140)                                                      ANST0980
+      GO TO 1                                                           ANST0990
+9120  WRITE(N,120)                                                      ANST1000
+      GO TO 1                                                           ANST1010
+9130  WRITE(N,130)                                                      ANST1020
+      GO TO 1                                                           ANST1030
+9110  WRITE(N,110)                                                      ANST1040
+      WRITE (N,1011)                                                    ANST1050
+C     WRITE DATA                                                        ANST1060
+1     DO 10 M=1,NB                                                      ANST1070
+C     GET START AND END JOINTS                                          ANST1080
+      CALL SPAK2(M,JPLS,JSTA)                                           $NST1090
+      CALL SPAK2(M,JMIN,JEND)                                           $NST1100
+C     CONVERT TO EXTERNAL NUMBERS                                       ANST1110
+      CALL SDATA(KJEX1,KJEXT,JSTA,A,JSTA,1,1)                           ANST1120
+      CALL SDATA(KJEX1,KJEXT,JEND,A,JEND,1,1)                           ANST1130
+C     GET MINUS END FORCES IN C,PLUS END FORCES IN D                    ANST1140
+      MAR=LNB+M                                                         ANST1150
+      CALL SDATA(KPMN1,KPMNS,MAR,C,JKL,-1,0)                            ANST1160
+      CALL SDATA(KPPL1,KPPLS,MAR,D,JKL,-1,0)                            ANST1170
+      GO TO(4040,4020,4020,4040,4010),ID                                ANST1180
+C     SPACE FRAME                                                       ANST1190
+4010  WRITE(N,111)M,JSTA,(D(I),I=1,6)                                   ANST1200
+      WRITE(N,111) M,JEND,(C(I),I=1,6)                                  ANST1210
+      GO TO 10                                                          ANST1220
+C     PLANE FRAME,GRID                                                  ANST1230
+4020  WRITE(N,123)M,JSTA,(D(I),I=1,3)                                   ANST1240
+      WRITE(N,123)M,JEND,(C(I),I=1,3)                                   ANST1250
+      GO TO 10                                                          ANST1260
+C     TRUSSES                                                           ANST1270
+4040  WRITE(N,141)M,JSTA,D(1)                                           ANST1280
+      WRITE(N,141)M,JEND,C(1)                                           ANST1290
+10    CONTINUE                                                          ANST1300
+   20 IF(IPLAT)9000,9000,25                                                     
+   25 IF(ISTRS)9000,9000,30                                                     
+   30 WRITE(N,31)                                                               
+   31 FORMAT(//12X,'PLATE MEMBER STRESSES '//)                                  
+      WRITE(N,32)                                                               
+   32 FORMAT(' MEMB',10X,'MEMBRANE STRESS',22X,'BENDING STRESS'  )              
+      WRITE(N,34)                                                               
+   34 FORMAT(8X,'SIGMA X     SIGMA Y     SIGMA XY    SIGMA X     SIGMA Y        
+     1     SIGMA XY'/)                                                          
+      DO 33 M=1,IPLAT                                                           
+      MAR=(NLI-1)*IPLAT+M                                                       
+      CALL SDATA(KTHI1,KTHIK,MAR,A,NAREA,-1,0)                                  
+      WRITE(N,40)M,(A(I),I=1,6)                                                 
+   40 FORMAT(1X,I3,1X,6E12.4)                                                   
+   33 CONTINUE                                                                  
+      RETURN                                                            ANST1310
+C     REACTIONS AND STATICS CHECK                                       ANST1320
+C     PUNCH HEADINGS                                                    ANST1330
+C     APPLIED JOINT LOADS FREE JOINTS                                   ANST1340
+9200  IF(NFJS)9201,9201,9202                                            ANST1350
+9202  WRITE(N,200)                                                      ANST1360
+      NS=1                                                              ANST1370
+9280  GO TO (9250,9220,9230,9240,9210),ID                               ANST1380
+9250  WRITE(N,250)                                                      ANST1390
+      GO TO 999                                                         ANST1400
+9220  WRITE(N,220)                                                      ANST1410
+      GO TO 999                                                         ANST1420
+9230  WRITE(N,230)                                                      ANST1430
+      GO TO 999                                                         ANST1440
+9240  WRITE(N,240)                                                      ANST1450
+      GO TO 999                                                         ANST1460
+9210  WRITE(N,210)                                                      ANST1470
+      GO TO 999                                                         ANST1480
+C     SUPPORT REACTIONS                                                 ANST1490
+9201  WRITE(N,201)                                                      ANST1500
+      NS=2                                                              ANST1510
+      GO TO 9280                                                        ANST1520
+999   DO 5000 J=1,NJ                                                    ANST1530
+      CALL SDATA(KJIN1,KJINT,J,A,JIN,1,1)                               ANST1540
+      CALL SDATA(KJRE1,KJREL,JIN,A,IREL,+1,10)                          ANST1550
+      GO TO (4100,4200),NS                                              ANST1560
+4100  IF(IREL)4250,5000,5000                                            ANST1570
+4200  IF(IREL)5000,4250,4250                                            ANST1580
+4250  CALL SDATA(KSTA1,KSTAT,LNJ+JIN,A,JKL,-1,0)                        ANST1590
+      GO TO (4210,4220,4220,4220,4230),ID                               ANST1600
+4210  WRITE(N,251)J,A(1),A(2)                                           ANST1610
+      GO TO 5000                                                        ANST1620
+4220  WRITE(N,2234)J,(A(I),I=1,3)                                       ANST1630
+      GO TO 5000                                                        ANST1640
+4230  WRITE(N,211)J,(A(I),I=1,6)                                        ANST1650
+5000  CONTINUE                                                          ANST1660
+      GO TO (9201,9000),NS                                              ANST1670
+C     JOINT DISPLACEMENTS                                               ANST1680
+C     PUNCH HEADINGS                                                    ANST1690
+C     DISPLACEMENTS AT FREE JOINTS                                      ANST1700
+9300  IF(NFJS)9301,9301,9303                                            ANST1710
+9303  WRITE(N,300)                                                      ANST1720
+      NS=1                                                              ANST1730
+9380  GO TO (9350,9320,9330,9340,9310),ID                               ANST1740
+9350  WRITE(N,350)                                                      ANST1750
+      GO TO 998                                                         ANST1760
+9320  WRITE(N,320)                                                      ANST1770
+      GO TO 998                                                         ANST1780
+9330  WRITE(N,330)                                                      ANST1790
+      GO TO 998                                                         ANST1800
+9340  WRITE(N,340)                                                      ANST1810
+      GO TO 998                                                         ANST1820
+9310  WRITE(N,310)                                                      ANST1830
+      GO TO 998                                                         ANST1840
+C     SUPPORT DISPLACEMENTS                                             ANST1850
+9301  IF(NJR)9000,9000,9302                                             ANST1860
+9302  WRITE(N,301)                                                      ANST1870
+      NS=2                                                              ANST1880
+      GO TO 9380                                                        ANST1890
+C     PUNCH DATA                                                        ANST1900
+998   DO 6000 J=1,NJ                                                    ANST1910
+C     CONVERT TO INTERNAL NUMBER                                        ANST1920
+      CALL SDATA(KJIN1,KJINT,J,A,JIN,1,1)                               ANST1930
+      CALL SDATA(KJRE1,KJREL,JIN,A,IREL,+1,10)                          ANST1940
+      GO TO (4300,4400),NS                                              ANST1950
+4300  IF(IREL)4450,6000,6000                                            ANST1960
+4400  IF(IREL)6000,4450,4450                                            ANST1970
+4450  CALL SDATA(KPPR1,KPPRI,LNJ+JIN,A,JKL,-1,0)                        ANST1980
+      GO TO (4310,4320,4320,4320,4330),ID                               ANST1990
+4310  WRITE(N,351)J,A(1),A(2)                                           ANST2000
+      GO TO 6000                                                        ANST2010
+4320  WRITE(N,3234)J,(A(I),I=1,3)                                       ANST2020
+      GO TO 6000                                                        ANST2030
+4330  WRITE(N,311)J,(A(I),I=1,6)                                        ANST2040
+6000  CONTINUE                                                          ANST2050
+      GO TO (9301,9000),NS                                              ANST2060
+ 9000 RETURN                                                            ANST2070
+      END                                                               ANST2080
+   
