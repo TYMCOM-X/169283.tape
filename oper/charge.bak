@@ -1,0 +1,277 @@
+PROCEDURE CHARGEBACKS % EXT: CHARGE.BAK  MAG: N0HAWG.M##2 %
+% Posts chargebacks to District Managers, Application Consultants,  %
+% and Sales Representatives.                                        %
+% Original version:  1975.04.07  / Peter Haas (HAASP) %
+% Current version:   1976.02.20  / Steve Albanese (tc) %
+BEGIN
+
+% Local PERCNT fields for Computation of Chargebacks %
+
+FIELDS
+  PC.SR.SERVICE   SAME AS PC.N.R.O.Q,   % SR PERCNT ON SERVICE TRAN TYPES %
+  PC.SR.PRODUCTS  SAME AS PC.N.R.O.Q,   % SR PERCNT ON PRODUCT TRAN TYPES %
+  PC.BDM.SERVICE  SAME AS PC.N.R.O.Q,   % BM/DM PERCNT ON SERVICE TRAN TYPES %
+  PC.BDM.PRODUCTS SAME AS PC.N.R.O.Q,   % BM/DM PERCNT ON PRODUCT TRAN TYPES %
+  TRAN.TYP        AS 'NN'               % TRANSACTION TYPE INDICATOR         %
+
+
+
+
+SOURCE AC.SR.CHARGEBACK.TRANS           % Source version:  1976.0.20.%
+  FROM '*'
+  INVALIDS TO 'CHGBKA.ERR-ANY'
+  FIXED FORM
+  INPUT
+    DISTRICT.3N, SALESNUM.5N, AREA.2N, @TAB 61, M.CHARGEBACKS AS '7-.NN',
+    TRAN.TYP
+
+
+SOURCE BM.DM.CHARGEBACK.TRANS              % Source version:  1976.02.20 %
+  FROM '*'
+  INVALIDS TO 'CHGBKB.ERR-ANY'
+  FIXED FORM
+  INPUT
+    DISTRICT.3N, SALESNUM.5N, AREA.2N, @TAB 61, M.CHARGEBACKS AS '7-.NN',
+    TRAN.TYP
+
+REPORT
+  TO 'CHGBK.LST'
+  PAGE.SIZE 0
+% PERCNT Assignments Chargebacks (1976) these must change when plan changes %
+
+  LET PC.SR.SERVICE       = 3.0
+  LET PC.SR.PRODUCTS       = 6.0
+  LET PC.BDM.SERVICE      = 2.0
+  LET PC.BDM.PRODUCTS      = 1.0
+
+TYPE
+    'Tymshare Commission Analysis:', @CR,
+    'Monthly chargeback activity', @TAB TO 41, TODAY AS DATE 'YYYY/MM/DD',
+    @SKIP 2
+
+DO
+  BEGIN
+  TYPE 'Enter year and month processed as YY,MM : '
+  ACCEPT YR.PROCESSED, MO.PROCESSED
+  TYPE 'Year and month entered are ', YR.PROCESSED, ',', MO.PROCESSED,
+      '.  OK ? '
+  ACCEPT RESPONSE
+  END
+WHILE RESPONSE # 'Y' AND 'y' AND 'YES' AND 'yes' AND 'Yes'
+
+LET TRANSACTION = 'CHGBK'       % Only transaction processed in this procedure %
+
+WRITE REPORT    % Beginning of processing block %
+BEGIN
+
+PRINT
+    'Tymshare Commission Analysis:', @CR,
+    'Monthly chargeback activity', @TAB TO 41, TODAY AS DATE 'YYYY/MM/DD', @CR,
+    'for year/month ', YR.PROCESSED, '/', MO.PROCESSED, @SKIP 2
+
+ TYPE "Post chargebacks for AC's and Sales Representatives ? "
+ ACCEPT RESPONSE
+IF RESPONSE = 'Y' OR 'y' OR 'YES' OR 'yes' OR 'Yes' THEN
+  BEGIN
+  PRINT
+      'Chargebacks for Application Consultants and Sales Representatives:',
+      @SKIP 1
+
+  FOR EACH AC.SR.CHARGEBACK.TRANS
+AC.SR.PROCESS:
+    BEGIN
+    PRINT
+        @TAB 1, DISTRICT.3N, ',', SALESNUM.5N, ',', AREA.2N, ',',
+        M.CHARGEBACKS AS '7-N.NN',',', TRAN.TYP
+
+    % Compute Charge Back based on TRAN.TYP %
+
+    IF TRAN.TYP EQ 2 OR 3 THEN    % SERVICE %
+       LET M.CHARGEBACKS = M.CHARGEBACKS * PC.SR.SERVICE / 100
+    ELSE IF TRAN.TYP = 4 OR 5 THEN   % PRODUCT %
+            LET M.CHARGEBACKS = M.CHARGEBACKS * PC.SR.PRODUCTS / 100
+         ELSE
+           BEGIN
+           TYPE
+             @CR,'Encountered an illegal Transaction TYPE, Record By-passed',@CR
+           FINISH AC.SR.PROCESS
+           END
+
+    ADD 1 TO REC.IN
+    SELECT IAREA VIA KEY  THEN
+      IF REGION.2N OF IAREA = 1 OR 2  THEN
+        NOTHING % Valid area and region %
+      ELSE % Invalid region %
+        BEGIN
+        PRINT
+            @TAB TO 1, '*', @CR,
+            @TAB TO 9, 'REGION "', REGION.2N,
+            '" FOR AREA "', AREA.2N, '" NOT PROCESSED IN THIS PROCEDURE', @CR
+        ADD 1 TO REC.REJECTED
+        FINISH AC.SR.PROCESS
+        END
+    ELSE % No area match found %
+      BEGIN
+      PRINT
+          @TAB TO 1, '*', @CR,
+          @TAB TO 9, 'INVALID AREA "', AREA.2N, '"', @CR
+      ADD 1 TO REC.REJECTED
+      FINISH AC.SR.PROCESS
+      END
+    SELECT ISP VIA KEY  THEN
+      BEGIN
+      IF COM.PLAN = 'AC'  THEN
+        SELECT MACATM VIA KEY  THEN
+          BEGIN
+          ADD M.CHARGEBACKS OF AC.SR.CHARGEBACK.TRANS
+              TO M.CHARGEBACKS OF MACATM
+          PRINT @CR
+          ADD 1 TO REC.ACCEPTED
+          END
+        ELSE % No instance exists for this year, month, and sales number %
+          BEGIN
+          INSERT INTO MACATM
+          PRINT @CR
+          ADD 1 TO REC.ACCEPTED
+          END
+      ELSE IF COM.PLAN = 'SR'  THEN
+        SELECT MBMDMSR VIA KEY  THEN
+          BEGIN
+          ADD M.CHARGEBACKS TO AMOUNT
+          PRINT @CR
+          ADD 1 TO REC.ACCEPTED
+          ALTER MBMDMSR
+          END
+        ELSE % No instance exists for this year, month, &c. %
+          BEGIN
+          LET AMOUNT = M.CHARGEBACKS
+          INSERT INTO MBMDMSR
+          PRINT @CR
+          ADD 1 TO REC.ACCEPTED
+          END
+      ELSE % Invalid commission plan for this block %
+        BEGIN
+        PRINT
+            @TAB TO 1, '*', @CR,
+            @TAB TO 9, 'INVALID COMMISSION PLAN "', TRIM (COM.PLAN),
+            '" FOR THIS SOURCE', @CR
+        ADD 1 TO REC.REJECTED
+        END
+      END
+    ELSE % No match on ISP key (sales number) %
+      BEGIN
+      PRINT
+          @TAB TO 1, '*', @CR,
+          @TAB TO 9, 'INVALID SALES NUMBER "', SALESNUM.5N, '"', @CR
+      ADD 1 TO REC.REJECTED
+      END
+    END % Of FOR EACH AC.SR.CHARGEBACK.TRANS block %
+  PRINT
+      @SKIP 1, 'Valid-format records input:  ', REC.IN, @CR,
+      'Records processed:  ', @TAB 9, REC.ACCEPTED, @CR,
+      'Records rejected:  ', @TAB 10, REC.REJECTED, @CR
+  TYPE
+      @SKIP 1, 'Valid-format records input:  ', REC.IN, @CR,
+      'Records processed:  ', @TAB 9, REC.ACCEPTED, @CR,
+      'Records rejected:  ', @TAB 10, REC.REJECTED, @CR
+  LET REC.IN, REC.ACCEPTED, REC.REJECTED = DEFAULT
+  END % Of chargebacks for Application Consultants and Sales Representatives %
+
+TYPE 'Post chargebacks for District and Branch Managers ? '
+ACCEPT RESPONSE
+IF RESPONSE = 'Y' OR 'y' OR 'YES' OR 'yes' OR 'Yes'  THEN
+  BEGIN
+  PRINT @SKIP 2, 'Chargebacks for District and Branch Managers:', @SKIP 1
+
+  FOR EACH BM.DM.CHARGEBACK.TRANS
+BM.DM.PROCESS:
+    BEGIN
+    PRINT
+        @TAB 1, DISTRICT.3N, ',', SALESNUM.5N, ',', AREA.2N, ',',
+        M.CHARGEBACKS AS '7-N.NN', ',', TRAN.TYP
+
+    % Compute Charge Back based on TRAN.TYP %
+
+    IF TRAN.TYP EQ 2 OR 3 THEN    % SERVICE %
+       LET M.CHARGEBACKS = M.CHARGEBACKS * PC.BDM.SERVICE / 100
+    ELSE IF TRAN.TYP = 4 OR 5 THEN   % PRODUCT %
+            LET M.CHARGEBACKS = M.CHARGEBACKS * PC.BDM.PRODUCTS / 100
+         ELSE
+           BEGIN
+           TYPE
+             @CR,'Encountered an illegal Transaction TYPE, Record By-passed',@CR
+           FINISH BM.DM.PROCESS
+           END
+
+    ADD 1 TO REC.IN
+    SELECT IAREA VIA KEY  THEN
+      IF REGION.2N OF IAREA = 1 OR 2  THEN
+        NOTHING % Valid area and region %
+      ELSE % Invalid region %
+        BEGIN
+        PRINT
+            @TAB TO 1, '*', @CR,
+            @TAB TO 9, 'REGION "', REGION.2N,
+            '" FOR AREA "', AREA.2N, '" NOT PROCESSED IN THIS PROCEDURE', @CR
+        ADD 1 TO REC.REJECTED
+        FINISH BM.DM.PROCESS
+        END
+    ELSE % No area match found %
+      BEGIN
+      PRINT
+          @TAB TO 1, '*', @CR,
+          @TAB TO 9, 'INVALID AREA "', AREA.2N, '"', @CR
+      ADD 1 TO REC.REJECTED
+      FINISH BM.DM.PROCESS
+      END
+    SELECT ISP VIA KEY  THEN
+      BEGIN
+      LET SALESNUM.5N = SALESNUM.5N(IDIST VIA KEY)
+      LET COM.PLAN = COM.PLAN(ISP VIA KEY)
+      IF COM.PLAN = 'BM' OR 'DM' THEN
+        SELECT MBMDMSR VIA KEY  THEN
+          BEGIN
+          ADD M.CHARGEBACKS TO AMOUNT
+          PRINT @CR
+          ADD 1 TO REC.ACCEPTED
+          ALTER MBMDMSR
+          END
+        ELSE % No instance exists for this year, month, &c. %
+          BEGIN
+          LET AMOUNT = M.CHARGEBACKS
+          INSERT INTO MBMDMSR
+          PRINT @CR
+          ADD 1 TO REC.ACCEPTED
+          END
+      ELSE % Invalid commission plan for this block %
+        BEGIN
+        PRINT
+            @TAB TO 1, '*', @CR,
+            @TAB TO 9, 'INVALID COMMISSION PLAN "', TRIM (COM.PLAN),
+            '" FOR THIS SOURCE', @CR
+        ADD 1 TO REC.REJECTED
+        END
+      END
+    ELSE % No match on ISP key (sales number) %
+      BEGIN
+      PRINT
+          @TAB TO 1, '*', @CR,
+          @TAB TO 9, 'INVALID SALES NUMBER "', SALESNUM.5N, '"', @CR
+      ADD 1 TO REC.REJECTED
+      END
+    END % Of FOR EACH BM.DM.CHARGEBACK.TRANS block %
+  PRINT
+      @SKIP 1, 'Valid-format records input:  ', REC.IN, @CR,
+      'Records processed:  ', @TAB 9, REC.ACCEPTED, @CR,
+      'Records rejected:  ', @TAB 10, REC.REJECTED, @CR
+  TYPE
+      @SKIP 1, 'Valid-format records input:  ', REC.IN, @CR,
+      'Records processed:  ', @TAB 9, REC.ACCEPTED, @CR,
+      'Records rejected:  ', @TAB 10, REC.REJECTED, @CR
+  END % Of chargebacks for District and Branch Managers %
+
+END % Of WRITE REPORT %
+
+
+END % Of PROCEDURE CHARGEBACKS %
+   
