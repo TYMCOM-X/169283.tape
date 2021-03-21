@@ -1,0 +1,113 @@
+MODULE KPGMAN(DOLLAR,ENTRIES=($KGETP,$KRELP),
+                FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+
+BEGIN
+
+REQUIRE KDEFS.BLI[7,114054];
+REQUIRE SBDEFS.BLI[7,114054];
+REQUIRE UDEFS.BLI[7,114054];
+UNDECLARE $KGETP,$KRELP;
+
+STRUCTURE BITARRAY[I]= (@.BITARRAY+(.I-1)/36)<35-(.I-1) MOD 36,1>;
+
+MACRO MASK(E)= (1^(35-(E)))&,
+      MIN(A,B)= (IF A LEQ B THEN A ELSE B)&,
+      MAX(A,B)= (IF A GEQ B THEN A ELSE B)&,
+      CEILING(A,B)= (A/B+SIGN(A MOD B))&,
+      INC(NAME)= (NAME_.NAME+1)&,
+      DEC(NAME)= (NAME_.NAME-1)&;
+
+GLOBAL ROUTINE $KGETP(FCB,NOP)=
+   BEGIN
+   MAP KFCB$ FCB;
+   LOCAL UDYNARY$ PPAT;
+   LOCAL UDYNARY$ PAT;
+   LOCAL KSB$ SB;
+   LOCAL I,J,BIT,T,PN;
+
+   IF .NOP GTR 1
+      THEN $KINTE(KV$UNIMPLEMENT,KV$GETP);
+   SB_.FCB[K$SBP];
+   IF .SB[SB$TOTAL] GTR 0
+      THEN IF .SB[SB$PFREE] GTR 0 
+         THEN
+            BEGIN
+            DEC(SB[SB$FREE]);
+            DEC(SB[SB$PFREE]);
+            PPAT_.SB+SBV$PPAT-1;
+            INCR I FROM 1 TO MIN(CEILING(.SB[SB$TOTAL],36),
+                                 KV$PAGS-SBV$PPAT)
+               DO IF BIT_FIRSTONE(.PPAT[.I]) GEQ 0
+                  THEN
+                     BEGIN
+                     PPAT[.I]_.PPAT[.I] XOR MASK(.BIT);
+                     $KVIWR(.FCB,.SB,1,1); % WRITE OUT CHANGED SB %
+                     RETURN (.I-1)*36+.BIT+1;
+                     END
+            END
+         ELSE IF .SB[SB$FREE] GTR 0
+            THEN INCR I FROM 1 TO .SB[SB$PATB]
+               DO IF .SB[SB$NFRE,.I] GTR 0
+                  THEN
+                     BEGIN
+                     PAT_$KVIRD(.FCB,.SB[SB$PATPAG,.I],1)-1;
+                     INCR J FROM 1 TO KV$PAGS
+                        DO IF BIT_FIRSTONE(.PAT[.J]) GTR 0
+                           THEN
+                              BEGIN
+                              PAT[.J]_.PAT[.J] XOR MASK(.BIT);
+                              $KVIWR(.FCB,.SB,1,1); % WRITE OUT CHANGED SB %
+                              RETURN (KV$PAGS-SBV$PPAT)*36+(.I-1)
+                                     *KV$PAGS*36+(.J-1)*36+.BIT+1;
+                              END
+                     END
+                  ELSE 0
+            ELSE 0
+      ELSE
+         BEGIN
+         PN_INC(SB[SB$TOTAL]);
+         $KPHYW(.FCB,.FCB[K$SBP],.PN,1); % WRITE PN TO ASSURE THERE IS
+                                            ROOM FOR IT %
+         IF T_.SB[SB$TOTAL] GTR (KV$PAGS-SBV$PPAT)*36 AND
+            .T-(KV$PAGS-SBV$PPAT)*36 MOD KV$PAGS*36 EQL 1
+            THEN
+               BEGIN   % ALLOCATE A NEW PAT %
+               INC(SB[SB$TOTAL]);
+               PAT_$KGBUF(.FCB,.T+1,1);
+               $UZERO(KV$PAGS,.PAT);
+               $KPHYW(.FCB,.PAT,.T+1,1);
+               END;
+         RETURN .T;
+         END
+   END;
+
+
+GLOBAL ROUTINE $KRELP(FCB,PN,NOP)=
+   BEGIN
+   MAP KFCB$ FCB;
+   LOCAL KSB$ SB;
+   LOCAL BITARRAY PAT;
+   LOCAL I,J;
+
+   SB_.FCB[K$SBP];
+   DEC(SB[SB$TOTAL]);
+   INC(SB[SB$FREE]);
+   IF .PN LEQ (KV$PAGS-SBV$PPAT)*36
+      THEN
+         BEGIN
+         PAT_.SB+SBV$PPAT;
+         PAT[.PN]_1;  %  TURN ON BIT FOR PN %
+         INC(SB[SB$PFREE]);
+         END
+      ELSE
+         BEGIN
+         I_(.PN-(KV$PAGS-SBV$PPAT)*36)/(KV$PAGS*36)+1;
+         INC(SB[SB$NFRE,.I]);
+         PAT_$KVIRD(.FCB,.SB[SB$PATPAG,.I],1);
+         J_(.PN-(KV$PAGS-SBV$PPAT)*36) MOD KV$PAGS*36;
+         PAT[.J]_1;  % TURN ON BIT FOR PN %
+         $KVIWR(.FCB,.PAT,.SB[SB$PATPAG,.I],1); % WRITE OUT CHANGED PAT%
+         END;
+   $KVIWR(.FCB,.SB,1,1); % WRITE OUT CHANGED SB %
+   END;
+END ELUDOM
