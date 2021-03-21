@@ -1,0 +1,150 @@
+      SUBROUTINE SREAD(IG)                                              READ0050
+C     SUBROUTINE SREAD - READS DATA GIVEN WITH OR WITHOUT LABELS        READ0060
+      DIMENSION NSYSF(6)                                                READ0070
+      DIMENSION NPRBF(6)                                                READ0080
+      DIMENSION NARRF(36)                                               READ0090
+      DIMENSION A(40),BETA(37),LABL(16),IFREE(20),ICHK(2),IBUFF(40)     READ0100
+      DIMENSION  JMIN(250),JPLS(250),MTYP(250)
+C     STRESS PROGRAMMING SYSTEM FOR IBM 1130                            READ0120
+C     DIMENSION AND COMMON STATEMENTS WHICH MUST APPEAR IN ALL ROUTINES READ0130
+C     SYSTEM PARAMETERS  -  14 WORDS                                    READ0140
+      COMMON NTMP,KCUR,NAVAL,NOVER,ISOLV,ISUCC,ISCAN,ITRAC,NSYSF        READ0150
+C     PROBLEM PARAMETERS  -  32 WORDS                                   READ0160
+      COMMON NJ,NB,NDAT,NFJS,NLDS,NLDSI,ID,NCORD,JF,NSQ,IMETH,NMR,NJR,  READ0170
+     1IBETA,IYOUN,ISHEA,GSHEA,EYOUN,FILL1,FILL2,IPZER,ISTRS,NPRBF             READ0180
+C     PLATE PARAMETERS                                                  $EAD0182
+      COMMON IPLAT,NPLAT,KPLA1,KPLAT,KTHI1,KTHIK                        $EAD0184
+C     ARRAY CODEWORDS  40 PAIRS = 80 WORDS                              READ0190
+      COMMON KNAM1,KNAME,KXY1,KXYZ,KJRE1,KJREL,MEGA1,MEGAZ,KMEM1,KMEMB, READ0200
+     1KBET1,KBETA,KYON1,KYOUN,KSHE1,KSHEA,KMRE1,KMREL,KMEG1,KMEGA,      READ0210
+     2KMKS1,KMKST,KROT1,KROTE,KPPL1,KPPLS,KPMN1,KPMNS,LOAD1,LOADS,      READ0220
+     3KLIN1,KLINT,MLOA1,MLOAD,JLOA1,JLOAD,KDIA1,KDIAG,KOFD1,KOFDG,      READ0230
+     4KPPR1,KPPRI,KSTA1,KSTAT                                           READ0240
+      COMMON NARRF                                                      READ0250
+C  MEMBER INCIDENCE AND TYPE TABLES  250 JOINTS  500 MEMBERS
+      COMMON JMIN,JPLS,MTYP,IAMDU                                       READ0270
+C     SCRATCH AREA CAN BE INSERTED AS DESIRED FOR EACH ROUTINE          READ0280
+C     SCRATCH AREA FOR INPUT PHASE  -  SPH1A AND SPH1B                  READ0290
+      COMMON A,BETA,IFREE,LABL,IB,IL,ILOOK,JTOMB,K1,IPRER,JLD,INDEX,    READ0300
+     1JINDL,JDEPL,IPRTA,KK,JJC,JDC,IS,ICHK,JMIC,JMPC,JCODE,JIB          READ0310
+     2,MEMRE,CTE,KS1,LEM,IBUFF,K3                                       $EAD0320
+C     IG=1 JOINT COORDINATES AND JOINT COORDINATES SYMMETRY OR MEMBER   READ0330
+C     PROPERTIES                                                        READ0340
+C       =2  RELEASES                                                    READ0350
+C       =3  LOADS                                                       READ0360
+C     KS1=1 TEMPERATURE                                                 READ0370
+C     KS1=2 LENGTH                                                      READ0380
+C        =0  IF ENCOUNTERED A WORD NOT IN LIST OR A FIXED POINT NUMBER  READ0390
+      IB=0                                                              READ0400
+      IL=0                                                              READ0410
+      I1=0                                                              READ0420
+      I2=0                                                              READ0430
+      IN=1                                                              READ0440
+      IS=0                                                              READ0450
+C     TO FIND END OF STATEMENT,FLOATING POINT,AND SUPPORT STATUS -      READ0460
+C     MOMENTX,Y,Z                                                       READ0470
+100   CALL MATCH(K,AA,0,5,IBUFF,I3)                                     READ0480
+      GO TO (130,9901,102,9900,105),I3                                  READ0490
+C     FLOATING POINT NUMBER - I3=3                                      READ0500
+102   IF(KS1-1)103,104,151                                              READ0510
+C     COMPUTE TEMP.                                                     READ0520
+104   AA=AA*CTE                                                         READ0530
+C     MOVE FROM DISK TO CORE - FLOATING POINT                           READ0540
+151   IB=1                                                              READ0550
+      BETA(1)=AA                                                        READ0560
+      IL=1                                                              READ0570
+      LABL(1)=1                                                         READ0580
+      IN=2                                                              READ0590
+      GO TO 500                                                         READ0600
+C     FLOATING POINT NUMBERS OF X,Y,Z-WITHOUT LABELS                    READ0610
+103   IB=IB+1                                                           READ0620
+      BETA(IB)=AA                                                       READ0630
+      GO TO 100                                                         READ0640
+C     WORD IN THE LISTS - I3=5 - BUILD UP CODE FROM WORDS               READ0650
+  105 GO TO(106,106,106,107,108,107,108,107,108,109,110,111,111,111,112 READ0660
+     1,112,112,113,114,115,116,117,116,117,107,108,118,118,121,122,1055,READ0670
+     21055,1055,1056,1056,1056,107,1079),K                              READ0680
+C     THRU=LEM=1                                                        READ0690
+1079  LEM=1                                                             READ0700
+      CALL MATCH (IAMDU,AA,0,5,IBUFF,I3)                                READ0710
+      IF(I3-2)9900,100,9900                                             READ0720
+ 1055 I2=0                                                              READ0730
+      I1=-30                                                            READ0740
+      GO TO 106                                                         READ0750
+ 1056 I2=3                                                              READ0760
+      I1=-33                                                            READ0770
+C     IA=KTH NUMBER IN LIST =5,WITH X,Y,Z-THEN FLOATING POINT NOS.-     READ0780
+C     SET RELATIONSHIP OF IA TO IL                                      READ0790
+ 106  IA=K+I1+I2                                                        READ0800
+      GO TO 119                                                         READ0810
+C     FORCE=K=4=LIST5                                                   READ0820
+ 107  I2=0                                                              READ0830
+      GO TO 120                                                         READ0840
+C     AFTER FINDING JOINT RELEASE,1 MOMENT HAS BEEN MATCHED,I2=3        READ0850
+ 108  I2=3                                                              READ0860
+      GO TO 120                                                         READ0870
+C     AFTER END HAS BEEN MATCHED                                        READ0880
+109   I1=6                                                              READ0890
+      GO TO 1101                                                        READ0900
+110   I1=0                                                              READ0910
+C     INDEX=3=MEMBER END OR START LOADS                                 READ0920
+ 1101 INDEX=3                                                           READ0930
+      GO TO 120                                                         READ0940
+C     LOCATE WHAT TYPE OF LOADINGS,CONC.,UNIF.,LINEAR                   READ0950
+ 111  IA=K-11                                                           READ0960
+      GO TO 119                                                         READ0970
+C     SET IA=1,FOR P,W,WA,LOADINGS                                      READ0980
+ 112  IA=1                                                              READ0990
+      GO TO 119                                                         READ1000
+C     SET IA=2,FOR WB LOADING                                           READ1010
+ 113  IA=2                                                              READ1020
+      GO TO 119                                                         READ1030
+ 114  IA=3                                                              READ1040
+      GO TO 119                                                         READ1050
+ 118  GO TO(1181,1181,114),IG                                           READ1060
+ 1181 IA=7                                                              READ1070
+      GO TO 119                                                         READ1080
+122   IA=7                                                              READ1090
+      GO TO 119                                                         READ1100
+C     JOINT COORDINATES SYMMETRY Y - READ ALREADY=KS=13, 54 SYMM READ   READ1110
+C     ALREADY                                                           READ1120
+121   NSYSF(3)=1                                                        READ1130
+C     M=2,READ FIXED POINT NUMBER-54 SYMM(53)                           READ1140
+C     IDENTIFY JOINT NUMBER 53 AND TEST FOR FIXED POINT NO.             READ1150
+      CALL MATCH (K1,A,2,LISTN,IBUFF,II)                                READ1160
+      IF (II-2) 9900,100,9900                                           READ1170
+C     SDATA RETRIEVES FLOATING POINT FROM DISK TO A(53)                 READ1180
+ 115  IA=4                                                              READ1190
+C     STORE CODE IN NEXT ELEMENT OF LABEL-LABL(1)=1,LABL(2),AND SO ON.  READ1200
+C     LABEL JOINT RELEASE,AFTER X,Y,Z RELEASES IDENTIFIED SET UP CODEWORREAD1210
+ 119  IL=IL+1                                                           READ1220
+      LABL(IL)=IA                                                       READ1230
+ 120  IN=IN+1                                                           READ1240
+      GO TO 100                                                         READ1250
+C     IS=SUPPORT STATUS                                                 READ1260
+ 116  IS=2                                                              READ1270
+      GO TO 100                                                         READ1280
+C     IS=1=SUPPORT STATUS=F                                             READ1290
+ 117  IS=1                                                              READ1300
+      GO TO 100                                                         READ1310
+C     IF NO LABELS GIVEN,SET TABL UP 1-IB CONSECUTIVELY                 READ1320
+C     END OF DATA FIELD - I3=1=FROM COMMAND 100,I3=1                    READ1330
+130   IF(IL)500,132,500                                                 READ1340
+132   IF(IB)500,500,131                                                 READ1350
+131   IF(IB-12)1322,1322,1321                                           READ1360
+ 1321 N=12                                                              READ1370
+      GO TO 1323                                                        READ1380
+ 1322 N=IB                                                              READ1390
+      IL=N                                                              READ1400
+ 1323 DO 133  I=1,N                                                     READ1410
+ 133  LABL(I)=I+I1                                                      READ1420
+      GO TO 500                                                         READ1430
+C     WORD NOT FOUND IN LISTS - I3=4                                    READ1440
+ 9900 IPRER=0                                                           READ1450
+      GO TO 180                                                         READ1460
+C     FIXED POINT NUMBER - I3=2                                         READ1470
+ 9901 IPRER=1                                                           READ1480
+  180 IG=0                                                              READ1490
+  500 RETURN
+      END                                                               READ1510
+   
