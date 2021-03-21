@@ -1,0 +1,105 @@
+      SUBROUTINE SLINR                                                  LINR0050
+C     SUBROUTINE OF SLNK5-SLINR COMPUTE REACTIONS AND DEFLECTIONS ON    LINR0060
+C     CANTILEVER BEAM DUE TO UNIF. OR LINEAR LOADS APPLIED TO MEMBER.   LINR0070
+C     STRESS PROGRAMMING SYSTEM FOR IBM 1130                            LINR0080
+C     DIMENSION AND COMMON STATEMENTS WHICH MUST APPEAR IN ALL ROUTINES LINR0090
+      DIMENSION NSYSF(6)                                                LINR0100
+      DIMENSION NPRBF(6)                                                LINR0110
+      DIMENSION NARRF(36)                                               LINR0120
+C     MEMBER INCIDENCE AND TYPE TABLES, MAX. 250 MEMBERS, 127 JOINTS    LINR0130
+      DIMENSION  JMIN(250),JPLS(250),MTYP(250)                                  
+      DIMENSION MLDTB (20),TABLE(20),SP(20),STIFF(40),PL(10),PR(10),FCA(LINR0150
+     110),DEFL(10),ROT(40),TOMEG(40),PROD(10),PWORK(10)                 LINR0160
+C     SYSTEM PARAMETERS  -  14 WORDS                                    LINR0170
+      COMMON NTMP,KCUR,NAVAL,NOVER,ISOLV,ISUCC,ISCAN,ITRAC,NSYSF        LINR0180
+C     PROBLEM PARAMETERS  -  32 WORDS                                   LINR0190
+      COMMON NJ,NB,NDAT,NFJS,NLDS,NLDSI,ID,NCORD,JF,NSQ,IMETH,NMR,NJR,  LINR0200
+     1IBETA,IYOUN,ISHEA,GSHEA,EYOUN,FILL1,FILL2,FILL3,FILL4,NPRBF             LINR0210
+C     PLATE PARAMETERS                                                  $INR0214
+      COMMON IPLAT,NPLAT,KPLA1,KPLAT,KTHI1,KTHIK                        $INR0216
+C     ARRAY CODEWORDS  40 PAIRS = 80 WORDS                              LINR0220
+      COMMON KNAM1,KNAME,KXY1,KXYZ,KJRE1,KJREL,MEGA1,MEGAZ,KMEM1,KMEMB, LINR0230
+     1KBET1,KBETA,KYON1,KYOUN,KSHE1,KSHEA,KMRE1,KMREL,KMEG1,KMEGA,      LINR0240
+     2KMKS1,KMKST,KROT1,KROTE,KPPL1,KPPLS,KPMN1,KPMNS,LOAD1,LOADS,      LINR0250
+     3KLIN1,KLINT,MLOA1,MLOAD,JLOA1,JLOAD,KDIA1,KDIAG,KOFD1,KOFDG,      LINR0260
+     4KPPR1,KPPRI,KSTA1,KSTAT                                           LINR0270
+      COMMON NARRF                                                      LINR0280
+C  MEMBER INCIDENCE AND TYPE TABLES  250 JOINTS  500 MEMBERS                    
+      COMMON JMIN,JPLS,MTYP                                             LINR0290
+C     SCRATCH AREA CAN BE INSERTED AS DESIRED FOR EACH ROUTINE          LINR0300
+C     SCRATCH AREA                                                      LINR0310
+      COMMON MLDTB, TABLE,SP,STIFF,PL,PR,FCA,DEFL,ROT,TOMEG             LINR0320
+      COMMON MEMNO,BL1,NLDI,NDEX,J,K                                    LINR0330
+      EQUIVALENCE (WA,TABLE(2)),(WB,TABLE(3)),(AL,TABLE(4)),(BL,TABLE(5)LINR0340
+     1),(PROD(1),DEFL(1)),(PWORK(1),FCA(1))                             LINR0350
+C     COMPUTES DEFLECTIONS AND ROTATIONS  IN DEFL(1-JF)                 LINR0360
+C     AND CANTILEVER FORCES IN FCA(1-JF) FOR UNIFORM AND LINEAR LOADS   LINR0370
+C     FORCE Y OR Z, I=AXIS OF ROTATION, J=LOAD DIRECTION                LINR0380
+C     ROTATION                                                          LINR0390
+      THE1F(X,Y)=X*AL2/2.-Y*AL+WB*BAL3/8.+WA*BAL3/24.                   LINR0400
+C     DEFLECTION                                                        LINR0410
+      DEF1F(X)= 3.*WB*BAL3*CAL/24.+WA*BAL3*CAL/24.+11.*WB*BAL4/120.     LINR0420
+     1+WA*BAL4/30.                                                      LINR0430
+C     FORCE X, MOMENT X,Y,Z                                             LINR0440
+C     ROTATION                                                          LINR0450
+      THE2F(Y)=-Y*AL+WA*BAL2/6.+WB*BAL2/3.                              LINR0460
+C     DEFLECTION                                                        LINR0470
+      DEF2F(Y)=Y*(AL2/2.-BL1*AL)+WA*CAL*BAL2/6.+WB*CAL*BAL2/3.+WA*BAL3  LINR0480
+     1/8.+5.*WB*BAL3/24.                                                LINR0490
+      BAL=BL-AL                                                         LINR0500
+      BAL2=BAL*BAL                                                      LINR0510
+      BAL3=BAL2*BAL                                                     LINR0520
+      BAL4=BAL3*BAL                                                     LINR0530
+      CAL=BL1-BL                                                        LINR0540
+      AL2=AL*AL                                                         LINR0550
+C     CANTILEVER FORCE FOR LOAD DIRECTION J                             LINR0560
+      FCA(J)=-(WA+WB)/2.*BAL                                            LINR0570
+C     CHECK STRUCTURE TYPE                                              LINR0580
+      GO TO (100,200,300,100,500),ID                                    LINR0590
+C     FORCE X LOADING                                                   LINR0600
+100   DEFL(1)=THE2F(FCA(1))/(EYOUN*SP(1))                               LINR0610
+      RETURN                                                            LINR0620
+C     PLANE FRAME                                                       LINR0630
+200   GO TO (100,201,202),J                                             LINR0640
+201   I=3                                                               LINR0650
+C     FORCE Y OR Z                                                      LINR0660
+400   FCA(I)=-BAL/2.*(WA*(AL+BAL/3.)+WB*(AL+2.*BAL/3.))                 LINR0670
+      DEFL(I)=THE1F(FCA(J),FCA(I))/(EYOUN*SP(I))                        LINR0680
+      DEFL(J)=DEF1F(0.)/(EYOUN*SP(I))                                   LINR0690
+      IF(SP(J))921,920,921                                              LINR0692
+921   DEFL(J)=DEFL(J)+(BAL*BAL/6.*(WA-WB)+BAL/2.*AL*(WA+WB)             LINR0694
+     1+(WB*BAL*BAL/2.))/(GSHEA*SP(J))                                   LINR0696
+920   IF(AL)402,401,402                                                 LINR0700
+402   DEFL(J)=DEFL(J)+(AL*(FCA(I)*(AL/2.-BL1)+FCA(J)*(BL1*AL/2.-AL2/3.) LINR0710
+     1))/(EYOUN*SP(I))                                                  LINR0720
+401   IF(ID-3)403,404,403                                               LINR0730
+403   IF(ID-5)405,406,405                                               LINR0740
+406   IF(J-3)405,404,405                                                LINR0750
+404   FCA(I)=-FCA(I)                                                    LINR0760
+      DEFL(I)=-DEFL(I)                                                  LINR0770
+405   RETURN                                                            LINR0780
+C     PLANE FRAME, MOMENT Z                                             LINR0790
+202   DEFL(2)=DEF2F(FCA(3))/(EYOUN*SP(3))                               LINR0800
+      DEFL(3)=THE2F(FCA(3))/(EYOUN*SP(3))                               LINR0810
+      RETURN                                                            LINR0820
+C     PLANE GRID                                                        LINR0830
+300   GO TO (201,302,303),J                                             LINR0840
+C     FORCE Z ON PLANE GRID J=1, I=3 (201)                              LINR0850
+C     MOMENT X, PLANE GRID, SPACE FRAME                                 LINR0860
+302   DEFL(J)=THE2F(FCA(J))/(GSHEA*SP(J))                               LINR0870
+      RETURN                                                            LINR0880
+C     MOMENT Y, PLANE GRID, J=3, I=3                                    LINR0890
+303   DEFL(1)=DEF2F(FCA(3))/(EYOUN*SP(3))                               LINR0900
+      DEFL(3)=THE2F(FCA(3))/(EYOUN*SP(3))                               LINR0910
+      RETURN                                                            LINR0920
+C     SPACE FRAME J=1-6                                                 LINR0930
+500   GO TO (100,502,502,302,505,505),J                                 LINR0940
+502   I=8-J                                                             LINR0950
+      GO TO 400                                                         LINR0960
+C     MOMENT Y OR Z, SPACE FRAME                                        LINR0970
+505   I=8-J                                                             LINR0980
+      DEFL(J)=THE2F(FCA(J))/(EYOUN*SP(J))                               LINR0990
+      DEFL(I)=DEF2F(FCA(J))/(EYOUN*SP(J))                               LINR1000
+      RETURN                                                            LINR1010
+      END                                                               LINR1020
+ 
