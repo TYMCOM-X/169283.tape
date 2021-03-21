@@ -1,0 +1,1427 @@
+C-----------------------------------------------------------------------
+C-----PROGRAM GLUMP-PDP-10---720609---LBA-------------------------------
+C
+      INTEGER  A,AB,BLANK,ABRNCH,ASUBBR
+      COMMON/BRNCH/ABRNCH(8),ASUBBR(5)
+      DIMENSION  JS(4,5)
+      DATA  JS/6,1,0,12,0,2,0,7,11,0,3,10,0,0,4,8,0,0,5,9/
+200   CONTINUE
+      WRITE  (5,210)
+210   FORMAT  (' * ',$)
+      CALL GETTER(A,AB)
+      DO  250  II=1,8
+      IF(A.NE.ABRNCH(II))GOTO 250
+      J1=II
+      GOTO 280
+250   CONTINUE
+260   WRITE(5,270)
+270   FORMAT  ('  ERROR,TRY AGAIN')
+      GOTO 200
+280   CONTINUE
+      IF(J1.LE.4)GOTO 360
+      DO  290  II=1,5
+      IF(AB.NE.ASUBBR(II))GOTO 290
+      J2=II
+      GOTO 300
+290   CONTINUE
+      GOTO 260
+300   CONTINUE
+      JJ=J1-4
+      JUMP=JS(JJ,J2)+1
+      GOTO(260,302,303,304,305,306,307,308,309,310,311,312,313),JUMP
+C     SAV DAT
+302   CALL S10275
+      GOTO 200
+C     SAV OUT
+303   CALL S10210
+      GOTO 200
+C     MOD ELE
+304   CALL S2300
+      GOTO 200
+C     MOD CON
+305   CALL S1000(0)
+      GOTO 200
+C     MOD FRE
+306   CALL S3000(0)
+      GOTO 200
+C     INI DAT
+307   CALL S10000
+      GOTO 200
+C     PRI OUT
+308   CALL S10410
+      GOTO 200
+C     PRI CON
+309   CALL S1000(2)
+      GOTO 200
+C     PRI FRE
+310   CALL S3000(1)
+      GOTO 200
+C     PRI ELE
+311   CALL S2700
+      GOTO 200
+C     INI ELE
+312   CALL S2000
+      GOTO 200
+C     PRI DAT
+313   CALL S10700
+      GOTO 200
+330   CONTINUE
+      WRITE(5,331)
+331   FORMAT('  END OF JOB, BYE-BYE',6(/))
+      STOP
+360   CONTINUE
+      IF(J1.EQ.1)GOTO 330
+      IF(J1.EQ.4)GOTO 400
+      IF(J1.EQ.3)GOTO 370
+C     MAN
+      CALL S10110(1)
+      GOTO 200
+C     COM
+370   CALL S10110(0)
+      GOTO 200
+400   CALL GIO
+      GOTO 200
+      END
+C-----------------------------------------------------------------------
+      BLOCK DATA
+      COMMON/ALPHA/ICOMMA
+      COMMON/NUMBER/ANUMB(19)
+      COMMON/BRNCH/ABRNCH(8),ASUBBR(5)
+      COMMON/MISC1/BLANK,AYES
+      COMMON/MISC2/AFIL,ATEL
+      COMMON/MISC3/A1S
+      COMMON/MISC5/ALIN,ALOG,AMAN,ALIS,ALIST
+      COMMON/MISC6/LPAR,RPAR
+      COMMON/MISC7/AACT,ALUM
+      COMMON/MISC8/XNS(4)
+      INTEGER ANUMB,ICOMMA,LPAR,RPAR
+      INTEGER  AACT,ALUM
+      INTEGER ALIN,ALOG,AMAN,ALIS,ALIST
+      INTEGER AFIL,ATEL
+      INTEGER ABRNCH,ASUBBR,BLANK,AYES
+      REAL*8 XNS
+      DATA ABRNCH/4HEND ,4HCOM ,4HMAN ,4HGIO ,4HINI ,4HSAV ,4HMOD ,
+     1            4HPRI /
+      DATA ASUBBR/4HDAT ,4HOUT ,4HELE ,4HCON ,4HFRE /
+      DATA BLANK/4H    /,AYES/4HY   /
+      DATA A1S/4H1S  /
+      DATA ALIN/4HLIN /,ALOG/4HLOG /,AMAN/4HMAN /,ALIS/4HLIS /
+      DATA LPAR/2H( /,RPAR/2H) /
+      DATA ALIST/4HLIST/
+      DATA AFIL/4HFIL /,ATEL/4HTEL /
+      DATA AACT/4HACT /,ALUM/4HLUM /
+      DATA ANUMB/2H- ,2H0 ,2H1 ,2H2 ,2H3 ,2H4 ,
+     12H5 ,2H6 ,2H7 ,2H8 ,2H9 ,2HC ,2HZ ,2HY ,2HF ,
+     22HO ,2HG ,2HS ,2HP /
+      DATA ICOMMA/2H, /
+      DATA XNS/8HLINE    ,8HACT ELT ,8HLUMP ELT,8HLIST ELT/
+      END
+C-----------------------------------------------------------------------
+C-----------------------------------------------------------------------
+      SUBROUTINE GETTER(AA,BB)
+C     OBTAINS COMMAND STRING FROM TERMINAL AND DISJOINS IT
+      INTEGER IWORK,ICLAY(20),ICOMMA,BLANK,AA,BB
+      COMMON /ALPHA/ ICOMMA
+      COMMON /MISC1/ BLANK
+      ICOMFL=0
+      IBKCNT=0
+      READ(5,10) (ICLAY(II),II=1,18)
+10    FORMAT(18A4)
+      IF(ICLAY(1).EQ.'QUIT')STOP
+      IWORK=BLANK
+      IICHAR=0
+110   CALL TSMOVE(IWORK,0,ICLAY,IICHAR,0)
+      IF(IWORK.EQ.BLANK)GOTO 120
+      GOTO 130
+120   IICHAR=IICHAR+1
+      IF(IICHAR.LT.72)GOTO 110
+      IF(ICOMFL.GT.0)GOTO 400
+      GOTO 300
+  130 BB=IWORK
+      DO 140 II=1,2
+      IICHAR=IICHAR+1
+      IF(IICHAR.LT.72)GOTO 136
+      IF(ICOMFL.GT.0)GOTO 500
+      ASSIGN 400 TO N
+      GOTO 144
+  136 CALL TSMOVE(IWORK,0,ICLAY,IICHAR,0)
+      IF(IWORK.NE.BLANK.AND.IWORK.NE.ICOMMA)GOTO 138
+      ASSIGN 200 TO N
+      GOTO 142
+  138 CALL TSMOVE(BB,II,IWORK,0,0)
+140   CONTINUE
+      ASSIGN 150 TO N
+  142 IF(ICOMFL.EQ.1)GOTO 500
+      ICOMFL=1
+  144 AA=BB
+      GOTO N
+150   IICHAR=IICHAR+1
+      IF(IICHAR.GT.71)GOTO 400
+      CALL TSMOVE(IWORK,0,ICLAY,IICHAR,0)
+      IF(IWORK.EQ.ICOMMA)GOTO 200
+      IF(IWORK.EQ.BLANK)IBKCNT=IBKCNT+1
+      IF(IBKCNT.GT.2)GOTO 400
+      IF(IBKCNT.GT.0.AND.IWORK.NE.BLANK)GOTO 130
+      GOTO 150
+200   CONTINUE
+      IICHAR=IICHAR+1
+      IF(IICHAR.LT.72)GOTO 110
+      GOTO 400
+  300 AA=0
+  400 BB=0
+500   CONTINUE
+      RETURN
+      END
+C-----------------------------------------------------------------------
+C-----------------------------------------------------------------------
+      SUBROUTINE S1000(ENTRY)
+C     MODIFY CONFIGURATION (ENTRY=0) & PRINT CONFIGURATION (ENTRY=2)
+      INTEGER  ANUMB,B4,B5,B,ENTRY
+      INTEGER B1,B2,B3
+      INTEGER  LPAR,RPAR
+      INTEGER*2 E1,E2,C1,CS
+      INTEGER P1,P2
+      INTEGER BLANK,AYES,A,O(30,2)
+      COMMON/ARR1/CS(100,5),C1
+      COMMON/CONFIG/B1(16),B2,B3(16)
+      COMMON/MISC1/BLANK,AYES
+      COMMON/MISC6/LPAR,RPAR
+      COMMON/HEIGHT/E1,E2
+      COMMON/NUMBER/ ANUMB(19)
+      COMMON/IINT/P1,P2,IC8,M,M9
+      GOTO(6000,1500)ENTRY
+      P1=0
+      P2=0
+      C1=1
+      IERR=0
+      DO 1002 II=1,16
+      B3(II)=BLANK
+1002  CONTINUE
+      WRITE(5,1003)
+1003  FORMAT(' CONFIGURATION: ',$)
+      READ(5,1005)  B1
+ 1005 FORMAT(16A4)
+C
+C     PREPROCESSOR
+C
+      L=LENGTH(B1)
+      B4=BLANK
+      DO 1320 N=1,L
+      NN=N-1
+      CALL TSMOVE(B4,0,B1,NN,0)
+      DO 1180 I=1,19
+      IF(B4.NE.ANUMB(I))GOTO 1180
+      C1=C1+1
+      GOTO 1300
+1180  CONTINUE
+      IF(B4.NE.LPAR)GOTO 1220
+      P1=P1+1
+      GOTO 1300
+1220  IF(B4.EQ.RPAR)GO  TO 1260
+      IERR=IERR+1
+      GOTO 1320
+C
+C     NESTING DEPTH
+C
+1260  CONTINUE
+      IF(P1.GT.P2)P2=P1
+      P1=P1-1
+1300  CONTINUE
+      N1=NN-IERR
+      CALL TSMOVE(B3,N1,B4,0,0)
+1320  CONTINUE
+      IF(P1.EQ.0)GOTO 1420
+      WRITE(5,1330)
+1330  FORMAT(' PARENS.MISMATCH'/)
+      RETURN
+1420  CONTINUE
+      B2=LENGTH(B3)
+C
+C     DECODE CONFIG, SET UP COMMAND ARRAY
+ 6000 CONTINUE
+      IP2=P2+1
+      A=BLANK
+      DO 6070 N=1,IP2
+      O(N,1)=0
+      O(N,2)=1
+6070  CONTINUE
+      L=0
+      B5=0
+      M=0
+      M9=1
+      C1=0
+      B=BLANK
+      DO 6410 N=1,B2
+      CALL TSMOVE(B,0,B3,N-1,0)
+      DO 6110 II=2,11
+      IF(B.EQ.ANUMB(II))GOTO 6240
+6110  CONTINUE
+      IF(B.EQ.ANUMB(1))GOTO 6132
+      IF(B.NE.ANUMB(16))GOTO 6112
+      B5=B5+1
+      M=-1
+      GOTO 6410
+6112  IF(B.NE.ANUMB(17))GOTO 6114
+      B5=B5+1
+      M=0
+      GOTO 6410
+6114  IF(B5.EQ.0)GOTO 6140
+      GOTO 6270
+6132  O(L+1,2)=-1
+      GOTO 6410
+6140  J1=0
+      IF(B.EQ.ANUMB(12)) J1=1
+      IF(B.EQ.ANUMB(14)) J1=2
+      IF(B.EQ.ANUMB(13)) J1=3
+      IF(B.EQ.ANUMB(19)) J1=4
+      IF(B.EQ.ANUMB(18)) J1=5
+      IF(B.EQ.LPAR)      J1=6
+      IF(B.EQ.RPAR)      J1=7
+      IF(J1.EQ.0)GOTO 6410
+      IF(J1.EQ.6)GOTO 6160
+      IF(J1.EQ.7)GOTO 6200
+      O(L+1,1)=J1
+      GOTO 6410
+6160  L=L+1
+      O(L+1,1)=0
+      O(L+1,2)=1
+      GOTO 6410
+6200  O(L+1,1)=0
+      O(L+1,2)=1
+      C1=C1+1
+      CS(C1,5)=L
+      L=L-1
+      B6=1
+      GOTO 6350
+6240  B5=B5+1
+      CALL TSMOVE(A,0,B,0,1)
+      M=10*M+IVAL(A)
+      GOTO 6410
+6270  B6=0
+      IF(M.LT.E1)GOTO 6340
+      WRITE(5,6280)  M
+6280  FORMAT(' ELT. ',I4,' NOT DEFINED'/)
+      RETURN
+6340  C1=C1+1
+      CS(C1,5)=M
+6350  CS(C1,1)=L
+      CS(C1,4)=B6
+      CS(C1,2)=O(L+1,1)
+      CS(C1,3)=O(L+1,2)
+      O(L+1,1)=1
+      O(L+1,2)=1
+      M=0
+      B5=0
+      IF(B6.EQ.0)GOTO 6140
+6410  CONTINUE
+      RETURN
+C     PRINT CONFIGURATION
+ 1500 CONTINUE
+      WRITE(5,1501)  B3
+1501  FORMAT  (' CONFIGURATION:'/1X,16A4/)
+      RETURN
+      END
+C-----------------------------------------------------------------------
+C-----------------------------------------------------------------------
+      FUNCTION LENGTH(IWORK)
+C     DETERMINES LENGTH OF STRING 'IWORK'
+      INTEGER BLANK,IWORK(16),ICOMP
+      COMMON/MISC1/BLANK
+      ICOMP=BLANK
+      DO 100 II=1,80
+      IONE=II-1
+      CALL TSMOVE(ICOMP,0,IWORK,IONE,0)
+      IF(ICOMP.NE.BLANK)GOTO 100
+      IX=IONE
+      GOTO 200
+100   CONTINUE
+      IX=80
+200   CONTINUE
+      LENGTH=IX
+      RETURN
+      END
+C-----------------------------------------------------------------------
+C-----------------------------------------------------------------------
+      SUBROUTINE S2000
+C     INITIALIZE ELEMENTS
+      INTEGER*2 E1,E2
+      INTEGER A,B,BLANK
+      INTEGER AACT,ALUM,ALIN,ALOG,AMAN,ALIS,ALIST
+      INTEGER ABRNCH,ASUBBR,AFIL,ATEL
+      REAL*8 I,F
+      COMPLEX  IS
+      COMMON/HEIGHT/E1,E2
+      COMMON/ARR2/IS(400,5),I(100,5),F(100),N2,N5
+      COMMON/BRNCH/ABRNCH(8),ASUBBR(5)
+      COMMON/MISC1/BLANK
+      COMMON/MISC2/AFIL,ATEL
+      COMMON/MISC4/J1,J2,J5,J6
+      COMMON/MISC5/ALIN,ALOG,AMAN,ALIS,ALIST
+      COMMON/MISC7/AACT,ALUM
+2000  CONTINUE
+      CALL S2600(A)
+      IF(J1.LE.0)  RETURN
+      IE11=E1-1
+      IF(J1.LE.IE11)GOTO 2020
+      WRITE(5,2006) IE11
+2006  FORMAT(' ERROR--MAX.ELT.NO. IS ',I2,'; PLEASE TRY AGAIN...'/)
+      GOTO 2000
+ 2020 CONTINUE
+      IF(A.NE.0)GOTO 2022
+ 2021 WRITE(5,2621)
+ 2621 FORMAT(' TYPE: ',$)
+      READ(5,2631)  A
+ 2631 FORMAT(A3)
+ 2022 J2=0
+      IF(A.EQ.ALIN)  J2=1
+      IF(A.EQ.AACT)  J2=2
+      IF(A.EQ.ALUM)  J2=3
+      IF(A.EQ.ALIS)  J2=4
+      IF(J2.NE.0)GOTO 2030
+      WRITE(5,2640)
+2640  FORMAT  ('  TYPE UNDEFINED')
+      GOTO 2000
+2030  CONTINUE
+      GOTO(2031,2031,2031,2032),J2
+2031  CALL S2300
+      GOTO 2039
+2032  WRITE(5,2033)
+2033  FORMAT(' DATA FROM FILE, TEL OR OUTPUT? ',$)
+      CALL GETTER(A,B)
+      IF(A.NE.ATEL)GOTO 2034
+      CALL S2070
+      GOTO 2039
+2034  IF(A.NE.AFIL)GOTO 2035
+      CALL S2120
+      GOTO 2039
+2035  IF(A.NE.ASUBBR(2))GOTO 2032
+      CALL S2170
+2039  I(J1,1)=J2
+      GOTO 2000
+      END
+C-----------------------------------------------------------------------
+C-----------------------------------------------------------------------
+      SUBROUTINE S2070
+C     LIST ELEMENT FROM TERMINAL
+      INTEGER  A
+      INTEGER*2 E1,E2
+      COMPLEX IS
+      COMPLEX CARTES
+      REAL*8 I,F
+      REAL K1,K2
+      COMMON/ARR2/IS(400,5),I(100,5),F(100)
+      COMMON/KKKK/K1,K2
+      COMMON/MISC4/J1,J2,J5,J6
+      COMMON/HEIGHT/E1,E2
+2070  CONTINUE
+      WRITE(5,2071)
+2071  FORMAT(' NO. OF POINTS? ',$)
+      READ(5,2072) A
+2072  FORMAT(A3)
+      J5=IVAL(A)
+      CALL S2500
+      WRITE(5,2082)
+2082  FORMAT(1H )
+      WRITE(5,2085)
+2085  FORMAT(' NO.   FREQ    PARAMETERS')
+      K2X=IFIX(K2)
+      DO 2105 J6=1,J5
+      J4=J6+K2X
+      WRITE(5,2095)  J6
+2095  FORMAT(' ',I2,4X,$)
+      READ(5,2422) F1
+2422  FORMAT(F4.0)
+      XJ6=J6
+      IS(J4,5)=CMPLX(F1,XJ6)
+      READ(5,2430)(IS(J4,J7),J7=1,4)
+2430  FORMAT(4(2G))
+      DO 2435 J7=1,4
+2435  IS(J4,J7)=CARTES(IS(J4,J7))
+2105  CONTINUE
+      END
+C-----------------------------------------------------------------------
+C-----------------------------------------------------------------------
+      COMPLEX FUNCTION POLAR(Z)
+      COMPLEX Z
+      XR=CABS(Z)
+      XXI=AIMAG(Z)
+      XXR=REAL(Z)
+      IF(XXR.EQ.0.)GOTO 300
+      XI=ATAN(XXI/XXR)
+      XI=(3.14159265)*XI/180.
+      GOTO 500
+ 300  XI=0.
+      IF(XXI.GT.0.) XI=90.
+      IF(XXI.LT.0.) XI=-90.
+ 500  POLAR=CMPLX(XR,XI)
+      RETURN
+      END
+C-----------------------------------------------------------------------
+C-----------------------------------------------------------------------
+      COMPLEX FUNCTION CARTES(Z)
+      COMPLEX Z
+      A=REAL(Z)
+      ANG=AIMAG(Z)
+      ANG=(.01745329252)*ANG
+      XR=A*COS(ANG)
+      XI=A*SIN(ANG)
+      CARTES=CMPLX(XR,XI)
+      RETURN
+      END
+C-----------------------------------------------------------------------
+C-----------------------------------------------------------------------
+      SUBROUTINE S2120
+C     LIST ELEMENT FROM FILE
+      INTEGER BLANK,IWORK,ANUMB
+      REAL K1,K2
+      REAL*8 I,F
+      COMPLEX IS,SDATA,CARTES
+      COMMON/ARR2/IS(400,5),I(100,5),F(100),N2,N5
+      COMMON/KKKK/K1,K2
+      COMMON/MISC1/BLANK
+      COMMON/MISC4/J1,J2,J5,J6
+      COMMON/NUMBER/ANUMB(19)
+      DIMENSION SDATA(100,5),SR(500),SI(500)
+      IWORK=BLANK
+      CALL OPENIN
+      READ(1,2120)IPT,J5,(SR(II),SI(II),II=1,J5*5)
+ 2120 FORMAT(A1,I/(10F/))
+      ENDFILE 1
+      CALL TSMOVE(IWORK,0,IPT,0,0)
+      IF(IWORK.EQ.ANUMB(18))GOTO 2135
+      WRITE(5,2130) IWORK
+2130  FORMAT(1X,1H',A2,1H',' IS WRONG PARAM. TYPE'/)
+      XYZ=I(J1,1)
+      J2=IFIX(XYZ)
+      GOTO 2162
+2135  J3=J5
+      J5=IABS(J5)
+      DO 2137 II=1,J5
+      DO 2137 JJ=1,5
+      IJK=5*(II-1)+JJ
+2137  SDATA(II,JJ)=CMPLX(SR(IJK),SI(IJK))
+      CALL S2500
+      WRITE(5,2140) K1,K2
+2140  FORMAT(10X,2F10.2)
+      KK1=IFIX(K1)
+      KK2=IFIX(K2)
+      IF(K1.EQ.E2)GOTO 2162
+      JA=KK2+1
+      JB=KK2+J5
+      DO 2160 J4=JA,JB
+      DO 2160 J7=1,5
+      IS(J4,J7)=SDATA(J4-KK2,J7)
+      IF(J3.LT.0)  IS(J4,J7)=CARTES(IS(J4,J7))
+2160  CONTINUE
+2162  CONTINUE
+      RETURN
+      END
+C-----------------------------------------------------------------------
+C-----------------------------------------------------------------------
+      SUBROUTINE S2170
+C     LIST ELEMENT FROM OUTPUT
+      INTEGER*2 E1,E2
+      REAL K1,K2
+      REAL*8 I
+      COMPLEX IS
+      COMMON /ARR2/IS(400,5),I(100,5)
+      COMMON /MISC4/J1,J2,J5
+      COMMON /KKKK/K1,K2
+      COMMON /HEIGHT/E1,E2
+      J5=I(E1,2)
+      IK2=K2
+      CALL S2500
+      DO 2180 J4=1,J5
+      DO 2180 J7=1,5
+      IS(J4+IK2,J7)=IS(E2-J5+J4,J7)
+ 2180 CONTINUE
+      RETURN
+      END
+C-----------------------------------------------------------------------
+C-----------------------------------------------------------------------
+      SUBROUTINE S2300
+C     ENTER ELEMENT PARAMETER VALUES
+      REAL*8 I
+      COMPLEX IS
+      COMMON/ARR2/IS(400,5),I(100,5)
+      COMMON/MISC4/J1,J2,J5
+      IF(I(J1,1).NE.4.)GOTO 2333
+      J5=0
+      CALL S2500
+2333  WRITE(5,2334)
+ 2334 FORMAT(' PARAM.VALUES (4): ',$)
+      READ(5,2335)  (I(J1,J3),J3=2,5)
+2335  FORMAT(4D)
+      RETURN
+      END
+C-----------------------------------------------------------------------
+C-----------------------------------------------------------------------
+      SUBROUTINE S2500
+C     GENERATE SPACE IN ARRAY 'IS' AND SET POINTERS FOR LIST ENTRY
+      INTEGER*2 E1,E2
+      REAL*8 I
+      REAL K1,K2
+      COMPLEX  IS
+      COMMON/MISC4/J1,J2,J5,J6
+      COMMON/KKKK/K1,K2
+      COMMON/HEIGHT/E1,E2
+      COMMON/ARR2/IS(400,5),I(100,5)
+2500  CONTINUE
+      K1=J5
+      JJ1=J1+1
+      DO 2515 JJ7=JJ1,E1
+      J7=E1+J1+1-JJ7
+      IF(I(J7,1).NE.4.)GOTO 2515
+      K2=I(J7,5)
+2515  CONTINUE
+      IF(I(J1,1).LT.4.)GOTO 2530
+      K2=I(J1,5)
+      K1=K1-I(J1,2)
+2530  XE2=E2
+      XXE2=XE2-I(E1,2)-I(E1,5)
+      IF(K1.LT.XXE2)GOTO 2560
+      XXE2M1=XXE2-1.
+      WRITE(5,2535) XXE2M1
+2535  FORMAT(' TOO MANY FREQS-',F10.2,' SPACES LEFT'/)
+      K1=E2
+      RETURN
+2560  IF(K1.EQ.0.) RETURN
+      IF(K1.GT.0.)GOTO 2570
+      JA=IFIX(K2)-IFIX(K1)+1
+      XYZ=I(E1,5)
+      JB=IFIX(XYZ)
+      DO 2565 J7=JA,JB
+      DO 2565 J8=1,5
+      KK1=K1
+      IS(J7+KK1,J8)=IS(J7,J8)
+2565  CONTINUE
+      GOTO 2575
+2570  JA=IFIX(K2)+1
+      XYZ=I(E1,5)
+      JB=IFIX(XYZ)
+      DO 2572 JJ7=JA,JB
+      J7=JB+JA-JJ7
+      DO 2572 J8=1,5
+      KK1=K1
+      IS(J7+KK1,J8)=IS(J7,J8)
+2572  CONTINUE
+2575  CONTINUE
+      JJ1=J1+1
+      DO 2585 J7=JJ1,E1
+      IF(I(J7,1).EQ.4.)  I(J7,5)=I(J7,5)+K1
+2585  CONTINUE
+      I(J1,1)=4.
+      I(J1,2)=J5
+      I(J1,3)=0.
+      I(J1,4)=0.
+      I(J1,5)=K2
+      RETURN
+      END
+C-----------------------------------------------------------------------
+C-----------------------------------------------------------------------
+      SUBROUTINE S2600(AA)
+C     ENTER ELEMENT NUMBER AND TYPE
+      INTEGER A,AA,ABRNCH
+      COMMON/BRNCH/ABRNCH(8)
+      COMMON/MISC4/J1,J2,J5,J6
+2600  WRITE(5,2601)
+2601  FORMAT(' ELT.NO., TYPE: ',$)
+      CALL GETTER(A,AA)
+      IF(A.NE.ABRNCH(1))GOTO 2610
+      J1=-1
+      RETURN
+2610  J1=IVAL(A)
+      IF(J1.EQ.-22222)GOTO 2608
+      RETURN
+ 2608 WRITE(5,2607)
+ 2607 FORMAT(' ELT.NO. MUST BE NUMERIC, NMT 3 DIGITS; PLEASE TRY ',
+     &'AGAIN...'/)
+      GOTO 2600
+      END
+C-----------------------------------------------------------------------
+C-----------------------------------------------------------------------
+      FUNCTION IVAL(A)
+C     CONVERT ALPHA 'A' TO NUMERIC INTEGER VALUE
+      INTEGER  ANUMB,INUMB
+      INTEGER  A,BLANK
+      COMMON/NUMBER/ANUMB(19)
+      COMMON/MISC1/BLANK
+C
+C      ANUMB(I) = 0,1,2,3,4,5,6,7,8,9    FOR I=2,3,4,5,6,7,8,9,10,
+C                                              11,12
+      IVAL=0
+      DO 200 JJ=1,3
+      JJ1=JJ-1
+      DO 100 II=2,11
+      INUMB=BLANK
+      CALL TSMOVE(INUMB,0,A,JJ1,0)
+      IF(INUMB.NE.BLANK)GOTO 50
+      IF(IVAL.EQ.0)GOTO 200
+      GOTO 300
+50    IF(INUMB.NE.ANUMB(II))GOTO 100
+      IX=II-2
+      GOTO 150
+100    CONTINUE
+      IVAL=-22222
+      RETURN
+150   IVAL=IVAL*10+IX
+200   CONTINUE
+300   CONTINUE
+      RETURN
+      END
+C-----------------------------------------------------------------------
+C-----------------------------------------------------------------------
+      SUBROUTINE S2700
+C     PRINT ELEMENTS
+      INTEGER*2 E1,E2
+      REAL*8 I,F
+      REAL*8 XNS
+      COMPLEX IS
+      COMMON/ARR2/IS(400,5),I(100,5),F(100)
+      COMMON/HEIGHT/E1,E2
+      COMMON/MISC8/XNS(4)
+2700  CONTINUE
+      WRITE(5,2701)
+2701  FORMAT(' ')
+      WRITE(5,2702)
+2702  FORMAT('  NO.   TYPE          PARAMETERS'/)
+      IE11=E1-1
+      DO 2735 JJ1=1,IE11
+      IF(I(JJ1,1).NE.0.)GOTO 2720
+      WRITE(5,2716) JJ1
+2716  FORMAT(1X,I3,4X,'UNDEF'/)
+      GOTO 2735
+2720  CONTINUE
+      XYZ=I(JJ1,1)
+      II=IFIX(XYZ)
+      WRITE(5,2726)  JJ1,XNS(II),  (I(JJ1,JJ2),JJ2=2,5)
+2726  FORMAT(1X,I3,4X,A8,2X,4F13.8)
+2735  CONTINUE
+      RETURN
+2750  WRITE(5,2751) IE11,E2
+2751  FORMAT(' MAX.ELT.NI3,', MAX.NO.OF S-PARS ',I3/)
+      RETURN
+      END
+C-----------------------------------------------------------------------
+C-----------------------------------------------------------------------
+      SUBROUTINE S3000(ENTRY)
+C     MODIFY FREQUENCIES (ENTRY=0) & PRINT FREQUENCIES (ENTRY=1)
+      INTEGER A,AOUT,BLANK,ENTRY
+      INTEGER ALIN,ALOG,AMAN,ALIS,ALIST
+      REAL*8 I,F
+      COMPLEX  IS
+      COMMON/CFREQ/F4,M1,M2,W
+      COMMON/MISC1/BLANK
+      COMMON/MISC5/ALIN,ALOG,AMAN,ALIS,ALIST
+      COMMON/ARR2/IS(400,5),I(100,5),F(100),N2,N5
+      GOTO(3600,3700)ENTRY
+ 3000 WRITE(5,3001)
+3001  FORMAT(' MODE: ',$)
+      READ(5,3002) A
+3002  FORMAT  (A3)
+      IF(A.EQ.ALIN)GOTO 3120
+      IF(A.EQ.ALIS)GOTO 3425
+      GOTO 3000
+3120  M1=1
+      AOUT=ALIN
+      WRITE(5,3121)
+3121  FORMAT(' FROM,TO,STEP: ',$)
+      READ(5,3122)  F1,F2,F3
+3122  FORMAT(3F)
+      N1=INT((F2-F1)/F3)
+      N2=N1+1
+      F(1)=F1
+      DO 3240 II=2,N2
+      F(II)=F(II-1)+F3
+3240  CONTINUE
+      RETURN
+3425  M1=4
+      AOUT=ALIST
+      WRITE(5,3426)
+3426  FORMAT(' NO. OF POINTS: ',$)
+      READ(5,3427)  A
+3427  FORMAT(A3)
+      N2=IVAL(A)
+      WRITE(5,3433)  N2
+3433  FORMAT(' INPUT ',I2,' FREQUENCIES:')
+      DO 3435 II=1,N2
+      READ(5,3434) F(II)
+3434  FORMAT(F)
+3435  CONTINUE
+      RETURN
+C     PRINT FREQUENCIES
+3600  CONTINUE
+      WRITE(5,3601) (F(II),II=1,N2)
+3601  FORMAT(1X,5F7.2)
+C     FREQUENCY SUMMARY; ENTRY POINT FROM PRINT DATA
+ 3700 CONTINUE
+      CALL TSMOVE(AOUT,0,BLANK,0,3)
+      IF(M1.EQ.1) CALL TSMOVE(AOUT,0,ALIN,0,3)
+      IF(M1.EQ.4) CALL TSMOVE(AOUT,0,ALIS,0,3)
+      WRITE(5,3701)  N2,AOUT
+3701  FORMAT(1X,I2,' FREQUENCIES,  ',A4,' MODE'/)
+      RETURN
+      END
+C-----------------------------------------------------------------------
+C-----------------------------------------------------------------------
+      SUBROUTINE S4000
+C     FREQUENCY DETERMINING ROUTINE
+      REAL*8 I,F
+      COMPLEX IS
+      COMMON/ARR2/IS(400,5),I(100,5),F(100),N2,N5
+      COMMON/MISC4/J1,J2,J5,J6
+      COMMON/CFREQ/F4,M1,M2,W
+      PI=3.14159265
+      IF(M2-1) 4040,4100,4040
+ 4040 F4=F(N5)
+      GOTO 4160
+ 4100 WRITE(5,4110)
+ 4110 FORMAT(' ? ',$)
+      READ(5,4120) F4
+4120  FORMAT(F)
+      IF(F4) 4140,4140,4150
+ 4140 J1=-1
+      RETURN
+ 4150 J1=1
+4160  W=2.*PI*F4
+      RETURN
+      END
+C-----------------------------------------------------------------------
+C-----------------------------------------------------------------------
+      SUBROUTINE S5000
+C     S-PARAMETER COMPUTATION
+      INTEGER P1,P2
+      REAL*8 I,F
+      REAL*8 Z0,T1,R,G
+      REAL*8 D7,G1,G2,G3,ZERO
+      COMPLEX Z7,Z8,Z9,Y9,D9,E8,E9
+      COMPLEX IS
+      COMPLEX C,U,T,D
+      COMPLEX S1,S2,S3,S4
+      COMMON/ARR2/IS(400,5),I(100,5),F(100)
+      COMMON/ARR5/S1,S2,S3,S4
+      COMMON/ARR7/C(4,100),U(4,3),T(4),D(4)
+      COMMON/CFREQ/F4,M1,M2,W
+      COMMON/IINT/P1,P2,IC8,M,M9
+C     ELEMENT INPUT TO S-PARAMETERS COMPUTATION
+5000  R9=50.
+      ZERO=0.
+      IF(M.LT.1) GOTO 5700
+      Z0=I(M,2)
+      T1=I(M,3)
+      R=I(M,4)
+      G=I(M,5)
+      XYZ=I(M,1)
+      III=IFIX(XYZ)
+      GOTO(5080,5230,5300,5510),III
+ 5080 Z9=CMPLX(SNGL(R),SNGL(W*T1*Z0))/R9
+      Y9=R9*CMPLX(SNGL(G/1000.),SNGL(W*T1/Z0))
+5100  Z7=CSQRT(Z9)*CSQRT(Y9)
+      IF(CABS(Z7).LT.(0.05))GOTO 5120
+      IF(REAL(Z7).GT.(20.))  GOTO 5140
+      GOTO 5180
+ 5120 D9=Z9+Y9+2.
+      S1=(Z9-Y9)/D9
+      S2=2./D9
+      GOTO 5200
+ 5140 D9=Z9+Y9+2.*Z7
+      S1=(Z9-Y9)/D9
+      S2=0.
+      GOTO 5200
+ 5180 E8=CEXP(-Z7)
+      E9=E8*E8
+      D9=2.*Z7*(1.+E9)+(Z9+Y9)*(1.-E9)
+      S1=(Z9-Y9)*(1.-E9)/D9
+      S2=4.*Z7*E8/D9
+ 5200 S3=S2
+      S4=S1
+      GOTO 5680
+ 5230 G1=Z0/R9+1.
+      G2=G/R9+1.
+      G3=Z0*T1*R*G*(1E-6)
+      D7=G1*G2-G3
+      S1=CMPLX(SNGL(((G1-2.0)*G2+G3)/D7),SNGL(ZERO))
+      S2=CMPLX(SNGL(T1*Z0*G/(5.0D2*D7*R9)),SNGL(ZERO))
+      S3=CMPLX(SNGL(R*Z0*G/(5.0D2*D7*R9)),SNGL(ZERO))
+      S4=CMPLX(SNGL((G1*(G2-2.0)+G3)/D7),SNGL(ZERO))
+      GOTO 5680
+5300  CONTINUE
+      IF((Z0+T1).EQ.0.)GOTO 5320
+      IF((R+G).EQ.0.0)GOTO 5350
+      Z9=CMPLX(SNGL(T1),SNGL(W*Z0))/R9
+      Y9=CMPLX(SNGL(G),SNGL(W*R))*R9/1000.
+      GOTO 5100
+ 5320 E9=CMPLX(SNGL(G*R9),SNGL(W*R*R9))/2000.
+      D7=-1.
+      GOTO 5380
+ 5350 E9=CMPLX(SNGL(T1/R9),SNGL(W*Z0/R9))/2.
+      D7=1
+ 5380 S2=1./(1.+E9)
+      S3=S2
+      S1=S2*E9*SNGL(D7)
+      S4=S1
+      T(1)=S1
+      T(2)=S2
+      T(3)=S3
+      T(4)=S4
+      RETURN
+5510  XYZ=I(M,2)
+      III=IFIX(XYZ)
+      DO 5540 J2=1,III
+      XYZ=I(M,5)
+      J=J2+IFIX(XYZ)
+      IF(F4.GT.REAL(IS(J,5)))GOTO 5540
+      IF(F4.EQ.REAL(IS(J,5)))GOTO 5550
+      IF(J2.EQ.1)GOTO 5550
+      GOTO 5570
+ 5540 CONTINUE
+ 5550 DO 5555 J1=1,4
+      T(J1)=IS(J,J1)
+ 5555 CONTINUE
+      RETURN
+ 5570 DO 5575 J1=1,4
+      T(J1)=(IS(J,J1)*(F4-REAL(IS(J-1,5)))-IS(J-1,J1)*(F4-REAL(IS(J,5)))
+     1)/REAL(IS(J,5)-IS(J-1,5))
+ 5575 CONTINUE
+      RETURN
+ 5680 T(1)=S1
+      T(2)=S2
+      T(3)=S3
+      T(4)=S4
+      RETURN
+5700  XM=M
+      S1=-CMPLX(1.+2.*XM,0.)
+      S2=CMPLX(0.,0.)
+      S3=S2
+      S4=S1
+      GOTO 5680
+      END
+C-----------------------------------------------------------------------
+C-----------------------------------------------------------------------
+      SUBROUTINE S6500
+C     BUILD UP NETWORK
+      INTEGER*2 C1,CS
+      INTEGER B6,P1,P2
+      COMPLEX C,U,T,D
+      COMMON/ARR1/CS(100,5),C1
+      COMMON/ARR7/C(4,100),U(4,3),T(4),D(4)
+      COMMON/IINT/P1,P2,IC8,M,M9
+      D(1)=CMPLX(0.,0.)
+      D(2)=CMPLX(1.,0.)
+      D(3)=D(2)
+      D(4)=D(1)
+      IP2=P2+1
+      DO 6508 J1=1,4
+      DO 6508 J2=1,IP2
+      C(J1,J2)=D(J1)
+ 6508 CONTINUE
+      DO 6590 J4=1,C1
+      L=CS(J4,1)
+      IC8=CS(J4,2)
+      M9=CS(J4,3)
+      B6=CS(J4,4)
+      M=CS(J4,5)
+      DO 6530 J1=1,4
+      U(J1,1)=C(J1,L+1)
+ 6530 CONTINUE
+      IF(B6.EQ.1)GOTO 6560
+      CALL S5000
+      DO 6550 J1=1,4
+      U(J1,2)=T(J1)
+ 6550 CONTINUE
+      GOTO 6570
+ 6560 DO 6565 J1=1,4
+      U(J1,2)=C(J1,M+1)
+ 6565 CONTINUE
+      DO 6566 J1=1,4
+      C(J1,M+1)=D(J1)
+ 6566 CONTINUE
+6570  CALL S7000
+      DO 6580 J1=1,4
+      C(J1,L+1)=U(J1,3)
+ 6580 CONTINUE
+ 6590 CONTINUE
+      RETURN
+      END
+C-----------------------------------------------------------------------
+C-----------------------------------------------------------------------
+      SUBROUTINE S7000
+      INTEGER P1,P2
+      COMPLEX R,V
+      COMPLEX G8,D8
+      COMPLEX C,U,T,D
+      COMMON/ARR4/R(4),K1,K3
+      COMMON/ARR7/C(4,100),U(4,3),T(4),D(4)
+      COMMON/IINT/P1,P2,IC8,M,M9
+      DIMENSION V(4)
+7000  CONTINUE
+      XM9=M9
+      IIC8=IC8+1
+      GOTO(7980,7260,7060,7140,7640,7500),IIC8
+ 7060 G8=(U(1,2)-1.)/(U(1,2)+3.)
+      U(1,2)=G8
+      U(4,2)=G8
+      U(2,2)=1.+G8
+      U(3,2)=U(2,2)
+      GOTO  7260
+ 7140 G8=(1.+U(1,2))/(3.-U(1,2))
+      U(1,2)=G8
+      U(4,2)=G8
+      U(2,2)=1.-G8
+      U(3,2)=U(2,2)
+      GOTO 7260
+ 7220 DO 7225 J1=1,4
+      U(J1,3)=U(J1,1)
+ 7225 CONTINUE
+      GOTO 7990
+ 7260 IF(M9-1) 7380,7270,7380
+ 7270 D8=1.-U(4,1)*U(1,2)
+      U(1,3)=U(1,1)+U(1,2)*U(2,1)*U(3,1)/D8
+      U(2,3)=U(2,2)*U(2,1)/D8
+      U(3,3)=U(3,2)*U(3,1)/D8
+      U(4,3)=U(4,2)+U(4,1)*U(2,2)*U(3,2)/D8
+      GOTO 7990
+ 7380 G8=U(1,2)*U(4,2)-U(2,2)*U(3,2)
+      D8=G8-U(1,2)*U(4,1)
+      U(1,3)=U(1,1)+U(1,2)*U(2,1)*U(3,1)/D8
+      U(2,3)=-U(3,2)*U(2,1)/D8
+      U(3,3)=-U(2,2)*U(3,1)/D8
+      U(4,3)=(U(4,2)+U(4,1)*U(2,2)*U(3,2)/D8)/G8
+      GOTO 7990
+ 7500 K1=1
+      K3=1
+      R(1)=-U(1,1)
+      R(2)=U(2,1)
+      R(3)=U(3,1)
+      R(4)=-U(4,1)
+      CALL S7800
+ 7530 DO 7535 J=1,4
+      V(J)=R(J)
+ 7535 CONTINUE
+      R(1)=-U(1,2)
+      R(2)=U(2,2)
+      R(3)=U(3,2)
+      R(4)=-U(4,2)
+      CALL S7800
+ 7560 DO 7565 J=1,4
+      R(J)=V(J)+XM9*R(J)
+ 7565 CONTINUE
+      K1=-1
+      CALL S7800
+ 7590 DO 7595 J=1,4
+      U(J,3)=R(J)
+ 7595 CONTINUE
+      GOTO 7990
+ 7640 K1=1
+      K3=-1
+      DO 7655 J=1,4
+      R(J)=U(J,1)
+ 7655 CONTINUE
+      CALL S7800
+ 7670 DO 7675 J=1,4
+      V(J)=R(J)
+      R(J)=U(J,2)
+ 7675 CONTINUE
+      CALL S7800
+ 7700 DO 7705  J=1,4
+      R(J)=V(J)+XM9*R(J)
+ 7705 CONTINUE
+      CALL S7800
+ 7720 DO 7725 J=1,4
+      U(J,3)=R(J)
+ 7725 CONTINUE
+      GOTO 7990
+ 7980 IF(M9-1) 7984,7982,7984
+ 7982 DO 7983 J1=1,4
+      U(J1,3)=U(J1,2)
+ 7983 CONTINUE
+      GOTO 7990
+ 7984 G8=U(1,2)*U(4,2)-U(2,2)*U(3,2)
+      U(1,3)=U(1,2)/G8
+      U(4,3)=U(4,2)/G8
+      U(2,3)=-U(3,2)/G8
+      U(3,3)=-U(2,2)/G8
+ 7990 RETURN
+      END
+C-----------------------------------------------------------------------
+C-----------------------------------------------------------------------
+      SUBROUTINE S7800
+      COMPLEX R,R1,R2,D8
+      COMMON/ARR4/R(4),K1,K3
+      XK1=K1
+      XK3=K3
+      R1=R(1)+1.
+      R2=R(4)+1.
+      D8=2./(R1*R2-R(2)*R(3))
+      R(1)=XK1*(R2*D8-1.)
+      R(2)=XK3*R(2)*D8
+      R(3)=XK3*R(3)*D8
+      R(4)=XK1*(R1*D8-1.)
+      RETURN
+      END
+C-----------------------------------------------------------------------
+C-----------------------------------------------------------------------
+      SUBROUTINE S10000
+C     INITIALIZE DATA
+      INTEGER*2 C1,CS,E1,E2
+      INTEGER A,BLANK,AYES
+      INTEGER AFIL,ATEL
+      INTEGER P1,P2,B1,B2,B3
+      REAL*8 I,F
+      COMPLEX IS
+      COMMON/MISC1/BLANK,AYES
+      COMMON/MISC2/AFIL,ATEL
+      COMMON/ARR1/CS(100,5),C1
+      COMMON/ARR2/IS(400,5),I(100,5),F(100),N2
+      COMMON/CFREQ/F4,M1
+      COMMON/CONFIG/B1(16),B2,B3(16)
+      COMMON/HEIGHT/E1,E2
+      COMMON/IINT/P1,P2
+      WRITE(5,10001)
+10001 FORMAT(' CURRENT DATA AND OUTPUT WILL BE DELETED, OK? (Y OR N) ',
+     &$)
+      A=BLANK
+      READ(5,10002) A
+10002 FORMAT  (A1)
+      IF(A.NE.AYES) RETURN
+      N2=1
+      M1=4
+      C1=1
+      B2=2
+      P2=0
+      DO 10080 II=1,100
+      DO 10080 JJ=1,5
+10080 I(II,JJ)=0.
+      F(1)=1.
+      DO 10085 II=1,400
+      DO 10085 JJ=1,5
+10085 IS(II,JJ)=0.
+10014 WRITE(5,10015)
+10015 FORMAT(' FROM FILE OR TEL? ',$)
+      READ(5,10016) A
+10016 FORMAT(A3)
+      J1=0
+      IF(A.EQ.ATEL) J1=2
+      IF(A.EQ.AFIL) J1=1
+      IF(J1.EQ.0)GOTO 10014
+      GOTO(10025,10070),J1
+C
+C     GET DATA FROM SPECIFIED INPUT FILE
+C
+10025 CALL OPENIN
+      READ(1)E1,E2,I,IS,N2,M1,F,B2,P2,B3,C1,CS
+      ENDFILE 1
+      E1=E1+1
+      I(E1,1)=4.
+      RETURN
+C     GET 'E1' & 'E2' FROM TERMINAL
+10070 WRITE(5,10071)
+10071 FORMAT(' MAX. ELT. NO.: ',$)
+      READ(5,10072)  A
+10072 FORMAT(A3)
+      E1=IVAL(A)
+      WRITE(5,10073)
+10073 FORMAT( ' TOTAL S-PAR STORAGE: ',$)
+      READ(5,10072)  A
+      E2=IVAL(A)
+      E1=E1+1
+      I(E1,1)=4.
+      RETURN
+      END
+C-----------------------------------------------------------------------
+C-----------------------------------------------------------------------
+      SUBROUTINE S10110(ENTRY)
+C     COMPUTE (ENTRY=0) & MANUAL (ENTRY=1)
+      INTEGER*2 C1,CS,E1,E2
+      INTEGER P1,P2,ENTRY
+      REAL*8 I,F
+      COMPLEX R
+      COMPLEX R1,R2,G8,D8
+      COMPLEX IS
+      COMPLEX  E
+      COMPLEX C,U,T,D
+      COMPLEX S1,S2,S3,S4
+      COMMON/ARR1/CS(100,5),C1
+      COMMON/ARR2/IS(400,5),I(100,5),F(100),N2,N5
+      COMMON/ARR3/E(5)
+      COMMON/ARR4/R(4),K1,K3
+      COMMON/ARR5/S1,S2,S3,S4
+      COMMON/ARR7/C(4,100),U(4,3),T(4),D(4)
+      COMMON/CFREQ/F4,M1,M2,W
+      COMMON/HEIGHT/E1,E2
+      COMMON/IINT/P1,P2,IC8
+      COMMON/MISC4/J1,J2,J5,J6
+      DIMENSION AMP(5),ANG(5)
+      GOTO(10120)ENTRY
+      J1=0
+      M2=1
+      N5=1
+      GOTO 10130
+C     MANUAL
+10120 CONTINUE
+      J1=0
+      M2=0
+      XYZ=I(E1,5)
+      IWD=E2-IFIX(XYZ)
+      IF(N2.LE.IWD)GOTO 10130
+      WRITE(5,10124) IWD
+10124  FORMAT(' TOO MANY FREQS--',I4,' SPACES LEFT'/)
+      J1=1
+10130 CONTINUE
+      DO 10140 J=1,C1
+      IF(CS(J,4).EQ.1)GOTO 10140
+      IF(CS(J,5).LT.1)GOTO 10140
+      II=CS(J,5)
+      IF(I(II,1).NE.(0.))GOTO 10140
+      WRITE(5,10133) CS(J,5)
+10133 FORMAT(' ELT.',I4,' NOT DEFINED'/)
+      J1=1
+10140 CONTINUE
+      IF(J1.EQ.1)  RETURN
+      IF(M2.NE.1)GOTO 10163
+      WRITE(5,10150)
+10150 FORMAT(1H1,' FREQ.',7X,'S11',9X,'S12',9X,'S21',9X,'S22'/)
+      GOTO 10170
+10163 I(E1,2)=N2
+      DO 10190 N5=1,N2
+10170 CALL S4000
+      IF(J1.LT.0)GOTO 10192
+      CALL S6500
+      WRITE(5,10174)
+10174 FORMAT('+!',$)
+      DO 10176 J1=1,4
+10176 E(J1)=C(J1,1)
+      XN5=N5
+      E(5)=CMPLX(F4,XN5)
+      IF(M2.NE.1)GOTO 10186
+      DO 11111 II=1,4
+      AMP(II)=CABS(E(II))
+      IF(AMP(II).EQ.(0.))GOTO 11110
+      ANG(II)=57.29577951*ACOS(REAL(E(II))/AMP(II))
+      IF(AIMAG(E(II)).GE.0.)GOTO 11111
+      ANG(II)=-ANG(II)
+      GOTO 11111
+11110 ANG(II)=0.
+11111 CONTINUE
+      WRITE(5,10188) (AMP(II),II=1,4)
+      WRITE(5,10189) (ANG(II),II=1,4)
+10188 FORMAT('+',5X,4F12.6)
+10189 FORMAT(8X,4F12.2)
+      GOTO 10170
+10186 DO 10187 J1=1,5
+10187 IS(E2-N2+N5,J1)=E(J1)
+10190 CONTINUE
+10192 TYPE 10194
+10194 FORMAT()
+      RETURN
+      END
+C-----------------------------------------------------------------------
+C-----------------------------------------------------------------------
+      SUBROUTINE S10210
+C     SAVE OUTPUT
+      INTEGER*2 E1,E2
+      REAL*8 I
+      COMPLEX EL,IS
+      DIMENSION SR(400),SI(400)
+      COMMON /HEIGHT/E1,E2
+      COMMON /ARR2/IS(400,5),I(100,5)
+      CALL OPENOU
+      JLAST=I(E1,2)
+      DO 10210 JJ=1,JLAST
+      LL=JJ+E2-JLAST
+      DO 10210 L=1,5
+      EL=IS(LL,L)
+      JJJ=5*(JJ-1)+L
+      SR(JJJ)=REAL(EL)
+      SI(JJJ)=AIMAG(EL)
+10210 CONTINUE
+      WRITE(20,10220)JLAST,(SR(II),SI(II),II=1,JLAST*5)
+10220 FORMAT('S',I3/(5(F7.4,',',F7.4,1X)/))
+      ENDFILE 20
+      RETURN
+      END
+C-----------------------------------------------------------------------
+C-----------------------------------------------------------------------
+      SUBROUTINE OPENIN
+C     OPEN INPUT FILE
+      REAL*8 IFNAME
+      WRITE(5,10251)
+10251 FORMAT(' INPUT FILE NAME: ',$)
+      READ(5,10252)IFNAME
+10252 FORMAT(A10)
+      CALL IFILE(1,IFNAME)
+      RETURN
+      END
+C-----------------------------------------------------------------------
+C-----------------------------------------------------------------------
+      SUBROUTINE OPENOU
+C     OPEN OUTPUT FILE
+      REAL*8 OFNAME
+      WRITE(5,10260)
+10260 FORMAT(' OUTPUT FILE NAME: ',$)
+      READ(5,10262)OFNAME
+10262 FORMAT(A10)
+      CALL OFILE(20,OFNAME)
+      RETURN
+      END
+C-----------------------------------------------------------------------
+C-----------------------------------------------------------------------
+      SUBROUTINE S10275
+C     SAVE DATA
+      INTEGER*2 C1,CS,E1,E2
+      INTEGER P1,P2,B1,B2,B3
+      REAL*8 I,F
+      COMPLEX IS
+      COMMON/ARR1/CS(100,5),C1
+      COMMON/ARR2/IS(400,5),I(100,5),F(100),N2
+      COMMON/CFREQ/F4,M1
+      COMMON/CONFIG/B1(16),B2,B3(16)
+      COMMON/HEIGHT/E1,E2
+      COMMON/IINT/P1,P2
+      E1=E1-1
+      CALL OPENOU
+      WRITE(20)E1,E2,I,IS,N2,M1,F,B2,P2,B3,C1,CS
+      ENDFILE 20
+      E1=E1+1
+      RETURN
+      END
+C-----------------------------------------------------------------------
+C-----------------------------------------------------------------------
+      SUBROUTINE S10410
+C     PRINT OUTPUT
+      INTEGER*2 E1,E2
+      INTEGER A,ABRNCH,ESC,FF,TOF,WAIT
+      REAL*8 I
+      COMPLEX E,IS
+      COMMON/HEIGHT/E1,E2
+      COMMON/ARR2/IS(400,5),I(100,5),F(100)
+      COMMON/ARR3/E(5)
+      COMMON/BRNCH/ABRNCH(8)
+      DIMENSION SR(4),SI(4)
+      ESC="174000000000
+      FF="060000000000
+      NUL=0
+10400 TYPE 10401
+10401 FORMAT(' WAIT? ',$)
+      ACCEPT 10402,A
+10402 FORMAT(A1)
+      IF(A.EQ.'Y')GOTO 10409
+      IF(A.NE.'N')GOTO 10400
+      WAIT=0
+10403 TYPE 10404
+10404 FORMAT(' TOF? ',$)
+      ACCEPT 10402,A
+      IF(A.EQ.'Y')GOTO 10408
+      IF(A.NE.'N')GOTO 10403
+      TOF=0
+      GOTO 10410
+10408 TOF=1
+      GOTO 10410
+10409 WAIT=1
+10410 WRITE(5,10412)
+10412 FORMAT('1  #   FREQ.',7X,'S11',9X,'S12',9X,'S21',9X,'S22'/)
+      XYZ=I(E1,2)
+      JLAST=IFIX(XYZ)
+      DO 10425 JJ=1,JLAST
+      LL=JJ+E2-JLAST
+      DO 10415 L=1,5
+10415 E(L)=IS(LL,L)
+      FREQ=REAL(E(5))
+      NUMB=AIMAG(E(5))
+      DO 10360 II=1,4
+      SR(II)=CABS(E(II))
+      IF(SR(II).EQ.(0.))GOTO 10350
+      SI(II)=57.29577951*ACOS(REAL(E(II))/SR(II))
+      IF(AIMAG(E(II)).GE.0.)GOTO 10360
+      SI(II)=-SI(II)
+      GOTO 10360
+10350 SI(II)=0.
+10360 CONTINUE
+      WRITE(5,10370)NUMB,FREQ,(SR(II),II=1,4)
+      WRITE(5,10371)  (SI(II),II=1,4)
+10370 FORMAT(1H0,I3,2X,F5.2,3X,4F12.6)
+10371 FORMAT(15X,4F12.2)
+      IF(MOD(JJ,10).NE.0)GOTO 10425
+      IF(TOF.EQ.1)GOTO 10420
+      IF(WAIT.NE.1)GOTO 10425
+C     FOLLOWING READ ACCEPTS A CR TO CONTINUE OR 'END' TO STOP PRINTING
+      READ(5,10416) A
+10416 FORMAT(A3)
+C     TEST FOR 'END' COMMAND
+      IF(A.EQ.ABRNCH(1))  RETURN
+      TYPE 10418,ESC
+10418 FORMAT('+',A1,$)
+10420 TYPE 10422,FF,NUL
+10422 FORMAT('+',A1,A5,$)
+10425 CONTINUE
+      TYPE 10426
+10426 FORMAT(1H1)
+      RETURN
+      END
+C-----------------------------------------------------------------------
+C-----------------------------------------------------------------------
+      SUBROUTINE S10700
+C     PRINT DATA
+      INTEGER*2 E1,E2
+      COMMON/HEIGHT/E1,E2
+10700 CONTINUE
+      IE11=E1-1
+      WRITE(5,10701)  IE11,E2
+10701 FORMAT(' MAX.ELT.NO.:',I3,',   MAX.NO.OF S-PARS:',I4/)
+      CALL S3000(2)
+      CALL S1000(2)
+      RETURN
+      END
+C-----------------------------------------------------------------------
+C-----------------------------------------------------------------------
+      SUBROUTINE GIO
+      WRITE(5,11000)
+11000 FORMAT(' COMMAND NOT YET IMPLEMENTED...'/)
+      RETURN
+      END
+C-----------------------------------------------------------------------
+C     -----------------------------------------------------------------
+      SUBROUTINE TSMOVE(RECVR,RCHPOS,SOURC,SCHPOS,CHCNT)
+C     SPECIAL ROUTINE TO SIMULATE BAL ROUTINE OF SAME NAME USED IN
+C     PROGRAM GLUMP AT TEK ON S/370.
+C     WHERE RECVR---RECEIVING STRING ARRAY
+C           RCHPOS--STARTING CHARACTER POSITION IN RECEIVING ARRAY
+C           SOURC---SOURCE STRING ARRAY
+C           SCHPOS--STARTING CHARACTER POSITION IN SOURCE ARRAY
+C           CHCNT---CHARACTER COUNT; I.E., NUMBER OF CHARACTERS TO MOVE
+C     THE VALUES FOR RCHPOS, SCHPOS AND CHCNT ARE INTERGERS ONE LESS
+C     THAN THE ACTUAL POSITION OR COUNT, I.E., TO START IN CHARACTER
+C     POSITION 1 (THE FIRST POSITION) THE VALUE IS 0 (ZERO), TO MOVE
+C     THREE CHARACTERS THE VALUE IS 2, ETC.
+C
+      INTEGER RECVR(1),RCHPOS,SOURC(1),SCHPOS,CHCNT
+      L=CHCNT+1
+      DO 10 I=1,L
+      I1=I-1
+      J=SCHPOS+I1
+      K=RCHPOS+I1
+      M=ICHAR(SOURC,POSCOM(J))
+      CALL PUTCHR(RECVR,M,POSCOM(K))
+   10 CONTINUE
+      RETURN
+      END
+C     ------------------------------------------------------------------
+      INTEGER FUNCTION POSCOM(INPOS)
+C     THIS FUNCTION COMPUTES THE BYTE POSITION IN A STRING PACKED
+C     FIVE BYTES/WORD: 1,2,3,4,5,...,N FROM AN ARGUMENT OF BYTE
+C     POSITION IN A STRING PACKED FOUR BYTES/WORD: 0,1,2,3,...,M.
+C     IN THIS CASE THE 5TH BYTE IN EACH WORD OF THE STRING IS NEVER
+C     USED.  THIS PROVIDES COMPATIBILITY WITH DATA AND FORMAT LAYOUT
+C     IN PROGRAMS ORIGINALLY CREATED FOR 4 BYTE/WORD MACHINES, I.E.,
+C     S/360, ETC.
+C
+C     WORD NUMBER IN WHICH CHARACTER LOCATED
+      IQ=INPOS/4
+C     CHARACTER POSITION IN WORD
+      IR=MOD(INPOS,4)+1
+      POSCOM=IQ*5+IR
+      RETURN
+      END
+C     -----------------------------------------------------------------
+C-----END GLUMP---------------------------------------------------------
+[0"ì
