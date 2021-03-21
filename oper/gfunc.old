@@ -1,0 +1,425 @@
+MODULE GFUNC(DOLLAR,ENTRIES=($GSUM,$GMIN),FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+  BEGIN
+
+  REQUIRE ADEFS.BLI[7,107355];
+  REQUIRE DTDEFS.BLI[7,107355];
+  REQUIRE FPDEFS.BLI[7,107355];
+  REQUIRE GDEFS.BLI[7,107355];
+  REQUIRE SDEFS.BLI[7,107355];
+  REQUIRE TDEFS.BLI[7,107355];
+  REQUIRE ZDEFS.BLI[7,107355];
+
+  UNDECLARE $GSUM, $GMIN, $GCNT, $GAVG, $GMAX, $GCNTN, $GTRIM, $GTIME, $GTDAY;
+
+  MAP A$ GBTKN$;
+  MAP Z$ ZBSTK$;
+  MAP G$ GGBFP$;
+  MAP G$OPND GGBOP$;
+
+
+  ROUTINE CHKFUNC =
+    BEGIN
+
+    IF .GRPFF$ NEQ ZV$SET
+      THEN
+        BEGIN
+        $GPUSH(.GBTKN$,AV$SZTOK);
+        $GERR(561,.ZSTKP$);
+        $GPOP();
+        END
+      ELSE
+        IF .ZBSTK$[Z$SBID,.ZSTKP$] NEQ ZV$FLD     OR
+           .ZBSTK$[Z$DATATYP,.ZSTKP$] NEQ ZV$NUMERIC
+          THEN
+            $GERR(562,.ZSTKP$)
+          ELSE
+            IF $GICHK(.ZSTKP$) EQL -1
+              THEN
+                $GERR(526,.ZSTKP$)
+              ELSE
+                RETURN 0;
+    RETURN -1;
+    END;
+
+
+  ROUTINE STACKWV(WVNSTE) =
+    BEGIN
+
+    MAP S$ WVNSTE;
+    LOCAL S$ WVDSTE;
+
+    WVDSTE := $SGSTE(.WVNSTE[S$DSTP]);
+    $GPUSH(.GBTKN$,AV$SZTOK+4);
+    ZBSTK$[Z$ID,.ZSTKP$]      := TV$NAME;
+    ZBSTK$[Z$DATATYP,.ZSTKP$] :=
+                IF .WVDSTE[S$DTYP] EQL SV$DLIT
+                  THEN
+                    BEGIN
+                    ZBSTK$[Z$DTMP,.ZSTKP$][0] := .WVDSTE[S$DTP][0];
+                    ZBSTK$[Z$DTMP,.ZSTKP$][1] := .WVDSTE[S$DTP][1];
+                    ZV$DATE
+                    END
+                  ELSE
+                    BEGIN
+                    ZBSTK$[Z$FP,.ZSTKP$] := .WVDSTE[S$FP];
+                    ZV$NUMERIC
+                    END;
+    ZBSTK$[Z$SBID,.ZSTKP$]    := ZV$FLD;
+    ZBSTK$[Z$STP,.ZSTKP$]     := .WVNSTE[S$STPX];
+    ZBSTK$[Z$DEFSTP,.ZSTKP$]  := .WVNSTE[S$DSTP];
+    ZBSTK$[Z$INCSTP,.ZSTKP$]  := .WVNSTE[S$CISTP];
+    ZBSTK$[Z$ICNT,.ZSTKP$]    := .WVDSTE[S$INTD];
+    ZBSTK$[Z$DCNT,.ZSTKP$]    := .WVDSTE[S$DECD];
+    $SFRNCH(.WVDSTE);
+    END;
+
+
+  GLOBAL ROUTINE $GSUM =
+    BEGIN
+
+    LOCAL S$ WVNSTE ;
+    LOCAL ICNT, DCNT;
+
+    IF CHKFUNC() EQL 0
+      THEN
+        BEGIN
+        DCNT := .ZBSTK$[Z$DCNT,.ZSTKP$];
+        ICNT := 20 - .DCNT;
+        WVNSTE := $GWVAR(ZV$NUMERIC,.ICNT,.DCNT);
+        $GIREC(GV$ADD,4);
+        GGBFP$[G$UCNT] := 1;
+        GGBFP$[G$ICNT] := .ICNT;
+        GGBFP$[G$DCNT] := .DCNT;
+        GGBFP$[G$OPND1] := $GOPND(.ZSTKP$);
+        GGBOP$[1,G$OPTYP] := GV$STP;
+        GGBOP$[1,G$OPVAL] := .WVNSTE[S$CISTP];
+        $GWBUF(.GGBFP$,.GINCI$);
+
+        $GIREC(GV$STORE,5);
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .WVNSTE[S$CISTP];
+        GGBOP$[1,G$OPTYP] := GV$NP;
+        GGBOP$[1,G$OPVAL] := .GGFID$ -2;
+        GGBOP$[1,G$NPTYPE] := GV$ARITH;
+        GGBFP$[G$OPND3]   := GV$ROUND;
+        $GWBUF(.GGBFP$,.GINCI$);
+
+        $GIREC(GV$STORE,5);
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .WVNSTE[S$CISTP];
+        GGBOP$[1,G$OPTYP] := GV$LIT;
+        GGBOP$[1,G$OPVAL] := .SZERO$;
+        GGBFP$[G$OPND3]   := GV$ROUND;
+        $GWBUF(.GGBFP$,.GINII$);
+
+        $GPOP();
+        STACKWV(.WVNSTE);
+        $SFNME(.WVNSTE,3);
+        END
+      ELSE
+        ZBSTK$[Z$ERFL,.ZSTKP$] := AV$TRUE;
+
+    END;
+
+
+  GLOBAL ROUTINE $GMIN =
+    BEGIN
+
+    LOCAL S$ WVNSTE : WVDSTE;
+    LOCAL LABSAV, HIGHVAL;
+
+    IF CHKFUNC() EQL 0
+      THEN
+        BEGIN
+        WVNSTE := $GWVAR(ZV$NUMERIC,ZV$FP,.ZBSTK$[Z$FP,.ZSTKP$]);
+        $GIREC((IF .GBTKN$[A$ID] EQL TV$MIN
+                  THEN
+                    GV$LT
+                  ELSE
+                    GV$GT)       ,4);
+        GGBFP$[G$UCNT] := 1;
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .WVNSTE[S$CISTP];
+        GGBFP$[G$OPND2]   := $GOPND(.ZSTKP$);
+        $GWBUF(.GGBFP$,.GINCI$);
+
+        $GIREC(GV$BRCHT,4);
+        GGBOP$[0,G$OPTYP] := GV$NP;
+        GGBOP$[0,G$OPVAL] := .GGFID$ - 2;
+        GGBOP$[0,G$NPTYPE] := GV$LOGICAL;
+        GGBOP$[1,G$OPTYP] := GV$STP;
+        GGBOP$[1,G$OPVAL] := LABSAV := $GNLAB();
+        $GWBUF(.GGBFP$,.GINCI$);
+
+        $GIREC(GV$STORE,5);
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .WVNSTE[S$CISTP];
+        GGBFP$[G$OPND2]   := $GOPND(.ZSTKP$);
+        GGBFP$[G$OPND3]   := GV$ROUND;
+        $GWBUF(.GGBFP$,.GINCI$);
+
+        $GIREC(GV$LABEL,3);
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .LABSAV;
+        $GWBUF(.GGBFP$,.GINCI$);
+        WVDSTE := $SGSTE(.WVNSTE[S$DSTP]);
+        HIGHVAL := $GHVAL(.WVDSTE);
+        $SFRNCH(.WVDSTE);
+
+        IF .GBTKN$[A$ID] EQL TV$MIN
+          THEN
+            BEGIN
+            $GIREC(GV$STORE,5);
+            GGBOP$[0,G$OPTYP] := GV$STP;
+            GGBOP$[0,G$OPVAL] := .WVNSTE[S$CISTP];
+            GGBOP$[1,G$OPTYP] := GV$LIT;
+            GGBOP$[1,G$OPVAL] := .HIGHVAL;
+            GGBFP$[G$OPND3]   := GV$ROUND;
+            END
+          ELSE
+            BEGIN
+            $GIREC(GV$MIN,3);
+            GGBOP$[0,G$OPTYP] := GV$LIT;
+            GGBOP$[0,G$OPVAL] := .HIGHVAL;
+            GGBFP$[G$UCNT]    := 1;
+            $GWBUF(.GGBFP$,.GINII$);
+
+            $GIREC(GV$STORE,5);
+            GGBOP$[0,G$OPTYP] := GV$STP;
+            GGBOP$[0,G$OPVAL] := .WVNSTE[S$CISTP];
+            GGBOP$[1,G$OPTYP] := GV$NP;
+            GGBOP$[1,G$OPVAL] := .GGFID$ - 2;
+            GGBOP$[1,G$NPTYPE] := GV$ARITH;
+            GGBFP$[ G$OPND3] := GV$ROUND;
+            END;
+        $GWBUF(.GGBFP$,.GINII$);
+
+        $GPOP();
+        STACKWV(.WVNSTE);
+        $SFNME(.WVNSTE,3);
+        END
+      ELSE
+        ZBSTK$[Z$ERFL,.ZSTKP$] := AV$TRUE;
+
+    END;
+
+
+  GLOBAL ROUTINE $GCNT =
+    BEGIN
+
+    LOCAL S$ NAMSTE : WVNSTE;
+
+    IF .ZBSTK$[Z$SBID,.ZSTKP$] EQL ZV$REL
+      THEN
+        BEGIN
+        NAMSTE := $SGSTE(.ZBSTK$[Z$STP,.ZSTKP$]);
+        IF .NAMSTE[S$IDSTP] EQL SV$NULL
+          THEN
+            BEGIN
+            $SFRNCH(.NAMSTE);
+            ZBSTK$[Z$INSERTF,.ZSTKP$] := ZV$SET;
+            $GASCOPE(.ZSTKP$);                  % NEED AT LEAST ONE INCARNATION OF A RELATION
+                                                  SOMEWHERE FOR THE DELETE
+                                                %
+            ZBSTK$[Z$INSERTF,.ZSTKP$];
+            END
+          ELSE
+            $SFRNCH(.NAMSTE);
+        WVNSTE := $GWVAR(ZV$NUMERIC,10,0);
+        $GIREC(GV$COUNT,4);
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .WVNSTE[S$CISTP];
+        GGBOP$[1,G$OPTYP] := GV$STP;
+        GGBOP$[1,G$OPVAL] := .ZBSTK$[Z$INCSTP,.ZSTKP$];
+        $GWBUF(.GGBFP$,.GOB1I$);
+        $GPOP();
+        STACKWV(.WVNSTE);
+        $SFNME(.WVNSTE,3);
+        END
+      ELSE
+        BEGIN
+        $GERR(522,.ZSTKP$);
+        ZBSTK$[Z$ERFL,.ZSTKP$] := AV$TRUE;
+        END;
+    END;
+
+
+  ROUTINE COUNT = 
+    BEGIN
+
+    LOCAL S$ WVNSTE;
+
+    IF .GRPFF$ EQL ZV$SET
+      THEN
+        BEGIN
+        WVNSTE := $GWVAR(ZV$NUMERIC,10,0);
+        $GIREC(GV$ADD,4);
+        GGBFP$[G$UCNT] := 1;
+        GGBFP$[G$ICNT] := 10;
+        GGBFP$[G$DCNT] := 0;
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .WVNSTE[S$CISTP];
+        GGBOP$[1,G$OPTYP] := GV$LIT;
+        GGBOP$[1,G$OPVAL] := .GONE$;
+        $GWBUF(.GGBFP$,.GINCI$);
+    
+        $GIREC(GV$STORE,5);
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .WVNSTE[S$CISTP];
+        GGBOP$[1,G$OPTYP] := GV$NP;
+        GGBOP$[1,G$OPVAL] := .GGFID$ - 2;
+        GGBOP$[1,G$NPTYPE] := GV$ARITH;
+        GGBFP$[G$OPND3] := GV$ROUND;
+        $GWBUF(.GGBFP$,.GINCI$);
+
+        $GIREC(GV$STORE,5);
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .WVNSTE[S$CISTP];
+        GGBOP$[1,G$OPTYP] := GV$LIT;
+        GGBOP$[1,G$OPVAL] := .SZERO$;
+        GGBFP$[G$OPND3] := GV$ROUND;
+        $GWBUF(.GGBFP$,.GINII$);
+        STACKWV(.WVNSTE);
+        $SFNME(.WVNSTE,3);
+        END
+      ELSE
+        BEGIN
+        $GPUSH(.GBTKN$,AV$SZTOK);
+        $GERR(565,.ZSTKP$);
+        $GPOP();
+        END;
+    END;
+
+
+  GLOBAL ROUTINE $GCNTN =  COUNT();
+
+
+  GLOBAL ROUTINE $GAVG =
+    BEGIN
+
+    LOCAL S$ WVNSTE;
+    LOCAL SAVE;
+
+    IF .GRPFF$ NEQ ZV$SET
+      THEN
+        BEGIN
+        $GPUSH(.GBTKN$,AV$SZTOK);
+        $GERR(561,.ZSTKP$);
+        $GPOP();
+        ZBSTK$[Z$ERFL,.ZSTKP$] := AV$TRUE;
+        END
+      ELSE
+        BEGIN
+        $GSUM();
+        COUNT();
+        GBTKN$[A$ID] := TV$SLASH;
+        SAVE := .GOB1I$;
+        GOB1I$ := .GINCI$;
+        $GAOP();
+        GOB1I$ := .SAVE;
+        WVNSTE := $GWVAR(ZV$NUMERIC,ZV$FP,.ZBSTK$[Z$FP,.ZSTKP$]);
+        $GIREC(GV$STORE,5);
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .WVNSTE[S$CISTP];
+        GGBFP$[G$OPND2]   := $GOPND(.ZSTKP$);
+        GGBFP$[G$OPND3]   := GV$ROUND;
+        $GWBUF(.GGBFP$,.GINCI$);
+
+        $GIREC(GV$STORE,5);
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .WVNSTE[S$CISTP];
+        GGBOP$[1,G$OPTYP] := GV$LIT;
+        GGBOP$[1,G$OPVAL] := .SZERO$;
+        GGBFP$[G$OPND3] := GV$ROUND;
+        $GWBUF(.GGBFP$,.GINII$);
+        $GPOP();
+        STACKWV(.WVNSTE);
+        $SFNME(.WVNSTE,3);
+        END;
+    END;
+
+
+  GLOBAL ROUTINE $GMAX = $GMIN();
+
+
+  GLOBAL ROUTINE $GTRIM =
+    BEGIN
+
+    LOCAL S$ WVNSTE;
+    LOCAL OPND;
+    LOCAL FP$I PICTURE;
+
+    IF .GOUTF$ EQL ZV$RESET
+      THEN
+        BEGIN
+        $GERR(564,.ZSTKP$);
+        ZBSTK$[Z$ERFL,.ZSTKP$] := AV$TRUE;
+        END
+      ELSE
+        IF .ZBSTK$[Z$DATATYP,.ZSTKP$] NEQ ZV$STRING
+          THEN
+            BEGIN
+            $GERR(560,.ZSTKP$);
+            ZBSTK$[Z$ERFL,.ZSTKP$] := AV$TRUE;
+            END
+          ELSE
+            BEGIN
+            IF $GICHK(.ZSTKP$) EQL -1
+              THEN
+                $GERR(526,.ZSTKP$);
+            PICTURE := .ZBSTK$[Z$FP,.ZSTKP$];
+            OPND := $GOPND(.ZSTKP$);
+            $GPOP();
+            $GPUSH(.GBTKN$,AV$SZTOK+4);
+            ZBSTK$[Z$DATATYP,.ZSTKP$] := ZV$STRING;
+            ZBSTK$[Z$LCHAR,.ZSTKP$]   := .PICTURE[FP$C];
+            ZBSTK$[Z$GOPND,.ZSTKP$]   := .OPND;
+            ZBSTK$[Z$FP,.ZSTKP$]      := .PICTURE;
+            END;
+    END;
+
+
+
+
+  GLOBAL ROUTINE $GTIME =
+    BEGIN
+
+    LOCAL S$ WVNSTE;
+
+    WVNSTE := $GWVAR(ZV$NUMERIC,5,0);
+    $GIREC(GV$TIME,3);
+    GGBOP$[0,G$OPTYP] := GV$STP;
+    GGBOP$[0,G$OPVAL] := .WVNSTE[S$CISTP];
+    $GWBUF(.GGBFP$,.GOB1I$);
+    STACKWV(.WVNSTE);
+    $SFNME(.WVNSTE,3);
+    END;
+
+
+  GLOBAL ROUTINE $GTDAY =
+    BEGIN
+
+    LOCAL S$ WVNSTE;
+    LOCAL DT$ DTMP;
+    LOCAL DATETEMP[2];
+
+    DATETEMP[0] := DATETEMP[1] := 0;
+    DTMP := DATETEMP;
+    DTMP[DT$COUNT]   := 3;
+    DTMP[DT$PRSIZE]  := 8;
+    DTMP[DT$CODE,0]:= DTV$4Y;
+    DTMP[DT$CODE,1]:= DTV$2M;
+    DTMP[DT$CODE,2]:= DTV$2D;
+    WVNSTE := $GDWVAR(.DTMP);
+    $GIREC(GV$TODAY,3);
+    GGBOP$[0,G$OPTYP] := GV$STP;
+    GGBOP$[0,G$OPVAL] := .WVNSTE[S$CISTP];
+    $GWBUF(.GGBFP$,.GOB1I$);
+    STACKWV(.WVNSTE);
+    $SFNME(.WVNSTE,3);
+    END;
+
+
+  END
+ELUDOM
+ 
