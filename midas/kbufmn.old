@@ -1,0 +1,151 @@
+MODULE KBUFMN(DOLLAR,ENTRIES=($KGBUF,$KRBUF,$KNFRE),
+                        FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+
+BEGIN
+
+REQUIRE KDEFS.BLI[7,107355];
+REQUIRE BTDEFS.BLI[7,107355];
+REQUIRE FDEFS.BLI[7,107355];
+REQUIRE UDEFS.BLI[7,107355];
+UNDECLARE $KGBUF,$KRBUF,$KNFRE;
+
+GLOBAL ROUTINE $KGBUF(FCB,PN)=
+   BEGIN
+   MAP KFCB$ FCB;
+   LOCAL KBT$ BT;
+   LOCAL I,J,N,R,NOP;
+
+   NOP_.FCB[K$BLKSIZ];
+
+   INCR I FROM 1 TO .KBTIX$[BT$NBTS]   % SEARCH BTS FOR UNUSED BUFFERS %
+      DO
+         BEGIN
+         BT_.KBTIX$[BT$TABLE,.I];
+         J_1;
+         WHILE .J LEQ .BT[BT$SIZE]
+            DO IF .BT[BT$USE,.J] EQL 0
+               THEN IF (N_.BT[BT$NOP,.J]-.NOP) GEQ 0
+                  THEN
+                     BEGIN   % FOUND UNUSED BUFFER(S) %
+                     IF .N GTR 0
+                        THEN 
+                           BEGIN      % MORE THAN ENOUGH %
+                           BT[BT$USE,.J+.NOP]_0;
+                           BT[BT$NOP,.J+.NOP]_.N;
+                           BT[BT$DIRTY,.J+.NOP]_0;
+                           BT[BT$NOP,.J]_.NOP;
+                           END;
+                     BT[BT$USE,.J]_1;   % SET UP BT ENTRY %
+                     BT[BT$AGE,.J]_1;
+                     BT[BT$CHAN,.J]_.FCB[K$CHNL];
+                     BT[BT$PAGE,.J]_.PN;
+                     BT[BT$DIRTY,.J]_0;
+                     RETURN .BT[BT$FIRST]+(.J-1)*KV$PAGS;
+                     END
+                  ELSE 0
+               ELSE J_.J+.BT[BT$NOP,.J];
+         END;
+
+   % NO UNUSED BUFFERS OF SUFFICIENT SIZE WERE FOUND.
+     THEREFORE THE FLYING FINGER MUST STRIKE!  %
+
+   BT_.KBTIX$[BT$FFBTA];
+   I_.KBTIX$[BT$FFOFF];   % THE DREADED FLYING FINGER %
+   J_.KBTIX$[BT$NBUFS]*2;
+   WHILE (J_.J-1) GEQ 0     % SEARCH BTS %
+      DO
+         BEGIN
+         IF .BT[BT$PERM,.I] EQL 0        % ONLY THE PERM BIT SHIELDS A
+                                           BUFFER FROM THE FLYING FINGER %
+            THEN IF .BT[BT$AGE,.I] EQL 1
+               THEN (BT[BT$AGE,.I]_0; I_.I+.BT[BT$NOP,.I])
+               ELSE IF .BT[BT$NOP,.I] GEQ .NOP
+                  THEN
+                     BEGIN
+
+                     % THIS PAGE BUFFER IS PRE-EMPTED & IF IT IS
+                       DIRTY, IT'S CONTENTS ARE WRITTEN TO DISK %
+
+                     R_.BT[BT$FIRST]+(.I-1)*KV$PAGS;  % ADDRESS OF BUFFER %
+                     IF .BT[BT$DIRTY,.I] EQL 1
+                        THEN $KPHYW(.KCHTB$[.BT[BT$CHAN,.I]],.R,
+                               .BT[BT$PAGE,.I]);
+                     IF N_.BT[BT$NOP,.I]-.NOP GTR 0
+                        THEN 
+                           BEGIN      % MORE THAN ENOUGH %
+                           BT[BT$USE,.I+.NOP]_0;
+                           BT[BT$NOP,.I+.NOP]_.N;
+                           BT[BT$DIRTY,.I+.NOP]_0;
+                           BT[BT$NOP,.I]_.NOP;
+                           END;
+                     BT[BT$USE,.I]_1;   % SET UP BT ENTRY %
+                     BT[BT$AGE,.I]_1;
+                     BT[BT$CHAN,.I]_.FCB[K$CHNL];
+                     BT[BT$PAGE,.I]_.PN;
+                     BT[BT$DIRTY,.I]_0;
+
+                     % FIX UP FLYING FINGER %
+
+                     I_.I+.BT[BT$NOP,.I];
+                     IF .I GTR .BT[BT$SIZE]
+                        THEN (I_1; BT_.BT[BT$NEXT]);
+                     KBTIX$[BT$FFBTA]_.BT;
+                     KBTIX$[BT$FFOFF]_.I;
+                     RETURN .R;
+                     END
+                  ELSE 0
+            ELSE I_.I+.BT[BT$NOP,.I];
+         IF .I GTR .BT[BT$SIZE]
+            THEN (I_1; BT_.BT[BT$NEXT]);   % GO TO NEXT BT IN CHAIN %
+         END;
+   $KFATL(#743);
+   END;
+
+GLOBAL ROUTINE $KRBUF(FCB,BA,PN)=
+   BEGIN
+   MAP KFCB$ FCB;
+   LOCAL KBT$ BT;
+   LOCAL ANS,I,NOP;
+
+   NOP_.FCB[K$BLKSIZ];
+
+   ANS_$KBTIN(.BA);   % SEARCH BTS FOR THIS ENTRY %
+   BT_.ANS<18,18>;
+   I_.ANS<0,18>;
+   IF .BT EQL 0 THEN $KFATL(#720);  %  IF NO BT PANIC  %
+   IF .BT[BT$PAGE,.I] EQL .PN AND .BT[BT$NOP,.I] EQL .NOP AND
+      .FCB[K$CHNL] EQL .BT[BT$CHAN,.I]
+      THEN
+         BEGIN
+         (.BT+.I+BTV$BTHSZ-1)<0,36>_0;
+         BT[BT$NOP,.I]_.NOP;
+         END
+      ELSE $KFATL(#717);      % BUFFER TABLE INCONSISTENCY %
+   (.BA)<0,36>_0;
+   END;
+
+GLOBAL ROUTINE $KNFRE=
+
+   BEGIN
+   LOCAL KBT$ BT;
+   LOCAL J,COUNT;
+
+   COUNT_0;
+
+   DECR I FROM .KBTIX$[BT$NBTS] TO 1
+      DO
+         BEGIN
+         BT_.KBTIX$[BT$TABLE,.I];
+         J_1;
+         WHILE .J LEQ .BT[BT$SIZE]
+            DO
+               BEGIN
+               IF NOT .BT[BT$PERM,.J]
+                  THEN COUNT_.COUNT+.BT[BT$NOP,.J];
+               J_.J+.BT[BT$NOP,.J];
+               END;
+         END;
+   RETURN .COUNT
+   END;
+
+END ELUDOM
