@@ -1,0 +1,259 @@
+      SUBROUTINE SOREL
+C     SUBROUTINE SOREL - LOCAL SUBPROGRAM                               OREL0060
+C     INPUT PROGRAM CONTROLS READING,REDUNDANCY CHECKING,CONSISTENCY CHEOREL0070
+C     AND STORAGE OF MEMBER AND JOINT RELEASE DATA                      OREL0080
+C     STRESS PROGRAMMING SYSTEM FOR IBM 1130                            OREL0090
+C     MEMBER AND JOINT RELEASES                                         OREL0100
+C     DIMENSION AND COMMON STATEMENTS WHICH MUST APPEAR IN ALL ROUTINES OREL0110
+      DIMENSION NSYSF(6)                                                OREL0120
+      DIMENSION NPRBF(6)                                                OREL0130
+      DIMENSION NARRF(32)                                               OREL0140
+      DIMENSION  JMIN(250),JPLS(250),MTYP(250)
+      DIMENSION A(40),BETA(37),LABL(16),IFREE(20),ICHK(2),IBUFF (40)    OREL0160
+      DIMENSION IHAVE(2),IRC(2)                                         OREL0170
+C     SYSTEM PARAMETERS  -  14 WORDS                                    OREL0180
+      COMMON NTMP,KCUR,NAVAL,NOVER,ISOLV,ISUCC,ISCAN,ITRAC,NSYSF        OREL0190
+C     PROBLEM PARAMETERS  -  32 WORDS                                   OREL0200
+      COMMON NJ,NB,NDAT,NFJS,NLDS,NLDSI,ID,NCORD,JF,NSQ,IMETH,NMR,NJR,  OREL0210
+     1IBETA,IYOUN,ISHEA,GSHEA,EYOUN,FILL1,FILL2,IPZER,ISTRS,NPRBF             OREL0220
+C     PLATE PARAMETERS                                                  $REL0222
+      COMMON IPLAT,NPLAT,KPLA1,KPLAT,KTHI1,KTHIK                        $REL0224
+C     ARRAY CODEWORDS  40 PAIRS = 80 WORDS                              OREL0230
+      COMMON KNAM1,KNAME,KXY1,KXYZ,KJRE1,KJREL,MEGA1,MEGAZ,KMEM1,KMEMB, OREL0240
+     1KBET1,KBETA,KYON1,KYOUN,KSHE1,KSHEA,KMRE1,KMREL,KMEG1,KMEGA,      OREL0250
+     2KMKS1,KMKST,KROT1,KROTE,KPPL1,KPPLS,KPMN1,KPMNS,LOAD1,LOADS,      OREL0260
+     3KLIN1,KLINT,MLOA1,MLOAD,JLOA1,JLOAD,KDIA1,KDIAG,KOFD1,KOFDG,      OREL0270
+     4KPPR1,KPPRI,KSTA1,KSTAT,KJIN1,KJINT,KJEX1,KJEXT                   OREL0280
+      COMMON NARRF                                                      OREL0290
+C  MEMBER INCIDENCE AND TYPE TABLES  250 JOINTS  500 MEMBERS
+      COMMON JMIN,JPLS,MTYP,IAMDU                                       OREL0310
+C     SCRATCH AREA CAN BE INSERTED AS DESIRED FOR EACH ROUTINE          OREL0320
+C     SCRATCH AREA FOR INPUT PHASE  -  SPH1A AND SPH1B                  OREL0330
+      COMMON A,BETA,IFREE,LABL,IB,IL,ILOOK,JTOMB,K1,IPRER,JLD,INDEX,    OREL0340
+     1JINDL,JDEPL,IPRTA,KK,JJC,JDC,IS,ICHK,JMIC,JMPC,JCODE,JIB,LXZ,     OREL0350
+     2CTE,KS1,LEM,IBUFF                                                 OREL0360
+      IPRER=-1                                                          OREL0370
+      NB1=NB+IPLAT                                                      $REL0375
+      NMRT=0                                                            OREL0380
+      NJRT=0                                                            OREL0390
+      IF(ID)9919,9919,4001                                              OREL0400
+C     SET UP RELEASE CODE                                               OREL0410
+C     K1=1, MEMBER RELEASES                                             OREL0420
+C     K1=2, JOINT RELEASES                                              OREL0430
+4001  GO TO (401,400),K1                                                OREL0440
+400   IF(JTOMB-NJ)4002,4002,9911                                        OREL0450
+C     JJC=INTERNAL JOINT NUMBER,JDC=INTERNAL SUPPORT JOINT NUMBER       OREL0460
+4002  IF(JJC+JDC-NJ)9932,4003,4003                                      OREL0470
+C     CONVERT TO INTERNAL JOINT NUMBER-SDATA RETRIEVES FIXED POINT NO.  OREL0480
+C     TO JTOMB                                                          OREL0490
+4003  CALL SDATA(KJIN1,KJINT,JTOMB,A,JTOMB,+1,10)                       OREL0500
+C     JOINT RELEASES                                                    OREL0510
+418   ITHRU=1                                                           OREL0520
+      GO TO 403                                                         OREL0530
+C     MEMBER RELEASES                                                   OREL0540
+401   ITHRU=2                                                           OREL0550
+      IF(JTOMB-NB )403,403,9956                                         $REL0560
+C     IG=2=RELEASES                                                     OREL0570
+403   IG=2                                                              OREL0580
+      CALL SREAD(IG)                                                    OREL0590
+      IF(IG-2)350,402,350                                               OREL0600
+C     AFTER JOINT OR MBR RELEASES IDENTIFIED BY SREAD, RETURN SOREL     OREL0610
+C     WITH IG=2                                                         OREL0620
+402   IWAS=0                                                            OREL0630
+      IRC(1)=0                                                          OREL0640
+      IRC(2)=0                                                          OREL0650
+      IHAVE(1)=0                                                        OREL0660
+      IHAVE(2)=0                                                        OREL0670
+C     LOOP ON NUMBER OF RELEASES READ,IC=1=JOINT OR START RELEASE,      OREL0680
+C     IC=2=END RELEASE                                                  OREL0690
+C     IC=1,JOINT OR START RELEASE,IE=0=FORCE RELEASE,IE=1=MOMENT RELEASEOREL0700
+      DO 300 I=1,IL                                                     OREL0710
+      IE=0                                                              OREL0720
+      NX=1                                                              OREL0730
+      IC=1                                                              OREL0740
+      IF(LABL(I)-7)154,151,151                                          OREL0750
+C     CHECK FOR END RELEASE   YES=151                                   OREL0760
+C     IC=2=END RELEASE, IE=1=MOMENT RELEASE                             OREL0770
+151   LABL(I)=LABL(I)-6                                                 OREL0780
+      IC=2                                                              OREL0790
+154   IF(LABL(I)-4)158,156,156                                          OREL0800
+C     CHECK FOR MOMENT RELEASE, 156=YES, 158=NO                         OREL0810
+ 156  LABL(I)=LABL(I)-3                                                 OREL0820
+      IE=1                                                              OREL0830
+      NX=10                                                             OREL0840
+158   IF(IWAS)194,165,194                                               OREL0850
+C     IWAS=0, IRC(IC) NOT IN PROGRAM   IWAS=1, IRC(IC) IN PROGRAM       OREL0860
+165   IWAS=1                                                            OREL0870
+      GO TO (170,180),K1                                                OREL0880
+C     MEMBER RELEASES=K1=1,JOINT RELEASES=K1=2                          OREL0890
+C     KMREL = FLOATING POINT TABLE OF MBR RELEASES= NO OF FILE RECORDS/ OREL0900
+C     ARRAY                                                             OREL0910
+170   IF(KMREL)175,173,175                                              OREL0920
+C     ASSIGNED DISK STORAGE FOR MEMBER RELEASES                         OREL0930
+173   CALL SBITE(KMRE1,KMREL,2,NB ,0)                                   $REL0940
+      CALL SPAK4(1,AA,0,0,0,0)                                          OREL0950
+      DO 1731 IJK=1,10                                                  OREL0960
+1731  A(IJK)=AA                                                         OREL0970
+      NUMOF=(NB -1)/10+1                                                $REL0980
+      DO 1732 IJK=1,NUMOF                                               OREL0990
+C     STORE MEMBER RELEASES OF FLOATING NUMBER FROM AREA TO DISK        OREL1000
+1732  CALL SDATA(KMRE1,KMREL,10*IJK,A,NAREA,-2,0)                       OREL1010
+C     CHECK FOR Z RELEASE                                               OREL1020
+      GO TO 250                                                         OREL1030
+C     SET UP TABLE FOR MEMBER RELEASES,FLOATING POINT FROM DISK TO AREA OREL1040
+175   CALL SDATA(KMRE1,KMREL,JTOMB,AA,NA,-1,10)                         OREL1050
+      CALL SPAK4(0,AA,JUNK,JUNK,IRC(1),IRC(2))                          OREL1060
+      GO TO 190                                                         OREL1070
+C     JOINT RELEASE=K1=2                                                OREL1080
+C     GET ANY PREVIOUS RELEASE COMPONENTS FROM KJREL                    OREL1090
+180   CALL SDATA(KJRE1,KJREL,JTOMB,A,IRC(1),+1,10)                      OREL1100
+      IF(IRC(1))9918,190,190                                            OREL1110
+C     IHAVE(IC)=0, FIRST CARD OF RELEASES FOR MEMBER OR JOINT           OREL1120
+C     IHAVE(IC)=1, MEMBER OR JOINT RELEASED ON PREVIOUS CARDS           OREL1130
+C     DETERMINE WHICH KINDS OF RELEASES SPECIFIED BEFORE                OREL1140
+190   DO 192 KZ=1,ITHRU                                                 OREL1150
+      IF(IRC(KZ))191,192,191                                            OREL1160
+191   IHAVE(KZ)=1                                                       OREL1170
+192   CONTINUE                                                          OREL1180
+C     IHAVE(IC)=0=FIRST CARD OF RELEASES,IHAVE(IC)=1=MEMBER OR JOINT    OREL1190
+C     RELEASED OF PREVIOUS CARDS                                        OREL1200
+194   IF(IHAVE(IC))195,250,195                                          OREL1210
+195   IF(IRC(IC)/NX)250,250,197                                         OREL1220
+C     IE=0=FORCE RELEASE,IE=1=MOMENT RELEASE                            OREL1230
+197   IF(IE)199,199,201                                                 OREL1240
+C     FORCE RELEASE SO NEED ONLY UNITS DIGIT                            OREL1250
+199   IRCK=IRC(IC)-(IRC(IC)/10)*10                                      OREL1260
+      GO TO 205                                                         OREL1270
+C     MOMENT RELEASE SO NEED ONLY TENS DIGIT                            OREL1280
+201   IRCK=IRC(IC)/10                                                   OREL1290
+C     NOW CHECK FOR COMPONENT                                           OREL1300
+205   LIM=4-LABL(I)                                                     OREL1310
+      DO 220 J=1,LIM                                                    OREL1320
+      IF(J-2)219,218,217                                                OREL1330
+219   LXX=4                                                             OREL1340
+      GO TO 216                                                         OREL1350
+218   LXX=2                                                             OREL1360
+      GO TO 216                                                         OREL1370
+217   LXX=1                                                             OREL1380
+216   IF(IRCK/LXX)250,214,212                                           OREL1390
+214   IF(J-LIM)220,250,220                                              OREL1400
+212   IRCK=IRCK-LXX                                                     OREL1410
+220   CONTINUE                                                          OREL1420
+      GO TO 300                                                         OREL1430
+C     CHECK FOR Z RELEASE                                               OREL1440
+250   IF(LABL(I)-3)253,251,253                                          OREL1450
+251   LABL(I)=4                                                         OREL1460
+253   IRC(IC)=IRC(IC)+LABL(I)*NX                                        OREL1470
+      GO TO (2531,2532),K1                                              OREL1480
+C     NO. OF MEMBER RELEASES                                            OREL1490
+2531  NMRT=NMRT+1                                                       OREL1500
+      GO TO 300                                                         OREL1510
+C     NO. OF JOINT RELEASES                                             OREL1520
+2532  NJRT=NJRT+1                                                       OREL1530
+300   CONTINUE                                                          OREL1540
+C     TO CHECK FOR REDUNDANT RELEASES ON ONE CARD                       OREL1550
+C     COUNT NUMBER OF RELEASES NECESSARY TO PROVIDE CODE STORED         OREL1560
+C     ITHRU=2=MEMBER RELEASES                                           OREL1570
+      ICC=0                                                             OREL1580
+      DO 460 LR=1,ITHRU                                                 OREL1590
+      IF(IHAVE(LR))460,440,460                                          OREL1600
+440   DO 460 IR=1,2                                                     OREL1610
+      GO TO (441,442),IR                                                OREL1620
+441   ICD=IRC(LR)/10                                                    OREL1630
+      GO TO 450                                                         OREL1640
+442   ICD=IRC(LR)-(IRC(LR)/10)*10                                       OREL1650
+450   IF(ICD)454,460,454                                                OREL1660
+454   IF(ICD-7)455,455,456                                              OREL1670
+455   GO TO (451,451,452,451,452,452,453),ICD                           OREL1680
+451   ICC=ICC+1                                                         OREL1690
+      GO TO 460                                                         OREL1700
+452   ICC=ICC+2                                                         OREL1710
+      GO TO 460                                                         OREL1720
+453   ICC=ICC+3                                                         OREL1730
+      GO TO 460                                                         OREL1740
+456   ICC=99                                                            OREL1750
+460   CONTINUE                                                          OREL1760
+      IF(ICC)404,404,463                                                OREL1770
+463   GO TO (461,462),K1                                                OREL1780
+461   IF(ICC-NMRT)9920,404,9920                                         OREL1790
+462   IF(ICC-NJRT)9920,404,9920                                         OREL1800
+C     CHECK IF ID AND RELEASES COMPATIBLE                               OREL1810
+404   GO TO (405,410),K1                                                OREL1820
+C     MEMBER RELEASES                                                   OREL1830
+405   GO TO (411,420,430,411,3020),ID                                   OREL1840
+C     JOINT RELEASES                                                    OREL1850
+410   GO TO (412,420,430,413,3020),ID                                   OREL1860
+C     PLANE OR SPACE TRUSS (MEMBER)                                     OREL1870
+411   IRCMX=1                                                           OREL1880
+      GO TO 415                                                         OREL1890
+C     PLANE TRUSS (JOINT)                                               OREL1900
+412   IRCMX=3                                                           OREL1910
+      GO TO 415                                                         OREL1920
+C     SPACE TRUSS (JOINT)                                               OREL1930
+413   IRCMX=7                                                           OREL1940
+C     CHECK FOR TRUSSES (IRC(LR) LESS THAN OR = TO IRCMAX IS OK)        OREL1950
+415   DO 417 LR=1,ITHRU                                                 OREL1960
+      IF(IRC(LR)-IRCMX)417,417,9921                                     OREL1970
+417   CONTINUE                                                          OREL1980
+      GO TO 3020                                                        OREL1990
+C     PLANE FRAMES (MEMBER OR JOINT)                                    OREL2000
+420   DO 429 LR=1,ITHRU                                                 OREL2010
+      ICDTE=IRC(LR)/10                                                  OREL2020
+      IF(ICDTE)424,424,422                                              OREL2030
+422   IF(ICDTE-4)9921,424,9921                                          OREL2040
+424   ICDUN=IRC(LR)-(IRC(LR)/10)*10                                     OREL2050
+      IF(ICDUN)429,429,426                                              OREL2060
+426   IF(ICDUN-3)429,429,9921                                           OREL2070
+429   CONTINUE                                                          OREL2080
+      GO TO 3020                                                        OREL2090
+C     PLANE GRIDS (MEMBER OR JOINT)                                     OREL2100
+430   DO 439 LR=1,ITHRU                                                 OREL2110
+      ICDTE=IRC(LR)/10                                                  OREL2120
+      IF(ICDTE)434,434,432                                              OREL2130
+432   IF(ICDTE-3)434,434,9921                                           OREL2140
+434   ICDUN=IRC(LR)-(IRC(LR)/10)*10                                     OREL2150
+      IF(ICDUN)439,439,436                                              OREL2160
+436   IF(ICDUN-4)9921,439,9921                                          OREL2170
+439   CONTINUE                                                          OREL2180
+3020  GO TO (305,310),K1                                                OREL2190
+C     MEMBER                                                            OREL2200
+305   IF(ISCAN-1)350,3050,350                                           OREL2210
+3050  NMR=NMR+NMRT                                                      OREL2220
+      IF(IRC(1))3051,3056,3051                                          OREL2230
+3051  CALL SPAK2(JTOMB,MTYP,IML)                                        OREL2240
+      IF(IML)3056,3052,3052                                             OREL2250
+ 3052 IF(IML) 3056,3053,3054                                            OREL2260
+3053  IML=-5                                                       OREL2270
+      GO TO 3055                                                        OREL2280
+3054  IML=-IML                                                          OREL2290
+3055  CALL SPAK2(-JTOMB,MTYP,IML)                                       OREL2300
+3056  CALL SPAK4(1,AA,0,0,IRC(1),IRC(2))                                OREL2310
+C     SET UP TABLE OF FLOATING POINT MBR RELEASES FROM AREA TO DISK     OREL2320
+      CALL SDATA(KMRE1,KMREL,JTOMB,AA,NA,-2,10)                         OREL2330
+      GO TO 350                                                         OREL2340
+C     JOINT                                                             OREL2350
+310   NJR=NJR+NJRT                                                      OREL2360
+3101  CALL SDATA(KJRE1,KJREL,JTOMB,A,IRC(1),+2,10)                      OREL2370
+350   ILOOK=5                                                           OREL2380
+      RETURN                                                            OREL2390
+9910  IPRER=10                                                          OREL2400
+      GO TO 350                                                         OREL2410
+9911  IPRER=11                                                          OREL2420
+      GO TO 350                                                         OREL2430
+9918  IPRER=18                                                          OREL2440
+      GO TO 350                                                         OREL2450
+9919  IPRER=19                                                          OREL2460
+      GO TO 350                                                         OREL2470
+9920  IPRER=20                                                          OREL2480
+      GO TO 350                                                         OREL2490
+9921  IPRER=21                                                          OREL2500
+      GO TO 350                                                         OREL2510
+9932  IPRER=32                                                          OREL2520
+      GO TO 355                                                         $REL2522
+ 9956 IPRER=56                                                          $REL2524
+      GO TO 355                                                         $REL2526
+  355 IF(ISCAN-1)360,360,350                                            $REL2530
+360   ISCAN=0                                                           OREL2540
+      GO TO 350                                                         OREL2550
+      END                                                               OREL2560
+2  †
