@@ -1,0 +1,288 @@
+MODULE RUC(DOLLAR,ENTRIES=($TCVSN,$TCTST),FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+BEGIN
+%VERSION C3     %
+%LAST UPDATE, APR. 21, 1975, BY V.E.VAN VLEAR   %
+
+REQUIRE RMDEFS.BLI[7,107355];
+REQUIRE FDEFS.BLI[7,107355];
+REQUIRE DVDEFS.BLI[7,107355];
+REQUIRE RDEFS.BLI[7,107355];
+REQUIRE UDEFS.BLI[7,107355];
+REQUIRE FPDEFS.BLI[7,107355];
+
+UNDECLARE $TCVSN,$TCTST;
+
+%CONVERTS STRING IN FI BY FP TO STORE IN DEST   %
+GLOBAL ROUTINE $TCVSN(FI,QP,FP,DEST)=
+BEGIN
+
+MAP FP$I FP;
+LABEL ERBLK;
+BIND K10=PLIT(0,10);
+
+MACRO GCH=
+        IF .NC GTR 0 THEN (CH:=SCANI(PTR); NC:=.NC-1) ELSE
+          (CH:=" "; NC:=-1)&,
+      ERX(S)=(ERSW:=S; LEAVE ERBLK)&;
+
+LOCAL VAL[2],PER,ID,DP,DOL,NEG,SGNT,CMA,CT,CH,ERSW,NC,T1,T2,
+  PTR,NID,NDP,ET,DD$ DD,NM;
+
+NC:=.QP<0,18>;                   %NO. OF CHARS. IN INPUT        %
+PTR:=(.FI)<36,7>;                %STRING PTR. FOR INPUT %
+
+VAL[0]:=VAL[1]:=PER:=ID:=0;
+DP:=DOL:=NEG:=SGNT:=CMA:=CT:=0;
+ERBLK: BEGIN                    %EXIT THIS BLOCK ON ERRORS      %
+   ERSW:=0;                      %CLEAR FOR NO ERRORS   %
+
+  UNTIL .NC LEQ 0 DO              %NO. OF CHARS. DECREMENTED BY GCH MACRO       %
+    BEGIN                         %ALSO EXIT THIS BLOCK ON ERRORS       %
+    GCH;                          %GET CHARS. HERE UNTIL FIRST DIGIT/PERIOD     %
+    IF (.CH GEQ "0" AND .CH LEQ "9") OR .CH EQL "." THEN
+      UNTIL .NC LSS 0 DO
+        BEGIN
+        IF .CH GEQ "0" AND .CH LEQ "9" THEN
+          BEGIN
+          CT:=.CT+1;
+          IF .CT LEQ 20 THEN
+            BEGIN
+            $UMPY(VAL,10);
+            $UDADD(VAL,.CH-#60);
+            IF .PER EQL 0 THEN ID:=.ID+1 ELSE DP:=.DP+1;
+            GCH
+            END
+          ELSE ERX(9)
+          END
+        ELSE IF .CH EQL "." THEN
+          IF .PER EQL 0 THEN (PER:=1; GCH) ELSE ERX(5)
+        ELSE IF .CH EQL " " THEN
+          UNTIL .NC LSS 0 DO
+            BEGIN
+            GCH;
+            IF .CH NEQ " " THEN ERX(6)
+            END
+        ELSE IF .CH EQL "+" THEN
+          IF .SGNT EQL 0 THEN (SGNT:=FPV$RTS; CH:=" ") ELSE ERX(2)
+        ELSE IF .CH EQL ")" THEN
+          IF .SGNT EQL FPV$PAREN THEN CH:=" " ELSE ERX(10)
+        ELSE IF .CH EQL "-" THEN
+          IF .SGNT EQL 0 THEN (SGNT:=FPV$RT; CH:=" ") ELSE ERX(2)
+        ELSE IF .CH EQL "," THEN
+          IF .PER EQL 0 THEN CMA:=1 ELSE ERX(6)
+        ELSE IF .CH EQL "D" THEN
+          IF .SGNT EQL 0 THEN
+            BEGIN
+            GCH;
+            IF .CH EQL "B" THEN (SGNT:=FPV$DB; CH:=" ") ELSE ERX(7)
+            END
+          ELSE ERX(2)
+        ELSE IF .CH EQL "C" THEN
+          IF .SGNT EQL 0 THEN
+            BEGIN
+            GCH;
+            IF .CH EQL "R" THEN (SGNT:=FPV$CR; CH:=" ") ELSE ERX(8)
+            END
+          ELSE ERX(2)
+        ELSE ERX(4)
+        END
+    ELSE IF .CH EQL "-" THEN
+      IF .SGNT EQL 0 THEN (SGNT:=FPV$LMP) ELSE ERX(2)
+    ELSE IF .CH EQL "+" THEN
+      IF .SGNT EQL 0 THEN SGNT:=FPV$LMPS ELSE ERX(2)
+    ELSE IF .CH EQL "(" THEN
+      IF .SGNT EQL 0 THEN (SGNT:=FPV$PAREN) ELSE ERX(2)
+    ELSE IF .CH EQL "$" THEN
+      IF .DOL EQL 0 THEN DOL:=1 ELSE ERX(3)
+    ELSE IF .CH EQL " " THEN 0
+    ELSE ERX(4)
+    END;                  %UNTIL NC EQL 0 BLOCK %
+  
+  IF .FP[FP$SIGN] EQL FPV$NSC THEN IF .SGNT NEQ 0 THEN ERX(11);
+  IF .SGNT GEQ FPV$RTS THEN IF .SGNT NEQ .FP[FP$SIGN] THEN ERX(12);
+  IF .CMA EQL 1 THEN IF .FP[FP$SP4] EQL FPV$FALSE THEN ERX(13);
+  IF .DOL EQL 1 THEN IF .FP[FP$SP1] EQL FPV$FALSE AND
+    .FP[FP$FS] NEQ FPV$DOLLAR THEN ERX(14);
+  NID:=.FP[FP$FI]+.FP[FP$XI];
+  NDP:=.FP[FP$DI]+.FP[FP$EI];
+  IF (.ID+.DP) GTR (.NID+.NDP) THEN ERX(15);
+  IF .ID GTR .NID THEN ERX(16);
+
+  %DO SCALING IF NECESSARY      %
+  IF .PER EQL 0 AND .FP[FP$SP2] EQL FPV$FALSE THEN
+    BEGIN         %DONT SCALE ON IMPLIED DECIMAL PT AND NO PERIOD       %
+    END
+  ELSE
+    %DO SCALING %
+    BEGIN
+    IF .DP LSS .NDP THEN
+      INCR K TO .NDP-.DP-1 DO $UMPY(VAL,10)
+    ELSE IF .DP GTR .NDP THEN
+      INCR K TO .DP-.NDP-1 DO $UDIVD(VAL,K10)
+    END;
+  IF .NEG NEQ 0 THEN
+    IF (.NID+.NDP) LEQ 10 THEN
+      (.DEST)[0]:=-(.VAL[1])
+    ELSE
+    BEGIN
+    (.DEST)[0]:=-(.VAL[0]);
+    IF .VAL[1] NEQ 0 THEN
+      BEGIN
+      (.DEST)[0]:=.(.DEST)[0]-1;
+      (.DEST)[1]:=(-.VAL[1]) AND #377777777777
+      END
+    END
+  ELSE
+    IF (.NID+.NDP) LEQ 10 THEN
+      (.DEST)[0]:=.VAL[1]
+    ELSE
+    BEGIN
+    (.DEST)[0]:=.VAL;
+    (.DEST)[1]:=.VAL[1]
+    END
+  END;          %END OF ERROR BLOCK     %
+
+IF .ERSW GTR 1 THEN
+  BEGIN
+  DD:=@(.FI-1);
+  IF .DD[DD$CLASS] EQL DDV$CLASS1 OR .DD[DD$CLASS] EQL DDV$CLASS2 THEN
+    BEGIN
+    $UAPSZ($USPTR('For "'));
+    NM:=.DD[DD$NAME];
+    $UAPSC((.NM)<36,7>,.(@(.NM-1))<0,18>);
+    $UAPSZ($USPTR('": '))
+    END;
+  $UAPSZ($USPTR('In string to numeric conversion,'));
+  $UOUTL();
+  $UAPSZ(.RMSG$[ CASE .ERSW-2 OF
+  SET
+  RM$IN2;
+  RM$IN3;
+  RM$IN4;
+  RM$IN5;
+  RM$IN6;
+  RM$IN7;
+  RM$IN8;
+  RM$IN9;
+  RM$IN10;
+  RM$IN11;
+  RM$IN12;
+  RM$IN13;
+  RM$IN14;
+  RM$IN15;
+  RM$IN16;
+  TES ]);
+  $UOUTL();
+  $UAPSZ($USPTR('Input: '));
+  $UAPSC((.FI)<36,7>,.QP<0,18>);
+  $UOUTL();
+  $UOUTM(FTLMS$<36,7>,0)
+  END
+
+END;
+
+
+
+%TESTS IF CONVERSION POSSIBLE   %
+%RETURNS 0 IF NOT POSSIBLE, 1 IF POSSIBLE       %
+GLOBAL ROUTINE $TCTST(FI,QP,FP)=
+BEGIN
+
+MAP FP$I FP,DDW$I QP;
+
+MACRO GCH=
+        IF .NC GTR 0 THEN (CH:=SCANI(PTR); NC:=.NC-1) ELSE
+          (CH:=" "; NC:=-1)&,
+      ERX(S)=RETURN 0&;
+
+LOCAL DD$ LDD,PER,ID,DP,DOL,SGNT,CMA,CT,CH,ERSW,NC,T1,T2,
+  PTR,NID,NDP,ET;
+
+LDD:=@(.FI-1);                   %ADDRESS OF DATA DESCRIPTOR    %
+IF .QP[DD$CLASS] EQL DDV$NULL OR
+   .QP[DD$CLASS] EQL DDV$CLASS4 OR
+  (.QP[DD$CLASS] EQL DDV$CLASS2 AND .LDD[DD$TYPE] EQL DDV$STR) THEN
+  BEGIN
+  NC:=.QP<0,18>;                   %NO. OF CHARS. IN INPUT      %
+  PTR:=(.FI)<36,7>;                %STRING PTR. FOR INPUT       %
+  PER:=ID:=DP:=DOL:=SGNT:=CMA:=CT:=0;
+  UNTIL .NC LEQ 0 DO              %NO. OF CHARS. DECREMENTED BY GCH MACRO       %
+    BEGIN
+    GCH;                          %GET CHARS. HERE UNTIL FIRST DIGIT/PERIOD     %
+    IF (.CH GEQ "0" AND .CH LEQ "9") OR .CH EQL "." THEN
+      UNTIL .NC LSS 0 DO
+        BEGIN
+        IF .CH GEQ "0" AND .CH LEQ "9" THEN
+          BEGIN
+          CT:=.CT+1;
+          IF .CT LEQ 20 THEN
+            BEGIN
+            IF .PER EQL 0 THEN ID:=.ID+1 ELSE DP:=.DP+1;
+            GCH
+            END
+          ELSE ERX(9)
+          END
+        ELSE IF .CH EQL "." THEN
+          IF .PER EQL 0 THEN (PER:=1; GCH) ELSE ERX(5)
+        ELSE IF .CH EQL " " THEN
+          UNTIL .NC LSS 0 DO
+            BEGIN
+            GCH;
+            IF .CH NEQ " " THEN ERX(6)
+            END
+        ELSE IF .CH EQL "+" THEN
+          IF .SGNT EQL 0 THEN (SGNT:=FPV$RTS; CH:=" ") ELSE ERX(2)
+        ELSE IF .CH EQL ")" THEN
+          IF .SGNT EQL FPV$PAREN THEN CH:=" " ELSE ERX(10)
+        ELSE IF .CH EQL "-" THEN
+          IF .SGNT EQL 0 THEN (SGNT:=FPV$RT; CH:=" ") ELSE ERX(2)
+        ELSE IF .CH EQL "," THEN
+          IF .PER EQL 0 THEN CMA:=1 ELSE ERX(6)
+        ELSE IF .CH EQL "D" THEN
+          IF .SGNT EQL 0 THEN
+            BEGIN
+            GCH;
+            IF .CH EQL "B" THEN (SGNT:=FPV$DB; CH:=" ") ELSE ERX(7)
+            END
+          ELSE ERX(2)
+        ELSE IF .CH EQL "C" THEN
+          IF .SGNT EQL 0 THEN
+            BEGIN
+            GCH;
+            IF .CH EQL "R" THEN (SGNT:=FPV$CR; CH:=" ") ELSE ERX(8)
+            END
+          ELSE ERX(2)
+        ELSE ERX(4)
+        END
+    ELSE IF .CH EQL "-" THEN
+      IF .SGNT EQL 0 THEN (SGNT:=FPV$LMP) ELSE ERX(2)
+    ELSE IF .CH EQL "+" THEN
+      IF .SGNT EQL 0 THEN SGNT:=FPV$LMPS ELSE ERX(2)
+    ELSE IF .CH EQL "(" THEN
+      IF .SGNT EQL 0 THEN (SGNT:=FPV$PAREN) ELSE ERX(2)
+    ELSE IF .CH EQL "$" THEN
+      IF .DOL EQL 0 THEN DOL:=1 ELSE ERX(3)
+    ELSE IF .CH EQL " " THEN 0
+    ELSE ERX(4)
+    END;                  %UNTIL NC EQL 0 BLOCK %
+  
+  IF .FP[FP$SIGN] EQL FPV$NSC THEN IF .SGNT NEQ 0 THEN ERX(11);
+  IF .SGNT GEQ FPV$RTS THEN IF .SGNT NEQ .FP[FP$SIGN] THEN ERX(12);
+  IF .CMA EQL 1 THEN IF .FP[FP$SP4] EQL FPV$FALSE THEN ERX(13);
+  IF .DOL EQL 1 THEN IF .FP[FP$SP1] EQL FPV$FALSE AND
+    .FP[FP$FS] NEQ FPV$DOLLAR THEN ERX(14);
+  NID:=.FP[FP$FI]+.FP[FP$XI];
+  NDP:=.FP[FP$DI]+.FP[FP$EI];
+  IF (.ID+.DP) GTR (.NID+.NDP) THEN ERX(15);
+  IF .ID GTR .NID THEN ERX(16)
+  END
+ELSE
+  IF .FP[FP$TYPE] EQL FPV$NUM THEN ERX(1)
+  ELSE IF .FP[FP$C] LSS .LDD[DD$PRSIZE] THEN ERX(1);
+
+1                               %RETURN 1 FOR NO ERROR  %
+
+END;
+
+
+END ELUDOM
