@@ -1,0 +1,788 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                        National Library of Medicine
+
+                   Medline Simulated User System (MSUS)
+
+                             Reference Manual
+#1
+
+
+I.  Introduction
+
+    The Medline Simulated User System (MSUS) provides the National
+    Library of Medicine with a method to analyze the effect and
+    inter-relationship of Medline user loads and Medline system
+    changes.
+
+    The primary steps in the use of the MSUS system are summarized
+    below:
+
+    A.  A control file is prepared using Tymshare's LNED package. 
+        The control file contains user-characteristics and the
+        input lines for a simulated session.  These lines are
+        entered in exactly the same format as they would normally
+        be entered on-line into Medline.
+
+    B.  The program SSUP (Single Simulated User Program) is invoked
+        to send a particular control file to Medline over Tymnet.
+        The interactions are performed at a measured rate of speed
+        so as to simulate the user characteristics specified in
+        the control file.
+
+    C.  The program SSUR (Single Simulated User Reports) displays
+        selected information and analyses for any simulated session
+        performed by SSUP.
+
+II. Operation Categories -- The MEDVAL File
+
+
+    A.  Purpose of MEDVAL
+
+        Any Medline operation (command or search word) can be assigned
+        a reference number by the user of the MSUS system.  This num-
+        ber will facilitate detailed analysis of simulated sessions
+        involving the referenced operation.
+
+        The association of numbers with operations is defined by the
+        MEDVAL file.  This file must have the name MEDVAL and must
+        exist in each Tymshare file directory from which MSUS is used.
+
+    B.  Structure of MEDVAL
+
+        The format of a record in the MEDVAL file is shown in these
+        examples:
+
+              37,MELANOMA
+              13,"PRT"
+              5,HEART
+              13,"PRINT"
+
+        The numbers are left justified and terminated by a comma.
+        Each must be between 1 and 99.
+
+        The operation name begins immediately following the comma
+        and terminates on a carriage return.  If the operation is
+        a command, then it must be  enclosed in quotes, just as
+        it would be in a Medline session.  The same number can be
+        associated with more than one operation name, as in the
+        long and short forms of the "PRINT" command shown above.
+
+        The MEDVAL file is used by SSUP to categorize each simul-
+        ated interaction.
+
+        The first "word" of each input line is compared by SSUP
+        to each operation name in the MEDVAL file.  If a match is
+        found, then that interaction is tagged with the corresponding
+        number.  If no match is found, the interaction is tagged
+        with the number zero.
+
+        The record
+
+              13,"PRT"
+
+        in the MEDVAL file will match any of
+
+              "PRT" cr              NOTE:  cr denotes a carriage return
+              "PRT  1" cr                  input by the user.
+              "PRT  SS  15" cr
+
+        in a user input line, but would not match any of these in
+        an input line:
+
+              PRT cr
+              "PRTTY"  cr
+
+        The MEDVAL record
+
+              TREE cr
+
+        would match
+
+              TREE  OR  BUSH cr
+              TREE cr
+
+        but not
+
+              "TREE" cr
+              "TREE  ALGAE" cr
+              TREED cr
+
+    C.  Creation and Maintenance of MEDVAL
+
+        MEDVAL is created and maintained by the MSUS user (NLM staff).
+        The suggested tool for this task is Tymshare's LNED package.
+        LNED is a very easy-to-use text editor which permits the user
+        to enter, delete or modify records (lines) simply by enter-
+        ing the number of the line and the desired contents.  This
+        example illustrates the use of LNED to create a MEDVAL file.
+
+            -[LNED]
+              READY
+             [100 1,"PRT" cr]          Operation number and names
+             [200 2,HEART cr]          entered with a line number
+             [300 3,MELANOMA cr]       assigned by user for future
+             [400 1,"PRINT" cr]        reference.  Control A can
+             [500 20,HEALTH cr]        correct an erroneous
+             [600 7,"ERASE" cr]        character
+             [LIST cr]
+              100 1,"PRT"
+              200 2,HEART
+              300 3,MELANOMA           Contents of LNED internal storage
+              400 1,"PRINT"            is displayed by LIST command.
+              500 20,HEALTH
+              600 7,"ERASE"
+              READY
+             [150 6,EXPLODE cr]        A new line can easily be inserted
+             [LIST cr]                 between 100 and 200.
+              100 1,"PRT"
+              150 6,EXPLODE
+              200 2,HEART
+              300 3,MELANOMA           The insertion is easily verified.
+              400 1,"PRINT"
+              500 20,HEALTH
+              600 7,"ERASE"
+              READY
+              [SAVE MEDVAL]            The data must be explicitly
+              READY                    saved for future use.
+             [QUIT cr]
+
+
+        MEDVAL can be accessed by LNED after its initial creation
+        to perform updates:
+
+             [LNED cr]
+              READY
+             [LOAD MEDVAL cr]
+              READY
+             [LIST cr]
+              100 1,"PRT"
+              150 6,EXPLODE
+              200 2,HEART
+              300 3,MELANOMA
+              400 1,"PRINT"
+              500 20,HEALTH
+              600 7,"ERASE"
+              READY
+             [250 5,"ERSLL" cr]        A new operation category can be
+             [SAVE MEDVAL cr]          specified and saved on the perm-
+                                       anent MEDVAL file
+              OLD FILE.  OK TO WRITE OVER IT?    [YES cr]
+              READY
+             [QUIT cr]
+
+        The LNED capabilities demonstrated above should be sufficient
+        for the purpose of maintaining MEDVAL.  Additional LNED
+        features are explained in the attatched LNED reference manual.
+
+III. Simulator Command -- The Control File
+
+    A.  Control File Structure
+
+        A Control File is the description of a simulated session to be
+        performed by MSUS.  The control file contains two kinds of rec-
+        ords:
+
+              A.  SSUP Command Records:  these describe user
+                  characteristics to be simulated, such as input 
+                  typing speed.
+
+              B.  Medline Text Records:  these are input lines to 
+                  be sent to Medline by SSUP.
+
+        The Medline Text Records appear in the control file in precisely
+        the same format expected by Medline.  The SSUP Command
+        Records are distinguished by the presence of an ampersand
+        (&) as the initial character.
+
+        The valid SSUP commands are given in the following table:
+
+       
+    B.  Control File Commands
+
+               [Control Command]            [Meaning]
+
+                &TERMINAL=30CPS          Define terminal speed
+                                         to be simulated for
+                                         Medline printout. Options
+                                         are 10 15 or 30 CPS.
+                                         This command can be omitted,
+                                         yielding a default assump-
+                                         tion of 10CPS.
+
+                &TYPIST=6CPS             Specifies the average typist
+                                         speed to be simulated for
+                                         Medline input.  Default is
+                                         5CPS.
+
+                &ERRORS=10%              Specifies average number of
+                                         user mis-strokes to be sim-
+                                         ulated.  Default is 0%.
+
+                &USER=NLM;NLM03          Selects user-name and project-
+                                         Code to be used for the simula-
+                                         ted session.
+
+                &WIDTH=80                This is the maximum number
+                                         of characters to be saved
+                                         from any Medline response
+                                         on the SSUP output file. 
+                                         Default is 30.
+
+                &RUN                     Marks the end of Control
+                                         Commands.  The following
+                                         Control File lines will be
+                                         Medline Text Records and
+                                         will not begin with an
+                                         ampersand (&).
+
+                &FINISH                  Signifies the end of the
+                                         Control File to SSUP.  This
+                                         record follows the last Med-
+                                         line Text Record.  When
+                                         &FINISH is encountered, SSUP
+                                         will send to Medline
+
+                                            "STOP"
+                                               Y
+
+                                         to terminate the session.
+
+    C.  Preparation of Control Files
+
+           Control Files can be created and modified using LNED.  In
+           addition to the LNED features covered in the discussion of
+           MEDVAL, the DELETE and MERGE commands are useful for
+           handling Control Files.  In the following example, a set of
+           user characteristics (Control File Commands) is created
+           which can be combined with different sets of Medline Text
+           records.
+
+           Initially a simple Control File (TRYEMBOL) is created:
+
+               [LNED cr]
+               READY
+               [10 &TERMINAL=15CPS cr]
+               [20 &TYPIST=5CPS cr]
+               [30 &ERRORS=5% cr]
+               [40 &USER=NLM;MEDTYM03 cr]
+               [50 &WIDTH=120 cr]
+               [60 &RUN cr]
+               [70 E cr]
+               [80 "VERSION SHORT ALL" cr]
+               [110 "USERS" cr]
+               [120 EMBOLISM, AIR cr]
+               [130 HUMAN OR NOT HUMAN cr]
+               [140 EMBOLISM, AIR/SU OR EMBOLISM, AIR/TH OR EMBOLISM, AIR/DT OR
+               [150 EMBOLISM, AIR/RT OR EMBOLISM, AIR/PC cr]
+               [160 3 EYE NEOPLASMS AND IRIS AND MELONOMA cr]
+               [170 EYE NEOPLASMS AND IRIS AND MELONOMA cr]
+               [180 MELANOMA cr]
+               [190 "PRT SS 4, TI, 10" cr]
+               [200 Y cr]
+               [210 1 AND 5 cr]
+               [9999 &FINISH cr]
+               [SAVE TRYEMBOL cr]
+               READY
+
+           The Medline Text Records can then be deleted, leaving
+           only the user-characteristics:
+
+               [DELETE 70-210 cr]
+               READY
+               [SAVE CHARAC cr]
+               OLD FILE.  OK TO WRITE OVER IT ?  [YES cr]
+               READY
+               [LIST cr]
+               10 &TERMINAL=15CPS
+               [20 &TYPIST=5CPS cr]
+               [30 &ERRORS=5% cr]
+               [40 &USER=NLM;MEDTYM03 cr]
+               [50 &WIDTH=120 cr]
+               [60 &RUN cr]
+               [9999 &FINISH cr]
+               READY
+
+           These characteristics can then be merged with other Medline
+           Text Records:
+
+               -LNED
+               READY
+               [260 HEART, MECHANICAL OR HEART, ARTIFICIAL cr]
+               [270 PROSTHESIS OR PROSTHESIS DESIGN OR HEART/TR OR HEART/SU cr]
+               [280 1 AND 2 OR HEART, MECHANICAL OR HEART, ARTIFICIAL cr]
+               [290 1 AND 2 OR HEART, MECHANICAL AND HEART, ARTIFICIAL cr]
+               [300 4 AND HUMAN OR 4 AND NOT ANIMAL EXPERIMENTS cr]
+               [310 5 AND NOT FOREIGN cr]
+               [320 "PRT TI, 16" cr]
+               READY
+               [MERGE CHARAC cr]
+               READY
+               [LIST cr]
+               [10 &TERMINAL=15CPS cr]
+               [20 &TYPIST=5CPS cr]
+               [30 &ERRORS=5% cr]
+               [40 &USER=NLM;MEDTYM03 cr]
+               [50 &WIDTH=120 cr]
+               [60 &RUN cr]
+               [260 HEART, MECHANICAL OR HEART, ARTIFICIAL cr]
+               [270 PROSTHESIS OR PROSTHESIS DESIGN OR HEART/TR OR HEART/SU cr]
+               [280 1 AND 2 OR HEART, MECHANICAL OR HEART, ARTIFICIAL cr]
+               [290 1 AND 2 OR HEART, MECHANICAL AND HEART, ARTIFICIAL cr]
+               [300 4 AND HUMAN OR 4 AND NOT ANIMAL EXPERIMENTS cr]
+               [310 50AND NOT FOREIGN cr]
+               [320 "PRT TI, 16" cr]
+               [9999 &FINISH cr]
+               READY
+               [SAVE TRYHEART cr]
+               READY
+
+
+IV. Running the Simulator--SSUP
+
+    A.  Function of SSUP
+
+        SSUP--the Single Simulated User Program -- is the heart of MSUS.
+        SSUP obeys any selected Control File to conduct a simulated 
+        session of the Medline system.
+
+        SSUP transmits the Medline Text Records to Medline at the rate
+        of speed, and according to the specifications set, in the Control
+        File.
+
+    B.  Operation of SSUP 
+
+        SSUP requires the specifications of a Control File name and an
+        Interaction File name:
+
+            -[SSUP cr]
+
+            INTERACTION FILE NAME:[OUTMELA cr]
+         
+            NEW FILE [cr]
+
+            CONTROL FILE NAME:[TRYMELANOMA cr]
+
+            OK
+
+            COMPLETED - 12 COMMAND INTERACTIONS
+            ELAPSED SIMULATION TIME - 8:37.4
+
+        On the Interaction File will be recorded a complete accounting
+        of the simulated session: The user characteristics, all Medline
+        Text input Records, all Medline System responses, and the elapsed
+        times experienced for each transaction.
+
+
+V.  Recording the Session -- The Interaction File
+
+        In each Interaction File record the first four data fields 
+        have the same meaning.  The Interaction File is an IML-
+        compatibility structured file with three distinct record
+        types.
+
+[Field Name]         [Width]     [Type]        [Description]
+
+  LENGTH                4        Numeric        Record size, in characters
+
+  JOB. NO               2        Numeric        Reserved for identification
+                                                of session under a later
+                                                multi-user simulator.
+
+  REC.TYPE              1        Numeric        Identifies type of record
+
+  SEQ.NO                4        Numeric        Denotes order in which rec-
+                                                ords were created (permits
+                                                a file to be returned to its
+                                                original SORT-ORDER)
+
+
+        A Characteristic Record (REC.TYPE=1) occurs once in each Inter-
+        action File and includes the general descriptive information
+        regarding the session:
+
+[Field Name]         [Width]     [Type]        [Description]
+
+ MED.COUNT              8       Numeric         Number of records in
+                                                Medline data base.
+
+ MED.USERS              3       Numeric         Number of users logged into
+                                                Medline system at initiation
+                                                of this session
+
+ CON.FILE               10      Character       Name of Control File used
+                                                by SSUP to create this
+                                                Interaction File
+
+ DATE                   8       Character       Date of the test
+
+ TIME                   5       Character       Time of the test
+
+ TERM.SPEED             2       Numeric         Simulated terminal output
+                                                speed
+
+ TYPIST.SPEED           2       Numeric         Simulated typist input speed
+
+ ERROR.RATE             2       Numeric         Simulated keystroke error
+                                                rate
+
+ SAVE.WIDTH             4       Numeric         Maximum number of charact-
+                                                ers to be saved from each
+                                                Medline response.
+
+ EOL                    1       Character       A carriage return (to sim-
+                                                plify processing of the
+                                                Interaction File
+
+        One User Interaction Record (REC.TYPE=2) occurs for each line
+        read from the Control File:
+
+[Field Name]         [Width]     [Type]        [Description]
+
+ OPERATION              2       Numeric         The Operation Number (given
+                                                in the MEDVAL file) assoc-
+                                                iated with the first word
+                                                in the interaction line. If
+                                                the word does not occur in
+                                                MEDVAL, zero is used
+
+ SEND.TIME              4       Numeric         Elapsed time required to
+                                                transmit the interaction at
+                                                the TYPIST.SPEED(in 1/10 of sec's)
+
+ WAIT.TIME              4       Numeric         Time elapsed from sending
+                                                last character of inter-
+                                                action and receiving first
+                                                character of response
+
+ PRINT.TIME             4       Numeric         Elapsed time to receive
+                                           response at TERM.SPEED
+
+ USER.LINE          variable    Character       Text of user interaction
+
+        Following each User Interaction Record is a System Interaction-
+        Record (REC.TYPE=3):
+
+[Field Name]         [Width]     [Type]        [Description]
+
+ OPERATION              2       Numeric         Same as in corresponding
+                                                User Interaction Record
+
+ PROG.OUTPUT        variable    Character       Text of program response
+
+
+        The file INT contains the formal IML description for the
+        layout of Interaction Files:
+
+            [-TYPE INT]
+
+            
+            ***FILE TYPE: BINARY OR SYMBOLIC:
+            SYM
+            ***FIXED OR VARIABLE LENGTH RECORDS:
+            VAR
+            ***WHICH TYPE:
+            COUNT
+            ***NUMBER OF DIGITS IN THE COUNT IS:
+            4
+            *** NAME, TYPE, START, LENGTH, DECIMAL PLACES
+            JOB.NO,N,5,2
+            REC.TYPE,N,.,1
+            SEQ.NO,N,.,4
+            MED.COUNT,N,.,8
+            MED.USERS,N,.,3
+            CON.FILE,C,.,10
+            DATE,C,.,8
+            TIME,C,.,5
+            TERM.SPEED,N,.,2
+            TYPIST.SPEED,N,.,2
+            ERROR.RATE,N,.,2
+            SAVE.WIDTH,N,.,4
+            EOL,C,.,1
+            OPERATION,N,12,2
+            SEND.TIME,N,.,4
+            WAIT.TIME,N,.,4
+            PRINT.TIME,N,.,4
+            USER.LINE,C,.,120
+            PROG.OUTPUT,C,14,240
+
+            -
+
+        In conjunction with INT, all the power of the IML commands
+        are available to NLM staff for processing of Interaction Files.
+
+
+VI. Reports and Analysis -- SSUR
+
+    A.  Operation of SSUR
+
+        The SSUR (Single Simulated-User Reports) program provides for
+        the creation of several reports and analyses of simulated Med-
+        line tests.  When SSUR is called, the prompt
+
+            REPORT DESIRED:
+
+        is printed.  The user can respond with any of the available
+        report names:
+
+            MUSET
+
+            MUSAD
+
+            MUSSC
+
+        These reports are described in detail on the following pages.
+
+           ENTER TEST DATA RESULTS FILE:
+
+        The response to this may be 'T' for terminal or a file name,
+        if the user desires the report to be put on a file.
+
+        All decisions relating to the input data for these reports and
+        the output requirements will be requested interactively through
+        program prompting.
+
+        The reports will be written on a narrow (72) carriage terminal
+        and will not assume a formfeed capability.  Each page of the
+        report will have sixty lines and will be output directly to
+        the specified file.
+
+    B.  MUSET: MEDLINE USER SYSTEM ELAPSED TIME
+
+        This report will print the Elapsed Time listing for any specified
+        test.  The user identifies the Interaction File name and the
+        specific Operation numbers that are to be sought.
+
+        In order to help the user decide which Operation numbers to
+        select, he is given the option to view the MEDVAL file:
+
+            DO YOU WANT A LIST OF OPERATION NUMBERS (YES OR NO):
+
+        If the user answers YES, then the MEDVAL file, which contains
+        Operation numbers and names, will be printed on the terminal.
+
+        The user is then asked to supply the name of the Interaction
+        File to be processed:
+
+            INTERACTION FILE NAME:
+
+
+        After the Interaction File is opened successfully, the user
+        must identify which of four possible elapsed times are wanted;
+        send, wait, output, or total interaction time.
+
+            ENTER TIME DESIRED FOR ANALYSIS:
+
+        Next are required the Medline operations to be analyzed:
+
+           ENTER THE DESIRED OP-CODE NUMBERS
+
+        The user must enter the Operation numbers or ranges of
+        interest.  Sample selections are:
+
+            1,2
+            5:20
+            1,2,5:20
+            ALL
+
+        Only those interaction records whose Operation number
+        is selected by one of the ranges will be included in the
+        report.  The range ALL will cause every record to be
+        used.
+
+        The layout of the report body will be:
+
+
+PAGE XXX                   MEDLINE ELAPSED TIME         XX/XX  XX:XX
+
+ INTERACT.    CONTROL
+[FILE]       [FILE]   [DATE]   [USE]   [RECORDS]   [TERM]   [TYPE]   [RATE]
+ NAME         NAME   MM/DD/YY    XX      XXXX        XX       XX       XX
+
+ACT    YYYYY
+[  # ][TIME][CD.] [  U S E R / P R O G R A M R E S P O N S E S  ]
+NNNN  SSS.S   U   AAAAAAAAAAAA--------USER'S INPUT-----------AAA
+              P   AAAAAAAAAAAA-------SYSTEM OUTPUT-----------AAA
+
+   YYY= SEND
+        WAIT
+        OUTPUT
+        TOTAL
+
+
+    C.  MUSAD:  MEDLINE USER SIMULATOR ANALYSIS and DISTRIBUTION
+
+        This report will have two options; Elapsed Time Analysis and
+        Elapsed Time Distribution.  These options will be available
+        for any Medline test.  Any one of four times; send, wait, out-
+        put, or total can be shown in the reports.  The time intervals
+        that will be used may be entered online or from a file:
+
+            TIME INTERVAL FILE:  T OR FILENAME
+
+        If the response is not a 'T', then it must be a LNED-created
+        file that has the data.  In either case, the format of the
+        data is one time-interval per line:
+
+            0:3
+            3:5
+            0:5
+            0:99
+            END
+
+
+        The list is terminated by 'END' and the intervals may
+        overlap if desired.  After accepting the interval list, SSUR
+        will prompt for the name of the Interaction File.
+
+            INTERACTION FILE NAME:
+
+        After the Interaction File name is accepted, SSUR requests
+        the type of output desired:
+
+            ENTER THE DESIRED REPORT SELECTION:
+
+        The report choices available are:
+
+            1 - Elapsed Time Analysis
+
+            2 - Elapsed Time Distribution
+
+            3 - Elapsed Time Analysis and Distribution
+
+        Any other response will cause a list of valid responses
+        to be printed.  Then the user prompt will be repeated.
+
+        After the individual report is selected, the user must identify
+        which data will be analyzed.  The user must indicate what
+        Operator numbers should be used in each column of the report.
+        The commands selected will be entered as commands or command
+        ranges as follows:
+
+            ENTER OP-CODE RANGES FOR EACH COLUMN
+
+            COLUMN 1:[1,100 cr]
+
+            COLUMN 2:[11,20,41:50 cr]
+
+            COLUMN 3:[ALL cr]
+
+            COLUMN 4:[cr]
+
+        A blank line as input for a column will indicate all columns
+        have been entered.
+
+        The Elapsed-Time Analysis option displays the number of
+        Interaction Records which are selected by each column and
+        which fall into the time interval specified for each row:
+
+PAGE XXX            MEDLINE ELAPSED TIME ANALYSIS       XX/XX  XX:XX
+
+ INTERACT.    CONTROL
+[FILE]       [FILE]   [DATE]   [USE]   [RECORDS]   [TERM]   [TYPE]   [RATE]
+ NAME         NAME   MM/DD/YY    XX      XXXX        XX       XX       XX
+
+  TIME              N U M B E R  O F  I N S T A N C E S
+[INTERVAL]     [  1  ]   [   2  ]  [   3 ]   [   4 ]   [  5   ]
+ NNN-NNN        XXXXX     XXXXX     XXXXX     XXXXX     XXXXX
+
+ NNN-NNN        XXXXX     XXXXX     XXXXX     XXXXX     XXXXX
+
+ NNN-NNN        XXXXX     XXXXX     XXXXX     XXXXX     XXXXX
+
+ NNN-NNN        XXXXX     XXXXX     XXXXX     XXXXX     XXXXX
+
+        The Elapsed-Time Distribution option displays for each
+        column the number of Interaction Records falling into each
+        time interval as a percentage of all Interaction specified
+        by that column description:
+
+
+PAGE XXX          MEDLINE ELAPSED TIME DISTRIBUTION     XX/XX  XX:XX
+
+ INTERACT.    CONTROL
+[FILE]       [FILE]   [DATE]   [USE]   [RECORDS]   [TERM]   [TYPE]   [RATE]
+ NAME         NAME   MM/DD/YY    XX      XXXX        XX       XX       XX
+    TIME
+[INTERVAL]     [   1  ]    [  2  ]   [   3  ]   [   4   ]   [   5   ]
+ NNN-NNN       XXX.X%      XXX.X%    XXX.X%      XXX.X%      XXX.X%
+
+ NNN-NNN       XXX.X%      XXX.X%    XXX.X%      XXX.X%      XXX.X%
+
+ NNN-NNN       XXX.X%      XXX.X%    XXX.X%      XXX.X%      XXX.X%
+
+ NNN-NNN       XXX.X%      XXX.X%    XXX.X%      XXX.X%      XXX.X%
+
+
+        When the combined report (option 3) is selected, then both
+        the count and percentage figures are printed adjacent to one
+        another in the body of the report.  The column and TITLE lay-
+        out is identical to the first two options.
+
+    D.  MUSSC:  MEDLINE USER SIMULATOR SOURCE COMPARISON
+
+        This report will isolate any output differences between two
+        tests.  The user will identify the Interaction Files to be
+        compared, and the specific items in each file.  The report
+        will contain all information for any interactions that have
+        differences.  The initial prompts are:
+
+            ENTER THE TWO INTERACTION FILENAMES.
+
+            FILE1:  XXX cr
+
+            FILE2:  XXX cr
+
+            RESULTS TO:  'T' OR FILENAME
+
+        After the files have been opened, the text of corresponding
+        interactions will be compared; i.e., first to first, etc.
+        If both Interaction Files were created by the same Control
+        File, then only differences in Medline Responses will
+        be sought.  Otherwise, User-Interaction inputs will also be
+        compared.  If the stored output length of the interactions
+        is different, then only the portion common will be compared.
+        If any differences are found, then the complete inter-
+        action will be recorded.  This will include user and system
+        responses.  The program will total the number of differences
+        and print the total at the end of execution:
+
+PAGE XXX                   MEDLINE ELAPSED TIME         XX/XX  XX:XX
+
+ INTERACT.    CONTROL
+[FILE]       [FILE]   [DATE]   [USE]   [RECORDS]   [TERM]   [TYPE]   [RATE]
+ NAME         NAME   MM/DD/YY    XX      XXXX        XX       XX       XX
+1.NAME        NAME   MM/DD/YY    XX      XXXX        XX       XX       XX
+2.NAME        NAME   MM/DD/YY    XX      XXXX        XX       XX       XX
+FILE
+[ # ]    [           *** R E T R I E V E D  D A T A ***           ]
+  1      XXXXXX--------------------------------------------XXXXXX
+  2      XXXXXX--------------------------------------------XXXXXX
+
+  1      XXXXXX--------------------------------------------XXXXXX
+  2      XXXXXX--------------------------------------------XXXXXX
+
+[   ]    [                                                        ]
+
+XXXX     TOTAL DIFFERENCES
+
+@
+"Ø
