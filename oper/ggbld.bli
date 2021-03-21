@@ -1,0 +1,371 @@
+MODULE GGBLD(STACK,DOLLAR,FSAVE,TIMING,TIMER=EXTERNAL(SIX12)) =
+  BEGIN
+  REQUIRE CDEFS.BLI[7,107355];
+  REQUIRE GDEFS.BLI[7,107355];
+  REQUIRE KDEFS.BLI[7,107355];
+  REQUIRE UDEFS.BLI[7,107355];
+
+  BIND TKNSTUFFSIZE = 97;
+
+  BIND TKNSTUFF = PLIT(
+         TKNINFO NAMES
+         GV$EOF    ,'GV$EOF    ',
+         GV$DELALL ,'GV$DELALL ',
+         GV$TIME   ,'GV$TIME   ',
+         GV$TODAY  ,'GV$TODAY  ',
+         GV$LRESULT,'GV$LRESULT',
+         GV$POSRCHK,'GV$POSRCHK',
+         GV$SNCVRT ,'GV$SNCVRT ',
+         GV$NSCVRT ,'GV$NSCVRT ',
+         GV$DSCVRT ,'GV$DSCVRT ',
+         GV$SDCVRT ,'GV$SDCVRT ',
+         GV$SNTEST ,'GV$SNTEST ',
+         GV$NSTEST ,'GV$NSTEST ',
+         GV$DSTEST ,'GV$DSTEST ',
+         GV$SDTEST ,'GV$SDTEST ',
+         GV$PAGENO ,'GV$PAGENO ',
+         GV$PAGESIZ,'GV$PAGESIZ',
+         GV$LINENO ,'GV$LINENO ',
+         GV$TOPMARG,'GV$TOPMARG',
+         GV$BOTMARG,'GV$BOTMARG',
+         GV$FOOTSIZ,'GV$FOOTSIZ',
+         GV$PAGEDIV,'GV$PAGEDIV',
+         GV$ALIGN  ,'GV$ALIGN  ',
+         GV$ADD    ,'GV$ADD    ',
+         GV$SUB    ,'GV$SUB    ',
+         GV$MUL    ,'GV$MUL    ',
+         GV$DIV    ,'GV$DIV    ',
+         GV$MIN    ,'GV$MIN    ',
+         GV$NOT    ,'GV$NOT    ',
+         GV$EQ     ,'GV$EQ     ',
+         GV$NE     ,'GV$NE     ',
+         GV$LT     ,'GV$LT     ',
+         GV$GT     ,'GV$GT     ',
+         GV$LE     ,'GV$LE     ',
+         GV$GE     ,'GV$GE     ',
+         GV$AND    ,'GV$AND    ',
+         GV$OR     ,'GV$OR     ',
+         GV$STORE  ,'GV$STORE  ',
+         GV$OPEN   ,'GV$OPEN   ',
+         GV$CLOSE  ,'GV$CLOSE  ',
+         GV$VIA    ,'GV$VIA    ',
+         GV$SETKEY ,'GV$SETKEY ',
+         GV$READ   ,'GV$READ   ',
+         GV$BRNEOF ,'GV$BRNEOF ',
+         GV$BREOF  ,'GV$BREOF  ',
+         GV$FETCH  ,'GV$FETCH  ',
+         GV$FETCHN ,'GV$FETCHN ',
+         GV$STUFF  ,'GV$STUFF  ',
+         GV$STUFFU ,'GV$STUFFU ',
+         GV$INSORT ,'GV$INSORT ',
+         GV$RELEASE,'GV$RELEASE',
+         GV$ALTER  ,'GV$ALTER  ',
+         GV$INSERT ,'GV$INSERT ',
+         GV$DELETE ,'GV$DELETE ',
+         GV$INPUT  ,'GV$INPUT  ',
+         GV$ACCEPT ,'GV$ACCEPT ',
+         GV$PRINT  ,'GV$PRINT  ',
+         GV$ABORT  ,'GV$ABORT  ',
+         GV$SORT   ,'GV$SORT   ',
+         GV$LABEL  ,'GV$LABEL  ',
+         GV$BRANCH ,'GV$BRANCH ',
+         GV$BRCHF  ,'GV$BRCHF  ',
+         GV$BRCHT  ,'GV$BRCHT  ',
+         GV$CALL   ,'GV$CALL   ',
+         GV$RESULT ,'GV$RESULT ',
+         GV$NORSLT ,'GV$NORSLT ',
+         GV$CHGD   ,'GV$CHGD   ',
+         GV$RESET  ,'GV$RESET  ',
+         GV$CHGFLS ,'GV$CHGFLS ',
+         GV$TEST   ,'GV$TEST   ',
+         GV$SIN    ,'GV$SIN    ',
+         GV$SOUT   ,'GV$SOUT   ',
+         GV$ESIN   ,'GV$ESIN   ',
+         GV$ESOUT  ,'GV$ESOUT  ',
+         GV$CR     ,'GV$CR     ',
+         GV$TOP    ,'GV$TOP    ',
+         GV$SKIP   ,'GV$SKIP   ',
+         GV$SKIPTO ,'GV$SKIPTO ',
+         GV$TABTO  ,'GV$TABTO  ',
+         GV$TRIM   ,'GV$TRIM   ',
+         GV$COUNT  ,'GV$COUNT  ',
+         GV$FETCHALL,'GV$FETCHAL',
+         GV$STUFFALL,'GV$STUFFAL',
+         GV$INIT   ,'GV$INIT   ',
+         GV$RLLIM  ,'GV$RLLIM  ',
+         GV$SLLIM  ,'GV$SLLIM  ',
+         GV$PROC   ,'GV$PROC   ',
+         GV$ENTRY  ,'GV$ENTRY  ',
+         GV$PEXIT  ,'GV$PEXIT  ',
+         GV$SEXIT  ,'GV$SEXIT  ',
+         GV$STRPET ,'GV$STRPET ',
+         GV$TAB    ,'GV$TAB    ',
+         GV$INPERR ,'GV$INPERR ',
+         GV$ABSRCHK,'GV$ABSRCHK',
+         GV$ERROR  ,'GV$ERROR  ',
+         GV$IS     ,'GV$IS     ',
+         GV$LSBSORT,'GV$LSBSORT',
+         GV$NEWLINE,'GV$NEWLINE');
+  GLOBAL JVECTOR[(TKNSTUFFSIZE+1) * 3];
+
+  BIND
+    TKNVALUE = 0,
+    LLINK    = 1,
+    RLINK    = 2,
+    JVDISP   = 3;
+  STRUCTURE BTREE[FIELD] = CASE .FIELD OF
+      SET
+    (@.BTREE)<27,9>;    %TOKEN VALUE %
+    (@.BTREE)<18,9>;    % LEFT LINK   %
+    (@.BTREE)<9,9>;     % RIGHT LINK   %
+    (@.BTREE)<0,9>;     % JVECTOR DISP %
+      TES;
+
+  GLOBAL BTREE GROOT$;
+  GLOBAL BTREE GNEXT$;
+
+  GLOBAL BTREE NODE;
+  LOCAL JVSTART;
+
+  BIND NULLPTR = 0;
+
+  LOCAL LOWER, UPPER, I, J;
+
+  BIND
+    LOWBOUND = 0,
+    UPRBOUND = 1;
+  STRUCTURE PAIR[FIELD] = CASE .FIELD OF
+      SET
+    (@.PAIR)<18,18>;    % LOWER BOUND %
+    (@.PAIR)<0,18>;     % UPPER BOUND %
+      TES;
+
+  LOCAL PAIR HEAD;
+  LOCAL TOP;
+  LOCAL STACK[15];
+  LOCAL KFCB$ OUTF;
+
+% THIS ROUTINE CREATES A NEW NODE IN THE BINARY TREE %
+  ROUTINE INSERT(J) =
+    BEGIN
+    LOCAL I;
+
+   %*
+    $UAPSZ($USPTR('INSERT '));
+    $UAPSC(JVECTOR[.J*3+1]<36,7>,10);
+    $UOUTL();
+   *%
+    GNEXT$[TKNVALUE] _ .JVECTOR[.J*3];
+    GNEXT$[LLINK] _ GNEXT$[RLINK] _ NULLPTR;
+    GNEXT$[JVDISP] _ .J;
+   %**
+    $UAPDC(.GNEXT$[TKNVALUE]);
+    $UAPSZ($USPTR(','));
+    $UAPDC(.GNEXT$[LLINK]);
+    $UAPSZ($USPTR(','));
+    $UAPDC(.GNEXT$[RLINK]);
+    $UAPSZ($USPTR(','));
+    $UAPDC(.GNEXT$[JVDISP]);
+    $UOUTL();
+   **%
+    I _ .GNEXT$;
+    GNEXT$ _ .GNEXT$ + 1;
+
+    .I
+    END;
+
+% THIS ROUTINE DETERMINES IF A NODE EXISTS, FOR THE SPECIFIED VALUE, AND
+  IF NOT IT REQUESTS THAT ONE BE CREATED.
+%
+  ROUTINE FIND(PTR) =
+    BEGIN
+    LOCAL I, J;
+
+    I _ .PTR * 3;
+   %***
+    $UAPSZ($USPTR('FIND  '));
+    $UAPSC(JVECTOR[.I+1]<36,7>,10);
+    $UOUTL();
+   ***%
+    NODE _ .GROOT$;
+    WHILE .JVECTOR[.I] NEQ .NODE[TKNVALUE]
+      DO
+        BEGIN
+       %***
+        $UAPSZ($USPTR('NODE:  '));
+                $UAPDC(.NODE[TKNVALUE]);
+                $UAPSZ($USPTR(','));
+                $UAPDC(.NODE[LLINK]);
+                $UAPSZ($USPTR(','));
+                $UAPDC(.NODE[RLINK]);
+                $UAPSZ($USPTR(','));
+                $UAPDC(.NODE[JVDISP]);
+                $UOUTL();
+       ***%
+        IF .JVECTOR[.I] LSS .NODE[TKNVALUE]
+          THEN
+            IF .NODE[LLINK] NEQ NULLPTR
+              THEN
+                NODE _ .NODE[LLINK] + .GROOT$
+              ELSE
+                BEGIN
+                J _ INSERT(.PTR);
+                NODE[LLINK] _ .J - .GROOT$;
+                NODE _ .J;
+               %*****
+                $UAPDC(.NODE[TKNVALUE]);
+                $UAPSZ($USPTR(','));
+                $UAPDC(.NODE[LLINK]);
+                $UAPSZ($USPTR(','));
+                $UAPDC(.NODE[RLINK]);
+                $UAPSZ($USPTR(','));
+                $UAPDC(.NODE[JVDISP]);
+                $UOUTL();
+               *****%
+                END
+          ELSE
+            IF .NODE[RLINK] NEQ NULLPTR
+              THEN
+                NODE _ .NODE[RLINK] + .GROOT$
+              ELSE
+                BEGIN
+                J _ INSERT(.PTR);
+                NODE[RLINK] _ .J - .GROOT$;
+                NODE _ .J;
+               %**
+                $UAPDC(.NODE[TKNVALUE]);
+                $UAPSZ($USPTR(','));
+                $UAPDC(.NODE[LLINK]);
+                $UAPSZ($USPTR(','));
+                $UAPDC(.NODE[RLINK]);
+                $UAPSZ($USPTR(','));
+                $UAPDC(.NODE[JVDISP]);
+                $UOUTL();
+               **%
+                END;
+        END;
+    END;
+
+%***
+  START OF PROCESSING
+***%
+
+  $CRESET();
+  GROOT$ _ GNEXT$ _ JVSTART _ $CGTZM(TKNSTUFFSIZE+1);
+  $UZERO(TKNSTUFFSIZE*3,JVECTOR);
+%
+   COPY AND SORT THE TABLE OF TOKEN MNEMONICS AND ASSOCIATED SEMANTIC
+   ROUTINE NAMES.
+%
+  $UMOVE(3,TKNINFO,JVECTOR);
+  $UMESS($USPTR('MOVE TKNINFO TO JVECTOR'));
+  INCR A FROM 1 TO TKNSTUFFSIZE - 1
+    DO
+      BEGIN
+      I _ 0;
+      J _.A * 3;
+      WHILE .TKNINFO[.J] GTR .JVECTOR[.I] AND .JVECTOR[.I] NEQ 0
+        DO
+          I _ .I + 3;
+      DECR B FROM .A * 3 TO .I
+        DO 
+          $UMOVE(1, JVECTOR[.B], JVECTOR[.B +3]);
+      $UMOVE(3, TKNINFO[.J], JVECTOR[.I]);
+      END;
+  $UMESS($USPTR('MOVE COMPLETED'));
+%*****
+  INCR I FROM 0 TO (TKNSTUFFSIZE - 1) * 3 BY 3
+    DO
+      BEGIN
+      $UAPDC(.JVECTOR[.I]);
+      $UAPSZ($USPTR(','));
+      $UAPSC(JVECTOR[.I+1]<36,7>,10);
+      $UOUTL();
+      END;
+*****%
+  I _ TKNSTUFFSIZE/2;
+  INSERT(.I);
+  J _ (TKNSTUFFSIZE - .I)/2 + .I;
+  INSERT(.J);
+  GROOT$[RLINK] _ 1;
+  TOP _ HEAD _ STACK;
+  HEAD[LOWBOUND] _ .J;
+  HEAD[UPRBOUND] _ TKNSTUFFSIZE;
+  HEAD _ .HEAD + 1;
+  HEAD[LOWBOUND] _ .I;
+  HEAD[UPRBOUND] _ .J;
+  LOWER _ -1;
+  UPPER _ .I;
+
+%  BUILD THE TREE  %
+  $UMESS($USPTR('START BUILDING THE TREE'));
+  WHILE .TOP - 1 LEQ .HEAD
+    DO
+      BEGIN
+      I _ (.LOWER + .UPPER)/2;
+      FIND(.I);
+      IF .UPPER - .I GTR 1
+        THEN  % STACK (I,UPPER)  %
+          BEGIN
+          HEAD _ .HEAD + 1;
+          HEAD[LOWBOUND] _ .I;
+          HEAD[UPRBOUND] _ .UPPER;
+          END;
+      IF .I - .LOWER LSS 2
+        THEN  %  POP (LOW,UPR)  %
+          BEGIN
+          LOWER _ .HEAD[LOWBOUND];
+          UPPER _ .HEAD[UPRBOUND];
+          HEAD _ .HEAD - 1;
+          END
+        ELSE
+          UPPER _ .I;
+      END;
+  $UMESS($USPTR('TREE FINISHED'));
+
+%  TRANSFORM THE TREE INTO IT'S BLISS EQUIVALENT  %
+  OUTF _ $KCRFCB(SIXBIT 'BGTREE', SIXBIT 'BLI', 0,KV$OUTPUT,$KSQLN,0);
+  $UOUTI(.OUTF);        % SET OUTPUT FROM UOUT TO OUTF %
+  $UAPSZ($USPTR('MODULE BGTREE(DOLLAR,ENTRIES=($GGTRE),FSAVE,TIMING,TIMER=EXTERNAL(SIX12)) ='));
+  $UOUTL();
+  $UMESS($USPTR('  BEGIN'));
+  $UMESS($USPTR('  REQUIRE GDEFS.BLI[7,107355];'));
+                                                 %EXTERNAL DECLARATIONS
+                                                  FOR ROUTINE NAMES AND
+                                                  MACRO AND STRUCTURE
+                                                  FOR BINARY TREE.
+                                                 %
+  $UMESS($USPTR('  UNDECLARE GGTRE$, $GGTRE;'));
+  $UMESS($USPTR('  BIND STREE = PLIT(GGTRE$ GLOBALLY NAMES'));
+  INCR X FROM .GROOT$ TO .GNEXT$ - 1 BY 1
+    DO
+      BEGIN
+      NODE _ .X;
+
+     $UAPSZ($USPTR('    GM$GN('));
+      $UAPN(.NODE[TKNVALUE],10,1);              % TOKEN VALUE     %
+      $UAPSZ($USPTR(','''));
+      I _ .NODE[JVDISP] * 3;
+      $UAPSC(JVECTOR[.I + 1]<36,7>,5);          % TOKEN MNEMONIC  %
+        % NOTE:
+           THIS BYTE POINTER ACTUALLY POINTS TO THE LEFT OF THE BYTE
+           THAT IS TO BE MOVED.
+        %
+      $UAPSZ($USPTR(''','''));
+      $UAPSC(JVECTOR[.I+2]<36,7>,5);
+      $UAPSZ($USPTR(''','));
+      $UAPN(.NODE[LLINK],10,1);
+      $UAPSZ($USPTR(','));
+      $UAPN(.NODE[RLINK],10,1);                 % RIGHT LINK INDEX %
+      $UAPSZ($USPTR('),'));
+      $UOUTL();
+      END;
+  $UAPN(0,10,1);
+  $UMESS($USPTR('    );'));
+  $UMESS($USPTR('  GLOBAL ROUTINE $GGTRE = 0;'));
+  $UMESS($USPTR('  END'));
+  $UMESS($USPTR('ELUDOM'));
+  $KFREEFCB(OUTF);
+  END
+ELUDOM
+  
