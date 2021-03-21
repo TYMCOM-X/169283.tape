@@ -1,0 +1,1 @@
+*.HGH,MON3#.SAV,*.TMP,*.LOW,*.SHR
