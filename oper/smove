@@ -1,0 +1,123 @@
+      SUBROUTINE SMOVE(R,IDEC)                                          MOVE0050
+C     SUBROUTINE OF SLNK3-PERFORMS TRANSFORMATION AND TRANSLATION       MOVE0060
+C     OF MATRICES                                                       MOVE0070
+C     DIMENSION AND COMMON STATEMENTS WHICH MUST APPEAR IN ALL ROUTINES MOVE0080
+      DIMENSION NSYSF(6)                                                MOVE0090
+      DIMENSION NPRBF(6)                                                MOVE0100
+      DIMENSION NARRF(36)                                               MOVE0110
+      DIMENSION  JMIN(250),JPLS(250),MTYP(250)                                  
+      DIMENSION STIF(40),SCR1(40),SCR2(40),SCR3(40),SCR4(40),MO(6)      MOVE0130
+      DIMENSION R(1)                                                    MOVE0140
+C     SYSTEM PARAMETERS  -  14 WORDS                                    MOVE0150
+      COMMON NTMP,KCUR,NAVAL,NOVER,ISOLV,ISUCC,ISCAN,ITRAC,NSYSF        MOVE0160
+C     PROBLEM PARAMETERS  -  32 WORDS                                   MOVE0170
+      COMMON NJ,NB,NDAT,NFJS,NLDS,NLDSI,ID,NCORD,JF,NSQ,IMETH,NMR,NJR,  MOVE0180
+     1IBETA,IYOUN,ISHEA,GSHEA,EYOUN,FILL1,FILL2,IPZER,ISTRS,NPRBF             MOVE0190
+C     PLATE PARAMETERS                                                  $OVE0194
+      COMMON IPLAT,NPLAT,KPLA1,KPLAT,KTHI1,KTHIK                        $OVE0196
+C     ARRAY CODEWORDS  40 PAIRS = 80 WORDS                              MOVE0200
+      COMMON KNAM1,KNAME,KXY1,KXYZ,KJRE1,KJREL,MEGA1,MEGAZ,KMEM1,KMEMB, MOVE0210
+     1KBET1,KBETA,KYON1,KYOUN,KSHE1,KSHEA,KMRE1,KMREL,KMEG1,KMEGA,      MOVE0220
+     2KMKS1,KMKST,KROT1,KROTE,KPPL1,KPPLS,KPMN1,KPMNS,LOAD1,LOADS,      MOVE0230
+     3KLIN1,KLINT,MLOA1,MLOAD,JLOA1,JLOAD,KDIA1,KDIAG,KOFD1,KOFDG,      MOVE0240
+     4KPPR1,KPPRI,KSTA1,KSTAT                                           MOVE0250
+      COMMON NARRF                                                      MOVE0260
+C  MEMBER INCIDENCE AND TYPE TABLES  250 JOINTS  500 MEMBERS                    
+      COMMON JMIN,JPLS,MTYP                                             MOVE0280
+C     SCRATCH AREA CAN BE INSERTED AS DESIRED FOR EACH ROUTINE          MOVE0290
+C     COMMON FOR MEMBER RELEASES ROUTINES                               MOVE0300
+      COMMON/MRELX/STIF,SCR1,SCR2,SCR3,SCR4,NRC,NNRC,MO,M,SS,NOWCT,
+     1 IFCOM,IRC,IND,ISIDE
+C     IDEC=1   KAA INTO KBB   TAB*KAA*TAB(T)=KBB                        MOVE0330
+C         =2   KBB INTO KAA   TBA*KBB*TBA(T)=KAA                        MOVE0340
+C         =3   TAB                                                      MOVE0350
+C         =4   TBA                                                      MOVE0360
+C         =5   TAB*R                                                    MOVE0370
+C      ALL RETURNED IN R                                                MOVE0380
+      XCODF(IX,JX)=JF*(JX-1)+IX                                         MOVE0390
+      GO TO(100,100,200,200,400),IDEC                                   MOVE0400
+C     PERFORM TAB*R  PLACE IN R                                         MOVE0410
+400   IQUIT=1                                                           MOVE0420
+      IDEC=1                                                            MOVE0430
+      GO TO 101                                                         MOVE0440
+100   IQUIT=0                                                           MOVE0450
+101   GO TO(500,110,120,500,130),ID                                     MOVE0460
+C     TRANSFORMATIONS                                                   MOVE0470
+C     PLANE FRAME                                                       MOVE0480
+110   J=2                                                               MOVE0490
+      SSU=-SS                                                           MOVE0500
+      GO TO 123                                                         MOVE0510
+C     PLANE GRID                                                        MOVE0520
+120   J=1                                                               MOVE0530
+      SSU=SS                                                            MOVE0540
+123   ISTOP=3                                                           MOVE0550
+      LOOP=1                                                            MOVE0560
+      I=3                                                               MOVE0570
+      GO TO 140                                                         MOVE0580
+C     SPACE FRAME                                                       MOVE0590
+130   I=6                                                               MOVE0600
+      J=2                                                               MOVE0610
+      SSU=-SS                                                           MOVE0620
+      ISTOP=6                                                           MOVE0630
+      LOOP=2                                                            MOVE0640
+140   GO TO(150,141),IDEC                                               MOVE0650
+141   SSU=-SSU                                                          MOVE0660
+C     DO ACTUAL TRANS FORMATIONING                                      MOVE0670
+150   LO=1                                                              MOVE0680
+C     MOVE ACROSS ROW                                                   MOVE0690
+151   DO 155 IOVE=1,ISTOP                                               MOVE0700
+      IIOVE=XCODF(I,IOVE)                                               MOVE0710
+      JIOVE=XCODF(J,IOVE)                                               MOVE0720
+155   R(IIOVE)=R(IIOVE)+SSU*R(JIOVE)                                    MOVE0730
+      IF(LO-LOOP)156,160,160                                            MOVE0740
+156   I=5                                                               MOVE0750
+      J=3                                                               MOVE0760
+      SSU=-SSU                                                          MOVE0770
+      LO=2                                                              MOVE0780
+      GO TO 151                                                         MOVE0790
+C     CHECK IF TAB ALL THAT WANTED                                      MOVE0800
+                                                                        MOVE0810
+160   IF(IQUIT)162,162,500                                              MOVE0820
+C     MOVE DOWN COLUMN                                                  MOVE0830
+162   LO=1                                                              MOVE0840
+161   IDONI=XCODF(0,I)                                                  MOVE0850
+      IDONJ=XCODF(0,J)                                                  MOVE0860
+      DO 165  IDOWN=1,ISTOP                                             MOVE0870
+      IDONI=IDONI+1                                                     MOVE0880
+      IDONJ=IDONJ+1                                                     MOVE0890
+165   R(IDONI)=R(IDONI)+SSU*R(IDONJ)                                    MOVE0900
+      IF(LO-LOOP)166,500,500                                            MOVE0910
+166   I=6                                                               MOVE0920
+      J=2                                                               MOVE0930
+      SSU=-SSU                                                          MOVE0940
+      LO=2                                                              MOVE0950
+      GO TO 161                                                         MOVE0960
+C     SET UP TRANSLATION MATRICES IN R (MEMBER COORDINATES)             MOVE0970
+200   IDECU=IDEC-2                                                      MOVE0980
+      GO TO(500,210,220,500,230),ID                                     MOVE0990
+C     PLANE FRAME                                                       MOVE1000
+210   J=2                                                               MOVE1010
+      SSU=-SS                                                           MOVE1020
+      GO TO 225                                                         MOVE1030
+C     PLANE GRID                                                        MOVE1040
+220   J=1                                                               MOVE1050
+      SSU=SS                                                            MOVE1060
+225   CALL SCOPY(R,3,2)                                                 MOVE1070
+      GO TO(228,226),IDECU                                              MOVE1080
+226   SSU=-SSU                                                          MOVE1090
+228   IJ=XCODF(3,J)                                                     MOVE1100
+      R(IJ)=SSU                                                         MOVE1110
+      GO TO 500                                                         MOVE1120
+C     SPACE FRAME                                                       MOVE1130
+230   CALL SCOPY(R,6,2)                                                 MOVE1140
+      GO TO(231,232),IDECU                                              MOVE1150
+231   SSU=-SS                                                           MOVE1160
+      GO TO 233                                                         MOVE1170
+232   SSU=SS                                                            MOVE1180
+233   IJ=XCODF(6,2)                                                     MOVE1190
+      R(IJ)=SSU                                                         MOVE1200
+      IJ=XCODF(5,3)                                                     MOVE1210
+      R(IJ)=-SSU                                                        MOVE1220
+500   RETURN                                                            MOVE1230
+      END                                                               MOVE1240
+  
