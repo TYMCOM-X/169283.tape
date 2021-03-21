@@ -1,0 +1,285 @@
+      SUBROUTINE SOO1A                                                  OO1A  60
+C     SUBROUTINE SOO1A-LOCAL SUBPROGRAM-CONTROLS THE READING AND STORAGEOO1A  70
+C     STRESS PROGRAMMING SYSTEM FOR IBM 1130                            OO1A  80
+C     DIMENSION AND COMMON STATEMENTS WHICH MUST APPEAR IN ALL ROUTINES OO1A  90
+C     SYSTEM PARAMETERS  -  14 WORDS                                    OO1A 100
+      DIMENSION NSYSF(6)                                                OO1A 110
+      DIMENSION NPRBF(6)                                                OO1A 120
+      DIMENSION NARRF(36)                                               OO1A 130
+      DIMENSION  JMIN(250),JPLS(250),MTYP(250)
+      DIMENSION A(40),BETA(37),LABL(16),IFREE(20),ICHK(2),IBUFF(40)     OO1A 150
+      COMMON NTMP,KCUR,NAVAL,NOVER,ISOLV,ISUCC,ISCAN,ITRAC,NSYSF        OO1A 160
+C     PROBLEM PARAMETERS  -  32 WORDS                                   OO1A 170
+      COMMON NJ,NB,NDAT,NFJS,NLDS,NLDSI,ID,NCORD,JF,NSQ,IMETH,NMR,NJR,  OO1A 180
+     1IBETA,IYOUN,ISHEA,GSHEA,EYOUN,FILL1,FILL2,IPZER,ISTRS,NPRBF
+C     PLATE PARAMETERS                                                  $O1A 191
+      COMMON IPLAT,NPLAT,KPLA1,KPLAT,KTHI1,KTHIK                        $O1A 192
+C     ARRAY CODEWORDS  40 PAIRS = 80 WORDS                              OO1A 200
+      COMMON KNAM1,KNAME,KXY1,KXYZ,KJRE1,KJREL,MEGA1,MEGAZ,KMEM1,KMEMB, OO1A 210
+     1KBET1,KBETA,KYON1,KYOUN,KSHE1,KSHEA,KMRE1,KMREL,KMEG1,KMEGA,      OO1A 220
+     2KMKS1,KMKST,KROT1,KROTE,KPPL1,KPPLS,KPMN1,KPMNS,LOAD1,LOADS,      OO1A 230
+     3KLIN1,KLINT,MLOA1,MLOAD,JLOA1,JLOAD,KDIA1,KDIAG,KOFD1,KOFDG,      OO1A 240
+     4KPPR1,KPPRI,KSTA1,KSTAT                                           OO1A 250
+      COMMON NARRF                                                      OO1A 260
+C  MEMBER INCIDENCE AND TYPE TABLES  250 JOINTS  500 MEMBERS
+      COMMON JMIN,JPLS,MTYP,IAMDU                                       OO1A 280
+C     SCRATCH AREA CAN BE INSERTED AS DESIRED FOR EACH ROUTINE          OO1A 290
+C     SCRATCH AREA FOR INPUT PHASE  -  SPH1A AND SPH1B                  OO1A 300
+      COMMON A,BETA,IFREE,LABL,IB,IL,ILOOK,JTOMB,K1,IPRER,JLD,INDEX,    OO1A 310
+     1JINDL,JDEPL,IPRTA,KK,JJC,JDC,IS,ICHK,JMIC,JMPC,JCODE,JIB          OO1A 320
+     2,MEMRE,CTE,KS1,LEM,IBUFF                                          OO1A 330
+314   FORMAT(32H THE NUMBER OF JOINTS SPECIFIED ,I3/39H IS MORE THAN THEOO1A 340
+     1MAXIMUM ALLOWED(250)             )                                $O1A 350
+325   FORMAT(33H THE NUMBER OF MEMBERS SPECIFIED ,I3/39H IS MORE THAN THOO1A 370
+     1E MAXIMUM ALLOWED(500).)                                          $O1A 380
+      IPRER=-1                                                          OO1A 390
+      JW=NSYSF(1)                                                       OO1A 400
+      GO TO (1000,1000,30,40,1000,60,70,80,90),K1                       OO1A 410
+C     K1=EVALUATE WHICH PROGRAM TO INTERPRET THE CARDS                  OO1A 420
+C     NUMBER - CHECK HEADER STATEMENTS BEGINNING WITH NUMBER            OO1A 430
+C     IFREE(1-20) IS ZEROED BY STRUCTURE CARD                           OO1A 440
+C     NUMBER OF JOINTS,SUPPORTS,MEMBERS AND LOADINGS                    OO1A 450
+30    CALL MATCH(K,GARB,4,4,IBUFF,I)                                    OO1A 460
+C     M=4-SKIP ONE LOGICAL FIELD-NUMBER-(OF)                            OO1A 470
+      GO TO(9905,9901,9902,9900,301),I                                  OO1A 480
+C     M=0,READ NEXT LOGICAL FIELD,WORD FROM LIST 4                      OO1A 490
+301   KK=K                                                              OO1A 500
+      CALL MATCH(KN,GARB,0,4,IBUFF,I)                                   OO1A 510
+      GO TO (9905,305,9902,9900,9906),I                                 OO1A 520
+  305 GO TO(31,32,33,34,35),KK                                          $O1A 530
+C  STORAGE FOR PLATE ELEMENTS, KN ELEMENTS, 5 FLOATING PT WRDS PER ELMT $O1A 531
+   35 IPLAT=KN                                                          $O1A 532
+      IF(IPLAT+NB-500)36,36,324                                         $O1A 533
+   36 CALL SBITE(KPLA1,KPLAT,2,IPLAT,5)                                 $O1A 534
+      ICHK(1)=ICHK(1)+10                                                $MEM 538
+      GO TO 1000                                                        $O1A 539
+C NUMBER OF JOINTS NJ                                                   OO1A 540
+C     KN- ACTUAL NUMBER OF JOINT=250=MAX. JOINT                         $O1A 550
+31    NJ=KN                                                             OO1A 560
+      IF(NJ-250)312,312,313                                             $O1A 570
+  313 WRITE(5,314)NJ                                                    $O1A 590
+      WRITE (JW,314) NJ                                                 OO1A 600
+      NJ=0                                                              OO1A 610
+      IPRER=0                                                           OO1A 620
+      GO TO 1002                                                        OO1A 630
+312   ICHK(1)=ICHK(1)+1                                                 OO1A 640
+C     KXY1,KXY2=THE JOINT COORDIN1TE ARRAY                              OO1A 650
+C     SBITE=ASSIGNS DISK STORAGE FOR JOINT COORDINATE ARRAY=KXY1,KXYZ   OO1A 660
+      CALL SBITE(KXY1,KXYZ,2,NJ,3)                                      OO1A 670
+      CALL SBITE(KJRE1,KJREL,1,NJ,0)                                    OO1A 680
+C     JLOA1,JLOAD=THE ARRAY FOR JOINT LOAD DATA STORAGE                 OO1A 690
+C     SBITE=ASSIGNS DISK STORAGE FOR JOINT LOADS=TABLE ARRAY            OO1A 700
+      CALL SBITE(JLOA1,JLOAD,1,2*NJ,0)                                  OO1A 710
+C     NUM=NO. OF FILE RECORDS REQUIRED                                  OO1A 720
+      NUM=(NJ-1)/10+1                                                   OO1A 730
+      DO 310 IJK=1,NUM                                                  OO1A 740
+C     SDATA=STORES FROM NAREA TO DISK,FIXED POINT=2                     OO1A 750
+310   CALL SDATA(JLOA1,JLOAD,20*IJK,A,IFREE,2,0)                        OO1A 760
+      IF(NDAT)1000,1000,311                                             OO1A 770
+311   NFJS=NJ-NDAT                                                      OO1A 780
+      GO TO 1000                                                        OO1A 790
+C     NUMBER OF MEMBERS NB                                              OO1A 800
+C     KN-ACTURAL NUMBER OF MEMBERS=500=MAXIMUM NUMBER                   $O1A 810
+32    NB=KN                                                             OO1A 820
+      IF(NB+IPLAT-500)323,323,324                                       $O1A 830
+  324 WRITE(5,325)NB
+      WRITE(JW,325) NB                                                  OO1A 860
+      NB=0                                                              OO1A 870
+      IPRER=0                                                           OO1A 880
+      GO TO 1002                                                        OO1A 890
+323   ICHK(1)=ICHK(1)+10                                                OO1A 900
+C     KMEM1,KMEMB=THE MATRIX ARRAY OF NB SUB-ARRAYS,EACH CONTAINING 11  OO1A 910
+C     MEMBER PROPERTIES                                                 OO1A 920
+C     SBITE ASSIGNS DISK STORAGE FOR MEMBER PROPERTIES=11               OO1A 930
+      CALL SBITE(KMEM1,KMEMB,2,NB,11)                                   OO1A 940
+      IF(ID)321,321,322                                                 OO1A 950
+C     SBITE ASSIGNS DISK STORAGE FOR LOCAL MEMBER STIFFNESS MATRIX      OO1A 960
+  322 CALL SBITE(KMKS1,KMKST,2,NB,NSQ)                                  OO1A 970
+C  ALLOCATION FOR MEMBER LOAD DATA IS NOW DONE IN SOLDS                 $O1A0975
+  321 GO TO 1000                                                        $O1A1030
+C     NUMBER OF SUPPORTS NDAT                                           OO1A1040
+C     KN=ACTUAL NUMBER OF SUPPORTS                                      OO1A1050
+33    NDAT=KN                                                           OO1A1060
+      ICHK(1)=ICHK(1)+100                                               OO1A1070
+      IF(NJ)1000,1000,330                                               OO1A1080
+C     NFJS=NO. OF FREE JOINTS=NON SUPPORT JOINTS                        OO1A1090
+330   NFJS=NJ-NDAT                                                      OO1A1100
+      GO TO 1000                                                        OO1A1110
+C     KN=ACTUAL NO. OF LOADINGS                                         OO1A1120
+C     NUMBER OF LOADINGS NLDS                                           OO1A1130
+34    NLDS=KN                                                           OO1A1140
+      ICHK(1)=ICHK(1)+1000                                              OO1A1150
+C     SBITE=ASSIGNS DISK STORAGE FOR LOADS ARRAY                        OO1A1160
+      CALL SBITE(LOAD1,LOADS,2,NLDS,31)                                 OO1A1170
+C     KLIN1=KLINT=TABLE OF INTERNAL LOADING NUMBERS                     OO1A1180
+      CALL SBITE(KLIN1,KLINT,1,NLDS,0)                                  OO1A1190
+      NUM=(NLDS-1)/20+1                                                 OO1A1200
+      DO 340 IJK=1,NUM                                                  OO1A1210
+C     SDATA=STORES FROM NAREA TO DISK,FIXED POINT=2=INTERNAL LDG.NOS.   OO1A1220
+340   CALL SDATA(KLIN1,KLINT,20*IJK,A,IFREE,2,0)                        OO1A1230
+      GO TO 1000                                                        OO1A1240
+C     TABULATE                                                          OO1A1250
+C     IPRT=TABULATE CODE                                                OO1A1260
+40    IPRT=0                                                            OO1A1270
+C     M=0,READ NEXT LOGICAL FIELD                                       OO1A1280
+401   CALL MATCH(JK,AA,0,2,IBUFF,IK)                                    OO1A1290
+      GO TO(440,9901,9902,9900,403),IK                                  OO1A1300
+C     SET UP PRINT CODE                                                 OO1A1310
+403   GO TO (407,407,407,407,405,401,401,401,401,401,424),JK            $O1A1320
+C     TABULATE CODE,1-DISPL.,2 REACTIONS,10 D9STORTIONS,20 FORCES,=33   OO1A1330
+405   IPRT=33                                                           OO1A1340
+      ISTRS=1                                                           $O1A1345
+      IF(JLD)4052,441,4052                                              OO1A1350
+4052  CALL SDATA(LOAD1,LOADS,JLD,A,NAREA,-1,0)                          OO1A1360
+      CALL SPAK4(0,A(1),L1,L2,L3,L4)                                    OO1A1370
+      GO TO 445                                                         OO1A1380
+407   IF(JK-2)411,411,409                                               OO1A1390
+C     DISTORTIONS OR FORCES                                             OO1A1400
+409   IPR=10*(JK-2)                                                     OO1A1410
+      GO TO 413                                                         OO1A1420
+C     DISPLACEMENTS OR REACTIONS                                        OO1A1430
+411   IPR=JK                                                            OO1A1440
+C     QUESTION( BEFORE FIRST LOADING HEADER)                            OO1A1450
+413   IF(JLD)421,414,421                                                OO1A1460
+C     YES                                                               OO1A1470
+414   IF(IPRT)415,415,425                                               OO1A1480
+415   IF(IPRTA)417,417,419                                              OO1A1490
+417   IPRT=IPR                                                          OO1A1500
+      GO TO 401                                                         OO1A1510
+419   IPRT=IPRTA                                                        OO1A1520
+      GO TO 425                                                         OO1A1530
+C     NO                                                                OO1A1540
+421   IF(IPRT)425,423,425                                               OO1A1550
+423   CALL SDATA(LOAD1,LOADS,JLD,A,NAREA,-1,0)                          OO1A1560
+      CALL SPAK4(0,A(1),L1,L2,L3,IPRT)                                  OO1A1570
+      IF(IPRT)420,420,425                                               OO1A1580
+420   IPRT=IPR                                                          OO1A1590
+      GO TO 401                                                         OO1A1600
+C  TABULATE STRESSES READ                                               $O1A1602
+  424 ISTRS=1                                                           $O1A1606
+      GO TO 401                                                         $O1A1608
+C     IPRT=TABULATE CODE AT PRESENT TIME                                OO1A1610
+C     IPR=CODE OF LAST READ TABULATE REQUEST                            OO1A1620
+C     IPRTAL=TABULATE CODE IF TABULATE SPECIFIED BEFORE 1ST LDG. HEADER OO1A1630
+C     CHECK IF IPR REDUNDANT IN IPRT                                    OO1A1640
+425   IF(IPR-10)427,429,429                                             OO1A1650
+C     WANT UNITS DIGIT   LEAVE IN UNITS DIGIT                           OO1A1660
+427   IPCT=IPRT-(IPRT/10)*10                                            OO1A1670
+      IPC=IPR                                                           OO1A1680
+      GO TO 428                                                         OO1A1690
+C     WANT TENS DIGIT   PLACE IN UNITS DIGIT                            OO1A1700
+429   IPCT=IPRT/10                                                      OO1A1710
+      IPC=IPR/10                                                        OO1A1720
+428   IF(IPCT-3)430,401,401                                             OO1A1730
+430   GO TO(431,432),IPC                                                OO1A1740
+431   IRO=2                                                             OO1A1750
+      GO TO 435                                                         OO1A1760
+432   IRO=1                                                             OO1A1770
+435   IDIV=3                                                            OO1A1780
+      DO 438  IJ=1,IRO                                                  OO1A1790
+      IDIV=IDIV-1                                                       OO1A1800
+      IF(IPCT/IDIV)439,439,437                                          OO1A1810
+439   IF(IJ-IRO)438,442,442                                             OO1A1820
+437   IPCT=IPCT-IDIV                                                    OO1A1830
+438   CONTINUE                                                          OO1A1840
+      GO TO 401                                                         OO1A1850
+442   IPRT=IPRT+IPR                                                     OO1A1860
+      GO TO 401                                                         OO1A1870
+C     ADDED TO CODE IN IPRT   STORE BACK                                OO1A1880
+440   IF(JLD)441,441,445                                                OO1A1890
+441   IPRTA=IPRT                                                        OO1A1900
+      GO TO 1000                                                        OO1A1910
+445   CALL SPAK4(1,A(1),L1,L2,L3,IPRT)                                  OO1A1920
+      CALL SDATA(LOAD1,LOADS,JLD,A,NAREA,-2,0)                          OO1A1930
+      GO TO 1000                                                        OO1A1940
+C     WORD STRUCTURE FOUND                                              OO1A1950
+C     STRUCTURE                                                         OO1A1960
+C     ZERO OUT THE COMMON AREA FOR NEW STRUCTURE EXCEPT CERTAIN AREA    OO1A1970
+   60 DO 61 IJK=2,1051
+61    NSYSF(IJK)=0                                                      OO1A1990
+      ITRAC=0                                                           OO1A2000
+      NOVER=0                                                           OO1A2010
+      ISCAN=1                                                           OO1A2020
+      ISUCC=1                                                           OO1A2030
+      ISOLV=1                                                           OO1A2040
+      IPRER=-1                                                          OO1A2050
+      KCUR=1                                                            OO1A2060
+C     STARTING FILE RECORD,TOTAL FILE RECORDS ARE 1-20000               OO1A2070
+      NAVAL=17000                                                       OO1A2080
+      EYOUN=0.0                                                         OO1A2090
+      GSHEA=0.0                                                         OO1A2100
+C     SBITE ASSIGNS DISK STORAGE FOR DATA ARRAYS OR TABLES              OO1A2110
+      CALL SBITE(KNAM1,KNAME,1,1,36)                                    OO1A2120
+C     SDATA STORES ON OR RETRIEVES FROM THE DISK                        OO1A2130
+      CALL SDATA(KNAM1,KNAME,1,A,IBUFF,+2,0)                            OO1A2140
+      GO TO 1000                                                        OO1A2160
+C     METHOD  - NO CONSISTENCY CHECK                                    OO1A2170
+C     M=0,READ NEXT LOGICAL FIELD - CHECK LIST 7 FOR PRIS,STIFF.        OO1A2180
+70    CALL MATCH(K,GARB,0,7,IBUFF,I)                                    OO1A2190
+      GO TO (9905,9901,9902,9900,71),I                                  OO1A2200
+71    GO TO (9906,72,72),K                                              OO1A2210
+72    IMETH=1                                                           OO1A2220
+      GO TO 1000                                                        OO1A2230
+C     TYPE OF STRUCTURE                                                 OO1A2240
+C     M=0,READ NEXT LOGICAL FIELD - CHECK LIST 9 FOR TYPE OF STRUCTURE  OO1A2250
+80    CALL MATCH(K,GARB,0,9,IBUFF,I)                                    OO1A2260
+      GO TO (9905,9901,9902,9900,81),I                                  OO1A2270
+C     INITIATE NO.OF COORECTION,2 FOR PLANE AND 3 FOR SPACE        OO1A2280
+81    GO TO (82,83,9906,9906,9906),K                                    OO1A2290
+82    NCORD=2                                                           OO1A2300
+      JT=0                                                              OO1A2310
+      GO TO 84                                                          OO1A2320
+83    NCORD=3                                                           OO1A2330
+      JT=3                                                              OO1A2340
+C     M=0,READ NEXT LOGICAL FIELD,CHECK LIST 9                          OO1A2350
+84    CALL MATCH(K,GARB,0,9,IBUFF,I)                                    OO1A2360
+      GO TO (9905,9901,9902,9900,85),I                                  OO1A2370
+85    GO TO (9906,9906,86,87,88),K                                      OO1A2380
+86    JT=JT+1                                                           OO1A2390
+      GO TO 89                                                          OO1A2400
+87    JT=JT+2                                                           OO1A2410
+      GO TO 89                                                          OO1A2420
+88    JT=3                                                              OO1A2430
+C     PLANE TRUSS-JF=2,PLANE FRAME,PLANE GRID,SPACE TRUSS JF=3,         OO1A2440
+C     SPACE FRAME=6                                                     OO1A2450
+C     FOR JOINT FREEDOM                                                 OO1A2460
+89    GO TO (801,802,802,802,803),JT                                    OO1A2470
+801   JF=2                                                              OO1A2480
+      GO TO 804                                                         OO1A2490
+802   JF=3                                                              OO1A2500
+      GO TO 804                                                         OO1A2510
+803   JF=6                                                              OO1A2520
+C     ID=STRUCTURE TYPE,1-5                                             OO1A2530
+804   ID=JT                                                             OO1A2540
+      NSQ=JF*JF                                                         OO1A2550
+      ICHK(1)=ICHK(1)+10000                                             OO1A2560
+      IF(NB)1000,1000,805                                               OO1A2570
+  805 CALL SBITE(KMKS1,KMKST,2,NB,NSQ)                                  OO1A2580
+      GO TO 1000                                                        OO1A2590
+C     SOLVE - UPON READING SOLVE CARD,SOO1A PASSES CONTROL TO SPH1B     OO1A2600
+C     PHAS1B  -  CONSISTANCY CHECK                                      OO1A2610
+   90 WRITE(5,907)
+  907 FORMAT(' READY TO ENTER SPH1B'///)
+1000  ILOOK=1                                                           OO1A2630
+      RETURN                                                            OO1A2640
+9900  IPRER=0                                                           OO1A2650
+      GO TO 1000                                                        OO1A2660
+9901  IPRER=1                                                           OO1A2670
+      GO TO 1000                                                        OO1A2680
+9902  IPRER=2                                                           OO1A2690
+      GO TO 1000                                                        OO1A2700
+9905  IPRER=5                                                           OO1A2710
+      GO TO 1000                                                        OO1A2720
+9906  IPRER=6                                                           OO1A2730
+      GO TO 1000                                                        OO1A2740
+1002  IF(ISCAN-1)1000,1001,1000                                         OO1A2750
+ 1001 ISCAN=0                                                           OO1A2760
+      GO TO 1000                                                        OO1A2770
+      END                                                               OO1A2780
+// DUP                                                                  OO1A2790
+*DELETE             SOO1A
+*STORE      WS  UA  SOO1A
+// FOR                                                                  OO2A  30
+*ONE WORD INTEGERS                                                      OO2A  50
+**SOO2A
+    0 .¤
