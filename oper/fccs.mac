@@ -1,0 +1,186 @@
+TITLE   FCCS - VERSION 1.00
+SUBTTL  FORTRAN - SIMPL INTERFACE FOR THE F[ORTRAN] CCS INTERFACE
+
+        EXTERNAL PDL,RESREG,SAVREG,SAVALL,RESALL,PFRDLIN
+
+DEFINE PSH(X)<IRP X<PUSH R17,X>>
+DEFINE PUL(X)<IRP X<POP R17,X>>
+
+DEFINE A(B)<IRP B<R'B==B>>
+
+        A<0,1,2,3,4,5,6,7,10,11,12,13,14,15,16,17>
+
+
+;CALSUB <NAME> - CALLS A FOOTRAN-CALLABLE SUBROUTINE
+DEFINE CALSUB(X)<
+	MOVEM	R17,PDL		;PUT PDL POINTER BACK
+	JSA	R16,X		;AND CALL SUBROUTINE
+>
+
+;RETSUB - RETURNS FROM FOOTRAN FUNCTION/SUBROUTINE
+OPDEF RETSUB [JRA R16,(R16)]
+
+
+;SUBF <NAME> - DEFINES ENTRY INTO FOOTRAN FUNCTION/SUBROUTINE IN THIS
+;PACKAGE. PLACES ZERO CELL PROPERLY AND GENERATES LABEL AND
+;ENTRY STATEMENT PROPERLY
+DEFINE SUBF(ROUTINE)<
+;**** FOOTRAN-CALLABLE FUNCTION/SUBROUTINE ROUTINE
+
+	ENTRY	ROUTINE
+
+ROUTINE:Z			;FOOTRAN JRA-JSA
+	EXCH	R17,PDL		;GET OUR PDL WORKING
+	PSH	PDL		;SAVE THE LAST R17
+	PSH	R16		;SAVE REGISTER 16
+	CALSUB	SAVREG		;SAVE THE REGISTERS
+>
+
+;RETF - RETURNS FROM FOOTRAN SUBROUTINE
+DEFINE RETF<
+	JRST	[CALSUB RESREG	;RESTORE REGISTERS
+		PUL R16		;RESTORE R16
+		PUL PDL		;GET R17
+		EXCH R17,PDL	;AND R17 IS BACK
+		RETSUB]		;RETURN [I HOPE!]
+>
+; ROUTINE: CCSINIT
+; CALLS CPIOCS
+        EXTERNAL CPIOCS
+SUBF CCSINIT
+        CALSUB  CPIOCS                  ;CALL IOCS INIT'ER
+        RETF
+
+; ROUTINE: CCSPRG
+; INITIALIZES CCS
+; USING NOWCH, INCREMENTING KURSOR, COPIES STRING
+; TO TEMP. BUFFER AND SET'S 'LPTR' UP PROPERLY
+        EXTERNAL NOWCH, NEXTCH, CPGLOB, LPTR, FCCSINIT
+
+KURSOR==CPGLOB+0        ; COMMON STMT IN COMPAC-10
+LINSIZ==KURSOR+1
+INLINE==LINSIZ+2
+
+$$$:    BLOCK ^D60
+SUBF CCSPRG
+; CALL ROUTINE TO SET UP CCS TO READ US
+        CALSUB  CPSCCS                  ;CALL CCS COPYER
+; WE HAVE NOW STORED STRING UP
+; CALL FCCSINIT
+        MOVEM   R16,SVR16#
+        JSA     R16,SAVALL              ;SAVE ALL REG'S
+        JSP     R17,FCCSINIT            ;CALL INIT'ER
+        MOVEM   R1,SVRR1#               ;SAVE RETURN VALUE * * *
+        MOVE    R16,SVR16               ;GET R16 BACK
+        JSA     R16,RESALL              ;RESTORE ALL REGS
+        MOVE    R0,SVRR1                ;RESTORE R0
+        RETF                            ; RETURN * * *
+
+; ROUTINE: CCSMAX
+; RETURNS THE NO. OF LINES FROM CCS
+        EXTERNAL        PFNLIN
+SUBF CCSMAX
+        MOVE    R0,PFNLIN               ;GET # LINES
+        SETZ    R1,                     ;NO 2ND WORD
+        RETF                            ;RETURN * * * *
+
+; ROUTINE TO COPY FROM NOWCH TO LPTR:
+SUBF CPSCCS
+        MOVE    R2,[POINT 7,$$$]
+        MOVEM   R2,LPTR                 ;POINTS TO TEMP BLOCK: SET UP
+        MOVE    R3,KURSOR
+        MOVEM   R3,KRSR#                ;SAVE KRSR
+CCSPR1: MOVEI   R13,5                   ;ARG:1 - INCODE (IS 5)
+        MOVEM   R13,TM1#                ;SAVE IN TEMPORARY
+        SETZM   TM2#                    ;ARG:2 IS CANDO
+        CALSUB  NOWCH                   ;GET CHARACTER
+        ARG     0,TM1                   ;INCOD
+        ARG     0,TM2                   ;KANDO
+; NOWCH RETURNS WITH KANDO = 0 AND R0 = 0 IF FAILURE
+; ELSE RETURNS WITH KANDO = -1 AND R0 = CHARACTER IF OKAY
+        JUMPE   R0,[MOVEI R5,15
+                IDPB R5,R2
+                JRST .+1]               ;PUT CR THERE
+        IDPB    R0,R2                   ;SAVE CHAR
+        SKIPE   TM2                     ;SKIP IF IT DIDNT WORK
+        JRST    [AOS KURSOR ; INCREMENT KURSOR
+                JRST CCSPR1]            ;RETURN * * *
+; PUT KURSOR BACK
+        MOVE    R0,KRSR
+        MOVEM   R0,KURSOR               ;PUT KURSOR BACK
+; DONE, RETURN
+        RETF                            ; RETURN * * *
+
+; ROUTINE: CCSCMD
+; WILL EXECUTE A CCS CMD FROM COMPAC-10 BUFFER
+SUBF CCSCMD
+; COPY STRING
+        CALSUB  CPSCCS                  ;COPY BUFFERS
+; NOW, EXECUTE THE COMMAND
+        MOVEM   R16,SVR16
+        JSA     R16,SAVALL              ;SET UP SIMPL CALL
+        MOVEM   R1,SVRR1                ;SAVE R0
+        JSP     R17,XCTCCS              ;EXECUTE CCS COMMAND
+
+        EXTERNAL        XCTCCS
+
+        MOVE    R16,SVR16
+        JSA     R16,RESALL              ;GET REGIOSTERS BACK
+        MOVE    R0,SVRR1                ;GET R0 BACK
+        RETF                            ;RETURN * * *
+
+; ROUTINE: CCSLIN
+; ARG:1 IS LINE TO RETURN
+; RETURNS LINE OR ZERO
+SUBF CCSLIN
+        MOVEM   R16,SVR16               ;SAVE R16
+        JSA     R16,SAVALL              ;SAVE ALL REGS FOR SIMPL CALL
+        MOVE    R1,@0(R16)              ;GET ARG1
+        JSP     R17,PFRDLIN             ;READ LINE OF TEXT
+        MOVE    R16,SVR16
+        MOVEM   R1,SVRR1                ;SAVE RETURN POINTER
+        JSA     R16,RESALL              ;GET ALL REGS BACK
+; R1 = 0 IF NO GOOD ELSE BYTE POINTER
+; COPY INTO INLINE
+        MOVE    R0,SVRR1
+        JUMPE   R0,[RETF]               ;RETURN FALSE IF NO GOOD
+; COPY STRING
+        SETZ    R1,                     ;COUNTER
+; LOOP
+CCSLI1: ILDB    R2,R0                   ;GET CHARACTER
+        JUMPE   R2,[SETZM KURSOR
+                MOVEM R1,LINSIZ
+                RETF]                   ;RETURN * * *
+        MOVEM   R2,INLINE(R1)           ;SAVE CHARACTER
+        AOJA    R1,CCSLI1               ;LOOP
+
+; SUBROUTINE CCSOPN
+; RETURNS: 0 IF NONE OPEN ELSE RETURNS -1
+SUBF CCSOPN
+        EXTERNAL        PFFN
+        SETZ    R0,
+        SKIPE   PFFN                    ;IF SKIP THEN .FALSE. RETURN
+        SETO    R0,                     ;TRUE
+        RETF                            ;RETURN * *0* *
+
+; SUBROUTINE CCSESC
+; ARG:1 0 OFF ESC, 1 ON ESC
+; TURNS ESCAPES ON/OFF
+SUBF CCSESC
+        EXTERNAL        OFFALT,ONALTC
+        MOVE    R0,@0(R16)              ;R0 = ON/OFF PARAMETER
+        JSA     R16,SAVALL
+        MOVEM   R16,SVR16               ;SAVE R16
+        JUMPE   R0,[JSP R17,OFFALT
+                JRST .+2]
+        JSP     R17,ONALTC              ;ON ESCAPES
+        MOVE    R16,SVR16
+        JSA     R16,RESALL              ;RESTORE ALL REG'S
+        RETF                            ;RETURN * *0*
+
+; SUBROUTINE CCSPRM
+; DOES NOTHING
+SUBF CCSPRM
+        RETF                            ; WILL DO SOMETHING LATER
+
+        END
