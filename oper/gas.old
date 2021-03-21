@@ -1,0 +1,751 @@
+MODULE GAS(DOLLAR,ENTRIES=($GAS),FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+  BEGIN
+
+  REQUIRE ADEFS.BLI[7,107355];
+  REQUIRE BDEFS.BLI[7,107355];
+  REQUIRE DTDEFS.BLI[7,107355];
+  REQUIRE FDEFS.BLI[7,107355];
+  REQUIRE FPDEFS.BLI[7,107355];
+  REQUIRE GDEFS.BLI[7,107355];
+  REQUIRE SDEFS.BLI[7,107355];
+  REQUIRE TDEFS.BLI[7,107355];
+  REQUIRE UDEFS.BLI[7,107355];
+  REQUIRE ZDEFS.BLI[7,107355];
+
+  UNDECLARE $GAS;
+
+  MAP Z$ ZBSTK$;
+  MAP A$ GBTKN$;
+    MAP G$ GGBFP$;
+    MAP G$OPND GGBOP$;
+
+
+
+
+  GLOBAL ROUTINE $GAS =
+    BEGIN
+
+    LOCAL S$ DEFSTE;
+    LOCAL DT$ NEWDTMP;
+    LOCAL FP$I NEWPIC;
+    LOCAL ISFLAG, NEWTYPE,DATETEMP[2];
+
+
+
+
+    ROUTINE STDAS(NEWTYPE,NEWPIC,NEWDTMP,ISFLAG)=
+      BEGIN
+
+      MAP FP$I NEWPIC;
+      MAP DT$ NEWDTMP;
+      LOCAL DT$ OLDDTMP;
+      LOCAL S$ WVNSTE;
+      LOCAL NEWICNT, NEWDCNT;
+      LOCAL FP$I OLDPIC;
+
+        ROUTINE STACKLRSLT =
+          BEGIN
+          ZBSTK$[Z$SBID,.ZSTKP$]    := ZV$LRSLT;
+          ZBSTK$[Z$INCSTP,.ZSTKP$]  := .GGBFP$[G$ID];
+          ZBSTK$[Z$DATATYP,.ZSTKP$] := ZV$LOGICAL;
+          ZBSTK$[Z$RSLTYP,.ZSTKP$]  := GV$LOGICAL;
+          ZBSTK$[Z$USECNT,.ZSTKP$] := 1;
+          END;
+
+
+        ROUTINE TRUERSLT =
+          BEGIN
+          $GIREC(GV$LRESULT,3);
+          GGBFP$[G$UCNT]   := 1;
+          GGBFP$[G$OPND1]  := GV$TRUE;
+          $GWBUF(.GGBFP$,.GOB1I$);
+          STACKLRSLT();
+          END;
+
+
+        ROUTINE RANGECHK(TYPE)=
+          BEGIN
+
+          LOCAL S$ DEFSTE;
+          LOCAL HIGHVALSTP;
+
+          DEFSTE := $SGSTE(.ZBSTK$[Z$DEFSTP,.ZSTKP$]);
+          HIGHVALSTP := $GHVAL(.DEFSTE);
+          $SFRNCH(.DEFSTE);
+
+          $GIREC(.TYPE,4);
+          GGBFP$[G$ICNT]   := .ZBSTK$[Z$ICNT,.ZSTKP$];
+          GGBFP$[G$DCNT]   := .ZBSTK$[Z$DCNT,.ZSTKP$];
+          GGBFP$[G$UCNT]   := 1;
+          GGBFP$[G$OPND2]  := $GOPND(.ZSTKP$);
+          GGBOP$[0,G$OPTYP] := GV$LIT;
+          GGBOP$[0,G$OPVAL] := .HIGHVALSTP;
+          $GWBUF(.GGBFP$,.GOB1I$);
+          STACKLRSLT();
+          END;
+
+
+     %****  START OF STANDARD AS PROCESSING   ***%
+        SELECT .ZBSTK$[Z$DATATYP,.ZSTKP$] OF    % SELECT ON DATA TYPE OF %
+                NSET                            % ORIGINAL ITEM %
+          ZV$STRING:
+            SELECT .NEWTYPE OF
+                  NSET
+              ZV$STRING:                        % STRING TO STRING %
+                BEGIN
+                IF .ZBSTK$[Z$LCHAR,.ZSTKP$] GTR $FPCNT(.NEWPIC)
+                  THEN
+                    $GERR(531,.ZSTKP$);
+                IF .ISFLAG EQL ZV$TRUE
+                  THEN
+                    TRUERSLT()
+                  ELSE
+                    ZBSTK$[Z$FP,.ZSTKP$] := .NEWPIC;
+                END;
+
+              ZV$NUMERIC:                       % CHAR TO NUMERIC %
+                BEGIN
+                IF .ZBSTK$[Z$LCHAR,.ZSTKP$] GTR $FPCNT(.NEWPIC)
+                  THEN
+                    $GERR(531,.ZSTKP$);
+                IF .ISFLAG EQL ZV$TRUE
+                  THEN
+                    $GIREC(GV$SNTEST,4)
+                  ELSE
+                    $GIREC(GV$SNCVRT,4);
+                GGBFP$[G$UCNT] := 1;
+                GGBFP$[G$ICNT] := .NEWPIC[FP$FI] + .NEWPIC[FP$XI];
+                GGBFP$[G$DCNT] := .NEWPIC[FP$EI] + .NEWPIC[FP$DI];
+                GGBFP$[G$OPND1] := $GOPND(.ZSTKP$);
+                GGBFP$[G$OPND2] := .NEWPIC;
+                $GWBUF(.GGBFP$,.GOB1I$);
+                IF .ISFLAG EQL ZV$TRUE
+                  THEN
+                    STACKLRSLT()
+                  ELSE
+                    BEGIN
+                    ZBSTK$[Z$ID,.ZSTKP$] := TV$NAME;
+                    ZBSTK$[Z$DATATYP,.ZSTKP$] := ZV$NUMERIC;
+                    ZBSTK$[Z$SBID,.ZSTKP$] := ZV$NRSLT;
+                    ZBSTK$[Z$ICNT,.ZSTKP$] := .GGBFP$[G$ICNT];
+                    ZBSTK$[Z$DCNT,.ZSTKP$] := .GGBFP$[G$DCNT];
+                    ZBSTK$[Z$INCSTP,.ZSTKP$] := .GGBFP$[G$ID];
+                    ZBSTK$[Z$RSLTYP,.ZSTKP$] := GV$NCVRT;
+                    ZBSTK$[Z$FP,.ZSTKP$] := .NEWPIC;
+                    END;
+                END;
+
+              ZV$DATE:                          % CHAR. TO DATE %
+                BEGIN
+                IF .ZBSTK$[Z$LCHAR,.ZSTKP$] GTR .NEWDTMP[DT$PRSIZE]
+                  THEN
+                    $GERR(531,.ZSTKP$);
+                IF .ISFLAG EQL ZV$TRUE
+                  THEN
+                    $GIREC(GV$SDTEST,5)
+                  ELSE
+                    $GIREC(GV$SDCVRT,5);
+                GGBFP$[G$UCNT] := 1;
+                GGBFP$[G$OPND1] := $GOPND(.ZSTKP$);
+                GGBFP$[G$OPND2] := @(.NEWDTMP);
+                GGBFP$[G$OPND3] := @(.NEWDTMP+1);
+                $GWBUF(.GGBFP$,.GOB1I$);
+                IF .ISFLAG EQL ZV$TRUE
+                  THEN
+                    STACKLRSLT()
+                  ELSE
+                    BEGIN
+                    ZBSTK$[Z$ID,.ZSTKP$] := TV$NAME;
+                    ZBSTK$[Z$DATATYP,.ZSTKP$] := ZV$DATE;
+                    ZBSTK$[Z$SBID,.ZSTKP$] := ZV$DRSLT;
+                    ZBSTK$[Z$ICNT,.ZSTKP$] := 8;
+                    ZBSTK$[Z$DCNT,.ZSTKP$] := 0;
+                    ZBSTK$[Z$INCSTP,.ZSTKP$] := .GGBFP$[G$ID];
+                    ZBSTK$[Z$RSLTYP,.ZSTKP$] := GV$DCVRT;
+                    ZBSTK$[Z$DTMP,.ZSTKP$][0] := @(.NEWDTMP);
+                    ZBSTK$[Z$DTMP,.ZSTKP$][1] := @(.NEWDTMP+1);
+                    END;
+                END;
+                        TESN;
+
+          ZV$NUMERIC:
+            SELECT .NEWTYPE OF
+                        NSET
+              ZV$STRING:                        % NUMERIC TO STRING %
+                BEGIN
+                IF $FPCNT(.ZBSTK$[Z$FP,.ZSTKP$]) GTR .NEWPIC[FP$C]
+                  THEN
+                    $GERR(531,.ZSTKP$);
+                IF .ISFLAG EQL ZV$TRUE
+                  THEN
+                    $GIREC(GV$NSTEST,4)
+                  ELSE
+                    $GIREC(GV$NSCVRT,4);
+                GGBFP$[G$UCNT] := 1;
+                GGBFP$[G$OPND1] := $GOPND(.ZSTKP$);
+                GGBFP$[G$OPND2] := .NEWPIC;
+                $GWBUF(.GGBFP$,.GOB1I$);
+                IF .ISFLAG EQL ZV$TRUE
+                  THEN
+                    STACKLRSLT()
+                  ELSE
+                    BEGIN
+                    ZBSTK$[Z$ID,.ZSTKP$] := TV$NAME;
+                    ZBSTK$[Z$DATATYP,.ZSTKP$] := ZV$STRING;
+                    ZBSTK$[Z$SBID,.ZSTKP$] := ZV$SRSLT;
+                    ZBSTK$[Z$LCHAR,.ZSTKP$] := .NEWPIC[FP$C];
+                    ZBSTK$[Z$INCSTP,.ZSTKP$] := .GGBFP$[G$ID];
+                    ZBSTK$[Z$RSLTYP,.ZSTKP$] := GV$SCVRT;
+                    ZBSTK$[Z$FP,.ZSTKP$] := .NEWPIC;
+                    END;
+                END;
+
+              ZV$NUMERIC:                           % NUMERIC TO NUMERIC %
+                BEGIN
+                NEWICNT := .NEWPIC[FP$FI] + .NEWPIC[FP$XI];
+                NEWDCNT := .NEWPIC[FP$EI] + .NEWPIC[FP$DI];
+                OLDPIC := .ZBSTK$[Z$FP,.ZSTKP$];
+                IF .ZBSTK$[Z$ICNT,.ZSTKP$] GTR .NEWICNT   OR
+                   (.OLDPIC[FP$SIGN] NEQ FPV$NSC  AND  .NEWPIC[FP$SIGN] EQL FPV$NSC)
+                  THEN
+                    $GERR(531,.ZSTKP$);
+                IF .ISFLAG EQL ZV$TRUE
+                  THEN
+                    BEGIN
+                    IF .NEWPIC[FP$SIGN] EQL FPV$NSC
+                      THEN
+                        RANGECHK(GV$POSRCHK)
+                      ELSE
+                        RANGECHK(GV$ABSRCHK);
+                    RETURN;
+                    END;
+                IF .ZBSTK$[Z$DCNT,.ZSTKP$] LSS .NEWDCNT
+                  THEN
+                    BEGIN
+                    $GALIGN(.ZSTKP$,.NEWDCNT);
+                    ZBSTK$[Z$ID,.ZSTKP$] := TV$NAME;
+                    ZBSTK$[Z$DATATYP,.ZSTKP$] := ZV$NUMERIC;
+                    ZBSTK$[Z$SBID,.ZSTKP$] := ZV$NRSLT;
+                    ZBSTK$[Z$ICNT,.ZSTKP$] := .NEWICNT;
+                    ZBSTK$[Z$DCNT,.ZSTKP$] := .NEWDCNT;
+                    ZBSTK$[Z$INCSTP,.ZSTKP$] := .GGBFP$[G$ID];
+                    ZBSTK$[Z$RSLTYP,.ZSTKP$] := GV$ARITH;
+                    ZBSTK$[Z$FP,.ZSTKP$] := .NEWPIC;
+                    END
+                  ELSE
+                    IF .ZBSTK$[Z$ICNT,.ZSTKP$] LSS .NEWICNT OR
+                       .ZBSTK$[Z$DCNT,.ZSTKP$] GTR .NEWDCNT
+                      THEN
+                        IF .NEWICNT + .NEWDCNT LEQ 10 AND
+                           .ZBSTK$[Z$DCNT,.ZSTKP$] EQL .NEWDCNT
+                          THEN
+                            ZBSTK$[Z$FP,.ZSTKP$] := .NEWPIC
+                          ELSE
+                            BEGIN
+                            WVNSTE := $GWVAR(ZV$NUMERIC,ZV$FP,.NEWPIC);
+                            $GIREC(GV$STORE,5);
+                            GGBFP$[G$ICNT] := .NEWICNT;
+                            GGBFP$[G$DCNT] := .NEWDCNT;
+                            GGBFP$[G$OPND2] := $GOPND(.ZSTKP$);
+                            GGBFP$[G$OPND3] := GV$ROUND;
+                            GGBOP$[0,G$OPTYP] := GV$STP;
+                            GGBOP$[0,G$OPVAL] := .WVNSTE[S$CISTP];
+                            $GWBUF(.GGBFP$,.GOB1I$);
+                            ZBSTK$[Z$ID,.ZSTKP$] := TV$NAME;
+                            ZBSTK$[Z$SBID,.ZSTKP$] := ZV$FLD;
+                            ZBSTK$[Z$DATATYP,.ZSTKP$] := ZV$NUMERIC;
+                            ZBSTK$[Z$STP,.ZSTKP$] := .WVNSTE[S$STPX];
+                            ZBSTK$[Z$DEFSTP,.ZSTKP$] := .WVNSTE[S$DSTP];
+                            ZBSTK$[Z$INCSTP,.ZSTKP$] := .WVNSTE[S$CISTP];
+                            ZBSTK$[Z$ICNT,.ZSTKP$] := .NEWICNT;
+                            ZBSTK$[Z$DCNT,.ZSTKP$] := .NEWDCNT;
+                            ZBSTK$[Z$FP,.ZSTKP$] := .NEWPIC;
+                            $SFNME(.WVNSTE,3);
+                            END
+                          ELSE
+                            ZBSTK$[Z$FP,.ZSTKP$] := .NEWPIC;
+                END;
+
+              ZV$DATE:                              % NUMERIC TO DATE %
+                BEGIN
+                IF .ZBSTK$[Z$ICNT,.ZSTKP$] GTR 8 OR
+                   .ZBSTK$[Z$DCNT,.ZSTKP$] GTR 0
+                  THEN
+                    $GERR(531,.ZSTKP$);
+                IF .ISFLAG EQL ZV$TRUE
+                  THEN
+                    BEGIN
+                    RANGECHK(GV$POSRCHK);
+                    RETURN;
+                    END;
+                IF .ZBSTK$[Z$DCNT,.ZSTKP$] EQL 0
+                  THEN
+                    BEGIN
+                    ZBSTK$[Z$DATATYP,.ZSTKP$] := ZV$DATE;
+                    ZBSTK$[Z$ICNT,.ZSTKP$] := 8;
+                    ZBSTK$[Z$DTMP,.ZSTKP$][0] := @(.NEWDTMP);
+                    ZBSTK$[Z$DTMP,.ZSTKP$][1] := @(.NEWDTMP+1);
+                    END
+                  ELSE
+                    BEGIN
+                    WVNSTE := $GDWVAR(.NEWDTMP);
+                    $GIREC(GV$STORE,5);
+                    GGBFP$[G$ICNT] := 8;
+                    GGBFP$[G$DCNT] := 0;
+                    GGBFP$[G$OPND2] := $GOPND(.ZSTKP$);
+                    GGBFP$[G$OPND3] := .GV$ROUND;
+                    GGBOP$[0,G$OPTYP] := GV$STP;
+                    GGBOP$[0,G$OPVAL] := .WVNSTE[S$CISTP];
+                    $GWBUF(.GGBFP$,.GOB1I$);
+                    ZBSTK$[Z$ID,.ZSTKP$] := TV$NAME;
+                    ZBSTK$[Z$DATATYP,.ZSTKP$] := ZV$DATE;
+                    ZBSTK$[Z$SBID,.ZSTKP$] := ZV$FLD;
+                    ZBSTK$[Z$ICNT,.ZSTKP$] := 8;
+                    ZBSTK$[Z$DCNT,.ZSTKP$] := 0;
+                    ZBSTK$[Z$INCSTP,.ZSTKP$] := .WVNSTE[S$CISTP];
+                    ZBSTK$[Z$DTMP,.ZSTKP$][0] := @(.NEWDTMP);
+                    ZBSTK$[Z$DTMP,.ZSTKP$][1] := @(.NEWDTMP+1);
+                    $SFNME(.WVNSTE,3);
+                    END;
+                END;
+                            TESN ;
+          ZV$DATE:
+            SELECT .NEWTYPE OF
+                        NSET
+              ZV$STRING:                % DATE TO STRING %
+                BEGIN
+                IF .NEWPIC[FP$C] LSS 8
+                  THEN
+                    $GERR(531,.ZSTKP$);
+                IF .ISFLAG EQL ZV$TRUE
+                  THEN
+                    $GIREC(GV$DSTEST,6)
+                  ELSE
+                    $GIREC(GV$DSCVRT,6);
+                GGBFP$[G$UCNT] := 1;
+                GGBFP$[G$OPND1] := $GOPND(.ZSTKP$);
+                GGBFP$[G$OPND2] := .NEWPIC;
+                GGBFP$[G$OPND3] := .ZBSTK$[Z$DTMP,.ZSTKP$][0];
+                GGBFP$[G$OPND4] := .ZBSTK$[Z$DTMP,.ZSTKP$][1];
+                $GWBUF(.GGBFP$,.GOB1I$);
+                IF .ISFLAG EQL ZV$TRUE
+                  THEN
+                    STACKLRSLT()
+                  ELSE
+                    BEGIN
+                    ZBSTK$[Z$ID,.ZSTKP$] := TV$NAME;
+                    ZBSTK$[Z$DATATYP,.ZSTKP$] := ZV$STRING;
+                    ZBSTK$[Z$SBID,.ZSTKP$] := ZV$SRSLT;
+                    ZBSTK$[Z$LCHAR,.ZSTKP$] := .NEWPIC[FP$C];
+                    ZBSTK$[Z$INCSTP,.ZSTKP$] := .GGBFP$[G$ID];
+                    ZBSTK$[Z$RSLTYP,.ZSTKP$] := GV$SCVRT;
+                    ZBSTK$[Z$FP,.ZSTKP$] := .NEWPIC;
+                    END;
+                END;
+
+              ZV$NUMERIC:                       % DATE TO NUMERIC %
+                BEGIN
+                NEWICNT := .NEWPIC[FP$FI] + .NEWPIC[FP$XI];
+                IF .NEWICNT LSS 8
+                  THEN
+                    $GERR(531,.ZSTKP$);
+                IF .ISFLAG EQL ZV$TRUE
+                  THEN
+                    BEGIN
+                    IF .NEWICNT LSS 8
+                      THEN
+                        RANGECHK(GV$POSRCHK)
+                      ELSE
+                        TRUERSLT();
+                    RETURN;
+                    END;
+                NEWDCNT := .NEWPIC[FP$EI] + .NEWPIC[FP$DI];
+                IF .NEWDCNT EQL 0
+                  THEN
+                    BEGIN
+                    ZBSTK$[Z$DATATYP,.ZSTKP$] := ZV$NUMERIC;
+                    ZBSTK$[Z$ICNT,.ZSTKP$] := .NEWICNT;
+                    ZBSTK$[Z$DCNT,.ZSTKP$] := .NEWDCNT;
+                    ZBSTK$[Z$FP,.ZSTKP$] := .NEWPIC;;
+                    END
+                  ELSE
+                    BEGIN
+                    $GALIGN(.ZSTKP$,.NEWDCNT);
+                    ZBSTK$[Z$ID,.ZSTKP$] := TV$NAME;
+                    ZBSTK$[Z$DATATYP,.ZSTKP$] := ZV$NUMERIC;
+                    ZBSTK$[Z$SBID,.ZSTKP$] := ZV$NRSLT;
+                    ZBSTK$[Z$ICNT,.ZSTKP$] := .NEWICNT;
+                    ZBSTK$[Z$DCNT,.ZSTKP$] := .NEWDCNT;
+                    ZBSTK$[Z$INCSTP,.ZSTKP$] := .GGBFP$[G$ID];
+                    ZBSTK$[Z$RSLTYP,.ZSTKP$] := GV$ARITH;
+                    ZBSTK$[Z$FP,.ZSTKP$] := .NEWPIC;
+                    END;
+                END;
+
+              ZV$DATE:                          % DATE TO DATE %
+                BEGIN
+                IF .ISFLAG EQL ZV$TRUE
+                  THEN
+                    TRUERSLT()
+                  ELSE
+                    BEGIN
+                    ZBSTK$[Z$DTMP,.ZSTKP$][0] := @(.NEWDTMP);
+                    ZBSTK$[Z$DTMP,.ZSTKP$][1] := @(.NEWDTMP+1);
+                    END;
+                END;
+                        TESN ;
+                TESN
+
+      END;
+
+
+    ROUTINE SRCAS(NEWTYPE,NEWPIC,NEWDTMP)=
+      BEGIN
+
+      MAP FP$I NEWPIC;
+      MAP DT$ NEWDTMP;
+      LOCAL DT$ OLDDTMP;
+      LOCAL S$ WVNSTE;
+      LOCAL G$OPND OPNDP;
+      LOCAL NEWICNT, NEWDCNT, OPERAND, FRECP, LRECP;
+      LOCAL FP$I OLDPIC;
+
+        SELECT .NEWTYPE OF          % SELECT ON OVERRIDE DATA TYPE %
+                 NSET
+          ZV$STRING:                    % STRING OVERRIDE %
+            BEGIN
+            WVNSTE := $GWVAR(ZV$STRING,.NEWPIC[FP$C],0);
+            SELECT .ZBSTK$[Z$DATATYP,.ZSTKP$] OF
+                        NSET
+              ZV$STRING:                        % STRING TO STRING %
+                BEGIN
+                IF .NEWPIC[FP$C] GTR .ZBSTK$[Z$LCHAR,.ZSTKP$]
+                  THEN
+                    $GERR(531,.ZSTKP$);
+                $GIREC(GV$STORE,5);
+                GGBFP$[G$OPND1] := $GOPND(.ZSTKP$);
+                GGBFP$[G$OPND3] := GV$TRUNC;
+                GGBOP$[1,G$OPTYP] := GV$STP;
+                GGBOP$[1,G$OPVAL] := .WVNSTE[S$CISTP];
+                FRECP := LRECP := $GWBUF(.GGBFP$,.GASBI$);
+                END;
+
+              ZV$NUMERIC:                       %STRING TO NUMERIC %
+                BEGIN
+                IF .NEWPIC[FP$C] GTR $FPCNT(.ZBSTK$[Z$FP,.ZSTKP$])
+                  THEN
+                    $GERR(531,.ZSTKP$);
+                $GIREC(GV$SNCVRT,4);
+                GGBFP$[G$UCNT] := 1;
+                GGBFP$[G$ICNT] := .ZBSTK$[Z$ICNT,.ZSTKP$];
+                GGBFP$[G$DCNT] := .ZBSTK$[Z$DCNT,.ZSTKP$];
+                GGBOP$[0,G$OPTYP] := GV$STP;
+                GGBOP$[0,G$OPVAL] := .WVNSTE[S$CISTP];
+                GGBFP$[G$OPND2] := .ZBSTK$[Z$FP,.ZSTKP$];
+                FRECP := $GWBUF(.GGBFP$,.GASBI$);
+                $GIREC(GV$STORE,5);
+                GGBFP$[G$OPND1] := $GOPND(.ZSTKP$);
+                GGBFP$[G$OPND3] := GV$ROUND;
+                GGBOP$[1,G$OPTYP] := GV$NP;
+                GGBOP$[1,G$OPVAL] := .GGBFP$[G$ID]-1;
+                GGBOP$[1,G$NPTYPE] := GV$NCVRT;
+                LRECP := $GWBUF(.GGBFP$,.GASBI$);
+                END;
+
+              ZV$DATE:                          % STRING TO DATE %
+                BEGIN
+                IF .NEWDTMP[DT$INOK] EQL SV$TRUE
+                  THEN
+                    $GERR(573,.ZSTKP$);
+                IF .NEWPIC[FP$C] GTR .NEWDTMP[DT$PRSIZE]
+                  THEN
+                    $GERR(531,.ZSTKP$);
+                $GIREC(GV$SDCVRT,5);
+                GGBFP$[G$UCNT] := 1;
+                GGBOP$[0,G$OPTYP] := GV$STP;
+                GGBOP$[0,G$OPVAL] := .WVNSTE[S$CISTP];
+                GGBFP$[G$OPND2] := .ZBSTK$[Z$DTMP,.ZSTKP$][0];
+                GGBFP$[G$OPND3] := .ZBSTK$[Z$DTMP,.ZSTKP$][1];
+                FRECP := $GWBUF(.GGBFP$,.GASBI$);
+                $GIREC(GV$STORE,5);
+                GGBFP$[G$OPND1] := $GOPND(.ZSTKP$);
+                GGBFP$[G$OPND3] := GV$ROUND;
+                GGBOP$OPTYP] := GV$NP;
+                GGBOP$[1,G$OPVAL] := .GGBFP$[G$ID]-1;
+                GGBOP$[1,G$NPTYPE] := GV$DCVRT;
+                LRECP := $GWBUF(.GGBFP$,.GASBI$);
+                END;
+                        TESN ;
+            ZBSTK$[Z$STP,.ZSTKP$] := .WVNSTE[S$STPX];
+            ZBSTK$[Z$DEFSTP,.ZSTKP$] := .WVNSTE[S$DSTP];
+            ZBSTK$[Z$INCSTP,.ZSTKP$] := .WVNSTE[S$CISTP];
+            ZBSTK$[Z$LCHAR,.ZSTKP$] := .NEWPIC[FP$C];
+            ZBSTK$[Z$FP,.ZSTKP$] := .NEWPIC;
+            ZBSTK$[Z$DATATYP,.ZSTKP$] := ZV$STRING;
+            ZBSTK$[Z$FASRECP,.ZSTKP$] := .FRECP;
+            ZBSTK$[Z$LASRECP,.ZSTKP$] := .LRECP;
+            $SFNME(.WVNSTE,3);
+            END;
+
+          ZV$NUMERIC:                           % NUMERIC OVERRIDE %
+            BEGIN
+            NEWICNT := .NEWPIC[FP$FI] + .NEWPIC[FP$XI];
+            NEWDCNT := .NEWPIC[FP$EI] + .NEWPIC[FP$DI];
+            WVNSTE := $GWVAR(ZV$NUMERIC,ZV$FP,.NEWPIC);
+            SELECT .ZBSTK$[Z$DATATYP,.ZSTKP$] OF
+                        NSET
+              ZV$NUMERIC:                       % NUMERIC TO NUMERIC %
+                BEGIN
+                OPNDP := OPERAND;
+                OLDPIC := .ZBSTK$[Z$FP,.ZSTKP$];
+                IF .NEWICNT GTR .ZBSTK$[Z$ICNT,.ZSTKP$]   OR
+                   (.OLDPIC[FP$SIGN] EQL FPV$NSC  AND  .NEWPIC[FP$SIGN] NEQ FPV$NSC)
+                  THEN
+                    $GERR(531,.ZSTKP$);
+                IF .NEWDCNT LSS .ZBSTK$[Z$DCNT,.ZSTKP$]
+                  THEN
+                    BEGIN
+                    $GIREC(GV$ALIGN,4);
+                    GGBFP$[G$ICNT] := .ZBSTK$[Z$ICNT,.ZSTKP$];
+                    GGBFP$[G$DCNT] := .ZBSTK$[Z$DCNT,.ZSTKP$];
+                    GGBFP$[G$UCNT] := 1;
+                    GGBOP$[0,G$OPTYP] := GV$STP;
+                    GGBOP$[0,G$OPVAL] := .WVNSTE[S$CISTP];
+                    GGBFP$[G$OPND2] := .ZBSTK$[Z$DCNT,.ZSTKP$] - .NEWDCNT;
+                    FRECP := $GWBUF(.GGBFP$,.GASBI$);
+                    OPNDP[0,G$OPTYP] := GV$NP;
+                    OPNDP[0,G$OPVAL] := .GGBFP$[G$ID];
+                    OPNDP[0,G$NPTYPE] := GV$ARITH;
+                    END
+                  ELSE
+                    BEGIN
+                    OPNDP[0,G$OPTYP] := GV$STP;
+                    OPNDP[0,G$OPVAL] := .WVNSTE[S$CISTP];
+                    FRECP := ZV$NULL;
+                    END;
+                $GIREC(GV$STORE,5);
+                GGBFP$[G$OPND1] := $GOPND(.ZSTKP$);
+                GGBFP$[G$OPND2] := .OPERAND;
+                GGBFP$[G$OPND3] := GV$ROUND;
+                LRECP := $GWBUF(.GGBFP$,.GASBI$);
+                IF .FRECP EQL ZV$NULL
+                  THEN
+                    FRECP := .LRECP;
+                END;
+
+              ZV$STRING:                        % NUMERIC TO STRING %
+                BEGIN
+                IF $FPCNT(.NEWPIC) GTR .ZBSTK$[Z$LCHAR,.ZSTKP$]
+                  THEN
+                    $GERR(531,.ZSTKP$);
+                $GIREC(GV$NSCVRT,4);
+                GGBFP$[G$UCNT] := 1;
+                GGBOP$[0,G$OPTYP] := GV$STP;
+                GGBOP$[0,G$OPVAL] := .WVNSTE[S$CISTP];
+                GGBFP$[G$OPND2] := .ZBSTK$[Z$FP,.ZSTKP$];
+                FRECP := $GWBUF(.GGBFP$,.GASBI$);
+                $GIREC(GV$STORE,5);
+                GGBFP$[G$OPND1] := $GOPND(.ZSTKP$);
+                GGBFP$[G$OPND3] := GV$TRUNC;
+                GGBOP$[1,G$OPTYP] := GV$NP;
+                GGBOP$[1,G$OPVAL] := .GGBFP$[G$ID] - 1;
+                GGBOP$[1,G$NPTYPE] := GV$SCVRT;
+                LRECP := $GWBUF(.GGBFP$,.GASBI$);
+                END;
+
+              ZV$DATE:                          % NUMERIC TO DATE %
+                BEGIN
+                IF .NEWICNT GTR 8 OR .NEWDCNT GTR 0
+                  THEN
+                    $GERR(531,.ZSTKP$);
+                $GIREC(GV$STORE,5);
+                GGBFP$[G$OPND1] := $GOPND(.ZSTKP$);
+                GGBFP$[G$OPND3] := GV$ROUND;
+                GGBOP$[1,G$OPTYP] := GV$STP;
+                GGBOP$[1,G$OPVAL] := .WVNSTE[S$CISTP];
+                FRECP := LRECP := $GWBUF(.GGBFP$,.GASBI$);
+                END;
+                        TESN ;
+            ZBSTK$[Z$STP,.ZSTKP$] := .WVNSTE[S$STPX];
+            ZBSTK$[Z$DEFSTP,.ZSTKP$] := .WVNSTE[S$DSTP];
+            ZBSTK$[Z$INCSTP,.ZSTKP$] := .WVNSTE[S$CISTP];
+            ZBSTK$[Z$ICNT,.ZSTKP$] := .NEWICNT;
+            ZBSTK$[Z$DCNT,.ZSTKP$] := .NEWDCNT;
+            ZBSTK$[Z$FP,.ZSTKP$] := .NEWPIC;
+            ZBSTK$[Z$DATATYP,.ZSTKP$] := ZV$NUMERIC;
+            ZBSTK$[Z$FASRECP,.ZSTKP$] := .FRECP;
+            ZBSTK$[Z$LASRECP,.ZSTKP$] := .LRECP;
+            $SFNME(.WVNSTE,3);
+            END;
+
+          ZV$DATE:                              % DATE OVERRIDE %
+            BEGIN
+            IF .NEWDTMP[DT$INOK] EQL SV$FALSE
+              THEN
+                $GERR(573,.ZSTKP$);
+            WVNSTE := $GDWVAR(.NEWDTMP);
+            SELECT .ZBSTK$[Z$DATATYP,.ZSTKP$] OF
+                        NSET
+              ZV$STRING:                        % DATE TO STRING %
+                BEGIN
+                IF .NEWDTMP[DT$PRSIZE] GTR .ZBSTK$[Z$LCHAR,.ZSTKP$]
+                  THEN
+                    $GERR(531,.ZSTKP$);
+                $GIREC(GV$DSCVRT,6);
+                GGBFP$[G$UCNT] := 1;
+                GGBOP$[0,G$OPTYP] := GV$STP;
+                GGBOP$[0,G$OPVAL] := .WVNSTE[S$CISTP];
+                GGBFP$[G$OPND2] := .ZBSTK$[Z$FP,.ZSTKP$];
+                GGBFP$[G$OPND3] := @(.NEWDTMP);
+                GGBFP$[G$OPND4] := @(.NEWDTMP+1);
+                FRECP := $GWBUF(.GGBFP$,.GASBI$);
+                $GIREC(GV$STORE,5);
+                GGBFP$[G$OPND1] := $GOPND(.ZSTKP$);
+                GGBFP$[G$OPND3] := GV$TRUNC;
+                GGBOP$[1,G$OPTYP] := GV$NP;
+                GGBOP$[1,G$OPVAL] := .GGBFP$[G$ID] - 1;
+                GGBOP$[1,G$NPTYPE] := GV$SCVRT;
+                LRECP := $GWBUF(.GGBFP$,.GASBI$);
+                END;
+
+              ZV$NUMERIC:                       % DATE TO NUMERIC %
+                BEGIN
+                IF .ZBSTK$[Z$ICNT,.ZSTKP$] LSS 8
+                  THEN
+                    $GERR(531,.ZSTKP$);
+                OPNDP := OPERAND;
+                IF .ZBSTK$[Z$DCNT,.ZSTKP$] GTR 0
+                  THEN
+                    BEGIN
+                    $GIREC(GV$ALIGN,4);
+                    GGBFP$[G$UCNT] := 1;
+                    GGBFP$[G$ICNT] := .ZBSTK$[Z$ICNT,.ZSTKP$];
+                    GGBFP$[G$DCNT] := .ZBSTK$[Z$DCNT,.ZSTKP$];
+                    GGBOP$[0,G$OPTYP] := GV$STP;
+                    GGBOP$[0,G$OPVAL] := .WVNSTE[S$CISTP];
+                    GGBFP$[G$OPND2] := .GGBFP$[G$DCNT];
+                    FRECP := $GWBUF(.GGBFP$,.GASBI$);
+                    OPNDP[0,G$OPTYP] := GV$NP;
+                    OPNDP[0,G$OPVAL] := .GGBFP$[G$ID];
+                    OPNDP[0,G$NPTYPE] := GV$ARITH;
+                    END
+                  ELSE
+                    BEGIN
+                    OPNDP[0,G$OPTYP] := GV$STP;
+                    OPNDP[0,G$OPVAL] := .WVNSTE[S$CISTP];
+                    FRECP := ZV$NULL;
+                    END;
+                $GIREC(GV$STORE,5);
+                GGBFP$[G$OPND1] := $GOPND(.ZSTKP$);
+                GGBFP$[G$OPND2] := .OPERAND;
+                GGBFP$[G$OPND3] := GV$ROUND;
+                LRECP := $GWBUF(.GGBFP$,.GASBI$);
+                IF .FRECP EQL ZV$NULL
+                  THEN
+                    FRECP := .LRECP;
+                END;
+
+              ZV$DATE:                          % DATE TO DATE %
+                BEGIN
+                $GIREC(GV$STORE,5);
+                GGBFP$[G$OPND1] := $GOPND(.ZSTKP$);
+                GGBFP$[G$OPND3] := GV$ROUND;
+                GGBOP$[1,G$OPTYP] := GV$STP;
+                GGBOP$[1,G$OPVAL] := .WVNSTE[S$CISTP];
+                FRECP := LRECP := $GWBUF(.GGBFP$,.GASBI$);
+                END;
+                        TESN ;
+            ZBSTK$[Z$STP,.ZSTKP$] := .WVNSTE[S$STPX];
+            ZBSTK$[Z$DEFSTP,.ZSTKP$] := .WVNSTE[S$DSTP];
+            ZBSTK$[Z$INCSTP,.ZSTKP$] := .WVNSTE[S$CISTP];
+            ZBSTK$[Z$ICNT,.ZSTKP$] := 8;
+            ZBSTK$[Z$DCNT,.ZSTKP$] := 0;
+            ZBSTK$[Z$DATATYP,.ZSTKP$] := ZV$DATE;
+            ZBSTK$[Z$DTMP,.ZSTKP$][0] := @(.NEWDTMP);
+            ZBSTK$[Z$DTMP,.ZSTKP$][1] := @(.NEWDTMP+1);
+            ZBSTK$[Z$FASRECP,.ZSTKP$] := .FRECP;
+            ZBSTK$[Z$LASRECP,.ZSTKP$] := .LRECP;
+            $SFNME(.WVNSTE,3);
+            END;
+             TESN;
+
+      END;
+
+
+   %***  START OF CONVERTION ROUTINE  ***%
+    SELECT .ZBSTK$[Z$ID,.ZSTKP$] OF     % determine type of override specified %
+                NSET
+      TV$8PIC:
+        BEGIN
+        $GPOP();
+        NEWPIC := $FPICR(ZBSTK$[Z$ID,.ZSTKP$]<0,36>);
+        $GPOP();
+        NEWDTMP := ZV$NULL;
+        NEWTYPE :=
+          (SELECT .NEWPIC[FP$TYPE] OF
+                      NSET
+            FPV$STR : ZV$STRING;
+            FPV$NUM : ZV$NUMERIC;
+            OTHERWISE : BEGIN
+                        $UOUTM(FTLMS$<36,7>,0);
+                        $FATAL(#122);
+                        END;
+                    TESN );
+        END;
+      TV$DATE:
+        BEGIN
+        $GPOP();
+        NEWDTMP := DATETEMP;
+        $FPDAT(ZBSTK$[Z$ID,.ZSTKP$]<0,36>,.NEWDTMP);
+        $GPOP();
+        NEWPIC := ZV$NULL;
+        NEWTYPE := ZV$DATE;
+        END;
+
+      OTHERWISE:
+        BEGIN
+        IF .ZBSTK$[Z$SBID,.ZSTKP$] NEQ ZV$FLD
+          THEN
+            BEGIN
+            $GERR(571,.ZSTKP$);
+            $GPOP();
+            RETURN;
+            END;
+        IF .ZBSTK$[Z$DATATYP,.ZSTKP$] EQL ZV$DATE
+          THEN
+            BEGIN
+            NEWDTMP := DATETEMP;
+            DATETEMP[0] := .ZBSTK$[Z$DTMP,.ZSTKP$][0];
+            DATETEMP[1] := .ZBSTK$[Z$DTMP,.ZSTKP$][1];
+            NEWPIC := ZV$NULL;
+            NEWTYPE := ZV$DATE;
+            END
+          ELSE
+            BEGIN
+            NEWPIC := .ZBSTK$[Z$FP,.ZSTKP$];
+            NEWDTMP := ZV$NULL;
+            NEWTYPE := .ZBSTK$[Z$DATATYP,.ZSTKP$];
+            END;
+        END;
+                TESN ;
+    IF $GICHK(.ZSTKP$) EQL ZV$FALSE
+      THEN
+        $GERR(526,.ZSTKP$);
+    IF .GSRCP$ EQL ZV$NULL
+      THEN
+        BEGIN
+        IF .GBTKN$[A$ID] EQL TV$IS
+          THEN
+            ISFLAG := ZV$TRUE
+          ELSE
+            ISFLAG := ZV$FALSE;
+        STDAS(.NEWTYPE,.NEWPIC,.NEWDTMP,.ISFLAG);
+        END
+      ELSE              %**  INPUT LIST  **%
+        SRCAS(.NEWTYPE,.NEWPIC,.NEWDTMP);
+    END;
+
+
+  END
+ELUDOM
+   C{>"
