@@ -1,0 +1,167 @@
+MODULE YLSRT(DOLLAR,ENTRIES=($YLSRT),FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+
+BEGIN
+
+REQUIRE STDEFS.BLI[7,107355];
+REQUIRE RCDEFS.BLI[7,107355];
+REQUIRE RDEFS.BLI[7,107355];
+REQUIRE IBDEFS.BLI[7,107355];
+REQUIRE DBDEFS.BLI[7,107355];
+REQUIRE UDEFS.BLI[7,107355];
+REQUIRE CDEFS.BLI[7,107355];
+REQUIRE KDEFS.BLI[7,107355];
+UNDECLARE $YLSRT;
+
+MACRO INC(NAME)= (NAME_.NAME+1)&;
+
+GLOBAL ROUTINE $YLSRT(RCB)=
+
+   BEGIN
+   MAP RCB$ RCB;
+   LOCAL ST$ ST;
+   LOCAL KFCB$ FCB:FC;
+   LOCAL KSOB$ SOB;
+   LOCAL KDB$ DB:RB:DB2;
+   LOCAL KIB$ IB;
+   LOCAL KSPB$ SPB;
+   LOCAL UDYNARY$ A:B:PTARR;
+   LOCAL N,ISIZ,DBSIZ,NEW,OLD,OFF,IBSIZ,ROFF,SUB,KSIZ,MAXOFF,PN,IBPN,LVLFLAG;
+   LOCAL NOL,J,T,NCRMENT,DBMENT,PGOFF,SOFF,PARIX,LASTOFF,NINBUF;
+   LABEL LOOP,SORT;
+   BIND NCRAR= PLIT(1,4,13,40,121,364,1093);
+
+
+   IF .RCB[RC$STATE] EQL RCV$ST4
+      THEN RETURN;
+
+   FC_.RCB[RC$FCB];
+   SOB_.RCB[RC$SOBP];
+   SPB_.SOB[K$SSPBP];
+   ISIZ_.SOB[K$SISIZ];
+   KSIZ_.SOB[K$SKSIZ];
+   DBSIZ_.SOB[K$SDBSIZ];
+   IBSIZ_.SOB[K$SIBSIZ];
+   NOL_.SOB[K$SNOL];
+   ST_.RCB[RC$SCONTRL];
+   FCB_.ST[ST$FCB1];
+   DB_.ST[ST$BUFA];
+   MAXOFF_KV$PAGS*.DBSIZ;
+   DBMENT_.SOB[K$SDBMENT];
+   PGOFF_.MAXOFF-.ISIZ*.DBMENT;
+   NINBUF_.ST[ST$NINBUF];
+   LASTOFF_.MAXOFF-.ISIZ;
+   PTARR_.ST[ST$PTARR];
+   SOFF_.ST[ST$OFF];
+   PARIX_0;
+
+   RB_.SPB[K$SDBBA];
+   ROFF_.SPB[K$SDBOF]-.ISIZ;
+   A_.RB+.ROFF+.ISIZ;
+   SUB_ (.SOB[K$SKEYCT] NEQ 0);
+   LVLFLAG_(.NOL NEQ 0);
+
+
+   WHILE 1 GTR 0
+      DO
+         BEGIN
+         ROFF_.ROFF+.ISIZ;
+         IF .ROFF GEQ .MAXOFF
+            THEN
+               IF (RB_$KNXDB(.FC,1)) EQL 0
+                  THEN   % EOF REACHED  %
+                     BEGIN
+                     ST[ST$OFF]_.SOFF;
+                     ST[ST$PARIX]_.PARIX;
+                     RETURN
+                     END
+                  ELSE ROFF_.RB[DB$OFF];
+         B_.A;
+         A_.RB+.ROFF;
+         IF .SUB
+            THEN INCR I FROM 0 TO .SOB[K$SSIZ]-1
+               DO IF .A[.I] NEQ .B[.I]
+                  THEN
+                     BEGIN
+                     ST[ST$OFF]_.SOFF;
+                     ST[ST$PARIX]_.PARIX;
+                     $KPROF(.FC,.RB,.SPB[K$SDBPN],.DBSIZ);
+                     IF .SOB[K$SNOL] GTR 0
+                        THEN $KPROF(.FC,.SOB[K$SIBBUF],.SPB[K$SIBPN,1]);
+                     RETURN
+                     END;
+SORT:
+            BEGIN
+            INC(ST[ST$NOI]);
+            $UMOVE(.ISIZ,.A,.DB+.SOFF);
+            PTARR[.PARIX]_.DB+.SOFF;
+            INC(PARIX);
+            IF .SOFF NEQ .LASTOFF
+               THEN
+                  BEGIN
+                  SOFF_.SOFF+.ISIZ;
+                  LEAVE SORT
+                  END
+               ELSE IF INC(ST[ST$BUFN]) LEQ .NINBUF
+                  THEN
+                     BEGIN
+                     DB_ST[ST$BUF,.ST[ST$BUFN]]_$KGBUF(.FCB,.ST[ST$NOP],.DBSIZ);
+                     $KPRON(.FCB,.DB,.ST[ST$NOP],.DBSIZ);
+                     INC(ST[ST$NOP]);
+                     SOFF_.PGOFF;
+                     LEAVE SORT
+                     END;
+         
+         %  ALL SORT BUFFERS ARE FULL. PERFORM SHELL POINTER SORT AND WRITE. %
+         
+            DECR M FROM .ST[ST$NARSZ]-1 TO 0
+               DO
+               BEGIN
+               NCRMENT_.NCRAR[.M];
+               INCR I FROM 0 TO .NCRMENT-1
+                  DO
+                     BEGIN
+                     J_0;
+                     WHILE (INC(J)*.NCRMENT+.I) LSS .DBMENT*.NINBUF
+                     DO
+                        BEGIN
+                        T_.PTARR[.I+.J*.NCRMENT];
+                        IF $YCOMP(.RCB,.PTARR[.I+(.J-1)*.NCRMENT],.T) GTR 0
+                           THEN
+                              BEGIN
+                              LOCAL K;
+                              K_.J-1;
+         LOOP:
+                              WHILE (K_.K-1) GEQ 0
+                                 DO IF $YCOMP(.RCB,.PTARR[.I+.K*.NCRMENT],.T) LEQ 0
+                                    THEN LEAVE LOOP;
+                              DECR N FROM .J-1 TO .K+1
+                                 DO PTARR[.I+(.N+1)*.NCRMENT]_.PTARR[.I+.N*.NCRMENT];
+                              PTARR[.I+(.K+1)*.NCRMENT]_.T;
+                              END;
+                        END;
+                     END;
+               END;
+            INCR N FROM 1 TO .NINBUF
+               DO
+                  BEGIN
+                  DB2_$KGBUF(.FCB,.ST[ST$NOP]-.NINBUF-1+.N,.DBSIZ);
+                  OFF_.PGOFF-.ISIZ;
+                  INCR I FROM (.N-1)*.DBMENT TO (.DBMENT*.N)-1
+                     DO $UMOVE(.ISIZ,.PTARR[.I],.DB2+(OFF_.OFF+.ISIZ));
+                  DB2[DB$OFF]_.PGOFF;
+                  DB2[DB$NUMBER]_.DBMENT;
+                  DB2[DB$VERNO]_0;
+                  $KVIWR(.FCB,.DB2,.ST[ST$NOP]-.NINBUF-1+.N,.DBSIZ);
+                  END;
+            INCR N FROM 1 TO .NINBUF
+               DO $KRBUF(.FCB,.ST[ST$BUF,.N],.ST[ST$NOP]-.NINBUF-1+.N,.DBSIZ);
+            DB_ST[ST$BUF,1]_$KGBUF(.FCB,.ST[ST$NOP],.DBSIZ);
+            ST[ST$BUFN]_1;
+            $KPRON(.FCB,.DB,.ST[ST$NOP],.DBSIZ);
+            INC(ST[ST$NOP]);
+            SOFF_.PGOFF;
+            PARIX_0;
+            END;
+         END;
+   END;
+END ELUDOM
