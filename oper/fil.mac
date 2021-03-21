@@ -1,0 +1,539 @@
+TITLE   FILIO
+INTERNAL CLOSER,OPENR,SCP,BYI,BYO,SBS,RFSIZ,RCPEOF,FLUSH
+INTERNAL HUSH,TALK,ERASE,RCP,RBS,ETEOF,RFS
+A=1
+B=2
+C=3
+D=4
+PPN=5
+FNAME=6
+FEXT=7
+IBUF=10        ;STANDARD IS 0
+OBUF=11                ;STANDARD IS 0
+DEV=12         ;STANDARD IS DSK
+IO=13
+ST=14  ;STANDARD IS 17B
+FN=15
+ER=16
+PC=17
+
+OPENR:  MOVEI   ST,17
+        SETZB   IBUF,OBUF
+        MOVE    DEV,[SIXBIT /DSK/]
+OPENR1: MOVEI   ER,1 ;FILE NUMBER OUT OF RANGE
+        CAIL    FN,0   ;CHECK RANGE OF FILE NUMBER 0-17B
+        CAIL    FN,20
+        JRST    0,ERR
+        MOVEM   ST,SPEC        ;SET UP PARAMETRS FOR OPEN UUO
+        MOVEM   DEV,SPEC+1
+        HRLM    OBUF,SPEC+2
+        HRRM    IBUF,SPEC+2
+        SETOM   0,FBLK(FN)     ;INITIALIZE BLOCK NUMBER TO -1
+        SETZM   0,FSIZ(FN)     ;INITIALIZE FILE SIZE TO 0
+        SETZM   0,FCP(FN)  ;CURSOR POSITION=0
+        SETZM   0,FSTA(FN);FILE STATUS=0
+        MOVEI   A,7
+        MOVEM   A,FBS(FN) ;BYTE SIZE=7
+        MOVEM   IO,IOSTA(FN)
+        MOVEM   DEV,FDEV(FN)
+OPENRC: MOVE    IO,IOSTA(FN)
+        MOVE    B,FN
+        LSH     B,27
+        MOVE    C,B
+        IOR     C,[OPEN 0,SPEC] ;CREATE OPEN UUO
+        MOVEI   ER,2 ;IO CHANNEL UNAVAILABLE
+        XCT     C              ;EXECUTE IT
+        JRST    0,ERR
+        TRNN    IO,2
+        JRST    0,OPENRA ; NOT OUTPUT
+        TRNE    IO,4
+        JRST    0,OPENRA ;UPDATE MODE
+        MOVEI   ER,0 ;NULL ERROR
+        PUSHJ   PC,OPNI
+        JRST    0,OPENRB
+        PUSHJ   PC,SCLOSE
+        JRST    0,.+1
+        PUSHJ   PC,OPNO
+        POPJ    PC,0 ;ERROR
+        PUSHJ   PC,SCLOSE
+        JRST    0,.+1
+OPENRA: PUSHJ   PC,OPNI
+        JRST    0,OPENRB
+        TRNN    IO,2
+        JRST    0,OPENRD ;NOT OUTPUT
+        PUSHJ   PC,OPNO
+        POPJ    PC,0
+OPENRD: AOS     NFOPN ; INCREMENT NUMBER FILES OPEN
+        AOS     0(17)
+        POPJ    PC,0                ;GOOD RETURN SKIPS
+
+OPENRB: MOVE    A,IOSTA(FN)
+        TRNN    A,1 ;CREATE FILE
+        JRST    0,ERR ;NO CREATION
+        PUSHJ   PC,OPNO
+        POPJ    PC,0
+        PUSHJ   PC,SCLOSE
+        JRST    0,OPENRC ;ERROR ON CLOSE
+        JRST    0,OPENRC
+
+
+OPNI:   PUSHJ   PC,OPENRS       ;OPEN FILE FOR INPUT
+        MOVE    C,B
+        IOR     C,[LOOKUP 0,OPENRE] ;CREATE LOOKUP UUO
+        MOVEI   ER,3 ;CANNOT OPEN FILE FOR INPUT
+        XCT     C ;EXECUTE IT
+        POPJ    PC,0
+        MOVE    A,OPENRE+5 ;UUO RETURNS SIZE OF FILE IN WORDS
+        MOVEM   A,FSIZ(FN) ;SIZE OF FILE IN WORDS
+        AOS     0(17)
+        POPJ    PC,0 ;GOOD RETURN
+
+OPNO:   PUSHJ   PC,OPENRS       ;OPEN FILE FOR OUTPUT
+        MOVE    C,B
+        IOR     C,[ENTER 0,OPENRE] ;CREATE ENTER UUO
+        MOVEI   ER,4 ;CANNOT OPEN FILE FOR OUTPUT
+        XCT     C ;EXECUTE IT
+        JRST    0,ERR
+        AOS     0(17)
+        POPJ    PC,0 ;GOOD RETURN
+
+
+OPENRS: MOVEI   A,5     ;       SETUP PARAMETERS FOR LOOKUP, ENTER
+        MOVEM   A,OPENRE
+        MOVEM   PPN,OPENRE+1
+        MOVEM   FNAME,OPENRE+2
+        HLLZM   FEXT,OPENRE+3
+        SETZM   0,OPENRE+4
+        SETZM   0,OPENRE+5
+        POPJ    PC,0
+
+SCLOSE: AOS     NFOPN ; INCREMENT NUMBER OF FILES OPEN
+CLOSER: PUSHJ   PC,FLUSH ;GET RID OF ALL BUFFERS FOR THIS FILE
+        MOVE    A,FN
+        LSH     A,27
+        IOR     A,[CLOSE 0,0]
+        XCT     A
+        AOS     0(17)
+        SOS     NFOPN ;DECREMENT NUMBER FILES OPEN
+        POPJ    PC,0 ;GOOD RETURN SKIPS
+
+FLUSH:  MOVEI   BF,NBF
+FLUSHB: SOJL    BF,FLUSHA
+        CAME    FN,FBFN(BF)
+        JRST    0,FLUSHB
+        PUSH    PC,BF
+        PUSHJ   PC,CFBLK
+        POP     PC,BF
+        SETOM   0,FBFN(BF)
+        SETOM   0,FBBN(BF)
+        SETZM   0,FBCD(BF)
+        JRST    0,FLUSHB
+FLUSHA: POPJ    PC,0
+
+
+ETEOF:  PUSH    PC,FCP(FN)
+        PUSH    PC,FBS(FN)
+ETEOFC: MOVEI   C,^D36
+        IDIV    C,FBS(FN) ;COMPUTE BYTES/WORD
+        MOVE    A,CP(FN)
+        IDIV    A,C ;A=WORD,B=BYTES INTO WORD
+        JUMPLE  B,ETEOFA ; NO PARTIAL WORD
+        MOVEI   CH,0
+        PUSHJ   PC,BYO
+        JRST    0,ETEOFB
+        JRST    0,ETEOFC
+ETEOFA: MOVEM   A,CP(FN)
+        MOVEI   A,^D36
+        MOVEM   A,FBS(FN)
+        MOVE    CP,FSIZ(FN)
+        PUSHJ   PC,ERASE
+        JRST    0,ETEOFB
+        AOS     -2(17)
+ETEOFB: POP     PC,FBS(FN)
+        POP     PC,FCP(FN)
+        POPJ    PC,0
+
+ERASE:  MOVEM   CP,CPERAS
+        MOVEI   CH,0
+ERASEA: MOVE    A,FCP(FN)
+        CAML    A,CPERAS ;SKIP IF MORE TO ERASE
+        JRST    0,ERASEB ; GOOD RETURN
+        PUSHJ   PC,BYO ;WRITE ZERO BYTE
+        JRST    0,ERASEA ;ERROR, BUT NOT SURE WHAT TO DO HERE
+        JRST    0,ERASEA ; GOOD BYTE OUTPUT
+ERASEB: AOS     0(17)
+        POPJ    PC,0 ; SKIP RETURN
+
+
+CP=14
+CH=10
+WRD=11
+RETRY=0
+BN=12
+NBF=10
+BF=13
+
+DSKPTR: XWD 0,DSKLST
+0
+0
+FSIZ:   BLOCK   20
+IOSTA:  BLOCK   20
+;BIT 35 - CREATE FILE
+;BIT 34 - OUTPUT
+;BIT 33 - UPDATE MODE
+;BIT 32 - NO ERROR ON READ PAST EOF
+
+OPENRE: BLOCK   33
+SPEC:   BLOCK   4
+ERCT:   BLOCK 1
+CPERAS: BLOCK 1
+BLKPTR: BLOCK 1
+NFOPN:  DEC     0 ;NUMBER OF FILES OPEN
+BFNF:   BLOCK 1 ;BLOCK NUMBER FOUND
+MBPFF:  BLOCK 1 ;MULTIPLE BUFFERS PER FILE FLAG
+; 0= NO, -1=YES
+ERCODE: BLOCK 1 ; CODE INDICATING TYPE OF ERROR
+ERFLG:  BLOCK 1 ;>=0, PRINT ERR MSGS, <0, DO NOT
+WRDN:   BLOCK 1 ;NEXT WORD NUMBER
+BLKN:   BLOCK 1 ;NEXT BLOCK NUMBER
+FBLK: REPEAT NBF,<BLOCK 200> ;BUFFER AREA
+FBFN: REPEAT NBF,<DEC -1>  ;FILE NUMBER CURRENTLY USING BUFFER
+FBBN: REPEAT NBF,<DEC -1>  ;BLOCK NUMBER OF FILE IN BUFFER
+FBCD: REPEAT NBF,<DEC 0>  ; CLEAN DIRTY FLAG FOR BUFFER, 0=CLEAN
+CFBTU: NBF
+FCP: BLOCK 20 ;FILE CURSOR POSITION
+FBS: BLOCK 20 ;FILE BYTE SIZE
+FSTA: BLOCK 20 ;FILE STATUS
+FDEV: BLOCK 20 ;FILE DEVICE SIXBIT NAME
+
+DSKLST: IOWD 200,FBLK
+0
+
+
+SCP:    MOVEM   CP,FCP(FN)      ;SET CURSOR
+        POPJ    PC,0
+RCP:    MOVE    CP,FCP(FN)      ;READ CURSOR
+        POPJ    PC,0
+
+BYI:    PUSHJ   PC,SBYI ;BYTE INPUT
+        POPJ    PC,0    ;ERROR
+        AOS     FCP(FN) ;INCREMENT CURSOR
+        AOS     0(17)
+        POPJ    PC,0
+
+SBYI:   PUSHJ   PC,SBYA ;SYSTEM BYTE INPUT
+        PUSH    PC,WRD+1
+        PUSHJ   PC,SWDI1; SYSTEM WORD INPUT, SECOND ENTRY POINT
+        JRST    0,SBYIA ;NO BYTES
+        POP     PC,A
+        PUSHJ   PC,SBYB
+        LDB     CH,A
+        AOS     0(17)
+        POPJ    PC,0 ;SKIP IS GOOD RETURN
+SBYIA:  POP     PC,0
+        MOVEI   CH,0  ;RETURN ZERO CHAR
+        MOVE    A,IOSTA(FN)
+        TRNN    A,10 ;SKIP IF READ PAST EOF OK
+        POPJ    PC,0 ;NO, REPORT ERROR AND DO NOT INCREMENT CURSOR
+        MOVEI   A,740000
+        TDOE    A,FSTA(FN) ;IS THERE A REAL ERROR ON FILE?
+        POPJ    PC,0  ;YES, REPORT ERROR
+        AOS     0(17)
+        POPJ    PC,0 ;SKIP RETURN
+
+
+SWDI:   PUSHJ   PC,SBYA
+SWDI1:  CAML    WRD,FSIZ(FN)
+        JRST    0,SWDIA ;EOF
+        MOVEI   WRD+1,0
+        LSHC    WRD,-7  ;GET BLOCK NUMBER
+        MOVEM   WRD,BLKN
+        LSHC    WRD,7
+        ANDI    WRD,177
+        MOVEM   WRD,WRDN        ;WORD INDEX INTO BUFFER
+        MOVE    A,[XWD 0,DSKLST]
+        MOVEM   A,DSKPTR
+        PUSHJ   PC,RDBLK        ;READ BLOCK INTO BUFFER
+        POPJ    PC,0    ;ERROR
+        MOVE    A,WRDN
+        ADD     A,BLKPTR
+        MOVE    WRD,0(A)
+        AOS     0(17)
+        POPJ    PC,0
+SWDIA:  MOVEI   A,020000
+        MOVEM   A,FSTA(FN)
+        POPJ    PC,0 ;NOSKIP RETURN
+RDBLK:  PUSHJ   PC,GBF
+        CAME    FN,FBFN(BF) ;READ BLOCK INTO BUFFER
+        PUSHJ   PC,CFBLK        ;CLEAR FILE BLOCK
+        MOVEM   FN,FBFN(BF)
+        MOVE    BN,BLKN ;DESIRED BLOCK NUMBER
+        CAMN    BN,FBBN(BF)
+        JRST    0,RDBLKA ;DESIRED BLOCK NOW IN BUFFER
+        SKIPE   0,FBCD(BF)  ;SKIP IF CURRENT BLOCK CLEAN
+        PUSHJ   PC,CFBLK        ;CLEAR FILE BLOCK
+        MOVEI   ER,5 ;PREVIOUS BUFFER FLUSHING WRITE ERROR
+        SKIPGE  0,FSTA(FN)
+        JRST    0,RDBLKD ;UNRECOVERABLE ERROR SOMEWHERE
+        MOVEI   A,RETRY
+        MOVEM   A,ERCT  ;ERROR COUNT
+        MOVE    B,FN
+        LSH     B,27
+RDBLKC: MOVE    A,B
+        IOR     A,BLKN
+        AOJ     A,0
+        IOR     A,[USETI 0,0] ;CREATE USETI UUO
+        XCT     A
+        MOVEI   A,200
+        IMUL    A,BF
+        ADDI    A,FBLK-1
+        HRLI    A,-200
+        MOVEM   A,@DSKPTR
+        MOVE    A,B
+        IOR     A,[INPUT 0,DSKPTR]
+        XCT     A
+        MOVE    A,B
+        IOR     A,[GETSTS 0,FSTA(FN)]
+        XCT     A
+        MOVEI   A,740000
+        MOVEI   ER,6 ;UNRECOVERABLE READ ERROR
+        TDOE    A,FSTA(FN)
+        JRST    0,RDBLKB ;ERROR
+        SETZM   0,FBCD(BF)  ;MARK BUFFER CLEAN
+        MOVE    A,BLKN
+        MOVEM   A,FBBN(BF)
+RDBLKA: AOS     0(17)
+        POPJ    PC,0
+RDBLKB: SOSLE   0,ERCT
+        JRST    0,RDBLKC ;TRY AGAIN
+RDBLKD: SETZM   0,FBCD(BF)
+        SETOM   0,FBBN(BF)
+        JRST    0,ERR
+
+CFBLK:  SKIPE   0,FBCD(BF)  ;CLEAR BUFFER AREA ROUTINE
+        JRST    0,CFBLKA ;AREA DIRTY, WRITE DATA
+CFBLKB: SETOM   0,FBBN(BF)    ;NO BLOCK
+        POPJ    PC,0
+CFBLKA: SKIPGE  0,FBFN(BF)
+        JRST    0,CFBLKB ;NOT IN USE
+        SKIPGE  0,FBBN(BF)
+        JRST    0,CFBLKB ;NO BLOCK IN BUFFER
+        MOVE    C,FBFN(BF)
+        MOVEI   A,RETRY
+        MOVEM   A,ERCT  ;ERROR COUNT
+        MOVE    B,C
+        LSH     B,27
+CFBLKD: MOVE    A,B
+        IOR     A,FBBN(BF)
+        AOJ     A,0
+        IOR     A,[USETO 0,0] ;CREATE USETO UUO
+        XCT     A
+        HRLZI   A,-200
+        MOVE    D,FSIZ(C)
+        SOJ     D,0
+        ASH     D,-7
+        CAMG    D,FBBN(BF)
+        JRST    0,CFBLKF        ;PARTIAL BLOCK WRITE
+CFBLKG: MOVEI   D,200
+        IMUL    D,BF
+        ADDI    D,FBLK-1
+        HRR     A,D
+        MOVEM   A,@DSKPTR
+        MOVE    A,B
+        IOR     A,[OUTPUT 0,DSKPTR]
+        XCT     A
+        MOVE    A,B
+        IOR     A,[GETSTS 0,FSTA(C)]
+        XCT     A
+        MOVEI   A,740000
+        TDOE    A,FSTA(C)
+        JRST    0,CFBLKC ;ERROR
+CFBLKE: SETZM   0,FBCD(BF)    ;MARK AREA CLEAN
+        JRST    0,CFBLKB
+CFBLKC: SOSLE   0,ERCT
+        JRST    0,CFBLKD ;TRY AGAIN
+        SETOM   0,FSTA(C)
+        JRST    0,CFBLKE
+CFBLKF: LSH     D,7
+        SUB     D,FSIZ(C)
+        HRLZ    A,D
+        JRST    0,CFBLKG
+
+GBF:    SETOM   0,BFNF ;BUFFER NUMBER FOUND
+        SETZM   0,MBPFF ;MULTIPLE BUFFERS PER FILE FLAG=NO
+        MOVE    A,NFOPN
+        CAIG    A,NBF ;MORE BUFFERS THAN FILES OPEN
+        SETOM   0,MBPFF ;SET FLAG TO YES
+        MOVE    BN,BLKN ;SET UP BLOCK NUMBER
+        MOVEI   BF,NBF ;GET FILE BUFFER
+GBFE:   SOJL   BF,GBFF
+        CAME    FN,FBFN(BF) ;FIND BUFFER ALREADY ASSIGNED TO THIS FILE
+        JRST    0,GBFE
+        MOVEM   BF,BFNF
+        CAME    BN,FBBN(BF)
+        JRST    0,GBFE
+        JRST    0,GBFD
+GBFF:   SKIPGE  0,MBPFF ;ALLOW MULTIPLE BUFFERS PER FILE
+        JRST    0,GBFA  ;YES, GET ANOTHER BUFFER
+        SKIPL   BF,BFNF ;NO, WAS ANY BUFFER FOUND
+        JRST    0,GBFD  ;YES, BUFFER NUMBER NOW IN BF
+GBFA:   MOVEI   BF,NBF
+        SOJL   BF,GBFB
+        SKIPL   0,FBFN(BF) ;FIND UNASSIGNED BUFFER
+        JRST    0,.-2
+        JRST    0,GBFD
+GBFB:   MOVEI   BF,NBF
+        SOJL   BF,GBFC
+        SKIPE   0,FBCD(BF) ;FIND CLEAN BUFFER
+        JRST    0,.-2
+        JRST    0,GBFD
+GBFC:   SOSL    BF,CFBTU ;PICK RANDOM BUFFER TO ASSIGN
+        JRST    0,GBFD
+        MOVEI   BF,NBF
+        MOVEM   BF,CFBTU
+        SOJ     BF,0
+GBFD:   MOVEI   A,200
+        IMUL    A,BF
+        ADDI    A,FBLK
+        MOVEM   A,BLKPTR
+        POPJ    PC,0
+
+BYO:    MOVEI   ER,7 ;WRITE ATTEMPT ON READ ONLY FILE
+        MOVE    A,IOSTA(FN)
+        TRNN    A,2
+        JRST    0,ERR
+        MOVEI   A,BYI+1 ;BYTE OUTPUT
+        PUSH    PC,A
+
+SBYO:   PUSHJ   PC,SBYA ;A=BYTES/WRD,WRD=WRDNUM,+1=BYTENUM
+        PUSH    PC,WRD+1 ;BYTENUM IN WRD
+        CAML    WRD,FSIZ(FN)
+        JRST    0,SBYOA ;NEW WORD
+        PUSHJ   PC,SWDI1
+        JRST    0,SBYIA ;ERROR
+SBYOD:  POP     PC,A
+        PUSHJ   PC,SBYB ;CREATE BYTE POINTER INTO WRD
+        DPB     CH,A
+        MOVE    A,WRDN
+        ADD     A,BLKPTR
+        MOVEM   WRD,0(A)
+        SETOM   0,FBCD(BF) ;MARK BLOCK DIRTY
+        AOS     0(17)
+        POPJ    PC,0
+SBYOA:  MOVE    B,FSIZ(FN)
+        MOVEM   WRD,FSIZ(FN)
+        AOS     0,FSIZ(FN)
+        SOJ     B,0
+        ASH     B,-7
+        MOVE    C,WRD
+        LSH     C,-7
+        CAMLE   C,B
+        JRST    0,SBYOC ;NEW BLOCK
+        PUSHJ   PC,SWDI1
+        JRST    0,SBYIA ;ERROR
+        MOVEI   WRD,0
+        JRST    0,SBYOD
+SBYOC:  SETOM   0,BLKN ;SET BLOCK NUMBER TO -1
+        PUSHJ   PC,GBF
+        PUSHJ   PC,CFBLK ;CLEAR BUFFER
+        MOVE    B,BLKPTR
+        MOVEI   A,177
+        SETZM   0,0(B)
+        AOJ     B,0
+        SOJGE   A,.-2
+        MOVEM   FN,FBFN(BF)
+        MOVE    B,FSIZ(FN)
+        SOJ     B,0
+        MOVEI   C,0
+        LSHC    B,-7
+        MOVEM   B,FBBN(BF)
+        MOVEM   B,BLKN
+        LSHC    B,7
+        ANDI    B,177
+        MOVEM   B,WRDN
+        JRST    0,SBYOD
+
+
+SBS:    MOVEI   ER,10 ;BYTE SIZE OUT OF RANGE
+        CAIG    A,^D36  ;SET BYTE SIZE
+        CAIG    A,0
+        JRST    0,ERR
+        MOVEM   A,FBS(FN)
+        AOS     0(17)
+        POPJ    PC,0
+
+RBS:    MOVE    A,FBS(FN) ;READ BYTE SIZE
+        POPJ    PC,0
+
+RFS:    MOVE    A,FSTA(FN) ;READ FILE STATUS
+        POPJ    PC,0
+
+RFSIZ:  MOVE    A,FSIZ(FN) ;READ FILE SIZE IN WORDS
+        POPJ    PC,0
+
+
+RCPEOF: MOVEI   A,^D36  ;READ CURSOR POSITION FOR EOF+1
+        IDIV    A,FBS(FN); BYTES/WORD
+        IMUL    A,FSIZ(FN); BYTE ADDRESS OF EOF+1
+        POPJ    PC,0
+
+
+SBYA:   MOVEI   A,^D36
+        IDIV    A,FBS(FN) ;COMPUTE BYTES/WORD
+        MOVE    WRD,FCP(FN)
+        IDIV    WRD,A
+        POPJ    PC,0
+
+SBYB:   AOJ     A,0
+        IMUL    A,FBS(FN)
+        SUBI    A,^D36
+        MOVNS   A,A     ;BITS REMAINING IN WORD
+        LSH     A,^D30
+        MOVE    B,FBS(FN)
+        LSH     B,^D24
+        IOR     A,B
+        IORI    A,WRD   ;CREATE BYTE POINTER
+        POPJ    PC,0
+
+
+
+HUSH:   SETOM   0,ERFLG ;DO NOT PRINT ERR MSGS
+        POPJ    PC,0
+
+TALK:   SETZM   0,ERFLG ;PRINT ERR MSGS
+        POPJ    PC,0
+
+
+ERR:    MOVEM   ER,ERCODE
+        CAIG    ER,ERME-ERM
+        CAIG    ER,0
+        MOVEI   ER,0
+        SKIPL   0,ERFLG ;SKIP IF NO PRINT OF ERR MSGS
+        XCT     ERM(ER) ;ERROR ROUTINE
+        POPJ    PC,0
+        POPJ    PC,0
+
+ERM:    OUTSTR  EM0
+        OUTSTR  EM1
+        OUTSTR  EM2
+        OUTSTR  EM3
+        OUTSTR  EM4
+        OUTSTR  EM5
+        OUTSTR  EM6
+        OUTSTR  EM7
+        OUTSTR  EM10
+ERME: BLOCK 0
+
+
+EM0:    ASCIZ   /ERROR/
+EM1:    ASCIZ   /FILE NUMBER OUT OF RANGE/
+EM2:    ASCIZ   /IO CHANNEL UNAVAILABLE/
+EM3:    ASCIZ   /CANNOT OPEN FILE FOR INPUT/
+EM4:    ASCIZ   /CANNOT OPEN FILE FOR OUTPUT/
+EM5:    ASCIZ   /PREVIOUS BUFFER FLUSHING WRITE ERROR/
+EM6:    ASCIZ   /UNRECOVERABLE READ ERROR/
+EM7:    ASCIZ   /WRITE ATTEMPT ON READ ONLY FILE/
+EM10:   ASCIZ   /BYTE SIZE OUT OF RANGE/
+
+        END
+ 
