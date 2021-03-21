@@ -1,0 +1,615 @@
+
+
+
+
+
+%%
+%               ----------H3DRIV.BLI----------
+               16 MAY 72-A
+%
+%%
+
+
+
+
+
+
+ROUTINE CONCAT(A,B)=
+  BEGIN LOCAL  LD,LSA,LSB,X; MACHOP ILDB=#134; MACHOP IDPB=#136;
+  LD_(MMC-1)<1,7>;  LSA_(A-1)<1,7>;  LSB_(B-1)<1,7>;
+  INCR I FROM 1 TO 5 DO
+    IF (X_ILDB(3,LSA)) GTR " "  THEN IDPB(3,LD) ELSE BREAK;
+  INCR I FROM 1 TO 5 DO
+    IF (X_ILDB(3,LSB)) GTR " "  THEN IDPB(3,LD) ELSE BREAK;
+  END;
+
+
+ROUTINE MACHINECODE(OP,TOG)=
+  BEGIN  LOCAL J,X; MACHOP IDPB=#136; 
+  !
+  !    THIS ROUTINE GENERATES THE MNEMONIC FOR A MACHINE
+  !    OP-CODE IN THE GLOBAL VARIABLE 'MMC' AND ITS SUCCESSOR.
+  !
+BIND VECTOR UUOOP=PLIT(
+'CALL',
+'INIT',
+5:'UUO',
+'CALLI',
+'OPEN',
+'TTCAL',
+3:'UUO',
+'RENAM',
+'IN',
+'OUT',
+'SETST',
+'STATO',
+'GETST',
+'STATZ',
+'INBUF',
+'OUTBU',
+'INPUT',
+'OUTPU',
+'CLOSE',
+'RELEA',
+'MTAPE',
+'UGETF',
+'USETI',
+'USETO',
+'LOOKU',
+'ENTER');
+
+  MMC_(MMC+1)_0;
+  CASE .OP<6,3> OF
+    SET
+
+    MMC_IF .OP LSS #040 THEN 'UUO'      ! CASE 0
+        ELSE .UUOOP[.OP-#040];
+
+    IF .OP<5,1>                 ! CASE 1
+      THEN CONCAT(.POC[1,.OP<2,3>], .OCE[1,.OP<0,2>])
+      ELSE MMC_.POC[0,.OP<0,3>];
+
+    IF .OP<5,1>                 ! CASE 2
+      THEN MMC_.POC[3,.OP<0,5>]
+      ELSE CONCAT(.POC[2,.OP<2,3>], .OCE[.OP<4,1>,.OP<0,2>]);
+
+    CONCAT(.POC[4,.OP<3,3>], .OCE[5,.OP<0,3>]); ! CASE 3
+
+    CONCAT(.POC[5,.OP<2,4>], .OCE[1,.OP<0,2>]); ! CASE 4
+
+    BEGIN                       ! CASE 5
+    MMC_ CASE (.OP<5,1>^1 OR .OP<2,1>) OF
+        SET 'HLL'; 'HRL'; 'HRR'; 'HLR' TES;
+    CONCAT( .MMC, .OCE[2,.OP<3,2>] );
+    CONCAT( .MMC, .OCE[0,.OP<0,2>]);
+    END;
+
+    BEGIN                       ! CASE 6
+    MMC_ CASE (.OP<3,1>^1 OR .OP<0,1>) OF
+        SET 'TR'; 'TL'; 'TD'; 'TS' TES;
+    CONCAT(.MMC, .OCE[3,.OP<4,2>] );
+    CONCAT(.MMC, .OCE[4,.OP<1,2>] );
+    END;
+
+    MMC_'IO';                   ! CASE 7
+
+    TES;
+  IF .TOG THEN (ACCUM_(ACCUM+1)_-2; PACCUM_(ACCUM-1)<0,7>);
+  INCR I FROM 0 TO 1 DO
+    BEGIN  REGISTER X;
+    J_36;
+    WHILE (J_.J-7) GTR 0 DO
+      IF .(X_(MMC+.I)<.J,7>) EQL 0 THEN ( BREAK 0 ) ELSE
+        IF .TOG THEN (X_..X;IDPB(X,PACCUM)) ELSE OCHAR(..X);
+    END;
+  IF NOT.TOG THEN OCHAR(#11)
+  END;
+
+ROUTINE LTUSED =
+
+  !COUNT THE NUMBER OF ENTRIES USED IN THE LITERAL TABLE
+  !THE VALUE OF THE ROUTINE IS THE NUMBER OF ENTRIES USED.
+
+    BEGIN
+
+%2.9%   REGISTER R,             !POINTER TO LT ENTRIES
+%2.9%           COUNT;          !COUNT OF ENTRIES USED IN LT
+
+        COUNT_0;
+%2.9%     DECR J FROM LTNUM-1 TO 0 DO
+%2.9%       COUNT_.LTBASE[.J]<LEFTHALF>+.COUNT;
+%2.9%     RETURN .COUNT;
+
+    END;
+
+
+
+ROUTINE STACKFREE =
+
+  !DETERMINE HOW MUCH STACK SPACE WAS NOT USED AND RETURN
+  !THE NUMBER OF UNUSED STACK LOCATIONS AS THE VALUE OF THE ROUTINE
+
+    DECR I FROM DEPTH-1 TO 0 DO
+        IF .STACK[.I] NEQ 0 THEN RETURN DEPTH -.I -1;
+
+
+
+ROUTINE WRITEFINAL=
+%2.9%    BEGIN
+    ! THIS ROUTINE WRITES THE FINAL GOOD-BYE TO THE USER
+    ERRBIT_0;    NEWLINE();
+    IF .ERRORFOUND NEQ 0 THEN
+        (EOUTDEC(.ERRORFOUND); EOMSG(' ERRORS FOUND?M?J'));
+    EOMSG('MODULE LENGTH = ');
+    EOUTDEC(.MODLENGTH);
+    IF .LUNDEFLG THEN (EOCHAR("+");EOUTDEC(.NODISC));
+%2.9%    EOCHAR("+");EOUTDEC(.PTREFNO + 1 +     !PTREFNO = # PTRS - 1
+%2.9%   !ADD THE NUMBER OF LITERALS
+%2.9%   BEGIN
+%2.9%     REGISTER R;
+%2.9%     R_0;
+%2.9%     DECR I FROM LTNUM-1 TO 0 DO
+%2.9%     R_.LTTBASE[.I]<LEFTHALF> + .R;
+%2.9%     .R
+%2.9%   END
+%2.9% + .PLNEXT + 2);ENEWLINE();
+
+    IF .STATFLG THEN    !OUTPUT THE FOLLOWING ONLY ON /S
+      BEGIN
+
+        !OUTPUT SOME ADDITIONAL COMPILATION STATISTICS
+
+        EOMSG('LITERAL TABLE USED = ');
+        EOUTDEC (LTUSED());
+        EOMSG(' OF ');
+%2.9%   EOUTDEC (
+%2.9%           BEGIN
+%2.9%             REGISTER R;
+%2.9%             R_0;
+%2.9%             DECR I FROM LTNUM-1 TO 0 DO
+%2.9%               IF .LTBASE[.I] EQL 0 THEN EXITLOOP
+%2.9%                 ELSE R_.R+1;
+%2.9%             .R*LTSIZE
+%2.9%           END
+%2.9%           );
+        EOMSG(' ENTRIES?M?J');
+
+        !AMOUNT OF STACK USED
+
+        EOMSG('STACK USED = ');
+        EOUTDEC (DEPTH<0,0>-(STACKFREE()));
+        EOMSG(' OF ');
+        EOUTDEC (DEPTH<0,0>);
+        EOMSG(' WORDS?M?J');
+
+        !MAX AMOUNT OF CORE USED
+
+        EOMSG('MAX CORE USED = ');
+        EOUTDEC ((.JOBREL<RIGHTHALF>+1)^(-10));
+        EOMSG(' + ');
+        EOUTDEC (((.JOBHRL<RIGHTHALF> AND #377777) + 1)^(-10));
+        EOMSG(' K?M?J');
+      END;
+
+    END;
+
+ROUTINE WRITECODE(H)=
+  BEGIN LOCAL OFSET,N,M,A,I,R,T,P,LNSEEN; BIND LUNDEWORD=(.FCNSTATE NEQ 0) AND .LUNDEFLG; 
+    BIND RMNAM = .MNAM^(-8);
+    ROUTINE OUTCTREF(IND) =
+      BEGIN
+        LOCAL V;
+        V _ IF .CT[.IND]<30,6> EQL #76
+          THEN -OUTSTN(.CT[.IND,2]) ELSE OCHAR("L")+OUTMOC(.IND);
+        IF .V LSS 0 THEN -.V ELSE
+          IF .CT[.IND]<HDRF> THEN .V ELSE OUTSTR("  ^^^",5)+.V
+      END;
+    N_.CT[.H,1]<NEXTF>;
+    IF .FCNSTATE NEQ 0 THEN NODISC_.NODISC+1;
+    OFSET_-1; LNSEEN_0;
+    IF NOT .MLFLG THEN
+      UNTIL .N EQL .H DO
+        IF .CT[.N,1]<FUNCF> EQL 0 THEN
+          BEGIN
+            M_.CT[.N,0]<NEXTF>;
+            IF NOT (.OFSET EQL -1 AND LUNDEWORD) THEN ERASE(.N)
+               ELSE OFSET _ .OFSET + 1;
+            N_.M
+          END
+        ELSE
+          BEGIN
+            (M_CT[.N,0])<HDRF>_0;
+            OFSET_.OFSET+1;
+            N_.(.M)<NEXTF>
+          END
+    ELSE
+      BEGIN
+        NEWLINE();
+        IF .STATFLG THEN
+          BEGIN
+            IF .FCNSTATE EQL 0 THEN EOUTSTR(RMNAM,4) ELSE EOSTN(.CT[.H,2]);
+            ENEWLINE();
+          END;
+        NEWLINE();
+        IF LUNDEWORD THEN
+          BEGIN
+            OMSG('  -1?I?I');
+            OUTOCT(.CT[.N,1],12);
+            NEWLINE();
+            N_.CT[.N,0]<NEXTF>
+          END;
+        UNTIL .N EQL .H DO
+          BEGIN
+            IF .CT[.N,1]<FUNCF> EQL 0 THEN
+              BEGIN
+                IF NOT.LNSEEN THEN
+                  (OUTDCN(.CT[.N,1]^(-4),100000); LNSEEN_1);  !LINE NO.
+                M_.CT[.N,0]<NEXTF>;
+                ERASE(.N);
+                N_.M
+              END
+            ELSE
+              BEGIN
+                OFSET_.OFSET+1;
+                IF .LNSEEN THEN LNSEEN_0; OCHAR(#11);
+                OUTOCT(0,.OFSET,4);
+                OCHAR(#11);
+                IF .(M_CT[.N,0]<HDRF>) THEN
+                  BEGIN
+                    OCHAR("L");
+                    OUTMOC(.N);OCHAR(":");
+                    OCHAR(#11);
+                    .M_0
+                  END
+                ELSE
+                  OCHAR(#11);
+                M_.CT[.N,1];
+                MACHINECODE(.M<FUNCF>,0);
+                A_.M<ACCF>;
+                SELECT .A OF NSET
+                  .SREG: EXITSELECT(OMSG('$S'));
+                  .BREG: EXITSELECT(OMSG('$B'));
+                  .FREG: EXITSELECT(OMSG('$F'));
+                  .VREG: EXITSELECT(OMSG('$V'));
+                  .A: OUTOCT(1,.A,2) TESN;
+                OCHAR(",");
+                IF .M<INDRF> THEN OCHAR("@");
+                A_.M<ADDRESSF>; I_.M<INDXF>; T_5;
+                IF (R_.CT[.N,0]<RELOCF>) LEQ 9 THEN
+                  CASE .R OF SET
+                    IF .I EQL .FREG THEN
+                      BEGIN T_0;P_OUTCONOC(.A) END
+                    ELSE P_OUTCONOC(.A);
+                    BEGIN T_1;P_OUTSTN(.A) END;
+                    P _ OUTCTREF(.A);
+                    BEGIN OUTSTR(.MNAM^(-8),4);OMSG('.O+'); P_7+OUTCONOC(.A) END;
+                    BEGIN OUTSTR(.MNAM^(-8),4);OMSG('.G+'); P_7+OUTCONOC(.A) END;
+                    BEGIN T_1;
+                      P_
+                        OUTSTN(.ST[.A,1]<LEFTF>)+
+                          (IF NOT .ST[.A,1]<17,1> THEN
+                             OCHAR("+")+OUTCONOC(.ST[.A,1]<OFFSETF>)
+                           ELSE OUTCONOC(.ST[.A,1]<OFFSETF> OR LEFTM))
+                    END;
+                    BEGIN OCHAR("[");
+                      OUTOCT(1,.(A_PT[.A,1])<LEFTF>,6);
+                      OUTMSG(PLIT ASCIZ ',,');
+                      P_
+                        (CASE .(.A-1)<RELOCF> OF SET
+                           OUTCONOC(.(.A)<RIGHTF>);
+                           OUTSTN(.(.A)<RIGHTF>);
+                           (CT[.(.A)<RIGHTF>]<HDRF>_1; OUTCTREF(.(.A)<RIGHTF>));
+                           (OUTSTR(.MNAM^(-8),4);OMSG('.O+');OUTCONOC(.(.A)<RIGHTF>)+7);
+                           (OUTSTR(.MNAM^(-8),4);OMSG('.G+');OUTCONOC(.(.A)<RIGHTF>)+7);
+                           OUTSTN(.ST[.(.A)<RIGHTF>,1]<PARSTEF>)+
+                             (IF .ST[.(.A)<RIGHTF>,1]<17,1> THEN
+                                OUTCONOC(.ST[.(.A)<RIGHTF>,1]<OFFSETF> OR LEFTM)
+                              ELSE OCHAR("+")+
+                                   OUTCONOC(.ST[.(.A)<RIGHTF>,1]<OFFSETF>));
+                           P_0;
+                           P_0;
+                           OUTCONOC((.(.A)<RIGHTF> -.FNSTAT) AND 1^18-1);
+                           (OUTSTR(.MNAM^(-8),4);OMSG('.P+');OUTCONOC(.(.A)<RIGHTF>)+7)TES)+8;
+                      OCHAR("]")
+                    END;
+                    BEGIN OCHAR("[");
+%2.9%                      IF .(A_GETADDLIT(.A))<LEFTF> EQL 0 THEN P_OUTMOC(..A)+2
+                      ELSE BEGIN
+                        OUTOCT(1,.(.A)<LEFTF>,6); OUTMSG(PLIT ASCIZ ',,');
+                        OUTOCT(1,.(.A)<RIGHTF>,6); P_16 END;
+                      OCHAR("]")
+                    END;
+                    BEGIN T_2;P_OUTCONOC((.A-.FNSTAT) AND 1^18-1) END;
+                    BEGIN OUTSTR(.MNAM^(-8),4);OMSG('.P+');P_7+OUTCONOC(.A) END
+                  TES;
+                IF .I NEQ 0 THEN
+                  BEGIN
+                    P_.P+4;
+                    OCHAR("(");
+                    SELECT .I OF NSET
+                      .SREG: EXITSELECT(OMSG('$S'));
+                      .BREG: EXITSELECT(OMSG('$B'));
+                      .FREG: EXITSELECT(OMSG('$F'));
+                      .VREG: EXITSELECT(OMSG('$V'));
+                      .I: OUTOCT(1,.I,2) TESN;
+                    OCHAR(")")
+                  END;
+                IF .T LSS 3 THEN
+                  BEGIN P_(.P+.M<INDRF>+3)^(-3);
+                    IF .TTYLST THEN OCHAR(#11) ELSE
+                    OUTSTR(#11^21 OR #11^14 OR #11^7 OR #11,4-.P);
+                    OCHAR(";");
+                    CASE .T OF SET
+                      OMSG('FORMAL');
+                      OMSG('EXTERNAL');
+                      OMSG('LOCAL') TES
+                  END;
+                NEWLINE();
+                N_.CT[.N,0]<NEXTF>
+              END;
+          END;
+        NEWLINE();  NEWLINE();
+      END;
+    MODLENGTH_.MODLENGTH + .OFSET + 1
+  END;
+
+
+
+
+
+! INITIALIZATION ROUTINE
+!------------------------
+
+
+ROUTINE REINIT=
+    BEGIN
+    ! THIS ROUTINE IS THE PRIMARY INITIALIZATION OF THE COMPILER.
+    ! IT IS CALLED TO RE-INIT THE SYSTEM FOR EACH COMPILATION.
+
+        LOCAL C,J; EXTERNAL BLIMP;
+        REALFS_0;     !CURRENT KLUGE
+%V2H%   LABIND_0;       !ZERO INDEX OF LABEL CHAIN
+        ACCUM_(ACCUM+1)_-2;
+        PACCUM_(ACCUM)<36,7>;
+        TIMSTAT_0;      !INITIALIZE TIMER DATA WORD
+        FFSEEN_0;       !NO FORM FEED SEEN YET
+        CODETOG_1;
+        BLOCKPURGE(0); TOPOFTABLE_.RETOT<RIGHTHALF>;
+        ENDOFSPACE_.RETOT<LEFTHALF>;
+        FREEHEAD_AMNTFREE_ENDLK_0;
+        CCLINIT();
+
+        !NOW SHRINK CORE BACK DOWN TO ORIGINAL SIZE
+
+        IF .JOBREL NEQ .SAVJBREL THEN
+          BEGIN
+            IF (.JOBSYM<RIGHTHALF> GTR 0) AND (.JOBSYM<RIGHTHALF> LSS #400000)
+             THEN       !SAVE SYMBOL TABLE IF IN LOW SEG
+                BEGIN
+                  REGISTER R;
+                  MACHOP HLRO = #564;
+                  BIND L= (NOT HLRO (R,JOBSYM)),
+                  NEWSYM= (.SAVJBREL<0,18>-L),
+                  OLDSYM= (.JOBSYM<0,18>);
+
+                  INCR I FROM 0 TO L DO
+                        NEWSYM[.I]_.OLDSYM[.I];
+                  JOBSYM<0,18> _ NEWSYM;
+                END;
+
+            !NOW LET'S TRY TO GET RID OF THE EXCESS CORE IN THE LOWSEG
+            IF NOT DOCOREUUO (.SAVJBREL<RIGHTHALF>) THEN WARNEM (0,ERCANTSHRINK)
+        END;
+
+        INITIO();
+        IF .BLIMP NEQ 0 THEN (ERRMES(#677); BLIMP_0); !FUNNY BLIMP MESSAGE
+        H3RINI();               !INITIALIZE THE SWAPPER
+        GTP_CODEPROP_0;
+        MNAM_.ACCUM; MNAM+1_.(ACCUM+1);
+        BUFPT1_BUF1<0,2>; BUFPT2_BUF2<0,2>;
+        BUF1_1^18; BUF2_2^18;
+        ERRORFOUND_ERRLEVEL_0;
+        LINCNT_NLINES_PGSL_0;
+%2.9%   !CLEAR LIT TABLE BASE TABLE AND
+%2.9%   !LTTRANS BASE TABLE
+%2.9%     DECR I FROM LTNUM-1 TO 0 DO
+%2.9%       LTBASE[.I]_LTTBASE[.I]_0;
+        DECR I FROM  PTMASK+1 TO 0 DO PT[.I,0]_PT[.I,1]_0;
+        DECR I FROM 31 TO 0 DO GRAPHHEAD[.I]_0;
+        DECR I FROM EXPHTSIZE-1 TO 0 DO EXPHT[.I]_0;
+        TGRBLEVEL_0;
+        MUSTDU_TRBLEVEL_STRDEF_MAPTB_SSTREX_STREXP_INDECS_0;
+        VAL_ACCUMLENGTH_MACRODEF_0;
+        CHAR_EOL;
+        SYM_DEL_FUTSYM_FUTDEL_STRHED_FSTRHED_0;
+        UNDECLEX_#300000;
+        ENLEX_0;LOC2_0; ETP_-1; ETL_0;
+        GTL_OTL_0;
+        FREEVHEADER_0;
+        LOADECREG_-1;
+        OPTTOREGADDR_-1;
+        MODLENGTH_0;
+        BLOCKLEVEL_1; FCNSTATE_0;
+        FUNCTIONLEVEL_NEEDDISP_0;
+        NEXTOWN_NEXTGLOBAL_0;
+        NOCSAV_0;
+        NOPSAV_0;
+        NOGBGCOL_NORECVAL_0;
+        CURST_CURSTI_STRDEF_0;
+        PGM_HEADER(0,0,0);
+        PROGRAM_HEADER(0,0,0); PUSHBOT(.PGM,.PROGRAM);
+        CODEPTR_HEADER(0,0,0); PUSHBOT(.PROGRAM,.CODEPTR);
+        FCNLIST_HEADER(0,0,0);
+        PLNEXT_PLBOOL_0;
+        PLHEAD_HEADER(2,0,1);
+        CT[.PLHEAD,2]<RIGHTHALF>_1;
+        ENTHED_LSTART_NUMENT_0;
+        VALIDBUF_0;
+        PAGE();
+        SKAN(1);
+        INITSYNTAX();
+BEGIN
+  MAP MNAM, ACCUM;
+  MACRO SPECR(I)=(CASE I OF SET SREG; BREG; FREG; VREG TES)$,
+        SYNER(X,Y)=(WARNEM(X,Y); RETURN 1)$,
+        LDEL=DEL<LEFTHALF>$;
+
+  LOCAL AVLREG, VALREG, CONTIG;
+
+  MODREGM_RESREGM_0;
+  NOSVR_5;
+  SREG_BREG_FREG_VREG_-1; %INDICATES NOT YET ALLOCATED%
+  STKLEN(0)_STKLEN(1)_0;
+
+  IF .LDEL EQL HMODULE THEN %PROCESS MODULE DECLARATION%
+    BEGIN
+        MHTIME_1;
+      IF (IF .REALFS NEQ 0
+            THEN (MNAM[0]_.ST[.REALFS,2];
+                  MNAM[1]_.ST[.REALFS,3];
+                  HPAROPEN)
+            ELSE HROPEN) EQL .FUTDEL<LEFTHALF>
+        THEN (HRUND();
+              VALREG_SWITCHER(ALLSWL))
+        ELSE VALREG_2;
+     MHTIME_.TTFLAG;
+      IF 0 NEQ (VALREG_
+               (CASE .VALREG OF
+        SET
+           IF .LDEL NEQ HROCLO THEN .NDEL ELSE
+           IF .FUTSYM NEQ HEMPTY THEN .NFUTSYM ELSE
+           IF .FUTDEL<LEFTHALF> NEQ HEQL THEN .NFUTDEL ELSE 0;
+           (-1);
+           IF .FUTDEL<LEFTHALF> NEQ HEQL THEN .NFUTDEL ELSE 0;
+           .NSYM
+        TES))
+          THEN %LOOK FOR A BEGIN OR END OF FILE, THE LATTER BEING
+                A TRIVIAL PROGRAM AND THEREFORE RECOMPILABLE%
+            (IF .VALREG NEQ -1 THEN WARNEM(.VALREG,ERSYMODBEG);
+            WHILE .LDEL NEQ HBEGIN
+               DO (HRUND();
+                   IF .LDEL EQL HELUDOM OR .FINFLG
+                     THEN (ERROR(.NDEL,ERSMNOPROG);
+                           RETURN 1));
+             WARNEM(.NSYM,ERSYMODBEG))
+          ELSE (HRUND(); HRUND());
+    END; %MODULE DECLARATION PROCESSING%
+
+  TTYLIST(0);  !FORCE OUT CCL MESSAGE
+
+  % INITIALIZE REGISTER, LOADER, AND CONTROL IN THAT (CRITICAL) ORDER %
+
+  RGINIT();    LIINIT();    CNINIT();
+
+END;  % END OF REGISTER/STACK INITIALIZATION BLOCK %
+  NEXTLOCAL_2+.NOSVR;
+        0 END;
+
+
+
+
+
+
+
+%%
+%    PROCESS THE "ENTRIES" SWITCH BY LEAVING STE POINTERS IN
+  THE LIST "ENTHED".  WRNENT CALLED BY DRIVER TO WARN USER OF
+  UNDECLARED ENTRIES.
+%
+%%
+
+GLOBAL ROUTINE PSWENT=
+  BEGIN
+    LOCAL STVEC NEWCELL;
+    MACRO SYNER(A)=(WARNEM(A,ERSYENTINV); RETURN 1)$;
+    
+    IF .DEL<LEFTHALF> NEQ HEQL OR
+       .FUTSYM NEQ HEMPTY OR
+       .FUTDEL<LEFTHALF> NEQ HROPEN
+      THEN SYNER(.NDEL);
+
+    HRUND(); ENTHED_HEADER(0,0,0);
+    
+    DO
+      (HRUND();
+       IF .SYM<LSF> THEN
+         (NEWCELL_GETSPACE(1);
+          NEWCELL[0]_.NEWCELL^15+.NEWCELL;
+          NEWCELL[1]_.SYM<STEF>;
+          NUMENT_.NUMENT+1;
+          PUSHBOT(.ENTHED,.NEWCELL))
+                    ELSE SYNER(.NSYM))
+      WHILE .DEL<LEFTHALF> EQL HCOMMA;
+
+    IF .DEL<LEFTHALF> NEQ HROCLO OR
+       .FUTSYM NEQ HEMPTY 
+      THEN SYNER(.NDEL);
+    HRUND();
+    0
+  END;
+
+
+ROUTINE WRNENT=
+  BEGIN
+    LOCAL STVEC CDR;
+    CDR_.CT[.ENTHED,1]<NEXTF>;
+    WHILE .CDR NEQ .ENTHED DO 
+     (IDERROR(ERSMNOENT,.CDR[1]);
+      CDR_.CDR[0]<NEXTF>);
+    ERASE(.ENTHED)
+  END;
+!--------------------------HERE IT IS FOLKS-------------------------
+
+!
+!
+!              BLISS COMPILER MAIN DRIVER CODE
+!             ----------------------------------
+!
+!
+
+
+
+
+GLOBAL ROUTINE DRIVER=
+BEGIN MACHOP CALLI=#47;
+IF .BIO EQL 0 THEN (CALLI(0,0); NOWSEG_3; H3RINI(); ONCEONLY());
+WHILE 1 DO
+    BEGIN
+    0<0,36>_STACK; 0<18,18>_-#1400; 2<0,36>_.0<0,18>;
+    IF NOT REINIT() THEN (EXPRESSION(2);
+    WHILE .DEL<LEFTHALF> NEQ HELUDOM AND NOT.FINFLG DO
+        ( HRUND(); IF .DEL<LEFTHALF> EQL HSEMCOL AND .FUTDEL<LEFTHALF> EQL HELUDOM
+                THEN WARNEM(.NDEL,35) ELSE RECOVER(.NDEL,34));
+  IF .ERRORFOUND EQL 0 THEN
+        BEGIN
+        IF .TTFLAG THEN IF .STKLEN(0) NEQ 0 THEN TIMEOUT();
+        CONVEY(.SYM);CODE(#47,0,#12,0); CODEPTR_.PROGRAM;
+        FNSTAT_(IF .NEEDDISP THEN
+          BEGIN
+            ACPDT();  %SET UP DISPLAY AND FAKE REGISTERS %
+            CODE(PUSH,.SREG,.FREG,0);
+            CODE(ADD,.SREG,LITA(LITLEXEME((.NOSVR+1)*#1000001)),0);
+            CODEPTR_.PROGRAM;
+            0
+          END ELSE .NOSVR+1);
+          PROMOTE(1^RELC OR 1^CNVEYC); CODEPTR _ .PGM;  FLATFUNC();
+        WRITECODE(.PGM);
+        LDINT(.PGM);
+        IF .ENTHED NEQ 0 THEN WRNENT();
+        END;);
+    IF .XREFLG THEN XTITLE();
+    WRITEFINAL();
+    FORCE(0); IF NOT .BINFLG THEN FORCE(1); IF NOT .LSTFLG THEN FORCE(2);
+    FINIO();
+END;
+END;
+CCLCT<0,36>);
+DRIVER()
+
+
+
+
+
+
+!END OF H3DRIV.BLI
+   @	%»
