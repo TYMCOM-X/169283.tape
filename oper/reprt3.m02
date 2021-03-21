@@ -1,0 +1,365 @@
+        TITLE   REPRT3
+ INTERNAL PDP
+ENTRY   IETR
+IETR:   0
+        MOVE    00,@0(16)
+        AND     00,@1(16)
+        JRA     16,2(16)
+ENTRY   SHIFT
+SHIFT:  0
+        MOVE    15,0(16)
+        MOVE    0,0(15)
+        MOVE    1,1(15)
+        MOVE    15,@1(16)
+        LSHC    0,0(15)
+        MOVEM   0,@0(16)
+        JRA     16,2(16)
+ENTRY ICONV
+ICONV:  0
+        MOVE    1,@0(16)
+        MOVE    2,@1(16)
+        LSH     2,14
+        LSHC    1,-14
+        MOVEI   4,0
+        MOVEI   15,6
+        JUMPA   CNVL2
+CNVL:   LSHC    3,-7
+        LSHC    1,-8
+CNVL2:  MOVE    3,2
+        ANDI    3,177
+        CAIN    3,136
+        MOVEI   3,0
+        ADDI    3,40
+        ANDI    3,177
+        SOJG    15,CNVL
+        LSHC    3,^D28
+        LSH     3,1
+        XOR     4,IDAT
+        MOVEM   3,@2(16)
+        MOVEM   4,@3(16)
+        JRA     16,4(16)
+IDAT:   EXP     1004020100
+ENTRY ICOUNT
+ICOUNT: 0
+        MOVE    2,@0(16)
+        LSH     2,14
+        MOVEI   3,0
+        MOVEI   4,8
+CNTL:   MOVEI   1,0
+        LSHC    1,3
+        CAIN    1,7
+        MOVEI   1,8
+        ADD     3,1
+        SOJG    4,CNTL
+        MOVE    0,3
+        JRA     16,1(16)
+ENTRY IFIELD
+IFIELD: 0
+        MOVE    2,@0(16)
+        MOVE    4,@1(16)
+        LSH     2,14
+        MOVEI   3,0
+        JUMPA   ELOOP
+LOOP:   MOVEI   1,0
+        LSHC    1,3
+        CAIN    1,7
+        MOVEI   1,8
+        ADD     3,1
+ELOOP:  SOJG    4,LOOP
+        IMULI   3,3
+        IDIVI   3,^D24
+        MOVE    15,2(16)
+        ADD     15,3
+        MOVE    6,0(15)
+        MOVE    7,1(15)
+        LSH     7,14
+        LSHC    6,14
+        LSHC    6,0(4)
+        MOVEI   5,0
+        MOVEI   1,0
+        LSHC    1,3
+        CAIN    1,7
+        MOVEI   1,8
+        IMULI   1,3
+        LSHC    5,0(1)
+        MOVE    0,5
+        JRA     16,3(16)
+ENTRY ISHIFT
+ISHIFT: 0
+        MOVE    0,@0(16)
+        MOVE    1,@1(16)
+        LSH     0,0(1)
+        JRA     16,2(16)
+ENTRY ISBIT
+ISBIT:  0
+        MOVE    1,@0(16)
+        SETZ    0,
+        TLNE    1,40
+        SETO    0,
+        JRA     16,1(16)
+; SUBROUTINE ISYS(FN)
+;
+ENTRY ISYSC
+ISYSC:  0
+        MOVE    3,@0(16)
+        SETZB   1,2
+        LSHC    2,6
+        SUBI    2,20
+        MOVE    1,2
+        IMULI   1,12
+        SETZ    2,
+        LSHC    2,6
+        SUBI    2,20
+        ADD     1,2
+        MOVE    0,1
+        JRA     16,1(16)
+; SUBROUTINE DCLOSE(ICHAN)
+ENTRY   DCLOSE
+DCLOSE: 0
+        MOVE    1,@0(16)
+        CAIL    1,0
+        CAIL    1,20
+        JRA     16,1(16)
+        LSH     22
+        XOR     1,RDAT3
+        MOVEM   1,.+1
+        RELEAS  0,
+        JRA     16,1(16)
+; SUBROUTINE READ(ICHAN,IRAY,ICOUNT,IER)
+; IRAY - INTEGER ARRAY TO READ DATA INTO
+; ICOUNT - NUMBER OF WORDS TO READ
+; IER - O IF READ OK, NOT 0 IF READ NOT OK.
+ENTRY READ
+READ:   0
+        MOVE    17,PDP
+        MOVE    1,@0(16)
+        CAIL    1,0
+        CAIL    1,20
+        JRST    EOF+1
+        LSH     1,27
+        MOVE    2,RDAT1
+        XOR     2,1
+        MOVEM   2,READC+2
+        MOVE    2,RDAT2
+        XOR     2,1
+        MOVEM   2,READC+3
+        MOVE    2,RDAT3
+        XOR     2,1
+        MOVEM   2,EOF
+        MOVE    1,@0(16)
+        IMULI   1,3
+        ADDI    1,IBUF+1
+        MOVE    2,1
+        XOR     1,RDAT4
+        MOVEM   1,DSKOK
+        ADDI    2,1
+        XOR     2,RDAT5
+        MOVEM   2,READC
+        MOVE    14,1(16)
+        MOVE    15,@2(16)
+        SETZ    0,
+        MOVEM   0,@3(16)
+READL:  PUSHJ   17,READC
+        MOVEM   1,@14
+        ADDI    14,1
+        SOJG    15,READL
+        JRA     16,2(16)
+READC:  SOSLE   IBUF+2
+        JRST    DSKOK
+        INPUT   0,0
+        STATZ   0,760000
+        JRST    EOF
+DSKOK:  ILDB    1,IBUF+1
+        POPJ    17,
+EOF:    RELEASE 0,
+        SETO    0,
+        MOVEM   0,@3(16)
+        JRA     16,4(16)
+RDAT1:  INPUT   0,0
+RDAT2:  STATZ   0,760000
+RDAT3:  RELEAS  0,
+RDAT4:  ILDB    1,
+RDAT5:  SOSLE   0
+IBUF:   BLOCK   66
+PDP:    XWD-20,.
+        BLOCK   20
+; SUBROUTINE DOPEN(FN,ICHAN,IPPN,IDEV,IER)
+ENTRY   DOPEN
+DOPEN:  0
+        SETZ    0
+        MOVEM   0,@4(16)        ; ZERO ERROR FLAG
+        MOVE    1,@1(16)        ; PICK UP CHANNEL NUMBER
+        CAIL    1,0             ; CHECK FOR LEGAL CHANNEL
+        CAIL    1,20
+        JRST    OERR
+        IMULI   1,3             ; CALCULATE BUFFER ADDRESS
+        ADDI    1,IBUF
+        MOVEM   1,DOP1          ; STORE BUFF ADDRESS FOR INIT
+        MOVE    1,@1(16)        ; PICK UP CHANNEL AGAIN
+        LSH     1,27            ; MOVE IT INTO AC POSITION
+        MOVE    2,1             ; SAVE IT FOR LATER.
+        XOR     2,DAT1          ; BUILD INIT CALL
+        MOVEM   2,DOP2          ; STORE INIT CALL
+        XOR     1,DAT2          ; BUILD LOOKUP CALL
+        MOVEM   1,DOP3          ; STORE LOOKUP CALL
+        MOVE    1,@3(16)
+        MOVE    0,DAT3(1)
+        MOVEM   0,DOP2+1
+DOP2:   INIT    0,14            ; INIT CALL WILL BE STORED HERE
+        SIXBIT  /DSK/
+DOP1:   XWD     0,IBUF          ; BUFFER ADDRESS WILL GO HERE
+        JRST    OERR            ; ERROR RETURN
+        MOVE    14,0(16)        ; PICK UP FILE NAME
+        MOVE    1,0(14)
+        MOVE    2,1(14)
+        MOVE    4,@2(16)        ; PICK UP PPN NUMBER.
+        SETZ    3,              ; ZERO OUT REG 3.
+DOP3:   LOOKUP  0,1             ; LLOKUP CALL WILL BE STORED HERE
+        JRST    OERR
+        JRA     16,5(16)
+OERR:   SETO    0,
+        MOVEM   0,@4(16)
+        JRA     16,5(16)
+DAT1:   INIT    0,14
+DAT2:   LOOKUP  0,1
+DAT3:   SIXBIT  /DSK/
+        SIXBIT  /SYS/
+EXTERNAL TCI,BMASK,BWORD,CTEST,BLANKS
+ENTRY LEFTJ
+LEFTJ:  0
+        SETZM   CTEST
+        SETZM   @2(16)
+        HRRZ    1,0(16)
+        IOR     1,BMASK
+        MOVEM   1,BWORD
+        MOVE    17,PDP
+        MOVEI   14,144
+        MOVEI   13,5
+LJL:    PUSHJ   17,TCI
+        MOVE    2,0
+        CAIN    2,15
+        MOVEI   2,40
+        LSH     2,^D29
+        LSHC    1,7
+        SOJG    13,LJL
+        LSH     1,1
+        CAMN    1,BLANKS
+        MOVE    1,@1(16)
+        MOVEM   1,@3(16)
+        PUSHJ   17,TCI
+        CAIE    0,15
+        SETOM   @2(16)
+        JRA     16,4(16)
+ENTRY   RIGHTJ
+RIGHTJ: 0
+        SETZM   CTEST
+        SETZM   @2(16)
+        HRRZ    1,0(16)
+        IOR     1,BMASK
+        MOVEM   1,BWORD
+        MOVE    17,PDP
+        MOVEI   14,144
+        MOVEI   13,6
+RJL:    PUSHJ   17,TCI
+        MOVE    3,0
+        CAIE    3,"."
+        CAIN    3,15
+        MOVEI   3,40
+        LSHC    1,7
+        DPB     3,[POINT 7,2,34]
+        SOJLE   13,RJLE
+        CAIN    0,"."
+        JRST    .-4
+        JRST    RJL
+RJLE:   MOVEI   13,4
+        JRST    .+2
+        PUSHJ   17,TCI
+        CAIN    0,15
+        MOVEI   0,40
+        MOVE    3,0
+        LSHC    1,7
+        DPB     3,[POINT 7,2,34]
+        SOJG    13,RJLE+2
+        LSH     1,1
+        CAMN    1,BLANKS
+        CAME    2,BLANKS
+        JRST    .+4
+        MOVE    13,1(16)
+        MOVE    1,0(13)
+        MOVE    2,1(13)
+        MOVE    13,3(16)
+        MOVEM   1,0(13)
+        MOVEM   2,1(13)
+        PUSHJ   17,TCI
+        CAIE    0,15
+        SETOM   @2(16)
+        JRA     16,4(16)
+ENTRY MRG
+MRG:    0
+        MOVE    0,@0(16)
+        IOR     0,@1(16)
+        JRA     16,2(16)
+ENTRY IBITS2
+IBITS2: 0
+        MOVE    0,@1(16)
+        ANDCA   0,@0(16)
+        JRA     16,2(16)
+ENTRY SPLIT
+SPLIT:  0
+        MOVE    1,@0(16)
+        IDIVI   1,^D31
+        ADDI    1,1
+        ADDI    2,1
+        MOVEM   1,@1(16)
+        MOVEM   2,@2(16)
+        JRA     16,3(16)
+ENTRY SIXBIT
+SIXBIT: 0
+        SETZM   @2(16)
+        MOVE    15,1(16)
+        MOVE    5,0(15)
+        MOVE    6,1(15)
+        MOVEI   15,6
+        LSH     5,-1
+        LSHC    5,1
+        SETZ    2,
+        JSA     16,SUBA
+        CAIN    15,6
+        JRST    SERR
+JRST    LID2+1
+LID2:   LSH     2,6
+        SOJGE   15,LID2
+        MOVE    1,2
+        SETZ    2,
+        CAIE    3,16
+        JRST    LID
+        MOVEI   15,3
+        JSA     16,SUBA
+        CAIE    15,3
+        CAIN    3,16
+        JRST    SERR
+        ADDI    15,3
+        LSH     2,6
+        SOJG    15,.-1
+LID:    MOVE    15,0(16)
+        MOVEM   1,0(15)
+        MOVEM   2,1(15)
+        JRA     16,3(16)
+SERR:   SETO    @2(16)
+        JRA     16,3(16)
+SUBA:   0
+        MOVE    4,5
+        LSHC    5,7
+        LSHC    3,7
+        ANDI    3,177
+        SUBI    3,40
+        ANDI    3,77
+        CAIE    3,40
+        CAIN    3,16
+        JRA     16,0(16)
+        LSH     3,^D30
+        LSHC    2,6
+        SOJGE   15,SUBA+1
+        JRST    SERR
+        END
+    
