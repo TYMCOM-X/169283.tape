@@ -1,0 +1,403 @@
+MODULE GIOL(DOLLAR,ENTRIES=($GFORM,$GRITM,$GLINE),FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+  BEGIN
+
+  REQUIRE ADEFS.BLI[7,107355];
+  REQUIRE BDEFS.BLI[7,107355];
+  REQUIRE DTDEFS.BLI[7,107355];
+  REQUIRE FDEFS.BLI[7,107355];
+  REQUIRE FPDEFS.BLI[7,107355];
+  REQUIRE GDEFS.BLI[7,107355];
+  REQUIRE SDEFS.BLI[7,107355];
+  REQUIRE TDEFS.BLI[7,107355];
+  REQUIRE UDEFS.BLI[7,107355];
+  REQUIRE ZDEFS.BLI[7,107355];
+
+  UNDECLARE $GFORM,$GRITM, $GLINE, $GTO, $GNVCHK;
+
+  MAP Z$ ZBSTK$;
+  MAP A$ GBTKN$;
+    MAP G$ GGBFP$;
+    MAP G$OPND GGBOP$;
+
+
+
+  GLOBAL ROUTINE $GTO =
+    BEGIN
+
+    IF .ZBSTK$[Z$SBID,.ZSTKP$] NEQ ZV$RP
+      THEN
+        BEGIN
+        $GERR(515,.ZSTKP$);
+        ZBSTK$[Z$SBID,.ZSTKP$]   := ZV$RP;
+        ZBSTK$[Z$INCSTP,.ZSTKP$] := .GDRPT$;
+        ZBSTK$[Z$ERFL,.ZSTKP$]   := ZV$TRUE;
+        END;
+    ZBSTK$[Z$PRTOFLG,.ZSTKP$] := ZV$TRUE;
+
+    END;
+
+
+%****
+  PROCESS TV$8TABTO, TV$9TAB, TV$8SKIPTO AND TV$9SKIP TOKENS.
+    IF TH TOP STACK ENTRY IS NOT AN INTEGER (IE FIELD, LITERAL, RESULT, ETC.) THEN EMIT
+    AN ERROR MESSAGE. OTHERWISE, CONVERT THE STACK ENTRY INTO A GAMMA N-TUPLE OPERAND
+    USING $GOPND. NEXT CLEAR THE STACK ENTRY FROM WHICH THE AOPERAND WAS CREATED. PUSH THE 
+    TV$9COL, TV$9TAB, ETC. OR WHATEVDER TOKEN AND INCORPORATE THE GAMMA OPERAND
+    INTO THIS SYACK ENTRY.
+****%
+  GLOBAL ROUTINE $GFORM =
+    BEGIN
+
+    LOCAL S$ DEFSTE;
+    LOCAL OPND;
+
+    IF .GSRCP$ NEQ ZV$NULL   AND   .GRPTP$ EQL ZV$NULL
+      THEN
+        BEGIN
+        DEFSTE := $SGSTE(.ZBSTK$[Z$DEFSTP,.GSRCP$]);
+        IF .DEFSTE[S$SRCTYP] EQL SV$FREE
+          THEN
+            BEGIN
+            $GERR(556,.ZSTKP$);
+            $GPOP();
+            $SFRNCH(.DEFSTE);
+            RETURN -1;
+            END;
+        $SFRNCH(.DEFSTE);
+        END;
+
+    IF .ZBSTK$[Z$DATATYP,.ZSTKP$] NEQ ZV$NUMERIC  OR
+       .ZBSTK$[Z$DCNT,.ZSTKP$] NEQ 0              OR
+       .ZBSTK$[Z$ICNT,.ZSTKP$] GTR 10
+      THEN
+        BEGIN
+        $GERR(514,.ZSTKP$);
+        $GPOP();
+        END
+      ELSE
+        BEGIN
+        IF $GICHK(.ZSTKP$) EQL ZV$FLASE
+          THEN
+            $GERR(526,.ZSTKP$);
+        OPND := $GOPND(.ZSTKP$);
+        $GPOP();
+        $GPUSH(.GBTKN$,AV$SZTOK+4);
+        ZBSTK$[Z$GOPND,.ZSTKP$] := .OPND;
+        END;
+    END;
+
+
+
+
+%****
+  PROCESS TV$BOTTOM, TV$FOOTSZ, TV$LINEN, TV$PAGEDV, TV$PAGEN, TV$PAGESZ, TV$TOPMAR TOKENS.
+    IF THE TOP STACK ENTRY IS NOT A REPORT NAME THEN EMIT AN ERROR MESSAGE. OTHERWISE, GET THE
+    REPORT INCARNATION ENTRY, POP THE REPORT NAME ENTRY AND STACK THE REPORT ITEM TOKEN ALONG
+    WITH ITS REPORT INCARNATION STP AND AN APPROPRIATE FORMAT PICTURE. THE FORMAT PICTURE IS CONSTRUCTED
+    BASED ON THE IDENTITY OF THE REPORT ITEM BEING PROCESSED.
+****%
+  GLOBAL ROUTINE $GRITM =
+    BEGIN
+
+    LOCAL S$ NAMESTE;
+    LOCAL INCSTP, OPTYPE, RPSTKP, ITEMSIZE;
+    LOCAL FP$I PICTURE;
+
+    IF .GRPIF$ EQL ZV$TRUE 
+      THEN
+        RETURN;
+    IF .ZBSTK$[Z$SBID,.ZSTKP$] NEQ ZV$RP        % IS THE REPORT ITEM QUALIFIED BY A REPORT NAME? %
+      THEN
+        IF .GOUTF$ EQL ZV$RESET                 % NOT QUALIFIED! IS IT IN AN OUTPUT LIST? %
+          THEN
+            IF .GRPTP$ NEQ ZV$NULL              % IN A REPORT COND.? %
+              THEN
+                INCSTP := .GRPTP$               % YES! IN A REPT. COND. %
+              ELSE                              % NOT IN A REPT. COND. %
+                IF .BRPSP$ EQL .BDRPT$              % UNNAMED REPORT MODE? %
+                  THEN
+                    BEGIN                           % UNNAMED REPORT MODE! %
+                    NAMESTE := $SGSTE(.BRPSP$);
+                    IF .NAMESTE[S$CISTP] EQL SV$NULL
+                      THEN
+                        BEGIN
+                        $GERR(551,.ZSTKP$);
+                        INCSTP := .GDRPT$;
+                        END
+                      ELSE
+                        INCSTP := .NAMESTE[S$CISTP];
+                    $SFRNCH(.NAMESTE);
+                    END
+                  ELSE
+                    IF .BRPSP$ EQL SV$NULL          % ANY REPORTS DECLARED? %
+                      THEN
+                        INCSTP := .GDRPT$           % NO, CONVERT TO TYPE STMT. %
+                      ELSE
+                        BEGIN                       %NOT IN AN OUTPUT LIST %
+                        $GPUSH(.GBTKN$,AV$SZTOK);
+                        $GERR(511,.ZSTKP$);
+                        $GPOP();
+                        INCSTP := .GDRPT$;
+                        END
+          ELSE
+            BEGIN                               % IN AN OUTPUT LIST %
+            RPSTKP := .ZBSTK$[Z$SUCP,.GLIST$];
+            IF .ZBSTK$[Z$SBID,.RPSTKP] NEQ ZV$RP % IS THE REPORT EXPLICITLY NAME? %
+              THEN                              % REPT. NOT NAMED! %
+                IF .GRPTP$ EQL ZV$NULL          % IS IT IN A REPORT CONDITION? %
+                  THEN                          % NOT IN A REPT. COND.! %
+                    IF .BRPSP$ EQL .BDRPT$      % IS THIS UNNAMED REPORT MODE? %
+                      THEN
+                        BEGIN                   % UNNAMED REPORT MODE! %
+                        NAMESTE := $SGSTE(.BRPSP$);
+                        IF .NAMESTE[S$CISTP] EQL SV$NULL
+                          THEN
+                            BEGIN
+                            $GERR(551,.ZSTKP$);
+                            INCSTP := .GDRPT$;
+                            END
+                          ELSE
+                            INCSTP := .NAMESTE[S$CISTP];
+                        $SFRNCH(.NAMESTE);
+                        END
+                      ELSE
+                        IF .BRPSP$ EQL SV$NULL  % ANY REPORTS DECLARED? %
+                          THEN
+                            INCSTP := .GDRPT$   % NO, CONVERT TO TYPE STMT. %
+                          ELSE
+                            BEGIN                   % NOT UNNAMED REPORT MODE! %
+                            $GPUSH(.GBTKN$,AV$SZTOK);
+                            $GERR(511,.ZSTKP$);
+                            $GPOP();
+                            INCSTP := .GDRPT$;
+                            END
+                  ELSE                          % IN A REPORT CONDITION %
+                    INCSTP := .GRPTP$
+              ELSE
+                IF .ZBSTK$[Z$INCSTP,.RPSTKP] EQL ZV$NULL
+                  THEN
+                    BEGIN
+                    $GERR(551,.RPSTKP);
+                    INCSTP := .GDRPT$;
+                    END
+                  ELSE
+                    INCSTP := .ZBSTK$[Z$INCSTP,.RPSTKP];
+            END
+      ELSE
+        BEGIN
+        INCSTP := .ZBSTK$[Z$INCSTP,.ZSTKP$];
+        IF .INCSTP EQL SV$NULL
+          THEN
+            BEGIN
+            IF .ZBSTK$[Z$ERFL,.ZSTKP$] NEQ AV$TRUE
+              THEN
+                $GERR(551,.ZSTKP$);
+            INCSTP := .GDRPT$;
+            END;
+        IF .ZBSTK$[Z$PRTOFLG,.ZSTKP$] EQL ZV$FALSE
+          THEN
+            $GPOP();
+        END;
+    $GPUSH(.GBTKN$,AV$SZTOK+3);
+    ZBSTK$[Z$SBID,.ZSTKP$] := ZV$RPITEM;
+    ZBSTK$[Z$RPISTP,.ZSTKP$] := .INCSTP;
+    OPTYPE := (SELECT (.GBTKN$[A$ID])  OF
+                     NSET
+                  TV$BOTTM   :
+                                   BEGIN
+                                   ITEMSIZE := 3;
+                                   GV$BOTMARG
+                                   END;
+                  TV$FOOTSZ  :
+                                   BEGIN
+                                   ITEMSIZE := 3;
+                                   GV$FOOTSIZ
+                                   END;
+                  TV$LINE    :
+                                   BEGIN
+                                   ITEMSIZE := 5;
+                                   GV$LINENO
+                                   END;
+                  TV$PAGEDV  :
+                                   BEGIN
+                                   ITEMSIZE := 256;
+                                   GV$PAGEDIV
+                                   END;
+                  TV$PAGEN   :
+                                   BEGIN
+                                   ITEMSIZE := 5;
+                                   GV$PAGENO
+                                   END;
+                  TV$PAGESZ  :
+                                   BEGIN
+                                   ITEMSIZE := 3;
+                                   GV$PAGESIZ
+                                   END;
+                  TV$TOPMAR  :
+                                   BEGIN
+                                   ITEMSIZE := 3;
+                                   GV$TOPMARG
+                                   END;
+                  TV$HEADSZ  :
+                                   BEGIN
+                                   ITEMSIZE := 3;
+                                   GV$HEADSIZ
+                                   END;
+                  TV$PAGETP  :     
+                                   BEGIN
+                                   ITEMSIZE := 1;
+                                   GV$TOP
+                                   END;
+                     TESN       );
+    ZBSTK$[Z$RITYP,.ZSTKP$]  := .OPTYPE;
+    PICTURE := 0;
+    IF .ZBSTK$[Z$ID,.ZSTKP$] EQL TV$PAGEDV
+      THEN
+        BEGIN
+        ZBSTK$[Z$DATATYP,.ZSTKP$] := ZV$CHAR;        % CONSTRUCT THE FORMAT PICTURE FOR THE PAGE
+                                                      DIVIDER REPORT-ITEM.  
+                                                    %
+        ZBSTK$[Z$LCHAR,.ZSTKP$] := .ITEMSIZE;
+        PICTURE[FP$TYPE]  := FPV$STR;
+        PICTURE[FP$C]     := .ITEMSIZE;
+        END
+      ELSE
+        BEGIN
+        ZBSTK$[Z$DATATYP,.ZSTKP$] := ZV$NUMERIC;  % CONSTRUCT THE FORMAT PICTURE FOR ALL OTHER
+                                                      REPORT-ITEMS.
+                                                    %
+        ZBSTK$[Z$ICNT,.ZSTKP$] := .ITEMSIZE;
+        ZBSTK$[Z$DCNT,.ZSTKP$] := 0;
+        PICTURE[FP$TYPE] := FPV$NUM;
+        PICTURE[FP$SIGN] := FPV$NSC;
+        PICTURE[FP$FS]   := FPV$Z;
+        PICTURE[FP$FI]   := .ITEMSIZE - 1;
+        PICTURE[FP$XI]   := 1;
+        END;
+    ZBSTK$[Z$FP,.ZSTKP$] := .PICTURE;
+    END;
+
+
+%******
+  THIS ROUTINE GENERATES THE GAMMA CODE TO CHECK THE VALUE TO BE STORED IN
+  REPORT AND SOURCE PARAMETERS TO INSURE THAT THEY ARE POSITIVE AT RUN TIME.
+*****%
+  GLOBAL ROUTINE $GNVCHK(STKPTR,PARAMTYP,FCBSTP)=
+    BEGIN
+
+    LOCAL S$ WVNSTE : DEFSTE;
+    LOCAL FP$I PICTURE;
+    LOCAL HIGHVALSTP, LABSAV;
+
+    IF .ZBSTK$[Z$SBID,.STKPTR] EQL ZV$LIT
+      THEN
+        RETURN;
+    IF .ZBSTK$[Z$SBID,.STKPTR] EQL ZV$NRSLT
+      THEN
+        BEGIN
+        PICTURE := .ZBSTK$[Z$FP,.STKPTR];
+        WVNSTE := $GWVAR(ZV$NUMERIC,ZV$FP,.PICTURE);
+        $GIREC(GV$STORE,5);
+        GGBFP$[G$ICNT] := .PICTURE[FP$FI] + .PICTURE[FP$XI];
+        GGBFP$[G$DCNT] := .PICTURE[FP$EI] + .PICTURE[FP$DI];
+        GGBFP$[G$OPND2] := $GOPND(.STKPTR);
+        GGBFP$[G$OPND3] := GV$ROUND;
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .WVNSTE[S$CISTP];
+        $GWBUF(.GGBFP$,.GOB1I$);
+        ZBSTK$[Z$ID,.STKPTR]      := TV$NAME;
+        ZBSTK$[Z$SBID,.STKPTR]    := ZV$FLD;
+        ZBSTK$[Z$DATATYP,.STKPTR] := ZV$NUMERIC;
+        ZBSTK$[Z$STP,.STKPTR]     := .WVNSTE[S$STPX];
+        ZBSTK$[Z$DEFSTP,.STKPTR]  := .WVNSTE[S$DSTP];
+        ZBSTK$[Z$INCSTP,.STKPTR]  := .WVNSTE[S$CISTP];
+        ZBSTK$[Z$ICNT,.STKPTR]    := .GGBFP$[G$ICNT];
+        ZBSTK$[Z$DCNT,.STKPTR]    := .GGBFP$[G$DCNT];
+        ZBSTK$[Z$FP,.STKPTR]      := .PICTURE;
+        $SFNME(.WVNSTE,3);
+        END;
+    DEFSTE := $SGSTE(.ZBSTK$[Z$DEFSTP,.STKPTR]);
+    HIGHVALSTP := $GHVAL(.DEFSTE);
+    $SFRNCH(.DEFSTE);
+
+    $GIREC(GV$POSRCHK,4);
+    GGBFP$[G$ICNT]  := .ZBSTK$[Z$ICNT,.STKPTR];
+    GGBFP$[G$DCNT]  := .ZBSTK$[Z$DCNT,.STKPTR];
+    GGBFP$[G$UCNT]  := 1;
+    GGBFP$[G$OPND2] := $GOPND(.STKPTR);
+    GGBOP$[0,G$OPTYP] := GV$LIT;
+    GGBOP$[0,G$OPVAL] := .HIGHVALSTP;
+    $GWBUF(.GGBFP$,.GOB1I$);
+
+    $GIREC(GV$BRCHT,4);
+    GGBOP$[0,G$OPTYP] := GV$NP;
+    GGBOP$[0,G$NPTYPE] := GV$LOGICAL;
+    GGBOP$[0,G$OPVAL]  := .GGBFP$[G$ID] - 1;
+    GGBOP$[1,G$OPTYP] := GV$STP;
+    GGBOP$[1,G$OPVAL] := LABSAV := $GNLAB();
+    $GWBUF(.GGBFP$,.GOB1I$);
+
+    $GIREC(GV$ERROR,4);
+    IF .PARAMTYP EQL GV$SLLIM    OR
+       .PARAMTYP EQL GV$RLLIM
+      THEN
+        BEGIN
+        GGBOP$[0,G$OPTYP] := .PARAMTYP;
+        GGBOP$[0,G$OPVAL] := .FCBSTP;
+        END
+      ELSE
+        BEGIN
+        GGBOP$[0,G$OPTYP] := GV$RIP;
+        GGBOP$[0,G$RITYP] := .PARAMTYP;
+        GGBOP$[0,G$OPVAL] := .FCBSTP;
+        END;
+    GGBFP$[G$OPND2] := GV$POSVALERR;
+    $GWBUF(.GGBFP$,.GOB1I$);
+
+    $GIREC(GV$LABEL,3);
+    GGBOP$[0,G$OPTYP] := GV$STP;
+    GGBOP$[0,G$OPVAL] := .LABSAV;
+    $GWBUF(.GGBFP$,.GOB1I$);
+    END;
+
+
+%*****
+  THIS ROUTINE PROCESSES THE USER OVERIDE ON LINE MAX LENGTH FOR BOTH 
+    SOURCE AND REPORT FILES.
+*****%
+  GLOBAL ROUTINE $GLINE(TYPE,INCSTP)=
+    BEGIN
+
+    LOCAL RSPTR, GTYPE;
+
+    IF .ZBSTK$[Z$DATATYP,.ZSTKP$] NEQ ZV$NUMERIC   OR
+       .ZBSTK$[Z$DCNT,.ZSTKP$]  NEQ  0             OR
+       .ZBSTK$[Z$ICNT,.ZSTKP$]  GTR  5
+      THEN
+        $GERR(519,.ZSTKP$)
+      ELSE
+        BEGIN
+        GTYPE :=
+                IF .TYPE EQL ZV$SRC
+                  THEN
+                    GV$SLLIM
+                  ELSE
+                    GV$RLLIM;
+        $GNVCHK(.ZSTKP$,.GTYPE,.INCSTP);
+        $GIREC(GV$STORE,5);
+        GGBFP$[G$ICNT]   := .ZBSTK$[Z$ICNT,.ZSTKP$];
+        GGBFP$[G$DCNT]   := .ZBSTK$[Z$DCNT,.ZSTKP$];
+        GGBOP$[0,G$OPTYP] := .GTYPE;
+        GGBOP$[0,G$OPVAL] := .INCSTP;
+        GGBFP$[G$OPND2]   := $GOPND(.ZSTKP$);
+        GGBFP$[G$OPND3]   := GV$ROUND;
+        $GWBUF(.GGBFP$,.GOB1I$);
+        END;
+    $GPOP();
+
+    END;
+
+
+  END
+ELUDOM
+   
