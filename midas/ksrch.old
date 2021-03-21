@@ -1,0 +1,297 @@
+MODULE KSRCH(DOLLAR,ENTRIES=($KSRCH,$KSTAR,$KNXDB),
+                        FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+
+BEGIN
+
+REQUIRE KDEFS.BLI[7,107355];
+REQUIRE DBDEFS.BLI[7,107355];
+REQUIRE IBDEFS.BLI[7,107355];
+REQUIRE SBDEFS.BLI[7,107355];
+REQUIRE UDEFS.BLI[7,107355];
+REQUIRE DVDEFS.BLI[7,107355];
+UNDECLARE $KSRCH,$KSTAR,$KNXDB;
+
+MACRO  INC(NAME)= (NAME_.NAME+1)&;
+
+MACRO  DEC(NAME)= (NAME_.NAME-1)&;
+
+
+MACHOP LSH=#242;
+MACRO RSHIFT(X,N)=  (REGISTER Q$$$; Q$$$_X; LSH(Q$$$,-(N)))&;
+
+GLOBAL ROUTINE $KSRCH(FCB,MFLG)=
+   BEGIN
+   MAP KFCB$ FCB;
+   LOCAL KDB$ DB;
+   LOCAL KIB$ IB;
+   LOCAL KSB$ SB;
+   LOCAL KSOB$ SOB;
+   LOCAL KDSC$ DSC;
+   LOCAL UDYNARY$ INS;
+   LOCAL UDYNARY$ INB;
+   LOCAL KSPB$ SPB;
+   LOCAL PN,LVL,OFF,BO,A,B,S,N,L,U,NKEY,ISIZ,KSIZ1;
+
+   %  $KSRCH SEARCHES A SKIM FILE FOR AN INSTANCE WHOSE KEY MATCHES THE KEY
+      IN THE INSTANCE BUFFER    %
+
+   SOB_.FCB[K$SOBP];
+   SB_.FCB[K$SBP];
+   SPB_.SOB[K$SSPBP];
+   DSC_.SOB[K$SDESCR];
+   INS_.SOB[K$SINSBUF];
+   SOB[K$SNOL]_.SB[SB$NOL];
+   NKEY_.SOB[K$SNKEY]-1;
+   IF .MFLG EQL KV$MASSAGE
+       THEN INCR I FROM 0 TO .NKEY
+          DO
+             BEGIN     %  MASSAGE KEY  %
+             S_.DSC[K$SSIZE,.I];
+             IF .DSC[K$SDDTYPE,.I] EQL DDV$STR
+                THEN INCR J FROM 0 TO .S-1
+                   DO INS[.J]_RSHIFT(.INS[.J],1);
+             INS_.INS+.S;
+             END;
+   IF (LVL_.SB[SB$NOL]+1) NEQ 1 
+      THEN
+         BEGIN    %  AN INDEX TREE EXISTS   %
+         PN_.SB[SB$TOP];   %  TOP IB   %
+         KSIZ1_.SOB[K$SKSIZ]+1;
+         WHILE DEC(LVL) NEQ 0
+            DO
+               BEGIN LABEL LOOP1,LOOP2;
+               SPB[K$SIBPN,.LVL]_.PN;   % IB PAGE NUMBER ENTRY FOR THIS LEVEL IN
+                                          SEARCH PATH BLOCK   %
+               IB_$KVIRD(.FCB,.PN,.SOB[K$SIBSIZ]);
+               OFF_.IB[IB$OFF];
+               L_0;
+               U_.IB[IB$NUMBER]-1;
+LOOP1:
+
+                  %  BINARY SEARCH (FROM KNUTH, VOL.3) IB FOR ENTRY WITH NEXT
+                     LARGER OR EQUAL KEY.    %
+
+                  BEGIN
+                  WHILE .L LEQ .U
+                     DO
+                        BEGIN
+                        N_(.L+.U)/2;
+                        INB_.SOB[K$SINSBUF];
+                        INS_.IB+(BO_.OFF+.N*.KSIZ1);
+LOOP2:
+                           BEGIN
+                           INCR I FROM 0 TO .NKEY
+                              DO
+                                 BEGIN
+                                 INCR J FROM 0 TO (S_.DSC[K$SSIZE,.I])-1
+                                    DO IF (A_.INB[.J]) LSS (B_.INS[.J])
+                                       THEN (U_.N-1; LEAVE LOOP2)   %  LESS  %
+                                       ELSE IF .A GTR .B
+                                          THEN (L_.N+1; LEAVE LOOP2);  % GREATER  %
+                                 INS_.INS+.S;
+                                 INB_.INB+.S;
+                                 END;
+
+                           %  EQUAL  %
+
+                           SPB[K$SIBOF,.LVL]_.BO;
+                           PN_.(.IB+.BO+.SOB[K$SKSIZ])<0,18>;
+                           LEAVE LOOP1
+                           END
+                        END;
+                  SPB[K$SIBOF,.LVL]_(BO_.OFF+.L*.KSIZ1);
+                  PN_.(.IB+.BO+.SOB[K$SKSIZ])<0,18>;
+                  END;
+               END
+         END
+      ELSE IF (PN_.SB[SB$1ST]) EQL 0 THEN RETURN 3;    %  FILE EMPTY   %
+
+      %   DB HAS BEEN FOUND   %
+
+   SPB[K$SDBBA]_DB_$KVIRD(.FCB,SPB[K$SDBPN]_.PN,.SOB[K$SDBSIZ]);
+   SPB[K$SVERN]_.DB[DB$VERNO];
+   ISIZ_.SOB[K$SISIZ];
+   OFF_.DB[DB$OFF];
+   L_0;
+   U_.DB[DB$NUMBER]-1;
+
+   %   BINARY SEARCH THE DB    %
+
+   WHILE .L LEQ .U
+      DO
+         BEGIN LABEL LOOP3;
+         N_(.L+.U)/2;
+         INB_.SOB[K$SINSBUF];
+         INS_.DB+.OFF+.N*.ISIZ;
+LOOP3:
+            BEGIN
+            INCR I FROM 0 TO .NKEY
+               DO
+                  BEGIN
+                  S_.DSC[K$SSIZE,.I];
+                  IF .DSC[K$SDDTYPE,.I] EQL DDV$STR
+                     THEN INCR J FROM 0 TO .S-1
+                        DO IF (A_.INB[.J]) LSS (B_RSHIFT(.INS[.J],1))
+                           THEN (U_.N-1; LEAVE LOOP3)   %  STRING = LESS   %
+                           ELSE IF .A GTR .B
+                              THEN (L_.N+1; LEAVE LOOP3)   %  STRING = GREATER  %
+                              ELSE 0
+                     ELSE INCR J FROM 0 TO .S-1
+                        DO IF (A_.INB[.J]) LSS (B_.INS[.J])
+                           THEN (U_.N-1; LEAVE LOOP3)   %  INTEGER = LESS  %
+                           ELSE IF .A GTR .B
+                              THEN (L_.N+1; LEAVE LOOP3);   % INTEGER = GREATER  %
+                  INS_.INS+.S;
+                  INB_.INB+.S;
+                  END;
+
+                  %  EQUAL   %
+
+            SPB[K$SDBOF]_.OFF+.N*.ISIZ;
+            RETURN 0       % INSTANCE FOUND  %
+            END
+         END;
+
+         %  NOT FOUND   %
+
+   IF .L EQL .DB[DB$NUMBER]
+      THEN
+         BEGIN   %  GREATER THAN ANY IN FILE   %
+         SPB[K$SDBOF]_.OFF+.U*.ISIZ;
+         RETURN 2
+         END
+      ELSE
+         BEGIN   %  BETWEEN 2 EXISTING INSTANCES   %
+         SPB[K$SDBOF]_.OFF+.L*.ISIZ;
+         RETURN 1
+         END;
+   END;
+
+
+GLOBAL ROUTINE $KSTAR(FCB)=
+   BEGIN
+   MAP KFCB$ FCB;
+   LOCAL KDB$ DB;
+   LOCAL KIB$ IB;
+   LOCAL KSOB$ SOB;
+   LOCAL KSPB$ SPB;
+   LOCAL KSB$ SB;
+   LOCAL LVL,PN,BO;
+
+
+   %  THIS ROUTINE FINDS THE FIRST INSTANCE IN A RELATION FILE   %
+
+   SB_.FCB[K$SBP];
+   SOB_.FCB[K$SOBP];
+   SPB_.SOB[K$SSPBP];
+   SOB[K$SNOL]_.SB[SB$NOL];
+   IF (LVL_.SB[SB$NOL]+1) NEQ 1
+      THEN
+         BEGIN
+         PN_.SB[SB$TOP];
+         WHILE DEC(LVL) NEQ 0
+            DO
+               BEGIN
+               SPB[K$SIBPN,.LVL]_.PN;
+               IB_$KVIRD(.FCB,.PN,.SOB[K$SIBSIZ]);
+               BO_.IB[IB$OFF];
+               SPB[K$SIBOF,.LVL]_.BO;
+               PN_.(.IB+.BO+.SOB[K$SKSIZ])<0,18>;
+               END
+         END
+      ELSE IF (PN_.SB[SB$1ST]) EQL 0
+         THEN (SPB[K$SDBPN]_0; RETURN 1);
+   SPB[K$SDBBA]_DB_$KVIRD(.FCB,SPB[K$SDBPN]_.PN,.SOB[K$SDBSIZ]);
+   SPB[K$SVERN]_.DB[DB$VERNO];
+   SPB[K$SDBOF]_.DB[DB$OFF];
+   RETURN 0
+   END;
+
+GLOBAL ROUTINE $KNXDB(FCB,CURSFLAG)=
+
+   BEGIN
+   MAP KFCB$ FCB;
+   LOCAL KDB$ DB;
+   LOCAL KIB$ IB;
+   LOCAL KSOB$ SOB;
+   LOCAL KSPB$ SPB;
+   LOCAL OFF,PN,KSIZ,TSPB[20];
+
+FUNCTION NEXTIB(LVL)=
+   BEGIN
+   LOCAL KIB$ IB;
+   LOCAL PN,OFF;
+
+   %  THIS FUNCTION RETURNS THE BUFFER ADDRESS OF THE NEXT SEQUENTIAL IB   %
+
+   IF .SOB[K$SNOL] LSS .LVL
+      THEN RETURN 0
+      ELSE IF (OFF_.SPB[K$SIBOF,.LVL]) EQL KV$PAGS*.SOB[K$SIBSIZ]-.KSIZ-1
+         THEN IF (IB_NEXTIB(.LVL+1)) EQL 0
+            THEN RETURN 0
+            ELSE PN_.(.IB+.IB[IB$OFF]+.KSIZ)<0,18>
+         ELSE
+            BEGIN
+            IB_$KVIRD(.FCB,.SPB[K$SIBPN,.LVL],.SOB[K$SIBSIZ]);
+            PN_.(.IB+.OFF+.KSIZ*2+1)<0,18>;
+            SPB[K$SIBOF,.LVL]_.OFF+.KSIZ+1;
+            END;
+   IB_$KVIRD(.FCB,.PN,.SOB[K$SIBSIZ]);
+   SPB[K$SIBPN,.LVL-1]_.PN;
+   SPB[K$SIBOF,.LVL-1]_.IB[IB$OFF];
+   .IB
+   END;
+
+   SOB_.FCB[K$SOBP];
+   SPB_.SOB[K$SSPBP];
+   KSIZ_.SOB[K$SKSIZ];
+
+   IF .CURSFLAG
+      THEN $KPROF(.FCB,.SPB[K$SDBBA],.SPB[K$SDBPN],.SOB[K$SDBSIZ]);
+
+   IF .SOB[K$SNOL] EQL 0
+      THEN RETURN 0
+      ELSE IF (OFF_.SPB[K$SIBOF,1]) EQL KV$PAGS*.SOB[K$SIBSIZ]-.KSIZ-1
+         THEN
+            BEGIN
+            IF NOT .CURSFLAG
+               THEN INCR I FROM 0 TO .SOB[K$SNOL]-1
+                  DO TSPB[.I]_.(.SPB+2+.I)<0,36>
+               ELSE $KPROF(.FCB,.SOB[K$SIBBUF],.SPB[K$SIBPN,1],.SOB[K$SIBSIZ]);
+            IF (IB_NEXTIB(2)) EQL 0
+               THEN RETURN 0
+               ELSE
+                  BEGIN
+                  IF .CURSFLAG
+                     THEN
+                        BEGIN
+                        SOB[K$SIBBUF]_.IB;
+                        $KPRON(.FCB,.IB,.SPB[K$SIBPN,1],.SOB[K$SIBSIZ]);
+                        END;
+                  PN_.(.IB+.IB[IB$OFF]+.KSIZ)<0,18>;
+                  END;
+            IF NOT .CURSFLAG
+               THEN INCR I FROM 0 TO .SOB[K$SNOL]-1
+                  DO (.SPB+2+.I)<0,36>_.TSPB[.I]
+            END
+         ELSE
+            BEGIN
+            IB_.SOB[K$SIBBUF];
+            PN_.(.IB+.OFF+.KSIZ*2+1)<0,18>;
+            IF .CURSFLAG
+               THEN SPB[K$SIBOF,1]_.OFF+.KSIZ+1;
+            END;
+   DB_$KVIRD(.FCB,.PN,.SOB[K$SDBSIZ]);
+   IF .CURSFLAG
+      THEN
+         BEGIN
+         $KPRON(.FCB,.DB,.PN,.SOB[K$SDBSIZ]);
+         SPB[K$SDBBA]_.DB;
+         SPB[K$SDBPN]_.PN;
+         SPB[K$SDBOF]_.DB[DB$OFF];
+         SPB[K$SVERN]_.DB[DB$VERNO];
+         END;
+   RETURN .DB
+   END;
+END ELUDOM
+   
