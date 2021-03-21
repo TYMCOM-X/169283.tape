@@ -1,0 +1,112 @@
+C           SUBROUTINE TO CALCULATE NON-CERAMIC STRESSES AND STRAINS.   CST00110    
+C                                                                       CST00120    
+      SUBROUTINE CST                                                    CST00130    
+C                                                                       CST00140    
+C     AL = LEFT CROSS-SECTIONAL AREA OF PIECE                           CST00150    
+C     AR = RIGHT CROSS-SECTIONAL AREA OF PIECE                          CST00160    
+C     CCC = COMPLEX VELOCITY OF SOUND WITHIN A PIECE                    CST00170    
+C     CL = LENGTH OF A PIECE                                            CST00180    
+C     FREQ = FREQUENCY                                                  CST00190    
+C     FV = ARRAY OF FORCES AND VELOCITIES                               CST00200    
+C     FV(1,M,J) = FORCE AT LEFT OF M-TH PIECE IN THE J-TH SECTION       CST00210    
+C     FV(2,M,J) = VELOCITY AT LEFT OF M-TH PIECE IN THE J-TH SECTION    CST00220    
+C     OMEGA = ANGULAR FREQUENCY                                         CST00230    
+C     RHO = DENSITY OF PIECE                                            CST00240    
+C     SMAG = MAGNITUDE OF STRAIN IN A PIECE                             CST00250    
+C     SPHASE = PHASE OF STRAIN IN A PIECE                               CST00260    
+C     ST = ARRAY OF STRESSES AND STRAINS                                CST00270    
+C     ST(1,M,J) = STRAIN AT CENTER OF M-TH PIECE IN THE J-TH SECTION    CST00280    
+C     ST(2,M,J) = STRESS AT CENTER OF M-TH PIECE IN THE J-TH SECTION    CST00290    
+C     TMAG = MAGNITUDE OF STRESS IN A PIECE                             CST00300    
+C     TPHASE = PHASE OF STRESS IN A PIECE                               CST00310    
+C                                                                       CST00320    
+      COMMON /CNTROL/ N(12),IE,IBC                                      CST00330    
+      COMMON /EDIT  / SEC(24),T(20),PTYPE(2),MO,IDAY,IYR,IRUN,OUT(4)     CST00340    
+      COMMON /FREQ  / FREQ,TWOPI                                        CST00350    
+      COMMON /FV    / FV,ZT,ZH,BFVSW,FVSW                               CST00360    
+      COMMON /PARAM / K(10,12),RHO(10,12),CL(10,12),AL(10,12),AR(10,12),CST00370    
+     1C(10,12,2)                                                        CST00380    
+      COMMON /ST    / ST                                                CST00390    
+      COMMON /SW    / LSW(20)                                           CST00400    
+C                                                                       CST00410    
+      COMPLEX ST(2,10,12),CJ,FV(2,11,12),ZT,ZH,Q,U,AK,ARG,CCC,SINKL     CST00420    
+C                                                                       CST00430    
+      LOGICAL LSW                                                       CST00440    
+C                                                                       CST00450    
+      OMEGA=TWOPI*FREQ                                                  CST00460    
+      CJ=(0.,1.)                                                        CST00470    
+      N1=2*(IE-1)+1                                                     CST00480    
+      N2=N1+1                                                           CST00490    
+      IF(LSW(8))WRITE(6,170)PTYPE(1),FREQ,MO,IDAY,IYR ,IRUN,OUT(N1),OUT(NCST00500    
+     12)                                                                CST00510    
+      N2=0                                                              CST00520    
+C     LOOP FOR SECTIONS.                                                CST00530    
+      DO 160 I=1,12                                                     CST00540    
+        N1=N2+1                                                         CST00550    
+        J=I                                                             CST00560    
+        N2=N1+1                                                         CST00570    
+        IF(LSW(8))WRITE(6,180)SEC(N1),SEC(N2)                           CST00580    
+        L=N(I)                                                          CST00590    
+C       LOOP FOR PIECES WITHIN A SECTION.                               CST00600    
+        DO 160 M=1,L                                                    CST00610    
+          MA=K(M,I)+1                                                   CST00620    
+          GOTO(100,100,130,140,140,140,140,140,140,140),MA              CST00630    
+C         COMPUTE STRAIN                                                CST00640    
+  100     CCC=CMPLX(C(M,I,1),C(M,I,2))                                  CST00650    
+          AK=OMEGA/CCC                                                  CST00660    
+          ARG=AK*CL(M,I)/2.0                                            CST00670    
+          SINKL=CSIN(ARG)                                               CST00680    
+          GOTO(110,120,130),MA                                          CST00690    
+C         CYLINDRICAL COMPONENT                                         CST00700    
+  110     ST(1,M,J)=(FV(2,M+1,J)-FV(2,M,J))/(2.0*CJ*CCC*SINKL)          CST00710    
+          GOTO150                                                       CST00720    
+C         CONICAL COMPONENT                                             CST00730    
+  120     XL=CL(M,I)/(SQRT(AR(M,I)/AL(M,I))-1.0)                        CST00740    
+          XR=XL+CL(M,I)                                                 CST00750    
+          R=2.0*XL+CL(M,I)                                              CST00760    
+          Q=R*FV(2,M+1,J)                                               CST00770    
+          U=XL*FV(2,M,J)                                                CST00780    
+          ST(1,M,J)=1./(CJ*OMEGA*R)*(AK*(Q-U)/SINKL - 2.*(Q+U)/(R*CCOS(ACST00790    
+     1    RG)))                                                         CST00800    
+          GOTO150                                                       CST00810    
+C         UNIT TYPE PIECE                                               CST00820    
+  130     ST(1,M,J)=(0.,0.)                                             CST00830    
+          ST(2,M,J)=(0.,0.)                                             CST00840    
+          IF(LSW(8))WRITE(6,190)M,T(3)                                  CST00850    
+          GOTO160                                                       CST00860    
+C         NON-PLANE WAVE THEORY TYPE PIECE.                             CST00870    
+  140     ST(1,M,J)=(0.,0.)                                             CST00880    
+          ST(2,M,J)=(0.,0.)                                             CST00890    
+          IF(LSW(8))WRITE(6,210)M,T(MA)                                 CST00900    
+          GOTO160                                                       CST00910    
+C         COMPUTE STRESS FROM STRAIN AND YOUNG'S MODULUS                CST00920    
+  150     ST(2,M,J)=RHO(M,I)*CCC*CCC*ST(1,M,J)                          CST00930    
+          IF(.NOT.LSW(8))GOTO160                                        CST00940    
+          X=REAL(ST(1,M,J))                                             CST00950    
+          Y=AIMAG(ST(1,M,J))                                            CST00960    
+          SMAG=SQRT(X*X+Y*Y)                                            CST00970    
+          SPHASE=0.0                                                    CST00980    
+          IF(SMAG.NE.0.0)SPHASE=57.2957795*ATAN2(Y,X)                   CST00990    
+          X=REAL(ST(2,M,J))                                             CST01000    
+          Y=AIMAG(ST(2,M,J))                                            CST01010    
+          TMAG=SQRT(X*X+Y*Y)                                            CST01020    
+          TPHASE=0.0                                                    CST01030    
+          IF(TMAG.NE.0.0)TPHASE=57.2957795*ATAN2(Y,X)                   CST01040    
+          WRITE(6,200)M,T(MA),TMAG,TPHASE,ST(2,M,J),SMAG,SPHASE,ST(1,M,JCST01050    
+     1    )                                                             CST01060    
+  160 CONTINUE                                                          CST01070    
+      RETURN                                                            CST01080    
+C                                                                       CST01090    
+  170 FORMAT (1H1///5XA6,27H TRANSDUCER ANALYSIS OUTPUT,10X11HFREQUENCY CST01100    
+     1=,F8.1,10X4HDATE,I4,1H/,I2,1H/,I2,10X10HRUN NUMBER,A7//6X38HNON-PICST01110    
+     2EZOELECTRIC STRESSES AND STRAINS,2A6,6H DRIVE//7X5HPIECE,27X6HSTRECST01120    
+     3SS,46X6HSTRAIN/6X8HNO. TYPE,7X3HMAG,9X5HPHASE,9X4HREAL,8X4HIMAG,10CST01130    
+     4X3HMAG,9X5HPHASE,9X4HREAL,8X4HIMAG//)                             CST01140    
+  180 FORMAT (1H0,15X2A6)                                               CST01150    
+  190 FORMAT (6XI2,1XA6,3X36H(UNIT PIECE HAS NO STRESS OR STRAIN))      CST01160    
+  200 FORMAT (6XI2,1XA6,4(1PE14.4,E12.4))                               CST01170    
+  210 FORMAT (6XI2,1XA6,3X72H(CANNOT CALCULATE STRESS OR STRAIN FOR NON-CST01180    
+     1PLANE-WAVE-THEORY TYPE PIECE))                                    CST01190    
+C                                                                       CST01200    
+      END                                                               CST01210    
+  
