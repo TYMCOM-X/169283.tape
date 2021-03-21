@@ -1,0 +1,390 @@
+C      ROOT LOCUS PROGRAM (RTLOC)
+        CALL IFILE(2,'RTLOCD')
+       DIMENSION GHN(11),GHD(11),A(11),U1(999),V1(999),
+     +  U(10),V(10),REAL(2),EMAJ(2),U2(999),V2(999),
+     +  NAME(5)
+       DATA IPP/1HP/
+1      FORMAT(5A4)
+6      FORMAT(1H1,4X,18HROOT LOCUS PROGRAM,/,5X,
+     *  25HPROBLEM IDENTIFICATION - ,5A4//3X,45(1H*))
+8      FORMAT(/,23H OPTION HAS BEEN TAKEN )
+11     FORMAT (/12H SIGMA MIN =,1PE11.2,4X,12H SIGMA MAX =,
+     +  1PE11.2/12H OMEGA MIN =,1PE11.2,4X,12H OMEGA MAX =,
+     +1PE11.2)
+22     FORMAT (/5X,I3,5X,7H GAIN =,1PE11.3//12X,9HROOTS ARE/
+     +  7X,9HREAL PART,2X,10HIMAG. PART/)
+23     FORMAT (5X,10(1PE11.3))
+225    FORMAT (/5X,10F10.3)
+230    FORMAT(/,5X,23H NUMERATOR COEFFICIENTS,
+     *  24HIN ASCENDING POWERS OF S)
+231    FORMAT(/,5X,25HDENOMINATOR COEFFICIENTS ,
+     * 24HIN ASCENDING POWERS OF S   )
+300    FORMAT (1HO,2X,45(1H*))
+306    FORMAT(/,5X,12HMIN. GAIN = ,1PE10.2,10X,13H MAX. GAIN = ,
+     * 1PE10.2)
+505    FORMAT (/,5X,16HOPEN-LOOP ZEROES,/,7X,9HREAL PART,
+     *  2X,10HIMAG. PART)
+506    FORMAT (/,5X,16HOPEN-LOOP ZEROES,/,7X,9HREAL PART,
+     *   2X,10HIMAG. PART)
+800    FORMAT (A1,A2)
+250    CONTINUE
+       READ (2,1,END=900)(NAME(I),I=1,5)
+       TYPE 6,(NAME(I),I=1,5)
+       DO 400 I=1,10
+       GHN(I)=0.0
+       GHD(I)=0.0
+       A(I)=0.0
+       U(I)=0.0
+400    V(I)=0.0
+       DO 401 I=1,999
+       V1(I)=0.0
+       U1(I)=0.0
+       V2(I)=0.0
+401    U2(I)=0.0
+       KOUNT=0
+500    KOUNT=KOUNT+1
+       READ (2,END=1111)KEY,N
+1111   NP=N+1
+       IF(KEY.EQ.IPP) GO TO 804
+       IF(N.EQ.0) GOTO804
+       I=0
+801    I=I+1
+       READ (2,END=2222)RREAL,RIMAG
+2222   U(I)=-RREAL
+       V(I)=RIMAG
+       IF(RIMAG)802,803,802
+802    I=I+1
+       U(I)=-RREAL
+       V(I)=-RIMAG
+803    IF(I.LT.N) GOTO801
+       CALL SEMBL(N,U,V,GHD)
+       GOTO(807,810),KOUNT
+804    READ (2,END=3333)(GHD(I),I=1,NP)
+3333   GHD(NP)=1.0
+       IF(N) 806,806,805
+805    CALL PROOT(N,GHD,U,V,IR)
+        IR=100
+806    GOTO(807,810),KOUNT
+807    DO 808 I=1,NP
+808    GHN(I)=GHD(I)
+       NN=NP
+       TYPE 230
+       TYPE 225,(GHN(I),I=1,NP)
+       IF (N.LE.0) GOTO 500
+       TYPE 505
+       DO 809 I=1,N
+809    TYPE 23,U(I),V(I)
+       GO TO 500
+810    ND=NP
+       TYPE 231
+       TYPE 225,(GHD(K),I=1,ND)
+       TYPE 506
+       DO 811 I=1,N
+811    TYPE 23,U(I),V(I)
+       READ (2,END=4444)GMIN,GMAX
+4444   TYPE 306,GMIN,GMAX
+       READ (2,END=5555)NOPT,(REAL(I),I=1,2),(EMAJ(I),I=1,2)
+5555   IF (NOPT)9,9,10
+10     TYPE 300
+       TYPE 8
+       TYPE 11,REAL(1),REAL(2),EMAJ(1),EMAJ(2)
+9      TYPE 300
+       IR=1
+       ITER=0
+       G=GMIN
+       N=ND-1
+24     DO 20 I=1,ND
+20     A(I)=GHN(I)*G+GHD(I)
+       CALL PROOT(N,A,U,V,IR)
+       DO 21 I=1,N
+       J=I+ITER*N
+       U1(J)=U(I)
+21     V1(J)=V(I)
+       ITER=ITER+1
+       TYPE 22,ITER,G
+       DO 25 I=1,N
+25     TYPE 23,U(I),V(I)
+       IF (NOPT)227,227,228
+227    G=1.15*(G+0.05)
+       GO TO 229
+228    G=1.04*(G+0.02)
+229    IF (G-GMAX)26,26,27
+26     GOTO24
+27     IF(NOPT)28,28,29
+29     NPTS=0
+       MT=ITER*N
+       DO 31 I=1,MT
+       IF(U1(I)-REAL(1))31,30,30
+30     IF(REAL(2)-U1(I))31,32,32
+32     IF(V1(I)-EMAJ(1))31,33,33
+33     IF(EMAJ(2)-V1(I))31,34,34
+34     NPTS=NPTS+1
+       U2(NPTS)=U1(I)
+       V2(NPTS)=V1(I)
+31     CONTINUE
+       TYPE 6,(NAME(I),I=1,5)
+       TYPE 230
+       TYPE 225,(GHN(I),I=1,NN)
+       TYPE 231
+       TYPE 225,(GHD(I),I=1,ND)
+       TYPE 306,GMIN,GMAX
+       TYPE 300
+       CALL SPLIT(U2,V2,NPTS)
+       GOTO35
+28     NPTS=ITER*N
+       TYPE 6,(NAME(I),I=1,5)
+       TYPE 230
+       TYPE 225,(GHN(I),I=1,NN)
+       TYPE 231
+       TYPE 225,(GHD(I),I=1,ND)
+       TYPE 306,GMIN,GMAX
+       TYPE 300
+       CALL SPLIT(U1,V1,NPTS)
+35     CONTINUE
+       GOTO250
+900    STOP
+       END
+       SUBROUTINEPROOT(N,A,U,V,IR)
+C      THIS SUBROUTINE USES A MODIFIED BARSTOW METHOD TO FIND THE
+C      ROOTS OF A POLYNOMIAL.
+       DIMENSION A(20),U(20),V(20),H(21),B(21),C(21)
+       IREV=IR
+       NC=N+1
+       DO 1 I=1,NC
+1      H(I)=A(I)
+       P=0.
+       Q=0.
+       R=0.
+3      IF(H(1))4,2,4
+       V(NC)=0.
+       U(NC)=0.
+       DO 1002 I=1,NC
+1002   H(I)=H(I+1)
+       GOTO 3
+4      IF(NC-1)5,100,5
+5      IF(NC-2)7,6,7
+6      R=-H(1)/H(2)
+       GO TO 50
+7      IF(NC-3)9,8,9
+8      P=H(2)/H(3)
+       Q=H(1)/H(3)
+       GOTO70
+9      IF(ABS(H(NC-1)/H(NC))-ABS(H(2)/H(1)))10,19,19
+10     IREV=-IREV
+       M=NC/2
+       DO 11 I=1,M
+       NL=NC+1-I
+       F=H(NL)
+       H(NL)=H(I)
+11     H(I)=F
+       IF(Q)13,12,13
+12     P=0.
+       GO TO 15
+13     P=P/Q
+       Q=1./Q
+15     IF(R)16,19,16
+16     R=1./R
+19     E=5.E-10
+       B(NC)=H(NC)
+       C(NC)=H(NC)
+       B(NC+1)=0.
+       C(NC+1)=0.
+       NP=NC-1
+20     DO 49 J=1,1000
+       DO 21 I1=1,NP
+       I=NC-I1
+       B(I)=H(I)+R*B(I+1)
+21     C(I)=B(I)+R*C(I+1)
+       IF(ABS(B(1)/H(1))-E)50,50,24
+24     IF(C(2))23,22,23
+22     R=R+1.
+       GO TO 30
+23     R=R-B(1)/C(2)
+30      DO 37 I1=1,NP
+       I=NC-I1
+       B(I)=H(I)-P*B(I+1)-Q*B(I+2)
+37     C(I)=B(I)-P*C(I+1)-Q*C(I+2)
+       IF (H(2))32,31,32
+31     IF(ABS(B(2)/H(1))-E)33,33,34
+32     IF(ABS(B(2)/H(2))-E)33,33,34
+33     IF(ABS(B(1)/H(1))-E)70,70,34
+34     CBAR=C(2)-B(2)
+       D=C(3)**2-CBAR*C(4)
+       IF (D)36,35,36
+35     P=P-2.
+       Q=Q*(Q+1.)
+       GO TO 49
+36     P=P+(B(2)*C(3)-B(1)*C(4))/D
+49     CONTINUE
+       Q=Q+(-B(2)*CBAR+B(1)*C(3))/D
+       E=E*10.
+       GOTO20
+50     NC=NC-1
+       V(NC)=0.
+       IF(IREV)51,52,52
+51     U(NC)=1./R
+       GO TO 53
+52     U(NC)=R
+53     DO 54 I=1,NC
+54     H(I)=B(I+1)
+       GO TO 4
+70     NC=NC-2
+       IF (IREV)71,72,72
+71     QP=1./Q
+       PP=P/(Q*2.0)
+       GO TO 73
+72     QP=Q
+       PP=P/2.0
+73     F=(PP)**2-QP
+       IF(F)74,75,75
+74     U(NC+1)=-PP
+       U(NC)=-PP
+       V(NC+1)=SQRT(-F)
+       V(NC)=-V(NC+1)
+       GO TO 76
+75     U(NC+1)=-(PP/ABS (PP))*(ABS(PP)+SQRT(F))
+       V(NC+1)=0.
+       U(NC)=QP/U(NC+1)
+       V(NC)=0.
+76     DO 77 I=1,NC
+77     H(I)=B(I+2)
+       GO TO 4
+100    RETURN
+       END
+       SUBROUTINE SEMBL(N,RR,RI,CF)
+C THIS SUBROUTINE DETRMINES THE COEFFICIENTS  OF A 
+C POLYNOMINAL FROM ITS ROOTS
+       COMPLEX R(10),C(11),PR,SUM
+       DIMENSION RR(10),RI(10),J(11),CF(11)
+       NN=N+1
+       DO 10 I=1,N
+ 10    R(I)=CMPLX(RR(I),RI(I))
+       CF(NN)=1.0
+       DO 14 M=1,N
+       SUM=CMPLX(0.0,0.0)
+       L=1
+       J(1)=1
+       GO TO 2
+ 1     J(L)=J(L)+1
+ 2     IF(L-M) 3,5,50
+ 3     MM=M-1
+       DO 4 I=L,MM
+       II=I+1
+ 4     J(II)=J(I)+1
+ 5     PR=CMPLX(1.0,0.0)
+       DO 7 I=1,M
+       ICK=J(I)
+ 7     PR=-PR*R(ICK)
+       SUM=SUM+PR
+       DO 6 I=1,M
+       L=M-I+1
+       IF(J(L)-N+M-L) 1,6,50
+ 6     CONTINUE
+       MP=N-M+1
+ 14    CF(MP)=REAL(SUM)
+       RETURN
+ 50    TYPE 2000
+ 2000  FORMAT(/,4X,14HERROR IN SEMBL)
+       RETURN
+       END
+       SUBROUTINE SPLIT(U1,V1,N)
+C      THIS IS AN X-Y PLOT ROUTINE
+       DIMENSION LINE(101),CORD(11)
+       DIMENSION X1(999),Y1(999),V1(999),U1(999)
+       DATA IPLU,IZERO,IBLAN,IEYEN,MINUS,IAST/1H+,1H0,1H ,1HI,1H-,1H*/
+       KS=0
+       DO 1 K=1,N
+       X1(K)=U1(K)
+ 1     Y1(K)=V1(K)
+C      CALCULATE YMAX AND YMIN
+       YMAX=Y1(1)
+       YMIN=Y1(1)
+       DO 107 I=2,N
+       IF(YMAX-Y1(I))104,105,105
+104    YMAX=Y1(I)
+105    IF(YMIN-Y1(I))107,107,106
+106    YMIN=Y1(I)
+107    CONTINUE
+C      ARRANGE THE DATA POINTS FOR INCREASEING VALUES OF X
+       NDM=N-1
+       DO 200 I=1,NDM
+       IA=I+1
+       DO 200 J=IA,N
+       IF(X1(I)-X1(J))201,201,215
+215    TEMP=X1(I)
+       X1(I)=X1(J)
+       X1(J)=TEMP
+       TEMP=Y1(I)
+       Y1(I)=Y1(J)
+       Y1(J)=TEMP
+201    CONTINUE
+200    CONTINUE
+       XMIN=X1(1)
+       XMAN=X1(N)
+C THE NEXT CARD DETERMINES THE SPREAD OF THE X-AXIS .WHEN
+C M IS 6 THEN THE GRID IS SQUARE
+C
+       M=6
+       M1=M+1
+       AM=M*10
+5      DO 93 JQA=1,10
+       AQJ=JQA
+       COR=(YMAX-YMIN)/10.
+       JQB=JQA+1
+93     CORD(JQB)=AQJ*COR+YMIN
+       CORD(1)=YMIN
+       TYPE 6,(CORD(NR),NR=1,11)
+6      FORMAT (//10X,11(2X,1PE8.1))
+       ZK=100.*YMIN/(YMIN-YMAX)
+       ZL=AM*XMIN/(YMIN-YMAX)
+       LZ=ZL+1.5
+       KZ=ZK+1.5
+       ITAL=M1
+       DO 100 K=1,N
+       Y1(K)=100.*Y1(K)/(YMAX-YMIN)+ZK+1.5
+100    X1(K)= AM*X1(K)/(YMAX-YMIN)+ZL+1.5
+       K1=1
+       KTAL=1
+C      RESET
+109    DO 25 I=1,101
+25     LINE(I)=IBLAN
+C DRAW MARGINS AND LONGITUDENAL GRID LINES
+       DO 27 JV=1,101,10
+27     LINE(JV) =IEYEN
+301    IF(ITAL-M1)38,37,38
+37     DO 39 J=2,100
+39     LINE(J)=MINUS
+       DO 51 JZ=11,91,10
+51     LINE(JZ)=IPLU
+38     CONTINUE
+C DRAW ZERO REFERENCE
+       IF(LZ-KTAL)164,165,164
+165    DO 166 I=1,101
+166    LINE(I)= IZERO
+164    CONTINUE
+       IF(KZ)301,301,302
+302    LINE(KZ) = IZERO
+101    NX=X1(K1)
+       IF(NX-KTAL)102,103,102
+103    NY=Y1(K1)
+       LINE(NY) = IAST
+       K1=K1+1
+       GO TO 101
+102    CONTINUE
+C GRAPH VARIABLES
+       IF(ITAL-M1)32,33,32
+33     AKS=KS
+       ST=AKS*COR+XMIN
+       KS=KS+1
+       TYPE 30,ST,(LINE(K),K=1,101)
+30     FORMAT(3X,1PE10.3,2X,101A1)
+       ITAL=1
+       GO TO 35
+32     TYPE 31,(LINE(K),K=1,101)
+31     FORMAT(15X,101A1)
+35     ITAL=ITAL+1
+       KTAL=KTAL+1
+       IF(K1-N)109,109,108
+108    RETURN
+       END
+ 
