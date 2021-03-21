@@ -1,0 +1,270 @@
+MODULE KSEQ(DOLLAR,ENTRIES=($KSETK,$KRSEQ,$KRSRT,$KRDKY,$KUPDT),FSAVE,TIMING,TIMER=EXTERNAL
+                (SIX12))=
+
+BEGIN
+
+REQUIRE KDEFS.BLI[7,107355];
+REQUIRE BTDEFS.BLI[7,107355];
+REQUIRE DBDEFS.BLI[7,107355];
+REQUIRE IBDEFS.BLI[7,107355];
+REQUIRE UDEFS.BLI[7,107355];
+REQUIRE STDEFS.BLI[7,114054];
+REQUIRE FDEFS.BLI[7,107355];
+REQUIRE DVDEFS.BLI[7,107355];
+UNDECLARE $KSETK,$KRSEQ,$KRSRT,$KRDKY,$KUPDT;
+
+MACHOP LSH=#242;
+
+MACRO RSHIFT(X,N)=  (REGISTER Q$$$; Q$$$_X; LSH(Q$$$,-(N)))&;
+
+MACRO DEC(NAME)= (NAME_.NAME-1)&;
+
+MACRO INC(NAME)= (NAME_.NAME+1)&;
+
+GLOBAL ROUTINE $KSETK(FCB)=
+   BEGIN
+   MAP KFCB$ FCB;
+   LOCAL KDB$ DB;
+   LOCAL KSOB$ SOB;
+   LOCAL KSPB$ SPB;
+   LOCAL KDSC$ DSC;
+   LOCAL UDYNARY$ INS:INB;
+   LOCAL KEYCT,ANS,S;
+
+FUNCTION NOTSAMESUBSET=
+   BEGIN
+
+   %  THIS FUNCTION CHECKS TO SEE IF THE NEXT SEQUENTIAL INSTANCE IS IN THE
+      SAME LEFT SUBSET AS THE LAST INSTANCE (STILL IN THE INSTANCE BUFFER).  %
+
+   INB_.SOB[K$SINSBUF];
+   INS_.DB+.SPB[K$SDBOF];
+   INCR I FROM 0 TO .SOB[K$SKEYCT]-1
+      DO
+      BEGIN
+      IF .DSC[K$SDDTYPE,.I] NEQ DDV$STR
+         THEN INCR J FROM 0 TO (S_.DSC[K$SSIZE,.I])-1
+            DO IF .INB[.J] NEQ .INS[.J]
+               THEN RETURN 1    %  NOT SAME  %
+               ELSE 0
+         ELSE INCR J FROM 0 TO (S_.DSC[K$SSIZE,.I])-1
+            DO IF RSHIFT(.INS[.J],1) NEQ .INB[.J]
+               THEN RETURN 1;
+      INS_.INS+.S;
+      INB_.INB+.S;
+      END;
+   RETURN 0     %  SAME SUBSET   %
+   END;
+
+   %   THIS ROUTINE SETS THE CURSOR (SPB) TO THE 1ST INSTANCE IN THE SPECIFIED
+       LEFT SUBSET   %
+
+   SOB_.FCB[K$SOBP];
+   SPB_.SOB[K$SSPBP];
+   IF (KEYCT_.SOB[K$SKEYCT]) EQL 0    % POSITION TO START OF FILE   %
+      THEN IF $KSTAR(.FCB)
+         THEN RETURN 1
+         ELSE 0
+      ELSE IF .KEYCT EQL .SOB[K$SNKEY]    % ONLY 1 INSTANCE   %
+           THEN IF $KSRCH(.FCB,KV$MASSAGE) NEQ 0
+              THEN RETURN 1
+              ELSE 0
+           ELSE
+              BEGIN
+              IF .KEYCT GTR .SOB[K$SNKEY] OR .KEYCT LSS 0
+                 THEN $KFATL(#734);
+              DSC_.SOB[K$SDESCR];
+              INS_.SOB[K$SINSBUF];
+              SOB[K$SSIZ]_0;
+              INCR I FROM 0 TO .KEYCT-1
+                 DO
+                    BEGIN
+                    S_.DSC[K$SSIZE,.I];
+                    IF .DSC[K$SDDTYPE,.I] EQL DDV$STR   % MASSAGE RELEVANT KEYS  %
+                       THEN INCR J FROM 0 TO .S-1
+                          DO INS[.J]_RSHIFT(.INS[.J],1);
+                    SOB[K$SSIZ]_.SOB[K$SSIZ]+.S;
+                    INS_.INS+.S;
+                    END;
+              INCR I FROM .KEYCT TO .SOB[K$SNKEY]-1
+                 DO
+                    BEGIN    % SET REST OF KEYS TO MINIMUM VALUE, 0 FOR STRINGS, -INFINITY FOR INTEGERS  %
+                    S_.DSC[K$SSIZE,.I];
+                    IF .DSC[K$SDDTYPE,.I] EQL DDV$STR
+                       THEN INCR J FROM 0 TO .S-1
+                          DO INS[.J]_0
+                       ELSE INCR J FROM 0 TO .S-1
+                          DO INS[.J]_#400000000000;
+                    INS_.INS+.S;
+                    END;
+              IF (ANS_$KSRCH(.FCB,KV$NOMASSAGE)) EQL 2 OR .ANS EQL 3
+
+              % IF FILE EMPTY OR KEY BIGGER THAN ANY IN FILE => NO SUBSET.  %
+
+                 THEN RETURN 1;
+              DB_.SPB[K$SDBBA];
+              IF .ANS EQL 1
+                 THEN IF NOTSAMESUBSET()
+                        % IF NO MATCH CHECK IF NEXT LARGER IS IN SUBSET %
+                    THEN RETURN 1;
+               END;
+
+   $KPRON(.FCB,.SPB[K$SDBBA],.SPB[K$SDBPN],.SOB[K$SDBSIZ]);
+
+   IF .SOB[K$SNOL] GTR 0
+      THEN
+         BEGIN
+         SOB[K$SIBBUF]_$KVIRD(.FCB,.SPB[K$SIBPN,1],.SOB[K$SIBSIZ]);
+         $KPRON(.FCB,.SOB[K$SIBBUF],.SPB[K$SIBPN,1],.SOB[K$SIBSIZ]);
+         END;
+   SOB[K$SLASTOP]_KV$SETK;
+   RETURN 0;    % SUBSET FOUND   %
+   END;
+
+GLOBAL ROUTINE $KRSEQ(FCB)=
+   BEGIN
+   MAP KFCB$ FCB;
+   LOCAL KDB$ DB;
+   LOCAL KIB$ IB;
+   LOCAL KSOB$ SOB;
+   LOCAL KSPB$ SPB;
+   LOCAL UDYNARY$ INS:INB;
+   LOCAL OFF,PN,KSIZ,RET;
+
+MACRO RELEASEIB=
+   IF .SOB[K$SNOL] GTR 0
+      THEN $KPROF(.FCB,.SOB[K$SIBBUF],.SPB[K$SIBPN,1],.SOB[K$SIBSIZ])&;
+
+%    START OF READ SEQUENTIAL CODE    %
+
+   SOB_.FCB[K$SOBP];
+   SPB_.SOB[K$SSPBP];
+   KSIZ_.SOB[K$SKSIZ];
+   IF .SOB[K$SLASTOP] EQL KV$SETK
+      THEN DB_.SPB[K$SDBBA]
+      ELSE
+         BEGIN
+         OFF_.SPB[K$SDBOF]+.SOB[K$SISIZ];
+         IF .SOB[K$SCHANGE]
+            THEN 
+               BEGIN
+               SOB[K$SCHANGE]_0;
+               IF (RET_$KSRCH(.FCB,KV$MASSAGE)) NEQ 0  % RECALCULATE SPB %
+                  THEN IF .RET GEQ 2
+                     THEN RETURN 1  % EOF %
+                     ELSE OFF_.SPB[K$SDBOF]
+                  ELSE OFF_.SPB[K$SDBOF]+.SOB[K$SISIZ];
+               DB_.SPB[K$SDBBA];
+               $KPRON(.FCB,.DB,.SPB[K$SDBPN],.SOB[K$SDBSIZ]);
+               IF .SOB[K$SNOL] GTR 0
+                  THEN
+                     BEGIN
+                     SOB[K$SIBBUF]_$KVIRD(.FCB,.SPB[K$SIBPN,1],.SOB[K$SIBSIZ]);
+                     $KPRON(.FCB,.SOB[K$SIBBUF],.SPB[K$SIBPN,1],.SOB[K$SIBSIZ]);
+                     END;
+               END;
+         IF .OFF GEQ KV$PAGS*.SOB[K$SDBSIZ]
+            THEN IF (DB_$KNXDB(.FCB,1)) EQL 0    %  END OF DB REACHED   %
+               THEN RETURN 1
+               ELSE 0
+            ELSE
+               BEGIN
+               DB_.SPB[K$SDBBA];
+               SPB[K$SDBOF]_.OFF;
+               END;
+         IF .SOB[K$SKEYCT] NEQ 0
+            THEN
+               BEGIN
+               INS_.SOB[K$SINSBUF];
+               INB_.DB+.SPB[K$SDBOF];
+               INCR I FROM 0 TO .SOB[K$SSIZ]-1
+                  DO IF .INS[.I] NEQ .INB[.I]
+                     THEN
+                        BEGIN
+                        RELEASEIB;
+                        $KPROF(.FCB,.SPB[K$SDBBA],.SPB[K$SDBPN],.SOB[K$SDBSIZ]);
+                        RETURN 1
+                        END;
+               END;
+         END;
+   $UMOVE(.SOB[K$SISIZ],.DB+.SPB[K$SDBOF],.SOB[K$SINSBUF]);
+   SOB[K$SLASTOP]_SOB[K$SLASTINOP]_KV$READ;
+   RETURN 0
+   END;
+
+GLOBAL ROUTINE $KRSRT(FC,ST)=
+   BEGIN
+   MAP KFCB$ FC;
+   MAP ST$ ST;
+   LOCAL KFCB$ FCB;
+   LOCAL KSOB$ SOB;
+   LOCAL KDB$ DB;
+   LOCAL OFF,DBSIZ;
+
+   SOB_.FC[K$SOBP];
+   DBSIZ_.SOB[K$SDBSIZ];
+   FCB_.ST[ST$FCB1];
+   IF DEC(ST[ST$NOI]) LSS 0
+      THEN
+         BEGIN
+         $KPROF(.FCB,.ST[ST$BUFA],.ST[ST$PAGE],.DBSIZ);
+         RETURN 1
+         END;
+   IF (OFF_.ST[ST$OFF]) GEQ KV$PAGS*.DBSIZ
+      THEN
+         BEGIN
+         $KPROF(.FCB,.ST[ST$BUFA],.ST[ST$PAGE],.DBSIZ);
+         DB_ST[ST$BUFA]_$KVIRD(.FCB,INC(ST[ST$PAGE]),.DBSIZ);
+         $KPRON(.FCB,.DB,.ST[ST$PAGE],.DBSIZ);
+         OFF_.DB[DB$OFF];
+         END
+      ELSE DB_.ST[ST$BUFA];
+   ST[ST$OFF]_.OFF+.SOB[K$SISIZ];
+   $UMOVE(.SOB[K$SISIZ],.DB+.OFF,.SOB[K$SINSBUF]);
+   SOB[K$SLASTOP]_SOB[K$SLASTINOP]_KV$READ;
+   END;
+
+GLOBAL ROUTINE $KRDKY(FCB)=
+   BEGIN
+   MAP KFCB$ FCB;
+   LOCAL KSOB$ SOB;
+   LOCAL KSPB$ SPB;
+   LOCAL KDB$ DB;
+
+   IF $KSRCH(.FCB,KV$MASSAGE) NEQ 0
+      THEN RETURN 1
+      ELSE
+         BEGIN    %  INSTANCE FOUND   %
+         SOB_.FCB[K$SOBP];
+         SPB_.SOB[K$SSPBP];
+         DB_.SPB[K$SDBBA];
+         $UMOVE(.SOB[K$SISIZ],.DB+.SPB[K$SDBOF],.SOB[K$SINSBUF]);
+         SOB[K$SLASTOP]_SOB[K$SLASTINOP]_KV$REDK;
+         RETURN 0
+         END
+   END;
+
+GLOBAL ROUTINE $KUPDT(FCB,SEARCH)=
+   BEGIN
+   MAP KFCB$ FCB;
+   LOCAL KSOB$ SOB;
+   LOCAL KSPB$ SPB;
+   LOCAL KDB$ DB;
+
+   SOB_.FCB[K$SOBP];
+   SPB_.SOB[K$SSPBP];
+   IF .SEARCH
+      THEN
+         BEGIN
+         IF $KSRCH(.FCB,KV$MASSAGE) NEQ 0
+            THEN $KFATL(#756);
+         DB_.SPB[K$SDBBA];
+         END
+      ELSE DB_$KVIRD(.FCB,.SPB[K$SDBPN],.SOB[K$SDBSIZ]);
+   $UMOVE(.SOB[K$SISIZ],.SOB[K$SINSBUF],.DB+.SPB[K$SDBOF]);
+   $KVIWR(.FCB,.DB,.SPB[K$SDBPN],.SOB[K$SDBSIZ]);
+   SOB[K$SLASTOP]_KV$UPDT;
+   RETURN 0
+   END;
+END ELUDOM
+ 
