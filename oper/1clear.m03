@@ -1,0 +1,404 @@
+TITLE   CLEAR - VERSION A3.00
+SUBTTL  LAST UPDATE   3/31/73 GUY BLOOD
+
+VERS=3
+JOBVER=137
+LOC JOBVER                      ;PUT VERSION NUMBER IN JOB DATA AREA
+XWD     0,VERS
+RELOC
+
+        AC=0
+        A=1
+        B=2
+        C=3
+        D=4
+        E=5
+        F=6
+        G=7
+        WD=10
+        CH=11
+        TEMP=12
+        BP=13
+        BPNTR=14
+        INDEX=15
+        FLAG=16
+        P=17
+
+        NAM1==0
+        NAM2==40
+        OPLIC==100
+        PASWRD==140
+
+        DCH1==1                         ;DATA CHANNELS
+        DCH2==2
+
+ARRAY   PDL[50],X[5]
+
+START:  RESET
+        MOVE    P,[IOWD 50,PDL]         ;INITIALIZE PUSH DOWN LIST
+        TTCALL  3,[ASCIZ/
+BATCH CLEAR - VERSION B2.00
+/]
+        HRROI   A,-20           ;CHECK USER FOR OPERATOR STATUS
+        GETTAB  A,
+        SETZ    A,              ;ERROR RETURN
+        TRNN    A,100000
+        JRST    BADLIC          ;NO OPERATOR STATUS
+        INIT    DCH1,0
+        SIXBIT  /DSK/
+        XWD     0,IBUF
+        JRST    DCHERR+2
+        MOVE    E,PPRTMP+1              ;SAVE FILE EXTENSION
+        MOVE    F,PPRTMP+3              ;SAVE PPN
+        LOOKUP  DCH1,PPRTMP
+        JRST    ERRTMP
+        MOVEI   INDEX,^D10
+        MOVEM   E,PPRTMP+1              ;RESTORE FILE EXTENSION
+        MOVEM   F,PPRTMP+3              ;RESTORE PPN
+        ENTER   DCH1,PPRTMP
+        PUSHJ   P,BUSY
+        MOVEM   E,PPRTMP+1              ;RESTORE FILE EXTENSION
+        MOVEM   F,PPRTMP+3              ;RESTORE PPN
+        RENAME  DCH1,PPRCLR             ;RENAME PPRTMP.DAT TO PPRCLR.DAT
+        JRST    NOCRE
+        MOVEM   E,PPRCLR+1              ;RESTORE FILE EXTENSION
+        MOVEM   F,PPRCLR+3              ;RESTORE PPN
+        LOOKUP  DCH1,PPRCLR
+        JRST    ERRCLR
+        INBUF   DCH1,1                  ;INITIALIZE INPUT BUFFER
+        INPUT   DCH1,
+        STATZ   DCH1,340000
+        JRST    BADFI+2
+        MOVEM   E,PPRCLR+1              ;RESTORE FILE EXTENSION
+        MOVEM   F,PPRCLR+3              ;RESTORE PPN
+        INIT    DCH2,0
+        SIXBIT  /DSK/
+        XWD     OBUF,0
+        JRST    DCHERR
+        MOVEM   E,PPRTMP+1              ;RESTORE FILE EXTENSION
+        MOVEM   F,PPRTMP+3              ;RESTORE PPN
+        ENTER   DCH2,PPRTMP             ;CREATE NEW PPRTMP.DAT
+        JRST    NEWTMP
+        OUTBUF  DCH2,1                  ;INITIALIZE OUTPUT BUFFER
+        OUTPUT  DCH2,                   ;DUMMY OUTPUT TO CLEAR BUFFER
+        SETZB   FLAG,CH
+        MOVE    AC,IBUF+2               ;NUMBER OF CHARACTERS INPUT
+        CAIE    AC,^D40                 ;IF GREATER THAN 40 THEN THERE IS A REQUEST WAITING
+        JRST    GETREQ
+CLEAR:  MOVEI   INDEX,^D19
+        PUSHJ   P,GETCHR
+        TTCALL  1,CH
+        PUSHJ   P,PUTCHR
+        SOJG    INDEX,CLEAR+1
+        MOVEI   INDEX,^D18
+        PUSHJ   P,GETCHR
+        CAIN    CH,32
+        JRST    .+3
+        TTCALL  1,CH
+        SOJG    INDEX,.-4
+        TTCALL  15,[15]
+        TTCALL  15,[12]
+        PUSHJ   P,GETDAT
+        OUTPUT  DCH2,
+        STATZ   DCH2,340000
+        JRST    BADFI
+        CLOSE   DCH2,
+        RELEASE DCH2,
+        JUMPE   FLAG,DEL
+        POPJ    P,
+GETREQ: MOVEI   FLAG,1
+        PUSHJ   P,CLEAR
+        SETZ    FLAG,
+AGAIN:  MOVEI   INDEX,5
+        TTCALL  15,[12]
+        SOJG    INDEX,.-1
+        TTCALL  3,[ASCIZ/
+REQUEST NUMBER          /]
+        JUMPE   FLAG,.+2
+        TTCALL  1,CH
+        PUSHJ   P,COPCHR
+        TTCALL  3,[ASCIZ/
+COMPUTER NUMBER         /]
+        PUSHJ   P,COPCHR
+        TTCALL  3,[ASCIZ/
+DATE AND TIME           /]
+        PUSHJ   P,COPCHR
+        TTCALL  3,[ASCIZ/
+ENTERED FROM            /]
+        PUSHJ   P,COPCHR
+        SOSGE   IBUF+2
+        PUSHJ   P,NXTBLK
+        ILDB    CH,IBUF+1
+        SUBI    CH,60                   ;CONVERT TO NUMBER
+        MOVE    TEMP,CH                 ;INHOUSE FLAG
+        JUMPE   TEMP,HERE
+        TTCALL  3,[ASCIZ/
+COMPANY NAME            /]
+        PUSHJ   P,COPCHR
+        TTCALL  3,[ASCIZ/
+USER NAME               /]
+        PUSHJ   P,COPCHR
+HERE:   TTCALL  3,[ASCIZ/
+PROJECT CODE            /]
+        PUSHJ   P,COPCHR
+        TTCALL  3,[ASCIZ/
+TELEPHONE NO. (EXT.)    /]
+        PUSHJ   P,COPCHR
+        TTCALL  3,[ASCIZ/
+REQUESTED BY            /]
+        PUSHJ   P,COPCHR
+        CAIE    TEMP,2
+        JRST    HERE1
+        TTCALL  3,[ASCIZ/
+RECEIVED BY             /]
+        PUSHJ   P,COPCHR
+HERE1:  TTCALL  3,[ASCIZ/
+GLOBAL ACCT. NO.        /]
+        PUSHJ   P,COPCHR
+        TTCALL  C,[ASCIZ/
+DISTRICT NO.            /]
+        PUSHJ   P,COPCHR
+        TTCALL  15,[12]
+        TTCALL  3,[ASCIZ/
+DESCRIPTION OF WORK
+/]
+        TTCALL  15,[12]
+        PUSHJ   P,COPCHR
+        TTCALL  15,[12]
+        TTCALL  3,[ASCIZ/
+DELIVERY INSTRUCTIONS
+/]
+        TTCALL  15,[12]
+        PUSHJ   P,COPCHR
+        PUSHJ   P,PUTMSG
+        SETZ    TEMP,
+        JRST    AGAIN
+GETDAT: SETZB   A,B
+        SETZB   C,CH
+        CALLI   A,14                    ;GET DATE FROM MONITOR
+        IDIVI   A,^D31
+        AOJ     B,                      ;ADD ONE TO DAY
+        PUSHJ   P,DECPRT                ;CONVERT TO DECIMAL AND PRINT
+        MOVE    B,A
+        SETZ    A,
+        DIVI    A,^D12
+        IMULI   B,2
+        JUMPN   FLAG,.+2
+        TTCALL  3,MONTH(B)              ;OUTPUT MONTH TO TTY
+        MOVE    WD,MONTH(B)
+        PUSHJ   P,PUTSTR
+        MOVEI   B,^D64(A)
+        PUSHJ   P,DECPRT                ;CONVERT TO DECIMAL AND PRINT
+        MOVEI   CH,40
+        PUSHJ   P,PUTCHR
+        PUSHJ   P,PUTCHR
+        JUMPN   FLAG,.+2
+        TTCALL  3,[ASCIZ/  /]
+        CALLI   A,22                    ;GET TIME FROM MONITOR IN MILISECONDS
+        IDIVI   A,^D3600                ;CONVERT TO MINUTES
+        IDIVI   A,^D60                  ;HOURS IN A - MINUTES IN B
+        MOVE    AC,B
+        MOVE    B,A
+        PUSHJ   P,DECPRT                ;CONVERT TO DECIMAL AND PRINT
+        JUMPN   FLAG,.+2
+        TTCALL  15,[72]                 ;OUTPUT COLON TO TTY
+        MOVEI   CH,":"
+        PUSHJ   P,PUTCHR
+        MOVE    B,AC
+        PUSHJ   P,DECPRT                ;CONVERT TO DECIMAL AND PRINT
+        MOVEI   INDEX,5                 ;FIVE CHARACTERS IN EOF ROUTINE
+        MOVE    BP,[POINT 7,EOFROU]
+        ILDB    CH,BP
+        PUSHJ   P,PUTCHR
+        SOJG    INDEX,.-2
+        POPJ    P,
+DECPRT: IDIVI   B,12
+        MOVE    CH,B
+        ADDI    CH,60                   ;CONVERT TO SEVEN BIT ASCII
+        JUMPN   FLAG,.+2
+        TTCALL  1,CH
+        PUSHJ   P,PUTCHR
+        MOVE    CH,C
+        ADDI    CH,60                   ;CONVERT TO SEVEN BIT ASCII
+        JUMPN   FLAG,.+2
+        TTCALL  1,CH
+        PUSHJ   P,PUTCHR
+        POPJ    P,
+GETCHR: SOSGE   IBUF+2
+        JRST    ILLFOR
+        ILDB    CH,IBUF+1
+        POPJ    P,
+PUTCHR: SOSGE   OBUF+2
+        JRST    ILLFOR
+        IDPB    CH,OBUF+1
+        POPJ    P,
+PUTSTR: MOVEI   INDEX,5
+        MOVE    BP,[POINT 7,WD]
+        ILDB    CH,BP
+        PUSHJ   P,PUTCHR
+        SOJG    INDEX,.-2
+        POPJ    P,
+COPCHR: SOSGE   IBUF+2
+        PUSHJ   P,NXTBLK
+        ILDB    CH,IBUF+1
+        CAIN    CH,30                   ;EOS CHARACTER - CONTROL X
+        POPJ    P,
+        TTCALL  1,CH
+        JRST    COPCHR
+INCHR:  SOSGE   IBUF+2
+        PUSHJ   P,NXTBLK
+        ILDB    CH,IBUF+1
+        POPJ    P,
+NXTBLK: INPUT   DCH1,
+        STATZ   DCH1,340000
+        JRST    BADFI
+        SOS     IBUF+2
+        POPJ    P,
+BUSY:   SOJE    INDEX,OPNERR+2
+        TTCALL  3,[ASCIZ/
+DATA FILE BUSY - PLEASE STAND BY
+/]
+        MOVEI   A,^D10
+        SLEEP   A,31                    ;DIMISS FOR TEN SECONDS
+        MOVEI   TEMP,4
+        SOS     (P)
+        SOJG    TEMP,.-1
+        POPJ    P,
+OPNERR: CLOSE   DCH2,
+        RELEASE DCH2,
+        CLOSE   DCH1,
+        RELEASE DCH1,
+        TTCALL  3,[ASCIZ/
+UNABLE TO OPEN PPRTMP.DAT FOR UPDATE
+/]
+        EXIT
+DCHERR: CLOSE   DCH1,
+        RELEASE DCH1,
+        TTCALL  3,[ASCIZ/
+UNABLE TO INITIALIZE DATA CHANNEL
+/]
+        EXIT
+BADFI:  CLOSE   DCH2,
+        RELEASE DCH2,
+        CLOSE   DCH1,
+        RELEASE DCH1,
+        TTCALL  3,[ASCIZ/
+DATA FILE FORMAT INCORRECT
+/]
+        EXIT
+NOCRE:  RELEASE DCH1,
+        TTCALL  3,[ASCIZ/
+UNABLE TO RENAME PPRTMP.DAT TO PPRCLR.DAT
+/]
+        EXIT
+BADLIC: RELEASE DCH1,
+        CLOSE   DCH2,
+        RELEASE DCH2,
+        TTCALL  11,                     ;CLEAR TTY INPUT BUFFER
+        TTCALL  3,[ASCIZ/
+OPERATOR LICENSE REQUIRED
+/]
+        EXIT
+ERRTMP: RELEASE DCH1,
+        TTCALL  3,[ASCIZ/
+PPRTMP.DAT FILE MISSING
+/]
+        EXIT
+ERRCLR: RELEASE DCH2,
+        CLOSE   DCH1,
+        RELEASE DCH1,
+        TTCALL  3,[ASCIZ/
+PPRCLR.DAT FILE MISSING
+/]
+        EXIT
+ILLFOR: CLOSE   DCH2,
+        RELEASE DCH2,
+        CLOSE   DCH1,
+        RELEASE DCH1,
+        TTCALL  3,[ASCIZ/
+INCORRECT CHARACTER COUNT
+/]
+        EXIT
+DELFI:  CLOSE   DCH1,
+        RELEASE DCH1,
+        TTCALL  3,[ASCIZ/
+UNABLE TO DELETE PPRCLR.DAT
+/]
+        EXIT
+NEWTMP: RELEASE DCH2,
+        CLOSE   DCH1,
+        RELEASE DCH1,
+        TTCALL  11,
+        TTCALL  3,[ASCIZ/
+UNABLE TO CREATE NEW PPRTMP.DAT
+/]
+        EXIT
+PUTMSG: TTCALL  15,[12]
+        TTCALL  3,MSG
+        MOVEI   FLAG,1
+        PUSHJ   P,INCHR
+        CAIE    CH,20                   ;EOR CHARACTER - CONTROL P
+        JRST    BADFI
+        MOVEI   INDEX,5
+        TTCALL  15,[12]
+        SOJG    INDEX,.-1
+        PUSHJ   P,INCHR
+        CAIE    CH,32                   ;EOF CHARACTER - CONTROL Z
+        POPJ    P,
+DEL:    SETZ    AC,
+        RENAME  DCH1,AC                 ;DELETE PPRCLR.DAT
+        JRST    DELFI
+        RELEASE DCH1,
+        TTCALL  15,[15]
+        TTCALL  15,[12]
+        EXIT
+        POPJ    P,
+MSG:    ASCIZ/
+1.------------PAGES-----PARTS TO LISTING-----LISTINGS DECOLLATED
+
+2.------------CARDS TO DISC    3.------------DISC TO CARDS
+
+4.------------FILES TAPE TO DISC
+
+5.------------FILES DISC TO TAPE ------------TAPE CHARGE
+
+6.------------OTHER CHARGE     7.------------TAPE CONVERSION
+
+--------------COMPLETED BY     --------------DATE
+
+--------------POSTAGE          --------------ENTERED INTO ACCT.
+
+/
+MONTH:  ASCIZ /-JAN-/
+        ASCIZ /-FEB-/
+        ASCIZ /-MAR-/
+        ASCIZ /-APR-/
+        ASCIZ /-MAY-/
+        ASCIZ /-JUN-/
+        ASCIZ /-JUL-/
+        ASCIZ /-AUG-/
+        ASCIZ /-SEP-/
+        ASCIZ /-OCT-/
+        ASCIZ /-NOV-/
+        ASCIZ /-DEC-/
+PPRTMP: SIXBIT  /PPRTMP/
+        SIXBIT  /DAT/
+        0
+PTMPPP: XWD     1,2                     ;CHANGE TO 1,2 IN FINAL VERSION
+PPRCLR: SIXBIT  /PPRCLR/
+        SIXBIT  /DAT/
+        0
+PCLRPP: XWD     1,2                     ;CHANGE TO 1,2 IN FINAL VERSION
+PSWDFI: SIXBIT  /OPERPS/
+        SIXBIT  /WRD/
+        0
+        XWD     1,4
+EOFROU: BYTE    (7)15,12,32,15,12
+COMLST: IOWD    200,IOBUFF
+        0
+IOBUFF: BLOCK   200
+OBUF:   BLOCK   3
+IBUF:   BLOCK   3
+        VAR
+        END     START
+   
