@@ -1,0 +1,1025 @@
+      CALL FOCZOC                                                       TAC01110    
+      CALL ADMIT                                                        TAC01120    
+      CALL CCFV                                                         TAC01130    
+      CALL CFV                                                          TAC01140    
+      CALL CST                                                          TAC01150    
+      CALL CCI                                                          TAC01160    
+      CALL CCST                                                         TAC01170    
+      IF(FREQ.GE.FMAX)GOTO100                                           TAC01180    
+      FREQ=FREQ+DELTAF                                                  TAC01190    
+      GOTO120                                                           TAC01200    
+C                                                                       TAC01210    
+      END                                                               TAC01220    
+        ING00100    C           INPUT AND INITIALIZATION SUBROUTINE.                
+C           INPUT AND INITIALIZATION SUBROUTINE.                        ING00110    
+C                                                                       ING00120    
+      SUBROUTINE ING                                                    ING00130    
+C                                                                       ING00140    
+C     ACS = CROSS-SECTIONAL AREA OF CERAMIC RING OR CYLINDER.           ING00150    
+C     AL(I,J) = LEFT AREA OF I-TH PIECE IN J-TH SECTION                 ING00160    
+C     AMASS = MASS OF PIECE.                                            ING00170    
+C     AR(I,J) = RIGHT AREA OF I-TH PIECE IN J-TH SECTION                ING00180    
+C     AREA = AREA OF ELEMENT'S RADIATING SURFACE.                       ING00190    
+C     BARE = LENGTH OF CERAMIC CYLINDER NOT ELECTRODED.                 ING00200    
+C     C(I,J,1) = REAL VELOCITY OF SOUND FOR I-TH PIECE IN J-TH SECTION  ING00210    
+C     C(I,J,2) = IMAG VELOCITY OF SOUND FOR I-TH PIECE IN J-TH SECTION  ING00220    
+C     CD1 = FLAG FOR READING DATA CARD NUMBER 1                         ING00230    
+C     .                                                                 ING00240    
+C     .                                                                 ING00250    
+C     CD10 = FLAG FOR READING DATA CARD 10.                             ING00260    
+C     CL(I,J) = LENGTH OF I-TH PIECE IN J-TH SECTION                    ING00270    
+C     CLCS = INDIVIDUAL CERAMIC RING OR CYLINDER LENGTH.                ING00280    
+C     CUT = DESIRED ACCURACY (HERTZ) FOR RESONANCE SEARCH.              ING00290    
+C     E333 = E33(T)                                                     ING00300    
+C     IBC = FLAG FOR VARIOUS BOUNDARY CONDITION COMBINATIONS            ING00310    
+C       1 = IMPEDANCES AT TAIL AND HEAD                                 ING00320    
+C       2 = FORCE AND VELOCITY AT HEAD                                  ING00330    
+C       3 = FORCE AND VELOCITY AT TAIL                                  ING00340    
+C       4 = VELOCITY AT TAIL AND IMPEDANCE AT HEAD                      ING00350    
+C       5 = IMPEDANCE AT TAIL AND VELOCITY AT HEAD                      ING00360    
+C     IE = FLAG FOR DRIVER IMPEDANCE (OR VOLTAGE/CURRENT CONTROL)       ING00370    
+C      1 = HIGH IMPEDANCE DRIVER (CURRENT CONTROL)                      ING00380    
+C      2 = LOW IMPEDANCE DRIVER (CURRENT CONTROL)                       ING00390    
+C     G333 = G33 (MODE=33) OR D31 (MODE=31).                            ING00400    
+C     K(I,J) = TYPE OF I-TH PIECE IN THE J-TH SECTION.                  ING00410    
+C     KTUNE(I) = TYPE OF I-TH TUNING SECTION.                           ING00420    
+C     LSW = LOGICAL SWITCHES TO CONTROL PROGRAM FLOW AND OUTPUTS        ING00430    
+C     LSW(1) CONTROLS PRINTING OF ELEMENT Z-MATRICES                    ING00440    
+C     LSW(2) CONTROLS PRINTING OF CERAMIC SECTION DATA                  ING00450    
+C     LSW(3) CONTROLS PRINTING OF A-TOTAL MATRIX                        ING00460    
+C     LSW(4) CONTROLS PRINTING OF ELEMENT'S BOUNDARY CONDITIONS         ING00470    
+C     LSW(5) CONTROLS PRINTING OF CERAMIC ADMITTANCE.                   ING00480    
+C     LSW(6) CONTROLS PRINTING OF TRANSFER MATRIX.                      ING00490    
+C     LSW(7) CONTROLS PRINTING OF ELEMENT FORCES AND VELOCITIES.        ING00500    
+C     LSW(8) CONTROLS PRINTING OF ELEMENT STRESSES AND STRAINS          ING00510    
+C     LSW(9) CONTROLS PRINTING OF CERAMIC FORCES AND VELOCITIES         ING00520    
+C     LSW(10) CONTROLS PRINTING OF CERAMIC CURRENTS AND EFFICIENCIES    ING00530    
+C     LSW(11) CONTROLS PRINTING OF CERAMIC STRESSES AND STRAINS         ING00540    
+C     LSW(12) PRODUCES A FREQUENCY SWEEP FOR ELEMENT INPUT IMPEDANCE    ING00550    
+C     LSW(13) CONTROLS CALCULATION OF FREE-FIELD LOAD AT EACH FREQUENCY ING00560    
+C     LSW(14) CONTROLS SEARCH FOR RESONANT FREQUENCY                    ING00570    
+C     LSW(15) CONTROLS SEARCH FOR ANTI-RESONANT FREQUENCY               ING00580    
+C     LSW(16) CONTROLS FREQUENCY SWEEP FOR RESPONSES                    ING00590    
+C     LSW(17) CONTROLS ARRAY PERFORMANCE PARAMETER SEARCH               ING00600    
+C     MODE = FLAG FOR CERAMIC STACK MODE OF OPERATION                   ING00610    
+C       31 = RADIALLY POLARIZED CERAMIC CYLINDER                        ING00620    
+C       33 = LONGITUDINALLY POLARIZED RINGS OR DISCS                    ING00630    
+C     NO = NUMBER OF RINGS OR CYLINDERS IN CERAMIC STACK.               ING00640    
+C     N(I) = NUMBER OF INDIVIDUAL PIECES IN THE I-TH SECTION            ING00650    
+C     NPRINT = FLAG FOR SUPPRESSING PRINTING FROM SUBROUTINE            ING00660    
+C              FINDFM AND FINDFN.                                       ING00670    
+C     NTUNE = NUMBER OF PASSIVE ELECTRICAL TUNING SECTIONS.             ING00680    
+C     OD = OUTSIDE DIAMETER OF CERAMIC CYLINDER.                        ING00690    
+C     POWER(1) = CURRENT INPUT TO TRANSDUCER ELEMENT.                   ING00700    
+C     POWER(2) = VOLTAGE INPUT TO TRANSDUCER ELEMENT.                   ING00710    
+C     RADIUS = RADIUS OF EQUIVALENT AREA PISTON RADIATOR.               ING00720    
+C     RHOCS = DENSITY OF CERAMIC MATERIAL.                              ING00730    
+C     RHS = SCALING FACTOR FOR RADIATION RESISTANCE                     ING00740    
+C     RLCT(I,J) = I-TH ELEMENT IN J-TH TUNING SECTION.                  ING00750    
+C     S333 = S33(D) (MODE=33) OR S11(E) (MODE=31).                      ING00760    
+C     XHS = SCALING FACTOR FOR RADIATION REACTANCE                      ING00770    
+C                                                                       ING00780    
+      COMMON /AZ    / A,Z,ZSW                                           ING00790    
+      COMMON /CERAM / S333,G333,E333,NO,RHOCS,CLCS,ACS,LT,Q,CSW         ING00800    
+      COMMON /CNTROL/ N(12),IE,IBC                                      ING00810    
+      COMMON /DELTA / DELTAF,FMIN,FMAX                                  ING00820    
+      COMMON /EDIT  / SEC(24),T(20),TYPE(2),MO,IDAY,IYR,IRUN,OUT(4)     ING00830    
+      COMMON /FREQ  / FREQ,TWOPI                                        ING00840    
+      COMMON /FV    / FV,ZT,ZH,BFVSW,FVSW                               ING00850    
+      COMMON /PARAM / K(10,12),RHO(10,12),CL(10,12),AL(10,12),AR(10,12),ING00860    
+     1C(10,12,2)                                                        ING00870    
+      COMMON /POWER / POWER                                             ING00880    
+      COMMON /SW    / LSW(20)                                           ING00890    
+      COMMON /TOT   / ATOT,TSW                                          ING00900    
+      COMMON /TUNE  / NTUNE,KTUNE(10),RLCT(4,10),IABCD                  ING00910    
+      COMMON /COM90 / RHS,XHS                                           ING00920    
+      COMMON /COM91 / OD,BARE                                           ING00930    
+      COMMON /COM92 / FM,YM,FN,YN,CUT,NPRINT                            ING00940    
+      COMMON /COM93 / AREA,RADIUS                                       ING00950    
+      COMMON /COM97 / MODE                                              ING00960    
+      COMMON /COM98 / ALL                                               ING00970    
+C                                                                       ING00980    
+      LOGICAL LSW,CD1,CD2,CD3,CD4,CD5,CD6,CD7,CD8,CD9,CD10,CD11,CD12,ALLING00990    
+C                                                                       ING01000    
+      COMPLEX S333,G333,E333,FV(2,11,12),ZT,ZH,DRIVE(2),A(4,10,12),Z(4,1ING01010    
+     10,12),POWER(2),ATOT(6,2)                                          ING01020    
+C                                                                       ING01030    
+      DATA NCALL/0/                                                     ING01040    
+C                                                                       ING01050    
+C***********************************************************************ING01060    
+C*                                                                     *ING01070    
+C*    INITIALIZATION BLOCK                                             *ING01080    
+C*                                                                     *ING01090    
+C***********************************************************************ING01100    
+C                                                                       ING01110    
+      IF(NCALL.GT.0)GOTO100                                             ING01120    
+      WRITE(6,410)                                                      ING01130    
+C     SUBROUTINE FLGEOF IS A GE-635 MACHINE ROUTINE USED TO SENSE       ING01140    
+C     FOR AN END-OF-FILE CONDITION ON THE INPUT FILE.                   ING01150    
+C                                                                       ING01160    
+C     ON OTHER MACHINES, IT MAY BE ELIMINATED AND SET ALL = .FALSE.     ING01170    
+      ALL=.FALSE.                                                       ING01180    
+C     INITIALIZE CARD-6 VALUES.                                         ING01200    
+      POWER(1)=(1.,0.)                                                  ING01210    
+      POWER(2)=(1.,0.)                                                  ING01220    
+C     INITIALIZE CARD-7 VALUES.                                         ING01230    
+      IBC=1                                                             ING01240    
+      ZT=(0.,0.)                                                        ING01250    
+      ZH=(0.,0.)                                                        ING01260    
+C     INITIALIZE CARD-8 VALUES.                                         ING01270    
+      NTUNE=0                                                           ING01280    
+C     INITIALIZE CARD-10 VALUES.                                        ING01290    
+      RHS=1.                                                            ING01300    
+      XHS=1.                                                            ING01310    
+  100 NCALL=NCALL+1                                                     ING01320    
+      IABCD=0                                                           ING01330    
+      NPRINT=0                                                          ING01340    
+      CUT=0.5                                                           ING01350    
+      TWOPI=6.28318531                                                  ING01360    
+C                                                                       ING01370    
+C***********************************************************************ING01380    
+C*                                                                     *ING01390    
+C*    READ THE CONTROL CARD                                            *ING01400    
+C*                                                                     *ING01410    
+C***********************************************************************ING01420    
+C                                                                       ING01430    
+      READ(5,280)MODE,CD1,CD2,CD3,CD4,CD5,CD6,CD7,CD8,CD10,CD11,(LSW(I),ING01440    
+     1I=1,20)                                                           ING01450    
+      IF(ALL)CALL EXIT                                                  ING01460    
+C                                                                       ING01470    
+C***********************************************************************ING01480    
+C*                                                                     *ING01490    
+C*    READ INPUTS FOR THE TRANSDUCER ELEMENT                           *ING01500    
+C*                                                                     *ING01510    
+C***********************************************************************ING01520    
+C                                                                       ING01530    
+      IF(CD1)READ(5,320)MO,IDAY,IYR,IRUN,FMIN,FMAX,DELTAF               ING01540    
+      IF(ALL)CALL EXIT                                                  ING01550    
+      IF(DELTAF.EQ.0.0)FMAX=FMIN                                        ING01560    
+      IF(CD2)READ(5,290)(N(I),I=1,12),IE                                ING01570    
+      IF(ALL)CALL EXIT                                                  ING01580    
+      WRITE(6,340)TYPE(1),MO,IDAY,IYR,IRUN                              ING01590    
+      N2=0                                                              ING01600    
+      DO 150 J=1,12                                                     ING01610    
+        L=N(J)                                                          ING01620    
+        N1=N2+1                                                         ING01630    
+        N2=N1+1                                                         ING01640    
+        WRITE(6,350)SEC(N1),SEC(N2)                                     ING01650    
+        DO 150 I=1,L                                                    ING01660    
+          IF(L.EQ.0)GOTO130                                             ING01670    
+          IF(CD3)READ(5,300)K(I,J),XCI,XRHO,XCL,XAL,XAR,XCR             ING01680    
+          IF(ALL)CALL EXIT                                              ING01690    
+          AMASS=0.0                                                     ING01700    
+          IF(CD3)GOTO110                                                ING01710    
+          XRHO=RHO(I,J)                                                 ING01720    
+          XCL=CL(I,J)                                                   ING01730    
+          XAL=AL(I,J)                                                   ING01740    
+          XAR=AR(I,J)                                                   ING01750    
+          IF(K(I,J).EQ.0)XAR=XAL                                        ING01760    
+          XCR=C(I,J,1)                                                  ING01770    
+          XCI=C(I,J,2)                                                  ING01780    
+  110     M=K(I,J)+1                                                    ING01790    
+          IF(M.GT.3)GOTO120                                             ING01800    
+          AMASS=XRHO*XCL*(XAL+XAR+SQRT(XAL*XAR))/3.0                    ING01810    
+  120     WRITE(6,360)I,T(M),XRHO,XCL,XAL,XAR,XCR,XCI,AMASS             ING01820    
+          IF(.NOT.CD3)GOTO150                                           ING01830    
+          GOTO140                                                       ING01840    
+  130     WRITE(6,370)                                                  ING01850    
+          N(J)=1                                                        ING01860    
+          K(I,J)=2                                                      ING01870    
+          XRHO=0.0                                                      ING01880    
+          XCL=0.0                                                       ING01890    
+          XAL=0.0                                                       ING01900    
+          XAR=0.0                                                       ING01910    
+          XCR=0.0                                                       ING01920    
+          XCI=0.0                                                       ING01930    
+  140     RHO(I,J)=XRHO                                                 ING01940    
+          CL(I,J)=XCL                                                   ING01950    
+          AL(I,J)=XAL                                                   ING01960    
+          AR(I,J)=XAR                                                   ING01970    
+          C(I,J,1)=XCR                                                  ING01980    
+          C(I,J,2)=XCI                                                  ING01990    
+  150 CONTINUE                                                          ING02000    
+C     FIND AREA OF RADIATING SURFACE                                    ING02010    
+C     HEAD FACING                                                       ING02020    
+      NRIGHT=N(12)                                                      ING02030    
+      AREA=AR(NRIGHT,12)                                                ING02040    
+      IF(AREA.GT.0.0)GOTO160                                            ING02050    
+C     HEAD SECTION                                                      ING02060    
+      NRIGHT=N(2)                                                       ING02070    
+      AREA=AR(NRIGHT,2)                                                 ING02080    
+      IF(AREA.GT.0.0)GOTO160                                            ING02090    
+C     HEAD GROUP                                                        ING02100    
+      NRIGHT=N(5)                                                       ING02110    
+      AREA=AR(NRIGHT,5)                                            ING02120    
+  160 RADIUS=SQRT(2.0*AREA/TWOPI)                                       ING02130    
+C     READ CERAMIC SECTION PHYSICAL DATA                                ING02140    
+      IF(CD4)READ(5,310)NO,RHOCS,CLCS,ACS,OD,BARE                       ING02150    
+      IF (ALL) CALL EXIT                                                ING02160    
+      AMASS=FLOAT(NO)*RHOCS*CLCS*ACS                                    ING02170    
+C     READ CERAMIC MATERIAL PARAMETERS                                  ING02180    
+      IF(CD5)READ(5,330)S333,G333,E333                                  ING02190    
+      IF(ALL)CALL EXIT                                                  ING02200    
+      IF(MODE.EQ.31)WRITE(6,390)RHOCS,S333,ACS,G333,CLCS,E333,AMASS,OD,BING02210    
+     1ARE                                                               ING02220    
+      IF(MODE.EQ.33)WRITE(6,380)NO,RHOCS,S333,ACS,G333,CLCS,E333,AMASS  ING02230    
+C                                                                       ING02240    
+C***********************************************************************ING02250    
+C*                                                                     *ING02260    
+C*    DRIVE, BOUNDARY CONDITIONS AND TUNING NETWORK                    *ING02270    
+C*                                                                     *ING02280    
+C***********************************************************************ING02290    
+C                                                                       ING02300    
+C     READ VOLTAGE OR CURRENT DRIVE                                     ING02310    
+      IF(CD6)READ(5,330)POWER(1),POWER(2)                               ING02320    
+      IF (ALL) CALL EXIT                                                ING02330    
+C     READ BOUNDARY CONDITIONS                                          ING02340    
+      WRITE(6,430)                                                      ING02350    
+      IF(CD7)READ(5,310)IBC,DRIVE(1),DRIVE(2)                           ING02360    
+      IF(ALL)CALL EXIT                                                  ING02370    
+      GOTO(170,180,190,200,210),IBC                                     ING02380    
+C     IMPEDANCES AT HEAD AND TAIL                                       ING02390    
+  170 ZT=DRIVE(1)                                                       ING02400    
+      WRITE(6,440)ZT                                                    ING02410    
+      ZH=DRIVE(2)                                                       ING02420    
+      WRITE(6,450)ZH                                                    ING02430    
+      GOTO220                                                           ING02440    
+C     FORCE AND VELOCITY AT HEAD                                        ING02450    
+  180 L=N(12)+1                                                         ING02460    
+      FV(1,L,12)=DRIVE(1)                                               ING02470    
+      WRITE(6,470)DRIVE(1)                                              ING02480    
+      FV(2,L,12)=DRIVE(2)                                               ING02490    
+      WRITE(6,490)DRIVE(2)                                              ING02500    
+      GOTO220                                                           ING02510    
+C     FORCE AND VELOCITY AT TAIL                                        ING02520    
+  190 FV(1,1,11)=DRIVE(1)                                               ING02530    
+      WRITE(6,460)DRIVE(1)                                              ING02540    
+      FV(2,1,11)=DRIVE(2)                                               ING02550    
+      WRITE(6,480)DRIVE(2)                                              ING02560    
+      GOTO220                                                           ING02570    
+C     VELOCITY AT TAIL AND IMPEDANCE AT HEAD                            ING02580    
+  200 FV(2,1,11)=DRIVE(1)                                               ING02590    
+      WRITE(6,480)DRIVE(1)                                              ING02600    
+      ZH=DRIVE(2)                                                       ING02610    
+      WRITE(6,450)ZH                                                    ING02620    
+      GOTO220                                                           ING02630    
+C     IMPEDANCE AT TAIL AND VELOCITY AT HEAD                            ING02640    
+  210 L=N(12)+1                                                         ING02650    
+      ZT=DRIVE(1)                                                       ING02660    
+      WRITE(6,440)ZT                                                    ING02670    
+      FV(2,L,12)=DRIVE(2)                                               ING02680    
+      WRITE(6,490)DRIVE(2)                                              ING02690    
+C     READ TUNING NETWORK COMPONENTS                                    ING02700    
+  220 IF(.NOT.CD8)GOTO230                                               ING02710    
+      READ(5,290)NTUNE                                                  ING02720    
+      IF(ALL)CALL EXIT                                                  ING02730    
+  230 IF(NTUNE.EQ.0)GOTO260                                             ING02740    
+      WRITE(6,500)                                                      ING02750    
+      DO 250 J=1,NTUNE                                                  ING02760    
+        IF(.NOT.CD8)GOTO240                                             ING02770    
+        READ(5,310)KTUNE(J),RLCT(1,J),RLCT(2,J),RLCT(3,J),RLCT(4,J)     ING02780    
+        IF(ALL)CALL EXIT                                                ING02790    
+  240   M=KTUNE(J)+1                                                    ING02800    
+        WRITE(6,510)J,T(M),RLCT(1,J),RLCT(2,J),RLCT(3,J),RLCT(4,J)      ING02810    
+  250 CONTINUE                                                          ING02820    
+      GOTO270                                                           ING02830    
+  260 WRITE(6,400)                                                      ING02840    
+C     READ SCALING FACTORS FOR FREE-FIELD LOAD.                         ING02850    
+  270 IF(CD10)READ(5,330)RHS,XHS                                        ING02860    
+      IF(LSW(13))WRITE(6,420)RADIUS                                     ING02870    
+      IF(LSW(13))WRITE(6,520)RHS,XHS                                    ING02880    
+      RETURN                                                            ING02890    
+C                                                                       ING02900    
+  280 FORMAT (I4,34L2)                                                  ING02910    
+  290 FORMAT (36I2)                                                     ING02920    
+  300 FORMAT (I2,E10.0,5E12.0)                                          ING02930    
+  310 FORMAT (I2,10X5E12.0)                                             ING02940    
+  320 FORMAT (3I6,A6,4E12.0)                                            ING02950    
+  330 FORMAT (6E12.0)                                                   ING02960    
+  340 FORMAT(1H15XA6,27H TRANSDUCER ANALYSIS OUTPUT          ,9X4HDATEI4ING02970    
+     1,1H/I2,1H/I2,4X10HRUN NUMBER2XA6//6X47HINPUT MATERIAL PARAMETERS  ING02980    
+     2                    //7X5HPIECE6X7HDENSITY8X6HLENGTH9X9HLEFT AREA6ING02990    
+     3X10HRIGHT AREA,5X12HLONGITUDINAL,18X4HMASS/6X8HNO. TYPE,64X13HVEL.ING03000    
+     4 OF SOUND/78X4HREAL,11X4HIMAG)                                    ING03010    
+  350 FORMAT (16X2A6)                                                   ING03020    
+  360 FORMAT (6XI2,1XA6,1P7E15.6)                                       ING03030    
+  370 FORMAT (16X13H-*- EMPTY -*-)                                      ING03040    
+  380 FORMAT (//6X18H33-MODE STACK WITH,I6,6H RINGS/9X7HDENSITY,1PE17.7,ING03050    
+     121X3HS33,5X2E16.7/9X4HAREA,3XE17.7,21X3HG33,5X2E16.7/9X6HLENGTH,1XING03060    
+     2E17.7,21X3HE33,5X2E16.7/9X4HMASS,3XE17.7)                         ING03070    
+  390 FORMAT (//6X18H31-MODE CYLINDER              /9X7HDENSITY,1PE17.7,ING03080    
+     121X3HS11,5X2E16.7/9X4HAREA,3XE17.7,21X3HD31,5X2E16.7/9X6HLENGTH,1XING03090    
+     2E17.7,21X3HE33,5X2E16.7/9X4HMASS,3XE17.7/9X4HO.D.,3XE17.7/9X4HBAREING03100    
+     3,3XE17.7)                                                         ING03110    
+  400 FORMAT (//6X22HTHE ELEMENT IS UNTUNED)                            ING03120    
+  410 FORMAT (1H1,30(/),59X3HTAC/42X36HTRANSDUCER ANALYSIS COMPUTER PROGING03130    
+     1RAM/46X28H(INCLUDING MOUNTING EFFECTS)/43X35HCOMPILED AUGUST 1971 ING03140    
+     2BY S. E. AUYER)                                                   ING03150    
+  420 FORMAT (//6X44HRADIUS OF EQUIVALENT AREA CIRCULAR PISTON IS,F10.6)ING03160    
+  430 FORMAT (//6X25HBOUNDARY CONDITIONS ARE -,//)                      ING03170    
+  440 FORMAT (10X14HTAIL IMPEDANCE,1P2E18.7)                            ING03180    
+  450 FORMAT (10X14HHEAD IMPEDANCE,1P2E18.7)                            ING03190    
+  460 FORMAT (10X14HTAIL FORCE    ,1P2E18.7)                            ING03200    
+  470 FORMAT (10X14HHEAD FORCE    ,1P2E18.7)                            ING03210    
+  480 FORMAT (10X14HTAIL VELOCITY ,1P2E18.7)                            ING03220    
+  490 FORMAT (10X14HHEAD VELOCITY ,1P2E18.7)                            ING03230    
+  500 FORMAT (1H1//6X58HELECTRICAL TUNING NETWORK SECTIONS (FROM INPUT TING03240    
+     1O CERAMIC)//6X7HSECTION5X10HRESISTANCE,6X10HINDUCTANCE,6X11HCAPACIING03250    
+     2TANCE,5X11HTURNS RATIO/6X8HNO. TYPE//)                            ING03260    
+  510 FORMAT (/6XI2,1XA6,1P7E16.6)                                      ING03270    
+  520 FORMAT (6X30HRADIATION RESISTANCE SCALED BY ,F8.3/6X30HRADIATION RING03280    
+     1EACTANCE SCALED BY ,F8.3)                                         ING03290    
+C                                                                       ING03300    
+      END                                                               ING03310    
+        YSW00100    C           SUBROUTINE TO GENERATE ADMITTANCE VS. FREQUENCY SWEE
+C           SUBROUTINE TO GENERATE ADMITTANCE VS. FREQUENCY SWEEP       YSW00110    
+C                                                                       YSW00120    
+      SUBROUTINE YSWEEP                                                 YSW00130    
+C                                                                       YSW00140    
+      COMMON /DELTA / DELTAF,FMIN,FMAX                                  YSW00150    
+      COMMON /FREQ  / FREQ,TWOPI                                        YSW00160    
+      COMMON /SW    / LSW(20)                                           YSW00170    
+      COMMON /YC    / IC,YC                                             YSW00180    
+      COMMON /COM95 / ZIN,YIN,EIN,IIN                                   YSW00190    
+      COMMON /COM97 / MODE                                              YSW00200    
+C                                                                       YSW00210    
+C     EIN = VOLTAGE INPUT AT ELEMENT TERMINALS                          YSW00220    
+C     IC = CURRENT INPUT AT CERAMIC TERMINALS                           YSW00230    
+C     IIN = CURRENT INPUT AT CERAMIC TERMINALS                          YSW00240    
+C     YC = ELECTRICAL INPUT ADMITTANCE AT CERAMIC TERMINALS             YSW00250    
+C     YI = ELECTRICAL INPUT SUSCEPTANCE                                 YSW00260    
+C     YIN = ELECTRICAL INPUT ADMITTANCE AT ELEMENT TERMINALS            YSW00270    
+C     YM = ELECTRICAL INPUT ADMITTANCE MAGNITUDE                        YSW00280    
+C     YP = ELECTRICAL INPUT ADMITTANCE PHASE                            YSW00290    
+C     YR = ELECTRICAL INPUT CONDUCTANCE                                 YSW00300    
+C     ZI = ELECTRICAL INPUT REACTANCE                                   YSW00310    
+C     ZIN = ELECTRICAL INPUT IMPEDANCE AT ELEMENT TERMINALS             YSW00320    
+C     ZM = ELECTRICAL INPUT IMPEDANCE MAGNITUDE                         YSW00330    
+C     ZP = ELECTRICAL INPUT IMPEDANCE PHASE                             YSW00340    
+C     ZR = ELECTRICAL INPUT RESISTANCE                                  YSW00350    
+C                                                                       YSW00360    
+      LOGICAL LSW,LSAVE(20)                                             YSW00370    
+C                                                                       YSW00380    
+      COMPLEX IC,YC,ZIN,YIN,EIN,IIN                                     YSW00390    
+C                                                                       YSW00400    
+      DO 100 I=1,11                                                     YSW00410    
+        LSAVE(I)=LSW(I)                                                 YSW00420    
+        LSW(I)=.FALSE.                                                  YSW00430    
+  100 CONTINUE                                                          YSW00440    
+      WRITE(6,130)                                                      YSW00450    
+      NF=(FMAX-FMIN)/DELTAF+1.000001                                    YSW00460    
+      DO 110 I=1,NF                                                     YSW00470    
+        FREQ=FMIN+FLOAT(I-1)*DELTAF                                     YSW00480    
+        CALL COMPZA                                                     YSW00490    
+        IF(MODE.EQ.31)CALL COMP31                                       YSW00500    
+        IF(MODE.EQ.33)CALL COMPCC                                       YSW00510    
+        CALL TOTAL                                                      YSW00520    
+        IF(LSW(13))CALL FFZH                                            YSW00530    
+        CALL BEGIN                                                      YSW00540    
+        CALL ADMIT                                                      YSW00550    
+        YR=REAL(YIN)                                                    YSW00560    
+        YI=AIMAG(YIN)                                                   YSW00570    
+        YM=SQRT(YR*YR+YI*YI)                                            YSW00580    
+        YP=0.0                                                          YSW00590    
+        IF(YM.NE.0.0)YP=57.2957795*ATAN2(YI,YR)                         YSW00600    
+        WRITE(6,140)FREQ,YR,YI,YM,YP                                    YSW00610    
+        ZR=REAL(ZIN)                                                    YSW00620    
+        ZI=AIMAG(ZIN)                                                   YSW00630    
+        ZM=1./YM                                                        YSW00640    
+        ZP=-YP                                                          YSW00650    
+        WRITE(6,150)ZR,ZI,ZM,ZP                                         YSW00660    
+  110 CONTINUE                                                          YSW00670    
+      DO 120 I=1,11                                                     YSW00680    
+        LSW(I)=LSAVE(I)                                                 YSW00690    
+  120 CONTINUE                                                          YSW00700    
+      RETURN                                                            YSW00710    
+C                                                                       YSW00720    
+  130 FORMAT (1H1//1X66HFREQUENCY SWEEP FOR TRANSDUCER ELEMENT ELECTRICAYSW00730    
+     1L INPUT ADMITTANCE)                                               YSW00740    
+  140 FORMAT (7H0FREQ =,F8.2,4X11HREAL(YIN) =,1PE12.4,4X11HIMAG(YIN) =,EYSW00750    
+     112.4,4X10HMAG(YIN) =,E12.4,4X12HPHASE(YIN) =,E12.4)               YSW00760    
+  150 FORMAT (19X11HREAL(ZIN) =,1PE12.4,4X11HIMAG(ZIN) =,E12.4,4X10HMAG(YSW00770    
+     1ZIN) =,E12.4,4X12HPHASE(ZIN) =,E12.4)                             YSW00780    
+C                                                                       YSW00790    
+      END                                                               YSW00800    
+                                            FFM00100    C           FIND RESONANT FR
+C           FIND RESONANT FREQUENCY OF TRANSDUCER ELEMENT               FFM00110    
+C                                                                       FFM00120    
+      SUBROUTINE FINDFM                                                 FFM00130    
+C                                                                       FFM00140    
+C     THIS ROUTINE USES THE METHOD OF INTERVAL HALVING TO FIND THE      FFM00150    
+C     FREQUENCY OF MAXIMUM ADMITTANCE.                                  FFM00160    
+                                                                        FFM00170    
+C     THIS METHOD MAY BREAK DOWN FOR VERY HIGH-Q ELEMENTS OR FOR        FFM00180    
+C     THOSE CASES WHERE A LARGE VALUE OF DELTAF IS SPECIFIED.           FFM00190    
+C                                                                       FFM00200    
+      COMMON /DELTA / DELTAF,FMIN,FMAX                                  FFM00210    
+      COMMON /FREQ  / FREQ,TWOPI                                        FFM00220    
+      COMMON /SW    / LSW(20)                                           FFM00230    
+      COMMON /YC    / IC,YC                                             FFM00240    
+      COMMON /COM92 / FM,YM,FN,YN,CUT,NPRINT                            FFM00250    
+      COMMON /COM95 / ZIN,YIN,EIN,IIN                                   FFM00260    
+      COMMON /COM97 / MODE                                              FFM00270    
+C                                                                       FFM00280    
+      LOGICAL LSW,LSAVE(20),SKIPIT                                      FFM00290    
+C                                                                       FFM00300    
+      DIMENSION FF(3),YY(3)                                             FFM00310    
+C                                                                       FFM00320    
+      COMPLEX IC,YC,ZIN,YIN,EIN,IIN                                     FFM00330    
+C                                                                       FFM00340    
+C     TURN OFF OUTPUT CONTROLS                                          FFM00350    
+      SKIPIT=.TRUE.                                                     FFM00360    
+      DO 100 I=1,11                                                     FFM00370    
+        LSAVE(I)=LSW(I)                                                 FFM00380    
+        IF(LSW(I))SKIPIT=.FALSE.                                        FFM00390    
+        LSW(I)=.FALSE.                                                  FFM00400    
+  100 CONTINUE                                                          FFM00410    
+C     SET INITIAL THREE FREQUENCIES                                     FFM00420    
+      FF(1)=FMIN                                                        FFM00430    
+      FF(2)=FF(1)+DELTAF                                                FFM00440    
+      FF(3)=FF(2)+DELTAF                                                FFM00450    
+      DF=DELTAF                                                         FFM00460    
+      I1=1                                                              FFM00470    
+      I2=3                                                              FFM00480    
+      I3=1                                                              FFM00490    
+      IF(NPRINT.GT.0)GOTO110                                            FFM00500    
+      WRITE(6,280)                                                      FFM00510    
+C     CALCULATE ADMITTANCE MAGNITUDE AT THREE FREQUENCIES               FFM00520    
+  110 DO 120 I=I1,I2,I3                                                 FFM00530    
+        FREQ=FF(I)                                                      FFM00540    
+        CALL COMPZA                                                     FFM00550    
+        IF(MODE.EQ.31)CALL COMP31                                       FFM00560    
+        IF(MODE.EQ.33)CALL COMPCC                                       FFM00570    
+        CALL TOTAL                                                      FFM00580    
+        IF(LSW(13))CALL FFZH                                            FFM00590    
+        CALL BEGIN                                                      FFM00600    
+        CALL ADMIT                                                      FFM00610    
+C       RESONANCE IS MAXIMUM INPUT ADMITTANCE MAGNITUDE                 FFM00620    
+        YY(I)=CABS(YIN)                                                 FFM00630    
+C       RESONANCE IS MAXIMUM INPUT CONDUCTANCE                          FFM00640    
+C       YY(I)=REAL(YIN)                                                 FFM00650    
+C       RESONANCE IS MAXIMUM CERAMIC ADMITTANCE MAGNITUDE               FFM00660    
+C       YY(I)=CABS(YC)                                                  FFM00670    
+C       RESONANCE IS MAXIMUM CERAMIC CONDUCTANCE                        FFM00680    
+C       YY(I)=REAL(YC)                                                  FFM00690    
+C       RESONANCE IS MAXIMUM INPUT RESISTANCE                           FFM00700    
+C       YY(I)=REAL(ZIN)                                                 FFM00710    
+  120 CONTINUE                                                          FFM00720    
+C     CHECK SLOPE OF ADMITTANCE VS. FREQUENCY CURVE                     FFM00730    
+      IF(YY(1)-YY(2))130,140,140                                        FFM00740    
+  130 IF(YY(2)-YY(3))150,150,160                                        FFM00750    
+  140 IF(YY(2)-YY(3))190,180,180                                        FFM00760    
+C     ADMITTANCE INCREASING                                             FFM00770    
+  150 FF(1)=FF(2)                                                       FFM00780    
+      YY(1)=YY(2)                                                       FFM00790    
+      FF(2)=FF(3)                                                       FFM00800    
+      YY(2)=YY(3)                                                       FFM00810    
+      FF(3)=FF(3)+DELTAF                                                FFM00820    
+      I1=3                                                              FFM00830    
+      I2=3                                                              FFM00840    
+      I3=1                                                              FFM00850    
+      IF(FF(3)-FMAX)110,110,250                                         FFM00860    
+C     ADMITTANCE PEAKED                                                 FFM00870    
+  160 IF(DF-CUT)200,170,170                                             FFM00880    
+  170 DF=DF/2.0                                                         FFM00890    
+      FF(1)=FF(2)-DF                                                    FFM00900    
+      FF(3)=FF(2)+DF                                                    FFM00910    
+      I1=1                                                              FFM00920    
+      I2=3                                                              FFM00930    
+      I3=2                                                              FFM00940    
+      GOTO110                                                           FFM00950    
+C     ADMITTANCE DECREASING                                             FFM00960    
+  180 FF(3)=FF(2)                                                       FFM00970    
+      YY(3)=YY(2)                                                       FFM00980    
+      FF(2)=FF(1)                                                       FFM00990    
+      YY(2)=YY(1)                                                       FFM01000    
+      FF(1)=FF(1)-DF                                                    FFM01010    
+      I1=1                                                              FFM01020    
+      I2=1                                                              FFM01030    
+      I3=1                                                              FFM01040    
+      IF(FF(1)-FMIN)240,110,110                                         FFM01050    
+C     ADMITTANCE DIPPED                                                 FFM01060    
+  190 GOTO180                                                           FFM01070    
+  200 FM=FF(2)                                                          FFM01080    
+      YM=YY(2)                                                          FFM01090    
+      IF(NPRINT.GT.0)GOTO210                                            FFM01100    
+      WRITE(6,290)FM,YM,DF                                              FFM01110    
+C     RESET OUTPUT CONTROLS                                             FFM01120    
+  210 DO 220 I=1,11                                                     FFM01130    
+        LSW(I)=LSAVE(I)                                                 FFM01140    
+  220 CONTINUE                                                          FFM01150    
+      IF(SKIPIT)GOTO230                                                 FFM01160    
+      FREQ=FM                                                           FFM01170    
+      CALL COMPZA                                                       FFM01180    
+      IF(MODE.EQ.31)CALL COMP31                                         FFM01190    
+      IF(MODE.EQ.33)CALL COMPCC                                         FFM01200    
+      CALL TOTAL                                                        FFM01210    
+      CALL BEGIN                                                        FFM01220    
+      CALL FOCZOC                                                       FFM01230    
+      CALL ADMIT                                                        FFM01240    
+      CALL CCFV                                                         FFM01250    
+      CALL CFV                                                          FFM01260    
+      CALL CST                                                          FFM01270    
+      CALL CCI                                                          FFM01280    
+      CALL CCST                                                         FFM01290    
+  230 RETURN                                                            FFM01300    
+  240 WRITE(6,300)FMIN                                                  FFM01310    
+      FM=1.0                                                            FFM01320    
+      YM=0.0                                                            FFM01330    
+      GOTO260                                                           FFM01340    
+  250 WRITE(6,310)FMAX                                                  FFM01350    
+      FM=1.0                                                            FFM01360    
+      YM=0.0                                                            FFM01370    
+C     RESET OUTPUT CONTROLS                                             FFM01380    
+  260 DO 270 I=1,11                                                     FFM01390    
+        LSW(I)=LSAVE(I)                                                 FFM01400    
+  270 CONTINUE                                                          FFM01410    
+      GOTO230                                                           FFM01420    
+C                                                                       FFM01430    
+  280 FORMAT (1H1///6X51HEVALUATION OF TRANSDUCER ELEMENT RESONANT FREQUFFM01440    
+     1ENCY)                                                             FFM01450    
+  290 FORMAT (//10X21HRESONANT FREQUENCY IS,F8.2,6H HERTZ/10X26HADMITTANFFM01460    
+     1CE AT RESONANCE IS,1PE12.4,6H MHOS./10X24HFREQUENCY IS ACCURATE TOFFM01470    
+     2,0PF7.3,6H HERTZ)                                                 FFM01480    
+  300 FORMAT (//10X33HRESONANCE IS BELOW LOWER LIMIT OF,F8.2,6H HERTZ)  FFM01490    
+  310 FORMAT (//10X33HRESONANCE IS ABOVE UPPER LIMIT OF,F8.2,6H HERTZ)  FFM01500    
+C                                                                       FFM01510    
+      END                                                               FFM01520    
+                                            FFN00100    C           FIND ANTI-RESONA
+C           FIND ANTI-RESONANT FREQUENCY OF TRANSDUCER ELEMENT          FFN00110    
+C                                                                       FFN00120    
+      SUBROUTINE FINDFN                                                 FFN00130    
+C                                                                       FFN00140    
+C     THIS SUBROUTINE USES THE SAME METHOD AND HAS THE SAME             FFN00150    
+C     LIMITATIONS AS SUBROUTINE FINDFM.                                 FFN00160    
+C     THIS SUBROUTINE USES THE PREVIOUSLY FOUND VALUE OF FM AS A        FFN00170    
+C     STARTING VALUE.  THUS, SUBROUTINE FINDFM MUST BE CALLED FIRST.    FFN00180    
+C                                                                       FFN00190    
+      COMMON /DELTA / DELTAF,FMIN,FMAX                                  FFN00200    
+      COMMON /FREQ  / FREQ,TWOPI                                        FFN00210    
+      COMMON /SW    / LSW(20)                                           FFN00220    
+      COMMON /YC    / IC,YC                                             FFN00230    
+      COMMON /COM92 / FM,YM,FN,YN,CUT,NPRINT                            FFN00240    
+      COMMON /COM95 / ZIN,YIN,EIN,IIN                                   FFN00250    
+      COMMON /COM97 / MODE                                              FFN00260    
+C                                                                       FFN00270    
+      LOGICAL LSW,LSAVE(20),SKIPIT                                      FFN00280    
+C                                                                       FFN00290    
+      DIMENSION FF(3),YY(3)                                             FFN00300    
+C                                                                       FFN00310    
+      COMPLEX IC,YC,ZIN,YIN,EIN,IIN                                     FFN00320    
+C                                                                       FFN00330    
+C     TURN OFF OUTPUT CONTROLS                                          FFN00340    
+      SKIPIT=.TRUE.                                                     FFN00350    
+      DO 100 I=1,11                                                     FFN00360    
+        LSAVE(I)=LSW(I)                                                 FFN00370    
+        IF(LSW(I))SKIPIT=.FALSE.                                        FFN00380    
+        LSW(I)=.FALSE.                                                  FFN00390    
+  100 CONTINUE                                                          FFN00400    
+      IF(FM.GT.1.0)GOTO150                                              FFN00410    
+      IF(FM.NE.1.0)GOTO140                                              FFN00420    
+C     RESONANT FREQUENCY WAS NOT FOUND                                  FFN00430    
+  110 WRITE(6,300)                                                      FFN00440    
+  120 FN=1.0                                                            FFN00450    
+      YN=0.0                                                            FFN00460    
+C     RESET OUTPUT CONTROLS                                             FFN00470    
+      DO 130 I=1,11                                                     FFN00480    
+        LSW(I)=LSAVE(I)                                                 FFN00490    
+  130 CONTINUE                                                          FFN00500    
+      GOTO270                                                           FFN00510    
+C     SUBROUTINE FINDFM NOT YET CALLED                                  FFN00520    
+  140 WRITE(6,310)                                                      FFN00530    
+      CALL FINDFM                                                       FFN00540    
+      IF(FM.EQ.1.0)GOTO110                                              FFN00550    
+C     SET INITIAL THREE FREQUENCIES                                     FFN00560    
+  150 DF=DELTAF/2.0                                                     FFN00570    
+      FF(1)=FM+1.0                                                      FFN00580    
+      FF(2)=FF(1)+DF                                                    FFN00590    
+      FF(3)=FF(2)+DF                                                    FFN00600    
+      I1=1                                                              FFN00610    
+      I2=3                                                              FFN00620    
+      I3=1                                                              FFN00630    
+C     CALCULATE ADMITTANCE MAGNITUDE AT THREE FREQUENCIES               FFN00640    
+  160 DO 170 I=I1,I2,I3                                                 FFN00650    
+        FREQ=FF(I)                                                      FFN00660    
+        CALL COMPZA                                                     FFN00670    
+        IF(MODE.EQ.31)CALL COMP31                                       FFN00680    
+        IF(MODE.EQ.33)CALL COMPCC                                       FFN00690    
+        CALL TOTAL                                                      FFN00700    
+        IF(LSW(13))CALL FFZH                                            FFN00710    
+        CALL BEGIN                                                      FFN00720    
+        CALL ADMIT                                                      FFN00730    
+C       ANTI-RESONANCE IS MINIMUM INPUT ADMITTANCE MAGNITUDE            FFN00740    
+        YY(I)=CABS(YIN)                                                 FFN00750    
+C       ANTI-RESONANCE IS MINIMUM INPUT CONDUCTANCE                     FFN00760    
+C       YY(I)=REAL(YIN)                                                 FFN00770    
+C       ANTI-RESONANCE IS MINIMUM CERAMIC ADMITTANCE MAGNITUDE          FFN00780    
+C       YY(I)=CABS(YC)                                                  FFN00790    
+C       ANTI-RESONANCE IS MINIMUM CERAMIC CONDUCTANCE                   FFN00800    
+C       YY(I)=REAL(YC)                                                  FFN00810    
+C       ANTI-RESONANCE IS MINIMUM INPUT RESISTANCE                      FFN00820    
+C       YY(I)=REAL(ZIN)                                                 FFN00830    
+  170 CONTINUE                                                          FFN00840    
+C     CHECK SLOPE OF ADMITTANCE VS. FREQUENCY CURVE                     FFN00850    
+      IF(YY(1)-YY(2))180,190,190                                        FFN00860    
+  180 IF(YY(2)-YY(3))200,200,210                                        FFN00870    
+  190 IF(YY(2)-YY(3))230,220,220                                        FFN00880    
+C     ADMITTANCE INCREASING                                             FFN00890    
+  200 FF(3)=FF(2)                                                       FFN00900    
+      YY(3)=YY(2)                                                       FFN00910    
+      FF(2)=FF(1)                                                       FFN00920    
+      YY(2)=YY(1)                                                       FFN00930    
+      FF(1)=FF(1)-DF                                                    FFN00940    
+      I1=1                                                              FFN00950    
+      I2=1                                                              FFN00960    
+      I3=1                                                              FFN00970    
+      IF(FF(1)-FM)280,160,160                                           FFN00980    
+C     ADMITTANCE PEAKED                                                 FFN00990    
+  210 GOTO220                                                           FFN01000    
+C     ADMITTANCE DECREASING                                             FFN01010    
+  220 FF(1)=FF(2)                                                       FFN01020    
+      YY(1)=YY(2)                                                       FFN01030    
+      FF(2)=FF(3)                                                       FFN01040    
+      YY(2)=YY(3)                                                       FFN01050    
+      FF(3)=FF(3)+DF                                                    FFN01060    
+      I1=3                                                              FFN01070    
+      I2=3                                                              FFN01080    
+      I3=1                                                              FFN01090    
+      IF(FF(3)-FMAX)160,160,290                                         FFN01100    
+C     ADMITTANCE DIPPED                                                 FFN01110    
+  230 IF(DF-CUT)250,240,240                                             FFN01120    
+  240 DF=DF/2.0                                                         FFN01130    
+      FF(1)=FF(2)-DF                                                    FFN01140    
+      FF(3)=FF(2)+DF                                                    FFN01150    
+      I1=1                                                              FFN01160    
+      I2=3                                                              FFN01170    
+      I3=2                                                              FFN01180    
+      GOTO160                                                           FFN01190    
+  250 FN=FF(2)                                                          FFN01200    
+      YN=YY(2)                                                          FFN01210    
+      IF(NPRINT.LE.0)WRITE(6,320)FN,YN,DF                               FFN01220    
+C     RESET OUTPUT CONTROLS                                             FFN01230    
+      DO 260 I=1,11                                                     FFN01240    
+        LSW(I)=LSAVE(I)                                                 FFN01250    
+  260 CONTINUE                                                          FFN01260    
+      IF(SKIPIT)GOTO270                                                 FFN01270    
+      FREQ=FN                                                           FFN01280    
+      CALL COMPZA                                                       FFN01290    
+      IF(MODE.EQ.31)CALL COMP31                                         FFN01300    
+      IF(MODE.EQ.33)CALL COMPCC                                         FFN01310    
+      CALL TOTAL                                                        FFN01320    
+      CALL BEGIN                                                        FFN01330    
+      CALL ADMIT                                                        FFN01340    
+      CALL FOCZOC                                                       FFN01350    
+      CALL ADMIT                                                        FFN01360    
+      CALL CCFV                                                         FFN01370    
+      CALL CFV                                                          FFN01380    
+      CALL CST                                                          FFN01390    
+      CALL CCI                                                          FFN01400    
+      CALL CCST                                                         FFN01410    
+  270 RETURN                                                            FFN01420    
+  280 WRITE(6,330)FM                                                    FFN01430    
+      GOTO120                                                           FFN01440    
+  290 WRITE(6,340)FMAX                                                  FFN01450    
+      GOTO120                                                           FFN01460    
+C                                                                       FFN01470    
+  300 FORMAT (//6X64HRESONANCE WAS NOT FOUND - SEARCH FOR ANTI-RESONANCEFFN01480    
+     1 CANNOT BEGIN)                                                    FFN01490    
+  310 FORMAT (//6X66HRESONANCE MUST BE FOUND BEFORE SEARCH FOR ANTI-RESOFFN01500    
+     1NANCE CAN BEGIN)                                                  FFN01510    
+  320 FORMAT (//10X26HANTI-RESONANT FREQUENCY IS,F8.2,6H HERTZ/10X31HADMFFN01520    
+     1ITTANCE AT ANTI-RESONANCE IS,1PE12.4,6H MHOS./10X24HFREQUENCY IS AFFN01530    
+     2CCURATE TO,0PF7.3,6H HERTZ)                                       FFN01540    
+  330 FORMAT (//10X36HANTI-RESONANCE IS BELOW RESONANCE OF,F8.2,6H HERTZFFN01550    
+     1)                                                                 FFN01560    
+  340 FORMAT (//10X38HANTI-RESONANCE IS ABOVE UPPER LIMIT OF,F8.2,6H HERFFN01570    
+     1TZ)                                                               FFN01580    
+C                                                                       FFN01590    
+      END                                                               FFN01600    
+        RES00100    C           CALCULATE ELEMENT TRANSMITTING AND RECEIVING RESPONS
+C           CALCULATE ELEMENT TRANSMITTING AND RECEIVING RESPONSES      RES00110    
+C                                                                       RES00120    
+      SUBROUTINE RESP                                                   RES00130    
+C                                                                       RES00140    
+C     DI = DIRECTIVITY INDEX OF EQUIVALENT AREA CIRCULAR PISTON (DB).   RES00150    
+C     ETA = EFFICIENCY (DB RE 100 PERCENT)                              RES00160    
+C     JF = CONVERSION FACTOR FROM TRANSMITTING CURRENT RESPONSE TO      RES00170    
+C          OPEN-CIRCUIT RECEIVING RESPONSE (DB).                        RES00180    
+C     MR = OPEN-CIRCUIT RECEIVING RESPONSE (DB RE 1 VOLT/MICROBAR)      RES00190    
+C     TI = TRANSMITTING CURRENT RESPONSE (DB RE 1 MICROBAR/AMP AT       RES00200    
+C          1 METER).                                                    RES00210    
+C     TP = TRANSMITTING POWER RESPONSE (DB RE 1 MICROBAR/WATT AT        RES00220    
+C          1 METER).                                                    RES00230    
+C     TV = TRANSMITTING VOLTAGE RESPONSE (DB RE 1 MICROBAR/VOLT AT      RES00240    
+C          1 METER).                                                    RES00250    
+C     W = POWER OUTPUT AT HEAD OF TRANSDUCER ELEMENT (WATTS).           RES00260    
+C     WIN = POWER INPUT TO ELEMENT ELECTRICAL TERMINALS (WATTS).        RES00270    
+C                                                                       RES00280    
+      COMMON /CNTROL/ N(12),IE,IBC                                      RES00290    
+      COMMON /DELTA / DELTAF,FMIN,FMAX                                  RES00300    
+      COMMON /FREQ  / FREQ,TWOPI                                        RES00310    
+      COMMON /FV    / FV,ZT,ZH,BFVSW,FVSW                               RES00320    
+      COMMON /SW    / LSW(20)                                           RES00330    
+      COMMON /COM93 / AREA,RADIUS                                       RES00340    
+      COMMON /COM95 / ZIN,YIN,EIN,IIN                                   RES00350    
+      COMMON /COM97 / MODE                                              RES00360    
+C                                                                       RES00370    
+      LOGICAL LSW,LSAVE(20)                                             RES00380    
+C                                                                       RES00390    
+      REAL MR,KA,JF                                                     RES00400    
+C                                                                       RES00410    
+      COMPLEX FV(2,11,12),ZT,ZH,ZIN,YIN,EIN,IIN                         RES00420    
+C                                                                       RES00430    
+C     TURN OFF ALL OUTPUT CONTROLS.                                     RES00440    
+      DO 100 I=1,11                                                     RES00450    
+        LSAVE(I)=LSW(I)                                                 RES00460    
+        LSW(I)=.FALSE.                                                  RES00470    
+  100 CONTINUE                                                          RES00480    
+      WRITE(6,130)                                                      RES00490    
+      NF=(FMAX-FMIN)/DELTAF+1.00001                                     RES00500    
+C     FREQUENCY LOOP.                                                   RES00510    
+      DO 110 I=1,NF                                                     RES00520    
+        FREQ=FMIN+FLOAT(I-1)*DELTAF                                     RES00530    
+        OMEGA=TWOPI*FREQ                                                RES00540    
+        IF(LSW(13))CALL FFZH                                            RES00550    
+C       DIRECTIVITY INDEX OF PISTON.                                    RES00560    
+        KA=OMEGA*RADIUS/1540.0                                          RES00570    
+        DI=10.0*ALOG10(DIRFUN(KA))                                      RES00580    
+C       CALCULATE POWER OUTPUT AT HEAD OF ELEMENT.                      RES00590    
+        CALL COMPZA                                                     RES00600    
+        IF(MODE.EQ.31)CALL COMP31                                       RES00610    
+        IF(MODE.EQ.33)CALL COMPCC                                       RES00620    
+        CALL TOTAL                                                      RES00630    
+        CALL BEGIN                                                      RES00640    
+        CALL ADMIT                                                      RES00650    
+        NN=N(12)+1                                                      RES00660    
+        W=DOT(FV(1,NN,12),FV(2,NN,12))                                  RES00670    
+        WIN=DOT(EIN,IIN)                                                RES00680    
+C       CALCULATE RESPONSES (NORMALIZED TO 1 VOLT, 1 AMP, 1 WATT).      RES00690    
+        TI=70.8+DI+10.0*ALOG10(W/CABS(IIN)**2)                          RES00700    
+        TV=70.8+DI+10.0*ALOG10(W/CABS(EIN)**2)                          RES00710    
+        TP=70.8+DI+10.0*ALOG10(W/WIN)                                   RES00720    
+        ETA=TP-DI-70.8                                                  RES00730    
+C       RECEIVING RESPONSE BY RECIPROCITY.                              RES00740    
+        JF=20.0*ALOG10(2.0E-5/FREQ)                                     RES00750    
+        MR=TI+JF                                                        RES00760    
+        WRITE(6,140)FREQ,DI,TV,TI,TP,MR,ETA                             RES00770    
+  110 CONTINUE                                                          RES00780    
+C     RESET OUTPUT CONTROLS.                                            RES00790    
+      DO 120 I=1,11                                                     RES00800    
+        LSW(I)=LSAVE(I)                                                 RES00810    
+  120 CONTINUE                                                          RES00820    
+      RETURN                                                            RES00830    
+C                                                                       RES00840    
+  130 FORMAT (1H1///6X55HTRANSDUCER ELEMENT TRANSMITTING AND RECEIVING RRES00850    
+     1ESPONSES//6X9HFREQUENCY,9X11HDIRECTIVITY,1X3(6X12HTRANSMITTING),6XRES00860    
+     212HOPEN-CIRCUIT,6X10HEFFICIENCY/24X5HINDEX,13X7HVOLTAGE,11X7HCURRERES00870    
+     3NT,11X5HPOWER,13X9HRECEIVING/42X4(8HRESPONSE,10X)/24X4H(DB),5(14X4RES00880    
+     4H(DB))//)                                                         RES00890    
+  140 FORMAT (F12.1,F18.4,F20.4,4F18.4)                                 RES00900    
+C                                                                       RES00910    
+      END                                                               RES00920    
+        CZA00100    C           CALCULATE A- AND Z-MATRICES FOR PIECES              
+C           CALCULATE A- AND Z-MATRICES FOR PIECES                      CZA00110    
+C                                                                       CZA00120    
+      SUBROUTINE COMPZA                                                 CZA00130    
+C                                                                       CZA00140    
+C     MATRICES FOR CYLINDERS AND CONES, THE MOST FREQUENTLY USED        CZA00150    
+C     TYPES, ARE CALCULATED INTERNALLY.  SUBROUTINES ARE CALLED TO      CZA00160    
+C     CALCULATE MATRICES FOR OTHER TYPES.                               CZA00170    
+C                                                                       CZA00180    
+      COMMON /AZ    / A,Z,ZSW                                           CZA00190    
+      COMMON /CNTROL/ N(12),IE,IBC                                      CZA00200    
+      COMMON /COMPOZ/ AC,ZC                                             CZA00210    
+      COMMON /EDIT  / SEC(24),T(20),TYPE(2),MO,IDAY,IYR,IRUN,OUT(4)     CZA00220    
+      COMMON /FREQ  / FREQ,TWOPI                                        CZA00230    
+      COMMON /PARAM / K(10,12),RHO(10,12),CL(10,12),AL(10,12),AR(10,12),CZA00240    
+     1C(10,12,2)                                                        CZA00250    
+      COMMON /SW    / LSW(20)                                           CZA00260    
+C                                                                       CZA00270    
+      COMPLEX CJ,RHOCA,RHOC,A(4,10,12),Z(4,10,12),AC(2,2,12),ZC(2,2,12),CZA00280    
+     1SINKL,COTKL,ARG,AK,CCC,ZZZ                                        CZA00290    
+C                                                                       CZA00300    
+      LOGICAL LSW                                                       CZA00310    
+C                                                                       CZA00320    
+      OMEGA=TWOPI*FREQ                                                  CZA00330    
+      CJ=(0.,1.)                                                        CZA00340    
+      IF(LSW(1))WRITE(6,230)TYPE(1),FREQ,MO,IDAY,IYR,IRUN               CZA00350    
+      N2=0                                                              CZA00360    
+C     OUTER LOOP FOR SECTIONS.                                          CZA00370    
+      DO 220 J=1,12                                                     CZA00380    
+C       INITIALIZE COMPOSITE A AND Z MATRICES.                          CZA00390    
+        CALL TYPE2(AC(1,1,J),ZC(1,1,J))                                 CZA00400    
+        N1=N2+1                                                         CZA00410    
+        N2=N1+1                                                         CZA00420    
+        IF(LSW(1))WRITE(6,260)SEC(N1),SEC(N2)                           CZA00430    
+        L=N(J)                                                          CZA00440    
+C       INNER LOOP FOR PIECES WITHIN A SECTION.                         CZA00450    
+        DO 200 I=1,L                                                    CZA00460    
+          M=K(I,J)+1                                                    CZA00470    
+          GOTO(100,100,130,140,150,160,170,180,130,130),M               CZA00480    
+  100     CCC=CMPLX(C(I,J,1),C(I,J,2))                                  CZA00490    
+          AK=TWOPI*FREQ/CCC                                             CZA00500    
+          ARG=AK*CL(I,J)                                                CZA00510    
+          SINKL=CSIN(ARG)                                               CZA00520    
+          GOTO(110,120),M                                               CZA00530    
+C                                                                       CZA00540    
+C         Z AND A-MATRICES FOR CYLINDRICAL PIECE.                       CZA00550    
+  110     RHOCA=CJ*RHO(I,J)*CCC*AL(I,J)                                 CZA00560    
+          Z(1,I,J)=-RHOCA*CCOS(ARG)/SINKL                               CZA00570    
+          Z(3,I,J)=RHOCA/SINKL                                          CZA00580    
+          Z(2,I,J)=-Z(3,I,J)                                            CZA00590    
+          Z(4,I,J)=-Z(1,I,J)                                            CZA00600    
+          CALL TRAN(Z(1,I,J),A(1,I,J))                                  CZA00610    
+          GOTO190                                                       CZA00620    
+C                                                                       CZA00630    
+C         Z AND A-MATRICES FOR CONICAL PIECE.                           CZA00640    
+  120     COTKL=CCOS(ARG)/SINKL                                         CZA00650    
+          RHOC=CJ*RHO(I,J)*CCC                                          CZA00660    
+          XT=CL(I,J)/(SQRT(AR(I,J)/AL(I,J))-1.0)                        CZA00670    
+          XH=CL(I,J)+XT                                                 CZA00680    
+          Z(1,I,J)=-RHOC*AL(I,J)*(COTKL+1.0/(AK*XT))                    CZA00690    
+          Z(3,I,J)=RHOC*SQRT(AL(I,J)*AR(I,J))/SINKL                     CZA00700    
+          Z(2,I,J)=-Z(3,I,J)                                            CZA00710    
+          Z(4,I,J)=RHOC*AR(I,J)*(COTKL-1.0/(AK*XH))                     CZA00720    
+          CALL TRAN(Z(1,I,J),A(1,I,J))                                  CZA00730    
+          GOTO190                                                       CZA00740    
+C                                                                       CZA00750    
+C         UNIT TYPE PIECE.                                              CZA00760    
+  130     CALL TYPE2(A(1,I,J),Z(1,I,J))                                 CZA00770    
+          IF(LSW(1))WRITE(6,270)I,T(M)                                  CZA00780    
+          GOTO200                                                       CZA00790    
+C                                                                       CZA00800    
+C         IDEAL TRANSFORMER.                                            CZA00810    
+  140     CALL TYPE3(RHO(I,J),A(1,I,J),Z(1,I,J))                        CZA00820    
+          IF(LSW(1))WRITE(6,270)I,T(M)                                  CZA00830    
+          CALL CHAIN(AC(1,1,J),A(1,I,J))                                CZA00840    
+          GOTO200                                                       CZA00850    
+C                                                                       CZA00860    
+C         SERIES IMPEDANCE.                                             CZA00870    
+  150     CALL TYPE4(RHO(I,J),CL(I,J),AL(I,J),A(1,I,J),Z(1,I,J))        CZA00880    
+          IF(LSW(1))WRITE(6,270)I,T(M)                                  CZA00890    
+          CALL CHAIN(AC(1,1,J),A(1,I,J))                                CZA00900    
+          GOTO200                                                       CZA00910    
+C                                                                       CZA00920    
+C         PARALLEL IMPEDANCE.                                           CZA00930    
+  160     CALL TYPE5(RHO(I,J),CL(I,J),AL(I,J),A(1,I,J),Z(1,I,J))        CZA00940    
+          GOTO190                                                       CZA00950    
+C                                                                       CZA00960    
+C         SERIES ADMITTANCE.                                            CZA00970    
+  170     CALL TYPE6(RHO(I,J),CL(I,J),AL(I,J),A(1,I,J),Z(1,I,J))        CZA00980    
+          IF(LSW(1))WRITE(6,270)I,T(M)                                  CZA00990    
+          CALL CHAIN(AC(1,1,J),A(1,I,J))                                CZA01000    
+          GOTO200                                                       CZA01010    
+C                                                                       CZA01020    
+C         PARALLEL ADMITTANCE.                                          CZA01030    
+  180     CALL TYPE7(RHO(I,J),CL(I,J),AL(I,J),A(1,I,J),Z(1,I,J))        CZA01040    
+C                                                                       CZA01050    
+C         CASCADE A-MATRICES.                                           CZA01060    
+  190     CALL CHAIN(AC(1,1,J),A(1,I,J))                                CZA01070    
+          IF(LSW(1))WRITE(6,240)I,T(M),(Z(IJ,I,J),IJ=1,4)               CZA01080    
+  200   CONTINUE                                                        CZA01090    
+C                                                                       CZA01100    
+C       COMPUTE COMPOSITE A AND Z-MATRICES.                             CZA01110    
+        IF(CABS(AC(2,1,J)).EQ.0.0)GOTO210                               CZA01120    
+        CALL TRAN(AC(1,1,J),ZC(1,1,J))                                  CZA01130    
+  210   IF(LSW(1))WRITE(6,250)((ZC(I,IJ,J),I=1,2),IJ=1,2)               CZA01140    
+  220 CONTINUE                                                          CZA01150    
+      RETURN                                                            CZA01160    
+C                                                                       CZA01170    
+  230 FORMAT (1H1//6XA6,27H TRANSDUCER ANALYSIS OUTPUT,10X11HFREQUENCY =CZA01180    
+     1,F8.2,10X4HDATE,I4,1H/,I2,1H/,I2,10X10HRUN NUMBER,A7//6X39HNON-PIECZA01190    
+     2ZOELECTRIC QUADRUPOLE IMPEDANCES//7X5HPIECE,15X3HZ11,23X3HZ21,23X3CZA01200    
+     3HZ12,23X3HZ22/6X8HNO. TYPE,7X4HREAL,8X4HIMAG,3(10X4HREAL,8X4HIMAG)CZA01210    
+     4//)                                                               CZA01220    
+  240 FORMAT (6XI2,1XA6,4(1PE14.4,E12.4))                               CZA01230    
+  250 FORMAT (6X9HCOMPOSITE,4(1PE14.4,E12.4))                           CZA01240    
+  260 FORMAT (/16X2A6)                                                  CZA01250    
+  270 FORMAT (6XI2,1XA6,41H   (PIECE HAS NO Z-MATRIX REPRESENTATION))   CZA01260    
+C                                                                       CZA01270    
+      END                                                               CZA01280    
+        CCC00100    C           ACTIVE CERAMIC SECTION SUBROUTINE.                  
+C           ACTIVE CERAMIC SECTION SUBROUTINE.                          CCC00110    
+C                                                                       CCC00120    
+      SUBROUTINE COMPCC                                                 CCC00130    
+C                                                                       CCC00140    
+C     ACC = CERAMIC SECTION A-MATRIX.                                   CCC00150    
+C     BLC = LATERALLY                                                   CCC00160    
+C     BLC = DIELECTRIC IMPERMEABILITY OF CERAMIC.                       CCC00170    
+C     BMAT = TUNING NETWORK COMPOSITE B-MATRIX.                         CCC00180    
+C     C0 = CLAMPED CAPACITANCE OF SINGLE CERAMIC RING.                  CCC00190    
+C     CCS = LONGITUDINAL VELOCITY OF SOUND IN CERAMIC.                  CCC00200    
+C     CLCS = LENGTH OF SINGLE CERAMIC RING.                             CCC00210    
+C     G33 = PIEZOELECTRIC CONSTANT OF CERAMIC.                          CCC00220    
+C     E0 = DIELECTRIC PERMITTIVITY OF FREE SPACE.                       CCC00230    
+C     E33 = RELATIVE DIELECTRIC CONSTANT OF CERAMIC.                    CCC00240    
+C     FREQ = FREQUENCY                                                  CCC00250    
+C     K = INVERSE WAVELENGTH IN CERAMIC.                                CCC00260    
+C     K33 = LONGITUDINAL COUPLING FACTOR OF CERAMIC.                    CCC00270    
+C     OMEGA = ANGULAR FREQUENCY                                         CCC00280    
+C     PHI = ELECTROMECHANICAL TRANSFORMER TURNS RATIO.                  CCC00290    
+C     RHOCS = DENSITY OF CERAMIC.                                       CCC00300    
+C     S333 = CERAMIC ELASTIC COMPLIANCE AT CONSTANT CHARGE DENSITY.     CCC00310    
+C     ZB = SINGLE RING Z-MATRIX.                                        CCC00320    
+C     ZCC = CERAMIC STANT Z-MATRIX (WITHOUT TUNING).                    CCC00330    
+C                                                                       CCC00340    
+      COMMON /CC    / ACC,ALPHA,BETA,B,PHI,CCS,Z0,ZCC,C0,AKL,ZZ0,ZC0,ZB CCC00350    
+      COMMON /CERAM / S333,G333,E333,NO,RHOCS,CLCS,ACS,LT,Q,CSW         CCC00360    
+      COMMON /CNTROL/ N(12),IE,IBC                                      CCC00370    
+      COMMON /EDIT  / SEC(24),T(20),TYPE(2),MO,IDAY,IYR,IRUN,OUT(4)     CCC00380    
+      COMMON /FREQ  / FREQ,TWOPI                                        CCC00390    
+      COMMON /SW    / LSW(20)                                           CCC00400    
+      COMMON /TUNE  / RTUNE(3),LTUNE(3),CTUNE(3),TURNS                  CCC00410    
+C                                                                       CCC00420    
+      LOGICAL LSW                                                       CCC00430    
+C                                                                       CCC00440    
+      COMPLEX S333,G333,E333,ACC(2,3,2),ALPHA(2,2,2),BETA(2,2),B(2,2,2),CCC00450    
+     1PHI,CCS,Z0,BLC,C0,AKL,ZZ0,K,KL,ZCC(2,2),CJ,RHOCA,SINKL,ZB(2,3),PHICCC00460    
+     2Z0,AB11,AB12,THETA,ZC0,ZCAP(2,2),NTHETA,SINH,COSH,ZWIG(2,3),ZWIG1,CCC00470    
+     3ZWIG2,PHIZC0                                                      CCC00480    
+C                                                                       CCC00490    
+      OMEGA=FREQ*TWOPI                                                  CCC00500    
+      CJ=(0.,1.)                                                        CCC00510    
+      E0=8.854185E-12                                                   CCC00520    
+C**** CALCULATE CERAMIC AND SINGLE RING PROPERTIES.                     CCC00530    
+      CCS=1./CSQRT(RHOCS*S333)                                          CCC00540    
+      BLC=G333*G333/S333 + 1./(E0*E333)                                 CCC00550    
+      C0=ACS/(CLCS*BLC)                                                 CCC00560    
+      PHI=G333*C0/S333                                                  CCC00570    
+      K=OMEGA/CCS                                                       CCC00580    
+      AKL=K*CLCS                                                        CCC00590    
+      RHOCA=CJ*RHOCS*CCS*ACS                                            CCC00600    
+      SINKL=CSIN(AKL)                                                   CCC00610    
+C**** CALCULATE SINGLE RING MATRIX.                                     CCC00620    
+      ZCC(1,1)=-RHOCA*CCOS(AKL)/SINKL                                   CCC00630    
+      ZCC(2,2)=-ZCC(1,1)                                                CCC00640    
+      ZCC(1,2)=RHOCA/SINKL                                              CCC00650    
+      ZCC(2,1)=-ZCC(1,2)                                                CCC00660    
+      Z0 = PHI/(CJ*OMEGA*C0)                                            CCC00670    
+      PHIZ0=PHI*Z0                                                      CCC00680    
+C**** ADD IN THE ELECTRO-MECHANICAL TRANSFORMER.                        CCC00690    
+      ZB(1,1)=ZCC(1,1) - PHIZ0                                          CCC00700    
+      ZB(2,2)=-ZB(1,1)                                                  CCC00710    
+      ZB(1,2)=ZCC(1,2) + PHIZ0                                          CCC00720    
+      ZB(2,1)=-ZB(1,2)                                                  CCC00730    
+      ZB(2,3)=PHI*ZB(1,2)                                               CCC00740    
+      ZB(1,3)=PHI + ZB(2,3)*(-ZB(1,1)/ZB(1,2))                          CCC00750    
+C**** COMPUTE TOTAL CERAMIC STACK MATRIX.                               CCC00760    
+      AB11=ZB(1,1)/ZB(2,1)                                              CCC00770    
+      AB12=ZB(1,2)-ZB(1,1)*ZB(2,2)/ZB(2,1)                              CCC00780    
+      THETA=CLOG(AB11 + CSQRT(AB11*AB11 - 1.))                          CCC00790    
+      ZZ0=-ZB(1,2)*((CEXP(THETA)-CEXP(-THETA))/2.)                      CCC00800    
+      ZC0=Z0/FLOAT(NO)                                                  CCC00810    
+      NTHETA=FLOAT(NO)*THETA                                            CCC00820    
+      SINH=(CEXP(NTHETA)-CEXP(-NTHETA))/2.                              CCC00830    
+      COSH=(CEXP(NTHETA)+CEXP(-NTHETA))/2.                              CCC00840    
+      PHIZC0=PHI*ZC0                                                    CCC00850    
+      ZCAP(1,1)=ZZ0*COSH/SINH + PHIZC0                                  CCC00860    
+      ZCAP(2,2)=-ZCAP(1,1)                                              CCC00870    
+      ZCAP(1,2)=-(ZZ0/SINH + PHIZC0)                                    CCC00880    
+      ZCAP(2,1)=-ZCAP(1,2)                                              CCC00890    
+      CALL BMAT                                                         CCC00900    
+C**** COMPUTE TOTAL STACK MATRIX (INCLUDING TUNING).                    CCC00910    
+      ALPHA(1,1,IE)=-B(2,1,IE)*PHIZC0/(B(2,1,IE)*ZC0 - PHI*B(1,1,IE))   CCC00920    
+      ALPHA(1,2,IE)=-ALPHA(1,1,IE)                                      CCC00930    
+      ALPHA(2,1,IE)=-B(2,2,IE)*PHIZC0/(B(2,2,IE)*ZC0-PHI*B(1,2,IE))     CCC00940    
+      ALPHA(2,2,IE)=-ALPHA(2,1,IE)                                      CCC00950    
+      BETA(1,IE)=PHI*(B(2,1,IE)*B(1,2,IE)-B(1,1,IE)*B(2,2,IE))/(B(2,1,IECCC00960    
+     1)*ZC0-PHI*B(1,1,IE))                                              CCC00970    
+      BETA(2,IE)=PHI*(B(1,1,IE)*B(2,2,IE)-B(2,1,IE)*B(1,2,IE))/(B(2,2,IECCC00980    
+     1)*ZC0-PHI*B(1,2,IE))                                              CCC00990    
+      ZWIG(1,1)=ZCAP(1,1) + ALPHA(IE,1,IE)*ZC0                          CCC01000    
+      ZWIG(1,2)=ZCAP(1,2) - ALPHA(IE,1,IE)*ZC0                          CCC01010    
+      ZWIG1=BETA(IE,IE)*ZC0                                             CCC01020    
+      ZWIG(1,3)=ZWIG1                                                   CCC01030    
+      ZWIG(2,1)=-ZWIG(1,2)                                              CCC01040    
+      ZWIG(2,2)=-ZWIG(1,1)                                              CCC01050    
+      ZWIG2=ZWIG1                                                       CCC01060    
+      ZWIG(2,3)=ZWIG2                                                   CCC01070    
+C**** TRANSFORM Z-MATRIZ TO AN A-MATRIX.                                CCC01080    
+      CALL TRAN(ZWIG,ACC(1,1,IE))                                       CCC01090    
+      ACC(1,3,IE)=ZWIG1-ZWIG(1,1)*ZWIG1/ZWIG(2,1)                       CCC01100    
+      ACC(2,3,IE)=-ZWIG1/ZWIG(2,1)                                      CCC01110    
+      IF(.NOT.LSW(2))RETURN                                             CCC01120    
+      N1=1                                                              CCC01130    
+      IF(IE.EQ.2)N1=3                                                   CCC01140    
+      N2=N1+1                                                           CCC01150    
+             WRITE(6,100)TYPE(1),FREQ,MO,IDAY,IYR,IRUN,OUT(N1),OUT(N2), CCC01160    
+     1                                     CCS,K,C0,Z0,PHI,ZZ0,((ZB(I,J)CCC01170    
+     2,ZWIG(I,J),I=1,2),J=1,3),((B(I,J,IE),J=1,2),I=1,2)                CCC01180    
+      RETURN                                                            CCC01190    
+C                                                                       CCC01200    
+  100 FORMAT(1H15XA6,27H TRANSDUCER ANALYSIS OUTPUT7X2HF=F8.2,9X4HDATEI4CCC01210    
+     1,1H/I2,1H/I2,4X10HRUN NUMBER2XA6//6X20HCERAMIC SECTION DATA2A6,6H CCC01220    
+     2DRIVE                                      //15X4HREAL12X4HIMAG25XCCC01230    
+     54HREAL12X4HIMAG/6X2HCC2X1P2E16.7,9X1HK3X2E16.7/6X2HC02X2E16.7,9X2HCCC01240    
+     6Z02X2E16.7/6X4HPHI 2E16.7,9X4HZZ0 2E16.7//16X18HSINGLE RING MATRIXCCC01250    
+     728X24HCERAMIC COMPOSITE MATRIX/15X4HREAL12X4HIMAG25X4HREAL12X4HIMACCC01260    
+     8G/10X2E16.7,6X3HZ114X2E16.7/10X2E16.7,6X3HZ214X2E16.7/10X2E16.7,6XCCC01270    
+     93HZ124X2E16.7/10X2E16.7,6X3HZ224X2E16.7/10X2E16.7,6X2HZ15X2E16.7/1CCC01280    
+     10X2E16.7,6X2HZ25X2E16.7//40X13HTUNING MATRIX/15X4HREAL12X4HIMAG25XCCC01290    
+     24HREAL12X4HIMAG/6X4HB11 2E16.7,9X4HB12 2E16.7/6X4HB21 2E16.7,9X4HBCCC01300    
+     322 2E16.7//)                                                      CCC01310    
+C                                                                       CCC01320    
+      END                                                               CCC01330    
+                                                                                                                                                                                                                                                                62y8A
