@@ -1,0 +1,459 @@
+        TITLE   REPRT5
+ INTERNAL ESCR,GCHAR,SAVEX
+ EXTERNAL JOBAPR,JOBTPC,JOBCNI
+; SUBROUTINE COMMAND(IP,IRAY,IPTRS)
+; IP - COMMAND NUMBER RETURNED
+; IRAY - ARRAY FOR STORING INPUT CHARACTER STRING
+; IPTRS - DOUBLE WORD ARRAY FOR STORING CHARACTER POINTERS
+;
+; IRAY SHOULD BE AN ARRAY OF 20 WORDS.
+; IPTRS HAS THE POSITION OF THE NEXT CHARACTER IN THE LEFT
+; HALF AND THE POSITION OF THE LAST CHARACTER PLUS ONE IN THE
+; RIGHT HALF. CHARACTERS ARE STORED IN THE ARRAY 'IRAY'
+; IN 7 BIT ASCII. CARRIAGE RETURNS ARE NOT STORED IN IT.
+; THE FIRST PART OF THE STRING IS SCANNED UNTIL A NON-ALPHA
+; CHARACTER IS ENCOUNTERED. THAT MUCH IS CONSIDERED
+; TO BE THE COMMAND. THE COMMAND TABLE IS SEARCHED FOR A MATCH.
+; IF NO MATCH IS FOUND, THE MESSAGE "INVALID, PLEASE RETYPE:"
+; IS TYPED AND A NEW STRING IS READ IN. AFTER A MATCH IS FOUND,
+; THE ENTRY HAS CONTROL BITS THAT SAY WHETHER OR NOT THE COMMAND
+; IS ALLOWED TO CONTAIN EXTRANEOUS CHARACTERS AFTER THE COMMAND.
+; IF NOT, THEN THE MESSAGE "EXTRANEOUS INPUT, PLEASE RETYPE" IS
+; TYPED AND A NEW STRING IS READ IN. IF IT IS ALLOWED, THEN
+; THE COMMAND IS BRANCHED TO. IF THE COMMAND IS ONE THAT
+; RETURNS, IT IS UP TO THE CONTROLLING PROGRAM TO MAKE USE
+; OF THE REST OF THE STRING. EDITTING IS PERFORMED DURING
+; THE READING IN OF THE STRING.
+;
+;SETTING UP THE COMMAND TABLE:
+; THE MACRO "COM" IS USED FOR EACH ENTRY. THE USERS COMMANDS
+; SHOULD BE SET UP AT THE FIRST OF THE TABLE. EACH ENTRY LOOKS
+; AS FOLLOWS -  COM NAME,ROUTINE,HELP MESSAGE,<CONTROL BITS>
+;  WHERE -
+;   NAME - THE LETTERS TO BE TYPED IN TO ACCESS THE COMMAND.
+;   ROUTINE - THE ROUTINE TO BRANCH TO IN ORDER TO DO THE COMMAND.
+;             "RETURN" IS USED IF THE COMMAND IS TO RETURN.
+;   HELP MESSAGE - MESSAGE TO BE USED TO EXPLAIN WHAT THE COMMAND
+;                  DOES FOR THE USER.
+;   CONTROL BITS - USED TO DEFINE SPECIAL THINGS ABOUT THE COMMAND.
+;       SP - SPECIAL COMMAND, DO NOT LIST IN HELP COMMAND
+;       EX - EXTRA INPUT ALLOWED
+DBUF:   BLOCK   3
+OTEST:  EXP     -1
+ITEST:  EXP     -1
+ENTRY   COMMAND
+COMMAND:        0
+        MOVE    17,PDP
+        SKIPL   ITEST
+        JRST    DIS
+        HRROI   1,6
+        GETTAB  1,
+        JRST    .+2
+        TRNN    1,40000
+        EXIT    1,
+        INIT    17,1
+        SIXBIT  /TTY/
+        XWD     0,DBUF
+        JUMP    .+1
+        AOS     ITEST
+        SKIPL   OTEST
+        JRST    DIS
+        AOS     OTEST
+        MOVEI   1,VER
+        PUSHJ   17,PRINT
+        JRST    DIS
+VER:    ASCII   "$REPORT GENERATOR, VERSION 1.00$#"
+DIS:    OUTCHR  [72]
+        MOVE    1,1(16)
+        MOVEM   1,SAVEX
+        MOVE    14,2(16)
+        PUSHJ   17,RLINE
+        SETZ    2,
+        MOVEI   15,3
+        PUSHJ   17,GCHAR
+        JRST    DIS
+        JRST    DISL+2
+DISL:   PUSHJ   17,GCHAR
+        JRST    DISD
+        CAIE    1," "
+        CAIN    1,","
+        JRST    DISD
+        SOJL    15,DISL
+        MOVE    3,1
+        LSH     3,^D29
+        LSHC    2,7
+        JRST    DISL
+DISD:   MOVEI   14,1
+        MOVEI   15,TAB
+SL:     SKIPG   0,0(15)
+        JRST    BAD1
+        CAMN    2,1(15)
+        JRST    GOOD1
+        MOVE    15,0(15)
+        AOJA    14,SL
+GOOD1:  MOVEM   14,@0(16)
+        MOVE    2,2(15)
+        TLNE    2,EX
+        JRST    GOOD2
+        PUSHJ   17,GCHAR
+        JRST    GOOD2
+        CAIN    1,40
+        JRST    .-3
+        JRST    BAD2
+GOOD2:  MOVE    1,2(15)
+        JRST    0(1)
+BAD1:   MOVEI   1,BAD1M
+        PUSHJ   17,PRINT
+        JRST    DIS
+BAD1M:  ASCII   'INVALID COMMAND$#'
+BAD2:   MOVEI   1,BAD2M
+        PUSHJ   17,PRINT
+        JRST    DIS
+BAD2M:  ASCII   'ERROR, EXTRANEOUS INPUT$#'
+GCHAR:  MOVE    14,2(16)
+        PUSHJ   17,GCI
+        POPJ    17,
+        AOS     0(17)
+        POPJ    17,
+GCI:    MOVEM   3,SV3
+        MOVEM   4,SV4
+        MOVE    3,0(14)
+        MOVE    4,1(14)
+        CAML    3,4
+        JRST    FX2
+        AOS     0(14)
+GC:     IDIVI   3,5
+        ADD     3,SAVEX
+        HRRZ    3,3
+        XOR     3,[0700000000]
+        ADDI    4,1
+        IMULI   4,7
+        MOVNS   4,4
+        ADDI    4,44
+        LSH     4,36
+        XOR     3,4
+        LDB     1,3
+FX1:    AOS     0(17)
+FX2:    MOVE    3,SV3
+        MOVE    4,SV4
+        POPJ    17,
+GCD:    MOVEM   3,SV3
+        MOVEM   4,SV4
+        MOVE    3,1(14)
+        MOVE    4,0(14)
+        CAMG    3,4
+        JRST    FX2
+        SOS     3
+        SOS     1(14)
+        JRST    GC
+WCI:    MOVEM   3,SV3
+        MOVEM   4,SV4
+        MOVE    3,1(14)
+        CAIL    3,144
+        JRST    FX2
+        AOS     1(14)
+WC:     IDIVI   3,5
+        ADD     3,SAVEX
+        HRRZ    3,3
+        XOR     3,[0700000000]
+        ADDI    4,1
+        IMULI   4,7
+        MOVNS   4,4
+        ADDI    4,44
+        LSH     4,36
+        XOR     3,4
+        DPB     1,3
+        JRST    FX1
+WCD:    MOVEM   3,SV3
+        MOVEM   4,SV4
+        MOVE    3,0(14)
+        CAIG    3,0
+        JRST    FX2
+        SOS     0(14)
+        JRST    WC
+SV3:    0
+SV4:    0
+PDP:    XWD-20,.
+        BLOCK   20
+IBUF:   BLOCK   20
+RLINE:  SETZ    13,
+        MOVEM   13,0(14)
+        MOVEM   13,1(14)
+RL1:    INCHRW  1
+        CAIN    1,175
+        JRST    ESCR
+        CAIN    1,1
+        JRST    CONTA
+        JUMPGE  13,RLC
+        OUTCHR  [134]
+        OUTCHR  1
+        GETSTS  17,2
+        TRZ     2,200
+        SETSTS  17,@2
+        SETZ    13,
+RLC:    CAIE    1,15
+        JRST    .+3
+        INCHRW  1
+        POPJ    17,
+        CAIE    1,12
+        JRST    .+3
+        OUTCHR  [15]
+        POPJ    17,
+        CAIN    1,27
+        JRST    CONTW
+        CAIN    1,21
+        JRST    CONTQ
+        PUSHJ   17,WCI
+        JRST    RL1
+        JRST    RL1
+CONTA:  JUMPL   13,CAC
+        OUTCHR  [134]
+        GETSTS  17,2
+        TRO     2,200
+        SETSTS  17,@2
+        SETO    13,
+        JRST    CAC+1
+CAC:    OUTCHR  1
+        PUSHJ   17,GCD
+        JRST    DOBELL
+        OUTCHR  1
+        JRST    RL1
+CONTW:  PUSHJ   17,GCD
+        JRST    DOBELL
+        OUTCHR  [134]
+        JRST    .+3
+        PUSHJ   17,GCD
+        JRST    WDON2
+        OUTCHR  1
+        CAIN    1," "
+        JRST    .-4
+        PUSHJ   17,GCD
+        JRST    WDON2
+        CAIN    1," "
+        JRST    WDON1
+        OUTCHR  1
+        JRST    .-5
+WDON1:  PUSHJ   17,WCI
+        JUMPA   .
+WDON2:  OUTCHR  [134]
+        JRST    RL1
+CONTQ:  OUTCHR  [136]
+        OUTCHR  [15]
+        OUTCHR  [12]
+        JRST    RLINE
+DOBELL: OUTCHR  [7]
+        JRST    RL1
+PTRS:   BLOCK   2
+PRINT:  HRRZ    1,1
+        XOR     1,BMASK
+        MOVEM   1,BWORD
+        SETZ    2,
+PRNT1:  ILDB    0,BWORD
+        CAIE    0,44
+        JRST    PRNT2
+        MOVEI   0,15
+        OUTCHR  0
+        MOVEI   0,12
+        OUTCHR  0
+        SETZ    2,
+        JRST    PRNT1
+PRNT2:  CAIN    0,43
+        POPJ    17,
+        CAIN    0,45
+        JRST    PRNT3
+        OUTCHR  0
+        ADDI    2,1
+        JRST    PRNT1
+PRNT3:  OUTCHR  [40]
+        ADDI    2,1
+        CAIE    2,24
+        JRST    PRNT3
+        JRST    PRNT1
+BMASK:  EXP     440700000000
+BWORD:  0
+SP=1
+EX=2
+ DEFINE COM(A,B,C,E,%D)
+< F=0
+ IRP E
+<F=F+E>
+ JRST %D
+ "A"
+ XWD F,B
+ ASCII "C'$#"
+%D:>
+TAB: COM GAT,RET,GATHER%GATHER RAW ACCOUNTING TO DATA BASES,EX
+ COM LIS,RET,LIST%CONVERT ACCUM FILE TO PROGRAM DATA BASES,EX
+ COM DAT,RET,DATE%PRINT DATE RANGE FOR ACCUM FILE,
+ COM HEL,HELP,HELP OR ?%REPRINTS THIS LIST,
+ COM CRE,CREDIT,CREDITS%THOSE RESPONSIBLE FOR THIS PROGRAM,
+ COM CHA,CHARG,<CHARGES%ADDITIONAL COST, IF ANY>,
+ COM QUI,QUIT,QUIT OR Q%QUIT TO EXEC,
+ COM INS,INST,INSTRUCTIONS%HOW TO EXECUTE THE PROGRAM,
+ COM CAP,CAP,CAPABILITIES%DESCRIBES PROGRAM CAPABILITIES,
+ COM Q,QUIT,NONE,SP
+ COM ?,HELP,NONE,SP
+ EXP -1
+CAP:    MOVEI   1,M1
+        PUSHJ   17,PRINT
+        JRST    DIS
+M1:     ASCII   "$THIS PROGRAM WILL REDUCE RAW ACCOUNTING DATA"
+        ASCII   "$TO ONE OF TWO DATA BASES. ONE OF THE DATA BASES"
+        ASCII   "$IS INTENDED TO BE USED FOR ANALYZING THE"
+        ASCII   "$SUPERVISOR NETWORK. THE OTHER IS INTENDED TO BE"
+        ASCII   "$USED FOR ANALYZING PROGRAM USAGE BY DISTRICT"
+        ASCII   "$IT IS POSSIBLE TO KEEP AN ACCUMULATIVE FILE FOR"
+        ASCII   "$THE SECOND DATA BASE.$#"
+CHARG:  MOVEI   1,M2
+        PUSHJ   17,PRINT
+        JRST    DIS
+M2:     ASCII   "$NO PREMIUM CHARGE$#"
+CREDIT: MOVEI   1,M3
+        PUSHJ   17,PRINT
+        JRST    DIS
+M3:     ASCII   "$CODED BY JOHN STALLINGS OF TYMSHARE INC.$#"
+QUIT:   EXIT    1,
+INST:   MOVEI   1,M4
+        PUSHJ   17,PRINT
+        JRST    DIS
+M4:     ASCII   "$TYPE THE DESIRED COMMAND FOLLOWED BY THE DESIRED"
+        ASCII   "$OPTIONS. FOR A DETAILED EXPLANATION OF THE"
+        ASCII   "$COMMANDS AND THEIR OPTIONS, SEE THE MANUAL.$#"
+RET:    JRA     16,3(16)
+HELP:   OUTCHR  [15]
+        OUTCHR  [12]
+        MOVEI   1,M5
+        PUSHJ   17,PRINT
+        MOVEI   15,TAB
+HELP1:  SKIPG   0(15)
+        JRST    HELP3
+        MOVE    1,2(15)
+        TLNE    1,SP
+        JRST    HELP2
+        MOVE    1,15
+        ADDI    1,3
+        PUSHJ   17,PRINT
+HELP2:  MOVE    15,0(15)
+        JRST    HELP1
+HELP3:  MOVEI   1,M6
+        PUSHJ   17,PRINT
+        JRST    DIS
+M5:     ASCII   "$LEGAL COMMANDS ARE:$$#"
+M6:     ASCII   "$$ANY OF THESE COMMANDS MAY BE SHORTENED TO"
+        ASCII   "$THE FIRST THREE CHARACTERS$#"
+ENTRY   TEAR
+TEAR:   0
+        MOVE    15,1(16)
+        MOVE    1,@0(16)
+        LSH     1,-20
+        ADDI    1,1
+        MOVEM   1,0(15)
+        MOVE    1,@0(16)
+        ANDI    1,177777
+        IDIVI   1,^D1440
+        ADDI    1,1
+        MOVEM   1,1(15)
+        MOVE    1,2
+        IDIVI   1,^D60
+        MOVEM   1,2(15)
+        MOVEM   2,3(15)
+        JRA     16,2(16)
+ENTRY   TEAR2
+AC=1
+MPY=^D525600
+MPD=^D1440
+MPH=^D60
+        EXP     0
+MAR:    DEC     31,61,92,122,153,184,214,245,275,306,337,366
+TEAR2:  0
+        MOVE    15,1(16)
+        MOVE    AC,@0(16)
+        MUL     AC,[^D1000000]
+        DIV     AC,[^D1788139]
+        SUBI    AC,MPD
+        IDIV    AC,[MPY*4+MPD]
+        IMULI   AC,4
+        ADDI    AC,^D1972
+        MOVEM   AC,YEAR
+        IDIV    AC+1,[MPY]
+        CAIE    AC+1,4
+        JRST    .+3
+        ADD     AC+2,[MPY]
+        SUBI    AC+1,1
+        ADDM    AC+1,YEAR
+        IDIVI   AC+2,MPD
+        HRLZI   AC,-14
+        CAMGE   AC+2,MAR(AC)
+        JRST    OK1
+        AOBJN   AC,.-2
+        HALT
+OK1:    SUB     AC+2,MAR-1(AC)
+        ADDI    AC+2,1
+        MOVEM   AC+2,1(15)
+        HRRZ    AC,AC
+        ADDI    AC,2
+        CAIG    AC,13
+        JRST    OK2
+        AOS     YEAR
+        SUBI    AC,14
+OK2:    ADDI    AC,1
+        MOVEM   AC,0(15)
+        IDIVI   AC+3,MPH
+        MOVEM   AC+3,2(15)
+        MOVEM   AC+4,3(15)
+        JRA     16,2(16)
+YEAR:   0
+ENTRY   ESCAPE
+ESCAPE: 0
+        MOVE    1,@0(16)
+        MOVEM   1,ESCON
+        MOVEI   1,ESCR1
+        MOVEM   1,JOBAPR
+        MOVEI   1,2000
+        APRENB  1,
+        JRA     16,1(16)
+ESCON:  0
+ESCR1:  HLR     1,JOBCNI
+        ANDI    1,1
+        CAIE    1,1
+        JRST    FUNNY
+ESCR:   CLRBFI 0,
+        CLRBFO 0,
+        OUTCHR  [137]
+        OUTCHR  [137]
+ESCR3:  OUTCHR  [15]
+        OUTCHR  [12]
+        MOVEI   1,2000
+        APRENB  1,
+        JRST    @ESCON
+FUNNY:  MOVEI   1,FUNM
+        MOVE    17,PDP
+        PUSHJ   17,PRINT
+        MOVE    1,JOBTPC
+        MOVE    2,6
+FUN2:   LSHC    0,3
+        ANDI    0,7
+        ADDI    0,60
+        OUTCHR  0
+        SOJG    2,FUN2
+        JRST    ESCR3
+FUNM:   ASCII   '$FATAL ERROR AT LOC #'
+ENTRY   RDLINE
+RDLINE: 0
+        MOVE    17,PDP
+        MOVE    14,0(16)
+        MOVEM   14,SAVEX
+        MOVEI   13,24
+        MOVE    1,BLANKS
+        MOVEM   1,0(14)
+        AOS     14
+        SOJG    13,.-2
+        MOVEI   14,DPTR
+        SETZ    13
+        PUSHJ   17,RLINE
+        JRA     16,1(16)
+BLANKS: ASCII   "     "
+DPTR:   BLOCK   2
+SAVEX:  0
+        END
+    
