@@ -1,0 +1,560 @@
+8.5.1   $KINSR
+
+A.      Abstract
+
+        $KINSR inserts an instance into a SKIM file.
+
+B.      Call
+
+        $KINSR(FCB)
+
+        where FCB is the address of the FCB of the SKIM file.
+
+        Value returned:   0 - the instance was inserted
+                          1 - the instance already existed
+
+C.      File Block & Table Structures Accessed
+
+        FCB, SOB, DB, SB
+
+D.      Routines Called
+
+        $KSRCH, $KVIRD, $KVIWR, $KGBUF, $KGETP, INSERTKEY
+
+E.      Functional Description
+
+        $KINSR first calls $KSRCH to search the SKIM file for an 
+        instance whose key matches the key of the instance I in the
+        instance buffer. If I matches, this fact is noted and $KINSR
+        returns. Otherwise the DB which $KSRCH has found is examined.
+        If it is not full, I is inserted and $KINSR returns. If it
+        is full, the left sibling DB is read in via $KVIRD. If this
+        DB is not full, the 2 DBs are balanced and $KINSR returns. 
+        Otherwise a new DB is created. The instances from the 2 old
+        DBs are spread out over the 3 new DBs. INSERTKEY is called 
+        to fix up the IBs and $KINSR returns. In all successful cases,
+        the cursor points to the inserted instance upon completion.
+
+F.      Errors Detected: none
+
+8.5.2   $KDLTE
+
+A.      Abstract
+
+        $KDLTE deletes an instance from a SKIM file.
+
+B.      Call
+
+        $KDLTE(FCB)
+
+        where FCB is the address of the FCB for the file.
+
+        Value returned:   0 - the instance was deleted
+                          1 - the instance doesn't exist
+
+C.      File Block & Table Structures Accessed
+
+        FCB, SOB, DB, SB
+
+D.      Routines Called
+
+        $KSRCH, $KVIRD, $KVIWR, $KRELP, $KRBUF, $UMOVO
+
+E.      Functional Description
+
+        $KDLTE first calls $KSRCH to search the SKIM file for an
+        instance whose key matches the key K in the instance buffer.
+        If K doesn't match, this fact is noted and $KDLTE returns.
+        Otherwise the instance found by $KSRCH is deleted from its 
+        DB. If this DB is still 1/2 full or more, $KDLTE returns.
+        If not the DB is balanced with a sibling and $KDLTE returns.
+        If the number of entries in the original DB + the number
+        in the sibling is less than or equal to a full DB, the 2 DBs
+        are collapsed into one. DELETEKEY is called to fix up the
+        IBs and $KDLTE returns. In all successful cases, the cursor 
+        points to the instance after the deleted instance or the
+        last instance in the file.
+
+F.      Errors detected: none
+
+8.5.3   $KSETK
+
+A.      Abstract
+
+        $KSETK sets the cursor position for a SKIM file and sets the
+        limit of subsequent sequential accesses.
+
+B.      Call
+
+        $KSETK(FCB)
+
+        where FCB is the address of the FCB for the file.
+
+        Value returned:   0 - positioning complete and limit set
+                          1 - the specified left subset doesn't exist
+
+C.      File Block & Table Structures Accessed
+
+        FCB, SOB, DB, SB
+
+D.      Routines called
+
+        $KRSCH
+
+E.      Functional Description
+
+        $KSETK first examines the K$SKEYCT field in the SOB. If it 
+        is zero, the cursor position is set to the beginning of
+        the file and the cursor limit is set to the end of the file.
+        If K$SKEYCT is equal to the number of keys in an instance,
+        $KSRCH is called to find the instance corresponding to the
+        key specified in the instance buffer. If it exists the cursor
+        position is set to the immediately preceding instance. 
+        The cursor limit is set to its location and $KSETK returns.
+        If it doesn't exist this is noted and $KSETK returns.
+        Finally, if K$SKEYCT is greater than 0 and less than the
+        number of keys in an instance, $KSRCH is called twice. Once
+        with the unspecified keys set to zero to establish the
+        cursor position. And once with the unspecified keys set to
+        infinity to establish the cursor limit. If the first call
+        fails to find a suitable instance this fact is noted.
+
+F.      Errors Detected: none
+
+8.5.4   $KRSEQ
+
+A.      Abstract
+
+        $KRSEQ reads the next sequential instance from the file.
+
+B.      Call
+
+        $KRSEQ(FCB)
+
+        where FCB is the FCB for the file.
+
+        Value returned: 0 - instance read
+                        1 - cursor limit reached
+
+C.      File Block & Table Structures Accessed
+
+        FCB, SOB, DB, SB
+
+D.      Routines called
+
+        $KVIRD
+
+E.      Functional Description
+
+        If the current cursor position equals the cursor limit,
+        this fact is noted and $KRSEQ returns. Otherwise, the
+        cursor position is updated and $KVIRD is called to assure
+        that the current DB is in core. The instance pointed to 
+        by the cusor is moved to the instance buffer. If the cursor
+        position now equals the cursor limit K$EOFILE is set on in
+        the FCB.
+
+8.5.5   $KUPDT
+
+A.      Abstract
+
+        $KUPDT overwrites an existing instance in a SKIM file.
+
+B.      Call
+
+        $KUPDT(FCB)
+
+        where FCB is the address of the FCB for the file.
+
+
+        Value returned:   0 - instance rewritten
+                          1 - instance doesn't exist
+
+C.      File Block & Table Structures Accessed
+
+        FCB, SOB, DB, SB
+
+D.      Routines Called
+
+        $KSRCH, $KVIRD, $KVIWR
+
+E.      Functional Description
+
+        $KUPDT first checks the cursor position from the last
+        operation. The last operation must have been a read. Next
+        $KUPDT calls $KVIRD to assure that the DB containing the last
+        instance read is still in core. If the version number of this
+        DB has changed, $KSRCH is called to re-do the search. This 
+        will happen only in the case that there are multiple
+        simultaneous users of the file. If the instance no longer
+        exists, this fact is noted and $KUPDT returns. Otherwise,
+        the instance in the instance buffer replaces the instance
+        pointed to by the cursor. $KVIWR is called to note the change
+        and $KUPDT returns. The cursor is unchanged.
+
+F.      Errors detected: none
+
+8.5.6   $KRDKY
+
+A.      Abstract
+
+        $KRDKY reads a specified instance from a SKIM file.
+
+B.      Call
+
+        $KRDKY(FCB)
+
+        where FCB is the address of the FCB for the file.
+
+        Value returned:   0 - instance read
+                          1 - instance doesn't exist
+
+C.      File Block & Table Structures Accessed
+
+        FCB, SOB, DB, SB
+
+D.      Routines Called
+
+        $KSRCH
+
+E.      Functional Description
+
+        $KRDKY first calls $KSRCH to search the SKIM file for an
+        instance whose key matches the key K in the instance buffer.
+        If no match is found, this fact is noted and $KRDKY returns.
+        Otherwise the matched instance is moved into the instance
+        buffer. The cursor is set to the selected instance and
+        $KRDKY returns.
+
+F.      Errors Detected: none
+
+8.5.7   $KSRCH
+
+A.      Abstract
+
+        $KSRCH searches a SKIM file for an instance with a given key.
+
+B.      Call
+
+        $KSRCH(FCB,INDXINFO)
+
+        where FCB is the address of the FCB for the file.
+
+              INDXINFO is the address of a 40 word output vector
+                          consisting of:
+
+        1. Page number of DB of found instance (if no match occurred
+           all references are to the instance with the next larger
+           key)
+
+        2. Offset from 1st word of DB for found instance.
+
+        3. Buffer address of this DB.
+
+        4. Number of instances following the found instance in its DB.
+
+        5-22. For each index level (up to a maximum of 18) the
+              page number of the IB which $KSRCH searched in finding 
+              the instance.
+
+        23-40. For each index level the offset from the 1st word of
+               the IB for the key which pointed to the next lower
+               level on the path taken.
+
+        INDXINFO is a trace of the search path.
+
+        Value Returned:   0 - instance found
+                          1 - Instance not found (INDXINFO concerns
+                              the instance with the next larger key).
+                          2 - instance not found (larger than any key
+                              in file. INDXINFO concerns the largest
+                              key in the file.)
+
+C.      File Block & Table Structures Accessed
+
+        FCB, SOB, IB, DB, SB
+
+D.      Routines called
+
+        $KVIRD
+
+E. Functional Description
+
+        $KSRCH first slightly alters the key  K in the instance
+        buffer. For each key whose type is string $KSRCH shifts each
+        word of the key right circularly 1 bit. This facilitates
+        key comparasion. The search algorithm proceeds as follows:
+        (In this discussion PN is equivalent to INDXINFO[1])
+
+        1. Set L to the number of IB levels.
+
+        2. If .L is zero, set PN to the page number of the 1st (and
+           only) DB. Proceed from step 9.
+
+        3. Set PN to the page number of the top IB.
+
+        4. Read page .PN.
+
+        5. Set INDXINFO[.L+4] to .PN.
+
+        6. Search the IB for the smallest key greater or equal
+           to K. Set PN to the pointer corresponding to this key.
+
+        7. Set INDXINFO[.L+22] to the offset of this key.
+
+        8. Set L to .L - 1. If .L > 0 proceed from step 4.
+
+        9. Read page .PN.
+
+        10. Set INDXINFO[3] to the buffer address of this page.
+
+        11. Search the DB for the instance with key K.
+
+        12. Set INDXINFO[2] to the offset of the last instance
+            considered.
+
+        13. Set INDXINFO[4] to the number of instances in the DB
+            which have a larger key than K.
+
+        14. If K was found, return 0.
+
+        15. If .INDXINFO[4] is zero, return 2.
+
+        16. Return 1.
+
+F.      Errors Detected: none
+
+8.5.8   $KGETP
+
+A.      Abstract
+
+        $KGETP allocates free pages within a given SKIM file.
+
+B.      Call
+
+        $KGETP(FCB,.NOP)
+
+        where FCB is the address of the FCB for the file.
+              .NOP is a positive integer (1-128) specifing the number
+                   of consecutive pages requested.
+
+        Value Returned: 0 - No more file space or quota exceeded.
+                        >0 - Page number of 1st page of allocated
+                             block.
+
+C.      File Block & Table Structures Accessed
+
+        FCB, SB
+
+D.      Routines Called
+
+        $KVIRD, $KVIWR, $KCOPY
+
+E.      Functional Description
+
+        $KGETP searches the primary PAT (and the auxillary PAT blocks
+        if needed) for .NOP consecutive free pages. If found, the 
+        bits(s) in the PAT corresponding to the free page(s) is(are)
+        set to zero. The value of SB$FREE is decremented. The logical
+        page number of the first page is returned in $V. If there are
+        not .NOP consecutive free pages, .NOP pages are allocated
+        at the end of the file. These pages are immediately written
+        to insure that there is room. If there is not, $KCOPY is
+        called to ask the user if (s)he wants a larger file 
+        allocated. If the answer is yes, a new file is allocated
+        with a size equal to some k times the size of the old file.
+        The old file file is then copied to the new file. If the
+        user doesn't want a new file or if there is no room
+        for it, this fact is noted and $KGETP returns. If all is
+        successful and if necessary, a new PAT is
+        allocated. SB$TOTAL is incremented and $KGETP returns with
+        the 1st page in the block.
+
+8.5.9   $KRELP
+
+A.      Abstract
+
+        $KRELP de-allocates file pages within a given SKIM file.
+
+B.      Call
+
+        $KRELP(FCB,.PN,.NOP)
+
+        where FCB is the address of the FCB for this file.
+              .PN is the logical page number of the first page to
+                     be de-allocated.
+              .NOP is the number of conseccutive pages.
+
+        Value Returned: none
+
+C.      File Block & Table Structures Accessed
+
+        FCB, SB
+
+D.      Routines Called
+
+        $KVIRD, $KVIWR
+
+E.      Functional description
+
+        $KRELP finds the appropriate bit(s) in the PAT and sets it
+        (them) to one. SB$FREE is incremented and $KRELP returns.
+
+F.      Errors Detected: none
+
+8.5.10  INSERTKEY
+
+A.      Abstract
+
+        INSERTKEY does a bottom-up key insertion into the index tree
+        of a given SKIM file.
+
+B.      Call
+
+        INSERTKEY(FCB,INDXINFO,KEYAD,.SPN,.PN,.LVL)
+
+        where FCB is the address of THe FCB for the file.
+              INDXINFO is the address of the 40 word vector returned
+                          by $KSRCH (see 8.5.7)
+              KEYAD is the address of the 1st word of the key to be
+                       inserted.
+              .SPN is the page number of the new block (DB or IB)
+                      which is half of the block that was split.
+              .PN is the page number of the block which was split.
+              .LVL is the index level.
+
+        Value Returned: none
+
+C.      File Block & Table Structures Accessed
+
+        FCB, SOB,  IB, SB
+
+D.      Routines Called
+
+        $KVIRD,$KVIWR, $KGETP, $KGBUF, INSERTKEY
+
+E.      Functional Description
+
+        Since INSERTKEY can call itself recursively, it first
+        checks for the terminating condition. If .LVL > .SB$NOL,
+        the top index block has split. The index tree grows by one
+        level as INSERTKEY creates a new top index block consisting
+        of .SPN and the key at KEYAD and .PN and infinity(since this
+        is the last key on the top level). Various fields in the SB
+        are updated and INSERTKEY returns. Otherwise the IB which
+        is page INDXINFO[.LVL+4] is examined. If there is room for 
+        the new entry it is inserted and INSERTKEY returns. If there
+        is no room the balance/split algorithm is exercised. (see
+        section 8.1.2). If an IB splits, INSERTKEY calls itself
+        recursively to insert an entry into the next higher level.
+
+F.      Errors Detected: none
+
+8.5.11  DELETEKEY
+
+A.      Abstract
+
+        DELETEKEY performs a bottom-up key deletion from the index
+        tree of a given SKIM file.
+
+B.      Call
+
+        DELETEKEY(FCB,INDXINFO,.OFF,.LVL)
+
+        where FCB is the address of the FCB for the file.
+              INDXINFO is the address of the 40 word vector returned
+                  by $KSRCH.
+              .OFF is the offset from the key pointed to by the
+                      search trace information in INDXINFO. The
+                      value of .OFF is either zero or -(key size +1).
+                      I.E. delete either the traced key or the one 
+                      before it.
+              .LVL is the index level.
+
+        Value Returned: none
+
+C.      File Block & Table Structures Accessed
+
+        FCB, SOB, IB, SB
+
+D.      Routines called
+
+        $KVIRD, $KVIWR, $UMOVO, $KRELP, $KRBUF, DELETEKEY
+
+E.      Functional Description
+
+        Since DELETEKEY can call itself, it first checks for the
+        termination condition. If this is the top index level (.LVL
+        = .SB$NOL) then the appropriate key and pointer are deleted.
+        If this leaves only one entry in the top IB, the top IB
+        vanishes and the tree shrinks by one level. DELETEKEY fixes 
+        up the SB and returns. If this is not the terminating
+        condition, DELETEKEY exercises the balancing/ collapsing
+        algorithm of section 8.1.3. If an IB vanishes, DELETEKEY
+        calls itself to delete an entry from the next higher level.
+
+F.      Errors Detected: none
+
+8.5.12  $KFINT
+
+A.      Abstract
+
+        $KFINT initializes a SKIM file.
+
+B.      Call
+
+        $KFINT(FCB,RCB)
+
+        where FCB is the address of the FCB for the file.
+              RCB = 0 => this is not a relation file.
+                  # 0 => address of the current RCB for this relation
+                         file.
+
+        Value returned: none
+
+C.      File Block & Table Structures Accessed
+
+        SB, RCB, SOB
+
+D.      Routines called
+
+        $KVIWR, $KGBUF
+
+E.      Functional Description
+
+        $KFINT constructs an SB using the information (or lack of
+        information) in the RCB. The SB is written as logical page
+        number one of the file.
+
+F.      Errors Detected: none
+
+8.5.13  $KNULL
+
+A.      Abstract
+
+        $KNULL makes available the NULL instance of a SKIM file.
+
+B.      Call
+
+        $KNULL(FCB)
+
+        where FCB is the address of the FCB for the file.
+
+        Value Returned: none
+
+C.      File Blocks & Table Structures Accessed
+
+        FCB, SB, SOB
+
+D.      Routines Called
+
+        $KVIRD
+
+E.      Functional Description
+
+        If there is no user-supplied NULL instance associated with
+        the file, the instance buffer is zeroed and $KNULL returns.
+        Otherwise, the NULL instance is read from the SKIM file and
+        moved to the instance buffer.
+
+  
