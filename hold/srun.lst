@@ -1,0 +1,146 @@
+
+    P R O G R A M   S B U I L D 		COBOL 4(56)	 5-MAR-73  16:27		PAGE 1
+
+    0001    IDENTIFICATION DIVISION.                                                        
+    0002    PROGRAM-ID. SBUILD.                                                             
+    0003    AUTHOR. JOHN SMITH.                                                             
+    0004    INSTALLATION. NAVY.                                                             
+    0005    DATE-WRITTEN. 2/28/73.                                                          
+    0006    DATE-COMPILED. 05-MAR-73. 
+    0007    SECURITY. NONE.                                                                 
+    0008    REMARKS. TEST PROGRAM.                                                          
+    0009    ENVIRONMENT DIVISION.                                                           
+    0010    CONFIGURATION SECTION.                                                          
+    0011    SOURCE-COMPUTER. DECsystem-10. 
+    0012    OBJECT-COMPUTER. PDP-10.                                                        
+    0013    INPUT-OUTPUT SECTION.                                                           
+    0014    FILE-CONTROL.                                                                   
+    0015           SELECT POP-FILE ASSIGN TO DSK                                           
+    0016           RECORDING MODE IS ASCII.                                                
+    0017           SELECT CARDS-IN-FILE ASSIGN TO DSK                                      
+    0018           RECORDING MODE IS ASCII.                                                
+    0019           SELECT CARDS-OUT-FILE ASSIGN TO DSK                                     
+    0020           RECORDING MODE IS ASCII.                                                
+    0021    DATA DIVISION.                                                                  
+    0022    FILE SECTION.                                                                   
+    0023    FD POP-FILE                                                                     
+    0024           LABEL RECORDS ARE STANDARD                                              
+    0025           VALUE OF IDENTIFICATION IS "POPFILDAT".                                 
+    0026    01 POP-RECORD.                                                                  
+    0027           02 POP-REC-COLUMN-1 PIC X.                                              
+    0028           02 FILLER           PIC X.                                              
+    0029           02 POP-REC-COLUMN-3-7  PIC XXXXX.                                       
+    0030           02 FILLER           PIC X(73).                                          
+    0031    FD CARDS-IN-FILE                                                                
+    0032           LABEL RECORDS ARE STANDARD                                              
+    0033           VALUE OF IDENTIFICATION IS "CARDINDAT".                                 
+    0034    01 CARDS-IN-RECORD.                                                             
+    0035           02 CARDS-IN-REC-TEST-NO  PIC X(5).                                      
+    0036           02 FILLER                PIC X(75).                                     
+    0037    FD CARDS-OUT-FILE                                                               
+    0038           LABEL RECORDS ARE STANDARD                                              
+    0039           VALUE OF IDENTIFICATION IS "CARDOTDAT".                                 
+    0040    01 CARDS-OUT-RECORD  PIC X(80).                                                 
+    0041    WORKING-STORAGE SECTION.                                                        
+    0042    77 WS-SEARCH-OR-PUNCH             PIC X   VALUE "S".                            
+    0043    77 WS-TEST-NO-SAVE                PIC X(5)   VALUE "     ".                     
+    0044    77 END-OF-CARDS-IN-FILE           PIC X    VALUE "N".                           
+    0045    01 WS-COUNTERS.                                                                 
+    0046           02 CARDS-OUT-COUNT   PIC S9(7)  VALUE +0000000.                         
+    0047           02 CARDS-IN-COUNT    PIC S9(7)  VALUE +0000000.                         
+    0048    PROCEDURE DIVISION.                                                             
+    0049    000-INITIALIZE-FILES.                                                          
+    0050           OPEN INPUT POP-FILE CARDS-IN-FILE.                                      
+    0051           OPEN OUTPUT CARDS-OUT-FILE.                                             
+    0052           PERFORM 030-READ-A-CARD THRU 030-END-READ-CARD                          
+    0053           GO TO 040-READ-A-POP-RECORD.                                            
+    0054    010-DECIDE-DT00. NOTE                   DETAP/IMI V4-1 08/25/72                
+    0055        DETAP     010-DECIDE                        00001 03 05 05                 
+    0056        RL1                                 0   0   0   0   0                      
+    P R O G R A M   S B U I L D 		COBOL 4(56)	 5-MAR-73  16:27		PAGE 1-1
+
+    0057        RL2                                 1   2   3   4   5   $                  
+    0058        CONDITION SECTION                                                          
+    0059        C POP-REC-COLUMN-1 EQUAL TO "T"     Y   Y   Y   N   N                      
+    0060        C POP-REC-COLUMN-3-7 :                                                     
+    0061          CARDS-IN-REC-TEST-NO              >   =   <   -   -                      
+    0062        * RULE 1 GREATER                                                           
+    0063        * RULE 3 LESS                                                              
+    0064        C WS-SEARCH-OR-PUNCH EQUAL TO       -   -   -   "S" "P"                    
+    0065        ACTION SECTION                                                             
+    0066        A MOVE "S" TO WS-SEARCH-OR-PUNCH            X                              
+    0067        A MOVE "P" TO WS-SEARCH-OR-PUNCH        X                                  
+    0068        A PERFORM 015-NOT-FOUND             X                                      
+    0069        A PERFORM 020-PUNCH-A-CARD              X           X                      
+    0070        A PERFORM 030-READ-A-CARD THRU                                             
+    0071                  030-END-READ-CARD         X   X                                  
+    0072        A GO TO 040-READ-A-POP-RECORD           X   X   X   X                      
+    0073        A GO TO 010-DECIDE                  X                                      
+    0074        TEND.                                                                      
+    0075    010-DECIDE SECTION.                                                            
+    0076    DT00001000.                                                                    
+    0077        IF POP-REC-COLUMN-1 EQUAL TO "T" GO TO DT00001001.                         
+    0078        IF WS-SEARCH-OR-PUNCH EQUAL TO "S" GO TO AT00001004.                       
+    0079        IF WS-SEARCH-OR-PUNCH EQUAL TO "P" GO TO AT00001005                        
+    0080            ELSE GO TO EL00001001.                                                 
+    0081    DT00001001.                                                                    
+    0082        IF POP-REC-COLUMN-3-7 > CARDS-IN-REC-TEST-NO                               
+    0083            GO TO AT00001001.                                                      
+    0084        IF POP-REC-COLUMN-3-7 < CARDS-IN-REC-TEST-NO                               
+    0085            GO TO AT00001003 ELSE GO TO AT00001002.                                
+    0086    AT00001001.                                                                    
+    0087        PERFORM 015-NOT-FOUND.                                                     
+    0088        PERFORM 030-READ-A-CARD THRU 030-END-READ-CARD.                            
+    0089        GO TO 010-DECIDE.                                                          
+    0090    AT00001002.                                                                    
+    0091        MOVE "P" TO WS-SEARCH-OR-PUNCH.                                            
+    0092        PERFORM 020-PUNCH-A-CARD.                                                  
+    0093        PERFORM 030-READ-A-CARD THRU 030-END-READ-CARD.                            
+    0094        GO TO 040-READ-A-POP-RECORD.                                               
+    0095    AT00001003.                                                                    
+    0096        MOVE "S" TO WS-SEARCH-OR-PUNCH.                                            
+    0097        GO TO 040-READ-A-POP-RECORD.                                               
+    0098    AT00001004.                                                                    
+    0099        GO TO 040-READ-A-POP-RECORD.                                               
+    0100    AT00001005.                                                                    
+    0101        PERFORM 020-PUNCH-A-CARD.                                                  
+    0102        GO TO 040-READ-A-POP-RECORD.                                               
+    0103    EL00001001.                                                                    
+    0104        DISPLAY "ELSE RULE NONE SPECIFIED-TBL=010-DECIDE".                         
+    0105        STOP RUN.                                                                  
+    0106    015-NOT-FOUND.                                                                 
+    0107        DISPLAY CARDS-IN-REC-TEST-NO  " NOT FOUND, BYPASSED".                      
+    0108    020-PUNCH-A-CARD.                                                              
+    0109           MOVE POP-RECORD TO CARDS-OUT-RECORD                                     
+    0110           WRITE CARDS-OUT-RECORD                                                  
+    0111           ADD +1 TO CARDS-OUT-COUNT.                                              
+    0112    030-READ-A-CARD.                                                               
+    P R O G R A M   S B U I L D 		COBOL 4(56)	 5-MAR-73  16:27		PAGE 1-2
+
+    0113           IF  END-OF-CARDS-IN-FILE = "Y"                                          
+    0114           GO TO 050-END-OF-JOB.                                                   
+    0115           READ CARDS-IN-FILE                                                      
+    0116             AT END                                                                
+    0117           MOVE "Y" TO END-OF-CARDS-IN-FILE                                        
+    0118           GO TO 030-END-READ-CARD.                                                
+    0119           IF CARDS-IN-REC-TEST-NO NOT GREATER THAN WS-TEST-NO-SAVE                
+    0120              DISPLAY  CARDS-IN-REC-TEST-NO                                        
+    0121           " OUT OF SEQUENCE, BYPASSED"                                            
+    0122           GO TO 030-READ-A-CARD.                                                  
+    0123           ADD +1 TO CARDS-IN-COUNT                                                
+    0124           MOVE CARDS-IN-REC-TEST-NO TO WS-TEST-NO-SAVE.                           
+    0125    030-END-READ-CARD. EXIT.                                                       
+    0126    040-READ-A-POP-RECORD.                                                         
+    0127           READ POP-FILE                                                           
+    0128             AT END                                                                
+    0129           DISPLAY  "POP FILE AT END BEFORE CARDS IN"                              
+    0130           GO TO 050-END-OF-JOB.                                                   
+    0131           GO TO 010-DECIDE.                                                       
+    0132    050-END-OF-JOB.                                                                
+    0133           DISPLAY "CARDS-IN-COUNT = " CARDS-IN-COUNT.                             
+    0134           DISPLAY "CARDS-OUT-COUNT = " CARDS-OUT-COUNT.                           
+    0135           CLOSE POP-FILE CARDS-IN-FILE CARDS-OUT-FILE                             
+    0136           STOP RUN.                                                               
+
+NO ERRORS DETECTED
+    
