@@ -1,0 +1,589 @@
+MODULE MIDAS (DOLLAR,STACK=GLOBAL($CSTK$,#177),CCL,
+                FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+BEGIN
+
+REQUIRE CDEFS.BLI[7,107355];
+REQUIRE FDEFS.BLI[7,107355];
+REQUIRE JDEFS.BLI[7,107355];
+REQUIRE KDEFS.BLI[7,107355];
+REQUIRE UDEFS.BLI[7,107355];
+
+EXTERNAL $SREIN;
+
+MAP KFCB$ CONTF$;
+MAP KFCB$ CTERM$;
+
+MAP CLINE$ CEBUF$;
+
+MACHOP  TTCALL=#051,
+        RESET =#047,
+        EXITCLI=#047,
+        HALT  =#254;
+
+EXTERNAL JOBSA, JOBREL;
+
+LOCAL KEEPVREG;
+
+BIND NOERRORS = PLIT ASCIZ 'No errors to report.';
+
+
+MACRO SETUPDBC( COMMAND )=
+  BEGIN
+  LOCAL PTR, FIRST5;
+  $CTOKFEED(TBLOCK); % Get next useful token %
+  IF .TBLOCK[CT$TYPE] EQL CV$ID THEN  % try it %
+    BEGIN
+    $CPUSH( CPARM$, .TBLOCK[CT$VALUE] ); % pass hashed-name %
+    PTR _ .TBLOCK[CT$PTR];
+    FIRST5 _ "     ";
+    INCR I FROM 1 TO .TBLOCK[CT$LENGTH] DO  FIRST5<36-.I*7,7> _ SCANI(PTR);
+    $CPUSH( CPARM$, .FIRST5 );  % pass first five characters %
+    $CPUSH( CPARM$, COMMAND );
+    1
+    END
+  ELSE 0
+  END  &;
+
+
+ROUTINE ENAME=
+   BEGIN
+   LOCAL CLINE$ LINE,
+         CT$    TBLOCK,
+         DUMFID[4];
+
+   CSCHN$ _ 0;          % Set to zero for $CHASH normaliization %
+   DUMFID[0] _ DUMFID[1] _ DUMFID[2] _ DUMFID[3] _ 0;
+   WHILE 1 DO
+     BEGIN
+        % obtain schema name %
+     $UAPSZ($USPTR('SCHEMA: '));
+     $UPRPT();
+     $KREAD(CONTF$);
+     LINE _ .CONTF$[K$IDADR];
+     TBLOCK _ $CSCAN(.LINE[C$BPTR],.LINE[C$LCBCNT],0);
+     $CTOKFEED(TBLOCK);
+     IF .TBLOCK[CT$TYPE] EQL CV$ID THEN % will use it %
+        BEGIN
+        DUMFID[0] _ CSCHN$ _ .TBLOCK[CT$VALUE];
+        DUMFID[1] _ SIXBIT 'SCH';
+        IF $CTFS() GEQ 4
+           THEN		% ROOM FOR TMPCOR %
+              $CTWF('SCH',DUMFID,4)
+           ELSE
+              BEGIN
+              $CSTART(CV$EPSLNOUT);
+              $COUTE(DUMFID);
+              $CSTOP(CV$EPSLNOUT)
+              END;
+        $CFREEM(.TBLOCK[CT$BAG]);
+        $CFREEM(.TBLOCK[CT$OBUF]);
+        $CFREEM(.TBLOCK);
+        RETURN 1
+        END
+     ELSE $UMESS($USPTR('???M?J'));
+     $CFREEM(.TBLOCK[CT$BAG]);
+     $CFREEM(.TBLOCK[CT$OBUF]);
+     $CFREEM(.TBLOCK)
+        % go around again %
+     END
+
+   END;
+
+
+ROUTINE GETCOMMAND=     % A very sad example of command annalysis %
+  BEGIN
+  LOCAL CLINE$ LINE,
+        CT$    TBLOCK,
+               RETV,
+               HV[30],
+               PTR;
+  BIND  BKUP= 0,   %BACKUP      %
+        RSTR= 1,   %RESTORE     %
+        RELS= 2,   %RELEASE     %
+        DELT= 3,   %DELETE      %
+        CREA= 4,   %CREATE      %
+        MODI= 5,   %MODIFY      %
+        EXAM= 6,   %EXAMINE     %
+        QUIT= 7,   %QUIT        %
+        LOGO= 8,   %LOGOUT      %
+        ALTR= 9,   %ALTER       %
+        ENTR=10,   %ENTER       %
+        LIST=11,   %LIST        %
+        FRUM=12,   %FROM        %
+        DIRC=13,   %DIRECTORY   %
+        COMP=14,   %COMPILE     %
+        RUNN=15,   %RUN         %
+        EXEC=16,   %EXECUTE     %
+        WARN=17,   %WARN        %
+        NWRN=18,   %NOWARN      %
+        TIME=19,   %TIME        %
+        SX12=20,   %SIX12       %
+        JLST=21,   %JLIST       %
+        HELP=22,   %HELP        %
+        SCHM=23,   %SCHEMA      %
+        VERS=24,   %VERSION     %
+        PROC=25,   %PROCEDURE   %
+        SYST=26,   %SYSTEM      %
+        WHYY=27,   %WHY         %
+        DAYY=28;   %DAY         %
+
+  $UOUTL();
+  $UAPSZ($USPTR(':'));
+  $UPRPT();
+  CEBUF$[C$WPTR] _ CEBUF$[C$BPTR] _ CEBUF$[C$TEXT]<36,7>;
+  CEBUF$[C$SEQNO] _ 0;
+  CEBUF$[C$LCBCNT] _ 20;
+  CEBUF$[C$WCNT] _ 0;
+  PTR _ NOERRORS<36,7>;
+  INCR J FROM 0 TO 19 DO
+     REPLACEI(CEBUF$[C$WPTR],SCANI(PTR));
+  CEBUF$[C$EPTR] _ .CEBUF$[C$WPTR];
+  CEBUF$[C$WPTR] _ .CEBUF$[C$BPTR];
+  HV[BKUP]_$CHASH($USPTR('BACKUP'),6,.CSCHN$);
+  HV[RSTR]_$CHASH($USPTR('RESTORE'),7,.CSCHN$);
+  HV[RELS]_$CHASH($USPTR('RELEASE'),7,.CSCHN$);
+  HV[DELT]_$CHASH($USPTR('DELETE'),6,.CSCHN$);
+  HV[CREA]_$CHASH($USPTR('CREATE'),6,.CSCHN$);
+  HV[MODI]_$CHASH($USPTR('MODIFY'),6,.CSCHN$);
+  HV[EXAM]_$CHASH($USPTR('EXAMINE'),7,.CSCHN$);
+  HV[QUIT]_$CHASH($USPTR('QUIT'),4,.CSCHN$);
+  HV[LOGO]_$CHASH($USPTR('LOGOUT'),6,.CSCHN$);
+  HV[ALTR]_$CHASH($USPTR('ALTER'),5,.CSCHN$);
+  HV[ENTR]_$CHASH($USPTR('ENTER'),5,.CSCHN$);
+  HV[LIST]_$CHASH($USPTR('LIST'),4,.CSCHN$);
+  HV[FRUM]_$CHASH($USPTR('FROM'),4,.CSCHN$);
+  HV[DIRC]_$CHASH($USPTR('DIRECTORY'),9,.CSCHN$);
+  HV[COMP]_$CHASH($USPTR('COMPILE'),7,.CSCHN$);
+  HV[RUNN]_$CHASH($USPTR('RUN'),3,.CSCHN$);
+  HV[EXEC]_$CHASH($USPTR('EXECUTE'),7,.CSCHN$);
+  HV[WARN]_$CHASH($USPTR('WARN'),4,.CSCHN$);
+  HV[NWRN]_$CHASH($USPTR('NOWARN'),6,.CSCHN$);
+  HV[TIME]_$CHASH($USPTR('TIME'),4,.CSCHN$);
+  HV[SX12]_$CHASH($USPTR('SIX12'),5,.CSCHN$);
+  HV[JLST]_$CHASH($USPTR('JLIST'),5,.CSCHN$);
+  HV[HELP]_$CHASH($USPTR('HELP'),4,.CSCHN$);
+  HV[SCHM]_$CHASH($USPTR('SCHEMA'),6,.CSCHN$);
+  HV[VERS]_$CHASH($USPTR('VERSION'),7,.CSCHN$);
+  HV[PROC]_$CHASH($USPTR('PROCEDURE'),9,.CSCHN$);
+  HV[SYST]_$CHASH($USPTR('SYSTEM'),6,.CSCHN$);
+  HV[WHYY]_$CHASH($USPTR('WHY'),3,.CSCHN$);
+  HV[DAYY]_$CHASH($USPTR('DAY'),3,.CSCHN$);
+  $KREAD(CONTF$);
+  LINE _ .CONTF$[K$IDADR];
+  TBLOCK _ $CSCAN(.LINE[C$BPTR],.LINE[C$LCBCNT],0);
+  $CTOKFEED(TBLOCK);   % Get first meaningful token after <bol> token %
+  IF .TBLOCK[CT$TYPE] NEQ CV$ID THEN BEGIN
+                                     $CEBUF($USPTR('Invalid Command.'),16);
+                                     RETV _ 0
+                                     END
+  ELSE
+  SELECT .TBLOCK[CT$VALUE] OF
+    NSET
+   .HV[BKUP]:  IF SETUPDBC("BACKU") THEN RETV _ "D"
+                ELSE BEGIN
+                     $CEBUF($USPTR('Syntax is: BACKUP <relation-name>'),33);
+                     RETV _ 0
+                     END;
+   .HV[RSTR]:  IF SETUPDBC("RESTO") THEN RETV _ "D"
+                ELSE BEGIN
+                     $CEBUF($USPTR('Syntax is: RESTORE <relation-name>'),34);
+                     RETV _ 0
+                     END;
+   .HV[RELS]:  IF SETUPDBC("RELEA") THEN RETV _ "D"
+                ELSE BEGIN
+                     $CEBUF($USPTR('Syntax is: RELEASE <relation-name>'),34);
+                     RETV _ 0
+                     END;
+   .HV[DELT]:  IF SETUPDBC("DELET") THEN RETV _ "D"
+                ELSE BEGIN
+                     $CEBUF($USPTR('Syntax is: DELETE <object-name>'),31);
+                     RETV _ 0
+                     END;
+   .HV[CREA]:  ( $CEBUF($USPTR('Not yet implemented.'),20);     RETV _ 0 );
+   .HV[MODI]:  ( $CEBUF($USPTR('Not yet implemented.'),20);     RETV _ 0 );
+   .HV[EXAM]:  ( $CEBUF($USPTR('Not yet implemented.'),20);     RETV _ 0 );
+   .HV[QUIT]:  RETV _ "Q";
+   .HV[LOGO]:  RETV _ "L";
+   .HV[ALTR]:  ( $CEBUF($USPTR('Not yet implemented.'),20);     RETV _ 0 );
+   .HV[ENTR]:  ( $CEBUF($USPTR('Not yet implemented.'),20);      RETV _ 0 );
+   .HV[LIST]:  ( $CEBUF($USPTR('Not yet implemented.'),20);     RETV _ 0 );
+   .HV[DIRC]:  ( $CEBUF($USPTR('Not yet implemented.'),20);     RETV _ 0 );
+   .HV[COMP]:  BEGIN
+                $CTOKFEED(TBLOCK);  % Get next useful token %
+                IF .TBLOCK[CT$TYPE] EQL CV$EOL THEN RETV _ "P"
+                ELSE SELECT .TBLOCK[CT$VALUE] OF
+                       NSET
+                      .HV[PROC]:  RETV _ "P";
+                      .HV[SCHM]:  RETV _ "S";
+                      OTHERWISE:  ( $CEBUF($USPTR('Invalid Compile Command.'),24);
+                                      RETV _ 0 )
+                       TESN
+               END;
+   .HV[RUNN]:  BEGIN
+                $CTOKFEED(TBLOCK);  % Get next useful token %
+                IF .TBLOCK[CT$TYPE] NEQ CV$ID  THEN
+                   BEGIN
+                   $CEBUF($USPTR('Syntax is:  RUN <procedure-name>'),32);
+                   RETV _ 0
+                   END;
+                IF $KLKUP( .TBLOCK[CT$VALUE], SIXBIT 'MRL', 0 ) THEN
+                   BEGIN
+                   $CPUSH( CPARM$, .TBLOCK[CT$VALUE]);
+                   RETV _ "R"
+                   END
+                ELSE BEGIN
+                     $CEBUF($USPTR('Procedure Object Code Not Found.'),32);
+                     RETV _ 0
+                     END
+               END;
+   .HV[EXEC]:  ( $CEBUF($USPTR('Not yet implemented.'),20);     RETV _ 0 );
+   .HV[WARN]:  RETV _ "W";
+   .HV[NWRN]:  RETV _ "N";
+   .HV[TIME]:  RETV _ "T";
+   .HV[SX12]:  RETV _ "6";
+   .HV[JLST]:  RETV _ "J";
+   .HV[HELP]:  RETV _ "H";
+   .HV[SCHM]:  RETV _ "E";
+   .HV[VERS]:  RETV _ "V1";
+   .HV[SYST]:  RETV _ "V2";
+   .HV[WHYY]:  RETV _ "WHY";
+   .HV[DAYY]:  RETV _ "T2";
+   OTHERWISE:  ( $CEBUF($USPTR('Not a valid command.'),20);    RETV _ 0 )
+    TESN;
+  $CFREEM(.TBLOCK[CT$BAG]);
+  $CFREEM(.TBLOCK[CT$OBUF]);
+  $CFREEM(.TBLOCK);
+  RETURN .RETV
+  END;
+
+
+ROUTINE COMDRIVE(RTNADR)=
+  BEGIN
+  LOCAL TRUNOW, TRULAST,
+        TIMELAST,
+        CLINE$ CEBUF1,
+        CLINE$ CEBUF2,
+        COMMAND;
+
+  TRUNOW _ $CTRU();
+  TRULAST _ .CTRUI$;
+  TIMELAST _ .CTIME$;
+
+  CEBUF1 _ $CGTZM(CV$DWILCB);
+  CEBUF2 _ $CGTZM(CV$DWILCB);
+  CEBUF1[C$WPTR] _ CEBUF1[C$BPTR] _ CEBUF1[C$TEXT]<36,7>;
+  CEBUF1[C$WPTR] _ CEBUF2[C$BPTR] _ CEBUF2[C$TEXT]<36,7>;
+  CEBUF1[C$SEQNO] _ CEBUF2[C$SEQNO] _ 0;
+  CEBUF2[C$WCNT] _ CEBUF2[C$WCNT] _ 0;
+  COMMAND _ NOERRORS<36,7>;
+  CEBUF1[C$LCBCNT] _ CEBUF2[C$LCBCNT] _ 20;
+  INCR J FROM 0 TO 19 DO
+     BEGIN
+     REPLACEI(CEBUF1[C$WPTR],SCANI(COMMAND)) SEMICOLON
+     REPLACEI(CEBUF2[C$WPTR],SCANN(COMMAND))
+     END;
+  CEBUF1[C$EPTR] _ .CEBUF1[C$WPTR];
+  CEBUF2[C$EPTR] _ .CEBUF2[C$WPTR];
+  CEBUF1[C$WPTR] _ .CEBUF1[C$BPTR];
+  CEBUF2[C$WPTR] _ .CEBUF2[C$BPTR];
+
+  UNTIL BEGIN
+        CEBUF$ _ .CEBUF1;
+        CEBUF1 _ .CEBUF2;
+        CEBUF2 _ .CEBUF$;
+        (COMMAND _ GETCOMMAND()) EQL "Q"
+        END
+      DO
+    BEGIN
+    IF (.COMMAND EQL "P") OR
+       (.COMMAND EQL "S") OR
+       (.COMMAND EQL "D") OR
+       (.COMMAND EQL "R") THEN
+      BEGIN
+      TRULAST _ $CTRU();
+      TIMELAST _ $CTIME();
+      $CPUSH(COSTK$,.CMC$);     % COMMAND OVERLAY FOR RETURN %
+      SELECT .COMMAND OF
+          NSET
+          "P":    BEGIN
+                  $CPUSH(COSTK$,.CP3$); % PROCEDURE COMPILER PHASE #3 %
+                  $CPUSH(COSTK$,.CP2$); % PROCEDURE COMPILER PHASE #2 %
+                  $CPUSH(COSTK$,.CP1$)  % PROCEDURE COMPILER PHASE #1 %
+                  END;
+          "S":    BEGIN
+                  $CPUSH(COSTK$,.CS1$)  % SCHEMA COMPILER PHASE #1 %
+                  END;
+          "D":    $CPUSH(COSTK$,.CDB$); % DATA BASE CONTROL %
+          "R":    BEGIN
+                  LOCAL X, NAME;
+
+                  $CPOP( CPARM$, NAME );
+                  $UAPSZ($USPTR('LOADING'));
+                  $UPRPT();
+                  $CGTAREA(9);
+                  X := $JLOAD( .NAME );
+                  $CGTAREA(0);
+                  $CPUSH(CPARM$, .X);
+                  $CPUSH(COSTK$,.CRN$)  % RUNTIME LIBRARY %
+                  END;
+          TESN;
+      $CGTAREA(9);
+      RTNADR _ EXCHJ(.RTNADR,.BREG);
+      $CISINIT();
+      $CDDT$RESET;
+      CTERM$[K$RR] _ $KGLED;
+      CTERM$[K$WR] _ $KTYPL;
+      CTERM$[K$SCPR] _ $KILIO;
+      CTERM$[K$EXCEPT] _ $KIOAB;
+      $CGTAREA(9);
+      IF (.COMMAND EQL "P") OR
+         (.COMMAND EQL "S") THEN
+        BEGIN
+        CJLST$ _ 0;
+        $SREIN()
+        END;
+      $KFRAFCB(9);      % CLOSE FILES FOR AREA 9 %
+      $CFRAREA(9,0);
+      $CSHRINK();
+      COSTK$<0,18> _ .COSTK$<18,18>;  % RESET OVERLAY CONTROL STACK %
+      CPARM$<0,18> _ .CPARM$<18,18>   % RESET OVERLAY PARAMS  STACK %
+      END
+    ELSE SELECT .COMMAND OF
+         NSET
+         "T":   BEGIN
+                LOCAL X,Y;
+                TRUNOW _ $CTRU();
+                X _ .TRUNOW - .TRULAST;
+                Y _ .X - (.X/100)*100;
+                X _ (.X - .Y)/100;
+                $UAPDC(.X); $UAPSZ($USPTR('.'));
+                        IF .Y LEQ 9 THEN $UAPDC(0); $UAPDC(.Y);
+                $UAPSZ($USPTR('/'));
+                X _ .TRUNOW - .CTRUI$;
+                Y _ .X - (.X/100)*100;
+                X _ (.X - .Y)/100;
+                $UAPDC(.X); $UAPSZ($USPTR('.'));
+                        IF .Y LEQ 9 THEN $UAPDC(0); $UAPDC(.Y);
+                X _ $CTIME() - .TIMELAST;
+                $UAPSZ($USPTR('('));
+                $UAPDC( .X/10);
+                $UAPSZ($USPTR(')'));
+                $UOUTL();
+                TRULAST _ $CTRU();
+                TIMELAST _ $CTIME()
+                END;
+         "T2":  BEGIN
+                LOCAL HOURS,MINS,SECS;
+                $CDATE(); $UAPN(.CDATE$<0,9>,10,1);
+                $UAPSZ( CASE .CDATE$<9,9> -1  OF SET
+                      $USPTR('-JAN-'); $USPTR('-FEB-');
+                      $USPTR('-MAR-'); $USPTR('-APR-');
+                      $USPTR('-MAY-'); $USPTR('-JUN-');
+                      $USPTR('-JUL-'); $USPTR('-AUG-');
+                      $USPTR('-SEP-'); $USPTR('-OCT-');
+                      $USPTR('-NOV-'); $USPTR('-DEC-')     TES);
+                $UAPN(.CDATE$<18,18>,10,1);  $UAPSZ($USPTR('  '));
+                $CTIME();  HOURS _ .CTIME$/36000;
+                MINS _ (.CTIME$ - .HOURS*36000)/600;
+                SECS _ (.CTIME$ - .HOURS*36000 - .MINS*600)/10;
+                $UAPN(.HOURS,10,2); $UOCHR(":");
+                IF .MINS LEQ 9 THEN $UOCHR("0");
+                $UAPDC(.MINS);  $UOCHR(":");
+                IF .SECS LEQ 9 THEN $UOCHR("0");
+                $UAPDC(.SECS);  $UOUTL()
+                END;
+         "6":   SIX12(-1);
+         "J":   CJLST$ _ 1;     % list object code %
+         "N":   FNWRN$ _ 1;     % suppress warning messages %
+         "W":   FNWRN$ _ 0;     % allow    warning messages %
+         "H":   BEGIN
+                $UMESS($USPTR('Valid Commands are:'));
+                $UMESS($USPTR(' COMPILE PROCEDURE'));
+                $UMESS($USPTR(' COMPILE SCHEMA'));
+                $UMESS($USPTR(' COMPILE (defaults to PROCEDURE)'));
+                $UMESS($USPTR(' SCHEMA (to use a different schema)'));
+                $UMESS($USPTR(' DELETE <object-name>'));
+                $UMESS($USPTR(' BACKUP <relation-name>'));
+                $UMESS($USPTR(' RESTORE <relation-name>'));
+                $UMESS($USPTR(' RELEASE <relation-name>'));
+                $UMESS($USPTR(' RUN <procedure-name>'));
+                $UMESS($USPTR(' TIME (trus & seconds)'));
+                $UMESS($USPTR(' DAY (date & clock-time)'));
+                $UMESS($USPTR(' SIX12 (enter BLISS debugger)'));
+                $UMESS($USPTR(' JLIST (list object code for next proc.)'));
+                $UMESS($USPTR(' NOWARN (Suppress compiler warnings)'));
+                $UMESS($USPTR(' WARN (Allow compiler warnings)'));
+                $UMESS($USPTR(' VERSION'));
+                $UMESS($USPTR(' SYSTEM (system version check)'));
+                $UMESS($USPTR(' QUIT'));
+                $UMESS($USPTR(' LOGOUT'));
+                $UMESS($USPTR(' WHY (Display error msg. for last command.)'));
+                $UMESS($USPTR(' CREATE <object-name>'));
+                $UMESS($USPTR(' MODIFY <object-name>'));
+                $UMESS($USPTR(' EXAMINE <object-name>'));
+                $UMESS($USPTR(' ALTER <field-list> IN <qualified-relation>'));
+                $UMESS($USPTR(' ENTER <enter-command-clauses>'));
+                $UMESS($USPTR(' LIST <list-command-clauses>'));
+                $UMESS($USPTR(' DIRECTORY <directory-options>'));
+                $UMESS($USPTR(' EXECUTE <execute-command-clauses>'));
+                $UMESS($USPTR('Entire key-words required, lower-case allowed.?M?J'))
+                END;
+         "WHY": BEGIN
+                LOCAL CLINE$ BUF;
+                BUF _ IF .CEBUF$ EQL .CEBUF1 THEN .CEBUF2
+                      ELSE .CEBUF1;
+                $UAPSC(.BUF[C$BPTR], IF .BUF[C$WCNT] EQL 0 THEN .BUF[C$LCBCNT]
+                                     ELSE .BUF[C$WCNT] );
+                $UOUTL()
+                END;
+         "E":   BEGIN
+                TRULAST _ $CTRU();
+                TIMELAST _ $CTIME();
+                ENAME()
+                END;
+        "V1":   BEGIN
+                LOCAL WORKPTR;
+                TRULAST _ $CTRU();
+                TIMELAST _ $CTIME();
+                $UOUTL();
+                $UAPSZ($USPTR('  System Version: '));
+                WORKPTR _ CVER$<36,6>;
+                INCR J FROM 0 TO 11 DO $UOCHR(SCANI(WORKPTR)+#40);
+                $UOUTL()
+                END;
+        "V2":   BEGIN   % Output the 'CHECK SYSTEM' information %
+                LOCAL WORKPTR;
+                LOCAL HOURS,MINS,SECS;
+                FUNCTION DISPLAYNAME(WHERE,WHAT)=
+                   BEGIN
+                   LOCAL DISPPTR;
+                   DISPPTR _ (.WHERE)<36,6>;
+                   $UAPSZ($USPTR('   '));
+                   $UAPSZ(.WHAT);
+                   INCR K FROM 0 TO 5 DO $UOCHR(SCANI(DISPPTR)+#40);
+                   $UAPSZ($USPTR(' cksum= '));
+                   INCR K FROM 0 TO 5 DO $UOCHR(SCANI(DISPPTR)+#40);
+                   $UOUTL()
+                   END;
+                TRULAST _ $CTRU();
+                TIMELAST _ $CTIME();
+                $UOUTL();
+                $UAPSZ($USPTR('  System Version: '));
+                  WORKPTR _ CVER$<36,6>;   % SIXBIT STORAGE %
+                  INCR J FROM 0 TO 11 DO $UOCHR(SCANI(WORKPTR)+#40);
+                  $UOUTL();
+                $UAPSZ($USPTR('  Run from:  '));
+                  $UAPN(.COWNR$<18,18>,8,1); $UAPSZ($USPTR(',,'));
+                  $UAPN(.COWNR$< 0,18>,8,1); $UOUTL();
+                $UAPSZ($USPTR('  Overlays are:')); $UOUTL();
+                  SELECT "MIDAS", "P1COM", "P2COM", "P3COM",
+                         "P4COM", "S1COM", %"S2COM",% "RUNTM",
+                         "DBCTL", "SORT"
+                    OF NSET
+                        "MIDAS": DISPLAYNAME(CMC$,$USPTR('MIDAS:  '));
+                        "P1COM": DISPLAYNAME(CP1$,$USPTR('P1COMP: '));
+                        "P2COM": DISPLAYNAME(CP2$,$USPTR('P2COMP: '));
+                        "P3COM": DISPLAYNAME(CP3$,$USPTR('P2COMP: '));
+                        "P4COM": DISPLAYNAME(CP4$,$USPTR('P4COMP: '));
+                        "S1COM": DISPLAYNAME(CS1$,$USPTR('S1COMP: '                        "S2COM": DISPLAYNAME(CS2$,$USPTR('S2COMP: '));
+                        "RUNTM": DISPLAYNAME(CRN$,$USPTR('RUNTIM: '));
+                        "DBCTL": DISPLAYNAME(CDB$,$USPTR('DBCTRL: '));
+                        "SORT" : DISPLAYNAME(CSR$,$USPTR('SORTOL: '))
+                       TESN;
+                $UAPSZ($USPTR('  Run by: '));  $UAPN(.CPPN$<18,18>,8,1);
+                  $UAPSZ($USPTR(',,')); $UAPN(.CPPN$<0,18>,8,1);
+                  $UAPSZ($USPTR(' '));
+                  $UAPSC(CUNAM$<36,7>,12);  $UOUTL();
+                $UAPSZ($USPTR('  At: '));  HOURS _ .CTIME$/36000;
+                  MINS _ (.CTIME$ - .HOURS*36000)/600;
+                  SECS _ (.CTIME$ - .HOURS*36000 - .MINS*600)/10;
+                  $UAPN(.HOURS,10,2); $UOCHR(":");
+                  IF .MINS LEQ 9 THEN $UOCHR("0");
+                  $UAPDC(.MINS);  $UOCHR(":");
+                  IF .SECS LEQ 9 THEN $UOCHR("0");
+                  $UAPDC(.SECS);
+                  $UAPSZ($USPTR('  On: ')); $UAPN(.CDATE$<0,9>,10,1);
+                  $UAPSZ( CASE .CDATE$<9,9> -1  OF SET
+                        $USPTR(' JAN '); $USPTR(' FEB ');
+                        $USPTR(' MAR '); $USPTR(' APR ');
+                        $USPTR(' MAY '); $USPTR(' JUN ');
+                        $USPTR(' JUL '); $USPTR(' AUG ');
+                        $USPTR(' SEP '); $USPTR(' OCT ');
+                        $USPTR(' NOV '); $USPTR(' DEC ')     TES);
+                  $UAPN(.CDATE$<18,18>,10,1);  $UOUTL();
+                $UAPSZ($USPTR('  Job: ')); 
+                  DECR J FROM 2 TO 0 DO $UOCHR(.CPJOB$<6*.J,6>+#40);
+                  $UOUTL();
+                $UOUTL()
+                END;
+         "L":   BEGIN
+                LOCAL BLK[6];
+                REGISTER LOGAC;
+                MACHOP RUNUUO=#047;     %CALLI AC,35%
+                BLK[0] _ SIXBIT 'SYS';
+                BLK[1] _ SIXBIT 'LOGOUT';
+                BLK[2] _ BLK[3] _ BLK[4] _ BLK[5] _ 0;
+                LOGAC<18,18> _ 0;
+                LOGAC< 0,18> _ BLK;
+                IFSKIP RUNUUO(LOGAC,#35,0,0) THEN 0
+                ELSE $UMESS($USPTR('RUN UUO on SYS:LOGOUT Failed.?M?J'))
+                END;
+         OTHERWISE: $UMESS($USPTR('??'))
+         TESN
+    END;
+  EXITCLI(0,#12,0,0)
+  END;
+
+KEEPVREG _ .VREG;
+
+$CISINIT();
+
+$CDDT$RESET;
+
+BEGIN
+  CTERM$[K$RR] _ $KGLED;
+  CTERM$[K$WR] _ $KTYPL;
+  CTERM$[K$SCPR] _ $KILIO;
+  CTERM$[K$EXCEPT] _ $KIOAB
+END;
+
+IF .CSTK0$ EQL 0 THEN   % initializing %
+  BEGIN
+  CSTK0$ _ CREATE COMDRIVE(.BREG)
+                AT $CGTZM(#377)
+                LENGTH #377
+                THEN 0;
+  $UMESS($USPTR('CSTK0$ Initialized for MIDAS'));
+  $CSHRINK();  % attempt to reduce size of low core before save %
+  JOBSA _ .JOBSA - 1;
+  JOBSA<18,18> _ .JOBREL<0,18>;
+  RESET(0,0,0,0);
+  HALT(4,0,0,0)
+  END;
+
+IF .CTRUI$ EQL 0 THEN
+  BEGIN
+  $COWNR();
+  $CPJOB();
+  $CGPPN();
+  $CTIME();
+  $CDATE();
+  $CUNAME();
+  CTRUI$ _ $CTRU()
+  END;
+
+IF .KEEPVREG EQL 0 THEN   %  First Entry  %
+   BEGIN
+   LOCAL BUF[4];
+   IF  $CTRF('SCH',BUF,4)  EQL  -1  THEN  % No TMPCORE file ( not best test ) %
+     ENAME()                              % so ask for a schema name  %
+   ELSE CSCHN$ _ .BUF[0];
+   END;
+
+CSTK0$ _ EXCHJ(.CSTK0$,.BREG);
+
+$COLAY()
+
+END
+ELUDOM
+>@Ÿ
