@@ -1,0 +1,476 @@
+    P R O G R A M   P R O D 		COBOL 4(56)	29-MAR-73  14:14		PAGE 1
+
+    0001    IDENTIFICATION DIVISION.
+    0002    PROGRAM-ID. PROD.
+    0003    AUTHOR. MUDGEY.
+    0004    DATE-WRITTEN. 31-JAN-73.
+    0005  
+    0006    ENVIRONMENT DIVISION.
+    0007    CONFIGURATION SECTION.
+    0008    SPECIAL-NAMES.
+    0009       CHANNEL (1) IS TOP-OF-FORM.
+    0010  
+    0011    INPUT-OUTPUT SECTION.
+    0012    FILE-CONTROL.
+    0013       SELECT IN-FILE              ASSIGN TO DSK;
+    0014       RECORDING MODE IS ASCII.
+    0015  
+    0016           SELECT K-IN     ASSIGN TO DSK;
+    0017           RECORDING MODE IS ASCII.
+    0018  
+    0019           SELECT TEMPFIL ASSIGN TO DSK,DSK,DSK;
+    0020           RECORDING MODE IS ASCII.
+    0021  
+    0022  
+    0023       SELECT L-PRINT              ASSIGN TO DSK;
+    0024       RECORDING MODE IS ASCII.
+    0025  
+    0026    DATA DIVISION.
+    0027    FILE SECTION.
+    0028  
+    0029  
+    0030    FD  K-IN
+    0031           LABEL RECORDS ARE STANDARD
+    0032           VALUE OF ID IS "INVREG2  ".
+    0033  
+    0034    01  IN-REC.
+    0035           02 FILLER       PIC X(93).
+    0036  
+    0037  
+    0038    FD  IN-FILE
+    0039       LABEL RECORDS ARE STANDARD
+    0040       VALUE OF IDENTIFICATION IS "KAYREGDAT".
+    0041  
+    0042    01 INPUT-RECORD.
+    0043           02 INVNO        PIC 9(6).
+    0044           02 FILLER       PIC X.
+    0045           02 CUST         PIC 9(4).
+    0046           02 FILLER       PIC X.
+    0047           02 DIST         PIC 99.
+    0048           02 FILLER       PIC X.
+    0049           02 SALNUM       PIC 9(4).
+    0050           02 FILLER       PIC X.
+    0051           02 NAME         PIC X(20).
+    0052           02 FILLER       PIC X.
+    0053           02 STAT         PIC X(4).
+    0054           02 FILLER       PIC X.
+    0055           02 PROD         PIC X(4).
+    0056           02 QTY-IN.    P R O G R A M   P R O D 		COBOL 4(56)	29-MAR-73  14:14		PAGE 1-1
+
+    0057                   03 A-FLD1       PIC S9(5).
+    0058                   03 FILLER       PIC X.
+    0059                   03 B-FLD1       PIC 9(3).
+    0060           02 AMT-IN.
+    0061                   03 A-FLD2       PIC S9(10).
+    0062                   03 FILLER       PIC X.
+    0063                   03 B-FLD2       PIC 99.
+    0064           02 FILLER       PIC X.
+    0065           02 STATE        PIC 9(6).
+    0066           02 COST-IN.
+    0067                   03 A-FLD3       PIC S9(10).
+    0068                   03 FILLER       PIC X.
+    0069                   03 B-FLD3       PIC 99.
+    0070           02 FILLER       PIC X(27).
+    0071  
+    0072  
+    0073  
+    0074    SD  TEMPFIL.
+    0075  
+    0076    01  SORT-REC; DISPLAY-7.
+    0077           02 FILLER       PIC X(41).
+    0078           02 NO1          PIC X(4).
+    0079           02 FILLER       PIC X.
+    0080           02 NO2          PIC X(4).
+    0081           02 FILLER       PIC X(42).
+    0082  
+    0083  
+    0084    FD  L-PRINT
+    0085       LABEL RECORDS ARE STANDARD
+    0086       VALUE OF IDENTIFICATION IS "REPORTPRD".
+    0087  
+    0088    01  PRINT-OUT; DISPLAY-7.
+    0089           02 FILLER       PIC X(90).
+    0090  
+    0091    01  OUT-LINE; DISPLAY-7.
+    0092           02 FILLER                       PIC X(90).
+    0093  
+    0094    01  PRINT-LINE; DISPLAY-7.
+    0095           02 FILLER               PICTURE X(90).
+    0096  
+    0097    01  NUM-LINE; DISPLAY-7.
+    0098           02 NUM-FIRST            PIC X(12).
+    0099           02 FILLER               PIC X(58).
+    0100           02 NUM-HEAD             PIC X(5).
+    0101           02 HEADER-PAGE          PIC Z9.
+    0102  
+    0103  
+    0104    WORKING-STORAGE SECTION.
+    0105    77  ARGUM       PIC 99; COMP.
+    0106  
+    0107    77  C-FLD1      PIC S9(5); COMP.
+    0108    77  C-FLD2      PIC S9(5); COMP.
+    0109    77  C-FLD3      PIC S9(5); COMP.
+    0110  
+    0111  
+    0112    77  TEMP-A      PIC S9(5); COMP.    P R O G R A M   P R O D 		COBOL 4(56)	29-MAR-73  14:14		PAGE 1-2
+
+    0113    77  ETEMP       PIC S9(5); COMP.
+    0114  
+    0115    77  COST                PIC S9(10)V99; COMP.
+    0116    77  QTY                 PIC S9(5)V999; COMP.
+    0117    77  AMT                 PIC S9(10)V99; COMP.
+    0118  
+    0119    77  LAS-PROD            PIC X(4); DISPLAY-7.
+    0120  
+    0121    77  TEMP1                       PICTURE S9(10)V99; COMPUTATIONAL.
+    0122    77  PAGE-COUNT                  PICTURE S9(2); COMPUTATIONAL.
+    0123    77  LINE-COUNT                  PICTURE S99; COMPUTATIONAL.
+    0124  
+    0125    77  SAVE-01                     PICTURE X(4).
+    0126    77  SAVE-02                     PICTURE X(4).
+    0127    77 DASHES                       PICTURE X(10);
+    0128           VALUE "----------".
+    0129  
+    0130  
+    0131  
+    0132  
+    0133  
+    0134    01  HOLD-LINE;DISPLAY-7.
+    0135           02 HELP         PIC X(90).
+    0136  
+    0137    01  PRINTOUT-LINE.
+    0138  
+    0139           02 TOT-LINE     PIC X(19).
+    0140           02 ITEM-OUT     PIC X(4).
+    0141           02 FILLER       PIC X(5).
+    0142           02 Q-OUT        PIC -(5).99.
+    0143           02 FILLER       PIC XX.
+    0144           02 A-OUT        PIC -(10).99.
+    0145           02 FILLER       PIC XXX.
+    0146           02 C-OUT        PIC -(10).99.
+    0147           02 FILLER       PIC XXX.
+    0148           02 P-OUT        PIC -(10).99.
+    0149  
+    0150    01  OUTPUT-LINE; DISPLAY-7.
+    0151           02 STAT-OUT.
+    0152                   03 FILLER       PIC X(5).
+    0153                   03 ST1          PIC X(4).
+    0154           02 FILLER       PIC X(19).
+    0155           02 QTY-OUT      PIC -(5).99.
+    0156           02 FILLER       PIC X(2).
+    0157           02 AMT-OUT      PIC -(10).99.
+    0158           02 FILLER       PIC X(3).
+    0159           02 COST-OUT     PIC -(10).99.
+    0160           02 FILLER       PIC X(3).
+    0161           02 PROFIT       PIC -(10).99.
+    0162  
+    0163    01  DASH-OUT.
+    0164           02 FILLER       PIC X(27).
+    0165           02 DASH-1       PIC X(9).
+    0166           02 FILLER       PIC X(7).
+    0167           02 DASH-2       PIC X(8).
+    0168           02 FILLER       PIC X(8).    P R O G R A M   P R O D 		COBOL 4(56)	29-MAR-73  14:14		PAGE 1-3
+
+    0169           02 DASH-3       PIC X(8).
+    0170           02 FILLER       PIC X(8).
+    0171           02 DASH-4       PIC X(8).
+    0172  
+    0173  
+    0174    01  LEVEL-0-ACS; COMPUTATIONAL.
+    0175       02 ACCUMULATOR-1            PIC S9(6)V999.
+    0176       02 ACCUMULATOR-2            PIC S9(10)V99.
+    0177       02 ACCUMULATOR-3            PIC S9(10)V99.
+    0178       02 ACCUMULATOR-4            PIC S9(10)V99.
+    0179  
+    0180    01  LEVEL-1-ACS; COMPUTATIONAL.
+    0181       02 ACCUMULATOR-1             PICTURE S9(6)V9(3).
+    0182       02 ACCUMULATOR-2             PICTURE S9(10)V9(2).
+    0183       02 ACCUMULATOR-3             PICTURE S9(10)V99.
+    0184       02 ACCUMULATOR-4             PICTURE S9(10)V99.
+    0185  
+    0186    01  LEVEL-F-ACS; COMPUTATIONAL.
+    0187       02 ACCUMULATOR-1             PICTURE S9(6)V9(3).
+    0188       02 ACCUMULATOR-2             PICTURE S9(10)V9(2).
+    0189       02 ACCUMULATOR-3             PICTURE S9(10)V99.
+    0190       02 ACCUMULATOR-4             PICTURE S9(10)V99.
+    0191  
+    0192    01  HEADER.
+    0193       02 FILL PIC X(29); VALUE "   TRANSACTION               ".
+    0194       02 FILL PIC X(38); VALUE "  QTY           AMT            COST".
+    0195       02 FILL PIC X(19); VALUE "       PROFIT".
+    0196  
+    0197    01  HEAD-OUT-1.
+    0198  
+    0199           02 FILLER               PIC X(36).
+    0200           02 FILLER               PIC X(19); VALUE "PRODUCT REPORT".
+    0201  
+    0202  
+    0203    PROCEDURE DIVISION.
+    0204  
+    0205    ONLY SECTION.
+    0206    START.
+    0207           DISPLAY " ". DISPLAY " ".
+    0208           DISPLAY "SORTING INVREG..." WITH NO ADVANCING.
+    0209      SORT TEMPFIL ON ASCENDING KEY NO2,NO1 USING K-IN GIVING IN-FILE.
+    0210  
+    0211    RPT.
+    0212           DISPLAY " ". DISPLAY " ".
+    0213           DISPLAY "GENERATING REPORT.PRD ..." WITH NO ADVANCING.
+    0214  
+    0215       OPEN INPUT IN-FILE.
+    0216       OPEN OUTPUT L-PRINT.
+    0217       MOVE SPACES TO OUTPUT-LINE.
+    0218       MOVE SPACES TO INPUT-RECORD.
+    0219       MOVE ZERO TO PAGE-COUNT.
+    0220           MOVE 1 TO TEMP-A.
+    0221       PERFORM PL-HDR THRU PL-EXIT.
+    0222           MOVE 0 TO TEMP-A.
+    0223       MOVE DASHES TO DASH-1,DASH-2,DASH-3,DASH-4.
+    0224           MOVE "TOTAL FOR PRODUCT: " TO TOT-LINE.    P R O G R A M   P R O D 		COBOL 4(56)	29-MAR-73  14:14		PAGE 1-4
+
+    0225  
+    0226    READ-IN.
+    0227           MOVE PROD TO LAS-PROD.
+    0228       READ IN-FILE; AT END GO TO LEVEL-0-BREAK.
+    0229  
+    0230           NOTE ***THIS IS THE SUPER-SECTION.
+    0231  
+    0232           NOTE **ANOTHER SUPER -MESS.
+    0233  
+    0234  
+    0235  
+    0236  
+    0237  
+    0238  
+    0239     COMPUTE C-FLD1 = B-FLD1 * 10.
+    0240     COMPUTE C-FLD2 = B-FLD2 * 10.
+    0241     COMPUTE C-FLD3 = B-FLD3 * 10.
+    0242           COMPUTE ETEMP = B-FLD1.
+    0243           COMPUTE ETEMP = ETEMP * 10.
+    0244           IF A-FLD1 IS NOT LESS THAN ZERO GO TO POSIT.
+    0245  
+    0246                   COMPUTE ETEMP = ETEMP * 2.
+    0247                   COMPUTE ETEMP = C-FLD1 - ETEMP.
+    0248    POSIT.
+    0249  
+    0250                   COMPUTE QTY = A-FLD1 * 1000 +  ETEMP.
+    0251                   COMPUTE QTY = QTY / 1000.
+    0252  
+    0253                   COMPUTE ETEMP = B-FLD2.
+    0254           COMPUTE ETEMP = ETEMP * 10.
+    0255  
+    0256           IF A-FLD2 = 0  AND STAT = "CRED" GO TO POS2.
+    0257           IF A-FLD2 IS NOT LESS THAN ZERO GO TO POSIT2.
+    0258    POS2.
+    0259  
+    0260                   COMPUTE ETEMP = ETEMP * 2.
+    0261                   COMPUTE ETEMP = C-FLD2 - ETEMP.
+    0262    POSIT2.
+    0263                   COMPUTE AMT = A-FLD2 * 1000  + ETEMP.
+    0264                   COMPUTE AMT = AMT / 1000.
+    0265  
+    0266                   COMPUTE ETEMP = B-FLD3.
+    0267  
+    0268           COMPUTE ETEMP = ETEMP * 10.
+    0269           IF A-FLD3 = 0 AND STAT = "CRED" GO TO POS3.
+    0270           IF A-FLD3 IS NOT LESS THAN ZERO GO TO POSIT3.
+    0271    POS3.
+    0272  
+    0273                   COMPUTE ETEMP = ETEMP * 2.
+    0274                   COMPUTE ETEMP = C-FLD3 - ETEMP.
+    0275    POSIT3.
+    0276                   COMPUTE COST = A-FLD3 * 1000  + ETEMP.
+    0277                   COMPUTE COST = COST / 1000.
+    0278  
+    0279    INIT-SW. GO TO RESET-INIT.
+    0280           NOTE AFTER THE FIRST READ, INIT-SW WILL GO TO COMPARE.    P R O G R A M   P R O D 		COBOL 4(56)	29-MAR-73  14:14		PAGE 1-5
+
+    0281    RESET-INIT. ALTER INIT-SW TO PROCEED TO COMPARE.
+    0282       GO TO RESET-LEVEL-F.
+    0283  
+    0284    COMPARE.
+    0285       IF SAVE-01 IS NOT EQUAL TO PROD
+    0286           ALTER LEVEL-1-SW TO PROCEED TO RESET-LEVEL-1;
+    0287           GO TO LEVEL-0-BREAK.
+    0288  
+    0289       IF SAVE-02 IS NOT EQUAL TO STAT
+    0290           ALTER LEVEL-0-SW TO PROCEED TO RESET-LEVEL-0;
+    0291           GO TO LEVEL-0-BREAK.
+    0292  
+    0293    PRINT-DETAIL.
+    0294       ADD QTY TO ACCUMULATOR-1 OF LEVEL-0-ACS.
+    0295       ADD AMT TO ACCUMULATOR-2 OF LEVEL-0-ACS.
+    0296       ADD COST TO ACCUMULATOR-3 OF LEVEL-0-ACS.
+    0297       SUBTRACT COST FROM AMT GIVING TEMP1.
+    0298       ADD TEMP1 TO ACCUMULATOR-4 OF LEVEL-0-ACS.
+    0299  
+    0300  
+    0301       GO TO READ-IN.
+    0302  
+    0303  
+    0304  
+    0305    LEVEL-0-BREAK.
+    0306  
+    0307  
+    0308       MOVE ACCUMULATOR-1 OF LEVEL-0-ACS TO QTY-OUT.
+    0309       MOVE ACCUMULATOR-2 OF LEVEL-0-ACS TO AMT-OUT.
+    0310       MOVE ACCUMULATOR-3 OF LEVEL-0-ACS TO COST-OUT.
+    0311       MOVE ACCUMULATOR-4 OF LEVEL-0-ACS TO PROFIT.
+    0312  
+    0313  
+    0314  
+    0315  
+    0316  
+    0317       MOVE OUTPUT-LINE TO PRINT-LINE.
+    0318       PERFORM PRINT-1 THRU P1-END.
+    0319       MOVE SPACES TO OUTPUT-LINE.
+    0320  
+    0321       ADD CORRESPONDING LEVEL-0-ACS TO LEVEL-1-ACS.
+    0322  
+    0323    LEVEL-0-SW. GO TO. NOTE GO TO RESET-LEVEL-0 OR LEVEL-1-BREAK.
+    0324  
+    0325    LEVEL-1-BREAK.
+    0326  
+    0327       MOVE ACCUMULATOR-1 OF LEVEL-1-ACS TO Q-OUT.
+    0328       MOVE ACCUMULATOR-2 OF LEVEL-1-ACS TO A-OUT.
+    0329       MOVE ACCUMULATOR-3 OF LEVEL-1-ACS TO C-OUT.
+    0330       MOVE ACCUMULATOR-4 OF LEVEL-1-ACS TO P-OUT.
+    0331           MOVE DASH-OUT TO PRINT-LINE.
+    0332           PERFORM PRINT-1 THRU P1-END.
+    0333       MOVE LAS-PROD TO ITEM-OUT.
+    0334           MOVE PRINTOUT-LINE TO PRINT-LINE.
+    0335       PERFORM PRINT-1 THRU P1-END 2 TIMES.
+    0336       MOVE SPACES TO PRINT-LINE.    P R O G R A M   P R O D 		COBOL 4(56)	29-MAR-73  14:14		PAGE 1-6
+
+    0337       PERFORM PRINT-1 THRU P1-END 5 TIMES.
+    0338           MOVE SPACES TO OUTPUT-LINE.
+    0339  
+    0340       ADD CORRESPONDING LEVEL-1-ACS TO LEVEL-F-ACS.
+    0341  
+    0342    LEVEL-1-SW. GO TO. NOTE GO TO RESET-LEVEL-1 OR LEVEL-F-BREAK.
+    0343  
+    0344    LEVEL-F-BREAK.
+    0345       MOVE SPACES TO PRINT-LINE.
+    0346       PERFORM PRINT-1 THRU P1-END.
+    0347  
+    0348           MOVE ACCUMULATOR-1 OF LEVEL-F-ACS TO Q-OUT.
+    0349           MOVE ACCUMULATOR-2 OF LEVEL-F-ACS TO A-OUT.
+    0350           MOVE ACCUMULATOR-3 OF LEVEL-F-ACS TO C-OUT.
+    0351           MOVE ACCUMULATOR-4 OF LEVEL-F-ACS TO P-OUT.
+    0352           MOVE "GRAND TOTALS" TO TOT-LINE.
+    0353           MOVE " " TO ITEM-OUT.
+    0354           MOVE PRINTOUT-LINE TO PRINT-LINE.
+    0355           WRITE PRINT-LINE BEFORE TOP-OF-FORM.
+    0356           GO TO FINISH.
+    0357  
+    0358  
+    0359  
+    0360    RESET-LEVEL-F.
+    0361           MOVE LOW-VALUES TO LEVEL-F-ACS.
+    0362  
+    0363    RESET-LEVEL-1.
+    0364           MOVE LOW-VALUES TO LEVEL-1-ACS.
+    0365       MOVE PROD TO SAVE-01.
+    0366           MOVE PROD TO ST1.
+    0367       ALTER LEVEL-1-SW TO PROCEED TO LEVEL-F-BREAK.
+    0368  
+    0369    RESET-LEVEL-0.
+    0370           MOVE LOW-VALUES TO LEVEL-0-ACS.
+    0371       MOVE STAT TO SAVE-02.
+    0372       MOVE STAT TO ST1.
+    0373       ALTER LEVEL-0-SW TO PROCEED TO LEVEL-1-BREAK.
+    0374       GO TO PRINT-DETAIL.
+    0375  
+    0376  
+    0377  
+    0378    PRINT-1. SUBTRACT 1 FROM LINE-COUNT.
+    0379           IF LINE-COUNT IS NEGATIVE PERFORM PAGER THRU P-EXIT.
+    0380    RET1.
+    0381           WRITE PRINT-LINE.
+    0382           MOVE SPACES TO PRINT-LINE.
+    0383    P1-END.  EXIT.
+    0384  
+    0385  
+    0386    PL-HDR. MOVE SPACES TO PRINT-LINE.
+    0387  
+    0388    PRINT-CH-1. WRITE PRINT-LINE BEFORE TOP-OF-FORM.
+    0389       ADD 1 TO PAGE-COUNT; MOVE PAGE-COUNT TO HEADER-PAGE.
+    0390       MOVE "PAGE" TO NUM-HEAD.
+    0391           MOVE "+PIT REPORT+" TO NUM-FIRST.
+    0392       WRITE NUM-LINE BEFORE ADVANCING 4 LINES.    P R O G R A M   P R O D 		COBOL 4(56)	29-MAR-73  14:14		PAGE 1-7
+
+    0393           IF PAGE-COUNT > 1 GO TO SKIP-HEAD.
+    0394           MOVE HEAD-OUT-1 TO PRINT-LINE.
+    0395           WRITE PRINT-LINE BEFORE ADVANCING 5 LINES.
+    0396           MOVE SPACES TO PRINT-LINE.
+    0397    SKIP-HEAD.
+    0398       MOVE HEADER TO PRINT-LINE.
+    0399       WRITE PRINT-LINE BEFORE ADVANCING 4 LINES.
+    0400           MOVE SPACES TO PRINT-LINE.
+    0401       MOVE 44 TO LINE-COUNT.
+    0402  
+    0403    PL-EXIT.  EXIT.
+    0404  
+    0405  
+    0406    PAGER.
+    0407           MOVE PRINT-LINE TO HELP.
+    0408  
+    0409           MOVE SPACES TO PRINT-OUT.
+    0410           WRITE PRINT-OUT BEFORE ADVANCING 3 LINES.
+    0411           ADD 1 TO PAGE-COUNT; MOVE PAGE-COUNT TO HEADER-PAGE.
+    0412           MOVE "+PIT REPORT+" TO NUM-FIRST.
+    0413           MOVE "PAGE" TO NUM-HEAD.
+    0414           MOVE NUM-LINE TO PRINT-OUT.
+    0415           WRITE PRINT-OUT BEFORE 3 LINES.
+    0416           MOVE SPACES TO PRINT-OUT.
+    0417           MOVE HEADER TO PRINT-OUT.
+    0418           WRITE PRINT-OUT BEFORE ADVANCING 4 LINES.
+    0419           MOVE SPACES TO OUT-LINE.
+    0420           MOVE SPACES TO PRINT-OUT.
+    0421           MOVE 49 TO LINE-COUNT.
+    0422           MOVE HELP TO PRINT-LINE.
+    0423    P-EXIT.  EXIT.
+    0424  
+    0425    FINISH.
+    0426       CLOSE IN-FILE.
+    0427       CLOSE L-PRINT.
+    0428           DISPLAY " ".
+    0429           DISPLAY "FINISHED.".
+    0430           MOVE 1 TO ARGUM.
+    0431           ENTER MACRO LINKER USING ARGUM.
+    0432       STOP RUN.    P R O G R A M   P R O D 		COBOL 4(56)	29-MAR-73  14:14		PAGE W-1
+
+WARNINGS:
+
+    0223  RIGHT-MOST TRUNCATION ON DASH-1
+    0223  RIGHT-MOST TRUNCATION ON DASH-2
+    0223  RIGHT-MOST TRUNCATION ON DASH-3
+    0223  RIGHT-MOST TRUNCATION ON DASH-4
+    0243  MOST SIGNIFICANT DIGITS TRUNCATED ON ETEMP
+    0246  MOST SIGNIFICANT DIGITS TRUNCATED ON ETEMP
+    0250  MOST SIGNIFICANT DIGITS TRUNCATED ON QTY
+    0254  MOST SIGNIFICANT DIGITS TRUNCATED ON ETEMP
+    0260  MOST SIGNIFICANT DIGITS TRUNCATED ON ETEMP
+    0263  MOST SIGNIFICANT DIGITS TRUNCATED ON AMT
+    0268  MOST SIGNIFICANT DIGITS TRUNCATED ON ETEMP
+    0273  MOST SIGNIFICANT DIGITS TRUNCATED ON ETEMP
+    0276  MOST SIGNIFICANT DIGITS TRUNCATED ON COST
+    0308  MOST SIGNIFICANT DIGITS TRUNCATED ON QTY-OUT
+    0308  LEAST SIGNIFICANT DIGITS TRUNCATED ON QTY-OUT
+    0309  MOST SIGNIFICANT DIGITS TRUNCATED ON AMT-OUT
+    0310  MOST SIGNIFICANT DIGITS TRUNCATED ON COST-OUT
+    0311  MOST SIGNIFICANT DIGITS TRUNCATED ON PROFIT
+    0327  MOST SIGNIFICANT DIGITS TRUNCATED ON Q-OUT
+    0327  LEAST SIGNIFICANT DIGITS ATED ON Q-OUT
+    0328  MOST SIGNIFICANT DIGITS TRUNCATED ON A-OUT
+    0329  MOST SIGNIFICANT DIGITS TRUNCATED ON C-OUT
+    0330  MOST SIGNIFICANT DIGITS TRUNCATED ON P-OUT
+    0348  MOST SIGNIFICANT DIGITS TRUNCATED ON Q-OUT
+    0348  LEAST SIGNIFICANT DIGITS TRUNCATED ON Q-OUT
+    0349  MOST SIGNIFICANT DIGITS TRUNCATED ON A-OUT
+    0350  MOST SIGNIFICANT DIGITS TRUNCATED ON C-OUT
+    0351  MOST SIGNIFICANT DIGITS TRUNCATED ON P-OUT
+
+
+NO FATAL ERRORS, 28 WARNINGS
+  $ `„
