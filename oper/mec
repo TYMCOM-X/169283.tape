@@ -1,0 +1,487 @@
+C S.S. GAIN PROGRAM.   VERSION 4.  1/27/73 A. SAHARIAN
+C REQUIRES SUBS: /LIST/,/BB/,"LIB"
+      COMMON LT,D,F,U,Z,IC,IM,IY,NF,MF
+      DIMENSION LT(30,15),D(15),F(21),U(21),Z(21),BM(21),XG(21),SP(21)
+      DIMENSION MTH(2)
+10    FORMAT (///' TMEC S.S. GAIN PROGRAM      VERSION 4' //,
+     1' ANSWER ALL QUESTIONS WITH A "Y"ES OR "N"O!' /,
+     1' USE A DECIMAL POINT FOR ALL NUMERICAL INPUTS,' /,
+     1' AND END EACH ENTRY WITH A CARRIAGE RETURN!' )
+      OPEN (3,'LIST',INPUT)
+15    FORMAT (30A1)
+      READ (3,15)((LT(J,I),J=1,30),I=1,15)
+      CLOSE (5)
+      CALL DATE (MTH)
+      TYPE 10
+      IY=2
+20    CALL DATA
+      V=D(4)
+      A=D(11)
+      R=D(10)
+      P=1./D(13)
+      S=D(15)
+      RI=S*S
+      R1=1.-RI
+      R2=1.+RI
+      RB=SQRT(107000./R2)
+      IP=1
+      TYPE 22,MTH,IP
+22    FORMAT (//,' -------',////,'  DATE ',2A5,10X,
+     1' PAGE ',I1)
+      TYPE 24,A,D(14),R,S,D(13),P,D(12)
+24    FORMAT (////' TWT S.S. GAIN PROGRAM     TMEC-4'//'   A='F6.4,5X,
+     1'CIRCT LGTH=',F7.3/' B/A=',F5.3,6X,' BEAM ID/OD=',F5.3/' TPI=',
+     1F7.2,4X,'PITCH=',F7.4,'    ASA=',F5.3/)
+      TYPE 11
+11    FORMAT (/,/'  FREQ  K(0)   DLF   V/C  SYNC.V  WAVL  V/C ',
+     1'COT KACOT GAM.A  KA  LOSS',//)
+      DO 40 I=1,NF
+      FI=F(I)
+      SV=U(I)
+      IF (SV-1.) 28,997,997
+997   U(I)=.001976*SQRT(SV)
+      GO TO 30
+   28 SV=(SV/.001976)**2
+   30 UI=U(I)
+      WG=11.81*UI/FI
+      AK=.532*FI*A
+      GA=AK*SQRT(1./UI/UI-1.)
+      GB=GA*R
+      CALL BESS (GA,AI0,AI1,AK0,AK1)
+      CALL BESS (GB,BI0,BI1,BK0,BK1)
+      B1=AI0/AK0
+      B2=AI1/AI0
+      B3=AK1/AK0
+      BM(I)=BI0*BI0-BI1*BI1
+      X=6.2832*A*AK/P
+      DLF=X*SQRT(B2*B3)/GA
+      Y=X/GA
+      GO TO (34,32) IM
+32    F1=1.-.961*AK
+      F2=5.*DLF*(DLF-1.24)+2.29
+      F3=1.-EXP((1.73*GA-.365)*(1.-D(12)))
+      ZA=120./(B1*(GA*(B2-1./B2-B3+1./B3)+4.)*UI)
+      Z(I)=ZA*F1*F2*F3
+34    IF (RI-.001) 37,999,999
+999   GC=GB*S
+      CALL BESS (GC,CI0,CI1,CK0,CK1)
+      BM(I)=(BM(I)-RI*(CI0*CI0-CI1*CI1))/R1
+      GB=GB*(1.-S)
+      CALL BESS (GB,BI0,BI1,BK0,BK1)
+   37 B5=BI0/BI1
+      SP(I)=.645/FI/SQRT(1.-B5*((BI1+B1*BK1)/(BI0-B1*BK0)))
+      XL=D(8)+(D(9)-D(8))*(I-1)/(NF-1)
+      XG(I)=WG*XL
+40    TYPE 1,FI,Z(I),DLF,UI,SV,WG,Y,X,GA,AK,XL
+  1   FORMAT (F5.2,F6.1,F6.3,F7.4,F7.0,F6.3,F7.3,F8.3,F7.2,2F5.2/)
+      L=16+NF
+   50 VK=V**1.5
+      IF (D(7)-.000009) 54,998,998
+998   CI=D(7)
+      CK=CI/VK*1.E+6
+      GO TO 53
+   54 CI=D(7)*VK
+      CK=D(7)*1.E+6
+   53 VD=V
+      V1=30300.*CI*(.5*R1/R2-ALOG(R))
+      DO 55 M=1,7
+55    VD=V-V1/SQRT(VD)
+      VR=256000.*(1.-1./(1.+1.95433E-6*VD)**2)
+      SVR=SQRT(VR)
+      CQ=SQRT(CI/(R1*SVR))/R/A
+      BB=CQ*RB
+      TYPE 60,V,VD,VR,CI,CK,BB
+60    FORMAT(//,' VCIR=',F6.0/,' VDEP=',F6.0,'   VREL=',F6.0,'   I=',
+     1F7.4,'  K=',F6.3,'   B.BRILL=',F5.0//)
+      TYPE 65
+65    FORMAT('  FREQ   GAIN   ALOSS    BCN    G/IN     B',6X,
+     1'C      QC   D    X1  EFF',/)
+      DO 70 I=1,NF
+      FI=F(I)
+      Q=CQ*SP(I)
+      C=(CI*Z(I)*BM(I)/4./VR)**.333333
+      QC=.25*((Q/(1.+Q))/C)**2
+      DL=.01836*XG(I)/C
+      B=(.001976*SVR/U(I)-1.)/C
+      CALL ROOT (B,C,QC,DL,X1,Y1,AL)
+      T=2330.*X1*C*FI/SVR
+      H=T*D(14)
+      G=AL+H
+      GE=1.96E-6*(BB/FI/C)**2
+      EF=.445*(2.75+2.42*B)*(1.-1.85*C)*C*(1.-GE/53.)
+70    TYPE 74,FI,G,AL,H,T,B,C,QC,DL,X1,EF
+74    FORMAT (F5.2,F7.1,F8.1,F7.1,2F8.2,F7.4,F7.3,F5.2,2F5.2)
+      IS=2
+      L=L+6+NF
+      LR=64-L
+      V=V+D(6)
+      IF (D(5)-V) 82,996,996
+996   IF (5+NF-LR) 50,995,995
+995   IS=1
+      L=4
+82    DO 84 M=1,LR
+84    TYPE 86
+86    FORMAT (/)
+      GO TO (88,90) IS
+88    IP=IP+1
+      TYPE 22,MTH,IP
+      GO TO 50
+90    TYPE 92
+92    FORMAT (//' -------' )
+      TYPE 94
+94    FORMAT (///' HAVE YOU FINISHED ALL YOUR RUNS? ',$)
+      CALL YESNO (IF)
+      GO TO (99,96) IF
+96    TYPE 98
+98    FORMAT (/' DO YOU WISH TO USE ANY OF THE ABOVE INPUTS? ',$)
+      CALL YESNO (IY)
+      GO TO 20
+99    STOP
+      END
+      SUBROUTINE DATA
+      COMMON LT,D,F,U,Z,IC,IM,IY,NF,MF
+      DIMENSION LT(30,15),D(15),F(21),U(21),Z(21)
+20    FORMAT (/' DO YOU WISH TO CHANGE ANY OF THE 15 INITIAL ENTRIES? ',
+     1$)
+22    FORMAT (/' MOST OF THEM? ',$)
+24    FORMAT (/' TYPE NO.OF THE LINE TO BE CHANGED= ',$)
+26    FORMAT (/' DO YOU WISH TO CHANGE ANOTHER LINE? ',$)
+28    FORMAT (/' DO YOU WISH TO ENTER AXIAL IMP.DATA? ',$)
+30    FORMAT (//' NORM.PHASE VEL.(V/C) OR SYNCH.VOLT. ' )
+31    FORMAT (' AND IMP.DATA' )
+32    FORMAT (I2,1X,'  F=' ,F7.3,2X,' VEL.ENTRY = ',$)
+34    FORMAT (15X,' IMP.ENTRY = ',$)
+38    FORMAT (/' DO YOU WISH TO CHANGE ANY OF THE',I2,' VEL.INPUTS? ',$)
+40    FORMAT (/' MORE THAN 21 FREQ.POINTS ARE NOT ALLOWED' /)
+44    FORMAT (E15.6)
+46    FORMAT (' ',30A1,1X,$)
+48    FORMAT (2(/))
+      GO TO (60,50,60) IY
+50    TYPE 48
+      DO 55 I=1,15
+      TYPE 46,(LT(J,I),J=1,30)
+55    ACCEPT 44,D(I)
+60    TYPE 20
+      CALL YESNO (M)
+      GO TO (65,68) M
+65    TYPE 22
+      CALL YESNO (M)
+      GO TO (50,66) M
+66    TYPE 24
+      ACCEPT 44,H
+      N=H
+      IF (15-N) 66,994,994
+994   IF (N-1) 66,993,993
+993   IF (N-3) 67,67,75
+   67 IY=3
+   75 TYPE 46,(LT(J,N),J=1,30)
+      ACCEPT 44,D(N)
+      TYPE 26
+      CALL YESNO (M)
+      GO TO (66,68) M
+68    NF=D(3)
+      IF (NF-21) 69,992,992
+992   TYPE 40
+      TYPE 46,(LT(J,3),J=1,30)
+      ACCEPT 44,D(3)
+      GO TO 68
+69    GO TO (87,70,70) IY
+70    DO 72 I=1,NF
+   72 F(I)=D(1)+(I-1)*(D(2)-D(1))/(NF-1)
+77    TYPE 28
+      CALL YESNO (IM)
+      TYPE 30
+      IF (1-IM) 82,991,991
+991   TYPE 31
+82    TYPE 48
+      DO 85 I=1,NF
+      TYPE 32,I,F(I)
+      ACCEPT 44,U(I)
+      IF (1-IM) 85,990,990
+990   TYPE 34
+      ACCEPT 44,Z(I)
+85    CONTINUE
+87    TYPE 38,NF
+      CALL YESNO (M)
+      GO TO (90,110) M
+90    TYPE 22
+      CALL YESNO (M)
+      GO TO (77,95) M
+95    TYPE 24
+      ACCEPT 44,H
+      N=H
+      IF (NF-N) 95,989,989
+989   IF (N-1) 95,988,988
+988   TYPE 32,N,F(N)
+      ACCEPT 44,U(N)
+      IF (1-IM) 100,987,987
+987   TYPE 34
+      ACCEPT 44,Z(N)
+100   TYPE 26
+      CALL YESNO (M)
+      GO TO (95,110) M
+ 110  RETURN
+      END
+       SUBROUTINE YESNO(I)
+       IY=1HY
+       IN=1HN
+5      ACCEPT 10,M
+10     FORMAT(A1)
+       IF(M-IY)12,20,12
+12     IF(M-IN)14,30,14
+14     TYPE 16
+16     FORMAT(/' YES OR NO?---',$)
+       GO TO 5
+20     TYPE 22
+22     FORMAT(' ES' )
+       I=1
+       GO TO 50
+30     TYPE 32
+32     FORMAT(' O' )
+       I=2
+50     RETURN
+       END
+      SUBROUTINE BESS (X,XI0,XI1,XK0,XK1)
+C     BESS FNS FROM NBS MATH BOOK P-378
+      T=X/3.75
+      R=3.75/X
+      S=T*T
+      U=.5*X
+      Q=U*U
+      V=2./X
+      UL=ALOG(U)
+      RSX=1./SQRT(X)
+      EX=EXP(X)
+      IF (X-3.75) 1,1,3
+    1 XI0=1.+S*(3.5156229+S*(3.0899424+S*(1.2067492+S*(.2659732
+     1    +S*(.0360768+S*.0045813)))))
+      XI1=X*(.5+S*(.87890594+S*(.51498869+S*(.15084934
+     1    +S*(.02658733+S*(.00301532+S*.00032411))))))
+      IF (X-2.) 2,2,4
+    2 XK0=-UL*XI0-.57721566+Q*(.4227842+Q*(.23069756+
+     1    Q*(.0348859+Q*(.00262698+Q*(.0001075+Q*.0000074)))))
+      XK1=UL*XI1+(1.+Q*(.15443144-Q*(.67278579+Q*(.18156897+
+     1    Q*(.01919402+Q*(.00110404+Q*.00004686))))))/X
+      GO TO 5
+    3 XI0=RSX*EX*(.39894228+R*(.01328592+R*(.00225319-R*(.00157565-
+     1    R*(.00916281-R*(.02057706-R*(.02635537-R*(.01647633-
+     2    R*.00392377))))))))
+      XI1=RSX*EX*(.39894228-R*(.03988024+R*(.00362018-R*(.00163801-
+     1    R*(.01031555-R*(.02282967-R*(.02895312-R*(.01787654-
+     2    R*.00420059))))))))
+    4 XK0=RSX*(1.25311414-V*(.07832358-V*(.02189568-V*(.01062446-
+     1    V*(.00587872-V*(.0025154-V*.00053208))))))/EX
+      XK1=RSX*(1.25331414+V*(.23498619-V*(.0365562-V*(.01504268-
+     1    V*(.00780353-V*(.00325614-V*.00068245))))))/EX
+    5 RETURN
+      END
+      SUBROUTINE ROOT(B,C,QC,D,X1,Y1,ALOSS)
+      DIMENSION FR(4),FI(4),RR(4),RI(4)
+      R=4.*QC
+      S=1.-C*C*R
+      T=1.+B*C
+      U=B*B+2.*B/C-D*D
+      FR(1)=(R*U+2.*T/C)/S
+      FI(1)=-2.*D*(R*T/C+1.)/S 
+      FR(2)=4.*D*(R*T+C)/S 
+      FI(2)=(2.*R*(C*U-1./C)+4.*T)/S  
+      FR(3)=(5.*R-2.*C*T)/S+U   
+      FI(3)=2.*D*(C*C/S-T/C)  
+      FR(4)=0.
+      FI(4)=2.*C*R/S-2./C  
+C     FR(5)=1.
+      CALL QUART (FR,FI,RR,RI)  
+C     ...SEARCH FOR ROOT ORDER  
+1     FORMAT (4E12.6/)
+      L=1   
+      DO 418 K=1,4 
+      IF(RR(K))410,410,415  
+  410 L=L + 1   
+      IF(L-2) 411,411,412   
+  411 XA = RR(K)
+      YA=RI(K)
+      GO TO 418 
+  412 IF(YA-RI(K)) 413,413,414  
+  413 X2=XA
+      Y2=YA
+      X3=RR(K)
+      Y3=YA
+      GO TO 418 
+  414 X2= RR(K)
+      Y2=RI(K)
+      X3=XA
+      Y3=YA
+      GO TO 418 
+  415 IF(RI(K)) 416,416,417 
+  416 X1= RR(K)
+      Y4=RI(K)
+      GO TO 418 
+  417 X4= RR(K)
+      Y4=RI(K)
+  418 CONTINUE  
+      R11=X1-X2
+      R12=Y1-Y2
+      R21=X1-X3
+      R22=Y1-Y3
+      R31=X1**2-Y1**2
+      R32=2.*X1*Y1
+      R41=1.-C *Y2
+      R42=C*X2
+      R51=1.-C *Y3
+      R52=C*X3
+      R1=R11**2+R12**2  
+      R2=R21**2+R22**2  
+      R3=R31**2+R32**2  
+      R4=R41**2+R42**2  
+      R5=R51**2+R52**2  
+      ALOSS1=-4.3429448*ALOG((R1*R2)/(R3*R4*R5))
+      R61=X1**2-Y1**2
+      R62=2.*X1*Y1
+      R71=X1**2-Y1**2+4.*QC *(1.-2.*C *Y1+(C **2)*(Y1**2-X1**2))  
+      R72=2.*X1*Y1+4.*QC *(2.*C *X1)*(1.-C *Y1)   
+      R6=R61**2+R62**2  
+      R7=R71**2+R72**2  
+      ALOSS2=-4.3429448*ALOG(R6/R7) 
+      XL1 =ALOSS1
+      XL2=ALOSS2
+      ALOSS =XL1 +XL2 
+       RETURN
+       END
+       SUBROUTINE QUART(FR,FI,RR,RI)
+       DIMENSION FR(4),FI(4),RR(4),RI(4)
+       BR=FR(4)
+       BI=FI(4)
+       CR=FR(3)
+       CI=FI(3)
+       DR=FR(2)
+       DI=FI(2)
+       ER=FR(1)
+       EI=FI(1)
+C  SET UP RESOLVENT CUBIC COEFFICIENTS
+       B3R=-CR
+       B3I=-CI
+       CALL CPROD(BR,BI,DR,DI,BDR,BDI)
+       C3R=BDR-4.0*ER
+       C3I=BDI-4.0*EI
+       CALL CPROD(BR,BI,BR,BI,BBR,BBI)
+       CALL CPROD(-BBR,-BBI,ER,EI,BBER,BBEI)
+       CALL CPROD(CR,CI,ER,EI,CER,CEI)
+       CALL CPROD(DR,DI,DR,DI,DDR,DDI)
+       D3R= BBER+4.0*CER-DDR
+       D3I= BBEI+4.0*CEI-DDI
+C  SOLVE RESOLVENT CUBIC TO GET ONE ROOT,Y=S
+C  SET UP REDUCED CUBIC COEFFICIENTS
+       CALL CPROD(B3R,B3I,B3R,B3I,BB3R,BB3I)
+       PR=C3R-BB3R/3.0
+       PI=C3I-BB3I/3.0
+       CALL CPROD(B3R,B3I,C3R,C3I,BC3R,BC3I)
+       CALL CPROD(B3R,B3I,BB3R,BB3I,BBB3R,BBB3I)
+       QR=D3R-BC3R/3.0+2.0*BBB3R/27.0
+       QI=D3I-BC3I/3.0+2.0*BBB3I/27.0
+C  CHECK FOR TRIVIAL SOLUTION
+       IF(CMAG(PR,PI)-CMAG(C3R,C3I)/1.E+10) 200,200,201
+200    CONTINUE
+       CALL CUBRTC(-QR,-QI,Y1R,Y1I)
+       GO TO 400
+201    CONTINUE
+       CALL CPROD(PR,PI,PR,PI,PPR,PPI)
+       CALL CPROD(PPR,PPI,PR,PI,PPPR,PPPI)
+       CALL CPROD(QR,QI,QR,QI,QQR,QQI)
+       RRL=PPPR/27.0+QQR/4.0
+       RIM=PPPI/27.0+QQI/4.0
+       CALL CSQRT1(RRL,RIM,SQRTR,SQRTI)
+       CALL CUBRTC(-QR/2.0+SQRTR,-QI/2.0+SQRTI,Z1R,Z1I)
+       CALL CQUO(PR,PI,Z1R,Z1I,QUOR,QUOI)
+       Y1R=Z1R-QUOR/3.0
+       Y1I=Z1I-QUOI/3.0
+400    CONTINUE
+       SR=Y1R-B3R/3.0
+       SI=Y1I-B3I/3.0
+C  SOLVE FOR ROOTS OF QUARTIC
+       CALL CSQRT1(BBR/4.0-CR+SR,BBI/4.0-CI+SI,HR,HI)
+       CALL CPROD(SR,SI,SR,SI,SSR,SSI)
+       CALL CSQRT1(SSR/4.0-ER,SSI/4.0-EI,XKR,XKI)
+       B21R=BR/2.0-HR
+       B21I=BI/2.0-HI
+       B22R=BR/2.0+HR
+       B22I=BI/2.0+HI
+       C21R=SR/2.0-XKR
+       C21I=SI/2.0-XKI
+       C22R=SR/2.0+XKR
+       C22I=SI/2.0+XKI
+       A1R=-B21R/2.0
+       A1I=-B21I/2.0
+       A2R=-B22R/2.0
+       A2I=-B22I/2.0
+       CALL CPROD(B21R,B21I,B21R,B21I,B21PR,B21PI)
+       CALL CPROD(B22R,B22I,B22R,B22I,B22PR,B22PI)
+       CALL CSQRT1(B21PR-4.0*C21R,B21PI-4.0*C21I,ROOTR,ROOTI)
+       B1R=ROOTR/2.0
+       B1I=ROOTI/2.0
+       CALL CSQRT1(B22PR-4.0*C22R,B22PI-4.0*C22I,ROTR,ROTI)
+       B2R=ROTR/2.0
+       B2I=ROTI/2.0
+       RR(1)=A1R+B1R
+       RI(1)=A1I+B1I
+       RR(2)=A1R-B1R
+       RI(2)=A1I-B1I
+       RR(3)=A2R+B2R
+       RI(3)=A2I+B2I
+       RR(4)=A2R-B2R
+       RI(4)=A2I-B2I
+       RETURN
+       END
+       SUBROUTINE CSQRT1(XR,XI,SQRTR,SQRTI)
+       D=SQRT(XR*XR+XI*XI)
+       E=0.5*(XR+D)
+       IF(E) 3,4,4
+3      E=0.0
+4      CONTINUE
+       SQRTR=SQRT(E)
+       F=0.5*(D-XR)
+       IF(F) 5,6,6
+5      F=0.0
+6      CONTINUE
+       IF(XI) 2,1,2
+1      Y=1.0
+2      CONTINUE
+       SQRTI=SIGN(SQRT(F),XI)
+       RETURN
+       END
+       SUBROUTINE CUBRTC(XR,XI,CUBRTR,CUBRTI)
+       R1=XR*XR+XI*XI
+       R2=SQRT(R1)
+       R=R2**0.333333333
+       IF(XR) 2,1,2
+1      IF(XI) 8,9,9
+8      THETA=1.570796327
+       GO TO 3
+9      THETA=0.5235987756
+       GO TO 3
+2      IF(XR) 4,5,5
+4      THETA=(3.141592654+ATAN(XI/XR))/3.0
+       GO TO 3
+5      IF(XI) 6,7,7
+6      THETA=(6.283185307+ATAN(XI/XR))/3.0
+       GO TO 3
+7      THETA=ATAN(XI/XR)/3.0
+3      CUBRTR=R*COS(THETA)
+       CUBRTI=R*SIN(THETA)
+       RETURN
+       END
+       SUBROUTINE CPROD(XR,XI,YR,YI,PRODR,PRODI)
+       PRODR=XR*YR-XI*YI
+       PRODI=XI*YR+XR*YI
+       RETURN
+       END
+       SUBROUTINE CQUO(UPR,UPI,DOWNR,DOWNI,QUOR,QUOI)
+       D=DOWNR*DOWNR+DOWNI*DOWNI
+       QUOR=(UPR*DOWNR+UPI*DOWNI)/D
+       QUOI=(UPI*DOWNR-UPR*DOWNI)/D
+       RETURN
+       END
+       FUNCTION CMAG(XR,XI)
+       CMAG=SQRT(XR**2+XI**2)
+       RETURN
+       END
+   
