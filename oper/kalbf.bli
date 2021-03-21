@@ -1,0 +1,155 @@
+MODULE KALBF(DOLLAR,ENTRIES=($KALBF),FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+
+BEGIN
+
+REQUIRE KDEFS.BLI[7,107355];
+REQUIRE UDEFS.BLI[7,107355];
+REQUIRE CDEFS.BLI[7,107355];
+REQUIRE BTDEFS.BLI[7,107355];
+
+
+UNDECLARE $KALBF;
+
+GLOBAL ROUTINE $KALBF(SIZE)=
+   BEGIN
+   LOCAL KBT$ BT;
+   LOCAL KBT$ NBT;
+   LOCAL I,N,NB,OLD,NEXT,COUNT;
+   LABEL LOOP;
+
+   %  ALLOCATE ADDITONAL BUFFERS  %
+
+   NB_$CGTZM(.SIZE*KV$PAGS-1)-1;
+   IF .KBTIX$[BT$NBUFS] EQL 0 
+      THEN 
+         BEGIN
+
+         %  INITIALIZE BTI %
+
+         KBTIX$[BT$NBUFS]_.SIZE;
+         KBTIX$[BT$NBTS]_1;
+         KBTIX$[BT$LAST,1]_.NB+(.SIZE-1)*KV$PAGS;
+         KBTIX$[BT$TABLE,1]_BT_$CGTZM(2+.SIZE);
+         KBTIX$[BT$FFBTA]_.BT;
+         KBTIX$[BT$FFOFF]_1;
+
+         %  INITIALIZE BT %
+
+         BT[BT$SIZE]_.SIZE;
+         BT[BT$NEXT]_.BT;
+         BT[BT$FIRST]_.NB;
+         BT[BT$NOP,1]_.SIZE;
+         RETURN
+         END;
+   KBTIX$[BT$NBUFS]_.KBTIX$[BT$NBUFS]+.SIZE;
+
+   %  SEARCH BT'S FOR CONTIGUOUSNESS %
+
+   DECR I FROM .KBTIX$[BT$NBTS] TO 1
+      DO IF .NB LEQ .KBTIX$[BT$LAST,.I]+KV$PAGS
+         THEN
+            BEGIN
+            BT_.KBTIX$[BT$TABLE,.I];
+            IF .BT[BT$FIRST]+.BT[BT$SIZE]*KV$PAGS EQL .NB
+               THEN    % NEW BUFFER(S) FIT AT END OF AN OLD BT %
+                  BEGIN
+
+                  % ALLOCATE SPACE FOR LARGER BT %
+
+                  NBT_$CGTZM(.SIZE+.BT[BT$SIZE]+BTV$BTHSZ);
+                  $UMOVE(.BT[BT$SIZE]+BTV$BTHSZ,.BT,.NBT);
+                  KBTIX$[BT$TABLE,.I]_.NBT;
+                  NBT[BT$SIZE]_.BT[BT$SIZE]+.SIZE;
+                  NBT[BT$NOP,.BT[BT$SIZE]+1]_.SIZE;
+                  KBTIX$[BT$LAST,.I]_.KBTIX$[BT$LAST,.I]+.SIZE*KV$PAGS;
+                  IF .KBTIX$[BT$FFBTA] EQL .BT
+                     THEN KBTIX$[BT$FFBTA]_.NBT;
+                  NBT[BT$NEXT]_ IF .BT NEQ .BT[BT$NEXT] THEN .BT[BT$NEXT]
+                                     ELSE .NBT;
+                  COUNT_0;
+LOOP:
+                  DECR K FROM .BT[BT$SIZE] TO 1
+                     DO IF .NBT[BT$USE,.K]
+                        THEN LEAVE LOOP
+                        ELSE COUNT_.COUNT+1;
+                  IF .COUNT GTR 0
+                     THEN NBT[BT$NOP,.BT[BT$SIZE]-.COUNT+1]_.SIZE+
+                         .NBT[BT$NOP,.BT[BT$SIZE]-.COUNT+1];
+                  $CFREEM(.BT);
+                  IF (N_.KBTIX$[BT$NBTS]) GEQ 2
+                     THEN
+                        BEGIN
+                        BT_.KBTIX$[BT$TABLE,(IF .I EQL 1 THEN .N ELSE .I-1)];
+                        BT[BT$NEXT]_.NBT;
+                        END;
+                  RETURN
+                  END;
+            IF .NB+.SIZE*KV$PAGS EQL .BT[BT$FIRST]
+               THEN    % NEW BUFFER(S) FIT AT FRONT OF AN OLD BT %
+                  BEGIN
+                  NBT_$CGTZM(.SIZE+.BT[BT$SIZE]+BTV$BTHSZ);
+                  $UMOVE(BTV$BTHSZ,.BT,.NBT);
+                  $UMOVE(.BT[BT$SIZE],.BT+BTV$BTHSZ,.NBT+BTV$BTHSZ+.SIZE);
+                  KBTIX$[BT$TABLE,.I]_.NBT;
+                  NBT[BT$SIZE]_.BT[BT$SIZE]+.SIZE;
+                  NBT[BT$FIRST]_.NB;
+                  NBT[BT$NOP,1]_.SIZE;
+                  IF .KBTIX$[BT$FFBTA] EQL .BT
+                     THEN KBTIX$[BT$FFBTA]_.NBT;
+                  NBT[BT$NEXT]_ IF .BT NEQ .BT[BT$NEXT] THEN .BT[BT$NEXT]
+                                     ELSE .NBT;
+                  $CFREEM(.BT);
+                  IF (N_.KBTIX$[BT$NBTS]) GEQ 2
+                     THEN
+                        BEGIN
+                        BT_.KBTIX$[BT$TABLE,(IF .I EQL 1 THEN .N ELSE .I-1)];
+                        BT[BT$NEXT]_.NBT;
+                        END;
+                  RETURN
+                  END
+            END;
+
+%    NOT CONTIGUOUS WITH ANY PREVIOUSLY ALLOCATED BUFFER GROUP
+       ALLOCATE A NEW BT AND ENTER IN BTI        %
+
+   NBT_$CGTZM(.SIZE+2);
+   KBTIX$[BT$NBTS]_(OLD_.KBTIX$[BT$NBTS])+1;
+   INCR I FROM 1 TO .OLD
+      DO IF .KBTIX$[BT$LAST,.I] GTR .NB
+         THEN     % NEW BUFFER(S) FIT IN MIDDLE OF BTI ( WHICH
+                    IS ORDERED ON BUFFER ADDRESSES)  %
+            BEGIN
+
+            % MOVE REMAINING ENTRIES DOWN ONE %
+
+            $UMOVO(.OLD-.I+1,(.KBTIX$+BTV$BTIHSZ+.I-1)<0,0>,
+             (.KBTIX$+BTV$BTIHSZ+.I)<0,0>);
+            KBTIX$[BT$LAST,.I]_.NB+(.SIZE-1)*KV$PAGS;
+            KBTIX$[BT$TABLE,.I]_.NBT;
+            NBT[BT$SIZE]_.SIZE;
+            NBT[BT$NEXT]_.KBTIX$[BT$TABLE,.I+1];
+            NBT[BT$FIRST]_.NB;
+            NBT[BT$NUMBER]_.OLD+1;
+            NBT[BT$NOP,1]_.SIZE;
+            BT_.KBTIX$[BT$TABLE,IF .I EQL 1 THEN .OLD+1 ELSE .I-1];
+            BT[BT$NEXT]_.NBT;
+            RETURN
+            END;
+
+   %   ADD A NEW BT AT THE END OF BTI   %
+
+   BT_.KBTIX$[BT$TABLE,.OLD];   %  CURRENT LAST BTI ENTRY %
+
+   %     FIX UP BTI & NEW BT ENTRY & RING POINTER FOR OLD BT ENTRY %
+
+   I_.OLD+1;
+   KBTIX$[BT$LAST,.I]_.NB+(.SIZE-1)*KV$PAGS;
+   KBTIX$[BT$TABLE,.I]_.NBT;
+   NBT[BT$SIZE]_.SIZE;
+   NBT[BT$NEXT]_.BT[BT$NEXT];
+   NBT[BT$FIRST]_.NB;
+   NBT[BT$NOP,1]_.SIZE;
+   BT[BT$NEXT]_.NBT;
+   RETURN
+   END;
+END ELUDOM
