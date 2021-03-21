@@ -1,0 +1,946 @@
+C ************************************************************
+C *
+C *
+C *
+C *
+C *
+C *            THIS REPRESENTS THE
+C *            SCIENTIFIC ROUTINES
+C *            OF THE ADVANCED GRAPHICS
+C *            PROGRAMMING PACKAGE..
+C *
+C *            COPYRIGHT.........
+C *
+C *            TEKTRONIX INC.
+C *            BOX 500
+C *            BEAVERTON, OREGON
+C *
+C *            RELEASE 2
+C *            VERSION 1
+C *            MODIFICATION 0
+C *
+C *     FILE 4 OF PRODUCT 062-1439-02
+C *
+C *
+C *
+C *
+C **************************************************************
+C------
+C ROUTINE---AS-0440.05-01   PLOTCS
+       SUBROUTINE PLOTCS(X,Y,N,ISYM)
+C------************************************************************
+C------*** SINGLE LINE AUTOMATIC SCALING CARTESIAN ROUTINE      ***
+C------************************************************************
+C------BRIAN DIEHM
+C------
+       INTEGER I,J,K,ISYM,JSYM(1),M(1),N
+       REAL X(N),Y(N),XMIN,XMAX,YMIN,YMAX
+       DATA I,J,K/1,11,0/
+       M(1)=N
+       JSYM(1)=ISYM
+       CALL MNMX1 (XMIN,XMAX,N,X)
+       CALL MNMX1 (YMIN,YMAX,N,Y)
+       CALL PLOTC (X,Y,N,M,JSYM,I,XMIN,XMAX,YMIN,YMAX,I,J,I,I,I,K)
+       RETURN
+       END
+C ROUTINE---AS-0450.05-01   PLOTCT
+       SUBROUTINE PLOTCT(X,Y,N,ISYM,XMIN,XMAX,YMIN,YMAX)
+C------************************************************************
+C------*** SINGLE LINE SPECIFIED SCALING CARTESIAN ROUTINE      ***
+C------************************************************************
+C------BRIAN DIEHM
+C------
+       INTEGER I,J,K,ISYM,JSYM(1),M(1),N
+       REAL X(N),XMAX,XMIN,Y(N),YMAX,YMIN
+       DATA I,J,K/1,11,0/
+       M(1)=N
+       JSYM(1)=ISYM
+       CALL PLOTC (X,Y,N,M,JSYM,1,XMIN,XMAX,YMIN,YMAX,I,J,I,I,I,K)
+       RETURN
+       END
+C ROUTINE---AS-0460.05-01   PLOTCM
+       SUBROUTINE PLOTCM(X,Y,NPTS,N,ISYM,NCURV)
+C------************************************************************
+C------*** MULTIPLE LINE AUTOMATIC SCALING CARTESIAN ROUTINE    ***
+C------************************************************************
+C------BRIAN DIEHM
+C------
+       INTEGER I,J,K,NPTS,NCURV,ISYM(NCURV),N(NCURV)
+       REAL X(NPTS),XMAX,XMIN,Y(NPTS),YMAX,YMIN
+       DATA I,J,K/1,11,0/
+       CALL MNMX1 (XMIN,XMAX,NPTS,X)
+       CALL MNMX1 (YMIN,YMAX,NPTS,Y)
+       CALL PLOTC (X,Y,NPTS,N,ISYM,NCURV,XMIN,XMAX,YMIN,YMAX,I,J,I,I,
+     & I,K)
+       RETURN
+       END
+C ROUTINE---AS-0470.05-01   PLOTCN
+       SUBROUTINE PLOTCN (X,Y,NPTS,N,ISYM,NCURV,XMIN,XMAX,
+     & YMIN,YMAX)
+C------************************************************************
+C------*** MULTIPLE LINE SPECIFIED SCALING CARTESIAN ROUTINE    ***
+C------************************************************************
+C------BRIAN DIEHM
+C------
+       DIMENSION N(NCURV), ISYM(NCURV), X(NPTS), Y(NPTS)
+       DATA I, J, K/1, 11, 0/
+       CALL PLOTC (X,Y,NPTS,N,ISYM,NCURV,XMIN,XMAX,YMIN,YMAX,
+     & I,J,I,I,I,K)
+       RETURN
+       END
+C ROUTINE---AS-0480.05-01   PLOTC
+       SUBROUTINE PLOTC(X,Y,NPTS,N,ISYM,NCURV,XMIN,XMAX,YMIN,YMAX,
+     & NEWS,IOVER,ISCAL,IXSUP,IYSUP,ICOPY)
+C------************************************************************
+C------*** BASE CARTESIAN PLOTTING ROUTINE                      ***
+C------************************************************************
+C------BRIAN DIEHM
+C------
+       DIMENSION ISYM(NCURV),N(NCURV),II(11),X(NPTS),Y(NPTS),
+     & SS(11),TT(11)
+       REAL LABX(10),LABY(10)
+       DATA XX,XXX,YY,YYY/4*0./
+       DATA STRTX,ENDX,STRTY,ENDY,BOT,TOP/0.,0.,0.,0.,0.,0./
+       DATA LITL/'L'/
+       DATA SS/20.,4.,-8.,8.,-8.,10.,8.,-8.,8.,-4.,20./
+       DATA TT/0.,12.,-8.,-8.,-8.,0.,8.,8.,8.,-12.,0./
+       DATA II/12,13,12,12,12,13,12,12,12,13,12/
+       DATA I2,I3,I12,I13,I14/2,3,12,13,14/
+       DATA I21,I59,I60,I70,I999/21,59,60,70,999/
+       DATA S0,S10,S100/0.,10.,100./
+       DATA S600,S794,S1023/600.,780.,1023./
+       DATA T10,T20,T180/-10.,-20.,-400./
+       DATA IIOUT,IIN/5,5/
+C------
+C------INITIALIZE PLOTTING ROUTINE
+C------
+       CALLHOME
+       CALLPLTSM(S0,S0,I999)
+       CALLPLTSM(S0,S0,I21)
+       IF(NEWS.EQ.0)GOTO10
+C------
+C------SCALE BOTH AXES
+C------
+       CALLAXES(XMIN,XMAX,ISCAL,IXSUP,S600,
+     & XXX,XX,AXY,STRTX,ENDX,STOLX,NBX,LABX,IXX,IXPOX)
+       XX=100./XX
+       IOVER=11
+       SIZE=FLOAT(IOVER*400-3550)
+       CALLAXES(YMIN,YMAX,ISCAL,IYSUP,S600,
+     & YYY,YY,AXX,STRTY,ENDY,STOLY,NBY,LABY,IXY,IXPOY)
+       YY=100./YY
+       BOT=1000.-SIZE
+       IF(NEWS.EQ.(-1))GOTO4
+C------
+C------PLOT AXIS SUPPRESSION MARKS AND AXES
+C------
+       CALLPLTSM(0.,0.,I70)
+       CALLPLTSM(S0,S0,I59)
+       CALLPLTSM(S1023,S794,I60)
+       CALLERASE
+       CALLPLTSM(T180,-BOT,I70)
+       BOT=1000.-SIZE
+       CALLPLTSM(S0,AXX,I3)
+       I=1
+       IF(STRTX.EQ.50.)GOTO50
+1      CALLPLTSM(ENDX,AXX,I2)
+       I=2
+       IF(ENDX.NE.600.)GOTO50
+2      CALLPLTSM(AXY,S0,I3)
+       I=3
+       IF(STRTY.EQ.50.)GOTO50
+3      CALLPLTSM(AXY,ENDY,I2)
+       I=4
+       IF(ENDY.NE.S600)GOTO50
+4      TOP=BOT+ENDY
+       BOT=BOT+STRTY
+C------
+C------PLOT ACTUAL DATA
+C------
+10     K=1
+       DO16J=1,NCURV
+       JSYM=ISYM(J)
+       IF(JSYM.NE.LITL)GOTO11
+       CALLPLTSM(-400.-STRTX,-BOT,I70)
+       CALLPLTSM(399.+STRTX,BOT-1.,I59)
+       CALLPLTSM(401.+ENDX,TOP+1.,I60)
+       GOTO12
+11     CALL PLTSM (STRTX+395.,BOT-8.,59)
+       CALL PLTSM (STRTX+995.,BOT+592.,60)
+       CALL PLTSM (-STRTX-395.,-BOT+8.,70)
+12     KK=N(J)+K-1
+       L=3
+       DO15I=K,KK
+       V=(X(I)-XXX)*XX
+       W=(Y(I)-YYY)*YY
+       IF(JSYM.NE.LITL)GOTO13
+       CALLPLTSM(V,W,L)
+       GOTO15
+13     CALLPLTSM(V,W,I3)
+       IF ((V.LT.0.).OR.(V.GT.600.)) GO TO 15
+       IF ((W.LT.0.).OR.(W.GT.600.)) GO TO 15
+       CALL ANMODE
+       WRITE (IIOUT,14) JSYM
+C******MACHINE DEPENDENT FORMAT
+14     FORMAT ($,1H+,A1)
+15     L=2
+16     K=KK+1
+C------
+C------EXPAND WINDOW TO FULL SCREEN
+C------
+       CALLPLTSM(T180,STRTY-BOT,I70)
+       CALLPLTSM(S0,S0,I59)
+       CALLPLTSM(S1023,S794,I60)
+C------
+C------LABEL X AXIS
+C------
+       IF(NEWS.LE.0)GOTO23
+       CALLPLTSM(STOLX,S0,I3)
+       DO20I=1,NBX
+       CALLPLTSM(S0,T10,I12)
+20     CALLPLTSM(S100,S10,I13)
+       CALLNUMBX(400.,150.,LABX,NBX,IXX)
+       T20=T20
+       IF(IXPOX.EQ.0)GOTO22
+       CALLPLTSM(700.,25.,3)
+       CALLPLTSM(S0,S0,I14)
+       CALL ANMODE
+       WRITE (IIOUT,21)
+       IF(IXPOX.EQ.1)GOTO22
+C******MACHINE DEPENDENT FORMAT
+21     FORMAT ($,1H+,3HX10)
+       CALLPLTSM(28.,11.,13)
+       CALL ANMODE
+       WRITE (IIOUT,100) IXPOX
+C******MACHINE DEPENDENT FORMAT
+100    FORMAT ($,1H+,I3)
+C------
+C------LABEL Y AXIS
+C------
+22     CALLNUMBY(400.,150.,LABY,NBY,IXY)
+       IF(IXPOY.EQ.0)GOTO23
+       CALL PLTSM (225.,500.,3)
+       CALLPLTSM(S0,S0,I14)
+       CALL ANMODE
+       WRITE (IIOUT,21)
+       IF(IXPOY.EQ.1)GOTO23
+       CALLPLTSM(28.,11.,13)
+       CALL ANMODE
+       WRITE (IIOUT,100) IXPOY
+23     CALLPLTSM(0.,500.,3)
+       CALLPLTSM(S0,S0,I999)
+       IF (ICOPY.EQ.1) CALL HDCOPY
+       CALL ANMODE
+       CALL PGRID (0,0,1)
+       RETURN
+C------
+C------SUBROUTINE TO DRAW AXIS SUPPRESSION MARKS
+C------
+50     DO51J=1,11
+       IF(I.LE.2)CALLPLTSM(SS(J),TT(J),II(J))
+       IF(I.GE.3)CALLPLTSM(TT(J),SS(J),II(J))
+51     CONTINUE
+       GOTO(1,2,3,4),I
+       END
+C ROUTINE---AS-0490.05-01   PLOTSS
+       SUBROUTINE PLOTSS(X,Y,N,ISYM)
+C------***********************************************************
+C------*** SINGLE LINE AUTOMATIC SCALING SEMILOG ROUTINE       ***
+C------***********************************************************
+C------BRIAN DIEHM
+C------
+       INTEGER N,ISYM,M(1),JSYM(1),I0,I1,I10
+       REAL X(N),Y(N),XMIN,XMAX,YMIN,YMAX
+       DATA I0,I1,I10/0,1,10/
+       M(1)=N
+       JSYM(1)=ISYM
+       CALL MNMX1 (XMIN,XMAX,N,X)
+       CALL MNMX1 (YMIN,YMAX,N,Y)
+       CALL PLOTS (X,Y,N,M,JSYM,I1,XMIN,XMAX,YMIN,YMAX,I1,I1,I1,I0,
+     & I10)
+       RETURN
+       END
+C ROUTINE---AS-0500.05-01   PLOTST
+       SUBROUTINE PLOTST(X,Y,N,ISYM,XMIN,XMAX,YMIN,YMAX)
+C------************************************************************
+C------*** SINGLE LINE SPECIFIED SCALING  SEMILOG ROUTINE       ***
+C------************************************************************
+C------BRIAN DIEHM
+C------
+       INTEGER N,ISYM,M(1),JSYM(1),I0,I1,I10
+       REAL X(N),Y(N),XMIN,XMAX,YMIN,YMAX
+       DATA I0,I1,I10/0,1,10/
+       M(1)=N
+       JSYM(1)=ISYM
+       CALL PLOTS (X,Y,N,M,JSYM,I1,XMIN,XMAX,YMIN,YMAX,I1,I1,I1,I0,
+     & I10)
+       RETURN
+       END
+C ROUTINE---AS-0510.05-01   PLOTSM
+       SUBROUTINE PLOTSM(X,Y,NPTS,N,ISYM,NCURV)
+C------************************************************************
+C------*** MULTIPLE LINE AUTOMATIC SCALING SEMILOG ROUTINE      ***
+C------************************************************************
+C------BRIAN DIEHM
+C------
+       INTEGER NPTS,NCURV,N(NCURV),ISYM(NCURV),I0,I1,I10
+       REAL X(NPTS),Y(NPTS),XMIN,XMAX,YMIN,YMAX
+       DATA I0,I1,I10/0,1,10/
+       CALL MNMX1 (XMIN,XMAX,NPTS,X)
+       CALL MNMX1 (YMIN,YMAX,NPTS,Y)
+       CALL PLOTS (X,Y,NPTS,N,ISYM,NCURV,XMIN,XMAX,YMIN,YMAX,
+     & I1,I1,I1,I0,I10)
+       RETURN
+       END
+C ROUTINE---AS-0520.05-01   PLOTSN
+       SUBROUTINE PLOTSN(X,Y,NPTS,N,ISYM,NCURV,XMIN,XMAX,YMIN,YMAX)
+C------*************************************************************
+C------*** MULTIPLE LINE SPECIFIED SCALING SEMILOG ROUTINE       ***
+C------*************************************************************
+C------BRIAN DIEHM
+C------
+       INTEGER NPTS,NCURV,N(NCURV),ISYM(NCURV),I0,I1,I10
+       REAL X(NPTS),Y(NPTS),XMIN,XMAX,YMIN,YMAX
+       DATA I0,I1,I10/0,1,10/
+       CALL PLOTS (X,Y,NPTS,N,ISYM,NCURV,XMIN,XMAX,YMIN,YMAX,
+     & I1,I1,I1,I0,I10)
+       RETURN
+       END
+C ROUTINE---AS-0530.05-02   PLOTS
+       SUBROUTINE PLOTS(X,Y,NPTS,N,ISYM,NCURV,XMIN,XMAX,YMIN,YMAX,
+     & NEWS,ISCAL,ISUP,ICOPY,IBASE)
+C------************************************************************
+C------*** BASE SEMILOG ROUTINE                                 ***
+C------************************************************************
+C------BRIAN DIEHM
+C------
+       REAL LAB(10)
+       DIMENSION ISYM(NCURV),N(NCURV),II(11)
+       DIMENSION X(NPTS),Y(NPTS),SS(11),TT(11)
+       DATA LITL,STRT,XEND,XX,XXX,YY,YYY/'L',6*0./
+       DATA SS/20.,4.,-8.,8.,-8.,10.,8.,-8.,8.,-4.,20./
+       DATA TT/0.,12.,-8.,-8.,-8.,0.,8.,8.,8.,-12.,0./
+       DATA II/12,13,12,12,12,13,12,12,12,13,12/
+       DATA S0,S10,S100,S600/0.,10.,100.,600./
+       DATA T10,T100,T130/-10.,-100.,-130./
+       DATA I3,I12,I13,I17/3,12,13,17/
+       DATA I21,I59,I60,I70,I999/21,59,60,70,999/
+       DATA IIOUT/5/
+       CALL HOME
+C------
+C------INITIALIZE PLOTTING ROUTINE
+C------
+       CALLPLTSM(S0,S0,I999)
+       CALLPLTSM(S0,S0,I21)
+       IF(NEWS.EQ.0)GOTO1
+C------
+C------SCALE CARTESIAN X AXIS AND LOG Y AXIS
+C------
+       CALLAXES(XMIN,XMAX,ISCAL,ISUP,S600,
+     & XXX,XX,AX,STRT,XEND,STOL,NMB,LAB,IX,IXPO)
+       XX=100./XX
+       CALL LAXES (YMIN,YMAX,IBASE,MN,MX,F,IOVER,ENT,RENT,YY,IINT)
+       YYY=FLOAT(MN)*RENT
+       IF(NEWS.EQ.(-1))GOTO1
+       CALLERASE
+C------
+C------DRAW AXES LINES WITH AXIS SUPPRESSION MARK IF USED
+C------
+       CALL PLTSM (400.,750.,I3)
+       CALL PLTSM (400.,150.,2)
+       CALL PLTSM (400.,150.,I3)
+       I=1
+       IF(STRT.EQ.50.)GOTO50
+51     CALL PLTSM (1000.,150.,2)
+       I=2
+       IF(XEND.NE.600.)GOTO50
+1      K=1
+C------
+C------PLOT ACTUAL DATA CURVES
+C------
+       DO4J=1,NCURV
+       JSYM=ISYM(J)
+       IF(JSYM.NE.LITL)GOTO9
+       CALL PLTSM (STRT+399.,149.,I59)
+       CALL PLTSM (XEND+401.,751.,I60)
+       CALL PLTSM (-STRT-400.,-150.,I70)
+       GOTO6
+9      CALL PLTSM (STRT+393.,142.,59)
+       CALL PLTSM (STRT+993.,742.,60)
+       CALL PLTSM (-STRT-393.,-142.,70)
+6      KK=N(J)+K-1
+       L=3
+       DO3I=K,KK
+       V=(X(I)-XXX)*XX
+       W=YY*ALOG(Y(I))-YYY
+       IF(JSYM.NE.LITL)GOTO2
+       CALLPLTSM(V,W,L)
+       GOTO3
+2      CALL PLTSM (V,W,3)
+       IF ((V.LT.0.).OR.(V.GT.600.)) GO TO 3
+       IF ((W.LT.0.).OR.(W.GT.600.)) GO TO 3
+       CALL ANMODE
+       WRITE (IIOUT,10) JSYM
+C******MACHINE DEPENDENT FORMAT
+10     FORMAT ($,1H+,A1)
+       CALL PLTSM (7.,0.,I17)
+3      L=2
+4      K=KK+1
+C------
+C------RESET WINDOW FOR LABELLING
+C------
+       CALLPLTSM(S0,S0,I59)
+       CALL PLTSM (1023.,780.,I60)
+       CALL PLTSM (-400.,-150.,I70)
+       IF(NEWS.LE.0)GOTO8
+       CALL PLTSM (STRT,0.,3)
+C------
+C------DRAW X-AXIS TIC MARKS AND LABEL IT
+C------
+       DO5I=1,NMB
+       CALLPLTSM(S0,T10,I12)
+5      CALLPLTSM(S100,S10,I13)
+       CALL NUMBX (400.,170.,LAB,NMB,IX)
+       CALL PLTSM (-400.,-150.,70)
+       IF (IXPO.NE.0) CALL PLOTSB (300.,-125.,IXPO,1,' ')
+C------
+C------LABEL Y-AXIS
+C------
+       K=IOVER+1
+       W=0.
+       IRUN=MN
+       J=2
+       IF(F.EQ.1.)J=3
+       DO7I=1,K
+       CALL CSIZE(IHORZ,IVERT)
+       HORZ=3-6*IHORZ
+       VERT=(7*IVERT)/22
+       CALL PLOTSB (HORZ,W-VERT,IRUN,J,'-')
+       IRUN=IRUN+IINT
+7      W=W+ENT
+C------
+C------FINISH UP AND HARD COPY IF REQUESTED
+C------
+8      CALLPLTSM(T130,T100,I3)
+       CALLPLTSM(S0,S0,I999)
+       IF (ICOPY.EQ.1) CALL HDCOPY
+C------
+C------SENT PGRID GRID DEFINITION ARGUMENTS
+C------
+       IXX=0
+       IYY=IOVER
+       IF (ENT.NE.RENT) IYY=IYY+100
+       CALL PGRID (IXX,IYY,1)
+       CALL ANMODE
+       RETURN
+C------
+C------SECTION TO DRAW AXIS SUPPRESSION MARK
+C------
+50     DO60J=1,11
+60     CALLPLTSM(SS(J),TT(J),II(J))
+       GOTO(51,1),I
+       END
+C------EXPONENTIAL LABELLING ROUTINE
+C------
+C ROUTINE---AS-0540.05-01   PLOTSB
+       SUBROUTINE PLOTSB (X,Y,L,J,IN)
+C------************************************************************
+C------*** PLOTS LABELLING ROUTINE                              ***
+C------************************************************************
+C------BRIAN DIEHM
+C------
+       DIMENSION LIT(2)
+       DATA LIT, INN /'X',' ',' '/
+       DATA IIOUT /5/
+       CALL PLTSM (X,Y,3)
+       GO TO (2,2,4), J
+2      IF (L.EQ.0) GO TO 6
+       CALL ANMODE
+       WRITE (IIOUT,12) LIT(J)
+       IF (IN.NE.INN) WRITE (IIOUT,15) IN
+C******MACHINE DEPENDENT FORMAT
+12     FORMAT ($,1H+,A1,2H10)
+       IF (L.EQ.1) GO TO 5
+       CALL PLTSM (28.,11.,13)
+       CALL ANMODE
+       WRITE (IIOUT,13) L
+C******MACHINE DEPENDENT FORMAT
+13     FORMAT ($,1H+,I3)
+       GO TO 5
+4      IF (L.EQ.0) GO TO 6
+       CALL ANMODE
+       WRITE (IIOUT,14)
+       IF (IN.NE.INN) WRITE (IIOUT,15) IN
+C******MACHINE DEPENDENT FORMAT
+14     FORMAT ($,1H+,3H  E)
+       IF (L.EQ.1) GO TO 5
+       CALL PLTSM (28.,11.,13)
+       CALL ANMODE
+       WRITE (IIOUT,13) L
+5      RETURN
+C******MACHINE DEPENDENT FORMAT
+15     FORMAT ($,1H+,2X,A1)
+6      IF (J.EQ.1) GO TO 5
+       CALL ANMODE
+       WRITE (IIOUT,16) LIT(J)
+       IF (IN.NE.INN) WRITE (IIOUT,15) IN
+C******MACHINE DEPENDENT FORMAT
+16     FORMAT ($,1H+,A1,2H 1)
+       GO TO 5
+       END
+C ROUTINE---AS-0550.05-01   PLOTLS
+       SUBROUTINE PLOTLS(X,Y,N,ISYM)
+C------************************************************************
+C------*** SINGLE LINE AUTOMATIC SCALING LOG LOG ROUTINE        ***
+C------************************************************************
+C------BRIAN DIEHM
+C------
+       INTEGER M(1),JSYM(1),N,ISYM,I0,I1,I10
+       REAL X(9999),Y(9999),XMIN,XMAX,YMIN,YMAX
+       DATA I0,I1,I10/0,1,10/
+       M(1)=N
+       JSYM(1)=ISYM
+       CALL MNMX1 (XMIN,XMAX,N,X)
+       CALL MNMX1 (YMIN,YMAX,N,Y)
+       CALL PLOTL (X,Y,N,M,JSYM,I1,XMIN,XMAX,YMIN,YMAX,I1,I0,I10)
+       RETURN
+       END
+C ROUTINE---AS-0560.05-01   PLOTLT
+       SUBROUTINE PLOTLT(X,Y,N,ISYM,XMIN,XMAX,YMIN,YMAX)
+C------************************************************************
+C------*** SINGLE LINE SPECIFIED SCALING LOG LOG ROUTINE        ***
+C------************************************************************
+C------BRIAN DIEHM
+C------
+       INTEGER M(1),JSYM(1),N,ISYM,I0,I1,I10
+       REAL X(N),Y(N),XMIN,XMAX,YMIN,YMAX
+       DATA I0,I1,I10/0,1,10/
+       M(1)=N
+       JSYM(1)=ISYM
+       CALL PLOTL (X,Y,N,M,JSYM,I1,XMIN,XMAX,YMIN,YMAX,I1,I0,I10)
+       RETURN
+       END
+C ROUTINE---AS-0570.05-01   PLOTLM
+       SUBROUTINE PLOTLM(X,Y,NPTS,N,ISYM,NCURV)
+C------************************************************************
+C------*** MULTIPLE LINE AUTOMATIC SCALING LOG LOG ROUTINE      ***
+C------************************************************************
+C------BRIAN DIEHM
+C------
+       INTEGER NCURV,NPTS,N(NCURV),ISYM(NCURV),I0,I1,I10
+       REAL X(NPTS),Y(NPTS),XMIN,XMAX,YMIN,YMAX
+       DATA I0,I1,I10/0,1,10/
+       CALL MNMX1 (XMIN,XMAX,NPTS,X)
+       CALL MNMX1 (YMIN,YMAX,NPTS,Y)
+       CALLPLOTL(X,Y,NPTS,N,ISYM,NCURV,XMIN,XMAX,YMIN,YMAX,I1,I0,
+     & I10)
+       RETURN
+       END
+C ROUTINE---AS-0580.05-01   PLOTLN
+       SUBROUTINE PLOTLN (X,Y,NPTS,N,ISYM,NCURV,XMIN,XMAX,YMIN,YMAX)
+C------************************************************************
+C------*** MULTIPLE LINE SPECIFIED SCALING LOG LOG ROUTINE      ***
+C------************************************************************
+C------BRIAN DIEHM
+C------
+       INTEGER NCURV,NPTS,N(NCURV),ISYM(NCURV),I0,I1,I10
+       REAL X(NPTS),Y(NPTS),XMIN,XMAX,YMIN,YMAX
+       DATA I0,I1,I10/0,1,10/
+       CALL PLOTL (X,Y,NPTS,N,ISYM,NCURV,XMIN,XMAX,YMIN,YMAX,I1,I0,
+     & I10)
+       RETURN
+       END
+C ROUTINE---AS-0590.05-01   PLOTL
+       SUBROUTINE PLOTL (X,Y,NPTS,N,ISYM,NCURV,XMIN,XMAX,YMIN,YMAX,
+     & NEWS,ICOPY,IBASE)
+C------************************************************************
+C------*** BASE LOG-LOG PLOTTING ROUTINE                        ***
+C------************************************************************
+C------BRIAN DIEHM
+C------
+       DIMENSION IOVER(2), MN(2), MX(2), ISYM(NCURV), N(NCURV)
+       DIMENSION IINT(2), RENT(2)
+       DIMENSION X(9999),Y(9999), ENT(2), FF(2)
+       DATA FF, LITL, XXX, YYY/2*0.,'L',2*0./
+       DATA IIOUT/5/
+       IF (NEWS.EQ.0) GO TO 1
+C------
+C------IF ORIGINAL CALL, DO SCALING
+C------
+       CALL LAXES (XMIN,XMAX,IBASE,MN(1),MX(1),F,IOVER(1),
+     (1),RENT(1),FF(1),IINT(1))
+       CALL LAXES (YMIN,YMAX,IBASE,MN(2),MX(2),F,IOVER(2),
+     & ENT(2),RENT(2),FF(2),IINT(2))
+       XXX=FLOAT(MN(1))*RENT(1)
+       YYY=FLOAT(MN(2))*RENT(2)
+       IF (NEWS.EQ.(-1)) GO TO 1
+C------
+C------IF ORIGINAL CALL, ERASE SCREEN AND DRAW AXES
+C------
+       CALL ERASE
+       CALL PLTSM (0.,0.,999)
+       CALL PLTSM (0.,0.,21)
+       CALL PLTSM (0.,0.,59)
+       CALL PLTSM (1023.,780.,60)
+       CALL PLTSM (0.,0.,70)
+       CALL PLTSM (400.,750.,3)
+       CALL PLTSM (400.,150.,2)
+       CALL PLTSM (1000.,150.,2)
+C------
+C------PLOT THE DATA
+C------
+1      K=1
+       DO 4 J=1,NCURV
+       JSYM=ISYM(J)
+       IF (JSYM.NE.LITL) GO TO 9
+C------
+C------SET WINDOW AND OFFSET FOR LINE PLOT
+C------
+       CALL PLTSM (399.,149.,59)
+       CALL PLTSM (1001.,751.,60)
+       CALL PLTSM (-400.,-150.,70)
+       GO TO 10
+C------
+C------SET WINDOW AND OFFSET FOR CHARACTER PLOT
+C------
+9      CALL PLTSM (393.,139.,59)
+       CALL PLTSM (1007.,761.,60)
+       CALL PLTSM (-393.,-139.,70)
+10     KK=N(J)+K-1
+       L=3
+       DO 3 I=K,KK
+C------
+C------CALCULATE DATA POINTS
+C------
+       V=FF(1)*ALOG(X(I))-XXX
+       W=FF(2)*ALOG(Y(I))-YYY
+       IF (JSYM.NE.LITL) GO TO 2
+C------
+C------PLOT LINE POINT
+C------
+       CALL PLTSM (V,W,L)
+       GO TO 3
+C------
+C------PLOT CHARACTER POINT AND TYPE CHARACTER
+C------
+2      CALL PLTSM (V,W+3.,3)
+       IF ((V.LT.0.).OR.(V.GT.600.)) GO TO 3
+       IF ((W.LT.0.).OR.(W.GT.600.)) GO TO 3
+       CALL ANMODE
+       WRITE (IIOUT,6) JSYM
+C******MACHINE DEPENDENT FORMAT
+6      FORMAT ($,1H+,A1)
+       CALL PLTSM (11.,0.,17)
+3      L=2
+4      K=KK+1
+C------
+C------RESET WINDOW AND OFFSET FOR LABELING
+C------
+       CALL PLTSM (0.,0.,59)
+       CALL PLTSM (1023.,780.,60)
+       CALL PLTSM (-400.,-150.,70)
+C------
+C------DO HORIZONTAL AXIS LABELING
+C------
+       K=IOVER(1)+1
+       W=1.
+       IRUN=MN(1)
+       J=2
+       IF (F.EQ.1.) J=3
+       DO 20 I=1,K
+       CALL PLTSM (W-2.,0.,3)
+       CALL PLTSM (W-2.,-14.,2)
+       IF(I.EQ.K)W=W-15
+       CALL PLOTSB (W-35.,-50.,IRUN,J,' ')
+       IRUN=IRUN+IINT(1)
+20     W=W+ENT(1)
+C------
+C------DO VERTICAL AXIS LABELING
+C------
+       K=IOVER(2)+1
+       W=0.
+       IRUN=MN(2)
+       J=2
+       IF (F.EQ.1.) J=3
+       DO 7 I=1,K
+       CALL CSIZE(IHORZ,IVERT)
+       HORZ=3-6*IHORZ
+       VERT=(7*IVERT)/22
+       CALL PLOTSB (HORZ,W-VERT,IRUN,J,'-')
+       IRUN=IRUN+IINT(2)
+7      W=W+ENT(2)
+8      CALL PLTSM (-400.,350.,3)
+       CALL PLTSM (0.,0.,999)
+C------
+C------HARD COPY IF REQUESTED AND FINISH UP
+C------
+       IF (ICOPY.EQ.1) CALL HDCOPY
+       CALL ANMODE
+C------
+C------SEND GRID DEFINITION ARGUMENTS TO PGRID
+C------
+       IXXX=IOVER(1)
+       IF (ENT(1).NE.RENT(1)) IXXX=IXXX+100
+       IYYY=IOVER(2)
+       IF (ENT(2).NE.RENT(2)) IYYY=IYYY+100
+       CALL PGRID (IXXX,IYYY,1)
+       RETURN
+       END
+
+C ROUTINE---AS-0610.05-01   PLOTPS
+       SUBROUTINE PLOTPS(A,R,NPTS,ISYM)
+C------************************************************************
+C------*** SINGLE LINE AUTOMATIC SCALING POLAR ROUTINE          ***
+C------************************************************************
+C------BRIAN DIEHM
+C------
+       INTEGER ISYM,NPTS,M(1),JSYM(1)
+       REAL A(NPTS),R(NPTS)
+       M(1)=NPTS
+       JSYM(1)=ISYM
+       CALL PLOTPM (A,R,NPTS,M,JSYM,1)
+       RETURN
+       END
+C ROUTINE---AS-0620.05-01   PLOTPT
+       SUBROUTINE PLOTPT(A,R,NPTS,ISYM,AMIN,AMAX,RMIN,RMAX)
+C------************************************************************
+C------*** SINGLE LINE SPECIFIED SCALING POLAR ROUTINE          ***
+C------************************************************************
+C------BRIAN DIEHM
+C------
+       INTEGER ISYM,NPTS,JSYM(1),M(1)
+       REAL A(NPTS),R(NPTS),AMIN,AMAX,RMIN,RMAX
+       M(1)=NPTS
+       JSYM(1)=ISYM
+       CALL PLOTP (A,R,NPTS,M,JSYM,1,AMIN,AMAX,RMIN,RMAX,1,0,1,0,0,
+     & 'R')
+       RETURN
+       END
+C ROUTINE---AS-0630.05-01   PLOTPM
+       SUBROUTINE PLOTPM(A,R,NPTS,N,ISYM,NCURV)
+C------************************************************************
+C------*** MULTIPLE LINE AUTOMATIC SCALING POLAR ROUTINE        ***
+C------************************************************************
+C------BRIAN DIEHM
+C------
+       INTEGER NPTS,NCURV,N(NCURV),ISYM(NCURV),I
+       REAL A(NPTS),R(NPTS),PI,AMIN,AMAX,X,RMIN,RMAX
+       DATA PI/6.2831854/
+       AMIN=PI
+       AMAX=0.
+       DO4I=1,NPTS
+       X=A(I)
+1      IF(X.GE.0.)GO TO 2
+       X=X+PI
+       GO TO 1
+2      IF(X.LT.PI)GO TO 3
+       X=X-PI
+       GO TO 2
+3      IF(X.LT.AMIN)AMIN=X
+       IF(X.GT.AMAX)AMAX=X
+4      CONTINUE
+       CALLMNMX1(RMIN,RMAX,NPTS,R)
+       CALLPLOTP(A,R,NPTS,N,ISYM,NCURV,AMIN,AMAX,RMIN,RMAX,1,0,1,0,
+     & 0,'R')
+       RETURN
+       END
+C ROUTINE---AS-0640.05-01   PLOTPN
+       SUBROUTINE PLOTPN (A,R,NPTS,N,ISYM,NCURV,AMIN,AMAX,RMIN,
+     & RMAX)
+C------************************************************************
+C------*** MULTIPLE LINE SPECIFIED SCALING POLAR ROUTINE        ***
+C------************************************************************
+C------BRIAN DIEHM
+C------
+       DIMENSION N(NCURV), ISYM(NCURV), A(NPTS), R(NPTS)
+       CALL PLOTP (A,R,NPTS,N,ISYM,NCURV,AMIN,AMAX,RMIN,RMAX,1,0,
+     & 1,0,0,'R')
+       RETURN
+       END
+C ROUTINE---AS-0650.05-01   PLOTP
+       SUBROUTINE PLOTP (A,R,NPTS,N,ISYM,NCURV,AMIN,AMAX,RMIN,
+     & RMAX,NEWS,IOVER,ISCAL,ISUP,ICOPY,IRD)
+C------************************************************************
+C------*** BASE POLAR PLOTTING ROUTINE                          ***
+C------************************************************************
+C------BRIAN DIEHM
+C------
+       DIMENSION ISYM(NCURV), N(NCURV), A(NPTS), R(NPTS)
+       REAL LAB(10)
+       DATA LITL, LITD, PI2 /'L', 'D', 1.57079633/
+       DATA F, X, XX, XXX / 4*0. /
+       DATA IIOUT/5/
+C------
+C------FUNCTIONS TO DETERMINE PLOTTING COORDINATES
+C------
+       ZX(AA,RR)=(RR-XXX)*COS((AA-X)*F)*XX
+       ZY(AA,RR)=(RR-XXX)*SIN((AA-X)*F)*XX
+C------
+C------DETERMINE DEGREES/RADIANS FACTOR
+C------
+       F=1.
+       IF (IRD.EQ.LITD) F=3.14159265/180.
+C------
+C------CHECK FOR SCALING BYPASS AND GREATER THAN ZERO DATA
+C------
+       IF (NEWS.EQ.0) GO TO 1
+       IF (RMAX.GT.0) GO TO 14
+       CALL ANMODE
+       WRITE (IIOUT,13)
+C******MACHINE DEPENDENT FORMAT
+13     FORMAT ($,1H+,'MAX RADIUS < OR = 0.  PLEASE CORRECT.')
+       RETURN
+C------
+C------DO SCALINF FOR A AXIS
+C------
+14     X=0.
+       IO=2
+       X=PI2/F
+11     IF (AMIN.LT.X) GO TO 12
+       X=X+PI2/F
+       GO TO 11
+12     IF (AMAX.LE.(X+.001)) IO=3
+       X=X-PI2/F
+       IF ((IOVER.EQ.2).OR.(IOVER.EQ.3)) IO=IOVER
+       IF (IO.EQ.2) X=0.
+       SIZE=(IO-1)*300.
+C------
+C------DO SCALING FOR R AXIS
+C------
+       CALL NAXES (AMAX1(RMIN,0.),RMAX,ISCAL,ISUP,SIZE,XXX,XX,AX,
+     & STOL,NMB,LAB,IX,IXPO)
+       XX=100./XX
+C------
+C------INITIALIZE FOR PLOTTING
+C------
+       CALL ERASE
+1      CALL PLTSM (0.,0.,999)
+       CALL PLTSM (0.,0.,21)
+       IF (IO.EQ.2) CALL PLTSM (-700.,-450.,70)
+       IF (IO.EQ.3) CALL PLTSM (-400.,-150.,70)
+C------
+C------DO ACTUAL PLOTTING OF CURVES
+C------
+       K=1
+       DO 4 J=1,NCURV
+       IF (ISYM(J).NE.LITL) GO TO 20
+       CALL PLTSM (399.,149.,59)
+       CALL PLTSM (1001.,751.,60)
+       GO TO 21
+20     CALL PLTSM (393.,139.,59)
+       CALL PLTSM (1007.,761.,60)
+21     KK=N(J)+K-1
+       L=3
+       DO 3 I=K,KK
+       IF (ISYM(J).NE.LITL) GO TO 2
+       IF (R(I).GT.XXX) CALL PLTSM (ZX(A(I),R(I)),ZY(A(I),R(I)),L)
+       IF (R(I).LE.XXX) CALL PLTSM (0.,0.,L)
+       GO TO 3
+2      IF (R(I).LT.XXX) GO TO 3
+       ZZZ=ZX(A(I),R(I))
+       YYY=ZY(A(I),R(I))
+       IF (IO.EQ.2) GO TO 8
+       IF ((ZZZ.GT.600.).OR.(ZZZ.LT.0.)) GO TO 3
+       IF ((YYY.GT.600.).OR.(YYY.LT.0.)) GO TO 3
+       GO TO 22
+8      IF ((ZZZ.GT.300.).OR.(ZZZ.LT.-300.)) GO TO 3
+       IF ((YYY.GT.300.).OR.(YYY.LT.-300.)) GO TO 3
+22     ZZZ=ZZZ-5.
+       YYY=YYY-8.
+       CALL PLOTPB (ZZZ,YYY,ISYM(J),1)
+3      L=2
+4      K=KK+1
+C------
+C------PREPARE FOR LABELING
+C------
+       CALL PLTSM (0.,0.,59)
+       CALL PLTSM (1023.,780.,60)
+C------
+C------IF ALREADY PLOTTED, DO NOT RE-LABEL
+C------
+       IF (NEWS.EQ.0) GO TO 9
+C------
+C------SET UP AND PLOT TIC MARKS FOR BOTH TYPE PLOTS (1/4 OR FULL)
+C------
+       CALL PLTSM (0.,0.,70)
+       CALL PLTSM (0.,0.,3)
+       IF (IO.EQ.3) GO TO 5
+       CALL PLTSM (1000.,100.,3)
+       CALL PLTSM (700.,100.,2)
+       CALL PLTSM (0.,10.,13)
+       Y=20.
+       GO TO 6
+5      CALL PLTSM (400.,150.,3)
+       Y=10.
+6      DO 7 I=1,NMB
+       CALL PLTSM (0.,-Y,12)
+7      CALL PLTSM (100.,Y,13)
+C------
+C------LABEL R AXIS FOR BOTH TYPES OF PLOTS
+C------
+       Y=50.
+       ZZZ=300.
+       IF (IO.EQ.2) Y=0.
+       IF (IO.EQ.3) ZZZ=0.
+       CALL NUMBX (400.+ZZZ,110.+Y,LAB,NMB,IX)
+       ZZZ=0.
+       IF (IO.EQ.3) ZZZ=100.
+       IF (IXPO.NE.0) CALL PLOTPB (825.-ZZZ,0.,IXPO,2)
+C------
+C------IF 1/4 PLOT, LABEL 0, 30, 45, 60, AND 90 DEG ANGLES
+C------
+       IF (IO.EQ.2) GO TO 9
+       I=X*90./PI2+.5
+       CALL PLOTPB (989.,150.,I,3)
+       CALL PLOTPB (989.,500.,I+30,3)
+       CALL PLOTPB (989.,755.,I+45,3)
+       CALL PLOTPB (750.,755.,I+60,3)
+       CALL PLOTPB (400.,755.,I+90,3)
+C------
+C------FINISH UP AND RETURN
+C------
+9      CALL PLTSM (0.,0.,70)
+       CALL PLTSM (0.,500.,3)
+       CALL PLTSM (0.,0.,999)
+       IF (ICOPY.EQ.1) CALL HDCOPY
+       CALL ANMODE
+       CALL PGRID (-1,IO-1,1)
+       RETURN
+       END
+C ROUTINE---AS-0660.05-01   PLOTPB
+       SUBROUTINE PLOTPB (X,Y,L,J)
+C------************************************************************
+C------*** PLOTP LABELLING ROUTINE                              ***
+C------************************************************************
+C------BRIAN DIEHM
+C------
+       DATA IIOUT,IIN/5,5/
+C------
+C------J=1 FOR CHARACTER PLOT, J=2 FOR LABELING POWER MULTIPLIER
+C------FACTOR FOR R AXIS LABEL, J=3 FOR LABELING 1/4 PLOT ANGLES.
+C------
+       CALL PLTSM (X,Y,3)
+       GO TO (1,2,3), J
+1      CALL ANMODE
+       WRITE (IIOUT,101) L
+C******MACHINE DEPENDENT FORMAT
+101    FORMAT ($,1H+,A1)
+       CALL PLTSM (14.,0.,17)
+       RETURN
+2      IF (L.EQ.0) RETURN
+       CALL ANMODE
+       WRITE (IIOUT,201)
+C******MACHINE DEPENDENT FORMAT
+201    FORMAT ($,1H+,3HX10)
+       IF (L.EQ.1) RETURN
+       CALL PLTSM (28.,11.,13)
+       CALL ANMODE
+       WRITE (IIOUT,202) L
+C******MACHINE DEPENDENT FORMAT
+202    FORMAT ($,1H+,I3)
+       RETURN
+3      CALL ANMODE
+       WRITE (IIOUT,202) L
+       RETURN
+       END
+ e=U
