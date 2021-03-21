@@ -1,0 +1,305 @@
+
+
+
+
+
+
+
+
+
+
+
+                    REFERENCE MANUAL
+
+                            FOR
+
+                 FET (FILE EDITING TOOL)
+
+                           ON
+
+                       TYMCOM IX
+
+
+
+DESCRIPTION
+
+     The FET (File Editing Tool) program allows simplified
+editing of non-symbolic files on the XDS 940 computer, in
+an environment similar to that of DDT.  It is executed in
+NARP, and has the following uses:
+
+     1.  Opens and closes a file.
+     2.  Opens a cell.
+     3.  Evaluates an expression.
+     4.  Manipulates data in a file or cell.
+     5.  Substitutes a symbolic file for the
+         input/output functions of a terminal.
+
+PRELIMINARY INFORMATION
+
+Definitions
+
+CELL - One binary word in the file being examined.
+
+EXAMINED CELL - A cell whose value or contents are displayed.
+
+INTERNAL CELL - An FET variable that can be set and read by
+the user.
+
+OPENED CELL - An examined cell that is ready to be changed.
+
+
+
+FET Language
+
+     CELL NAMES - These are FET - defined internal cells.
+The contents of such a cell may be referred to in expres-
+sions and the contents of such a cell can be changed by
+using its name as a command.
+
+     CONSTANTS - A constant is any string of digits rep-
+resenting a number.  The radix of numbers is normally
+defined by the internal cell named semicolonR (;R).
+However, the radix may be specified at the end of the
+number with a D for base 10, an O or a B for base 8,
+and an RX for anything else (X is another constant).
+For example, the following numbers are equivalent:  12B,
+12O, 10D, 10R10D, 10R12O, 10R12B and 10R10R10D.  The
+radix of floating point numbers is always 10.
+
+
+     SYMBOLS - The only symbols that FET recognizes are
+valid NARP or DDT opcodes or user defined symbols.  Ex-
+amples of valid symbols are LDA, CLA and BRU.
+
+     OPERATORS - The following operators are valid:
+
+  +       Addition
+  -       Subtraction or unary negation
+ ;*       Multiplication
+ ;/       Division
+  &       Logical AND
+ ()       Used to change normal precedence of operators.
+  ,       Precedes an index register field.  For example,
+          LDA. 3,2.
+  @       Indicates a numeric opcode field, for example,
+          77@ 3,2.
+Blank     Indicates address field; causes address fields
+          to be added and truncated.
+  *       Indicates indirect addressing; for example,
+          LDA* 2; causes the indirect but (40000B) to
+          be set in the operand.
+
+EXPRESSION - A string of symbols or constants linked by
+operators.  Examples of expressions are:
+
+               1
+              10
+              4+1
+             X+Y;/2
+              LDA 2
+          X+(Y;/2);*3
+
+INITIALIZATION
+
+Operation Request Format
+
+     To call the program type FET from the Executive
+followed by a carriage, then enter a command having
+the form
+
+[e1...e5]
+FET command C.R.
+
+where e is an expression as defined under PRELIMINARY
+INFORMATION.  The FET command can be a cell name.  If it
+is, the command implies string the expression in the
+named cell; FET echoes a carriage return and line feed
+and closes any opened cells.  If the FET is a specific
+command other than a cell name, it is executed with the
+expression(s) as its argument.  Normally, if the expres-
+sion is omitted the value of the last expression typed 
+in or printed out is used.
+
+
+FET Cell Names
+
+     .     Contains address of last cell opened.
+    ;1     Beginning cell address for searches.
+    ;2     Ending cell address for searches.
+   ;3-;9   Not used.
+    ;M     Mask used for searches.  Bits which are on in
+           this cell defined which portions of the cells
+           must match or not match.
+    ;Q     Value of last expression typed in or printed out.
+    ;A     Address mask.  When contents of one cell are
+           used to specify the address of the next cell to
+           open, FET needs to know what portion of the
+           cell contains the new address.  Semicolon A (;A)
+           defines this.  The address is extracted using
+           semicolon A as a mask then is right justified.
+           Semicolon A is initialized to 37777 octal.
+    ;X     Contains the pseudo-file number of the current
+           file; Can represent a channel number.  The
+           valid range is 0 through 9.
+    ;T     Defines character size and conversion for text
+           input and output.  Valid values are 6 for six
+           bit ASCII (TEXT) and 8 for eight bit ASCII
+           (ASC).
+    ;E     Address of end of file for current job.
+    %E     Epsilon.  Defines how close floating point
+           numbers must be to be considered equal; in-
+           itialized to zero.
+    ;V     If negative, suppresses the printing of labels
+           for file addresses.
+    %R     Remainder from last integer division.  
+    ;R     Current radix; defines default radix for enter-
+           ing numbers; valid range is 2 through 10 (decimal).
+
+OPENING AND CLOSING A FILE
+
+
+     FET creates 10 "benches" on which files must be
+placed to be opened.  Although all 10 benches may each
+hold a file simultaneously, only one bench at a time can
+be active.  This bench is called the current bench.  The
+cell designated as semicolon X(;X) always contains the
+current bench number.  Changing the value of this cell
+changes the current bench.  The commands listed blow open
+and close files with the aid of the benches just described.
+In each command shown below, the bench is specified by e
+which is any expression as defined under PRELIMINARY
+INFORMATION.
+
+[e];I file name C.R.
+
+where I is "Input" abbreviated; opens the specified file
+on the specified bench as read only.
+
+[e];U file name C.R.
+
+where U is "Update" abbreviated; opens the specified file
+on the specified bench as read/write.
+
+[e];C file name C.R.
+
+where C is "Create" abbreviated; creates the specified
+file on the specified bench if the file is new; or opens
+the file as read,/write if it is an old file; or
+deletes the contents of the file if it is an old file.
+
+[e]%C file name C.R.
+
+where C is "Close" abbreviated; closes the specified file
+on the specified bench.  If e is omitted, this command
+closes all files.
+
+[e];F C.R.
+
+where F is "Flush" abbreviated; if e is omitted, this
+command flushes all benches.  Normally, data is buffered
+to and from the disc and flushing causes this buffered
+data to be written.
+
+
+     Omitting e when typing any of the commands in the
+preceding list which open files has these consequences:
+
+     1.  Bench 0 is assumed.
+
+     2.  The command to open a file which has already
+         been opened will close that file.
+
+     3.  After a file is opened, the beginning cell
+         address for searches is initialized to 0 and
+         the ending cell address for searches is in-
+         itialized to the address of the last word in
+         the file.
+
+     4.  The address of the end-of-file for the current
+         bench is initialized to the number of words in
+         the file.
+
+     5.  The file being opened will be sent to the cur-
+         rent bench.
+
+     Any of the commands in the preceding list closes any
+opened cell.
+
+OPENING A CELL
+     Certain FET commands open cells.  When these commands
+are used to open a cell, they will display its contents and
+space to the right.  FET will then wait for a new cell value
+to be typed.  When this value is typed the cell is said to
+be open.  It will remain open until a command is typed
+to close all cells or to open a new cell, or wait until a
+carriage return is typed.  All commands which close all cells
+will echo a carriage return.  Except when a command to open
+a cell is typed, the cell remains open until either the user
+or FET types a carriage return.
+
+     The commands listed below open a cell in various ways
+and for different purposes.  In the commands shown below,
+the cell is specified by e which is any expression as de-
+fined under PRELIMINARY INFORMATION.  The expression may
+specify a single cell or a range of cells.  For example,
+the command
+
+1,5/ C.R.
+
+displays cells 1 through 5 in the current mode without
+opening them.
+
+[e]/ C.R.
+
+opens the specified cell and displays it in the current
+mode.
+
+[e]] C.R.
+
+opens the specified cell and displays it in instruction
+format.
+
+[e][ C.R.
+
+opens the specified cell and displays it as an unsigned 
+integer
+
+[e]$ C.R.
+
+opens the specified cell and displays it as a signed
+integer.
+
+[e]" C.R.
+
+opens the specified cell and displays it as text.
+
+[e]  C.R.
+
+opens the specified cell but does not display it.  This
+is the only command that can be used to open a cell past
+the end of the file.
+[e]: C.R.
+
+opens the specified cell and displays it as floating point.
+
+LF C.R.
+
+where LF is "line feed" abbreviated; opens the cell. +X
+in the same mode as the last cell opened, where X is the
+size of the last cell opened.  (Remember, "floating point"
+is two words.)
+
+  C.R.
+
+opens the cell. -X in the same mode as the last cell opened,
+where X is the size of the last cell opened.
+
+[e]  C.R.
+
+executes a carriage return and line feed, then prints
+the address of the specified cell; opens the specified
+cell and displays it in the same mode as the last cell
+opened.
+
+   
