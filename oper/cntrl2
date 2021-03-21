@@ -1,0 +1,389 @@
+      SUBROUTINE CNTRL
+C     ------------------------------------------------------------------
+C                  THIS ROUTINE READS MOST OF THE DATA AND CONTROLS THE
+C                  GENERATION OF THE SYSTEM EQUATIONS OF MOTION.
+C     ------------------------------------------------------------------
+C       CHANGE TO REAL IN OS/360
+      REAL     TITLE(70),CODE(80),BLANK
+C     ------------------------------------------------------------------
+      REAL         M11(6,6),M12(6,6),M13(6,6),M22(6,6),M23(6,6),M33(6,6)
+     1            ,K11(6,6),K12(6,6),K13(6,6),K22(6,6),K23(6,6),K33(6,6)
+      DIMENSION             NUM(3),V(10),ISAVE(3),NC(28)
+      COMMON IN,IOUT,NOUTP,IFPLT,NEXEC,NERR,NNT,NEQ,IFEQ(3),IFUNA,
+     1     IFUPD(3),NREC(4),NFN(4),NELMT,NS(9),NSTAT(600),TITLE,CODE
+      COMMON NN(3),NNODE,IFWT(3),IFATT
+      COMMON VMAT(3),VELE(12),VATT(9),DC(3,3),PHI,X(100),Y(100),Z(100)
+      COMMON  M11,M12,M22,M13,M23,M33,K11,K12,K22,K13,K23,K33,
+     1        P2(3),P3(3),PA(3),PB(3),PC(3),
+     2        TR(6,6),T1(6,6),T2(6,6),D1(6,6),D(18)
+      COMMON/FILES/IDTFL,IPRCM,ITERM
+      DATA BLANK/' '/
+C   --------------------------------------------------------------------
+C                  SUMMARY OF COMMANDS
+C   --------------------------------------------------------------------
+C        A- 100-ANGULAR-ATTACH
+C        B- 200-BEAM
+C        C- 300-C-CARD-CONSTRAINT-COUPLE
+C        D- 400-DAMPER-DAMPING-DIRECTION COS-DO COUPLE
+C        E- 500-ELIMINATE-END-ERROR
+C        F- 600-FREQUENCY
+C        I- 900-INVERT
+C        L-1200-LINK
+C        M-1300-MASS-MATERIAL-MODAL
+C        N-1400-NATURAL-NODAL
+C        O-1500-OUTPUT
+C        P-1600-PRINT-PUNCH
+C        R-1800-RESET-READ
+C        S-1900-SPRING-STATIC-
+C        T-2000-TITLE-TRIANGULAR-TYPEWRITER
+C        Z-2600-ZERO
+C   --------------------------------------------------------------------
+C                  SUMMARY OF ELEMENTS
+C     ------------------------------------------------------------------
+C        S - MASS
+C        1 - TRIANGLE
+C        2 - BEAM
+C        3 - SPRING
+C        4 - DAMPER
+C        5 - LINK
+C      -----------------------------------------------------------------
+C     -----------------------------------------------------------------
+C                  NSTAT DEFINITION
+C     -----------------------------------------------------------------
+C        0 - ACTIVE
+C        1 - TO BE ZEROED
+C        2 - TO BE CONSTRAINED
+C        3 - ZEROED
+C        4 - CONSTRAINED
+C     -----------------------------------------------------------------
+C                  INITIALIZATION
+C   --------------------------------------------------------------------
+      NNMAX=100
+      NCOMX=600
+      PI=3.141593
+      IFCHG=1
+      IF(NEXEC)10,45,45
+   10 NEQ=0
+      NNT=0
+      NOUTP=0
+      IFUNA=0
+      IFATT=0
+      PHI=0.
+      NERR=0
+C                  CLEAR SCRATCH FILE
+      DO 20 I=1,3
+      P2(I)=0.
+      P3(I)=0.
+      PA(I)=0.
+      PB(I)=0.
+      PC(I)=0.
+      IFUPD(I)=0
+      IFEQ(I)=0
+   20 NREC(I)=0
+      CALL MFILL(DC,3,3,3,1.)
+C                  DECLARE ALL COMPONENTS ACTIVE
+      DO 30 I=1,NCOMX
+   30 NSTAT(I)=0
+      DO 40 I=1,70
+   40 TITLE(I)=BLANK
+   45 WRITE(IOUT,50)
+   50 FORMAT(//)
+C     ------------------------------------------------------------------
+C                  READ COMMAND AND BRANCH
+C     ------------------------------------------------------------------
+   70 IFWT(1)=0
+      IFWT(2)=0
+      IFWT(3)=0
+      IF(ITERM)76,76,74
+   74 WRITE(IOUT,75)
+   75 FORMAT('+*'$)
+   76 READ(IN,80,END=2029)CODE
+      IF(IPRCM)89,89,85
+85    CALL EBLNK(CODE,80,IEND)
+      WRITE(IPRCM,86)(CODE(I),I=1,IEND)
+   86 FORMAT(1X,72A1)
+   89 CONTINUE
+   80 FORMAT(80A1)
+      CALL DCODA(NUM,IPOS,CODE,80,3)
+      IGT=NUM(1)
+      GO TO (100,200,300,400,500,600,5000,700,900,5000,5000,1200,1300,
+     1 1400,1500,1600, 520,1800,1900,2000,5000,5000,5000,5000,5000,2600,
+     2  70,5000),IGT
+C     ------------------------------------------------------------------
+  100 IF(NUM(2)-20)110,120,110
+C                  ANGULAR ORIENTATION
+  110 CALL GETRL(PHI,1,1,NFD,CODE,80,0,0)
+      IFCHG=1
+      GO TO 70
+C                  ATTACHMENT COMMAND
+  120 CALL GETRL(VATT,9,9,NFD,CODE,80,0,0)
+      IFATT=1
+      GO TO 70
+C                  BEAM CONNECTION INPUT
+  200 NELMT=2
+      IFCHG=1
+      CALL GETRL(VELE,12,12,NFD,CODE,80,0,0)
+      GO TO 70
+  300 IF(NUM(2)-1)302,330,302
+  302 IF(NUM(3)-21)304,370,304
+  304 IF(NUM(3)-14)70,350,70
+C                  CARD INPUT
+  330 IN=2
+      GO TO 70
+C                  CONSTRAINT COMMAND
+  350 NEXEC=4
+      RETURN
+C                  COUPLE COMMAND
+  370 NR=-1
+      NDO=1
+      GO TO 435
+  400 IF(NUM(2)-9)402,420,402
+  402 IF(NUM(2)-1)404,410,404
+  404 IF(NUM(2)-25)406,490,406
+  406 IF(NUM(2)-15)5000,430,5000
+C                  DAMPER CONNECTION INPUT
+  410 NELMT=4
+      CALL GETRL(VELE,12,6,NFD,CODE,80,0,0)
+      GO TO 70
+C                  DIRECTION COSINES
+  420 CALL GETRL(DC,9,9,NFD,CODE,80,0,0)
+      CALL MTRIP(DC,3,3,3)
+      GO TO 70
+C                  DO COUPLE COMMAND
+  430 CALL NXTWD(N2,IPOS,CODE,80,1)
+      NR=1
+      IF(N2-3)5000,435,5000
+  435 CALL GETIN(NC,9,9,NFD,CODE,80)
+      IF(NR)440,450,450
+  440 IF(NFD-1)5040,5040,442
+  442 IF(NFD-3)446,446,444
+  444 NFD=3
+  446 NNODE=NFD
+      GO TO 465
+  450 IF(NFD-5)5040,5040,460
+  460 NNODE=NFD/3
+      DO 462 I=1,NNODE
+      N1=2*NNODE+I
+      N2=NNODE+I
+      N2=NC(N2)-NC(I)
+  462 NC(N1)=ISIGN(NC(N1),N2)
+      NDO=1+(NC(NNODE+1)-NC(1))/NC(2*NNODE+1)
+  465 DO 480 I=1,NFD
+      IF(NC(I)-NNMAX)470,470,5020
+  470 IF(NNT-NC(I))475,475,480
+  475 NNT=NC(I)
+  480 CONTINUE
+      DO 485 I=1,NNODE
+      NUM(I)=NC(I)
+      N1=2*NNODE+I
+  485 NC(I)=NC(N1)
+      GO TO 3000
+C  DYNAMIC ANALYSIS
+  490 NEXEC=3
+      RETURN
+  500 IF(NUM(2)-12)502,510,502
+  502 IF(NUM(2)-14)504,520,504
+  504 IF(NUM(3)-18)5000,70,5000
+C                  ELIMINATE COMMAND
+  510 NEXEC=5
+      CALL RDCMP(NC,NUM,NCOMX,2)
+      RETURN
+C                  END OF SIMULATION
+  520 NEXEC=-1
+      RETURN
+C                  FREQUENCY RESPONSE COMMAND
+  600 NEXEC=1
+      RETURN
+C  HELP SUBROUTINE FOR STANDARD "FRONT END"
+  700 CALL HELPR
+      GO TO 70
+C                  INVERT STIFFNESS MATRIX COMMAND
+  900 NEXEC=8
+      RETURN
+C                  LINK COMMAND
+ 1200 NELMT=5
+      CALL GETRL(VELE,6,6,NFD,CODE,80,IN,IPRCM)
+      CALL GETRL(VELE(7),6,6,NFD,CODE,80,IN,IPRCM)
+      GO TO 70
+ 1300 IF(NUM(3)-19)5000,1310,1350
+C                  MASS COMPONENT INPUT
+ 1310 CALL GETRL(VELE,12,8,NFD,CODE,80,0,0)
+      N1=VELE(1)+0.1
+      IF(N1)5040,5040,1315
+ 1315 IF(N1-NNMAX)1320,1320,5020
+ 1320 NN(1)=N1
+      NNODE=1
+      IF(NNT-N1)1330,1340,1340
+ 1330 NNT=N1
+ 1340 IF(NFD-5)1345,1345,1342
+ 1342 VELE(6)=VELE(6)-X(N1)
+      VELE(7)=VELE(7)-Y(N1)
+      VELE(8)=VELE(8)-Z(N1)
+ 1345 CALL RMASS
+      IFWT(1)=1
+      GO TO 4000
+C                  MATERIAL PROPERTIES COMMAND
+ 1350 CALL GETRL(V,4,4,NFD,CODE,80,0,0)
+      IF(NFD-4)1370,1360,1360
+ 1360 V(2)=V(1)/(2.*(1.+V(4)))
+ 1370 CALL MMOVE(VMAT,3,V,3,3,1,1)
+      GO TO 70
+C                  MODAL TRANSFORMATION COMMAND
+ 1400 IF(NUM(2)-1)1420,1410,1420
+C                  NATURAL FREQUENCIES
+ 1410 NEXEC=2
+      RETURN
+C                  NODAL LOCATION COMMAND
+ 1420 CALL GETIN(NR,1,1,NFD,CODE,80)
+      IF(NFD)1425,1425,1430
+ 1425 NR=1
+ 1430 CALL GETRL(V,10,9,NFD,CODE,80,IN,IPRCM)
+      IF(NFD)70,70,1435
+ 1435 NSTEP=1
+      N1=V(1)+.1
+      D(1)=0.
+      NDO=1
+      IF(NR-1)1440,1440,1465
+C                  CARTESIAN COORDINATES
+ 1440 IF(NFD-8)1448,1448,1445
+ 1445 NSTEP=V(9)+.1
+      GO TO 1450
+ 1448 IF(NFD-5)1455,1450,1450
+ 1450 N2=V(5)+.1
+      NSTEP=ISIGN(NSTEP,N2-N1)
+      NDO=1+(N2-N1)/NSTEP
+      D(1)=NSTEP
+      D(1)=D(1)/(V(5)-V(1))
+ 1455 DO 1460 I=1,NDO
+      N2=N1+(I-1)*NSTEP
+      D(2)=D(1)*(I-1)
+      X(N2)=V(2)+D(2)*(V(6)-V(2))
+      Y(N2)=V(3)+D(2)*(V(7)-V(3))
+ 1460 Z(N2)=V(4)+D(2)*(V(8)-V(4))
+      GO TO 1430
+C                  X-Y POLAR COORDINATES
+ 1465 D(5)=PI/180.
+      IF(NFD-6)1472,1472,1470
+ 1470 NSTEP=V(7)+.1
+      GO TO 1475
+ 1472 IF(NFD-4)1480,1475,1475
+ 1475 N2=V(4)+.1
+      NSTEP=ISIGN(NSTEP,N2-N1)
+      NDO=1+(N2-N1)/NSTEP
+      D(1)=NSTEP
+      D(1)=D(1)/(V(4)-V(1))
+ 1480 DO 1485 I=1,NDO
+      N2=N1+(I-1)*NSTEP
+      D(2)=(I-1)*D(1)
+      D(3)=V(2)+D(2)*(V(5)-V(2))
+      D(4)=(V(3)+D(2)*(V(6)-V(3)))*D(5)
+      X(N2)=D(3)*COS(D(4))
+      Y(N2)=D(3)*SIN(D(4))
+ 1485 Z(N2)=0.
+      GO TO 1430
+C                  OUTPUT SPECIFICATION
+ 1500 CALL GETRL(V,1,1,NFD,CODE,80,0,0)
+      NOUTP=V(1)*1.1
+      GO TO 70
+C                  PRINT OR PUNCH COMMAND
+ 1600 NEXEC=7
+      RETURN
+C                  RESET OR READ
+ 1800 IF(NUM(3)-19)1600,10,1600
+ 1900 IF(NUM(3)-1)1910,1920,1910
+C                  SPRING OR STIFFNESS INPUT
+ 1910 NELMT=3
+      CALL GETRL(VELE,12,6,NFD,CODE,80,0,0)
+      IFCHG=1
+      GO TO 70
+C                  STATIC DEFORMATION COMMAND
+ 1920 NEXEC=6
+      RETURN
+ 2000 IF(NUM(2)-18)2010,2020,2030
+C                  JOB TITLE
+ 2010 DO 2015 I=1,70
+ 2015 TITLE(I)=CODE(I+6)
+      GO TO 70
+C                  TRIANGULAR PLATE COMMAND
+ 2020 NELMT=1
+      CALL GETRL(VELE,12,3,NFD,CODE,80,0,0)
+      IFCHG=1
+      IF(NFD-1)5040,2025,70
+ 2025 VELE(2)=VELE(1)
+      VELE(3)=VELE(1)
+      GO TO 70
+C                  TYPEWRITER INPUT
+ 2029 WRITE(IOUT,2028)
+ 2028 FORMAT( ' **END OF MACE INPUT FILE '/)
+ 2030 IN=5
+      ITERM=1
+      WRITE(IOUT,2035)
+ 2035 FORMAT(/)
+      IF(IDTFL)2036,2036,70
+ 2036 IPRCM=0
+      GO TO 70
+C           ZERO COMMAND
+ 2600 CALL RDCMP(NC,NUM,NCOMX,1)
+      IFUNA=1
+      GO TO 70
+C     -------------------------------------------------------------------
+C                  COMPUTE ELEMENT MATRICES FOR COUPLE
+C     -------------------------------------------------------------------
+ 3000 DO 4500 II=1,NDO
+      DO 3010 JJ=1,NNODE
+ 3010 NN(JJ)=NUM(JJ)+(II-1)*NC(JJ)
+      CALL DCORD(IFCHG)
+      IF(IFCHG)3020,3020,3050
+ 3020 IFWT(1)=ISAVE(1)
+      IFWT(2)=ISAVE(2)
+      IFWT(3)=ISAVE(3)
+      GO TO 4000
+ 3050 IF(NERR)3060,3060,4000
+ 3060 GO TO (3100,3200,3300,3400,3500),NELMT
+C                  TRIANGULAR ELEMENT
+ 3100 CALL TRANG
+      GO TO 4000
+C                  BEAM ELEMENT
+ 3200 CALL BEAM
+      GO TO 4000
+C                  STIFFNESS ELEMENT
+ 3300 IFWT(3)=1
+      CALL MFILL(K11,6,6,6,0.)
+      DO 3335 I=1,6
+ 3335 K11(I,I)=VELE(I)
+      CALL ROTRC(K22,K12,K11)
+      GO TO 4000
+C                  DAMPING ELEMENT
+ 3400 IFWT(2)=1
+      CALL MFILL(M11,6,6,6,0.)
+      DO 3410 I=1,6
+ 3410 M11(I,I)=VELE(I)
+      CALL ROTRC(M22,M12,M11)
+      GO TO 4000
+C                  LINK ELEMENT
+ 3500 CALL LNK
+C     ------------------------------------------------------------------
+C                  WRITE RECORDS
+C     ------------------------------------------------------------------
+ 4000 ISAVE(1)=IFWT(1)
+      ISAVE(2)=IFWT(2)
+      ISAVE(3)=IFWT(3)
+      CALL WRTRC
+      IFCHG=0
+ 4500 IFATT=0
+      GO TO 70
+C     ------------------------------------------------------------------
+C                  ERROR MESSAGES
+C     ------------------------------------------------------------------
+ 5000 WRITE(IOUT,5010)
+ 5010 FORMAT( 5X,'-----PRECEEDING COMMAND NOT RECOGNIZED-----'/)
+      GO TO 70
+ 5020 WRITE(IOUT,5030)NNMAX
+ 5030 FORMAT( 5X,'----- NODE NUMBERS ABOVE',I4,' CANNOT BE HANDLED -----
+     1'/)
+      GO TO 70
+ 5040 WRITE(IOUT,5050)
+ 5050 FORMAT( 5X,'----- TOO FEW NUMBERS INPUT -----'/)
+      GO TO 70
+      END
+ 
