@@ -1,0 +1,177 @@
+      SUBROUTINE SLNK3
+C     LINK(SLNK3)                                                       LNK30060
+C     PERFORM MBR RELEASE MODIFICATION                                  LNK30070
+C     STRESS PROGRAMMING SYSTEM FOR IBM 1130                            LNK30080
+C     DIMENSION AND COMMON STATEMENTS WHICH MUST APPEAR IN ALL ROUTINES LNK30090
+      DIMENSION NSYSF(6)                                                LNK30100
+      DIMENSION NPRBF(6)                                                LNK30110
+      DIMENSION NARRF(36)                                               LNK30120
+      DIMENSION  JMIN(250),JPLS(250),MTYP(250)                                  
+      DIMENSION STIF(40),SCR1(40),SCR2(40),SCR3(40),SCR4(40),MO(6)      LNK30140
+C     SYSTEM PARAMETERS  -  14 WORDS                                    LNK30150
+      COMMON NTMP,KCUR,NAVAL,NOVER,ISOLV,ISUCC,ISCAN,ITRAC,NSYSF        LNK30160
+C     PROBLEM PARAMETERS  -  32 WORDS                                   LNK30170
+      COMMON NJ,NB,NDAT,NFJS,NLDS,NLDSI,ID,NCORD,JF,NSQ,IMETH,NMR,NJR,  LNK30180
+     1IBETA,IYOUN,ISHEA,GSHEA,EYOUN,FILL1,FILL2,IPZER,ISTRS,NPRBF             LNK30190
+C     PLATE PARAMETERS                                                  $NK30194
+      COMMON IPLAT,NPLAT,KPLA1,KPLAT,KTHI1,KTHIK                        $NK30196
+C     ARRAY CODEWORDS  40 PAIRS = 80 WORDS                              LNK30200
+      COMMON KNAM1,KNAME,KXY1,KXYZ,KJRE1,KJREL,MEGA1,MEGAZ,KMEM1,KMEMB, LNK30210
+     1KBET1,KBETA,KYON1,KYOUN,KSHE1,KSHEA,KMRE1,KMREL,KMEG1,KMEGA,      LNK30220
+     2KMKS1,KMKST,KROT1,KROTE,KPPL1,KPPLS,KPMN1,KPMNS,LOAD1,LOADS,      LNK30230
+     3KLIN1,KLINT,MLOA1,MLOAD,JLOA1,JLOAD,KDIA1,KDIAG,KOFD1,KOFDG,      LNK30240
+     4KPPR1,KPPRI,KSTA1,KSTAT                                           LNK30250
+      COMMON NARRF                                                      LNK30260
+C  MEMBER INCIDENCE AND TYPE TABLES  250 JOINTS  500 MEMBERS                    
+      COMMON JMIN,JPLS,MTYP                                             LNK30280
+C     SCRATCH AREA CAN BE INSERTED AS DESIRED FOR EACH ROUTINE          LNK30290
+C     COMMON FOR MEMBER RELEASES ROUTINES                               LNK30300
+      COMMON/MRELX/STIF,SCR1,SCR2,SCR3,SCR4,NRC,NNRC,MO,M,SS,NOWCT,
+     1 IFCOM,IRC,IND,ISIDE                                              LNK30320
+20    FORMAT(6HISOLV=,I4)                                               LNK30340
+801   FORMAT (7H MEMBER,I4,29H UNSTABLE, TOO MANY RELEASES.)            LNK30350
+C     TO PERFORM MEMBER RELEASES MODIFICATIONS TO THE MEMBER STIFFNESS  LNK30360
+C     MATRICES.                                                         LNK30370
+C     AND TO PROVIDE KMEGA FOR MEMBERS WITH START RELEASES.             LNK30380
+C     XCOOF RELATE MATRIX A TO B                                        LNK30390
+      XCOOF(JS,IX,JX)=IX+JS*(JX-1)                                      LNK30400
+      ISOLV=4                                                           LNK30410
+      IF (ITRAC)1,1,2                                                   LNK30420
+    2 WRITE(5,20)ISOLV
+1     NOMR=0                                                            LNK30440
+      NOWCT=0                                                           LNK30450
+C     LOOP THROUGH ALL MEMBERS                                          LNK30460
+      DO 900 M=1,NB                                                     LNK30470
+      IFCOM=0                                                           LNK30480
+C     BRING IN RELEASE CODE,SPAK(0)=UNPACK                              LNK30490
+      CALL SDATA(KMRE1,KMREL,M,WHOLC,JKL,-1,1)                          LNK30500
+      CALL SPAK4(0,WHOLC,MO(1),MO(2),IRCP,IRCM)                         LNK30510
+      IF(IRCP+IRCM)900,900,100                                          LNK30520
+C     BRING IN LENGTH OF MEMBER                                         LNK30530
+100   CALL SDATA(KMEM1,KMEMB,M,SCR1,JKL,-1,0)                           LNK30540
+      SS=SCR1(8)                                                        LNK30550
+C     BRING IN STIFFNESS MATRIX TO STIF                                 LNK30560
+      CALL SDATA(KMKS1,KMKST,M,STIF,JKL,-1,0)                           LNK30570
+C     IDENTIFY RELEASE TYPE                                             LNK30580
+C     NRE=-1  END RELEASE (MINUS END)                                   LNK30590
+C        =0 BOTH                                                        LNK30600
+C        =+1 START RELEASE (PLUS END)                                   LNK30610
+C     IE=1   (+) END BEING PROCESSED                                    LNK30620
+C       =0   (-) END BEING PROCESSED                                    LNK30630
+      IE=1                                                              LNK30640
+      NRE=0                                                             LNK30650
+C     CHECK FOR (+END) RELEASE                                          LNK30660
+      IF(IRCP) 105,105,103                                              LNK30670
+103   NRE=+1                                                            LNK30680
+C     CHECK FOR (MINUS END) RELEASE                                     LNK30690
+105   IF(IRCM) 109,109,107                                              LNK30700
+107   NRE=NRE-1                                                         LNK30710
+      IE=0                                                              LNK30720
+C     IS STRUCTURE A TRUSS (ID=1-PLANE TRUSS,=2-PLANE FRMAE,=3-PLANE GRILNK30730
+C     ID=4-SPACE TRUSS,=5-SPACE.)                                       LNK30740
+109   GO TO (113,120,120,113,120),ID                                    LNK30750
+C     YES, STRUCTURE IS A TRUSS                                         LNK30760
+113   IF(NRE)849,114,849                                                LNK30770
+114   NOMR=NOMR+2                                                       LNK30780
+      GO TO 800                                                         LNK30790
+C     NO. STRUCTURE IS NOT A TRUSS                                      LNK30800
+C     IS (-) END RELEASED                                               LNK30810
+120   IF (NRE) 123,123,170                                              LNK30820
+C     PROCESS (-) END FIRST IF RELEASED                                 LNK30830
+123   IRC=IRCM                                                          LNK30840
+C     COMES THROUGH HERE FOR BOTH TYPES OF RELEASES                     LNK30850
+C     SORDC OBTAINS RELEASE CODE FOR ONE END AND SETS UP A COLUMN       LNK30860
+C     VECTOR MO.                                                        LNK30870
+C     CALL SORDR(IRC)                                                   LNK30880
+124   CALL SORDR                                                        LNK30890
+      NOMR=NOMR+NRC                                                     LNK30900
+C     PERMUTE STIFFNESS MATRIX, MOVE RELEASED COMPONENTS                LNK30910
+C     TO BOTTOM AND TO RIGHT- PERFORMS BY INSPECTION THE TRIPLE         LNK30920
+C     PRODUCTS.                                                         LNK30930
+C     ARGUMENTS=1=IDEC,SCR1=LAMBDA(R)LAMBDA-T,R=STIF                    LNK30940
+      CALL SPMUT(STIF,SCR1,1)                                           LNK30950
+C     PERMUTED STIFFNESS IN SCR1                                        LNK30960
+C     ARE ALL DIRECTIONS RELEASED                                       LNK30970
+      IF(NRC-JF)126,125,125                                             LNK30980
+126   IFCOM=2                                                           LNK30990
+      GO TO 130                                                         LNK31000
+C     ALL DIRECTIONS RELEASED                                           LNK31010
+125   IF (NRE)850,800,127                                               LNK31020
+C     IFCOM =1   ALL (+) COMPONENTS RELEASED,CALL SFIXM THEN ZERO       LNK31030
+C     STIFFNESS MATRIX                                                  LNK31040
+C     IFCOM =2   ALL (+) COMPONENTS NOT RELEASED, CALL SFIXM THEN       LNK31050
+C     PROCEED NORMALLY                                                  LNK31060
+127   IFCOM=1                                                           LNK31070
+C     ALL DIRECTIONS NOT RELEASED                                       LNK31080
+C     IS ONLY ONE COMPONENT RELEASED                                    LNK31090
+130   IF (NRC-1)133,133,135                                             LNK31100
+C     YES SO INVERT K22 BY DIVISION                                     LNK31110
+133   IF(SCR1(NSQ))134,800,134                                          LNK31120
+134   SCR2(1)=1.0/SCR1(NSQ)                                             LNK31130
+      GO TO 140                                                         LNK31140
+C     NO, SO SET UP K22 IN SCR2 FOR SVRT9                               LNK31150
+135   DO 138 J=1,NRC                                                    LNK31160
+      DO 138 I=1,NRC                                                    LNK31170
+      IJ=XCOOF(NRC,I,J)                                                 LNK31180
+      IJNRC=XCOOF(JF,I+NNRC,J+NNRC)                                     LNK31190
+138   SCR2 (IJ)=SCR1(IJNRC)                                             LNK31200
+C     CALL SVRT9(SCR2)                                                  LNK31210
+      CALL SVRT9                                                        LNK31220
+      IF (IND)800,800,140                                               LNK31230
+C     K22 (-1) NOW IN SCR2                                              LNK31240
+C     PUT K12 IN SCR3                                                   LNK31250
+140   DO 143 J=1,NRC                                                    LNK31260
+      DO 143 I=1,NNRC                                                   LNK31270
+      IJ=XCOOF(NNRC,I,J)                                                LNK31280
+      IJNRC=XCOOF(JF,I,J+NNRC)                                          LNK31290
+143   SCR3(IJ)=SCR1(IJNRC)                                              LNK31300
+C     MATRIX MULTIPLICATION,SCR3XSCR2=SCR4                              LNK31310
+C     PERFORM K12*K22(-1), PLACE RESULT IN SCR4 AND SAVE                LNK31320
+      CALL STMAB(SCR3,SCR2,SCR4,NNRC,NRC,NRC)                           LNK31330
+      IF(IE)145,145,144                                                 LNK31340
+C     SFIXM SETS UP THE MATRIX PRODUCT TAB AND STORES IT IN KMEGA,      LNK31350
+C     THIS MATRIX IS THE ONE USED TO ALTER FIXED END FORCES IF THERE    LNK31360
+C     ARE START RELEASES.                                               LNK31370
+144   CALL SFIXM(SCR4)                                                  LNK31380
+      GO TO(850,145),IFCOM                                              LNK31390
+C     PUT K21 IN SCR2, MULTIPLY BY SCR4, PLACE RESULT IN SCR3           LNK31400
+145   DO 146  J=1,NNRC                                                  LNK31410
+      DO 146 I=1,NRC                                                    LNK31420
+      IJ=XCOOF(NRC,I,J)                                                 LNK31430
+      IJNRC=XCOOF(JF,I+NNRC,J)                                          LNK31440
+146   SCR2 (IJ)=SCR1 (IJNRC)                                            LNK31450
+      CALL STMAB(SCR4,SCR2,SCR3,NNRC,NNRC,NRC)                          LNK31460
+C     K11-(K12*K22(-1)*K21)                                             LNK31470
+      DO 150 J=1,NNRC                                                   LNK31480
+      DO 150 I=1,NNRC                                                   LNK31490
+      IJK11=XCOOF(JF,I,J)                                               LNK31500
+      IJKKK=XCOOF(NNRC,I,J)                                             LNK31510
+150   SCR3(IJKKK)=SCR1(IJK11)-SCR3(IJKKK)                               LNK31520
+C     UNPERMUT STIFFNESS LAMBDA1(T) K LAMBDA1                           LNK31530
+      CALL SPMUT(SCR3,STIF,2)                                           LNK31540
+C     IF PROCESSING (+) END, BRING STIFFNESS                            LNK31550
+C     BACK TO (-) END, THEN STORE IN KMKST                              LNK31560
+      IF (IE) 169,169,153                                               LNK31570
+153   CALL SMOVE(STIF,1)                                                LNK31580
+      GO TO 860                                                         LNK31590
+169   IE=1                                                              LNK31600
+C     COME HERE TO PROCESS (+) ENDS                                     LNK31610
+170   IRC=IRCP                                                          LNK31620
+      IF(IRC)860,860,173                                                LNK31630
+C     MOVE KBB DOWN TO (A) END                                          LNK31640
+173   CALL SMOVE (STIF,2)                                               LNK31650
+      GO TO 124                                                         LNK31660
+  800 J=NSYSF(1)                                                        LNK31670
+      WRITE (J,801)M                                                    LNK31680
+      ISUCC=2                                                           LNK31700
+      GO TO 899                                                         LNK31710
+849   NOMR=NOMR+1                                                       LNK31720
+C     SET STIFFNESS TO ZERO                                             LNK31730
+850   CALL SCOPY(STIF,JF,1)                                             LNK31740
+C     STORE STIFFNESS IN KMKST                                          LNK31750
+860   CALL SDATA (KMKS1,KMKST,M,STIF,JKL,-2,0)                          LNK31760
+899   IF(NMR-NOMR)901,901,900                                           LNK31770
+900   CONTINUE                                                          LNK31780
+  901 RETURN
+      END                                                               LNK31820
+    
