@@ -1,0 +1,184 @@
+      SUBROUTINE SLNK8
+C     LINK(SLNK8)                                                       LNK80060
+C     SLNK8 SOLVES FOR THE DISPLACEMENTS OF ALL FREE JOINTS FROM MATRIX LNK80070
+C     EQUATION.                                                         LNK80080
+C     STRESS PROGRAMMING SYSTEM FOR IBM 1130                            LNK80090
+C     DIMENSION AND COMMON STATEMENTS WHICH MUST APPEAR IN ALL ROUTINES LNK80100
+C     SYSTEM PARAMETERS  -  14 WORDS                                    LNK80110
+      DIMENSION NSYSF(6)                                                LNK80120
+      DIMENSION NPRBF(6)                                                LNK80130
+      DIMENSION NARRF(34)                                               $NK80140
+C     MEMBER INCIDENCE AND TYPE TABLES, MAX. 250 MEMBERS,127 JOINTS     LNK80150
+      DIMENSION  JMIN(250),JPLS(250),MTYP(250)                                  
+C     PROBLEM PARAMETERS  -  32 WORDS                                   LNK80170
+      DIMENSION A(40),B(40),C(40),D(40),R1(40)                          LNK80180
+C     SCRATCH AREA CAN BE INSERTED AS DESIRED FOR EACH ROUTINE          LNK80190
+C     THESE ROUTINES WILL SET UP THE JOINT STIFFNESS MATRIX,            LNK80250
+C     MODIFY IT FOR JOINT RELEASES, AND SOLVE THE EQUATIONS.            LNK80260
+C  FOR 250 JOINT, MAP=2446 WORDS, 39,125 BITS                                   
+C  SPACE FOR THIRTEEN DATA BLOCKS, 20 INTEGER WORDS EACH MEGA2,KJRE2            
+      DIMENSION  MAP(2446),MEGA2(260),KJRE2(260)                                
+C     SCRATCH AREA                                                      LNK80330
+C     MATRIX OPERATION AREAS  -  EACH TO CONTAIN NSQ VALUES,            LNK80340
+C     OR A MAX. OF 36.  36*2=72, THUS 4 FILE RECORDS ARE NEEDED.        LNK80350
+      COMMON NTMP,KCUR,NAVAL,NOVER,ISOLV,ISUCC,ISCAN,ITRAC,NSYSF        LNK80360
+      COMMON NJ,NB,NDAT,NFJS,NLDS,NLDSI,ID,NCORD,JF,NSQ,IMETH,NMR,NJR,  LNK80370
+     1IBETA,IYOUN,ISHEA,GSHEA,EYOUN,FILL1,FILL2,IPZER,IPZR1,NPRBF       $NK80380
+C     PLATE PARAMETERS                                                  $NK80384
+      COMMON IPLAT,NPLAT,KPLA1,KPLAT,KTHI1,KTHIK                        $NK80386
+C     ARRAY CODEWORDS  40 PAIRS = 80 WORDS                              LNK80390
+      COMMON KNAM1,KNAME,KXY1,KXYZ,KJRE1,KJREL,MEGA1,MEGAZ,KMEM1,KMEMB, LNK80400
+     1KBET1,KBETA,KYON1,KYOUN,KSHE1,KSHEA,KMRE1,KMREL,KMEG1,KMEGA,      LNK80410
+     2KMKS1,KMKST,KROT1,KROTE,KPPL1,KPPLS,KPMN1,KPMNS,LOAD1,LOADS,      LNK80420
+     3KLIN1,KLINT,MLOA1,MLOAD,JLOA1,JLOAD,KDIA1,KDIAG,KOFD1,KOFDG,      LNK80430
+     4KPPR1,KPPRI,KSTA1,KSTAT                                           LNK80440
+      COMMON NARRF,KPZE1,KPZER                                          $NK80450
+      COMMON JMIN,JPLS,MTYP                                             LNK80460
+      COMMON/MAPX/MAP,MEGA2,KJRE2,IHYPD,JUNK,A,B,C,D,R1
+100   FORMAT(3HTHE,I5,68H  TH DIAGONAL MATRIX OF THE STRUCTURAL STIFFNESLNK80520
+     1S MATRIX IS SINGULAR.)                                            LNK80530
+310   FORMAT(6HISOLV=,I4)                                               LNK80540
+      ISOLV=8                                                           LNK80560
+      IF(ITRAC)30,30,31                                                 LNK80570
+31    WRITE (5,310)ISOLV
+   30 CONTINUE                                                          $NK80595
+      DO 999 K=1,NJ                                                     $NK80599
+C     CHECK IF JOINT IS COMPLETELY FIXED - IF SO, SKIP IT               LNK80600
+      IF(KJRE2(K))50,999,50                                             LNK80610
+C     INVERT KDIAG(K) IN A(1-NSQ)                                       LNK80620
+   50 CALL SDATA(KDIA1,KDIAG,K,A,JUNK,-1,0)                                     
+      CALL SVERT(A,IND)                                                 $NK80648
+      IF(IND)16,17,16                                                   $NK80650
+17    ISUCC=2                                                           LNK80660
+      WRITE (5,100)K
+      RETURN
+16    CALL SDATA(KDIA1,KDIAG,K,A,JKL,-2,0)                              LNK80690
+C     ELIMINATE ELEMENTS IN K TH COL. BELOW DIAGONAL                    LNK80700
+      IF(K-NJ)1,1000,1000                                               LNK80710
+1     K1=K+1                                                            LNK80720
+      DO 888 N=K1,NJ                                                    LNK80730
+C     CHECK IF JOINT IS COMPLETELY FIXED - IF SO, SKIP IT               LNK80740
+      IF(KJRE2(N))60,888,60                                             LNK80750
+60    KNTH=NELEG(N,K,NJ)                                                $NK80760
+      CALL SPAK1(KNTH,MAP,IF)                                           LNK80770
+      IF(IF)2,888,2                                                     LNK80780
+C     GET KOFDG(N,K) IN B(1-NSQ)                                        LNK80790
+2     CALL SDATA(KOFD1,KOFDG,IOFDG(N,K),B,JKL,-1,0)                     LNK80800
+C     NOT NULL  -  COMPUTE KOFDG(N,K)*(KDIAG(K,K))**-1 IN C(1-NSQ)      LNK80810
+      CALL STMAB(B,A,C,JF,JF,JF)                                        LNK80820
+C     GO ACROSS ROW N TO THE DIAGONAL                                   LNK80830
+C     ALSO GET THE COLUMN VECTORS IN KPPRI                              LNK80840
+      DO 777 I=K1,N                                                     LNK80850
+C     CHECK IF JOINT IS COMPLETELY FIXED - IF SO, SKIP IT               LNK80860
+      IF(KJRE2(I))70,777,70                                             LNK80870
+70    KTH=NELEG(I,K,NJ)                                                 $NK80880
+      CALL SPAK1(KTH,MAP,IF)                                            LNK80890
+      IF(IF)5,777,5                                                     LNK80900
+5     CALL SDATA(KOFD1,KOFDG,IOFDG(I,K),B,JKL,-1,0)                     LNK80910
+      CALL SMABT(C,B,R1,JF,JF,JF)                                       LNK80920
+C     MULTIPLY THE TRANSPOSE OF KOFDG(K,I)                              LNK80930
+      NTH=NELEG(N,I,NJ)                                                 $NK80940
+      IF(I-N)3,4,4                                                      -N-     
+3     CALL SPAK1(NTH,MAP,IF)                                            LNK80960
+      IF(IF)9,7,9                                                       LNK80970
+7     DO 32 L=1,NSQ                                                     LNK80980
+32    B(L)=-R1(L)                                                       LNK80990
+      CALL SPAK1(-NTH,MAP,1)                                            LNK81000
+      GO TO 11                                                          LNK81010
+9     CALL SDATA(KOFD1,KOFDG,IOFDG(N,I),B,JKL,-1,0)                     LNK81020
+      GO TO 6                                                           LNK81030
+4     CALL SDATA(KDIA1,KDIAG,N,B,JKL,-1,0)                              LNK81040
+6     DO 8 L=1,NSQ                                                      LNK81050
+8     B(L)=B(L)-R1(L)                                                   LNK81060
+      IF(I-N)11,12,12                                                   LNK81070
+11    CALL SDATA(KOFD1,KOFDG,IOFDG(N,I),B,JKL,-2,0)                     LNK81080
+777   CONTINUE                                                          LNK81090
+12    CALL SDATA(KDIA1,KDIAG,N,B,JKL,-2,0)                              LNK81100
+C     LOOP OVER COLUMN VECTORS                                          LNK81110
+      NTH=N-NJ                                                          LNK81120
+      KTH=K-NJ                                                          LNK81130
+      DO 666 I=1,NLDSI                                                  LNK81140
+      NTH=NTH+NJ                                                        LNK81150
+      KTH=KTH+NJ                                                        LNK81160
+      CALL SDATA(KPPR1,KPPRI,KTH,B,JKL,-1,0)                            LNK81170
+C     ADD FORCE CHECKING HERE LATER                                     LNK81180
+      CALL STMAB(C,B,R1,JF,1,JF)                                        LNK81190
+      CALL SDATA(KPPR1,KPPRI,NTH,B,JKL,-1,0)                            LNK81200
+      DO 10 L=1,JF                                                      LNK81210
+10    B(L)=B(L)-R1(L)                                                   LNK81220
+      CALL SDATA(KPPR1,KPPRI,NTH,B,JKL,-2,0)                            LNK81230
+666   CONTINUE                                                          LNK81240
+888   CONTINUE                                                          LNK81250
+999   CONTINUE                                                          LNK81260
+C     BACK SUBSTITUTION                                                 LNK81270
+C     FIND LAST ROW IN SOLUTION                                         LNK81280
+1000  DO 1001 II=1,NJ                                                   LNK81290
+      IJK=NJ+1-II                                                       LNK81300
+C     CHECK IF JOINT IS COMPLETELY FIXED - IF SO, SKIP IT               LNK81310
+      IF(KJRE2(IJK))1002,1001,1002                                      LNK81320
+1001  CONTINUE                                                          LNK81330
+C    SHOULD NEVER GET HERE                                              LNK81340
+      GO TO 3500                                                        LNK81350
+1002  LST=IJK                                                           LNK81360
+      DO 2000 I=1,NLDSI                                                 $NK81370
+      L=LST+(I-1)*NJ                                                    LNK81380
+C     LAST ROW                                                          LNK81390
+      CALL SDATA(KPPR1,KPPRI,L,B,JKL,-1,0)                              LNK81400
+C     INVERSE OF LAST DIAGONAL IN A(1-NSQ)                              LNK81410
+      CALL STMAB(A,B,C,JF,1,JF)                                         LNK81420
+C     REPLACE SOLUTION VECTOR                                           LNK81430
+2000  CALL SDATA(KPPR1,KPPRI,L,C,JKL,-2,0)                              LNK81440
+C     LST-1 REMAINING ROWS POSSIBLE                                     LNK81450
+      K=LST-1                                                           LNK81460
+C     K WILL DECREASE TO 1 AND SKIP FIXED SUPPORTS                      LNK81470
+      N=1                                                               LNK81480
+C     N WILL INCREASE TO LST-1                                          LNK81490
+C     PSEUDO DO LOOP                                                    LNK81500
+3000  IF(K)3500,3500,4000                                               LNK81510
+C     CHECK IF JOINT IS COMPLETELY FIXED - IF SO, SKIP IT               LNK81520
+4000  IF(KJRE2(K))4001,4210,4001                                        LNK81530
+4001  KTH=NELEG(0,K,NJ)                                                 $NK81540
+C     LOOP ACROSS LOADINGS                                              LNK81550
+      DO 4200 I=1,NLDSI                                                 LNK81560
+C     ZERO VECTOR SUM IN R1(1-JF)                                       LNK81570
+      DO 14 L=1,JF                                                      LNK81580
+14    R1(L)=0.0                                                         LNK81590
+      J1=(I-1)*NJ                                                       LNK81600
+      DO 4300 MM=1,N                                                    LNK81610
+C     GET INTERNAL JOINT NUMBER                                         LNK81620
+C     J IS ROW IN KOFDG, COLUMN K                                       LNK81630
+      J=K+MM                                                            LNK81640
+      IF(KJRE2(J))4002,4300,4002                                        LNK81650
+4002  J2=J1+J                                                           LNK81660
+C     J2 IS ROW IN KPPRI, COLUMN I                                      LNK81670
+      KRTH=KTH+J                                                        LNK81680
+C     KRTH IS SUB-MATRIX NUMBER IN KOFDG                                LNK81690
+C     BRING THAT SUB-MATRIX IN TO A(1-NSQ)                              LNK81700
+      CALL SPAK1(KRTH,MAP,IF)                                           LNK81710
+      IF(IF)20,4300,20                                                  LNK81720
+20    CALL SDATA(KPPR1,KPPRI,J2,B,JKL,-1,0)                             LNK81730
+      CALL SDATA(KOFD1,KOFDG,IOFDG(J,K),A,JKL,-1,0)                     LNK81740
+      CALL SMATB(A,B,C,JF,1,JF)                                         LNK81750
+C     ADD PRODUCT TO VECTOR SUM                                         LNK81760
+      DO 13 L=1,JF                                                      LNK81770
+13    R1(L)=R1(L)+C(L)                                                  LNK81780
+4300  CONTINUE                                                          LNK81790
+C     VECTOR SUM COMPUTED, SUBTRACT FROM ORIGINAL VECTOR                LNK81800
+      J=J1+K                                                            LNK81810
+      CALL SDATA(KPPR1,KPPRI,J,A,JKL,-1,0)                              LNK81820
+      DO 15 L=1,JF                                                      LNK81830
+15    A(L)=A(L)-R1(L)                                                   LNK81840
+C     MULTIPLY BY INVERSE OF DIAGONAL                                   LNK81850
+      CALL SDATA(KDIA1,KDIAG,K,B,JKL,-1,0)                              LNK81860
+      CALL STMAB(B,A,C,JF,1,JF)                                         LNK81870
+C     REPLACE SOLUTION VECTOR                                           LNK81880
+      CALL SDATA(KPPR1,KPPRI,J,C,JKL,-2,0)                              LNK81890
+4200  CONTINUE                                                          LNK81900
+4210  K=K-1                                                             LNK81910
+      N=N+1                                                             LNK81920
+      GO TO 3000                                                        LNK81930
+C       END OF SOLUTION                                                 LNK81940
+3500  CONTINUE                                                          LNK81950
+      RETURN
+      END                                                               LNK81970
+    
