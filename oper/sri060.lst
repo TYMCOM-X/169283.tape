@@ -1,0 +1,1902 @@
+    P R O G R A M   T 3 0 6 0 		COBOL (005001,107001)	 7-JUN-73  11:33		PAGE 1
+    SRI060.CBL    07-JUN-73  11:31
+
+    0001    IDENTIFICATION  DIVISION.
+    0002    PROGRAM-ID.  'T3060'.
+    0003    AUTHOR.  CAGNEY FRANCE, STANFORD OPTNER AND ASSOCIATES INC.
+    0004    INSTALLATION.  LOS ANGELES TRAFFIC DEPARTMENT, DATA SERVICE BUREAU
+    0005        CITY OF LOS ANGELES, JULY 1969.
+    0006    ENVIRONMENT  DIVISION.
+    0007    CONFIGURATION  SECTION.
+    0008    SOURCE-COMPUTER. DECsystem-10. 
+    0009    OBJECT-COMPUTER. PDP-10.
+    0010    SPECIAL-NAMES.
+    0011        CHANNEL (1) IS TOP-OF-PAGE.
+    0012    INPUT-OUTPUT  SECTION.
+    0013    FILE-CONTROL.
+    0014        SELECT REPORT-FILE  ASSIGN DSK,
+    0015         RECORDING MODE IS ASCII.
+    0016           SELECT OPTIONAL VOLFILE ASSIGN DSK
+    0017           RECORDING MODE IS ASCII
+    0018           RESERVE NO ALTERNATE AREAS
+    0019           ACCESS MODE IS INDEXED
+    0020           RECORD KEY IS VOL-REC-KEY
+    0021           SYMBOLIC KEY IS VOL-SYM-KEY.
+    0022        SELECT ACCIDENT-FILE ASSIGN DSK,
+    0023         RECORDING MODE IS ASCII
+    0024  
+    0025                RESERVE NO ALTERNATE AREA
+    0026            ACCESS MODE IS INDEXED
+    0027            RECORD KEY IS RECORD-KEY
+    0028            SYMBOLIC KEY IS A-SYM-KEY.
+    0029        SELECT REQUEST-TAPE ASSIGN DSK,
+    0030         RECORDING MODE IS ASCII.
+    0031        SELECT ISFILE ASSIGN DSK,
+    0032         RECORDING MODE IS ASCII
+    0033  
+    0034                RESERVE NO ALTERNATE AREA
+    0035                ACCESS MODE IS INDEXED
+    0036                RECORD KEY IS IS-REC-KEY
+    0037                SYMBOLIC KEY IS SYM-KEY.
+    0038        SELECT PRINT-FILE ASSIGN DSK,
+    0039         RECORDING MODE IS ASCII.
+    0040    DATA  DIVISION.
+    0041    FILE  SECTION.
+    0042  
+    0043  
+    0044    FD   REQUEST-TAPE
+    0045            VALUE OF IDENTIFICATION IS "REQESTDAT"
+    0046        RECORD CONTAINS 100 CHARACTERS
+    0047        BLOCK CONTAINS 35 RECORDS
+    0048        LABEL RECORDS ARE STANDARD
+    0049        DATA RECORD IS REQUEST-REC.
+    0050    01   REQUEST-REC.
+    0051        03 T10-S-LOC.
+    0052           05 REQ-NO-10         PICTURE 999.
+    0053           05 IS-10.
+    0054              07 IS-10-ST1      PICTURE X(5).
+    0055              07 IS-10-ST2      PICTURE X(5).
+    0056           05 IS-10-REQUESTER   PICTURE X(15).    P R O G R A M   T 3 0 6 0 		COBOL (005001,107001)	 7-JUN-73  11:33		PAGE 1-1
+    SRI060.CBL    07-JUN-73  11:31
+
+    0057           05 DATE-LIMIT-10.
+    0058              07 FR-MO          PICTURE 99.
+    0059              07 FR-DA          PICTURE 99.
+    0060              07 FR-YR          PICTURE 99.
+    0061              07 T-MO           PICTURE 99.
+    0062              07 T-DA           PICTURE 99.
+    0063              07 T-YR           PICTURE 99.
+    0064              05 FILLER         PICTURE X(40).
+    0065            03 T10-R-T20-T22-REQ REDEFINES T10-S-LOC.
+    0066               05 R-10-REQ-NO   PICTURE 999.
+    0067               05 R-ST-CODE     PICTURE X(5).
+    0068               05 FIRST-ST-CODE PICTURE X(5).
+    0069               05 LAST-ST-CODE  PICTURE X(5).
+    0070               05 R-SEARCH      PICTURE X.
+    0071               05 R-REQUESTER   PICTURE X(15).
+    0072               05 R-DATE-LIMIT.
+    0073                  07 R-FR-MO    PICTURE 99.
+    0074                  07 R-FR-DA    PICTURE 99.
+    0075                  07 R-FR-YR    PICTURE 99.
+    0076                  07 R-T-MO     PICTURE 99.
+    0077                  07 R-T-DA     PICTURE 99.
+    0078                  07 R-T-YR     PICTURE 99.
+    0079              05 R-DIRECTION    PICTURE X(01).
+    0080              05 FILLER         PICTURE X(33).
+    0081           03 REQ-SORT-KEY.
+    0082              05 FILLER         PICTURE XX.
+    0083              05 KEY-CODE       PICTURE 99.
+    0084              05 FILLER         PICTURE X(16).
+    0085    FD   PRINT-FILE
+    0086            VALUE OF IDENTIFICATION IS "PRINT DAT"
+    0087        RECORD CONTAINS 133 CHARACTERS
+    0088  
+    0089        LABEL RECORDS ARE STANDARD
+    0090        DATA RECORD IS PRINT-REC.
+    0091    01   PRINT-REC.
+    0092        03 FILLER       PICTURE X.
+    0093        03 PRINT-LINE   PICTURE X(132).
+    0094    FD   REPORT-FILE
+    0095            VALUE OF IDENTIFICATION IS "REPORTDAT"
+    0096        LABEL RECORDS ARE STANDARD
+    0097        RECORD CONTAINS 290 CHARACTERS
+    0098        BLOCK CONTAINS 25 RECORDS
+    0099        DATA RECORD IS REPORT-REC.
+    0100    01   REPORT-REC.
+    0101        02 T81-DETAIL.
+    0102           03 T81-REQUESTER     PICTURE X(15).
+    0103           03 T81-SEARCH-DATES  PICTURE X(12).
+    0104           03 T81-REC-CODE      PICTURE 9.
+    0105           03 T81-DATE.
+    0106              05 T81-YR         PICTURE XX.
+    0107              05 T81-MO         PICTURE XX.
+    0108              05 T81-DA         PICTURE XX.
+    0109           03 T81-DAY-OF-WEEK   PICTURE X.
+    0110           03 T81-DOW REDEFINES T81-DAY-OF-WEEK PICTURE 9.
+    0111           03 T81-LOC.
+    0112              05 T81-LOC1       PICTURE X.    P R O G R A M   T 3 0 6 0 		COBOL (005001,107001)	 7-JUN-73  11:33		PAGE 1-2
+    SRI060.CBL    07-JUN-73  11:31
+
+    0113              05 T81-LOC2       PICTURE X.
+    0114              05 T81-LOC3       PICTURE X.
+    0115           03 FILLER            PICTURE XX.
+    0116           03 T81-REVERSE-CODE  PICTURE X.
+    0117           03 FILLER            PICTURE X.
+    0118          03 T81-PEAK.
+    0119           04 T81-AM-PEAK.
+    0120              05 T81-AM-N-E-HR  PICTURE   99.
+    0121              05 T81-AM-N-E-MIN PICTURE    9.
+    0122              05 T81-AM-N-E-VOL PICTURE 9999.
+    0123              05 T81-AM-S-W-HR  PICTURE   99.
+    0124              05 T81-AM-S-W-MIN PICTURE    9.
+    0125              05 T81-AM-S-W-VOL PICTURE 9999.
+    0126              05 T81-AM-T-HR    PICTURE   99.
+    0127              05 T81-AM-T-MIN   PICTURE    9.
+    0128              05 T81-AM-T-VOL   PICTURE 9999.
+    0129           04 T81-PM-PEAK.
+    0130              05 T81-PM-N-E-HR  PICTURE   99.
+    0131              05 T81-PM-N-E-MIN PICTURE    9.
+    0132              05 T81-PM-N-E-VOL PICTURE 9999.
+    0133              05 T81-PM-S-W-HR  PICTURE   99.
+    0134              05 T81-PM-S-W-MIN PICTURE    9.
+    0135              05 T81-PM-S-W-VOL PICTURE 9999.
+    0136              05 T81-PM-T-HR    PICTURE   99.
+    0137              05 T81-PM-T-MIN   PICTURE    9.
+    0138              05 T81-PM-T-VOL   PICTURE 9999.
+    0139           03 T81-TOT-24-HR.
+    0140              05 T81-TOT-N-E    PICTURE S9(5).
+    0141              05 T81-TOT-S-W    PICTURE S9(5).
+    0142              05 T81-TOT-TOT    PICTURE S9(5).
+    0143           03 T81-MED           PICTURE   XXX.
+    0144           03 T81-ADJ-FAC REDEFINES T81-MED
+    0145                                PICTURE  S9V99.
+    0146           03 T81-RDWY          PICTURE  XXXX.
+    0147           03 T81-LA            PICTURE    XX.
+    0148           03 T81-IS-CODE.
+    0149              05 T81-ST-1       PICTURE  X(5).
+    0150              05 T81-ST-2       PICTURE  X(5).
+    0151           03 T81-ST-NAME-1     PICTURE X(30).
+    0152           03 T81-ST-NAME-2     PICTURE X(30).
+    0153           03 FILLER            PICTURE X(92).
+    0154        02 T23-DETAIL REDEFINES T81-DETAIL.
+    0155           05 T23-REC-1         PICTURE X(270).
+    0156           05 T23-REC-2 REDEFINES T23-REC-1.
+    0157              07 T23-REC-2-AT-C PICTURE X.
+    0158              07 T23-REC-2-X-SC PICTURE X(5).
+    0159              07 T23-REC-2-X-ST PICTURE X(30).
+    0160              07 T23-40         PICTURE X(40).
+    0161              07 T23-REC-2-INCR REDEFINES T23-40 OCCURS 40 TIMES.
+    0162                 09 T23-ACC     PICTURE X.
+    0163              07 T23-REC-2-OV40 PICTURE X.
+    0164              07 FILLER         PICTURE X(193).
+    0165        02  T10-DETAIL REDEFINES T23-DETAIL.
+    0166          03 T10-DET-A.
+    0167            05 T10-REQUESTER    PICTURE X(15).
+    0168            05 T10-SEARCH-DATES PICTURE X(12).    P R O G R A M   T 3 0 6 0 		COBOL (005001,107001)	 7-JUN-73  11:33		PAGE 1-3
+    SRI060.CBL    07-JUN-73  11:31
+
+    0169            05 FILLER           PICTURE XX.
+    0170            05 T10-IS-CODE.
+    0171               07 T10-IS-1      PICTURE X(5).
+    0172               07 T10-IS-2      PICTURE X(5).
+    0173          03 DETAIL-REC-VAR.
+    0174            05 DOW              PICTURE X.
+    0175            05 D-O-W REDEFINES DOW PICTURE 9.
+    0176            05 T10-DATE.
+    0177               07 T10-MO        PICTURE XX.
+    0178               07 T10-DA        PICTURE XX.
+    0179               07 T10-YR        PICTURE XX.
+    0180            05 T10-TIME.
+    0181               07 T10-HR        PICTURE XX.
+    0182               07 T10-M         PICTURE XX.
+    0183            05 T10-DR-NO        PICTURE X(6).
+    0184            05 PRI-CODE         PICTURE X(6).
+    0185            05 GP-CODE          PICTURE XX.
+    0186            05 GROUP-CODE REDEFINES  GP-CODE PICTURE 99.
+    0187          04 T10-PT-IMPACT.
+    0188            05 LOCATION-CODE.
+    0189               07 INTERSECTION  PICTURE 9.
+    0190               07 DIRECTION-1   PICTURE 9.
+    0191               07 DIRECTION-2   PICTURE 9.
+    0192            05 LOC-A REDEFINES LOCATION-CODE.
+    0193               07 FILLER        PICTURE X.
+    0194               07 DISTA         PICTURE 99.
+    0195            05 PRI-CODE-1       PICTURE 9.
+    0196            05 PRI-CODE-2       PICTURE 9.
+    0197            05 SEC-FEET         PICTURE 9999.
+    0198            05 SEC-CODE-1       PICTURE 9.
+    0199            05 SEC-CODE-2       PICTURE 9.
+    0200              04 T10-FL.
+    0201            05 DIR-ANL          PICTURE 999.
+    0202            05 LIGHT            PICTURE X.
+    0203            05 RD-CONDITION     PICTURE X.
+    0204            05 SPEC-CIR         PICTURE XX.
+    0205            05 WEATHER          PICTURE 9.
+    0206            05 T10-AT-IS        PICTURE 9.
+    0207          04 T10-NO-PER-INJ.
+    0208            05 T10-INJ-A        PICTURE S99.
+    0209            05 T10-INJ-B        PICTURE S99.
+    0210            05 T10-INJ-C        PICTURE S99.
+    0211            05 T10-INJ-K        PICTURE S99.
+    0212          04 T10-DET-B.
+    0213            05 T10-ACC-TYPE     PICTURE 99.
+    0214            05 T10-A-SEV        PICTURE 9.
+    0215            05 T10-REVERSE-ST-C PICTURE 9.
+    0216            05 T10-NO-PARTIES   PICTURE 9.
+    0217            05 FILLER             PICTURE XXX.
+    0218            05 T10-PARTY OCCURS 9 TIMES.
+    0219               07 PARTY-NO      PICTURE 9.
+    0220              07 T10-PARTY-ENTRY.
+    0221               11 VEH-ACTION    PICTURE 99.
+    0222               11 T10-DIR       PICTURE 9.
+    0223               11 VEH-TYPE      PICTURE 99.
+    0224               11 T10-CLASS     PICTURE 9.    P R O G R A M   T 3 0 6 0 		COBOL (005001,107001)	 7-JUN-73  11:33		PAGE 1-4
+    SRI060.CBL    07-JUN-73  11:31
+
+    0225               11 T10-COND      PICTURE 99.
+    0226               11 T10-AGE       PICTURE 99.
+    0227               11 PARTY-INJ     PICTURE 9.
+    0228               11 CONTRIB-CIR   PICTURE 99.
+    0229               11 FILLER        PICTURE XX.
+    0230               11 PED-ACTION    PICTURE 99.
+    0231            05 FILLER           PICTURE X(8).
+    0232        02 T20-DETAIL REDEFINES T10-DETAIL.
+    0233            03 T20-REQUESTER    PICTURE X(15).
+    0234            03 T20-SEARCH-DATE  PICTURE X(12).
+    0235            03 FILLER           PICTURE X.
+    0236            03 T20-ROUTE        PICTURE X(5).
+    0237            03 T20-ROUTE-NAME   PICTURE X(30).
+    0238            03 T20-X-ST.
+    0239               05 T20-X-ST1     PICTURE X(5).
+    0240               05 T20-X-ST2     PICTURE X(5).
+    0241            03 T20-X-ST-NAME1   PICTURE X(30).
+    0242            03 T20-X-ST-NAME2   PICTURE X(30).
+    0243            03 FILLER           PICTURE X(137).
+    0244        02 T20-DETAIL-A REDEFINES T20-DETAIL.
+    0245           03 T20-SUB-SEG       PICTURE X(5).
+    0246           03 T20-SUB-SEG-NAME  PICTURE X(30).
+    0247           03 T20-AT-IS         PICTURE X.
+    0248            03 T20-VOL-ADT      PICTURE 9(5).
+    0249           03 T20-VOL-X-ST      PICTURE 9(5).
+    0250           03 T20-DISTANCE      PICTURE S9999.
+    0251           03 FILLER            PICTURE X(24).
+    0252           03 T20-IS-ACC         PICTURE 999.
+    0253           03 T20-NON-IS-ACC    PICTURE 999.
+    0254           03 T20-STRAF          PICTURE 999.
+    0255           03 FILLER            PICTURE X(187).
+    0256        02 T20-DETAIL-B REDEFINES T20-DETAIL-A.
+    0257           03 T20-CLASS         PICTURE X.
+    0258           03 T20-CLASS1  REDEFINES T20-CLASS  PICTURE 9.
+    0259           03 T20-NO-LANES      PICTURE X.
+    0260           03 T20-NO-LANES-N REDEFINES T20-NO-LANES PICTURE 9.
+    0261           03 T20-M-WDTH        PICTURE X.
+    0262           03 T20-M-WDTH-N REDEFINES T20-M-WDTH     PICTURE 9.
+    0263           03 T20-M-TYPE        PICTURE X.
+    0264           03 T20-M-TYPE-N REDEFINES T20-M-TYPE     PICTURE 9.
+    0265           03 T20-PARK          PICTURE X.
+    0266           03 T20-PARK-N  REDEFINES T20-PARK        PICTURE 9.
+    0267           03 T20-PK            PICTURE X.
+    0268           03 T20-PK-N REDEFINES T20-PK PICTURE 9.
+    0269           03 T20-DIR-FLOW      PICTURE X.
+    0270           03 T20-DIR-FLOW-N REDEFINES T20-DIR-FLOW PICTURE 9.
+    0271            03 FILLER           PICTURE X(263).
+    0272          02 DETAIL-REC-V1.
+    0273        04 SORT-KEY.
+    0274           05 REPORT-CODE       PICTURE 99.
+    0275           05 REQ-NO            PICTURE 999.
+    0276           05 TOT-CAT-ACC       PICTURE S999.
+    0277           05 REC-CODE          PICTURE 9.
+    0278           05 CODE-IS-R.
+    0279              07 IS-SEQUENCE    PICTURE 9(4).
+    0280              07 CODE-IS-DATE   PICTURE X(6).    P R O G R A M   T 3 0 6 0 		COBOL (005001,107001)	 7-JUN-73  11:33		PAGE 1-5
+    SRI060.CBL    07-JUN-73  11:31
+
+    0281           05 FILLER REDEFINES CODE-IS-R.
+    0282              07 DISTANCE       PICTURE 9(5).
+    0283              07 T20-SEG-NO REDEFINES DISTANCE  PICTURE 9(5).
+    0284              07 FILLER-SEG     PICTURE 9(5).
+    0285           05 FILLER            PICTURE X.
+    0286    FD   VOLFILE
+    0287            VALUE OF IDENTIFICATION IS "VOL   IDX"
+    0288        LABEL RECORDS ARE STANDARD
+    0289        RECORD CONTAINS 110 CHARACTERS
+    0290  
+    0291        DATA RECORD IS VOLFILE-REC.
+    0292    01   VOLFILE-REC.
+    0293        03 VOL-DELETE-CODE      PICTURE X.
+    0294        03 VOL-REC-KEY.
+    0295           05 VOL-REC-ST.
+    0296              07 VOL-REC-ST-1   PICTURE X(5).
+    0297              07 VOL-REC-ST-2   PICTURE X(5).
+    0298           05 VOL-REC-INDEX     PICTURE XXX.
+    0299           05 VOL-REC-INDEX-N REDEFINES VOL-REC-INDEX   PICTURE S999.
+    0300        03 VOL-LATEST           PICTURE XXX.
+    0301        03 VOL-LATEST-N REDEFINES VOL-LATEST    PICTURE S999.
+    0302        03 VOL-OLDEST           PICTURE XXX.
+    0303        03 VOL-OLDEST-N REDEFINES VOL-OLDEST    PICTURE S999.
+    0304        03 VOL-REC-CODE         PICTURE 9.
+    0305        03 VOL-DATE.
+    0306           05 VOL-YR        PICTURE 99.
+    0307           05 VOL-MO        PICTURE 99.
+    0308           05 VOL-DA        PICTURE 99.
+    0309        03 VOL-D-O-W            PICTURE X.
+    0310        03 VOL-LOC.
+    0311           05 VOL-LOC-1         PICTURE X.
+    0312           05 VOL-LOC-2         PICTURE X.
+    0313           05 VOL-LOC-3         PICTURE X.
+    0314        03 VOL-DIST             PICTURE XX.
+    0315        03 VOL-REV-CODE         PICTURE X.
+    0316        03 VOL-SPEC-CODE        PICTURE X.
+    0317        03 VOL-AM-PM-PEAK.
+    0318           05 VOL-PEAK OCCURS 2 TIMES.
+    0319              07 VOL-N-E.
+    0320                 09 V-NE-HR.
+    0321                    11 V-NE-H   PICTURE XX.
+    0322                    11 V-NE-M   PICTURE X.
+    0323                 09 V-NE-VOL    PICTURE 9999.
+    0324              07 VOL-S-W.
+    0325                 09 V-SW-HR.
+    0326                    11 V-SW-H   PICTURE XX.
+    0327                    11 V-SW-M   PICTURE X.
+    0328                 09 V-SW-VOL    PICTURE 9999.
+    0329              07 VOL-TOT.
+    0330                 09 V-TOT-HR.
+    0331                    11 V-TOT-H  PICTURE XX.
+    0332                    11 V-TOT-M  PICTURE X.
+    0333                 09 V-TOT-VOL   PICTURE 9999.
+    0334        03 VOL-TOTALS-HR.
+    0335           05 VOL-TOTAL-NE      PICTURE X(5).
+    0336           05 VOL-TOTAL-NE-N REDEFINES VOL-TOTAL-NE PICTURE S9(5).    P R O G R A M   T 3 0 6 0 		COBOL (005001,107001)	 7-JUN-73  11:33		PAGE 1-6
+    SRI060.CBL    07-JUN-73  11:31
+
+    0337           05 VOL-TOTAL-SW      PICTURE X(5).
+    0338           05 VOL-TOTAL-SW-N REDEFINES VOL-TOTAL-SW PICTURE S9(5).
+    0339           05 VOL-TOTAL-TOT     PICTURE X(5).
+    0340           05 VOL-TOTAL-TOT-N REDEFINES VOL-TOTAL-TOT PICTURE S9(5).
+    0341        03 VOL-PHY-DESC.
+    0342           05 VOL-MED           PICTURE XXX.
+    0343           05 VOL-ADJ-FAC REDEFINES VOL-MED     PICTURE  9V99.
+    0344           05 VOL-RD-WIDTH      PICTURE XXXX.
+    0345           05 VOL-NO-LA         PICTURE XX.
+    0346        03 FILLER               PICTURE X(9).
+    0347    FD   ISFILE
+    0348            VALUE OF IDENTIFICATION IS "INTSRTIDX"
+    0349        LABEL RECORDS ARE STANDARD
+    0350        RECORD CONTAINS 300 CHARACTERS
+    0351        BLOCK CONTAINS  10 RECORDS
+    0352        DATA RECORD IS E-REC.
+    0353    01   ISFILE-REC.
+    0354        03 IS-DELETE-CODE       PICTURE X.
+    0355        03 IS-REC-KEY.
+    0356           05 IS-KEY-ST-1       PICTURE X(5).
+    0357           05 IS-KEY-ST-2       PICTURE X(5).
+    0358        03 IS-NAME.
+    0359           05 IS-NAME-1         PICTURE X(30).
+    0360           05 IS-NAME-2         PICTURE X(30).
+    0361        03 IS-CLASSIFICATION.
+    0362           05 IS-CODES.
+    0363              07 IS-CLASS-CODE  PICTURE X.
+    0364              07 IS-NO-LEGS     PICTURE X.
+    0365              07 IS-CONTROL     PICTURE X.
+    0366              07 IS-SIGNAL-CTRL PICTURE X.
+    0367              07 IS-SIGNAL-CHAR PICTURE XX.
+    0368           05 IS-DATE.
+    0369              07 IS-MO          PICTURE XX.
+    0370              07 IS-DA          PICTURE XX.
+    0371              07 IS-YR          PICTURE XX.
+    0372        03 IS-APPROACH-CHARS.
+    0373           05 IS-LEG-CHAR OCCURS 4 TIMES.
+    0374              07 IS-NO-LANES    PICTURE X.
+    0375              07 IS-TURN        PICTURE X.
+    0376              07 IS-CTRL-SIGN   PICTURE X.
+    0377              07 IS-MAST-ARM    PICTURE X.
+    0378              07 IS-T-SIG-CTRL  PICTURE X.
+    0379              07 IS-LT-SIGN-REG PICTURE X.
+    0380              07 IS-LT-PED-REG  PICTURE X.
+    0381              07 IS-BUS-ZONE    PICTURE X.
+    0382              07 IS-SIG-APPR    PICTURE X.
+    0383              07 IS-MED-TYPE    PICTURE X.
+    0384              07 IS-MED-WDTH    PICTURE X.
+    0385              07 IS-PK-STP-RSTR PICTURE X.
+    0386              07 IS-DIR-FLOW    PICTURE X.
+    0387              07 IS-SEC-S-LOC   PICTURE X.
+    0388        03 IS-CORDINATES.
+    0389           05 IS-X-CORD         PICTURE X(6).
+    0390           05 IS-X-CORD-N REDEFINES IS-X-CORD PICTURE 9(6).
+    0391           05 IS-Y-CORD         PICTURE X(6).
+    0392           05 IS-Y-CORD-N REDEFINES IS-Y-CORD PICTURE 9(6).    P R O G R A M   T 3 0 6 0 		COBOL (005001,107001)	 7-JUN-73  11:33		PAGE 1-7
+    SRI060.CBL    07-JUN-73  11:31
+
+    0393        03 IS-SEGMENT-NO.
+    0394           05 IS-N-LEG          PICTURE 9(5).
+    0395           05 IS-E-LEG          PICTURE 9(5).
+    0396           05 IS-S-LEG          PICTURE 9(5).
+    0397           05 IS-W-LEG          PICTURE 9(5).
+    0398        03 IS-NEXT-IS.
+    0399           05 IS-NEXT-LEG OCCURS 4 TIMES.
+    0400              07 IS-NEXT-IS-CODE.
+    0401                 09 IS-NEXT-ST-1        PICTURE 9(5).
+    0402                 09 IS-NEXT-ST-2        PICTURE 9(5).
+    0403              07 IS-NEXT-IS-DIST   PICTURE 9999.
+    0404              07 IS-NEXT-IS-SLOPE   PICTURE X.
+    0405        03 IS-HAZARDOUS-ID.
+    0406           05 IS-YEAR OCCURS 4 TIMES.
+    0407              07 IS-YEAR-1      PICTURE X.
+    0408              07 IS-YEAR-2      PICTURE X.
+    0409              07 IS-YEAR-3      PICTURE X.
+    0410              07 IS-YEAR-4      PICTURE X.
+    0411        03 IS-DEAD-END          PICTURE X.
+    0412        03 IS-VACATED           PICTURE X.
+    0413        03 IS-OTHER-IS.
+    0414           05 IS-JOG            PICTURE X.
+    0415           05 IS-OTHER-ST.
+    0416              07 IS-OTHER-ST-1  PICTURE 9(5).
+    0417              07 IS-OTHER-ST-2  PICTURE 9(5).
+    0418        03 IS-ASSUME-EW         PICTURE X.
+    0419        03 IS-MAINT             PICTURE XXXX.
+    0420        03 IS-POL-DIST          PICTURE XXXX.
+    0421        03 IS-TR-DIST           PICTURE X.
+    0422        03 FILLER               PICTURE X(30).
+    0423    FD   ACCIDENT-FILE
+    0424            VALUE OF IDENTIFICATION IS "ACCIDTIDX"
+    0425            LABEL RECORDS ARE STANDARD
+    0426            RECORD CONTAINS 176 CHARACTERS
+    0427        BLOCK CONTAINS 41 RECORDS
+    0428            DATA RECORD IS ACC-IN-REC-1.
+    0429    01   ACC-IN-REC-1 DISPLAY-7.
+    0430        02  FIELD-1 USAGE DISPLAY-7.
+    0431            03  DELETE-CODE             PICTURE X.
+    0432            03  RECORD-KEY.
+    0433                04  IS-CODE-A           PICTURE X(10) USAGE DISPLAY-7.
+    0434                04  IND-NO-A            PICTURE 999 USAGE DISPLAY-7.
+    0435                04  REC-CODE-A          PICTURE 9  USAGE DISPLAY-7.
+    0436            03  FILLER                  PICTURE 9(6).
+    0437            03  SUPL-REC-CODE           PICTURE 9.
+    0438            03  DAY-OF-WEEK             PICTURE 9.
+    0439            03  DATE-OCCURRED.
+    0440                04  YR-OCCURRED         PICTURE 99.
+    0441                04  MO-OCCURRED         PICTURE 99.
+    0442                04  DY-OCCURRED         PICTURE 99.
+    0443           03 TIME-OCCURRED     PICTURE 9(4).
+    0444           03 FILLER            PICTURE X(7).
+    0445        02  FIELD-2                 PICTURE 9(17).
+    0446        02  FIELD-3                 PICTURE 9(17).
+    0447        02  FIELD-4                 PICTURE 9(17).
+    0448        02  FIELD-5                 PICTURE 9(17).    P R O G R A M   T 3 0 6 0 		COBOL (005001,107001)	 7-JUN-73  11:33		PAGE 1-8
+    SRI060.CBL    07-JUN-73  11:31
+
+    0449        02  FIELD-6                 PICTURE 9(17).
+    0450        02  FIELD-7                 PICTURE 9(17).
+    0451        02  FIELD-8                 PICTURE 9(17).
+    0452        02  FIELD-9                 PICTURE 9(17).
+    0453    WORKING-STORAGE  SECTION.
+    0454    77   FILLER-2        PICTURE X(21) VALUE 'BEGIN WORKING STORAGE'.
+    0455    77   DUMMY-SW         PIC X(1)  VALUE '0'.
+    0456    77   UNPROC-SW           PICTURE 9 VALUE ZERO.
+    0457    77   J                       PICTURE 99.
+    0458    77   H                       PICTURE 9     VALUE 1.
+    0459    77   PASS-S                  PICTURE 9     VALUE ZERO.
+    0460    77   SEARCH-SW               PICTURE 9 VALUE ZERO.
+    0461    77   TYPE-SEARCH             PICTURE X.
+    0462    77   ISR-SW          PICTURE 9 VALUE ZERO.
+    0463    77   IS-ER           PICTURE 9 VALUE ZERO.
+    0464    77   CTR                     PICTURE 99.
+    0465    77   C                       PICTURE 9.
+    0466    77   COUNTER                 PICTURE 999.
+    0467    77   ISW                     PICTURE 9 VALUE ZERO.
+    0468    77   COUNT-125               PICTURE 999 VALUE ZERO.
+    0469    77   R-SEQ                   PICTURE 9(4) VALUE ZERO.
+    0470    01   REPORT-DATE.
+    0471        03 FROM-DATE.
+    0472           05 FROM-YR           PICTURE 99.
+    0473           05 FROM-MO           PICTURE 99.
+    0474           05 FROM-DA           PICTURE 99.
+    0475        03 TO-DATE.
+    0476           05 TO-YR             PICTURE 99.
+    0477           05 TO-MO             PICTURE 99.
+    0478           05 TO-DA             PICTURE 99.
+    0479    01   A-SYM-KEY   USAGE IS DISPLAY-7.
+    0480        03 A-SYM-KEY-IS.
+    0481           05 A-SYM-ST-1        PICTURE X(5) USAGE DISPLAY-7.
+    0482           05 A-SYM-ST-2        PICTURE X(5) USAGE DISPLAY-7.
+    0483        03 A-SYM-INDEX          PICTURE 999 USAGE DISPLAY-7.
+    0484        03 A-SYM-REC-CODE       PICTURE 9 USAGE DISPLAY-7.
+    0485    01   SEG-SYM-KEY             PICTURE 9(5).
+    0486    01   SYM-KEY.
+    0487        03 SYM-KEY-ST-1         PICTURE X(5).
+    0488        03 SYM-KEY-ST-2         PICTURE X(5).
+    0489    01   VOL-SYM-KEY.
+    0490        03 VOL-SYM-ST-CODE.
+    0491           05 VOL-SYM-ST-1      PICTURE X(5).
+    0492           05 VOL-SYM-ST-2      PICTURE X(5).
+    0493        03 VOL-SYM-INDEX                PICTURE XXX.
+    0494        03 VOL-SYM-INDEX-N REDEFINES VOL-SYM-INDEX PICTURE 999.
+    0495    01   A-HOLD.
+    0496        05 A-OLDEST             PICTURE 999.
+    0497        05 A-LATEST             PICTURE 999.
+    0498        05 SU-H                 PICTURE 9.
+    0499    01   IS-ST-H.
+    0500        03 IS-ST1-H             PICTURE X(5).
+    0501        03 IS-ST2-H             PICTURE X(5).
+    0502    01   IS-OTHER-HOLD.
+    0503        03 IS-OTHER-1           PICTURE X(5).
+    0504        03 IS-OTHER-2           PICTURE X(5).    P R O G R A M   T 3 0 6 0 		COBOL (005001,107001)	 7-JUN-73  11:33		PAGE 1-9
+    SRI060.CBL    07-JUN-73  11:31
+
+    0505    01   OLD-LOC.
+    0506        03 POS-1                PICTURE 9.
+    0507        03 POS-2                PICTURE 9.
+    0508        03 POS-3                PICTURE 9.
+    0509    01   ROUTE-ST-HOLD           PICTURE X(5).
+    0510    01   FIRST-X-ST-HOLD.
+    0511        03 FIRST-ST-1           PICTURE X(5).
+    0512        03 FIRST-ST-2           PICTURE X(5).
+    0513    01   LAST-X-ST-HOLD.
+    0514        03 LAST-ST-1            PICTURE X(5).
+    0515        03 LAST-ST-2            PICTURE X(5).
+    0516    01   DIR-CODE-HOLD.
+    0517        03 EW-DIR               PICTURE 9.
+    0518        03 NS-DIR               PICTURE 9.
+    0519        03 E-DIR                PICTURE 9.
+    0520        03 W-DIR                PICTURE 9.
+    0521        03 N-DIR                PICTURE 9.
+    0522        03 S-DIR                PICTURE 9.
+    0523        03 R-N-DIR              PICTURE 9.
+    0524        03 R-E-DIR              PICTURE 9.
+    0525        03 R-S-DIR              PICTURE 9.
+    0526        03 R-W-DIR              PICTURE 9.
+    0527        03 JUST-LEFT-IS.
+    0528           05 LEFT-IS-1         PICTURE X(5).
+    0529           05 LEFT-IS-2         PICTURE X(5).
+    0530    01   X-Y-HOLD.
+    0531        03 FIRST-X-Y.
+    0532           05 FIRST-X           PICTURE X(6).
+    0533           05 FIRST-Y           PICTURE X(6).
+    0534        03 LAST-X-Y.
+    0535           05 LAST-X            PICTURE X(6).
+    0536           05 LAST-Y            PICTURE X(6).
+    0537    01   IS-WORK.
+    0538        03 IS-COUNT             PICTURE 999.
+    0539    01   SW-INTER.
+    0540        03 SW-IS                PICTURE 9 VALUE ZERO.
+    0541        03 SW-N-IS              PICTURE 9 VALUE ZERO.
+    0542    01   NO-ACCIDENTS.
+    0543        03 P-AC                 PICTURE 99.
+    0544        03 I-AC                 PICTURE 99.
+    0545        03 F-AC                 PICTURE 99.
+    0546        03 T-AC                 PICTURE 999.
+    0547    01   SEV-SW.
+    0548        03 P-SW                 PICTURE 9.
+    0549        03 I-SW                 PICTURE 9.
+    0550        03 F-SW                 PICTURE 9.
+    0551    01   33-VOL.
+    0552        03 33-V-W               PICTURE 9(5)  VALUE ZERO.
+    0553        03 33-V-HOLD            PICTURE 9(6)  VALUE ZERO.
+    0554        03 V-COUNT              PICTURE 999   VALUE ZERO.
+    0555        03 TOT-ACC              PICTURE 9999  VALUE ZERO.
+    0556    01   T23-WORK-AREA.
+    0557        03 T23-REQUESTER        PICTURE X(15).
+    0558           03 T23-SEARCH-DATES  PICTURE X(12).
+    0559        03 T23-ROUTE            PICTURE X(5).
+    0560        03 T23-R-NAME           PICTURE X(30).    P R O G R A M   T 3 0 6 0 		COBOL (005001,107001)	 7-JUN-73  11:33		PAGE 1-10
+    SRI060.CBL    07-JUN-73  11:31
+
+    0561        03 T23-IS-ACC           PICTURE X(70).
+    0562        03 FILLER REDEFINES T23-IS-ACC OCCURS 7 TIMES.
+    0563           05 FILLER    OCCURS 5 TIMES.
+    0564              07 FLD-IS         PICTURE 99.
+    0565        03 T23-NON-IS-ACC       PICTURE X(80).
+    0566        03 FILLER     REDEFINES T23-NON-IS-ACC OCCURS 8 TIMES.
+    0567           05 FILLER OCCURS 5 TIMES.
+    0568              07 FLD-NON-IS     PICTURE 99.
+    0569        03 T23-ACC-PER-M        PICTURE 999V9.
+    0570        03 T23-ACC-PER-MVM      PICTURE 999V9.
+    0571        03 T23-VOL-ADT          PICTURE 9(6).
+    0572        03 FILLER               PICTURE X(44).
+    0573        03 RPT-CODE             PICTURE 99.
+    0574        03 RQ-NO                PICTURE 999.
+    0575        03 FILLER               PICTURE XXX.
+    0576        03 RCD-CODE             PICTURE 9.
+    0577        03 FILLER               PICTURE X(11).
+    0578    01   CHART-HOLD.
+    0579        03 CHART-23 OCCURS 125 TIMES.
+    0580           05 CHART-ACC-TYPE    PICTURE 9.
+    0581           05 CHART-P           PICTURE 99.
+    0582           05 CHART-I           PICTURE 99.
+    0583           05 CHART-F           PICTURE 99.
+    0584           05 CHART-IS          PICTURE X(5).
+    0585           05 CHART-NAME        PICTURE X(30).
+    0586    01   CHART-LOC.
+    0587        03 CHART-DIST           PICTURE 9(5).
+    0588        03 FILLER REDEFINES  CHART-DIST.
+    0589           05 CHART-D           PICTURE 999.
+    0590           05 FILLER-2-DIG   PICTURE 99.
+    0591    01   CHART-OLD               PICTURE 9(5).
+    0592    01   FILLER REDEFINES CHART-OLD.
+    0593        03 CH-OLD-0             PICTURE 9.
+    0594        03 CH-OLD               PICTURE 99.
+    0595        03 CH-OLD-A REDEFINES CH-OLD.
+    0596           05 CH-OLD-1          PICTURE 9.
+    0597           05 CH-OLD-2          PICTURE 9.
+    0598        03 CH-OLD-3             PICTURE 99.
+    0599    01   ROUT-SW                 PICTURE 9 VALUE ZERO.
+    0600    01   IS-DISTANCE             PICTURE 9(5).
+    0601    01   IS-DIS REDEFINES IS-DISTANCE.
+    0602        03 IS-DIS-A             PICTURE 999.
+    0603        03 FIL-D-A          PICTURE 99.
+    0604    01   DUMMY-1.
+    0605        02  ACC-IN-REC-2.
+    0606            03  DATA-GROUP-1        PICTURE X(40).
+    0607            03  DATA-GROUP-2        PICTURE 9(17).
+    0608            03  DATA-GROUP-3        PICTURE 9(17).
+    0609            03  DATA-GROUP-4        PICTURE 9(17).
+    0610            03  DATA-GROUP-5        PICTURE 9(17).
+    0611            03  DATA-GROUP-6        PICTURE 9(17).
+    0612            03  DATA-GROUP-7        PICTURE 9(17).
+    0613            03  DATA-GROUP-8        PICTURE 9(17).
+    0614            03  DATA-GROUP-9        PICTURE 9(17).
+    0615        02  ACC-HIST-REC    REDEFINES ACC-IN-REC-2.
+    0616        03  A-DELETE-CODE               PICTURE  X.    P R O G R A M   T 3 0 6 0 		COBOL (005001,107001)	 7-JUN-73  11:33		PAGE 1-11
+    SRI060.CBL    07-JUN-73  11:31
+
+    0617        03  A-RECORD-KEY.
+    0618            04  A-IS-CODE               PICTURE  X(10).
+    0619            04  A-IND-CODE              PICTURE  9(3).
+    0620            04  A-REC-CODE              PICTURE  9.
+    0621        03  A-IND-CODE-OLDEST           PICTURE  S9(3).
+    0622        03  A-IND-CODE-LATEST           PICTURE  S9(3).
+    0623        03  A-SUPL-REC-CODE             PICTURE  9.
+    0624        03  A-DAY-OF-WEEK               PICTURE   9.
+    0625        03  A-DATE-OCCURRED.
+    0626            04  A-YR-OCCURRED           PICTURE   99.
+    0627            04  A-MO-OCCURRED           PICTURE   99.
+    0628            04  A-DA-OCCURRED           PICTURE   99.
+    0629        03  A-TIME-OCCURRED.
+    0630            04  A-HOUR-OCCURRED         PICTURE   99.
+    0631            04  A-MIN-OCCURRED          PICTURE   99.
+    0632        03  A-REP-DIST.
+    0633            04  A-DIV                   PICTURE  99.
+    0634            04  A-DIST                  PICTURE  99.
+    0635        03  A-PROC-CYCLE                PICTURE  99.
+    0636        03  A-ACCID-SEVERITY            PICTURE  9.
+    0637        03  A-DR-NO                     PICTURE  9(6).
+    0638        03  A-HIT-RUN-CODE              PICTURE  9.
+    0639        03  A-GOV-PROP-CODE             PICTURE  9.
+    0640        03  A-INVES-UNIT                PICTURE  9.
+    0641        03  A-PRIMARY-CAUSE.
+    0642            04  A-PRIMARY-CODE          PICTURE  9(6).
+    0643            04  A-PRIMARY-GROUP         PICTURE  99.
+    0644        03  A-TEE-IS-CODE               PICTURE   9.
+    0645        03  A-POINT-OF-IMPACT.
+    0646            04  A-PI-PRIM-FT            PICTURE  9(3).
+    0647            04  A-PI-PRIM-CODE-1        PICTURE  9.
+    0648            04  A-PI-PRIM-CODE-2        PICTURE  9.
+    0649            04  A-PI-SEC-FT             PICTURE  9(4).
+    0650            04  A-PI-SEC-CODE-1         PICTURE  9.
+    0651            04  A-PI-SEC-CODE-2         PICTURE  9.
+    0652        03  A-INVOL-WITH-CODE           PICTURE  99.
+    0653        03  A-DIR-ANAL-CODE             PICTURE  9(3).
+    0654        03  A-SURVEY-1                  PICTURE  9.
+    0655        03  A-SURVEY-2                  PICTURE  9.
+    0656        03  A-LIGHTING                  PICTURE  9.
+    0657        03  A-LOCALITY                  PICTURE  9.
+    0658        03  A-ROAD-CHAR                 PICTURE  9.
+    0659        03  A-ROAD-COND                 PICTURE  9.
+    0660        03  A-SPEC-CIRC                 PICTURE  99.
+    0661        03  A-WEATHER                   PICTURE  9.
+    0662        03  A-AT-IS-CODE                PICTURE  9.
+    0663        03  A-ST-REV-CODE               PICTURE 9.
+    0664        03  A-NO-PER-INJ.
+    0665            04  A-TYPE-A                PICTURE 99.
+    0666            04  A-TYPE-B                PICTURE 99.
+    0667            04  A-TYPE-C                PICTURE 99.
+    0668            04  A-TYPE-K                PICTURE 99.
+    0669        03  A-TR-CONTROLS               PICTURE 9.
+    0670        03  A-ACCID-TYPE                PICTURE 99.
+    0671        03  A-ZEROS-1                   PICTURE 9(6).
+    0672        03  A-P1-RES                    PICTURE  9.    P R O G R A M   T 3 0 6 0 		COBOL (005001,107001)	 7-JUN-73  11:33		PAGE 1-12
+    SRI060.CBL    07-JUN-73  11:31
+
+    0673        03  A-P1-SEX                    PICTURE  9.
+    0674        03 A-PAR-1.
+    0675        04  A-P1-VEH-ACTION             PICTURE  99.
+    0676        04  A-P1-VEH-DIR                PICTURE  9.
+    0677        04  A-P1-VEH-TYPE               PICTURE  99.
+    0678        04  A-P1-VEH-CLASS              PICTURE  9.
+    0679        04  A-P1-VEH-COND               PICTURE  99.
+    0680        04  A-P1-AGE                    PICTURE  99.
+    0681        04  A-P1-INJ                    PICTURE  9.
+    0682        04  A-P1-CONTR-CIR              PICTURE  99.
+    0683        04  A-P1-SOB                    PICTURE  99.
+    0684        04  A-P1-PED-ACTION             PICTURE  99.
+    0685        03  A-P1-PAS-1-AGE              PICTURE  99.
+    0686        03  A-P1-PAS-1-SEX              PICTURE  9.
+    0687        03  A-P1-PAS-1-INJ              PICTURE  9.
+    0688        03  A-P1-PAS-2-AGE              PICTURE  99.
+    0689        03  A-P1-PAS-2-SEX              PICTURE  9.
+    0690        03  A-P1-PAS-2-INJ              PICTURE  9.
+    0691        03  A-P1-PAS-3-AGE              PICTURE  99.
+    0692        03  A-P1-PAS-3-SEX              PICTURE  9.
+    0693        03  A-P1-PAS-3-INJ              PICTURE  9.
+    0694        03  A-P1-PHYS-COND              PICTURE  9.
+    0695        03  A-P1-SURVEY-A               PICTURE  9.
+    0696        03  A-P1-SURVEY-B               PICTURE  9.
+    0697        03  A-ZEROS-2                   PICTURE 9(3).
+    0698        03  A-P2-RES                    PICTURE  9.
+    0699        03  A-P2-SEX                    PICTURE  9.
+    0700        03 A-PAR-2.
+    0701        04  A-P2-VEH-ACTION             PICTURE  99.
+    0702        04  A-P2-VEH-DIR                PICTURE  9.
+    0703        04  A-P2-VEH-TYPE               PICTURE  99.
+    0704        04  A-P2-VEH-CLASS              PICTURE  9.
+    0705        04  A-P2-VEH-COND               PICTURE  99.
+    0706        04  A-P2-AGE                    PICTURE  99.
+    0707        04  A-P2-INJ                    PICTURE  9.
+    0708        04  A-P2-CONTR-CIR              PICTURE  99.
+    0709        04  A-P2-SOB                    PICTURE  99.
+    0710        04  A-P2-PED-ACTION             PICTURE  99.
+    0711        03  A-P2-PAS-1-AGE              PICTURE  99.
+    0712        03  A-P2-PAS-1-SEX              PICTURE  9.
+    0713        03  A-P2-PAS-1-INJ              PICTURE  9.
+    0714        03  A-P2-PAS-2-AGE              PICTURE  99.
+    0715        03  A-P2-PAS-2-SEX              PICTURE  9.
+    0716        03  A-P2-PAS-2-INJ              PICTURE  9.
+    0717        03  A-P2-PAS-3-AGE              PICTURE  99.
+    0718        03  A-P2-PAS-3-SEX              PICTURE  9.
+    0719        03  A-P2-PAS-3-INJ              PICTURE  9.
+    0720        03  A-P2-PHYS-COND              PICTURE  9.
+    0721        03  A-P2-SURVEY-A               PICTURE  9.
+    0722        03  A-P2-SURVEY-B               PICTURE  9.
+    0723    01   DUMMY-2.
+    0724        02  ACC-IN-REC-3.
+    0725            03  DATA-GRP-1          PICTURE X(40).
+    0726            03  DATA-GRP-2          PICTURE 9(17).
+    0727            03  DATA-GRP-3          PICTURE 9(17).
+    0728            03  DATA-GRP-4          PICTURE 9(17).    P R O G R A M   T 3 0 6 0 		COBOL (005001,107001)	 7-JUN-73  11:33		PAGE 1-13
+    SRI060.CBL    07-JUN-73  11:31
+
+    0729            03  DATA-GRP-5          PICTURE 9(17).
+    0730            03  DATA-GRP-6          PICTURE 9(17).
+    0731            03  DATA-GRP-7          PICTURE 9(17).
+    0732            03  DATA-GRP-8          PICTURE 9(17).
+    0733            03  DATA-GRP-9          PICTURE 9(17).
+    0734        02  ACC-SUPL-REC    REDEFINES ACC-IN-REC-3.
+    0735        03  S-DELETE-CODE               PICTURE X.
+    0736        03  S-RECORD-KEY.
+    0737            04  S-IS-CODE               PICTURE  X(10).
+    0738            04  S-IND-CODE              PICTURE  9(3).
+    0739            04  S-REC-CODE              PICTURE  9.
+    0740        03  S-BLANKS-1                  PICTURE X(13).
+    0741        03  S-PARTY-SECTION     OCCURS   4 TIMES.
+    0742            04 S-RES                    PICTURE  9.
+    0743            04 S-SEX                    PICTURE  9.
+    0744             04 S-PAR.
+    0745            05 S-VEH-ACTION             PICTURE  99.
+    0746            05 S-VEH-DIR                PICTURE  9.
+    0747            05 S-VEH-TYPE               PICTURE  99.
+    0748            05 S-VEH-CLASS              PICTURE  9.
+    0749            05 S-VEH-COND               PICTURE  99.
+    0750            05 S-AGE                    PICTURE  99.
+    0751            05 S-INJ                    PICTURE  9.
+    0752            05 S-CONTR-CIR              PICTURE  99.
+    0753            05 S-SOB                    PICTURE  99.
+    0754            05 S-PED-ACTION             PICTURE  99.
+    0755            04 S-PAS-1-AGE              PICTURE  99.
+    0756            04 S-PAS-1-SEX              PICTURE  9.
+    0757            04 S-PAS-1-INJ              PICTURE  9.
+    0758            04  S-PAS-2-AGE             PICTURE  99.
+    0759            04  S-PAS-2-SEX             PICTURE 9.
+    0760            04  S-PAS-2-INJ             PICTURE 9.
+    0761            04  S-PAS-3-AGE             PICTURE  99.
+    0762            04  S-PAS-3-SEX             PICTURE  9.
+    0763            04  S-PAS-3-INJ             PICTURE  9.
+    0764            04  S-PHYS-COND             PICTURE  9.
+    0765            04  S-SURVEY-A              PICTURE  9.
+    0766            04  S-SURVEY-B              PICTURE  9.
+    0767            04  S-ZEROS-1               PICTURE  9(3).
+    0768  
+    0769  
+    0770    01   MONTH-TABLE.
+    0771           03 MONTH-TAB.
+    0772              05 FILLER         PICTURE 999 VALUE 031.
+    0773              05 FILLER         PICTURE 999 VALUE 059.
+    0774              05 FILLER         PICTURE 999 VALUE 090.
+    0775              05 FILLER         PICTURE 999 VALUE 120.
+    0776              05 FILLER         PICTURE 999 VALUE 151.
+    0777              05 FILLER         PICTURE 999 VALUE 181.
+    0778              05 FILLER         PICTURE 999 VALUE 212.
+    0779              05 FILLER         PICTURE 999 VALUE 243.
+    0780              05 FILLER         PICTURE 999 VALUE 273.
+    0781              05 FILLER         PICTURE 999 VALUE 304.
+    0782              05 FILLER         PICTURE 999 VALUE 334.
+    0783           03 FILLER REDEFINES MONTH-TAB.
+    0784              05 MO-ENTRY OCCURS 11 TIMES PICTURE 999.    P R O G R A M   T 3 0 6 0 		COBOL (005001,107001)	 7-JUN-73  11:33		PAGE 1-14
+    SRI060.CBL    07-JUN-73  11:31
+
+    0785    01   T-D-HOLD                PICTURE X(12).
+    0786    01   FILLER REDEFINES T-D-HOLD.
+    0787        03 C-M                  PICTURE 99.
+    0788        03 C-D                  PICTURE 99.
+    0789        03 C-Y                  PICTURE 99.
+    0790        03 C-M1                 PICTURE 99.
+    0791        03 C-D1                 PICTURE 99.
+    0792        03 C-Y1                 PICTURE 99.
+    0793    01   D-TOTAL.
+    0794        03 TO-D-TOT             PICTURE 9999.
+    0795        03 FR-D-TOT             PICTURE 9999.
+    0796        03 YR-D-TOT             PICTURE 9999.
+    0797        03 TND                  PICTURE 9999.
+    0798        03 MO-CT                PICTURE 99.
+    0799    01   RECORD-COUNTER          PICTURE 9(5) VALUE ZERO.
+    0800    01   PRT-HR.
+    0801        03 FILLER       PICTURE X.
+    0802        03 PRT-IS-1     PICTURE X(30).
+    0803        03 FILLER       PICTURE XXX VALUE SPACES.
+    0804        03 PRT-IS-2     PICTURE X(30).
+    0805        03 FILLER       PICTURE X(69) VALUE SPACES.
+    0806    01   SUPL-RD-ON      PICTURE 9 VALUE ZERO.
+    0807    01   DIR-ST-SW       PICTURE 9 VALUE ZERO.
+    0808    01   DIR-VEH-C       PICTURE 9 VALUE ZERO.
+    0809    01   SUPL-INVALID        PICTURE 9 VALUE ZERO.
+    0810    01   JOGGED-SWITCH       PICTURE 9 VALUE ZERO.
+    0811    01   DATE-2YRS       PICTURE 9(6).
+    0812    01   FILLER REDEFINES DATE-2YRS.
+    0813        03 YRS-2        PICTURE 99.
+    0814        03 MOS-2        PICTURE 99.
+    0815        03 DAS-2        PICTURE 99.
+    0816    01   END-SW          PICTURE 9 VALUE ZERO.
+    0817    PROCEDURE  DIVISION.
+    0818    FIRST-PAR.
+    0819        OPEN INPUT  REQUEST-TAPE
+    0820                    ACCIDENT-FILE
+    0821                    ISFILE
+    0822                   VOLFILE
+    0823             OUTPUT REPORT-FILE
+    0824                    PRINT-FILE.
+    0825    START-PROCESSING.
+    0826        READ REQUEST-TAPE AT END, GO TO EOJ.
+    0827        IF KEY-CODE < 30 GO TO START-PROCESSING.
+    0828        MOVE ZERO TO R-SEQ.
+    0829        IF KEY-CODE = 30 PERFORM RTN-30 THRU RTN-30-X
+    0830        PERFORM OTHER-IS-RTN THRU OTHER-IS-RTN-X
+    0831        PERFORM REQ-PROCESS THRU REQ-PROCESS-X.
+    0832        MOVE ZERO TO RECORD-COUNTER.
+    0833        IF KEY-CODE = 31 PERFORM RTN-31 THRU RTN-31-X.
+    0834        IF KEY-CODE = 33 PERFORM RTN-33 THRU RTN-33-X.
+    0835        MOVE ZERO TO RECORD-COUNTER.
+    0836        MOVE ZERO TO R-SEQ.
+    0837        IF KEY-CODE = 34 PERFORM RTN-34 THRU RTN-34-X
+    0838        PERFORM RTN-34A THRU RTN-34A-X
+    0839        PERFORM REQ-PROCESS THRU REQ-PROCESS-X.
+    0840        IF KEY-CODE > 34 GO TO EOJ.    P R O G R A M   T 3 0 6 0 		COBOL (005001,107001)	 7-JUN-73  11:33		PAGE 1-15
+    SRI060.CBL    07-JUN-73  11:31
+
+    0841        MOVE ZERO TO JOGGED-SWITCH.
+    0842        GO TO START-PROCESSING.
+    0843    EOJ.
+    0844        CLOSE REQUEST-TAPE
+    0845              ACCIDENT-FILE
+    0846              ISFILE
+    0847              REPORT-FILE
+    0848              VOLFILE
+    0849              PRINT-FILE.
+    0850        DISPLAY 'T-3060 COMPLETED NORMALLY'.
+    0851        STOP RUN.
+    0852    RTN-30.  MOVE ZEROES TO  REPORT-REC.
+    0853        MOVE SPACE TO TYPE-SEARCH.
+    0854        MOVE IS-10-REQUESTER TO T10-REQUESTER.
+    0855        MOVE DATE-LIMIT-10 TO T10-SEARCH-DATES.
+    0856        MOVE REQ-NO-10 TO REQ-NO.
+    0857        MOVE 10 TO REPORT-CODE.
+    0858        MOVE R-SEQ TO IS-SEQUENCE.
+    0859        IF IS-10-ST1 GREATER THAN IS-10-ST2 MOVE IS-10-ST1 TO
+    0860        A-SYM-ST-2 T10-IS-2 MOVE IS-10-ST2 TO A-SYM-ST-1 T10-IS-1
+    0861        ELSE MOVE IS-10 TO A-SYM-KEY-IS T10-IS-CODE.
+    0862    RTN-30-CONT.
+    0863        MOVE FR-MO TO  FROM-MO  MOVE FR-DA TO FROM-DA.
+    0864        MOVE FR-YR TO  FROM-YR  MOVE  T-MO TO TO-MO.
+    0865        MOVE  T-DA TO    TO-DA  MOVE  T-YR TO TO-YR.
+    0866    A5.  MOVE ZEROES TO A-SYM-INDEX, MOVE 1 TO A-SYM-REC-CODE.
+    0867    RD-AHFILE.
+    0868        READ ACCIDENT-FILE INVALID KEY
+    0869            MOVE ZERO TO PASS-S GO TO A-ERROR-RTN.
+    0870        IF DELETE-CODE = HIGH-VALUE AND PASS-S = ZERO GO TO RTN-30-X.
+    0871        IF DELETE-CODE = HIGH-VALUE AND PASS-S = 1
+    0872            GO TO INCREASE-INDEX.
+    0873        PERFORM UNPACK THRU UNPACK-X.
+    0874        IF PASS-S = 1 GO TO A1.
+    0875        MOVE A-IND-CODE-OLDEST TO A-OLDEST.
+    0876        MOVE A-IND-CODE-LATEST TO A-LATEST.
+    0877    A1.  IF TYPE-SEARCH = SPACE GO TO A2.
+    0878        PERFORM TYPE-SEARCH-RTN THRU TYPE-SEARCH-RTN-X.
+    0879        IF SEARCH-SW = 1 MOVE ZERO TO SEARCH-SW GO TO A2 ELSE
+    0880             GO TO INCREASE-INDEX.
+    0881    A2.
+    0882        IF A-DIR-ANAL-CODE = 390 GO TO INCREASE-INDEX.
+    0883        IF FROM-DATE = ZERO GO TO A3.
+    0884        IF A-DATE-OCCURRED LESS THAN FROM-DATE GO TO INCREASE-INDEX.
+    0885        IF A-DATE-OCCURRED GREATER THAN TO-DATE GO TO INCREASE-INDEX.
+    0886    A3.
+    0887        ADD 1 TO RECORD-COUNTER.
+    0888        MOVE A-DAY-OF-WEEK TO DOW.
+    0889        MOVE A-DATE-OCCURRED TO T10-DATE MOVE A-SUPL-REC-CODE TO SU-H
+    0890        MOVE A-DATE-OCCURRED TO CODE-IS-DATE.
+    0891        MOVE A-TIME-OCCURRED TO T10-TIME
+    0892        MOVE A-DR-NO TO T10-DR-NO MOVE A-PRIMARY-GROUP TO GP-CODE
+    0893        MOVE A-PRIMARY-CODE TO PRI-CODE
+    0894        MOVE A-POINT-OF-IMPACT TO T10-PT-IMPACT
+    0895        MOVE A-DIR-ANAL-CODE TO     DIR-ANL
+    0896        MOVE A-LIGHTING TO LIGHT    P R O G R A M   T 3 0 6 0 		COBOL (005001,107001)	 7-JUN-73  11:33		PAGE 1-16
+    SRI060.CBL    07-JUN-73  11:31
+
+    0897        MOVE A-ROAD-COND TO RD-CONDITION
+    0898        MOVE A-SPEC-CIRC TO SPEC-CIR
+    0899        MOVE A-WEATHER TO WEATHER
+    0900        MOVE A-AT-IS-CODE TO T10-AT-IS
+    0901        MOVE A-NO-PER-INJ TO T10-NO-PER-INJ
+    0902        MOVE A-ACCID-SEVERITY TO T10-A-SEV
+    0903        MOVE A-ST-REV-CODE TO T10-REVERSE-ST-C
+    0904        MOVE A-SUPL-REC-CODE TO T10-NO-PARTIES
+    0905        MOVE A-ACCID-TYPE TO T10-ACC-TYPE
+    0906        MOVE A-PAR-1 TO T10-PARTY-ENTRY (1).
+    0907        MOVE A-PAR-2 TO T10-PARTY-ENTRY (2).
+    0908        PERFORM  PARTY-COUNT THRU PARTY-COUNT-X VARYING J FROM 1 BY 1
+    0909            UNTIL J GREATER THAN A-SUPL-REC-CODE. MOVE 1 TO H.
+    0910        IF SUPL-REC-CODE LESS THAN 3    WRITE REPORT-REC
+    0911            GO TO INCREASE-INDEX.
+    0912        IF SUPL-INVALID = 1 MOVE ZERO TO SUPL-INVALID
+    0913            WRITE REPORT-REC GO TO INCREASE-INDEX.
+    0914        IF SUPL-RD-ON = ZERO NEXT SENTENCE ELSE
+    0915        MOVE ZERO TO SUPL-RD-ON GO TO A4A.
+    0916        ADD 1 TO A-SYM-REC-CODE.
+    0917        READ ACCIDENT-FILE INVALID KEY WRITE REPORT-REC
+    0918        GO TO INCREASE-INDEX.
+    0919        PERFORM UNPACK-S THRU UNPACK-SX.
+    0920    A4A.
+    0921        MOVE S-PAR (1) TO T10-PARTY-ENTRY (3).
+    0922        MOVE S-PAR (2) TO T10-PARTY-ENTRY (4).
+    0923        MOVE S-PAR (3) TO T10-PARTY-ENTRY (5).
+    0924        MOVE S-PAR (4) TO T10-PARTY-ENTRY (6).
+    0925        IF SU-H LESS THAN 7  WRITE REPORT-REC GO TO INCREASE-INDEX.
+    0926        ADD 1 TO A-SYM-REC-CODE.
+    0927        READ ACCIDENT-FILE INVALID KEY WRITE REPORT-REC GO TO
+    0928            INCREASE-INDEX.
+    0929        PERFORM UNPACK-S THRU UNPACK-SX.
+    0930        MOVE S-PAR (1) TO T10-PARTY-ENTRY (7).
+    0931        MOVE S-PAR (2) TO T10-PARTY-ENTRY (8).
+    0932        MOVE S-PAR (3) TO T10-PARTY-ENTRY (9).
+    0933        WRITE REPORT-REC.
+    0934    INCREASE-INDEX.
+    0935        IF KEY-CODE = 30 PERFORM RTN-30 THRU RTN-30-CONT
+    0936            GO TO R-30-U.
+    0937        MOVE ZERO TO REPORT-REC PERFORM M0 THRU M1
+    0938        MOVE R-SEQ TO IS-SEQUENCE.
+    0939          MOVE A-SYM-KEY-IS TO T10-IS-CODE.
+    0940    R-30-U.
+    0941        MOVE 1 TO PASS-S.
+    0942        IF A-OLDEST GREATER THAN A-LATEST OR A-OLDEST EQUAL TO ZERO
+    0943        MOVE ZERO TO PASS-S
+    0944        GO TO RTN-30-X.
+    0945        MOVE A-OLDEST TO A-SYM-INDEX, MOVE 1 TO A-SYM-REC-CODE
+    0946        ADD 1 TO A-OLDEST GO TO RD-AHFILE.
+    0947    RTN-30-X.  EXIT.
+    0948    A-ERROR-RTN.
+    0949        MOVE 1 TO UNPROC-SW.
+    0950        PERFORM UNP-A THRU UNP-AX
+    0951        MOVE 'THERE ARE NO ACCIDENTS RECORDED FOR REQUESTED LOCATION'
+    0952            TO PRINT-LINE    P R O G R A M   T 3 0 6 0 		COBOL (005001,107001)	 7-JUN-73  11:33		PAGE 1-17
+    SRI060.CBL    07-JUN-73  11:31
+
+    0953        WRITE PRINT-REC AFTER ADVANCING 2 LINES
+    0954        GO TO RTN-30-X.
+    0955    REQ-PROCESS.
+    0956        IF UNPROC-SW = 1 MOVE ZERO TO UNPROC-SW GO TO REQ-PROCESS-A.
+    0957        IF RECORD-COUNTER = ZERO
+    0958        PERFORM UNP-A THRU UNP-AX
+    0959        MOVE 'MASTER FILE DOES NOT CONTAIN RECORDS FOR REQUESTED DATE
+    0960  - 'LIMITS' TO PRINT-LINE
+    0961        WRITE PRINT-REC AFTER ADVANCING 2 LINES.
+    0962    REQ-PROCESS-A.
+    0963        MOVE ZERO TO RECORD-COUNTER.
+    0964    REQ-PROCESS-X.  EXIT.
+    0965    UNPACK.
+    0966        MOVE FIELD-1 TO DATA-GROUP-1.
+    0967        MOVE FIELD-2 TO DATA-GROUP-2.
+    0968        MOVE FIELD-3 TO DATA-GROUP-3.
+    0969        MOVE FIELD-4 TO DATA-GROUP-4.
+    0970        MOVE FIELD-5 TO DATA-GROUP-5.
+    0971        MOVE FIELD-6 TO DATA-GROUP-6.
+    0972        MOVE FIELD-7 TO DATA-GROUP-7.
+    0973        MOVE FIELD-8 TO DATA-GROUP-8.
+    0974        MOVE FIELD-9 TO DATA-GROUP-9.
+    0975    UNPACK-X.  EXIT.
+    0976    UNPACK-S.
+    0977        MOVE FIELD-1 TO DATA-GRP-1. MOVE FIELD-2 TO DATA-GRP-2.
+    0978        MOVE FIELD-3 TO DATA-GRP-3. MOVE FIELD-4 TO DATA-GRP-4.
+    0979        MOVE FIELD-5 TO DATA-GRP-5. MOVE FIELD-6 TO DATA-GRP-6.
+    0980        MOVE FIELD-7 TO DATA-GRP-7. MOVE FIELD-8 TO DATA-GRP-8.
+    0981        MOVE FIELD-9 TO DATA-GRP-9.
+    0982    UNPACK-SX.  EXIT.
+    0983    PARTY-COUNT.
+    0984        MOVE H TO PARTY-NO (J)
+    0985        ADD 1 TO H.
+    0986    PARTY-COUNT-X.  EXIT.
+    0987    RTN-31.
+    0988        MOVE ZERO TO JUST-LEFT-IS, R-SEQ.
+    0989        MOVE ZEROES TO REPORT-REC, DIR-CODE-HOLD, IS-WORK, X-Y-HOLD.
+    0990        ADD 1 TO R-SEQ.
+    0991    M0.  MOVE R-REQUESTER TO T10-REQUESTER.
+    0992        MOVE R-DATE-LIMIT TO T10-SEARCH-DATES.
+    0993        MOVE R-10-REQ-NO TO REQ-NO.
+    0994        MOVE R-SEQ TO IS-SEQUENCE.
+    0995        MOVE 10 TO REPORT-CODE.
+    0996    M1.  MOVE R-FR-MO TO FROM-MO     MOVE R-FR-DA TO FROM-DA.
+    0997        MOVE R-FR-YR TO FROM-YR     MOVE R-T-MO  TO   TO-MO.
+    0998        MOVE R-T-DA  TO   TO-DA     MOVE R-T-YR  TO   TO-YR.
+    0999    M3.  MOVE R-ST-CODE TO ROUTE-ST-HOLD.
+    1000        IF R-ST-CODE < FIRST-ST-CODE MOVE R-ST-CODE TO FIRST-ST-1
+    1001            MOVE FIRST-ST-CODE TO FIRST-ST-2 ELSE
+    1002        MOVE R-ST-CODE TO FIRST-ST-2
+    1003        MOVE FIRST-ST-CODE TO FIRST-ST-1.
+    1004        IF R-ST-CODE < LAST-ST-CODE MOVE R-ST-CODE TO LAST-ST-1
+    1005            MOVE LAST-ST-CODE TO LAST-ST-2   ELSE
+    1006        MOVE R-ST-CODE TO LAST-ST-2 MOVE LAST-ST-CODE TO LAST-ST-1.
+    1007    M2.  MOVE LAST-X-ST-HOLD TO SYM-KEY.
+    1008        READ ISFILE INVALID KEY    P R O G R A M   T 3 0 6 0 		COBOL (005001,107001)	 7-JUN-73  11:33		PAGE 1-18
+    SRI060.CBL    07-JUN-73  11:31
+
+    1009            DISPLAY 'INVALID I/S CODE, ROUTE UNDETERMINED ' SYM-KEY
+    1010            GO TO RTN-31-X.
+    1011        MOVE IS-CORDINATES TO LAST-X-Y.
+    1012        MOVE FIRST-X-ST-HOLD TO SYM-KEY, T10-IS-CODE.
+    1013        READ ISFILE INVALID KEY
+    1014            DISPLAY 'INVALID I/S CODE, ROUTE UNDETERMINED ' SYM-KEY
+    1015            GO TO RTN-31-X.
+    1016        MOVE IS-CORDINATES TO FIRST-X-Y.
+    1017        IF R-ST-CODE = IS-NEXT-ST-1 (1) OR R-ST-CODE =
+    1018            IS-NEXT-ST-2 (1) OR R-ST-CODE = IS-NEXT-ST-1 (3) OR
+    1019            R-ST-CODE = IS-NEXT-ST-2 (3) MOVE 1 TO NS-DIR
+    1020        GO TO RTN-31-A.
+    1021        IF R-ST-CODE = IS-NEXT-ST-1 (2) OR R-ST-CODE =
+    1022            IS-NEXT-ST-2 (2) OR R-ST-CODE = IS-NEXT-ST-1 (4) OR
+    1023            R-ST-CODE = IS-NEXT-ST-2 (4) MOVE 1 TO EW-DIR
+    1024            GO TO RTN-31-A.
+    1025        DISPLAY 'UNABLE TO DETERMINE ROUTE DIRECTION FROM I/S FILE'.
+    1026        DISPLAY SYM-KEY       ' I/S RECORD CODE'.
+    1027        DISPLAY 'T-10 (ROUTE) REQUEST NO. ' REQ-NO GO TO RTN-31-X.
+    1028    RTN-31-A.
+    1029        IF EW-DIR NOT = 1 GO TO RTN-31-B.
+    1030        IF FIRST-X < LAST-X MOVE 1 TO E-DIR R-E-DIR GO TO RTN-31-C.
+    1031        IF FIRST-X > LAST-X MOVE 1 TO W-DIR R-W-DIR GO TO RTN-31-C.
+    1032        IF R-DIRECTION = 3 MOVE 1 TO E-DIR, R-E-DIR GO TO RTN-31-C.
+    1033        IF R-DIRECTION = 4 MOVE 1 TO W-DIR, R-W-DIR GO TO RTN-31-C.
+    1034    1A.  DISPLAY 'DIRECTION CAN NOT BE DETERMINED FROM X-Y'.
+    1035            GO TO RTN-31-X.
+    1036    RTN-31-B.
+    1037        IF FIRST-Y < LAST-Y MOVE 1 TO N-DIR R-N-DIR GO TO RTN-31-C.
+    1038        IF FIRST-Y > LAST-Y MOVE 1 TO S-DIR R-S-DIR GO TO RTN-31-C.
+    1039        IF R-DIRECTION = 1 MOVE 1 TO N-DIR, R-N-DIR GO TO RTN-31-C.
+    1040        IF R-DIRECTION = 2 MOVE 1 TO S-DIR, R-S-DIR GO TO RTN-31-C.
+    1041        GO TO 1A.
+    1042    RTN-31-C.  MOVE ZEROES TO IS-COUNT, IS-DISTANCE.
+    1043        MOVE R-SEARCH TO TYPE-SEARCH. MOVE ZERO TO SEARCH-SW.
+    1044        MOVE FIRST-X-ST-HOLD TO A-SYM-KEY-IS. ADD 1 TO IS-COUNT.
+    1045        MOVE FIRST-X-ST-HOLD TO T10-IS-CODE IS-10.
+    1046        MOVE ZEROES TO A-SYM-INDEX  MOVE 1 TO A-SYM-REC-CODE.
+    1047        DISPLAY SYM-KEY ' FIRST I/S ON ROUTE'.
+    1048    CONTINUE-ROUTE.
+    1049        PERFORM RD-AHFILE THRU RTN-30-X.
+    1050        PERFORM 31-OTHER THRU 31-OTHER-X.
+    1051        PERFORM REQ-PROCESS THRU REQ-PROCESS-X.
+    1052        IF IS-ER = 1 MOVE ZERO TO IS-ER GO TO RTN-31-X.
+    1053        MOVE ZERO TO RECORD-COUNTER.
+    1054        IF LAST-X-ST-HOLD = SYM-KEY GO TO RTN-31-X.
+    1055        IF IS-DISTANCE > 60000 GO TO RTN-31-X.
+    1056        IF IS-COUNT > 100 GO TO RTN-31-X.
+    1057        PERFORM NEXT-IS-RTN THRU NEXT-IS-RTN-X.
+    1058        IF IS-ER = 1 MOVE 0 TO IS-ER GO TO RTN-31-X.
+    1059        MOVE ZEROES TO DETAIL-REC-VAR.
+    1060        ADD 1 TO R-SEQ.
+    1061        MOVE R-SEQ TO IS-SEQUENCE.
+    1062        MOVE SYM-KEY         TO T10-IS-CODE IS-10.
+    1063        GO TO CONTINUE-ROUTE.
+    1064    RTN-31-X.  EXIT.    P R O G R A M   T 3 0 6 0 		COBOL (005001,107001)	 7-JUN-73  11:33		PAGE 1-19
+    SRI060.CBL    07-JUN-73  11:31
+
+    1065    31-OTHER.
+    1066        MOVE ZERO TO IS-ER.
+    1067        MOVE ZERO TO JOGGED-SWITCH.
+    1068        MOVE SYM-KEY TO IS-OTHER-HOLD.
+    1069        IF IS-JOG = ZERO GO TO 31-OTHER-X.
+    1070        IF IS-JOG = '1' GO TO 31-OTHER-B.
+    1071        IF IS-JOG NOT = '2' GO TO 31-OTHER-X.
+    1072        IF SYM-KEY = LAST-X-ST-HOLD MOVE 1 TO IS-ER GO TO 31-OTHER-X.
+    1073        IF IS-OTHER-ST = ZERO GO TO 31-OTHER-X.
+    1074        IF IS-OTHER-ST = IS-OTHER-HOLD GO TO 31-OTHER-X.
+    1075        MOVE IS-OTHER-ST TO T10-IS-CODE, A-SYM-KEY-IS, IS-10.
+    1076        MOVE ZERO TO A-SYM-INDEX  MOVE 1 TO A-SYM-REC-CODE.
+    1077        ADD 1 TO R-SEQ.
+    1078        MOVE R-SEQ TO IS-SEQUENCE.
+    1079        PERFORM RD-AHFILE THRU RTN-30-X.
+    1080        IF (N-DIR = 1) AND ((IS-NEXT-ST-1 (1) = ROUTE-ST-HOLD) OR
+    1081        (IS-NEXT-ST-2 (1) = ROUTE-ST-HOLD)) GO TO 31-OTHER-X.
+    1082        IF (E-DIR = 1) AND ((IS-NEXT-ST-1 (2) = ROUTE-ST-HOLD) OR
+    1083        (IS-NEXT-ST-2 (2) = ROUTE-ST-HOLD)) GO TO 31-OTHER-X.
+    1084        IF (S-DIR = 1) AND ((IS-NEXT-ST-1 (3) = ROUTE-ST-HOLD) OR
+    1085        (IS-NEXT-ST-2 (3) = ROUTE-ST-HOLD)) GO TO 31-OTHER-X.
+    1086        IF (W-DIR = 1) AND ((IS-NEXT-ST-1 (4) = ROUTE-ST-HOLD) OR
+    1087        (IS-NEXT-ST-2 (4) = ROUTE-ST-HOLD)) GO TO 31-OTHER-X.
+    1088        MOVE IS-OTHER-ST TO SYM-KEY.
+    1089        READ ISFILE INVALID KEY GO TO 31-OTHER-D.
+    1090        GO TO 31-OTHER-X.
+    1091    31-OTHER-B.
+    1092        IF IS-OTHER-ST = ZERO GO TO 31-OTHER-X.
+    1093        IF IS-OTHER-ST = IS-OTHER-HOLD GO TO 31-OTHER-D.
+    1094        MOVE IS-OTHER-ST TO SYM-KEY.
+    1095        MOVE IS-OTHER-ST TO A-SYM-KEY-IS, IS-10.
+    1096        MOVE IS-OTHER-ST TO T10-IS-CODE.
+    1097        MOVE ZERO TO A-SYM-INDEX, MOVE 1 TO A-SYM-REC-CODE.
+    1098        ADD 1 TO R-SEQ.
+    1099        MOVE R-SEQ TO IS-SEQUENCE.
+    1100        PERFORM RD-AHFILE THRU RTN-30-X.
+    1101        IF SYM-KEY = LAST-X-ST-HOLD MOVE 1 TO IS-ER.
+    1102        READ ISFILE INVALID KEY GO TO 31-OTHER-D.
+    1103        GO TO 31-OTHER-B.
+    1104    31-OTHER-D.
+    1105        MOVE IS-OTHER-HOLD TO SYM-KEY.
+    1106        READ ISFILE INVALID KEY GO TO 31-OTHER-X.
+    1107    31-OTHER-X.   EXIT.
+    1108    NEXT-IS-RTN.
+    1109        PERFORM ROUTE-DIR THRU ROUTE-DIR-X.
+    1110        IF IS-ER = 1 GO TO NEXT-IS-RTN-X.
+    1111        MOVE SYM-KEY TO JUST-LEFT-IS.
+    1112        IF N-DIR = 1 MOVE IS-NEXT-IS-CODE (1) TO SYM-KEY
+    1113            ADD IS-NEXT-IS-DIST (1) TO IS-DISTANCE  GO TO N1.
+    1114        IF E-DIR = 1 MOVE IS-NEXT-IS-CODE (2) TO SYM-KEY
+    1115            ADD IS-NEXT-IS-DIST (2) TO IS-DISTANCE  GO TO N1.
+    1116        IF S-DIR = 1 MOVE IS-NEXT-IS-CODE (3) TO SYM-KEY
+    1117            ADD IS-NEXT-IS-DIST (3) TO IS-DISTANCE  GO TO N1.
+    1118        IF W-DIR = 1 MOVE IS-NEXT-IS-CODE (4) TO SYM-KEY
+    1119            ADD IS-NEXT-IS-DIST (4) TO IS-DISTANCE  GO TO N1.
+    1120    N1.  MOVE SYM-KEY TO A-SYM-KEY-IS MOVE 1 TO A-SYM-REC-CODE.    P R O G R A M   T 3 0 6 0 		COBOL (005001,107001)	 7-JUN-73  11:33		PAGE 1-20
+    SRI060.CBL    07-JUN-73  11:31
+
+    1121        MOVE ZEROES TO A-SYM-INDEX.
+    1122        ADD 1 TO IS-COUNT.
+    1123        ADD 100 TO IS-DISTANCE.
+    1124        IF FIL-D-A > 50 ADD 100 TO IS-DISTANCE.
+    1125        MOVE ZERO TO FIL-D-A.
+    1126        READ ISFILE INVALID KEY
+    1127            DISPLAY 'I/S FILE DOES NOT CONTAIN NEXT I/S RECORD'
+    1128        DISPLAY IS-OTHER-HOLD ' I/S RECORD CODE'
+    1129            DISPLAY SYM-KEY MOVE 1 TO IS-ER GO TO NEXT-IS-RTN-X.
+    1130        DISPLAY  SYM-KEY ' NEXT I/S ON ROUTE'.
+    1131    NEXT-IS-RTN-X.  EXIT.
+    1132    RTN-33.
+    1133        MOVE ZERO TO JUST-LEFT-IS.
+    1134        MOVE ZEROES TO REPORT-REC, DIR-CODE-HOLD, IS-WORK, X-Y-HOLD,
+    1135            T23-WORK-AREA, IS-COUNT, 33-VOL.
+    1136        MOVE ZERO TO CHART-HOLD, CHART-LOC, CHART-OLD.
+    1137        MOVE ZERO TO ROUT-SW.
+    1138        MOVE 00100 TO IS-DISTANCE.
+    1139        MOVE R-REQUESTER TO T23-REQUESTER.
+    1140        MOVE R-DATE-LIMIT TO T23-SEARCH-DATES.
+    1141        MOVE R-DATE-LIMIT TO T-D-HOLD.
+    1142        PERFORM NO-D-RTN THRU NO-D-RTN-X.
+    1143        MOVE R-10-REQ-NO TO REQ-NO, RQ-NO.
+    1144        MOVE 23 TO REPORT-CODE, RPT-CODE.
+    1145        MOVE 1 TO RCD-CODE, MOVE 2 TO REC-CODE.
+    1146        PERFORM M1 THRU M3.
+    1147        MOVE R-ST-CODE TO T23-ROUTE.
+    1148        MOVE LAST-X-ST-HOLD TO SYM-KEY.
+    1149        READ ISFILE INVALID KEY
+    1150            DISPLAY 'INVALID I/S CODE, ROUTE UNDETERMINED ' SYM-KEY
+    1151            GO TO RTN-33-X.
+    1152        MOVE IS-CORDINATES TO LAST-X-Y.
+    1153        IF R-ST-CODE = SYM-KEY-ST-1 MOVE IS-NAME-1 TO T23-R-NAME ELSE
+    1154        MOVE IS-NAME-2 TO T23-R-NAME.
+    1155        MOVE FIRST-X-ST-HOLD TO SYM-KEY.
+    1156        READ ISFILE INVALID KEY
+    1157            DISPLAY 'INVALID I/S CODE, ROUTE UNDETERMINED ' SYM-KEY
+    1158            GO TO RTN-33-X.
+    1159        MOVE IS-CORDINATES TO FIRST-X-Y.
+    1160        PERFORM IS-LOC THRU IS-LOC-X.
+    1161        ADD 1 TO IS-COUNT.
+    1162        IF R-ST-CODE = IS-NEXT-ST-1 (1) OR R-ST-CODE =
+    1163            IS-NEXT-ST-2 (1) OR R-ST-CODE = IS-NEXT-ST-1 (3) OR
+    1164            R-ST-CODE = IS-NEXT-ST-2 (3) MOVE 1 TO NS-DIR
+    1165            GO TO RTN-33-A.
+    1166        IF R-ST-CODE = IS-NEXT-ST-1 (2) OR R-ST-CODE =
+    1167            IS-NEXT-ST-2 (2) OR R-ST-CODE = IS-NEXT-ST-1 (4) OR
+    1168            R-ST-CODE = IS-NEXT-ST-2 (4) MOVE 1 TO EW-DIR
+    1169            GO TO RTN-33-A.
+    1170        DISPLAY 'UNABLE TO DETERMINE ROUTE DIRECTION FROM I/S FILE'.
+    1171        DISPLAY SYM-KEY       ' I/S RECORD CODE'.
+    1172        DISPLAY 'T-22 REQUEST NO. ' REQ-NO GO TO RTN-33-X.
+    1173    RTN-33-A.
+    1174        IF EW-DIR NOT = 1 GO TO RTN-33-B.
+    1175        IF FIRST-X < LAST-X MOVE 1 TO E-DIR R-E-DIR GO TO RTN-33-C.
+    1176        IF FIRST-X > LAST-X MOVE 1 TO W-DIR R-W-DIR GO TO RTN-33-C.    P R O G R A M   T 3 0 6 0 		COBOL (005001,107001)	 7-JUN-73  11:33		PAGE 1-21
+    SRI060.CBL    07-JUN-73  11:31
+
+    1177    2A.  DISPLAY 'DIRECTION CAN NOT BE DETERMIND FROM X-Y'.
+    1178            GO TO RTN-33-X.
+    1179    RTN-33-B.
+    1180        IF FIRST-Y < LAST-Y MOVE 1 TO N-DIR R-N-DIR GO TO RTN-33-C.
+    1181        IF FIRST-Y > LAST-Y MOVE 1 TO S-DIR R-S-DIR GO TO RTN-33-C.
+    1182        GO TO 2A.
+    1183    RTN-33-C.
+    1184        MOVE R-SEARCH TO TYPE-SEARCH, MOVE ZERO TO SEARCH-SW,
+    1185        MOVE FIRST-X-ST-HOLD TO A-SYM-KEY-IS.
+    1186    3A.  MOVE ZERO TO A-SYM-INDEX, MOVE 1 TO A-SYM-REC-CODE.
+    1187        PERFORM RTN-33-AHFILE THRU RTN-33-AHFILE-X.
+    1188        IF SYM-KEY = LAST-X-ST-HOLD GO TO RTN-33-E.
+    1189        IF END-SW = 1  MOVE ZERO TO END-SW GO TO RTN-33-E.
+    1190        IF IS-COUNT = 24 GO TO RTN-33-E.
+    1191        PERFORM NEXT-IS-RTN THRU NEXT-IS-RTN-X.
+    1192        IF IS-ER = 1 MOVE ZERO TO IS-ER GO TO RTN-33-E.
+    1193        PERFORM IS-LOC THRU IS-LOC-X.
+    1194        GO TO 3A.
+    1195    RTN-33-E.
+    1196        PERFORM UP-IND-A THRU UP-IND-A-X.
+    1197        COMPUTE IS-DISTANCE =
+    1198            (IS-DISTANCE - (IS-COUNT * 100)).
+    1199        IF V-COUNT NOT = ZERO
+    1200            COMPUTE T23-VOL-ADT ROUNDED = (33-V-HOLD / V-COUNT).
+    1201        IF IS-DISTANCE NOT = ZERO
+    1202            COMPUTE T23-ACC-PER-M ROUNDED = (TOT-ACC / (IS-DISTANCE
+    1203                / 5280)).
+    1204        IF T23-VOL-ADT NOT = ZERO AND IS-DISTANCE NOT = ZERO
+    1205            COMPUTE T23-ACC-PER-MVM ROUNDED =
+    1206         TOT-ACC / ((TND * T23-VOL-ADT * (IS-DISTANCE / 5280))
+    1207                / 1000000).
+    1208        WRITE REPORT-REC FROM T23-WORK-AREA.
+    1209    RTN-33-X.  EXIT.
+    1210    33-OTHER.
+    1211        MOVE ZERO TO END-SW.
+    1212        MOVE SYM-KEY TO IS-OTHER-HOLD.
+    1213        IF IS-JOG = ZERO GO TO 33-OTHER-X.
+    1214        IF IS-JOG = '1' GO TO 33-OTHER-B.
+    1215        IF IS-JOG NOT = '2' GO TO 33-OTHER-X.
+    1216        IF SYM-KEY = LAST-X-ST-HOLD MOVE 1 TO END-SW
+    1217            GO TO 33-OTHER-X.
+    1218        IF IS-OTHER-ST = ZERO GO TO 33-OTHER-X.
+    1219        IF IS-OTHER-ST = IS-OTHER-HOLD GO TO 33-OTHER-X.
+    1220        MOVE IS-OTHER-ST TO A-SYM-KEY-IS.
+    1221        MOVE ZERO TO A-SYM-INDEX.
+    1222        MOVE 1 TO A-SYM-REC-CODE.
+    1223        PERFORM RTN-33-AHFILE THRU 33-UP-IND-X.
+    1224        IF (N-DIR = 1) AND ((IS-NEXT-ST-1 (1) = ROUTE-ST-HOLD) OR
+    1225        (IS-NEXT-ST-2 (1) = ROUTE-ST-HOLD)) GO TO 33-OTHER-X.
+    1226        IF (E-DIR = 1) AND ((IS-NEXT-ST-1 (2) = ROUTE-ST-HOLD) OR
+    1227        (IS-NEXT-ST-2 (2) = ROUTE-ST-HOLD)) GO TO 33-OTHER-X.
+    1228        IF (S-DIR = 1) AND ((IS-NEXT-ST-1 (3) = ROUTE-ST-HOLD) OR
+    1229        (IS-NEXT-ST-2 (3) = ROUTE-ST-HOLD)) GO TO 33-OTHER-X.
+    1230        IF (W-DIR = 1) AND ((IS-NEXT-ST-1 (4) = ROUTE-ST-HOLD) OR
+    1231        (IS-NEXT-ST-2 (4) = ROUTE-ST-HOLD)) GO TO 33-OTHER-X.
+    1232        MOVE IS-OTHER-ST TO SYM-KEY.    P R O G R A M   T 3 0 6 0 		COBOL (005001,107001)	 7-JUN-73  11:33		PAGE 1-22
+    SRI060.CBL    07-JUN-73  11:31
+
+    1233        READ ISFILE INVALID KEY GO TO 33-OTHER-D.
+    1234        GO TO 33-OTHER-X.
+    1235    33-OTHER-B.
+    1236        IF IS-OTHER-ST = ZERO GO TO 33-OTHER-X.
+    1237        IF IS-OTHER-ST = IS-OTHER-HOLD GO TO 33-OTHER-D.
+    1238        MOVE IS-OTHER-ST TO SYM-KEY.
+    1239        MOVE IS-OTHER-ST TO A-SYM-KEY-IS.
+    1240        MOVE ZERO TO A-SYM-INDEX.
+    1241        MOVE 1 TO A-SYM-REC-CODE.
+    1242        PERFORM RTN-33-AHFILE THRU 33-UP-IND-X.
+    1243        IF SYM-KEY = LAST-X-ST-HOLD MOVE 1 TO END-SW.
+    1244        READ ISFILE INVALID KEY GO TO 33-OTHER-D.
+    1245        GO TO 33-OTHER-B.
+    1246    33-OTHER-D.
+    1247        MOVE IS-OTHER-HOLD TO SYM-KEY.
+    1248        READ ISFILE INVALID KEY GO TO 33-OTHER-X.
+    1249    33-OTHER-X.   EXIT.
+    1250    RTN-33-AHFILE.
+    1251        READ ACCIDENT-FILE INVALID KEY
+    1252            DISPLAY A-SYM-KEY ' ACCIDENT RECORD NOT FOUND'
+    1253            MOVE ZERO TO PASS-S GO TO 33-UP-IND-X.
+    1254        IF DELETE-CODE = HIGH-VALUE AND PASS-S = ZERO
+    1255             GO TO 33-UP-IND-X.
+    1256        IF DELETE-CODE = HIGH-VALUE AND PASS-S = 1 GO TO 33-UP-IND.
+    1257        PERFORM UNPACK THRU UNPACK-X.
+    1258        IF PASS-S = 1 GO TO 33-A.
+    1259        MOVE A-IND-CODE-OLDEST TO A-OLDEST.
+    1260        MOVE A-IND-CODE-LATEST TO A-LATEST.
+    1261    33-A.
+    1262        MOVE ZERO TO ROUT-SW.
+    1263        IF TYPE-SEARCH = SPACE GO TO RTN-33-AHFILE-X.
+    1264        PERFORM TYPE-SEARCH-RTN THRU TYPE-SEARCH-RTN-X.
+    1265        IF SEARCH-SW = 1 MOVE ZERO TO SEARCH-SW GO TO 33-B
+    1266               ELSE GO TO 33-UP-IND.
+    1267    33-B.
+    1268        IF A-DIR-ANAL-CODE = 390 GO TO 33-UP-IND.
+    1269        IF A-DATE-OCCURRED < FROM-DATE GO TO 33-UP-IND.
+    1270        IF A-DATE-OCCURRED > TO-DATE GO TO 33-UP-IND.
+    1271        IF A-AT-IS-CODE = 1 MOVE 1 TO SW-IS GO TO 33-CONT.
+    1272        IF A-AT-IS-CODE NOT = 2 GO TO 33-UP-IND.
+    1273        MOVE 1 TO SW-IS.
+    1274    33-CONT.  MOVE ZEROES TO SEV-SW.
+    1275        IF A-ACCID-SEVERITY = 5 MOVE 1 TO P-SW GO TO IU.
+    1276        IF A-ACCID-SEVERITY = 4 MOVE 1 TO F-SW GO TO IU.
+    1277        IF A-ACCID-SEVERITY = 1  OR   A-ACCID-SEVERITY = 2 OR
+    1278           A-ACCID-SEVERITY = 3 MOVE 1 TO I-SW ELSE
+    1279            DISPLAY A-ACCID-SEVERITY ' INVALID SEVERITY CODE'
+    1280            GO TO 33-UP-IND.
+    1281    IU.
+    1282        IF ROUT-SW = ZERO MOVE IS-DIS-A TO CHART-D.
+    1283        IF ROUT-SW = ZERO GO TO IU-1.
+    1284        IF A-PI-PRIM-CODE-1 = 9 GO TO OLD-RT.
+    1285        IF R-N-DIR = 1 AND A-PI-SEC-CODE-1 = 1 GO TO ADD-DIS.
+    1286        IF R-E-DIR = 1 AND A-PI-SEC-CODE-1 = 2 GO TO ADD-DIS.
+    1287        IF R-S-DIR = 1 AND A-PI-SEC-CODE-1 = 3 GO TO ADD-DIS.
+    1288        IF R-W-DIR = 1 AND A-PI-SEC-CODE-1 = 4 GO TO ADD-DIS.    P R O G R A M   T 3 0 6 0 		COBOL (005001,107001)	 7-JUN-73  11:33		PAGE 1-23
+    SRI060.CBL    07-JUN-73  11:31
+
+    1289        IF R-N-DIR = 1 AND A-PI-SEC-CODE-1 = 3 GO TO SUB-DIS.
+    1290        IF R-E-DIR = 1 AND A-PI-SEC-CODE-1 = 4 GO TO SUB-DIS.
+    1291        IF R-S-DIR = 1 AND A-PI-SEC-CODE-1 = 1 GO TO SUB-DIS.
+    1292        IF R-W-DIR = 1 AND A-PI-SEC-CODE-1 = 2 GO TO SUB-DIS.
+    1293    U5.  PERFORM CONT-P, MOVE ZERO TO SW-INTER GO TO 33-UP-IND.
+    1294    OLD-RT.
+    1295        IF (R-N-DIR = 1) AND (POS-1 = 2 OR POS-1 = 5 OR POS-1 = 6)
+    1296            GO TO ADD-DIS.
+    1297        IF (R-E-DIR = 1) AND (POS-1 = 2 OR POS-1 = 5 OR POS-1 = 6)
+    1298            GO TO ADD-DIS.
+    1299        IF (R-N-DIR = 1) AND (POS-1 = 3 OR POS-1 = 4 OR POS-1 = 7)
+    1300            GO TO SUB-DIS.
+    1301        IF (R-E-DIR = 1) AND (POS-1 = 3 OR POS-1 = 4 OR POS-1 = 7)
+    1302            GO TO SUB-DIS.
+    1303        IF (R-S-DIR = 1) AND (POS-1 = 2 OR POS-1 = 5 OR POS-1 = 6)
+    1304            GO TO SUB-DIS.
+    1305        IF (R-W-DIR = 1) AND (POS-1 = 2 OR POS-1 = 5 OR POS-1 = 6)
+    1306            GO TO SUB-DIS.
+    1307        IF (R-S-DIR = 1) AND (POS-1 = 3 OR POS-1 = 4 OR POS-1 = 7)
+    1308            GO TO ADD-DIS.
+    1309        IF (R-W-DIR = 1) AND (POS-1 = 3 OR POS-1 = 4 OR POS-1 = 7)
+    1310            GO TO ADD-DIS.
+    1311        IF POS-1 = 1 OR POS-1 = 8 OR POS-1 = 9 GO TO CONT-P.
+    1312        GO TO U5.
+    1313    ADD-DIS.
+    1314        IF A-SYM-KEY-IS = LAST-X-ST-HOLD GO TO U5.
+    1315        IF END-SW = 1 GO TO U5.
+    1316        IF FILLER-2-DIG > 50 ADD 1 TO CHART-D.
+    1317            MOVE ZERO TO FILLER-2-DIG.
+    1318        ADD IS-DISTANCE CHART-DIST GIVING CHART-DIST GO TO IU-1.
+    1319    SUB-DIS.
+    1320        IF IS-DISTANCE = 00100, GO TO U5.
+    1321        IF FILLER-2-DIG < 51 NEXT SENTENCE ELSE ADD 1 TO CHART-D.
+    1322        MOVE ZERO TO FILLER-2-DIG.
+    1323        IF IS-DISTANCE LESS THAN CHART-DIST GO TO U5.
+    1324        SUBTRACT CHART-DIST FROM IS-DISTANCE GIVING CHART-DIST
+    1325            GO TO IU-1.
+    1326    IU-1.
+    1327        IF CHART-D < 1 OR CHART-D > 125 GO TO U5.
+    1328        IF ROUT-SW = ZERO GO TO 33-CONT-BX.
+    1329        IF SYM-KEY = LAST-X-ST-HOLD GO TO BOUNDARY-RTN.
+    1330        IF END-SW = 1 GO TO BOUNDARY-RTN.
+    1331    33-CONT-BX.
+    1332        IF P-SW = 1 ADD 1 TO CHART-P (CHART-D) GO TO CONT-P.
+    1333        IF I-SW = 1 ADD 1 TO CHART-I (CHART-D) GO TO CONT-P.
+    1334        IF F-SW = 1 ADD 1 TO CHART-F (CHART-D) GO TO CONT-P.
+    1335    CONT-P.
+    1336        MOVE ZERO TO CHART-LOC, CHART-OLD, ROUT-SW.
+    1337    CONT-P1.
+    1338        IF SW-N-IS = 1 MOVE ZERO TO SW-N-IS GO TO 33-CONT-B.
+    1339        MOVE ZERO TO SW-IS.
+    1340        IF A-ACCID-TYPE = 03 MOVE 6 TO C GO TO 33-CONT-A.
+    1341        IF A-ACCID-TYPE < 20 OR A-ACCID-TYPE > 32 MOVE 7 TO C
+    1342            GO TO 33-CONT-A.
+    1343        IF A-ACCID-TYPE > 22 NEXT SENTENCE ELSE MOVE 1 TO C
+    1344            GO TO 33-CONT-A.    P R O G R A M   T 3 0 6 0 		COBOL (005001,107001)	 7-JUN-73  11:33		PAGE 1-24
+    SRI060.CBL    07-JUN-73  11:31
+
+    1345        IF A-ACCID-TYPE > 25 NEXT SENTENCE ELSE MOVE 2 TO C
+    1346            GO TO 33-CONT-A.
+    1347        IF A-ACCID-TYPE > 28 NEXT SENTENCE ELSE MOVE 3 TO C
+    1348            GO TO 33-CONT-A.
+    1349        IF A-ACCID-TYPE > 29 NEXT SENTENCE ELSE MOVE 5 TO C
+    1350            GO TO 33-CONT-A.
+    1351        MOVE 4 TO C.
+    1352    33-CONT-A.
+    1353        IF P-SW = 1
+    1354            ADD 1 TO FLD-IS (C, 1) GO TO 33-UP-IND.
+    1355        IF I-SW = 1
+    1356            ADD 1 TO FLD-IS (C, 2)
+    1357            ADD A-TYPE-A A-TYPE-B A-TYPE-C TO FLD-IS (C, 4)
+    1358            GO TO 33-UP-IND.
+    1359        IF F-SW = 1
+    1360            ADD 1 TO FLD-IS (C, 3)
+    1361            ADD A-TYPE-K TO FLD-IS (C, 5)
+    1362            ADD A-TYPE-A A-TYPE-B A-TYPE-C TO FLD-IS (C, 4).
+    1363        GO TO 33-UP-IND.
+    1364    33-CONT-B.
+    1365        IF A-ACCID-TYPE = 01 MOVE 4 TO C GO TO 33-CONT-C.
+    1366        IF A-ACCID-TYPE = 03 MOVE 7 TO C GO TO 33-CONT-C.
+    1367        IF A-ACCID-TYPE = 05 MOVE 6 TO C GO TO 33-CONT-C.
+    1368        IF A-ACCID-TYPE = 07 MOVE 5 TO C GO TO 33-CONT-C.
+    1369        IF A-ACCID-TYPE = 29 MOVE 3 TO C GO TO 33-CONT-C.
+    1370        IF A-ACCID-TYPE > 25 AND A-ACCID-TYPE < 29
+    1371            MOVE 1 TO C GO TO 33-CONT-C.
+    1372        IF A-ACCID-TYPE > 29 AND A-ACCID-TYPE < 33
+    1373            MOVE 2 TO C GO TO 33-CONT-C.
+    1374        MOVE 8 TO C.
+    1375    33-CONT-C.
+    1376        IF P-SW = 1
+    1377            ADD 1 TO FLD-NON-IS (C, 1)  GO TO 33-UP-IND.
+    1378        IF I-SW = 1
+    1379            ADD 1 TO FLD-NON-IS (C, 2)
+    1380            ADD A-TYPE-A A-TYPE-B A-TYPE-C  TO FLD-NON-IS (C, 4)
+    1381            GO TO 33-UP-IND.
+    1382        IF F-SW = 1
+    1383            ADD 1 TO FLD-NON-IS (C, 3)
+    1384            ADD A-TYPE-A A-TYPE-B A-TYPE-C  TO FLD-NON-IS (C, 4)
+    1385            ADD A-TYPE-K TO FLD-NON-IS (C, 5).
+    1386        GO TO 33-UP-IND.
+    1387    33-UP-IND.
+    1388        MOVE 1 TO PASS-S.
+    1389        IF A-OLDEST > A-LATEST OR A-OLDEST = ZERO MOVE ZERO TO PASS-S
+    1390             GO TO 33-UP-IND-X.
+    1391        MOVE A-OLDEST TO A-SYM-INDEX ADD 1 TO A-OLDEST
+    1392            GO TO RTN-33-AHFILE.
+    1393    33-UP-IND-X.  EXIT.
+    1394    RTN-33-AHFILE-A.
+    1395        PERFORM 33-OTHER THRU 33-OTHER-X.
+    1396        MOVE IS-OTHER-HOLD TO VOL-SYM-KEY.
+    1397        MOVE ZEROES TO VOL-SYM-INDEX.
+    1398    VOL-RTN-CONT.
+    1399        IF DUMMY-SW = '0' 
+    1400        GO TO RTN-33-AHFILE-X.    P R O G R A M   T 3 0 6 0 		COBOL (005001,107001)	 7-JUN-73  11:33		PAGE 1-25
+    SRI060.CBL    07-JUN-73  11:31
+
+    1401        IF VOL-DELETE-CODE = HIGH-VALUE GO TO VOL-RTN-INCREASE.
+    1402        IF VOL-D-O-W = '6' OR VOL-D-O-W = '7' GO TO VOL-RTN-INCREASE.
+    1403        IF DATE-2YRS = ZERO NEXT SENTENCE ELSE
+    1404            IF VOL-DATE < DATE-2YRS GO TO VOL-RTN-INCREASE.
+    1405        IF EW-DIR = 1 AND (VOL-LOC-1 = 1 OR VOL-LOC-1 = 3)
+    1406            GO TO VOL-RTN-INCREASE.
+    1407        IF NS-DIR = 1 AND (VOL-LOC-1 = 2 OR VOL-LOC-1 = 4)
+    1408            GO TO VOL-RTN-INCREASE.
+    1409        IF VOL-REC-CODE = 1 GO TO P1.
+    1410        COMPUTE 33-V-W ROUNDED = ((VOL-TOTAL-NE-N + VOL-TOTAL-SW-N)
+    1411            * VOL-ADJ-FAC).
+    1412        IF 33-V-W = ZERO GO TO RTN-33-AHFILE-X  ELSE
+    1413             ADD 33-V-W TO 33-V-HOLD ADD 1 TO V-COUNT.
+    1414             GO TO RTN-33-AHFILE-X.
+    1415    P1.  IF VOL-TOTAL-TOT-N = ZERO GO TO RTN-33-AHFILE-X ELSE
+    1416            ADD VOL-TOTAL-TOT-N TO 33-V-HOLD ADD 1 TO V-COUNT.
+    1417    RTN-33-AHFILE-X.  EXIT.
+    1418    VOL-RTN-INCREASE.
+    1419        ADD 1 TO VOL-SYM-INDEX-N, GO TO VOL-RTN-CONT.
+    1420    IS-LOC.
+    1421        IF IS-DIS-A < 1 OR IS-DIS-A > 125 GO TO IS-LOC-X.
+    1422        MOVE 1 TO CHART-ACC-TYPE (IS-DIS-A).
+    1423        IF R-ST-CODE = SYM-KEY-ST-1
+    1424            MOVE SYM-KEY-ST-2 TO CHART-IS (IS-DIS-A)
+    1425            MOVE IS-NAME-2 TO CHART-NAME (IS-DIS-A)  ELSE
+    1426        MOVE SYM-KEY-ST-1 TO CHART-IS (IS-DIS-A)
+    1427        MOVE IS-NAME-1 TO CHART-NAME (IS-DIS-A).
+    1428    IS-LOC-X.  EXIT.
+    1429    UP-IND-A.
+    1430        PERFORM F-125 THRU F-125-X VARYING COUNT-125 FROM 1 BY 1
+    1431            UNTIL COUNT-125 GREATER THAN 125.
+    1432    UP-IND-A-X.  EXIT.
+    1433    F-125.
+    1434        IF CHART-ACC-TYPE (COUNT-125) NOT = 1 GO TO F-125A.
+    1435          MOVE '1' TO T23-REC-2-AT-C.
+    1436          MOVE CHART-IS (COUNT-125) TO T23-REC-2-X-SC.
+    1437          MOVE CHART-NAME (COUNT-125) TO T23-REC-2-X-ST.
+    1438          MOVE ZERO TO C  MOVE  1 TO COUNTER.
+    1439          PERFORM BUILD-ACC-TAB THRU BUILD-ACC-TAB-X UNTIL C = 1.
+    1440          PERFORM F-125D THRU F-125D-X.
+    1441        IF CHART-IS (COUNT-125) = LAST-ST-CODE MOVE 125 TO COUNT-125.
+    1442          GO TO F-125-X.
+    1443    F-125A.
+    1444        IF CHART-P (COUNT-125) = ZERO AND CHART-I (COUNT-125) = ZERO
+    1445            AND CHART-F (COUNT-125) = ZERO GO TO F-125-X.
+    1446        MOVE '2' TO T23-REC-2-AT-C.
+    1447        MOVE ZERO TO C.
+    1448        MOVE 1 TO COUNTER.
+    1449        PERFORM BUILD-ACC-TAB THRU BUILD-ACC-TAB-X UNTIL C = 1.
+    1450        PERFORM F-125D THRU F-125D-X.
+    1451    F-125-X.  EXIT.
+    1452    F-125D.
+    1453        MOVE ZERO TO CHART-DIST. MOVE COUNT-125 TO CHART-D.
+    1454        MOVE CHART-DIST TO DISTANCE. MOVE ZERO TO CHART-D.
+    1455        WRITE REPORT-REC. ADD T-AC TO TOT-ACC.
+    1456        MOVE ZEROES TO REPORT-REC. MOVE 23 TO REPORT-CODE.    P R O G R A M   T 3 0 6 0 		COBOL (005001,107001)	 7-JUN-73  11:33		PAGE 1-26
+    SRI060.CBL    07-JUN-73  11:31
+
+    1457        MOVE 2 TO REC-CODE. MOVE R-10-REQ-NO TO REQ-NO.
+    1458    F-125D-X.  EXIT.
+    1459    BUILD-ACC-TAB.
+    1460        MOVE SPACE TO T23-REC-2-OV40.
+    1461        MOVE SPACES TO T23-40.  MOVE ZERO TO T-AC.
+    1462        MOVE CHART-P (COUNT-125) TO P-AC.
+    1463        MOVE CHART-I (COUNT-125) TO I-AC.
+    1464        MOVE CHART-F (COUNT-125) TO F-AC.
+    1465        IF F-AC = ZERO GO TO BUILD-ACC-1.
+    1466    BI.  MOVE 'F' TO T23-ACC (COUNTER).
+    1467        IF COUNTER = 40 MOVE '*' TO T23-REC-2-OV40 MOVE 1 TO C
+    1468            GO TO BUILD-ACC-TAB-X.
+    1469        IF COUNTER = F-AC ADD 1 TO COUNTER GO TO BUILD-ACC-1  ELSE
+    1470        ADD 1 TO COUNTER GO TO BI.
+    1471    BUILD-ACC-1.
+    1472        IF I-AC = ZERO GO TO BUILD-ACC-2.
+    1473        MOVE F-AC TO T-AC ADD I-AC TO T-AC.
+    1474    BS.  MOVE 'I' TO T23-ACC (COUNTER).
+    1475        IF COUNTER = 40 MOVE '*' TO T23-REC-2-OV40  MOVE 1 TO C
+    1476            GO TO BUILD-ACC-TAB-X.
+    1477        IF COUNTER = T-AC ADD 1 TO COUNTER GO TO BUILD-ACC-2  ELSE
+    1478        ADD 1 TO COUNTER GO TO BS.
+    1479    BUILD-ACC-2.
+    1480        IF P-AC = ZERO MOVE 1 TO C GO TO BUILD-ACC-TAB-X.
+    1481        ADD P-AC TO T-AC.
+    1482    B3.  MOVE 'P' TO T23-ACC (COUNTER).
+    1483        IF COUNTER = 40 MOVE '*' TO T23-REC-2-OV40 MOVE 1 TO C
+    1484            GO TO BUILD-ACC-TAB-X.
+    1485        IF COUNTER = T-AC MOVE 1 TO C GO TO BUILD-ACC-TAB-X.
+    1486        ADD 1 TO COUNTER GO TO B3.
+    1487    BUILD-ACC-TAB-X.  EXIT.
+    1488    ROUTE-DIR.
+    1489        MOVE ZERO TO N-DIR E-DIR S-DIR W-DIR.
+    1490        IF R-N-DIR = 1 GO TO NORTH-ROUTE.
+    1491        IF R-E-DIR = 1 GO TO  EAST-ROUTE.
+    1492        IF R-S-DIR = 1 GO TO SOUTH-ROUTE.
+    1493        IF R-W-DIR = 1 GO TO  WEST-ROUTE.
+    1494        GO TO ROUTE-DIR-X.
+    1495    NORTH-ROUTE.
+    1496        IF ROUTE-ST-HOLD = IS-NEXT-ST-1 (1) OR ROUTE-ST-HOLD =
+    1497            IS-NEXT-ST-2 (1) MOVE 1 TO N-DIR GO TO ROUTE-DIR-A.
+    1498        IF IS-NEXT-IS-CODE (2) = JUST-LEFT-IS NEXT SENTENCE ELSE
+    1499        IF ROUTE-ST-HOLD = IS-NEXT-ST-1 (2) OR ROUTE-ST-HOLD =
+    1500            IS-NEXT-ST-2 (2) MOVE 1 TO E-DIR GO TO ROUTE-DIR-A.
+    1501        IF IS-NEXT-IS-CODE (4) = JUST-LEFT-IS NEXT SENTENCE ELSE
+    1502        IF ROUTE-ST-HOLD = IS-NEXT-ST-1 (4) OR ROUTE-ST-HOLD =
+    1503            IS-NEXT-ST-2 (4) MOVE 1 TO W-DIR GO TO ROUTE-DIR-A.
+    1504        IF JUST-LEFT-IS = ZERO MOVE 1 TO N-DIR
+    1505        GO TO ROUTE-DIR-X.
+    1506        IF ROUTE-ST-HOLD = IS-NEXT-ST-1 (3) OR ROUTE-ST-HOLD =
+    1507            IS-NEXT-ST-2 (3) MOVE 1 TO S-DIR GO TO ROUTE-DIR-A.
+    1508        MOVE 1 TO IS-ER
+    1509        DISPLAY 'CANNOT DETERMINE DIRECTION FROM I/S FILE ' SYM-KEY
+    1510        GO TO ROUTE-DIR-X.
+    1511    EAST-ROUTE.
+    1512        IF ROUTE-ST-HOLD = IS-NEXT-ST-1 (2) OR ROUTE-ST-HOLD =    P R O G R A M   T 3 0 6 0 		COBOL (005001,107001)	 7-JUN-73  11:33		PAGE 1-27
+    SRI060.CBL    07-JUN-73  11:31
+
+    1513            IS-NEXT-ST-2 (2) MOVE 1 TO E-DIR GO TO ROUTE-DIR-A.
+    1514        IF IS-NEXT-IS-CODE (1) = JUST-LEFT-IS NEXT SENTENCE ELSE
+    1515        IF ROUTE-ST-HOLD = IS-NEXT-ST-1 (1) OR ROUTE-ST-HOLD =
+    1516            IS-NEXT-ST-2 (1) MOVE 1 TO N-DIR GO TO ROUTE-DIR-A.
+    1517        IF IS-NEXT-IS-CODE (3) = JUST-LEFT-IS NEXT SENTENCE ELSE
+    1518        IF ROUTE-ST-HOLD = IS-NEXT-ST-1 (3) OR ROUTE-ST-HOLD =
+    1519            IS-NEXT-ST-2 (3) MOVE 1 TO S-DIR GO TO ROUTE-DIR-A.
+    1520        IF JUST-LEFT-IS = ZERO MOVE 1 TO E-DIR
+    1521        GO TO ROUTE-DIR-X.
+    1522        IF ROUTE-ST-HOLD = IS-NEXT-ST-1 (4) OR ROUTE-ST-HOLD =
+    1523            IS-NEXT-ST-2 (4) MOVE 1 TO W-DIR GO TO ROUTE-DIR-A.
+    1524        MOVE 1 TO IS-ER
+    1525        DISPLAY 'CANNOT DETERMINE DIRECTION FROM I/S FILE ' SYM-KEY
+    1526        GO TO ROUTE-DIR-X.
+    1527    SOUTH-ROUTE.
+    1528        IF ROUTE-ST-HOLD = IS-NEXT-ST-1 (3) OR ROUTE-ST-HOLD =
+    1529            IS-NEXT-ST-2 (3) MOVE 1 TO S-DIR GO TO ROUTE-DIR-A.
+    1530        IF IS-NEXT-IS-CODE (2) = JUST-LEFT-IS NEXT SENTENCE ELSE
+    1531        IF ROUTE-ST-HOLD = IS-NEXT-ST-1 (2) OR ROUTE-ST-HOLD =
+    1532            IS-NEXT-ST-2 (2) MOVE 1 TO E-DIR GO TO ROUTE-DIR-A.
+    1533        IF IS-NEXT-IS-CODE (4) = JUST-LEFT-IS NEXT SENTENCE ELSE
+    1534        IF ROUTE-ST-HOLD = IS-NEXT-ST-1 (4) OR ROUTE-ST-HOLD =
+    1535            IS-NEXT-ST-2 (4) MOVE 1 TO W-DIR GO TO ROUTE-DIR-A.
+    1536        IF JUST-LEFT-IS = ZERO MOVE 1 TO S-DIR
+    1537        GO TO ROUTE-DIR-X.
+    1538        IF ROUTE-ST-HOLD = IS-NEXT-ST-1 (1) OR ROUTE-ST-HOLD =
+    1539            IS-NEXT-ST-2 (1) MOVE 1 TO N-DIR GO TO ROUTE-DIR-A.
+    1540        MOVE 1 TO IS-ER
+    1541        DISPLAY 'CANNOT DETERMINE DIRECTION FROM I/S FILE ' SYM-KEY
+    1542        GO TO ROUTE-DIR-X.
+    1543    WEST-ROUTE.
+    1544        IF ROUTE-ST-HOLD = IS-NEXT-ST-1 (4) OR ROUTE-ST-HOLD =
+    1545            IS-NEXT-ST-2 (4) MOVE 1 TO W-DIR GO TO ROUTE-DIR-A.
+    1546        IF IS-NEXT-IS-CODE (1) = JUST-LEFT-IS NEXT SENTENCE ELSE
+    1547        IF ROUTE-ST-HOLD = IS-NEXT-ST-1 (1) OR ROUTE-ST-HOLD =
+    1548            IS-NEXT-ST-2 (1) MOVE 1 TO N-DIR GO TO ROUTE-DIR-A.
+    1549        IF IS-NEXT-IS-CODE (3) = JUST-LEFT-IS NEXT SENTENCE ELSE
+    1550        IF ROUTE-ST-HOLD = IS-NEXT-ST-1 (3) OR ROUTE-ST-HOLD =
+    1551            IS-NEXT-ST-2 (3) MOVE 1 TO S-DIR GO TO ROUTE-DIR-A.
+    1552        IF JUST-LEFT-IS = ZERO MOVE 1 TO W-DIR
+    1553        GO TO ROUTE-DIR-X.
+    1554        IF ROUTE-ST-HOLD = IS-NEXT-ST-1 (2) OR ROUTE-ST-HOLD =
+    1555            IS-NEXT-ST-2 (2) MOVE 1 TO E-DIR GO TO ROUTE-DIR-A.
+    1556        MOVE 1 TO IS-ER
+    1557        DISPLAY 'CANNOT DETERMINE DIRECTION FROM I/S FILE ' SYM-KEY
+    1558        GO TO ROUTE-DIR-X.
+    1559    ROUTE-DIR-A.
+    1560        DISPLAY N-DIR E-DIR S-DIR W-DIR ' DIR OF NEXT I/S NESW'.
+    1561        IF N-DIR = 1 AND JUST-LEFT-IS = IS-NEXT-IS-CODE (1)
+    1562        MOVE ZERO TO N-DIR  MOVE 1 TO S-DIR
+    1563        DISPLAY 'NEXT I/S MUST BE JOGGED, WILL CONTINUE ROUTE -SOUTH'
+    1564           DISPLAY SYM-KEY ' I/S CODE ' JUST-LEFT-IS ' JUST LEFT'
+    1565            GO TO ROUTE-DIR-X.
+    1566        IF E-DIR = 1 AND JUST-LEFT-IS = IS-NEXT-IS-CODE (2)
+    1567        MOVE ZERO TO E-DIR  MOVE 1 TO W-DIR
+    1568        DISPLAY 'NEXT I/S MUST BE JOGGED, WILL CONTINUE ROUTE -WEST'    P R O G R A M   T 3 0 6 0 		COBOL (005001,107001)	 7-JUN-73  11:33		PAGE 1-28
+    SRI060.CBL    07-JUN-73  11:31
+
+    1569           DISPLAY SYM-KEY ' I/S CODE ' JUST-LEFT-IS ' JUST LEFT'
+    1570            GO TO ROUTE-DIR-X.
+    1571        IF S-DIR = 1 AND JUST-LEFT-IS = IS-NEXT-IS-CODE (3)
+    1572        MOVE ZERO TO S-DIR  MOVE 1 TO N-DIR
+    1573        DISPLAY 'NEXT I/S MUST BE JOGGED, WILL CONTINUE ROUTE -NORTH'
+    1574           DISPLAY SYM-KEY ' I/S CODE ' JUST-LEFT-IS ' JUST LEFT'
+    1575            GO TO ROUTE-DIR-X.
+    1576        IF W-DIR = 1 AND JUST-LEFT-IS = IS-NEXT-IS-CODE (4)
+    1577        MOVE ZERO TO W-DIR  MOVE 1 TO E-DIR
+    1578        DISPLAY 'NEXT I/S MUST BE JOGGED, WILL CONTINUE ROUTE -EAST'
+    1579           DISPLAY SYM-KEY ' I/S CODE ' JUST-LEFT-IS ' JUST LEFT'
+    1580            GO TO ROUTE-DIR-X.
+    1581    ROUTE-DIR-X.  EXIT.
+    1582    RTN-34.
+    1583        MOVE ZEROES TO REPORT-REC.
+    1584        MOVE REQ-NO-10 TO REQ-NO. MOVE 81 TO REPORT-CODE.
+    1585        MOVE IS-10-REQUESTER TO T81-REQUESTER.
+    1586        MOVE DATE-LIMIT-10 TO T81-SEARCH-DATES.
+    1587        MOVE FR-MO TO FROM-MO   MOVE FR-DA TO FROM-DA.
+    1588        MOVE FR-YR TO FROM-YR   MOVE  T-MO TO   TO-MO.
+    1589        MOVE  T-DA TO   TO-DA   MOVE  T-YR TO   TO-YR.
+    1590        IF IS-10-ST1  GREATER THAN IS-10-ST2  MOVE IS-10-ST1  TO
+    1591            VOL-SYM-ST-2 SYM-KEY-ST-2 IS-ST2-H  MOVE IS-10-ST2  TO
+    1592            VOL-SYM-ST-1 SYM-KEY-ST-1 IS-ST1-H  ELSE
+    1593        MOVE IS-10   TO VOL-SYM-ST-CODE SYM-KEY IS-ST-H.
+    1594        MOVE SYM-KEY TO T81-IS-CODE.
+    1595    B2.  MOVE ZEROES TO VOL-SYM-INDEX.
+    1596    RD-VOLFILE.
+    1597         IF DUMMY-SW = '0'
+    1598        GO TO VOL-ERR-RTN.
+    1599        IF VOL-DELETE-CODE = HIGH-VALUE GO TO RTN-34-X.
+    1600        IF PASS-S EQUAL TO 1  GO TO B1.
+    1601        MOVE VOL-LATEST-N TO A-LATEST.
+    1602        MOVE VOL-OLDEST-N TO A-OLDEST. PERFORM ISR THRU ISR-X.
+    1603    B1.
+    1604        IF FROM-DATE = ZERO GO TO B1A.
+    1605        IF VOL-DATE LESS THAN FROM-DATE GO TO INCREASE-VOL-INDEX.
+    1606        IF VOL-DATE GREATER THAN TO-DATE GO TO INCREASE-VOL-INDEX.
+    1607    B1A.
+    1608        ADD 1 TO RECORD-COUNTER.
+    1609        MOVE VOL-REC-CODE TO T81-REC-CODE.
+    1610        MOVE VOL-DATE TO T81-DATE.
+    1611        MOVE VOL-DATE TO CODE-IS-DATE.
+    1612        MOVE VOL-D-O-W TO T81-DAY-OF-WEEK.
+    1613        MOVE VOL-LOC TO T81-LOC.
+    1614        MOVE VOL-REV-CODE TO T81-REVERSE-CODE.
+    1615        MOVE VOL-MED TO T81-MED.
+    1616        MOVE VOL-RD-WIDTH TO T81-RDWY.
+    1617        MOVE VOL-NO-LA TO T81-LA.
+    1618        IF V-NE-VOL (1) NOT NUMERIC MOVE ZEROES TO V-NE-VOL (1).
+    1619        IF V-NE-VOL (2) NOT NUMERIC MOVE ZEROES TO V-NE-VOL (2).
+    1620        IF V-SW-VOL (1) NOT NUMERIC MOVE ZEROES TO V-SW-VOL (1).
+    1621        IF V-SW-VOL (2) NOT NUMERIC MOVE ZEROES TO V-SW-VOL (2).
+    1622        IF V-TOT-VOL (1) NOT NUMERIC MOVE ZEROES TO V-TOT-VOL (1).
+    1623        IF V-TOT-VOL (2) NOT NUMERIC MOVE ZEROES TO V-TOT-VOL (2).
+    1624        IF VOL-TOTAL-NE NOT NUMERIC MOVE ZEROES TO VOL-TOTAL-NE.    P R O G R A M   T 3 0 6 0 		COBOL (005001,107001)	 7-JUN-73  11:33		PAGE 1-29
+    SRI060.CBL    07-JUN-73  11:31
+
+    1625        IF VOL-TOTAL-SW NOT NUMERIC MOVE ZEROES TO VOL-TOTAL-SW.
+    1626        IF VOL-TOTAL-TOT NOT NUMERIC MOVE ZEROES TO VOL-TOTAL-TOT.
+    1627        MOVE VOL-AM-PM-PEAK TO T81-PEAK.
+    1628        MOVE VOL-TOTALS-HR TO T81-TOT-24-HR.
+    1629        PERFORM ISR THRU ISR-X.
+    1630        WRITE REPORT-REC.
+    1631    INCREASE-VOL-INDEX.  MOVE 1 TO PASS-S.
+    1632        PERFORM RTN-34.
+    1633        IF A-OLDEST GREATER THAN A-LATEST OR A-OLDEST EQUAL TO ZERO
+    1634            MOVE ZERO TO PASS-S GO TO RTN-34-X.
+    1635        MOVE A-OLDEST TO VOL-SYM-INDEX ADD 1 TO A-OLDEST.
+    1636            IF DUMMY-SW = '0'
+    1637            GO TO INCREASE-VOL-INDEX.
+    1638        IF VOL-DELETE-CODE = HIGH-VALUE GO TO INCREASE-VOL-INDEX.
+    1639        GO TO B1.
+    1640    RTN-34-X.  EXIT.
+    1641    ISR.
+    1642        READ ISFILE INVALID KEY MOVE 'STREET NAME NOT ON FILE'
+    1643            TO T81-ST-NAME-1 MOVE SPACES TO T81-ST-NAME-2
+    1644        MOVE 1 TO ISR-SW
+    1645            GO TO ISR-X.
+    1646        MOVE IS-NAME-1 TO T81-ST-NAME-1
+    1647        MOVE IS-NAME-2 TO T81-ST-NAME-2.
+    1648    ISR-X.  EXIT.
+    1649    RTN-34A.
+    1650        IF ISR-SW = 1 MOVE ZERO TO ISR-SW GO TO RTN-34A-X.
+    1651        MOVE SYM-KEY TO IS-OTHER-HOLD.
+    1652    OTHER-A.
+    1653        READ ISFILE INVALID KEY GO TO RTN-34A-X.
+    1654        IF IS-JOG = ZERO GO TO RTN-34A-X.
+    1655        IF IS-OTHER-ST = ZERO GO TO RTN-34A-X.
+    1656        IF IS-OTHER-ST = IS-OTHER-HOLD GO TO RTN-34A-X.
+    1657        MOVE IS-OTHER-ST TO IS-10.
+    1658        ADD 1 TO R-SEQ.
+    1659        PERFORM RTN-34 THRU RTN-34-X.
+    1660        IF IS-JOG = '2' GO TO RTN-34A-X.
+    1661        GO TO OTHER-A.
+    1662    RTN-34A-X.  EXIT.
+    1663    OTHER-IS-RTN.
+    1664        MOVE ZERO TO JOGGED-SWITCH.
+    1665        MOVE A-SYM-KEY-IS TO IS-OTHER-HOLD.
+    1666        MOVE A-SYM-KEY-IS TO SYM-KEY.
+    1667    OTHER-B.
+    1668        READ ISFILE INVALID KEY GO TO OTHER-IS-RTN-X.
+    1669        IF IS-JOG = ZERO GO TO OTHER-IS-RTN-X.
+    1670        IF IS-OTHER-ST = ZERO GO TO OTHER-IS-RTN-X.
+    1671        IF IS-OTHER-ST = IS-OTHER-HOLD GO TO OTHER-IS-RTN-X.
+    1672        MOVE IS-OTHER-ST TO IS-10 SYM-KEY.
+    1673        ADD 1 TO R-SEQ.
+    1674        PERFORM RTN-30 THRU RTN-30-X.
+    1675        IF IS-JOG = '2' GO TO OTHER-IS-RTN-X.
+    1676        GO TO OTHER-B.
+    1677    OTHER-IS-RTN-X.  EXIT.
+    1678    TYPE-SEARCH-RTN.
+    1679        IF A-AT-IS-CODE = 1 MOVE 1 TO SEARCH-SW
+    1680        GO TO TYPE-SEARCH-RTN-A.    P R O G R A M   T 3 0 6 0 		COBOL (005001,107001)	 7-JUN-73  11:33		PAGE 1-30
+    SRI060.CBL    07-JUN-73  11:31
+
+    1681        IF A-AT-IS-CODE NOT = 2 GO TO TYPE-SEARCH-RTN-X.
+    1682        IF A-ST-REV-CODE = ZERO AND ROUTE-ST-HOLD = A-SYM-ST-1
+    1683            MOVE 1 TO ROUT-SW
+    1684            MOVE 1 TO SEARCH-SW GO TO TYPE-SEARCH-RTN-A.
+    1685        IF A-ST-REV-CODE = 1 AND ROUTE-ST-HOLD = A-SYM-ST-2
+    1686            MOVE 1 TO ROUT-SW
+    1687            MOVE 1 TO SEARCH-SW GO TO TYPE-SEARCH-RTN-A.
+    1688        IF TYPE-SEARCH = '1' GO TO TYPE-SEARCH-RTN-X.
+    1689        IF A-PI-PRIM-CODE-1 = 9 GO TO SEARCH-OLD-WAY.
+    1690        IF A-DIR-ANAL-CODE = 300 GO TO TYPE-SEARCH-RTN-X.
+    1691        IF A-PI-SEC-CODE-1 < 1 OR A-PI-SEC-CODE-1 > 4
+    1692            GO TO TYPE-SEARCH-RTN-X.
+    1693        IF A-PI-SEC-FT > 200 GO TO TYPE-SEARCH-RTN-X.
+    1694        PERFORM ST-ACC-ON THRU ST-ACC-ON-X.
+    1695        IF DIR-ST-SW = ZERO GO TO TYPE-SEARCH-RTN-X.
+    1696        IF DIR-VEH-C = A-PI-SEC-CODE-1 GO TO TYPE-SEARCH-RTN-X.
+    1697        GO TO X-ST-APP.
+    1698    SEARCH-OLD-WAY.
+    1699        MOVE A-PI-PRIM-FT TO OLD-LOC.
+    1700        IF POS-1 = 3 OR POS-1 = 5 NEXT SENTENCE  ELSE
+    1701            GO TO TYPE-SEARCH-RTN-X.
+    1702        IF POS-2 = ZERO AND POS-3 < 2 NEXT SENTENCE   ELSE
+    1703            GO TO TYPE-SEARCH-RTN-X.
+    1704    X-ST-APP.
+    1705        IF A-ACCID-TYPE = 26 OR A-ACCID-TYPE = 27 OR A-ACCID-TYPE =
+    1706            28 OR A-ACCID-TYPE = 30 OR A-ACCID-TYPE = 31 OR
+    1707            A-ACCID-TYPE = 32  MOVE 1 TO SEARCH-SW GO TO
+    1708            TYPE-SEARCH-RTN-A ELSE GO TO TYPE-SEARCH-RTN-X.
+    1709    TYPE-SEARCH-RTN-A.
+    1710        IF A-PI-PRIM-CODE-1 NOT = 9 MOVE A-PI-SEC-FT TO CHART-DIST
+    1711        GO TO TYPE-SEARCH-RTN-X.
+    1712        MOVE A-PI-PRIM-FT TO OLD-LOC.
+    1713        MOVE POS-2 TO CH-OLD-1.
+    1714        MOVE POS-3 TO CH-OLD-2.
+    1715        ADD 1 TO CH-OLD.
+    1716        MOVE CHART-OLD TO CHART-DIST.
+    1717    TYPE-SEARCH-RTN-X.  EXIT.
+    1718    NO-D-RTN.
+    1719        IF T-D-HOLD = SPACES MOVE ZERO TO DATE-2YRS ELSE
+    1720            MOVE C-M1 TO MOS-2 MOVE C-D1 TO DAS-2
+    1721            MOVE C-Y1 TO YRS-2 SUBTRACT 2 FROM YRS-2.
+    1722        IF T-D-HOLD = SPACES MOVE 2190 TO TND GO TO NO-D-RTN-X.
+    1723        IF C-M1 = 01 MOVE C-D1 TO TO-D-TOT GO TO NO-D-1.
+    1724        SUBTRACT 1 FROM C-M1 GIVING MO-CT.
+    1725        MOVE MO-ENTRY (MO-CT) TO TO-D-TOT.
+    1726        ADD C-D1 TO TO-D-TOT.
+    1727    NO-D-1.
+    1728        IF C-M = 01 MOVE C-D TO FR-D-TOT GO TO NO-D-2.
+    1729        SUBTRACT 1 FROM C-M GIVING MO-CT.
+    1730        MOVE MO-ENTRY (MO-CT) TO FR-D-TOT.
+    1731        ADD C-D TO FR-D-TOT.
+    1732    NO-D-2.
+    1733        COMPUTE YR-D-TOT = (365 * (C-Y1 - C-Y)).
+    1734        IF FR-D-TOT > TO-D-TOT SUBTRACT 365 FROM YR-D-TOT
+    1735        COMPUTE TND = (((365 + TO-D-TOT) - FR-D-TOT) + YR-D-TOT)
+    1736        GO TO NO-D-RTN-X.    P R O G R A M   T 3 0 6 0 		COBOL (005001,107001)	 7-JUN-73  11:33		PAGE 1-31
+    SRI060.CBL    07-JUN-73  11:31
+
+    1737        COMPUTE TND = ((TO-D-TOT - FR-D-TOT) + YR-D-TOT).
+    1738    NO-D-RTN-X.   EXIT.
+    1739    UNP-A.
+    1740        MOVE 'T - 4                           DEPARTMENT OF TRAFFIC'
+    1741            TO PRINT-LINE
+    1742        WRITE PRINT-REC AFTER ADVANCING   TOP-OF-PAGE
+    1743        MOVE '                                 UNPROCESSED REQUESTS'
+    1744            TO PRINT-LINE
+    1745        WRITE PRINT-REC AFTER ADVANCING 1 LINES
+    1746        MOVE T10-S-LOC TO PRINT-LINE
+    1747        WRITE PRINT-REC AFTER ADVANCING 3 LINES.
+    1748        IF IS-10-ST1 < IS-10-ST2 MOVE IS-10 TO SYM-KEY GO TO IS-RD-A.
+    1749        MOVE IS-10-ST1 TO SYM-KEY-ST-2.
+    1750        MOVE IS-10-ST2 TO SYM-KEY-ST-1.
+    1751    IS-RD-A.
+    1752        READ ISFILE INVALID KEY
+    1753            MOVE 'NO STREET NAMES AVAILABLE' TO PRT-IS-1
+    1754            MOVE SPACES TO PRT-IS-2 GO TO P-MSG-A.
+    1755        IF IS-10-ST1 < IS-10-ST2 MOVE IS-NAME-1 TO PRT-IS-1
+    1756        MOVE IS-NAME-2 TO PRT-IS-2  ELSE
+    1757        MOVE IS-NAME-2 TO PRT-IS-1  MOVE IS-NAME-1 TO PRT-IS-2.
+    1758    P-MSG-A.
+    1759        WRITE PRINT-REC FROM PRT-HR AFTER ADVANCING 1 LINES.
+    1760    UNP-AX.   EXIT.
+    1761    VOL-ERR-RTN.
+    1762        MOVE 1 TO UNPROC-SW.
+    1763        PERFORM UNP-A THRU UNP-AX
+    1764        MOVE 'THERE ARE NO VOLUME COUNTS FOR REQUESTED LOCATION'
+    1765            TO PRINT-LINE
+    1766        WRITE PRINT-REC AFTER ADVANCING 2 LINES
+    1767        GO TO RTN-34-X.
+    1768    ST-ACC-ON.
+    1769        MOVE ZERO TO DIR-VEH-C, DIR-ST-SW, SUPL-RD-ON, SUPL-INVALID.
+    1770        MOVE A-P1-VEH-DIR TO DIR-VEH-C.
+    1771        PERFORM CK-DIR-V THRU CK-DIR-V-X.
+    1772        IF DIR-ST-SW = 1, GO TO ST-ACC-ON-X.
+    1773        MOVE A-P2-VEH-DIR TO DIR-VEH-C.
+    1774        PERFORM CK-DIR-V THRU CK-DIR-V-X.
+    1775        IF DIR-ST-SW = 1 GO TO ST-ACC-ON-X.
+    1776        IF SUPL-REC-CODE < 3 GO TO ST-ACC-ON-X.
+    1777        ADD 1 TO A-SYM-REC-CODE.
+    1778        READ ACCIDENT-FILE INVALID KEY MOVE 1 TO SUPL-INVALID
+    1779            A-SYM-REC-CODE  GO TO ST-ACC-ON-X.
+    1780        MOVE 1 TO SUPL-RD-ON A-SYM-REC-CODE.
+    1781        PERFORM UNPACK-S THRU UNPACK-SX.
+    1782        MOVE S-VEH-DIR (1) TO DIR-VEH-C.
+    1783        PERFORM CK-DIR-V THRU CK-DIR-V-X.
+    1784        IF DIR-ST-SW = 1 GO TO ST-ACC-ON-X.
+    1785        MOVE S-VEH-DIR (2) TO DIR-VEH-C.
+    1786        PERFORM CK-DIR-V THRU CK-DIR-V-X.
+    1787        IF DIR-ST-SW = 1 GO TO ST-ACC-ON-X.
+    1788        MOVE S-VEH-DIR (3) TO DIR-VEH-C.
+    1789        PERFORM CK-DIR-V THRU CK-DIR-V-X.
+    1790        IF DIR-ST-SW = 1 GO TO ST-ACC-ON-X.
+    1791        MOVE S-VEH-DIR (4) TO DIR-VEH-C.
+    1792        PERFORM CK-DIR-V THRU CK-DIR-V-X.    P R O G R A M   T 3 0 6 0 		COBOL (005001,107001)	 7-JUN-73  11:33		PAGE 1-32
+    SRI060.CBL    07-JUN-73  11:31
+
+    1793        IF DIR-ST-SW = 1 GO TO ST-ACC-ON-X.
+    1794         MOVE ZERO TO DIR-VEH-C.
+    1795    ST-ACC-ON-X.  EXIT.
+    1796    CK-DIR-V.
+    1797        IF (A-PI-SEC-CODE-1 = 1 OR A-PI-SEC-CODE-1 = 3) AND
+    1798           (DIR-VEH-C = 1 OR DIR-VEH-C = 3)
+    1799        MOVE 1 TO DIR-ST-SW GO TO CK-DIR-V-X.
+    1800        IF (A-PI-SEC-CODE-1 = 2 OR A-PI-SEC-CODE-1 = 4) AND
+    1801           (DIR-VEH-C = 2 OR DIR-VEH-C = 4)
+    1802        MOVE 1 TO DIR-ST-SW GO TO CK-DIR-V-X.
+    1803    CK-DIR-V-X.     EXIT.
+    1804    BOUNDARY-RTN.
+    1805        IF A-PI-PRIM-CODE-1 = 9 GO TO BOUN-OLD.
+    1806        IF A-PI-SEC-FT < 51 GO TO 33-CONT-BX.
+    1807        IF N-DIR = 1 AND A-PI-SEC-CODE-1 = 1 GO TO U5.
+    1808        IF E-DIR = 1 AND A-PI-SEC-CODE-1 = 2 GO TO U5.
+    1809        IF S-DIR = 1 AND A-PI-SEC-CODE-1 = 3 GO TO U5.
+    1810        IF W-DIR = 1 AND A-PI-SEC-CODE-1 = 4 GO TO U5.
+    1811        GO TO 33-CONT-BX.
+    1812    BOUN-OLD.
+    1813        IF (N-DIR = 1) AND (POS-1 = 2 OR POS-1 = 5 OR POS-1 = 6)
+    1814           GO TO U5.
+    1815        IF (E-DIR = 1) AND (POS-1 = 2 OR POS-1 = 5 OR POS-1 = 6)
+    1816           GO TO U5.
+    1817        IF (S-DIR = 1) AND (POS-1 = 3 OR POS-1 = 4 OR POS-1 = 7)
+    1818           GO TO U5.
+    1819        IF (W-DIR = 1) AND (POS-1 = 3 OR POS-1 = 4 OR POS-1 = 7)
+    1820           GO TO U5.
+    1821        GO TO 33-CONT-BX.    P R O G R A M   T 3 0 6 0 		COBOL (005001,107001)	 7-JUN-73  11:33		PAGE W-1
+    SRI060.CBL    07-JUN-73  11:31
+
+WARNINGS:
+
+    0615  REDEFINITION IS NOT THE SAME SIZE AS THE REDEFINED ITEM
+    1197  MOST SIGNIFICANT DIGITS TRUNCATED ON IS-DISTANCE
+    1202  MOST SIGNIFICANT DIGITS TRUNCATED ON T23-ACC-PER-M
+    1205  MOST SIGNIFICANT DIGITS TRUNCATED ON T23-ACC-PER-MVM
+    1410  MOST SIGNIFICANT DIGITS TRUNCATED ON 33-V-W
+    1733  MOST SIGNIFICANT DIGITS TRUNCATED ON YR-D-TOT
+
+
+NO FATAL ERRORS, 6 WARNINGS
+k"£
