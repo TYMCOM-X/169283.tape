@@ -1,0 +1,636 @@
+MODULE GLOBALS(DOLLAR,ENTRIES=(COSTK$,CZMAT$,CTERM$,CRSTD$,UL$,STPN$,
+                                BEXTN$,BNDEF$,BRPSP$,
+                                SZERO$,SBLNK$,SNAME$,STERM$,
+                                SHC$,SHTB$,ACBUF$,ASTP$,
+                                ANID$,ASVLN$,PTRF$,PTKNW$,
+                               WFILE$,WBUF$,WEOF$,WCHR$,
+                                GQUE$,GGBFP$,GOB1I$,GRB1I$,GINCI$,
+                                GRCBI$,GAEXI$,GNAEP$,GDMAX$,
+                                VDECD$, VMSEC$,
+      PPARM$,PGRAF$,KFC$,KCOMR$,KPAR$,KST$,KFCB2$,KBTIX$,KCHTB$,WNAME$))=
+
+BEGIN
+
+% Modified:  1974.11.20         by:  Peter Haas  (HAASP)                %
+
+REQUIRE GDEFS.BLI[7,107355];
+
+
+GLOBAL		% PSYN GLOBALS %
+   BEXTN$,	% ADDRESS OF TV$8EXT TOKEN %
+   BDBG$,	% DEBUG SWITCH %
+   BNDEF$,	% $NAME DEFINITION ENTRY STP %
+   BCTMX$,	% $BDPCK MAXIMUM COUNT %
+   BRPSP$,	% STP FOR LAST REPORT DECLARED %
+   BDRPT$,      % STP FOR DEFAULT REPORT NAME ($REPORT) %
+   BRCSW$,	% REPORT CONDITION SWITCH %
+   BRDEF$,	% $RELATION DEFINITION ENTRY STP %
+   BFLDN$,	% ACCUMULATED SUMS FOR S$FIELDN AND %
+   BLRCL$,	% S$LRECL FIELDS OF RELATION DEF ENTRY %
+   BFNUM$,	% NUMBER FOR NEXT NAME CREATED BY $BNEWN %
+   BSCHF$;	% SCHEMA FLAG %
+
+BIND    PAGSIZE=512,            !MUST AGREE WITH DEF IN MEMORY.BLI
+        LOG2PAGSIZE=35-FIRSTONE(PAGSIZE);
+
+GLOBAL  CFRPG$[2],      % HEAD OF LIST OF FREE PAGES %
+        CAREA$,         % AREA NUMBER OF CURRENT MEMORY AREA TABLE %
+        CCMAT$,         % POINTER TO CURRENT MEMORY AREA TABLE %
+        CJBFF$,         % RETAINS  JOBFF  VALUE AT $CINIT %
+        CDDT$,          % RETAINS  JOBDDT  VALUE AT $CINIT %
+        CZMAT$[2+16+2*LOG2PAGSIZE+2];
+                        % INITIAL/PERMENENT MEMORY AREA(=ZERO) TABLE %
+
+GLOBAL  COSTK$,         % STACK POINTER FOR OVERLAY CONTROL STACK %
+        CPARM$,         % STACK POINTER FOR OVERLAY PARAMS STACK %
+        CMEM$,                 !BASE OF ALLOCATED MEMORY
+        CCSIZ$;                 !NUMBER OF PAGES ALLOCATED
+
+
+GLOBAL  CMC$[2], % SIXBIT OVERLAY NAME OF COMMAND OVERLAY     %
+        CP1$[2], % SIXBIT OVERLAY NAME OF PROCEDURE COMPILER PHASE 1 %
+        CP2$[2], % SIXBIT OVERLAY NAME OF PROCEDURE COMPILER PHASE 2 %
+        CP3$[2], % SIXBIT OVERLAY NAME OF PROCEDURE COMPILER PHASE 3 %
+        CP4$[2], % SIXBIT OVERLAY NAME OF PROCEDURE COMPILER PHASE 4 %
+        CS1$[2], % SIXBIT OVERLAY NAME OF SCHEMA COMPILER PHASE 1  %
+        CS2$[2], % SIXBIT OVERLAY NAME OF SCHEMA COMPILER PHASE 2  %
+        CRN$[2], % SIXBIT OVERLAY NAME OF RUNTIME LIBRARY            %
+        CDB$[2], % DATA BASE CONTROL OVERLAY NAME %
+        CEN$[2], % SIXBIT OVERLAY NAME OF ENAME ENTER SCHEMA NAME    %
+        CSR$[2]; % SIXBIT OVERLAY NAME OF SORT OVERLAY               %
+
+GLOBAL
+        CDBCF$; % DATA BASE CONTROL FUNCTION FLAG %
+
+GLOBAL  CSTK0$, % CO-ROUTINE STACK ADDRESS FOR MIDAS & MIDASI %
+        CSTK1$, % CO-ROUTINE STACK ADDRESS FOR P1COMP %
+        CSTK2$, % CO-ROUTINE STACK ADDRESS FOR P2COMP %
+        CSTK3$, % CO-ROUTINE STACK ADDRESS FOR P3COMP %
+        CSTK4$, % CO-ROUTINE STACK ADDRESS FOR S1COMP %
+        CSTK5$, % CO-ROUTINE STACK ADDRESS FOR S2COMP %
+        CSTK6$, % CO-ROUTINE STACK ADDRESS FOR RUNTIM %
+        CSTK7$, % CO-ROUTINE STACK ADDRESS FOR DBCTRL %
+        CSTK8$, % CO-ROUTINE STACK ADDRESS FOR xxxxx  %
+        CSTK9$; % CO-ROUTINE STACK ADDRESS FOR SORT   %
+
+GLOBAL  CJLST$; % FLAG SET TRUE IF OBJECT LISTING TO BE DONE %
+                % RESET FALSE AT END OF OBJECT LISTING       %
+
+
+GLOBAL  CTERM$,                 ! TERMINAL FCB POINTER FOR BLISIO.BLI
+   CONTF$,                 ! THE FCB POINTER FOR THE CONTROL FCB (CIN & TOUT)
+        CINTD$,                 !FLAG TRUE IF $CINTM DONE BY MEMORY.BLI
+        CRSTD$;                 !FLAG TRUE IF RESET DONE FOR BLISIO.BLI
+
+
+GLOBAL          % INTERRUPT SYSTEM ARRAYS/STORAGE %
+        CISDT$[10],     % MONITOR DISPATCH TABLE %
+        CIHDT$[5];      % INTERRUPT HANDLER ROUTINE ADR TABLE %
+
+%!
+GLOBAL CELLS/ARRAYS USED BY INTERNAL I/O ROUTINES.
+%
+GLOBAL
+  CACTI$[12],   % ACTIVITY COUNTERS %
+  CFLCB$[12];   %STORE FILECB POINTERS FOR DISK FILES%
+
+
+%
+GLOBAL CELLS FOR WIO ROUTINES
+$WSTART,$WSTOP,$WIN.
+%
+GLOBAL
+        WFILE$, %POINTER TO FILECB FOR SOURCE FILE%
+        WEOF$,  %$WIN END-OF-FILE FLAG%
+        WCHR$,  %$WIN CHARACTER HOLDING WORD%
+        WBUF$,  %POINTER TO BUFFER FOR $WIN%
+        WNAME$; %NAME OF SOURCE INPUT FILE IN SIXBIT%
+
+%!
+GLOBAL CELLS CONTAINING GENERAL JOB/USER INFORMATION.
+%
+GLOBAL
+  CVER$[2],%SYSTEM VERSION NUMBER SET AT SYSTEM INITIALIZATION (SIXBIT) %
+  CPJOB$, %JOB NUMBER IN DECIMAL, RIGHT JUST. ON ZEROS%
+  CPPN$,  %PPN OF USER%
+  CTRU$,  %TRUS OF JOB%
+  CTRUI$, %ELAPSED TRUS VARIABLE OF PROGRAM%
+  CTIME$, %TIME OF DAY AT JOB INITIALIZATION%
+  CDATE$, %DATE AT JOB INIT%
+  COWNR$, %DIRECTORY FROM WHICH PROGRAM IS RUN, USED FOR%
+          % GETSEGS%
+  CLOGI$, %LOG-IN INFORMATION%
+  CUNAM$[4];  %USER NAME IN ASCIZ%
+
+
+% Date and time fields for use with run-time functions %
+GLOBAL
+        VDECD$,         % System date as of last invocation of $VDAY1 %
+                        % where VDECD$ := ((Y-1964)*12 + (M-1))*31 + D-1 %
+        VMSEC$;         % System time as of last invocation of $VDAY1 %
+                        % where VMSEC$ := msec since 00:00 of current day %
+
+
+%  THESE ARE THE GLOBAL VARIABLES FOR THE UOUT PACKAGE
+%
+GLOBAL
+   UDEST$,      % THE UOUT FCB IN USE %
+   UL$;        % THE LINE BUFFER %
+
+
+!GLOBAL VARIABLES FOR RUN-TIME ROUTINES
+GLOBAL
+   RSINK$,      !
+   RSRC$,       !ADR. OF CURRENT SCB
+   RPDB$;
+
+!COMPILER GLOBAL VARIABLES FOR SYMBOL TABLE
+!THESE VARIABLES CONTAIN SYMBOL TABLE POINTERS TO SPECIAL SYMBOL TABLE
+!ENTRIES CREATED DURING SYSTEM INITIALIZATION
+GLOBAL
+   SZERO$,      !FOR NUMERIC LITERAL ZERO
+   SBLNK$,      !NULL STRING
+   SNAME$,      !COMPILER GENERATED NAME, $NAME
+   SRPRT$,      !COMPILER GENERATED NAME, $REPORT
+   STERM$,      !FOR LITERAL 'TERMINAL'
+   SRELN$,      !COMPILER GENERATED NAME, $RELATION
+   SSRCE$;      !COMPILER GENERATED NAME, $SOURCE
+
+!GLOBAL VARIABLES FOR "SYMBOL TABLE ROUTINES"
+GLOBAL
+   STPN$,       !NEXT SYMBOL TABLE POINTER
+   STPT$,       !TEMPORARY SYMBOL TABLE POINTER
+   STPP$,       !NEXT ASSIGNABLE SYMBOL TABLE POINTER
+   SHWD$,       !ADR. OF HASH TBL. WORD
+   SHC$,        !HASH CHAIN LOCATION FOR $SGNE
+   SCTR$,       !HASH CHAIN COUNTER
+   SHTB$,       !ADR. OF HASH TABLE
+   SHTP$,       !CUR. LOC. IN HASH TABLE
+   SBFF$,        !BUFFER FLAGS FOR SYMTAB
+   SBF$[6],     !BUFFER ADDRESSES FOR SYMBOL TABLE ENTRIES
+   SSZ$[6],     !MAXIMUM BUFFER SIZE FOR SYMBOL TABLE BUFFERS
+   SRMWD$,      !REMAINING WORDS IN CURRENT AREA
+   SIRMW$,      ! " ", FOR REIN.
+   SITPP$,      % INITIAL VALUE OF STPP$ FOR $SREIN %
+   SCT$,        !SYMBOL TABLE ENTRY COUNT
+   SICT$,       ! " ", FOR REIN.
+   SCTB$,       !SYMBOL TABLE BLOCK COUNT
+   SICTB$,      ! " ", FOR REIN.
+   STLFT$,      !TOTAL UNUSED WORDS DURING RUN
+   SITLF$;      ! " ", FOR REIN.
+
+% FOR SRIO MODULE:
+%
+GLOBAL
+   SRFCB$;      % RESERVED WORD FILE CONTROL BLOCK %
+
+! GLOBAL VARIABLES FOR $E SYMBOL TABLE ROUTINES
+!
+GLOBAL
+   ETPN$, ETPT$, ETPP$, EHWD$,
+   ETPI$,       % INITIAL ETPP$ VALUE %
+   EHC$, ECTR$, EHTB$, EHTP$, EBFF$, EBF$[6], ESZ$[6], ERMWD$,
+   ECT$, ETLFT$,
+   EFCB$;       % SCHEMA FILE CONTROL BLOCK %
+
+!GLOBAL VARIABLES FOR "SCAN" MODULE
+GLOBAL ATOKN$,       !ADR. FOR TOKEN, MAPPED WITH A$STR
+   ACBUF$,              !CURRENT BUFFER ADR., MAPPED WITH S$STR
+   ATBF$,                !NAME BLOCK ADR.
+   ASTP$,               !SYM. TABLE PTR, USED IN MKEN,MKTOK
+   ASIZE$,              !SIZE OF NAME ENTRY, USED IN MKEN
+   ANCH$,               !NEXT CHAR.
+   AVAL$[2],    !INTEGER VALUE
+   AID$,                !TOKEN ID VALUE (SEE MKEN AND MKTOK)
+   ALINE$,              !CURRENT LINE DATE DESC.
+   ASVLN$,              !SAVED CURRENT LINE AT START TOKEN
+   ACHP$,               !CURRENT CHAR. POS. IN LINE
+   ASVCP$,              !SAVED CURRENT CHAR. POS. AT START TOKEN
+   ANID$,               !NO. OF INT. DECIMAL PLACES, USED IN INTGR
+   ANDP$,               !NO. OF DECIMAL PLACES, USED IN INTGR
+   ASF$,                !SAVED FILE I.D.
+   AP$,                 !CHARACTER PTR. FOR GCH ROUTINE
+   AIO$,                !IO CONTROL, HAS MEM. ADR. IF NOT 0
+   APER$;               !PERIOD FOUND FLAG, USED IN INTGR
+
+
+GLOBAL   %PARSER GLOBALS%
+   PTRF$,   %FILECB FOR TRACE OUTPUT (OR 0 FOR TERMINAL)%
+   PTRC$,   %CODE FOR WHICH PARSER TRACES ARE ON%
+   PNDS$,   % STOP NODE FOR TRACING %
+   PTKNW$,  %POINTER TO TOKEN WINDOW%
+   PCTKN$,  %POINTER TO CURRENT TOKEN%
+   PTKNI$,  % INDEX OF CURRENT TOKEN IN ARRAY %
+   PLTKI$,  % INDEX OF LAST TOKEN IN ARRAY %
+   PMTKC$,  % MAX NUMBER OF TOKENS IN CURRENT WINDOW %
+   PERRL$,  %POINTER TO TOP OF ERROR STACK%
+   PROUT$,  %POINTER TO ARRAY OF SEMANTIC ROUTINES%
+   PGRAF$,  %POINTER TO BASE OF PARSE GRAPH%
+   PPARM$;  % POINTER TO PARSER PARAMETERS BLOCK    %
+
+%**
+  THESE ARE THE GLOBAL DECLARATIONS FOR ALL DATA USING THE <LETTER> G.
+**%
+
+
+  UNDECLARE GBUFX$, GQUE$, GQUET$, GQUEH$, GBTKN$, GGFID$, GGBFP$;
+  UNDECLARE GOB1I$, GOB2I$, GOB3I$, GRB1I$, GRB2I$, GRB3I$, GRB4I$, GRB5I$,GRB6I$;
+  UNDECLARE GINII$, GDETI$, GINCI$, GAEXI$, GRCBI$;
+  UNDECLARE GDMAX$, GNAEP$, GOMYF$;
+  UNDECLARE GNOKF$, GSELF$, GELSF$, GFEAF$, GOMUF$, GALTF$, GRCNF$;
+  UNDECLARE GELSP$, GEXRP$, GEXOP$, GFINP$, GINSP$;
+  UNDECLARE GDBUG$;
+  UNDECLARE GDBGF$,GNOQF$;
+  UNDECLARE GNAMN$;
+  UNDECLARE GGBOP$, GNPIC$, GCPIC$, GNFNP$, GNFDP$, GNFIP$;
+  UNDECLARE GNLNP$, GNLIP$, GCFNP$, GCFDP$, GCFIP$, GCLNP$, GCLIP$;
+  UNDECLARE GELSL$, GBVTL$, GEVTL$;
+  UNDECLARE GNDEL$, GMVAL$, GSELP$;
+  UNDECLARE GDSRC$, GDRPT$, GLIST$, GTTYN$, GTTYI$;
+  UNDECLARE $GNNAME, $GNSI, $GNRPI;
+  UNDECLARE GTOP$, GONE$, GFEAP$, GEIPF$, GSRCP$,GRPTP$, GBSLP$;
+  UNDECLARE GBILP$, GERCL$,GEIPL$, GBCNP$, GICNF$, GNXCL$, GICLF$;
+  UNDECLARE GINSH$, GINSL$, GVCDB$, GVCDC$, GVCDL$, GMODE$;
+  UNDECLARE GFINH$, GFINL$, GFRCF$, GRPFF$, GOUTF$, GSTNP$, GRPIF$;
+  UNDECLARE GASBI$, GVRFI$;
+
+  GLOBAL GDSRC$;                % CONTAINS THE STP FOR THE DUMMY FILE'S SOURCE DEFINITION ENTRY. 
+                                  THIS DUMMY FILE IS USED FOR ACCEPT STATMENT PROCESSING.
+                                %
+  GLOBAL GDRPT$;                % CONTAINS THE STP FOR THE DUMMY REPORT'S REPORT SEFINITION ENTRY.
+                                  THIS DUMMY REPORT IS USED IN TYPE STATEMENT STATEMENT PROCESSING.
+                                %
+  GLOBAL GLIST$;                % POINTS TO A STACK ENTRY THAT CAN BE USED IN LOCATING THE BEGINNING
+                                  OF A LIST IN THE SEMANTIC STACK.
+                                %
+  GLOBAL GTTYN$;                % CONTAINS THE STP FOR THE "TERMINAL" LITERAL NAME ENTRY.  %
+
+  GLOBAL GTTYI$;                % CONTAINS THE STP FOR THE "TERMINAL" LITERAL INCARNATION ENTRY. %
+  GLOBAL GNDEL$;                % END-ELSE LABEL; CONTAINS AN STP FOR THE LABEL TO BE BRANCHED TO
+                                  AT THE END OF A THEN CLAUSE TO BYPASS THE ELSE CLAUSE CODE
+                                %
+  GLOBAL GMVAL$;                % CONTAINS MAXIMUM ABSOLUTE VALUE FOR A FIELD; THIS VALUE IS CALCULATED
+                                  FOR EACH FIELD DURING THE PROCESSING OF VERIFY CODE.
+                                %
+  GLOBAL GSELP$;                % SELECT POINTER; POINTS TO THE LAST BEGINNING OF STATEMENT TYPE TOKEN
+                                  IN THE STACK THAT CONTAINS THE STATUS OF THE SELECT FLAG.
+                                %
+
+GLOBAL GGBOP$;                  % GAMMA FILE OPERAND POINTER            %
+GLOBAL GNFNP$;                  % ERROR CORECTION NUMERIC FIELD NAME STP  %
+GLOBAL GNFDP$;                  % ERROR CORECTION NUMERIC FIELD DEFINITION STP %
+GLOBAL GNFIP$;                  % ERROR CORECTION NUMERIC FIELD INCARNATION STP %
+GLOBAL GNLNP$;                  % ERROR CORECTION NUMERIC LITERAL NAME STP   %
+GLOBAL GNLIP$;                  % ERROR CORECTION NUMERIC LITERAL INCARNATION STP  %
+GLOBAL GCFNP$;                  % ERROR CORECTION CHAR. STRING FIELD NAME STP  %
+GLOBAL GCFDP$;                  % ERROR CORECTION CHAR. STRING FIELD DEFINITION STP  %
+GLOBAL GCFIP$;                  % ERROR CORECTION CHAR. STRING FIELD INCARNATION STP  %
+GLOBAL GCLNP$;                  % ERROR CORECTION CHAR. STRING LITERAL NAME STP  %
+GLOBAL GCLIP$;                  % ERROR CORECTION CHAR. STRING LITERAL INCARNATION STP  %
+GLOBAL GNPIC$;                  % FORMAT PICTURE FOR NUMERIC WORK VARIABLES CREATED BY THE SEMANTICS PASS  %
+GLOBAL GCPIC$;                  % FORMAT PICTURE FOR CHARACTER WORK VARIABLES CREATED BY THE SEMANTICS PASS  %
+
+  GLOBAL GELSL$;                  % ELSE LABEL STP  %
+  GLOBAL GBVTL$;                  %  POINTER TO TV$8BGVLST STACK ENTRY %
+  GLOBAL GEVTL$;                  % POINTER  TO TV$8VLST STACK ENTRY   %
+
+  GLOBAL GNAMN$;                % CONTAINS AN ORDINAL NO.; USED IN GENERATING NEW SYMBOLIC NAME %
+
+  GLOBAL GDBGF$;                % GLOBAL POINTER TO DEBUG FLAGS %
+
+  GLOBAL GDBUG$[1];             % DEBUG FLAGS FOR SEMANTICS PASS %
+
+  GLOBAL GBUFX$[GV$EBUFX * 2 + 1];  %ARRAY FOR HOLDING BUFFER POINTERS
+                                        THE FIRST WORD HAS A POINTER TO
+                                          THE FIRST BUFFER INCREMENT.
+                                        THE SECOND WORD HAS A POINTER TO
+                                          THE LAST BUFFER INCREMENT.
+                                    %
+  GLOBAL GQUE$[GV$EBUFX + 1];       % QUEUE OF FREE BUFFER INDEXES    %
+  GLOBAL GQUEH$, GQUET$;            % QUEUE HEAD AND TAIL POINTERS    %
+
+  GLOBAL GGFID$;                % CONTAINS AN ORDINAL NUMBER WHICH IS USED AS THE ID OF THE NEXT N-TUPLE.  %
+  GLOBAL GGBFP$;                    % GAMMA FILE BUFFER POINTER       %
+
+
+  GLOBAL    GBTKN$;                 % POINTER TO THE BUFFER CONTAINING
+                                      THE CURRENT BETA TOKEN.
+                                    %
+  GLOBAL GOB1I$;                % PRIMARY OUTPUT BUFFER INDEX %
+  GLOBAL GOB2I$;                % SECONDARY OUTPUT BUFFER INDEX %
+  GLOBAL GOB3I$;                % TERTIARY OUTPUT BUFFER INDEX %
+  GLOBAL GRB1I$;                % FIRST REPORT CODE BUFFER INDEX %
+  GLOBAL GRB2I$;                % SECOND REPORT CODE BUFFER INDEX %
+  GLOBAL GRB3I$;                % THIRD REPORT CODE BUFFER INDEX %
+  GLOBAL GRB4I$;                % FOURTH REPORT CODE BUFFER INDEX. IT IS SET IN $GEXEC AND $GBFE AND 
+                                  RESET IN $GEFE.
+                                %
+  GLOBAL GRB5I$;                % FIFTH REPORT CODE BUFFER INDEX. IT IS SET IN $GEXEC AND $GBFE AND 
+                                  RESTORED IN $GEFE.
+                                %
+  GLOBAL GRB6I$;               
+  GLOBAL GINCI$;                % FOOTING BUFFER 1 INDEX - INCR. CODE %
+  GLOBAL GDETI$;                % FOOTING BUFFER 2 INDEX - DET.CODE %
+  GLOBAL GINII$;                % FOOTING BUFFER 3 INDEX - INIT. CODE %
+  GLOBAL GRCBI$;                % REPORT CONDITION CODE BUFFER INDEX %
+  GLOBAL GASBI$;                % AS BUFFDER INDEX
+                                  THE AS BUFFER CONTAINS THOSE GAMMA N-TUPLES
+                                  WHICH ARE GENERATED DUE TO THE OCCURANCE OF
+                                  AS OVERRIDES IN AN INPUT LIST. THE N-TUPLES
+                                  IN THIS BUFFER ARE TO BE INSERTED INTO THE
+                                  GAMMA FILE AFTER THE FINAL N-TUPLE CORRESPONDING
+                                  TO THE INPUT LIST.
+                                %
+  GLOBAL GAEXI$;                % ARITH EXP HOLDING BUFFER INDEX   %
+
+  GLOBAL GVRFI$;                % VERIFY CODE HOLDING BUFFER
+                                  THIS BUFFER CONTAINS THE GAMMA CODE THAT IS
+                                  CREATED AS A RESULT OF PROCESSING 'ILLEGAL'
+                                  CONSTRUCTS IN THE IF-STATEMENT.
+                                %
+  GLOBAL GNAEP$;                    % POINTER TO THE NEXT TOKEN IN THE
+                                  ARITH. EXP. HOLDING BUFFER. INIT. TO 
+                                  ZERO BY $GEXEC.
+                                %
+  GLOBAL GDMAX$;                % DMAX FOR THE ARITH EXP CURRENTLY
+                                  BEING PROCESSED.
+                                %
+  GLOBAL GTOP$;                 % STP FOR THE INCARNATION FOR THE @TOP VARIABLE. IT IS INITIALIZED IN 
+                                  $GEXEC WHEN THE VARIABLE IS CREATED AND IS REFERENCED IN OUTPUTLIST(GPRINT).
+                                %
+  GLOBAL GONE$;                 % STP FOR THE INCARNATION FOR THE LITERAL "1"  %
+
+  GLOBAL GMODE$;                % CONTAINS A VALUE WHICH IDENTIFIES WHETHER
+                                  OR NOT SEMANTICS IS IN VERIFY MODE
+                                  OR NORMAL PROCESSING MODE.
+                                %
+  GLOBAL GVCDB$;                % CONTAINS THE ADDRESS OF BUFFER CONTAINING THE
+                                  CURRENT SET OF VERIFY CODE TOKENS.
+                                %
+  GLOBAL GVCDC$;                % VERIFY CODE BUFFER CURSOR %
+
+  GLOBAL GVCDL$;                % VERIFY CODE BUFFER LENGTH. %
+
+
+%***
+  THE FOLLOWING  "Z"  PREFIXED VARIABLES REFER TO THE SEMANTIC STACK.
+***%
+
+  GLOBAL ZSTKP$;                % DISPLACEMENT TO THE TOP ENTRY IN THE
+                                  SEMANTIC STACK.
+                                %
+  GLOBAL ZBSTK$;            % POINTER TO THE BEGINNING OF THE SEMANTIC
+                                  STACK.
+                                %
+  GLOBAL ZESTK$;                % POINTER TO THE END OF THE SEMANTIC STACK. %
+  GLOBAL ZSTKS$;                % CURRENT SIZE OF THE SEMANTIC STACK
+                                    I.E.  ZBSTK$ - ZESTK$ +1
+                                %
+%***
+  THE FOLLOWING GLOBAL VARIABLES ARE FLAGS USED BY THE SEMANTICS 
+***%
+  GLOBAL GNOKF$;                % NOT-KEYED-OK FLAG
+                                  THIS FLAG IS USED DURING VIA PROCESSING TO
+                                  DETERMINE IF KEYED ACCESS IS REQUIRED. IT IS SET IN $GBFE.
+                                %
+  GLOBAL GSELF$;                % SELECT FLAG
+                                  THIS FLAG INDICATES THAT A SELECT STATEMENT
+                                  IS BEING PROCESSED.
+                                %
+  GLOBAL GELSF$;                % ELSE LABEL FLAG
+                                  THIS FLAG IS SET EACH TIME AN ELSE LABEL IS
+                                  CREATED AND IS USED BOTH TO PREVENT THE 
+                                  CREATING OF EXCESS ELSE LABELS AND TO DECIDE
+                                  WHEN A  GV$LABEL,ELSE LABEL  GAMMA RECORD
+                                  SHOULD BE GENERATED. IT'S STATUS IS SAVED
+                                  IN THE SEMANTIC STACK AT THE START OF THOSE
+                                  STATEMENTS WHICH MAY CREATE A NEW ELSE LABEL
+                                  TO PREVENT THE LOSS OF ELSE LABELS WHEN 
+                                  PROCESSING NESTED STATEMENTS. IT'S STATUS IS
+                                  RESTORED WHEN THE END OF SUCH A STATEMENT IS
+                                  REACHED.
+                                %
+  GLOBAL GFEAF$;                % FOR EACH FLAG
+                                  THIS FLAG IS USED DURING  VIA  AND  TV$IN
+                                  PROCESSING. IT IS SET IN $GBFE AND RSET IN $GEACH.
+                                %
+  GLOBAL GOMYF$;                % ON-TO-MANY-MAPPING FLAG
+                                  USED DURING  IN-CLAUSE PROCESSING. 
+                                %
+  GLOBAL GALTF$;                % ALTER FLAG
+                                  THIS FLAG INDICATESS THAT AN ALTER
+                                  STATEMENT IS BEING PROCESSED AND IS USED BY
+                                  USING LIST PROCESSING ROUTINES.
+                                %
+  GLOBAL GRCNF$;                % REPORT-CONDITION FLAG
+                                  THIS FLAG IS USED TO DETERMINE IF ANY 
+                                  REPORT-COND-DEF CODE HAS BEEN GENERATED YET.
+                                  IF NOT, THEN A BRANCH AROUND THE IN LINE
+                                  CODE FOR HEADINGS AND FOOTINGS IS GENERATED
+                                  IT IS SET THE REPORT CONDITION ROUTINES
+                                  AND RESET IN $GEACH.
+                                %
+  GLOBAL GEIPF$;                % END INPUT FLAG
+                                  THIS FLAG IS ANALEGOUS TO THE ELSE LABEL FLAG. IT INDICATES WHWTHER THE
+                                  END INPUT LABEL HAS BEEN GENERATED OR NOT FOR THE SEQUENCE CURRENTLY BEING
+                                  PROCESSED. IT IS SET IN $GCOND.
+                                %
+  GLOBAL GICNF$;                % INPUT LIST CONDITION FLAG
+                                  THIS FLAG INDICATES THAT AN INPUT CASE LIST IS BEING PROCESSED. IT IS SET IN
+                                  $GBCND AND RESET IN $GSRCE AND $GCOND.
+                                %
+  GLOBAL GICLF$;                % INPUT CASE LIST FLAG
+                                  THIS FLAG INDICATES WHETHER OR NOT THE CURRENT
+                                  INPUT LIST IS A CASE LIST. IT IS SET IN $GLIT AND
+                                  RESET IN $GSRCE AND $GINPL.
+                                %
+  GLOBAL GNOQF$;                % NO QUALIFICATION OK FLAG
+                                  THIS FLAG INDICATES THAT THE LACK OF 
+                                  RELATION QUALIFICATION IS OK WHEN IT IS SET.
+                                %
+  GLOBAL GFRCF$;                % FORCE FLAG
+                                  THIS FLAG INDICATES THAT A FORCE STATEMENT
+                                  IS BEING PORCESSED. IT IS USED BY THE REPORT
+                                  HEADING AND FOOTING ROUTINES.
+                                %
+  GLOBAL GRPFF$;                % REPORT FOOTING FLAG
+                                  THIS FLAG IS USED TO INDICATE WHETHER ANY
+                                  REPORT-COND-DEF CODE HAS BEEN GENERATED. IF
+                                  SO A BRANCH MUST BE GENERATED AROUND THIS 
+                                  CODE.
+                                %
+  GLOBAL GOUTF$;                % OUTPUT LIST FLAG
+                                  THIS FLAG INDICATES WHETHER OR NOT AN OUTPUT
+                                  LIST IS BEING PROCESSED OR NOT. IT IS USED TO
+                                  DETERMINE IF A TRIM FINC. REFERENCE IS VALID
+                                %
+  GLOBAL GRPIF$;                % REPORT PARAMETER INITIALIZATION FLAG
+                                  INDICATES WHEN REPORT PARAMETER INIT. P
+                                  PROCESSING IS BEING CONDUCTED>
+                                %
+%***
+  THE FOLLOWING GLOBAL VARIABLES ARE POINTERS USED BY THE SEMANTICS PASS.
+***%
+  GLOBAL GELSP$;                % ELSE LABEL POINTER
+                                  THIS POINTER CONTAINS THE SEMANTIC STACK
+                                  LOCATION OF THE LAST ELSE-LABEL THAT WAS
+                                  STACKED.
+                                %
+  GLOBAL GEXRP$;                % EXTEND RESULT POINTER
+                                  THIS POINTER IS USED DURING CONDITIONAL
+                                  EXPRESSION PROCESSING AND POINTS TO THE
+                                  SEMANTIC STACK ENTRY THAT CONTAINS AN ARITH.
+                                  RESULT WHICH IS TO BE EXTEND.
+                                %
+  GLOBAL GEXOP$;                % EXTEND OPERATOR POINTER
+                                  THIS POINTER IS USED DURING CONDITIONAL
+                                  EXPRESSION PROCESSING AND POINTS TO THE
+                                  SEMANTIC STACK ENTRY THAT CONTAINS THE
+                                  RELATION OPERATOR THAT IS TO BE EXTENDED.
+                                %
+  GLOBAL GFINP$;                % FINISH LIST POINTER
+                                  THIS POINTER CONTAINS THE STACK LOCATION OF
+                                  THE MOST RECENT RELATION NAME TOKEN ENTRY
+                                  TO BE INCLUDD IN THE FINISH LIST.
+                                %
+  GLOBAL GINSP$;                % INSERT LIST POINTER
+                                  THIS POINTER CONTAINS THE LOCATION OF THE
+                                  MOST RECENT TV$8BGALT OR TV$8BGINS TOKEN TO
+                                  HAVE BEEN ENTERED INTO THE STACK.
+                                %
+  GLOBAL GINSH$;                % INSERT LIST HEADER POINTER
+                                  THIS POINTER CONTAINS THE ADDRESS OF THE LAST
+                                  ENTRY TO HAVE BEEN ADDED TO THE LIST.
+                                %
+  GLOBAL GINSL$;                % INSERT SUBLIST START POINTER
+                                  THIS POINTER CONTIANS THE STACK POINTER FOR
+                                  THE MOST RECENT TV$PROCDR, TV$8BGFORE,
+                                  OR TV$8BGSEL TOKEN TO HAVE BEEN STACKED. THE
+                                  SIGNIFICANCE OF THIS TOKEN IS THAT ALL
+                                  ENTRIES TO THE INSERT LIST, WITHIN THE 
+                                  SCOPE OF THE INDICATED STATEMENT, MUST HAVE A
+                                   CLOSE GENERATED FOR THEM UPON REACHING
+                                   THE END OF THAT STATEMENT.
+                                %
+  GLOBAL GFINH$;                % FINISH LIST HEADER POINTER
+                                  THIS POINTER CONTAINS THE ADDRESS OF THE LAST
+                                  ENTRY TO HAVE BEEN ADDED TO THE LIST.
+                                %
+  GLOBAL GFINL$;                % FINISH SUBLIST START POINTER
+                                  THIS POINTER CONTAINS THE STACK POINTER FOR
+                                  THE MOST RECENT TV$PROCDR, TV$8BGFORE,
+                                  TV$8BGSEL, OR TV$8BGRPT TOKEN TO HAVE BEEN
+                                  STACKED. THE SIGNIFICANCE OF THIS TOKEN IS THAT
+                                  ALL RELATION OR REPORT ENTRIES IN THE FINISH
+                                  LIST, WITHIN THE SCOPE OF THE INDICATED 
+                                  STATEMENT, MUST HAVE A CLOSE GENERATED FOR
+                                  THEM UPON ENCOUNTERING A FINISH OR 
+                                  REPEAT OR AT THE END OF THE STATEMENT.
+                                %
+  GLOBAL GFEAP$;                % POINTS TO THE MOST RECENT TV$8BGFORE TOKEN TO HAVE STACKED. IT IS
+                                  SET UP IN $GBFE AND IS REFERENCED IN $GEFE.
+                                %
+  GLOBAL GSRCP$;                % SOURCE POINTER
+                                  POINTS TO THE SOURCE NAME TOKEN IN THE STACK. IT IS SET UP IN $GSRCE WHEN
+                                  THE NAME TOKEN IS STACKED AND RESET IN BOTH $GBFE AND $GEACH.
+                                %
+  GLOBAL GBILP$;                % BEGIN INPUT LIST POINTER
+                                  POINTS TO THE STACK ENTRY IMMEDIATELY PRECEDING THE FIRST ITEM IN AN INPUT
+                                  LIST. IT CAN BE SET IN EITHER $GSRCE, $GBCND OR $GCOND. IT IS RESET BY $GBFE.
+                                %
+  GLOBAL GBCNP$;                % BEGIN CONDITION POINTER
+                                  POINTS TO THE TV$8BGCOND TOKEN MOST RECENTLY STACKED.  %
+  GLOBAL GRPTP$;                % REPORT POINTER
+                                  POINTS TO THE REPORT NAME TOKEN IN THE STACK. IT IS SET UP IN $RP WHEN THE 
+                                  NAME IS STACKED AND RESET IN $GBFE.
+                                %
+  GLOBAL GBSLP$;                % BEGIN SORT LIST POINTER
+                                 POINTS TO THE TV$8BGSRT TOKEN IN THE STACK. IT IS SET IN $GBSRT AND RESET 
+                                  IN $GBFE.
+                                %
+  GLOBAL GSTNP$;                % SYMBOL TABLE TOKEN TREE NODE POINTER
+                                %
+%*****
+  THE FOLLOWING ARE GLOBAL VARIABLES WHICH CONTAIN STPS FOR VARIOUS LABEL INCARNATION ENTRIES.
+*****%
+  GLOBAL GNXCL$;                % NEXT CASE LABEL
+                                  CONTAINS THE STP FOR THE LABEL WHICH LOCATES THE CODE THAT PERFORMS TESTING
+                                 AND BRACHING FOR THE NEXT CASE ITEM IN CONDITIONAL SOURCE INPUT.
+                                  IT IS SET UP IN $GBCND AND $GINPL.
+                                %
+  GLOBAL GEIPL$;                % END INPUT LABEL
+                                  CONTANS THE STP FOR THE LABEL THAT MARKS THE END OF A SOURCE INPUT SEQUENCE.
+                                  IT IS SET UP IN $GCOND.
+                                %
+  GLOBAL GERCL$;                % END REPORT CONDITION LABEL %
+
+   GLOBAL DPOOL$;       %DELTA PHASE GLOBAL VARIABLE POOL%
+   GLOBAL DBASE$;       %DELTA PHASE SET OF 63 RELOCATION REGISTERS%
+   GLOBAL DGAM$;        %DELTA PHASE GAMMA CODE ITEM BUFFER%
+   GLOBAL DLIST$;       %DELTA PHASE DICTIONARY OF ACTIVE
+                        COMPUTATIONAL TEMPORARIES%
+   GLOBAL DREGS$;       %DELTA PHASE SYMBOLIC REGISTERS%
+   GLOBAL DFLAG$;       %REGISTER OF FLAGS FOR PCP PROCESSOR
+                        IN CODE GENERATION PHASE%
+
+   GLOBAL DEFER$;       %LIST OF STPS OF DEFERED ITEMS,SUCH AS
+                        DD'S %
+
+
+   GLOBAL DRACK$;       %LIST OF REQUESTED EXTERNALS%
+
+
+           %  GLOBALS FOR SKIM FILE USE  %
+
+   GLOBAL
+      KFC$,        % ADDRESS OF FCB FOR SORT OVERLAY %
+      KCOMR$,      % ADDRESS OF COMPARE ROUTINE FOR SORT OVERLAY %
+      KPAR$,       % ADDRESS OF SORT PARAMETER FOR SORT OVERLAY %
+      KST$,        % ADDRESS OF SORT TABLE FOR SORT OVERLAY %
+      KFCB2$,      % RETURN VALUE FOR SORT VALUE %
+      KBTIX$,      % ADDRESS OF BUFFER TABLE INDEX %
+      KCHTB$;      % ADDRESS OF CHANNEL TABLE %
+
+GLOBAL
+      KFCBC$;   % HEAD OF FILE CONTROL BLOCK CHAIN %
+
+%! Declaration of three counters for User Errors by severity Levels %
+
+GLOBAL
+        FNWRN$,         %! FLAG TO SUPPRESS OUTPUT OF WARNING MSGS %
+        FLEVL$[3];      %! 3 COUNTERS for User Errors by Level %
+
+
+
+        %                                                  %
+        % MIDAS-1 Editor/MIDED Global Storage Declarations %
+        %                                                  %
+
+        % Global Editor Pointers  --  MPN 17.1.7 %
+
+GLOBAL
+        MACTP$,         % Active-Page Global Editor Pointer %
+        MPSDP$[2];      % Pseudo-Page Global Editor Pointer %
+
+        % Editor State Flags  --  MPN 17.1.8 %
+
+GLOBAL
+        MREAD$,         % Read-Only-Mode Editor State Flag %
+        MSPGE$,         % Select-Page-Exists Editor State Flag %
+        MPGED$,         % Paginated-Object Editor State Flag %
+        MCHNG$,         % Changes-Made Editor State Flag %
+        MLOAS$,         % Load-Select-Mode Editor State Flag %
+        MPINS$,         % Previous-Insert Editor State Flag %
+        MPAPN$,         % Previous-Append Editor State Flag %
+        MPFND$;         % Previous-Find Editor State Flag %
+
+        % Editor Preserved Values  --  MPN 17.1.9 %
+
+GLOBAL
+        MINSV$[4],      % Previous-Insert Preserved Values %
+        MAPNV$[3],      % Previous-Append Preserved Values %
+        MFNDV$[2];      % Previous-Find Preserved Values %
+
+
+END ELUDOM
+ R@:
