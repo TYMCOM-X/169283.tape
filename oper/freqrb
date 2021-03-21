@@ -1,0 +1,337 @@
+      SUBROUTINE FREQRB
+C   ----------------------------------------------------------------------    2
+      REAL   TITLE(70),CODE(80)                                               3
+C                  DIMENSION TO APPROPRIATE SIZE                              4
+C                  M THROUGH AI ARE DIMENSIONED (NDIM*(NDIM+1))/2             5
+C                  AR MUST BE DIMENSIONED LARGER THAN NVPR                    6
+      REAL M(6105),C(6105),K(6105),AR(6105),AI(6105),AUXR(110),AUXI(110)      7
+      DIMENSION AMP(110),ANG(110),R(110),E(110),FR(110),FI(110),FCR(110)      8
+     1,FCI(110),FMR(110),FMI(110),DISPL(110),ANGL(110),IFSP(110),JE(110)      9
+      DIMENSION FREQ(3),V(3),NCD(2),NCMP(25,2),NVAR(25,2),NVPP(5,2),         10
+     1 IFTYP(2),NPLOT(2),NPVAR(2),IFPRT(3)
+      COMMON IN,IOUT,NOUTP,IFPLT,NEXEC,NERR,NNT,NEQ,IFEQ(3),IFUNA,           12
+     1       IFUPD(3),NREC(4),NFN(4),NS(10),NSTAT(600),TITLE,CODE            13
+     1      ,IDMY(8),RDMY(34)                                                14
+      COMMON/FILES/IDTFL,IPRCM,ITERM
+      NVPR=40                                                                15
+      NDIM=110
+      IF(NDIM-NEQ)810,10,10                                                  17
+   10 IFPLT=0                                                                18
+      IPRNT=0
+      DO 15 I=1,2                                                            20
+      IFTYP(I)=0                                                             21
+      IFPRT(I)=0
+      NPLOT(I)=0                                                             22
+   15 NPVAR(I)=0                                                             23
+      IFPRT(3)=0
+      NEQT=NEQ                                                               24
+      IFSPD=0                                                                25
+      IFACC=0                                                                26
+      NV=(NEQ*(NEQ+1))/2                                                     27
+      DO 20 I=1,NV                                                           28
+      M(I)=0.0                                                               29
+      C(I)=0.0                                                               30
+   20 K(I)=0.0                                                               31
+C                  READ EQUATIONS OF MOTION                                  32
+      IF(NERR)25,25,80                                                       33
+   25 IF(IFUPD(1))40,40,30                                                   34
+   30 CALL VRDWT(M,NV,NFN(1),NVPR,AR,-1)                                     35
+   40 IF(IFUPD(2))60,60,50                                                   36
+   50 CALL VRDWT(C,NV,NFN(2),NVPR,AR,-1)                                     37
+   60 IF(IFUPD(3))80,80,70                                                   38
+   70 CALL VRDWT(K,NV,NFN(3),NVPR,AR,-1)                                     39
+   80 DO 90 I=1,NEQ                                                          40
+      DISPL(I)=0.0                                                           41
+      ANGL(I)=0.0                                                            42
+      IFSP(I)=0                                                              43
+      FMR(I)=0.0                                                             44
+      FMI(I)=0.0                                                             45
+      FCR(I)=0.0                                                             46
+      FCI(I)=0.0                                                             47
+      FR(I)=0.0                                                              48
+   90 FI(I)=0.0                                                              49
+C                  READ FREQUENCY RESPONSE DATA                              50
+  100 IF(ITERM)103,103,101
+  101 WRITE(IOUT,105)
+  105 FORMAT('+ -'$)
+  103 READ(IN,110)CODE
+      IF(IPRCM)102,102,104
+  104 CALL EBLNK(CODE,80,IEND)
+      WRITE(IPRCM,106)(CODE(I),I=1,IEND)
+  106 FORMAT(1X,72A1)
+  102 CONTINUE
+  110 FORMAT(80A1)                                                           52
+      CALL DCODA(NCD,IPOS,CODE,80,2)                                         55
+      IF(NCD(1)-16)130,300,130                                               56
+  130 IF(NCD(1)-18)140,200,140                                               57
+  140 IF(NCD(1)-6)150,210,150                                                58
+  150 IF(NCD(1)-4)160,250,160                                                59
+  160 IF(NCD(1)-19)170,360,170                                               60
+  170 IF(NCD(1)-1)180,240,180                                                61
+  180 WRITE(IOUT,190)                                                        62
+  190 FORMAT( 2X,'----- PRECEEDING COMMAND NOT RECOGNIZED -----')
+      IF(ITERM)830,830,101
+C                  READ FREQUENCY SWEEP INFORMATION                          65
+  200 CALL GETRL(FREQ,3,3,NFD,CODE,80,0,0)                                   66
+      GO TO 100                                                              67
+C                  READ FORCE-MOMENT SPECIFICATION                           68
+  210 IF(IFACC)215,215,825
+  215 CALL GETRL(V,3,3,NFD,CODE,80,IN,IPRCM)
+      NOR=V(1)+.1                                                            70
+      IF(NOR)100,100,220                                                     71
+  220 IF(NSTAT(NOR))790,230,790                                              72
+  230 CALL NBEQ(NF,NOR,NDUM1,NDUM2,NSTAT)                                    73
+      ANGLE=V(3)/57.29578                                                    74
+      FR(NF)=FR(NF)+V(2)*COS(ANGLE)                                          75
+      FI(NF)=FI(NF)+V(2)*SIN(ANGLE)                                          76
+      GO TO 210                                                              77
+C                  ACCELERATION INPUT                                        78
+  240 IF(IFSPD+IFACC-1)245,825,245
+  245 IFACC=1
+      GO TO 255
+C                  INPUT DISPLACEMENT COMPONENT SPECIFICATION                80
+  250 IF(IFACC)255,255,825
+  255 IFSPD=1
+  260 CALL GETRL(V,3,3,NFD,CODE,80,IN,IPRCM)
+      NOR=V(1)+.1                                                            83
+      IF(NOR)100,100,270                                                     84
+  270 IF(NSTAT(NOR))790,280,790                                              85
+  280 CALL NBEQ(NF,NOR,NDUM1,NDUM2,NSTAT)                                    86
+      IFSP(NF)=1                                                             87
+      DISPL(NF)=V(2)                                                         88
+      ANGL(NF)=V(3)                                                          89
+      ANGLE=V(3)/57.29578                                                    90
+      DREAL=V(2)*COS(ANGLE)                                                  91
+      DIMAG=V(2)*SIN(ANGLE)                                                  92
+      DO 290 I=1,NEQ                                                         93
+      IINF=NFND1(I,NF)                                                       94
+      FMR(I)=FMR(I)-M(IINF)*DREAL                                            95
+      FMI(I)=FMI(I)-M(IINF)*DIMAG                                            96
+      FCR(I)=FCR(I)-C(IINF)*DREAL                                            97
+      FCI(I)=FCI(I)-C(IINF)*DIMAG                                            98
+      FR(I)=FR(I)-K(IINF)*DREAL                                              99
+  290 FI(I)=FI(I)-K(IINF)*DIMAG                                             100
+      GO TO 260                                                             101
+C                  READ PLOT SPECIFICATION                                  102
+C                  PRINT OR PLOT COMMAND                                    103
+  300 N2=NCD(2)
+      CALL NXTWD(NCD,IPOS,CODE,80,1)
+      IF(N2-12)302,314,302
+  302 IPRNT=1
+      IF(NCD(1)-6)304,310,304
+  304 IF(NCD(1)-16)306,312,306
+  306 IF(NCD(1)-1)308,312,308
+  308 IFPRT(1)=1
+      GO TO 100
+  310 IFPRT(2)=1
+      GO TO 100
+  312 IFPRT(3)=1
+      GO TO 100
+  314 IF(NCD(1)-6)318,316,318
+  316 II=2
+      GO TO 320
+  318 II=1
+  320 IF(NPLOT(II)-5)322,100,100
+  322 NST=NPVAR(II)+1
+      CALL GETIN(NCMP(NST,II),5,5,NFD,CODE,80)                              114
+      IF(NFD)100,100,324
+  324 NPLOT(II)=NPLOT(II)+1
+      IFPLT=1                                                               117
+      IFTYP(II)=1                                                           118
+      NPT=NPLOT(II)                                                         119
+      NVPP(NPT,II)=0                                                        120
+      DO 355 I=1,NFD                                                        121
+      IF(NVPP(NPT,II)-5)330,100,100                                         122
+  330 IF(NPVAR(II)-25)340,100,100                                           123
+  340 NPVAR(II)=NPVAR(II)+1                                                 124
+      NPV=NPVAR(II)                                                         125
+      NOR=NCMP(NPV,II)                                                      126
+      IF(NSTAT(NOR))790,350,790                                             127
+  350 CALL NBEQ(NF,NOR,NDUM1,NDUM2,NSTAT)                                   128
+      NVPP(NPT,II)=NVPP(NPT,II)+1                                           129
+  355 NVAR(NPV,II)=NF                                                       130
+      GO TO 100                                                             131
+  360 IF(NERR)365,365,830                                                   132
+  365 IF(IFPLT)388,388,370                                                  133
+C                  GENERATE PLOT INSTRUCTIONS                               134
+  370 NFILE=NFN(4)                                                          135
+      REWIND NFILE                                                          136
+      IF(IFSPD)374,372,374                                                  137
+  372 IFTYP(2)=0                                                            138
+  374 NF=IFTYP(1)+IFTYP(2)                                                  139
+      IF(NF)387,387,376
+  376 NREC(4)=NF                                                            141
+      IFPLT=IFTYP(1)+2*IFTYP(2)                                             142
+      N1=1                                                                  143
+      N2=2                                                                  144
+      IF(IFTYP(1))378,378,380                                               145
+  378 N1=2                                                                  146
+  380 IF(IFTYP(2))382,382,384                                               147
+  382 N2=1                                                                  148
+  384 DO 386 I=N1,N2                                                        149
+  386 WRITE(NFILE)N1,NPLOT(I),NPVAR(I),(NVPP(J,I),J=1,5),
+     1 (NCMP(L,I),L=1,25)
+      GO TO 388
+  387 IFPLT=0
+  388 IF(IFSPD)390,420,390                                                  151
+C                  REMOVE SPECIFIED COORDINATES                             152
+  390 NCT=0                                                                 153
+      DO 410 IC=1,NEQ                                                       154
+      IF(IFSP(IC)-1)400,410,400                                             155
+  400 NCT=NCT+1                                                             156
+      JE(NCT)=IC                                                            157
+      FR(NCT)=FR(IC)                                                        158
+      FI(NCT)=FI(IC)                                                        159
+      FCR(NCT)=FCR(IC)                                                      160
+      FCI(NCT)=FCI(IC)                                                      161
+      FMR(NCT)=FMR(IC)                                                      162
+      FMI(NCT)=FMI(IC)                                                      163
+  410 CONTINUE                                                              164
+      NEQT=NCT                                                              165
+C                                                                           166
+C                  COMPUTE AND OUTPUT FREQUENCY RESPONSE                    167
+C                                                                           168
+  420 IF(IPRNT)445,445,425
+  425 CALL EBLNK(TITLE,70,IEND)
+      WRITE(IOUT,430)(TITLE(II),II=1,IEND)
+  430 FORMAT(//10X,70A1//)
+      WRITE(IOUT,440)                                                       171
+  440 FORMAT(/9X,'FREQUENCY RESPONSE RESULTS')
+  445 PI180=3.141593/180.
+      PINV=1./PI180                                                         174
+      NPTS=1.+(FREQ(2)-FREQ(1))/FREQ(3)                                     175
+      IF(NPTS)450,450,460                                                   176
+  450 NPTS=1                                                                177
+  460 DO 780 II=1,NPTS                                                      178
+      CPS=FREQ(1)+(II-1)*FREQ(3)                                            179
+      OMEGA=CPS*6.2831853                                                   180
+      OMEG2=OMEGA*OMEGA                                                     181
+      I=0                                                                   182
+      DO 490 III=1,NEQ                                                      183
+      IF(IFSP(III)-1)470,490,470                                            184
+  470 I=I+1                                                                 185
+      R(I)=FR(I)-FCI(I)*OMEGA-FMR(I)*OMEG2                                  186
+      E(I)=FI(I)+FCR(I)*OMEGA-FMI(I)*OMEG2                                  187
+      J=0                                                                   188
+      DO 490 JJ=1,NEQ                                                       189
+      IF(IFSP(JJ)-1)480,490,480                                             190
+  480 J=J+1                                                                 191
+      NVT=NFND1(I,J)                                                        192
+      NV=NFND1(III,JJ)                                                      193
+      AR(NVT)=K(NV)-M(NV)*OMEG2                                             194
+      AI(NVT)=C(NV)*OMEGA                                                   195
+  490 CONTINUE                                                              196
+C                  FORCE CHANGE FOR ACCELERATION INPUT                      197
+      IF(IFACC)520,520,500                                                  198
+  500 DO 510 I=1,NEQ                                                        199
+      R(I)=R(I)/OMEG2                                                       200
+  510 E(I)=E(I)/OMEG2                                                       201
+  520 EPS=1.E-5                                                             202
+      CALL SIMQ3(R,E,AR,AI,NEQT,1,EPS,IER,AUXR,AUXI)                        203
+      DO 550 I=1,NEQT                                                       204
+      AMP(I)=SQRT(R(I)*R(I)+E(I)*E(I))                                      205
+      IF(AMP(I))540,540,530                                                 206
+C                  ATAN2 MUST BE ADDED TO LIBRARY                           207
+  530 ANG(I)=ATAN2(E(I),R(I))*PINV                                          208
+      GO TO 550                                                             209
+  540 ANG(I)=0.0                                                            210
+  550 CONTINUE                                                              211
+      IF(IFSPD)610,610,560                                                  212
+  560 JJ=NEQT+1                                                             213
+      DO 600 I=1,NEQ                                                        214
+      J=NEQ-I+1                                                             215
+      IF(IFSP(J)-1)570,580,570                                              216
+  570 JJ=JJ-1                                                               217
+      AMP(J)=AMP(JJ)                                                        218
+      ANG(J)=ANG(JJ)                                                        219
+      GO TO 600                                                             220
+  580 AMP(J)=DISPL(J)                                                       221
+      ANG(J)=ANGL(J)                                                        222
+      IF(IFACC)600,600,590                                                  223
+  590 AMP(J)=AMP(J)/OMEG2                                                   224
+  600 CONTINUE                                                              225
+  610 IF(IPRNT)670,670,620
+  620 WRITE(IOUT,630)CPS                                                    227
+  630 FORMAT(/2X,'FREQUENCY',F12.2,2X,'CPS')
+      IF(IFPRT(1))655,655,635
+  635 WRITE(IOUT,640)
+  640 FORMAT(/2X,'DISPLACEMENT COMPONENTS')
+      WRITE(IOUT,650)(AMP(I),I=1,NEQ)                                       231
+  650 FORMAT( 1X,6E12.4)
+  655 IF(IFPRT(3))670,670,660
+  660 WRITE(IOUT,665)                                                       234
+  665 FORMAT(/ 2X,'DISPLACEMENT PHASE')
+      WRITE(IOUT,650)(ANG(I),I=1,NEQ)                                       236
+  670 IF(IFTYP(1))676,676,674                                               237
+  674 NPV=NPVAR(1)                                                          238
+      DO 675 I=1,NPV                                                        239
+      NFD=NVAR(I,1)                                                         240
+  675 AR(I)=AMP(NFD)                                                        241
+      WRITE(NFILE)CPS,(AR(I),I=1,NPV)                                       242
+     (4)=NREC(4)+1                                                     243
+  676 IF(IFSPD-1)780,680,780                                                244
+C                  NODAL FORCE COMPUTATION GOES HERE                        245
+  680 IF(IFPRT(2)+IFPRT(3)+IFTYP(2))780,780,685
+  685 W=OMEGA
+      W2=OMEG2                                                              247
+      JJ=NEQT+1                                                             248
+      DO 720 I=1,NEQ                                                        249
+      J=NEQ-I+1                                                             250
+      IF(IFSP(J)-1)690,700,690                                              251
+  690 JJ=JJ-1                                                               252
+      R(J)=R(JJ)                                                            253
+      E(J)=E(JJ)                                                            254
+      GO TO 720                                                             255
+  700 R(J)=DISPL(J)*COS(PI180*ANGL(J))                                      256
+      E(J)=DISPL(J)*SIN(PI180*ANGL(J))                                      257
+      IF(IFACC)720,720,710                                                  258
+  710 R(J)=R(J)/W2                                                          259
+      E(J)=E(J)/W2                                                          260
+  720 CONTINUE                                                              261
+      DO 730 I=1,NEQ                                                        262
+      AR(I)=0.0                                                             263
+      AI(I)=0.0                                                             264
+      DO 730 J=1,NEQ                                                        265
+      NVT=NFND1(I,J)                                                        266
+      AR(I)=AR(I)+(K(NVT)-M(NVT)*W2)*R(J)-C(NVT)*W*E(J)                     267
+  730 AI(I)=AI(I)+C(NVT)*W*R(J)+(K(NVT)-M(NVT)*W2)*E(J)                     268
+      DO 760 I=1,NEQ                                                        269
+      AMP(I)=SQRT(AR(I)*AR(I)+AI(I)*AI(I))                                  270
+      IF(AMP(I))750,750,740                                                 271
+  740 ANG(I)=ATAN2(AI(I),AR(I))*PINV                                        272
+      GO TO 760                                                             273
+  750 ANG(I)=0.                                                             274
+  760 CONTINUE                                                              275
+      IF(IFPRT(2))771,771,765
+  765 WRITE(IOUT,770)                                                       276
+  770 FORMAT(/2X,'FORCE COMPONENTS')
+      WRITE(IOUT,650)(AMP(I),I=1,NEQ)                                       278
+  771 IF(IFPRT(3))774,774,772
+  772 WRITE(IOUT,773)
+  773 FORMAT(/2X,'FORCE PHASE')
+      WRITE(IOUT,650)(ANG(I),I=1,NEQ)                                       281
+  774 IF(IFTYP(2))780,780,776                                               282
+  776 NPV=NPVAR(2)                                                          283
+      DO 778 I=1,NPV                                                        284
+      NFD=NVAR(I,2)                                                         285
+  778 AR(I)=AMP(NFD)                                                        286
+      WRITE(NFILE)CPS,(AR(I),I=1,NPV)                                       287
+      NREC(4)=NREC(4)+1                                                     288
+  780 CONTINUE                                                              289
+      GO TO 840                                                             290
+  790 WRITE(IOUT,800)NOR                                                    291
+  800 FORMAT( 2X,'----- SOLUTION CANCELLED, COMP ',I4,'HAS BEEN SPECIFIE
+     1D -----')                                                             293
+      GO TO 830                                                             294
+  810 WRITE(IOUT,820)NDIM                                                   295
+  820 FORMAT( 2X,'----- SOLUTION CANCELLED, MORE THAN',I4,' EQUATIONS --    296
+     1---')                                                                 297
+      GO TO 830
+  825 WRITE(IOUT,826)
+  826 FORMAT( 2X,'----- SOLUTION CANCELLED, SIMULTANEOUS ACCEL, DISP, AN
+     1D FORCES NOT ALLOWED -----')
+  830 IFPLT=0                                                               298
+  840 NEXEC=0                                                               299
+  850 RETURN
+      END
+     $ñ
