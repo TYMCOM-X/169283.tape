@@ -1,0 +1,342 @@
+STATM.F4	F40	V26(10)	15-MAY-73	15:21	PAGE 1
+
+
+  		      C****************************************************************
+STATM.F4	F40	V26(10)	15-MAY-73	15:21	PAGE 2
+
+
+  		      C*     COPYRIGHT        TEKTRONIX, INC    1973
+  		      C*                       BEAVERTON, OREGON
+  		      C*     PLOT-10/DECISION MAKER RELEASE 1.0 - VERSION 1
+  		      C*               MODIFICATION LEVEL 0
+  		      C****************************************************************
+  		            SUBROUTINE  MAF (DATA, FMA, NDATA, MAP, ITFTOG, L )
+  		      C
+  		      C             MAF   CALCULATES MOVING AVERAGE
+  		      C             DATA  =  INPUT DATA     (IN)
+  		      C             FMA  =  MOVING AVERAGE   (OUT)
+  		      C             NDATA  =  NUMBER OF DATA POINTS  (IN)
+  		      C             MAP  =  MOVING AVERAGE PERIOD     (IN)
+  		      C             ITFTOG  =  TREND FACTOR TOGGLE  (IN)
+  		      C             L  =  LEAD TIME     (IN)
+  		      C-----
+  		      C
+  		            DIMENSION  DATA (1), FMA (1)
+  		      C-----
+  		      C                        . CONSTANTS INITIALIZATION
+  		            FL = FLOAT (L)
+  		            FMAP = FLOAT (MAP)
+  		            MAP1 = MAP + 1
+  		            FMASUM = 0.0
+  		      C-----
+  		      C                        . MOVING AVERAGE INITIALIZATION
+  		            DO 5 I = 1, 260
+  		            FMA (I) = 0.0
+  		      5      CONTINUE
+  		      C
+  		            DO 10 I = 1, MAP
+  		            FMASUM = FMASUM + DATA (I)
+  		      10      CONTINUE
+  		      C
+  		            FMA (MAP) = FMASUM / FMAP
+  		      C-----
+  		      C
+  		      C                        . TREND FACTOR INTIIALIZATION
+  		            S = 0.0
+  		            FI = 1.0
+  		            MAP1 = MAP + 1
+  		            DO 30 I = 1, MAP
+  		            S = S + (((FMAP - FI) / 2.0) * DATA (MAP1 -I))
+  		            FI = FI + 2.0
+  		      30      CONTINUE
+  		      C
+  		            TF = (6.0 * S) / (FMAP * (FMAP + 1.0))
+  		            IF( ITFTOG .NE. 1 )  GO TO 40
+  		            FMA (MAP) = FMA (MAP) + TF
+  		      40      CONTINUE
+  		      C-----
+  		      C
+  		      C                        . MAIN CACULATION
+  		            FMAPP1 = (FMAP + 1.0) / 2.0
+STATM.F4	F40	V26(10)	15-MAY-73	15:21	PAGE 3
+
+
+  		            FMAPM1 = (FMAP - 1.0) / 2.0
+  		      C
+  		            DO 60 I = MAP1, NDATA
+  		            OSUM = FMASUM
+  		            FMASUM = FMASUM + DATA (I) - DATA (I - MAP)
+  		            FMA (I) = FMASUM / FMAP
+  		      C
+  		            S = S - OSUM + FMAPM1 * DATA (I) + FMAPP1 * DATA (I - MAP)
+  		            TF = (6.0 * S) / (FMAP * (FMAP + 1.0))
+  		            IF( ITFTOG .NE. 1 )  GO TO 50
+  		            FMA (I) = FMA (I) + TF
+  		      C
+  		      50      CONTINUE
+  		      60      CONTINUE
+  		      C-----
+  		      C
+  		      C                          . LEAD TIME CALCULATION
+  		             IF( L  .EQ.  0 )  GO TO 80
+  		            DO 70 I = 1, L
+  		            FI = I
+  		            FLF = 1.0 + (2.0 * FI) / (FMAP - 1.0)
+  		            FMA (NDATA + I) = FMA (NDATA) + TF * FLF
+  		      70      CONTINUE
+  		      80      CONTINUE
+  		      C-----
+  		      C
+  		            RETURN
+  		            END
+
+CONSTANTS
+
+0	201400000000	
+
+GLOBAL DUMMIES
+
+DATA  	255		FMA   	256		NDATA 	257		MAP   	260		ITFTOG	261	
+L     	262		
+
+SUBPROGRAMS
+
+FLOAT 	
+
+SCALARS
+
+MAF   	263		FL    	264		L     	262		FMAP  	265		MAP   	260	
+MAP1  	266		FMASUM	267		I     	270		S     	271		FI    	272	
+TF    	273		ITFTOG	261		FMAPP1	274		FMAPM1	275		NDATA 	257	
+OSUM  	276		FLF   	277		
+
+ARRAYS
+
+DATA  	255		FMA   	256		
+
+STATM.F4	F40	V26(10)	15-MAY-73	15:21	PAGE 4
+
+
+ MAF
+STATM.F4	F40	V26(10)	15-MAY-73	15:21	PAGE 5
+
+
+  		      C****************************************************************
+STATM.F4	F40	V26(10)	15-MAY-73	15:21	PAGE 6
+
+
+  		      C*     COPYRIGHT        TEKTRONIX, INC    1973
+  		      C*                       BEAVERTON, OREGON
+  		      C*     PLOT-10/DECISION MAKER RELEASE 1.0 - VERSION 1
+  		      C*               MODIFICATION LEVEL 0
+  		      C****************************************************************
+  		            SUBROUTINE  AUTCOF (NDATA, PNTPYR)
+  		      C
+  		            COMMON /GAMA1/IFFN, WA(2560), YDATA(600), SKIP(300), RDATA(600)
+  		      C
+  		      C            AUTCOF   CALCULATES AND PLOTS THE
+  		      C               AUTCORRELATION COEFFICIENT FOR THE
+  		      C               RANGE OF POINTS PER YEAR.
+  		      C
+  		      C      NDATA  =  NUMBER OF DATA POINTS   (IN)
+  		      C      PNTPYR =  POINTS PER YEAR.   (IN)
+  		      C      YDATA  =  INPUT DATA.   (IN)
+  		      C-----
+  		      C
+  		            DIMENSION  XPT(366), YPT(366)
+  		      C
+  		      C                  . CALCULATE
+  		            XPT(1) = 0.0
+  		            YPT(1) = 1.0
+  		            IPNTS = PNTPYR
+  		            DO 10 I = 1, IPNTS
+  		            XPT(I+1) = I
+  		            CALL ROTE (I,NDATA,YDATA,RDATA)
+  		            CALL CORREL (YDATA,RDATA,NDATA, YPT(I+1))
+  		      10      CONTINUE
+  		      C-----
+  		      C
+  		      C                  . PLOT
+  		            CALL NEWPAG
+  		            CALL XYPLOT (XPT, YPT, IPNTS, 42+127, 64, 64+2, 0)
+  		            CALL MOVABS (200,650)
+  		            CALL ANMODE
+  		            WRITE (5,10100)
+  		      10100 FORMAT(1X,40HAUTOCORRELATION CORRELATION FUNCTION (K)   )
+  		      C----
+  		      C
+  		            RETURN
+  		            END
+
+CONSTANTS
+
+0	000000000251	1	000000000100	2	000000000102	3	000000000000	4	000000000310
+5	000000001212	
+
+GLOBAL DUMMIES
+
+NDATA 	115		PNTPYR	116		
+
+COMMON
+STATM.F4	F40	V26(10)	15-MAY-73	15:21	PAGE 7
+
+
+
+IFFN  	/GAMA1 /+0	WA    	/GAMA1 /+1	YDATA 	/GAMA1 /+5001	SKIP  	/GAMA1 /+6131	RDATA 	/GAMA1 /+6605
+
+SUBPROGRAMS
+
+INT   	FLOAT 	ROTE  	CORREL	NEWPAG	XYPLOT	MOVABS	ANMODE	
+
+SCALARS
+
+AUTCOF	120		IPNTS 	121		PNTPYR	116		I     	122		NDATA 	115	
+IFFN  	0		
+
+ARRAYS
+
+WA    	1		YDATA 	5001		SKIP  	6131		RDATA 	6605		XPT   	123	
+YPT   	701		
+
+ AUTCOF
+STATM.F4	F40	V26(10)	15-MAY-73	15:21	PAGE 8
+
+
+  		      C****************************************************************
+STATM.F4	F40	V26(10)	15-MAY-73	15:21	PAGE 9
+
+
+  		      C*     COPYRIGHT        TEKTRONIX, INC    1973
+  		      C*                       BEAVERTON, OREGON
+  		      C*     PLOT-10/DECISION MAKER RELEASE 1.0 - VERSION 1
+  		      C*               MODIFICATION LEVEL 0
+  		      C****************************************************************
+  		            SUBROUTINE CORREL (X1DATA, X2DATA, NDATA, COEF)
+  		      C      CORREL   CALCULATES CORRELATION COEFFICIENT
+  		            DIMENSION  X1DATA(1), X2DATA(1)
+  		      C
+  		      C      X1DATA  =  FIRST DATA ARRAY     (IN)
+  		      C      X2DATA  =  SECOND DATA ARRAY     (IN)
+  		      C      NDATA  =  LENGTH OF X1DATA AND X2DATA ARRAYS   (IN)
+  		      C      COEF  =  CORRELATION COEFFICIENT     (OUT)
+  		      C
+  		      C-----
+  		      C
+  		      C                  . CALCULATE MEAN OF X1DATA AND X2DATA
+  		            SX1 = 0.0
+  		            SX2 = 0.0
+  		            DO 10 I = 1, NDATA
+  		            SX1 = SX1 + X1DATA (I)
+  		            SX2 = SX2 + X2DATA (I)
+  		      10      CONTINUE
+  		      C
+  		            X1BAR = SX1 / NDATA
+  		            X2BAR = SX2 / NDATA
+  		      C-----
+  		      C
+  		      C                  . CALCULATE COEFFICIENT
+  		            SX1X2 = 0.0
+  		            SX1SQ = 0.0
+  		            SX2SQ = 0.0
+  		            DO 20 I = 1, NDATA
+  		            DX1 = X1BAR - X1DATA (I)
+  		            DX2 = X2BAR - X2DATA (I)
+  		            SX1X2 = SX1X2 + DX1 * DX2
+  		            SX1SQ = SX1SQ + DX1 * DX1
+  		            SX2SQ = SX2SQ + DX2 * DX2
+  		      20      CONTINUE
+  		      C
+  		            COEF = SX1X2 / SQRT (SX1SQ * SX2SQ)
+  		      C-----
+  		      C
+  		            RETURN
+  		            END
+
+
+GLOBAL DUMMIES
+
+X1DATA	114		X2DATA	115		NDATA 	116		COEF  	117		
+
+SUBPROGRAMS
+
+STATM.F4	F40	V26(10)	15-MAY-73	15:21	PAGE 10
+
+
+FLOAT 	SQRT  	
+
+SCALARS
+
+CORREL	121		SX1   	122		SX2   	123		I     	124		NDATA 	116	
+X1BAR 	125		X2BAR 	126		SX1X2 	127		SX1SQ 	130		SX2SQ 	131	
+DX1   	132		DX2   	133		COEF  	117		
+
+ARRAYS
+
+X1DATA	114		X2DATA	115		
+
+ CORREL
+STATM.F4	F40	V26(10)	15-MAY-73	15:21	PAGE 11
+
+
+  		      C****************************************************************
+STATM.F4	F40	V26(10)	15-MAY-73	15:21	PAGE 12
+
+
+  		      C*     COPYRIGHT        TEKTRONIX, INC    1973
+  		      C*                       BEAVERTON, OREGON
+  		      C*     PLOT-10/DECISION MAKER RELEASE 1.0 - VERSION 1
+  		      C*               MODIFICATION LEVEL 0
+  		      C****************************************************************
+  		            SUBROUTINE  ROTE (K, NDATA, YDATA, RDATA)
+  		      C
+  		            DIMENSION  YDATA(1), RDATA(1)
+  		      C
+  		      C      ROTE    ROTATES AN ARRAY BY AMOUNT K    (IN)
+  		      C            +K  LEFT  CIRCULAR SHIFT
+  		      C            -K  RIGHT CIRCULAR SHIFT
+  		      C      NDATA  =  LENGTH OF ARRAY    (IN)
+  		      C      YDATA  =  INPUT ARRAY     (IN)
+  		      C      RDATA  =  ROTATED ARRAY     (OUT)
+  		      C-----
+  		      C
+  		            IDISP = K
+  		            IF( K  .LT.  0 )  IDISP = NDATA + K
+  		      C
+  		            DO 10 I1 = 1, NDATA
+  		            L = I1 + IDISP
+  		            IF( L  .GT.  NDATA )  GO TO 15
+  		            RDATA (I1) = YDATA (L)
+  		      10      CONTINUE
+  		            GO TO 999
+  		      C                  . FOLD BACK
+  		      15      CONTINUE
+  		            N = 1
+  		            DO 20 I2 = I1, NDATA
+  		            RDATA (I2) = YDATA (N)
+  		            N = N + 1
+  		      20      CONTINUE
+  		      C-----
+  		      C
+  		      999      CONTINUE
+  		            RETURN
+  		            END
+
+
+GLOBAL DUMMIES
+
+K     	65		NDATA 	66		YDATA 	67		RDATA 	70		
+
+SCALARS
+
+ROTE  	71		IDISP 	72		K     	65		NDATA 	66		I1    	73	
+L     	74		N     	75		I2    	76		
+
+ARRAYS
+
+YDATA 	67		RDATA 	70		
+
+STATM.F4	F40	V26(10)	15-MAY-73	15:21	PAGE 13
+
+
+ ROTE
+ 
