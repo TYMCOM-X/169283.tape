@@ -1,0 +1,196 @@
+      SUBROUTINE SYSIOB
+      REAL     TITLE(70),CODE(80),DIR(3),TYPE(3)                              20
+C                  DIMENSION TO APPROPRIATE SIZE                              30
+C                  A IS (NEQ*(NEQ+1))/2                                       40
+C                  WORD MUST BE THE LARGER OF ND AND NVPR                     50
+      DIMENSION A(27375),WORD(250),V(9),NUM(2),NO1(3),NO2(3)
+      COMMON IN,IOUT,NOUTP,IFPLT,NEXEC,NERR,NNT,NEQ,IFEQ(3),IFUNA,            70
+     1       IFUPD(3),NREC(4),NFN(4),NS(10),NSTAT(600),TITLE,CODE             80
+     1      ,IDMY(8),RDMY(34)                                                 90
+      COMMON/FILES/IDTFL,IPRCM,ITERM
+      DATA DIR/'X','Y','Z'/,TYPE/'M','C','K'/                                100
+      ND=250
+      NEXEC=0                                                                120
+      IF(NEQ-ND)10,10,980                                                    130
+   10 NVPR=40                                                                140
+      NB=(NEQ*(NEQ+1))/2                                                     150
+      CALL DCODA(NUM,IPOS,CODE,80,2)                                         160
+      CALL NXTWD(NXT,IPOS,CODE,80,1)                                         170
+      IF(NUM(1)-18)20,600,20                                                 180
+   20 IF(NUM(2)-21)100,800,100                                               190
+C     ------------------------------------------------------------------     200
+C                  PRINT COMMAND                                             210
+C     ------------------------------------------------------------------     220
+  100 IF(NXT-3)110,300,110                                                   230
+C                  PRINT SYSTEM EQUATIONS OF MOTION                          240
+  110 IF(NERR)115,115,1000                                                   250
+  115 DO 200 II=1,3                                                          260
+      IF(IFUPD(II))120,200,120                                               270
+  120 CALL VRDWT(A,NB,NFN(II),NVPR,WORD,-1)                                  280
+      CALL EBLNK(TITLE,70,IEND)
+      WRITE(IOUT,130)(TITLE(I),I=1,IEND)
+  130 FORMAT(//  10X,70A1)                                                   300
+      WRITE(IOUT,140)TYPE(II)                                                310
+  140 FORMAT(/10X,A1,' MATRIX'/)                                             320
+      DO 180 I=1,NEQ                                                         330
+      DO 150 J=1,NEQ                                                         340
+      NV=NFND1(I,J)                                                          350
+  150 WORD(J)=A(NV)                                                          360
+      IF(NEQ-6)180,180,160                                                   370
+  160 WRITE(IOUT,170)I                                                       380
+  170 FORMAT(/10X,'ROW',I4)                                                  390
+  180 WRITE(IOUT,190)(WORD(JJ),JJ=1,NEQ)                                     400
+  190 FORMAT(1X,6E12.4)
+  200 CONTINUE                                                               420
+      GO TO 1000                                                             430
+C                  PRINT CURRENT STATUS OF EQUATIONS                         440
+  300 NTOT=6*NNT                                                             450
+      CALL EBLNK(TITLE,70,IEND)
+      WRITE(IOUT,130)(TITLE(I),I=1,IEND)
+      WRITE(IOUT,310)                                                        470
+  310 FORMAT(//10X,'CURRENT STATUS'//)                                       480
+      WRITE(IOUT,320)                                                        490
+  320 FORMAT(14X,'EQUATION',8X,'MEANING',20X,'COMPONENT'/)                   500
+      NGOTO=-1                                                               510
+      NCHK=0                                                                 520
+  330 NCOMP=0                                                                530
+      NTYPE=0                                                                540
+      NODE=1                                                                 550
+      NEQN=0                                                                 560
+  340 NCOMP=NCOMP+1                                                          570
+      IF(NCOMP-NTOT)345,345,460                                              580
+  345 NTYPE=NTYPE+1                                                          590
+      IF(NTYPE-6)360,360,350                                                 600
+  350 NTYPE=1                                                                610
+      NODE=NODE+1                                                            620
+  360 IF(NSTAT(NCOMP)-NCHK)340,370,340                                       630
+C                  WRITE COMPONENT                                           640
+  370 IF(NGOTO)380,430,430                                                   650
+  380 NEQN=NEQN+1                                                            660
+      IF(NTYPE-3)390,390,410                                                 670
+  390 WRITE(IOUT,400)NEQN,DIR(NTYPE),NODE,NCOMP                              680
+  400 FORMAT(15X,I4,5X,A1,' TRANSLATION OF NODE',I4,10X,I4)                  690
+      GO TO 340                                                              700
+  410 WRITE(IOUT,420)NEQN,DIR(NTYPE-3),NODE,NCOMP                            710
+  420 FORMAT(15X,I4,5X,A1,' ROTATION    OF NODE',I4,10X,I4)                  720
+      GO TO 340                                                              730
+  430 IF(NTYPE-3)440,440,450                                                 740
+  440 WRITE(IOUT,400)NCOMP,DIR(NTYPE),NODE                                   750
+      GO TO 340                                                              760
+  450 WRITE(IOUT,420)NCOMP,DIR(NTYPE-3),NODE                                 770
+      GO TO 340                                                              780
+  460 NGOTO=NGOTO+1                                                          790
+      IF(NGOTO-1)470,490,1000                                                800
+C                  WRITE TITLE FOR ZEROED COMPONENTS                         810
+  470 WRITE(IOUT,480)                                                        820
+  480 FORMAT(//10X,'ZEROED COMPONENTS'//)                                    830
+      NCHK=3                                                                 840
+      GO TO 510                                                              850
+C                  WRITE TITLE FOR CONSTRAINED COMPONENTS                    860
+  490 WRITE(IOUT,500)                                                        870
+  500 FORMAT(//10X,'ELIMINATED OR CONSTRAINED COMPONENTS'//)                 880
+      NCHK=4                                                                 890
+  510 WRITE(IOUT,520)                                                        900
+  520 FORMAT(14X,'COMPONENT',7X,'MEANING'/)                                  910
+      GO TO 330                                                              920
+C     ------------------------------------------------------------------     930
+C                  READ EQUATIONS OF MOTION                                  940
+C     ------------------------------------------------------------------     950
+  600 ISYS=1                                                                 960
+      IF(NXT-11)610,620,630                                                  970
+  610 ISYS=2                                                                 980
+      GO TO 630                                                              990
+  620 ISYS=3                                                                1000
+  630 IF(NERR)635,635,650                                                   1010
+  635 IOLD=0
+      NV=ND*(ND+1)/2
+      CALL MFILL(A,NV,NV,1,0.0)
+      NNTSV=NNT
+      ILAST=0
+      IF(IFUPD(ISYS))650,650,640
+  640 CALL VRDWT(A,NB,NFN(ISYS),NVPR,WORD,-1)                               1030
+  650 CALL GETRL(V,9,9,NFD,CODE,80,IN,IPRCM)
+      IF(NFD-3)700,660,660                                                  1080
+  660 NDO=NFD/3                                                             1090
+      DO 690 I=1,NDO                                                        1100
+      N1=1+(I-1)*3                                                          1110
+      N2=N1+1                                                               1120
+      N3=N1+2                                                               1130
+      NR1=V(N1)+.1                                                          1140
+      IF(NSTAT(NR1)-3)670,690,940
+  670 CALL NBEQ(N1,NR1,NUM(1),NUM(2),NSTAT)                                 1160
+      NR2=V(N2)+.1                                                          1170
+      IF(NSTAT(NR2)-3)680,690,940
+  680 CALL NBEQ(N2,NR2,NUM(1),NUM(2),NSTAT)                                 1190
+      NV=MAX0(N1,N2)                                                        1200
+      NEQ=MAX0(NEQ,NV)                                                      1210
+      IF(NEQ-ND)685,685,980                                                 1220
+  685 NV=MAX0(NR1,NR2)                                                      1230
+      ILAST=MAX0(ILAST,NV)
+      NV=(NV-1)/6+1
+      NNT=MAX0(NNT,NV)                                                      1250
+      IFUPD(ISYS)=1                                                         1260
+      NV=NFND1(N1,N2)                                                       1270
+  690 A(NV)=A(NV)+V(N3)                                                     1280
+      GO TO 650                                                             1290
+  700 IF(IFUPD(ISYS))1000,1000,710                                          1300
+  710 IF(NERR)720,720,1000                                                  1310
+  720 NV=(NEQ*(NEQ+1))/2                                                    1320
+      NREC(ISYS)=(NV-1)/NVPR+1
+      IFEQ(ISYS)=NEQ
+      CALL VRDWT(A,NV,NFN(ISYS),NVPR,WORD,1)                                1330
+      IF(NNT-NNTSV)1000,1000,740
+  740 NR1=ILAST
+      NR2=6*NNT
+      IF(NR1-NR2)750,750,1000
+  750 DO 770 I=NR1,NR2
+  770 NSTAT(I)=3
+      GO TO 1000
+C     ------------------------------------------------------------------    1350
+C                  PUNCH EQUATIONS OF MOTION                                1360
+C     ------------------------------------------------------------------    1370
+  800 IF(NERR)805,805,1000                                                  1380
+  805 DO 890 II=1,3                                                         1390
+      IF(IFUPD(II))890,890,810                                              1400
+  810 CALL VRDWT(A,NB,NFN(II),NVPR,WORD,-1)                                 1410
+      WRITE(IOUT,815)TYPE(II)
+  815 FORMAT(A1,' MATRIX')                                                  1430
+      IT=0                                                                  1440
+      ICT=0                                                                 1450
+      IROW=0                                                                1460
+      ICOL=1                                                                1470
+  820 ICT=ICT+1                                                             1480
+      IF(ICT-NB)825,825,860                                                 1490
+  825 IROW=IROW+1                                                           1500
+      IF(IROW-ICOL)840,840,830                                              1510
+  830 IROW=1                                                                1520
+      ICOL=ICOL+1                                                           1530
+  840 IF(A(ICT))850,820,850                                                 1540
+  850 IT=IT+1                                                               1550
+      NO1(IT)=IROW                                                          1560
+      NO2(IT)=ICOL                                                          1570
+      V(IT)=A(ICT)                                                          1580
+      IF(IT-3)820,860,860                                                   1590
+  860 IF(IT)890,890,865                                                     1600
+  865 WRITE(IOUT,870)(NO1(I),NO2(I),V(I),I=1,IT)
+  870 FORMAT(3(1X,I3,1X,I3,E14.5))
+      IT=0                                                                  1630
+      IF(ICT-NB)820,890,890                                                 1640
+  890 CONTINUE                                                              1650
+      GO TO 1000                                                            1660
+  960 WRITE(IOUT,970)
+  970 FORMAT(10X,'---- INVALID OPERATION:  NUMBER OF EQUATIONS ----
+     1 '/10X,'----   EXTENDED BEYOND PREVIOUS DEFINITION. ----'/)
+      NERR=1
+      GO TO 1000
+  940 WRITE(IOUT,950)NR1,NR2
+  950 FORMAT(10X,'---- COMPONENT',I4,' OR',I4,' HAS BEEN EDITED ----'/)
+      NERR=1
+      GO TO 1000
+  980 WRITE(IOUT,990)ND                                                     1670
+  990 FORMAT(10X,'----- MORE THAN',I4,' EQUATIONS ----')                    1680
+      NERR=1                                                                1690
+ 1000 RETURN
+      STOP
+      END
+ 
