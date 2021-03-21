@@ -1,0 +1,1183 @@
+C MAIN PROGRAM FOR INTERACTIVE CSMP
+C
+	REAL REALS(395)
+	INTEGER INTS(587),TEST1,TEST3,TEST4
+	DIMENSION ICOM(9)
+	COMMON REALS,INTS,IOUT
+	DATA ICOM/'R','S','M','L','E','Q','O','N','C'/
+	EQUIVALENCE (INTS(525),TEST1),(INTS(527),TEST3)
+	EQUIVALENCE (INTS(528),TEST4)
+	EQUIVALENCE (INTS(394),KEY15)
+	TYPE 199
+	CALL CSM0
+199	FORMAT(' GC-10 ANALOG SIMULATION PROGRAM ADW03'/
+     +' *************************************'/
+     +  ,//,' THE SPECIAL FUNCTIONS 1-5 ARE NOW AVAILABLE',/,
+     +  ' THEY ARE SIN, COS, LOG BASE E, ARCTAN, AND EXP',//)
+	TYPE 55
+55	FORMAT(/' WOULD YOU LIKE OUTPUT DIRECTED TO THE LINE PRINTER ? '$)
+	ACCEPT 101,ANS
+	IOUT=5
+	IF (ANS.EQ.'N') GO TO 70
+	IOUT = 21
+	TYPE 60
+60	FORMAT(/' SAY THE NAME FOR THE PRINT FILE: '$)
+	ACCEPT 65,NAMPR
+65	FORMAT(A5)
+	CALL OFILE(21,NAMPR)
+70	CONTINUE
+	TYPE 100
+100	FORMAT(' NEW OR OLD? '$)
+	ACCEPT 101,ANS
+101	FORMAT(A1)
+	IF (ANS.EQ.'O')GOTO1
+50	TYPE 102
+102	FORMAT(' CONFIGURATION SPECIFICATIONS'/)
+2	CALL CSM1
+	CALL CSM2
+	GO TO (2,3) TEST1
+3	CALL CSM3
+	GO TO (2,4) TEST1
+4	GO TO (5,6) TEST4
+6	CALL CSM5
+5	TYPE 103
+103	FORMAT(' INITIAL CONDITIONS & PARAMETERS'/)
+	CALL CSM4
+	GO TO 7
+1	CALL RECALL
+7	CONTINUE
+10	TYPE 106
+106	FORMAT(' *'$)
+	ACCEPT 101,IOP
+	IF (IOP.EQ.'?') IOP='Q'
+	II=0
+	DO 20 I=1,9
+	IF(ICOM(I)-IOP)20,21,20
+21	II=I
+20	CONTINUE
+	GO TO (11,12,13,14,15,16,17,18,19),II
+	TYPE 104
+104	FORMAT(' ILLEGAL COMMAND - TRY AGAIN'/)
+	GOTO10
+C RUN
+11	CALL CSM7
+	KEY15=2
+	CALL CSM8A
+	CALL CSM10
+	GOTO 10
+C SAVE
+12	CALL SAVE
+	GOTO10
+C MODIFY
+13	CALL MODIFY
+	GOTO 10
+C LIST
+14	CALL LIST
+	GOTO10
+C EXIT
+15	GOTO99
+C COMMAND SUMMARY
+16	TYPE 105
+105	FORMAT(/' COMMANDS ARE:'/' RUN'/' CONTINUE'/' SAVE'/' MODIFY'/
+     +' LIST'/' EXIT'/' OLD'/' NEW'/' ?'/)
+	GOTO 10
+C OLD
+17	GOTO1
+C NEW
+18	CALL CSM0
+	GOTO50
+C CONTINUE
+19	CALL CSM7
+	KEY15=1
+	CALL CSM8A
+	CALL CSM10
+	KEY15=2
+	GOTO10
+99	END FILE 21
+	IF (IOUT.EQ.21) TYPE 75,NAMPR
+75	FORMAT(/' RESULTS ARE IN THE FILE ',A5,'.DAT',//)
+	STOP
+	END
+	SUBROUTINE CSM0
+C   INITIALIZATION FOR NEW MODEL      JW  2/25/70
+      REAL    REALS(395)
+      INTEGER INTS(587),TTYPE(40),TEST(9)
+      DIMENSION KEY(16)
+      COMMON  REALS, INTS,IOUT
+C
+      EQUIVALENCE  ( INTS(380),   KEY(1)   )
+      EQUIVALENCE  ( INTS(389),   KEY10    )
+      EQUIVALENCE  ( INTS(525),  TEST(1)   )
+      EQUIVALENCE  ( INTS(546),  TTYPE(1)   )
+C
+      DO 4 N=1,587
+    4 INTS(N) = 0
+      DO 5 N=1,395
+    5 REALS(N) = 0.0
+      DO 6 N=1,16
+    6 KEY(N) = 2
+      DO 7       N = 1,9
+    7      TEST(N) = 1
+C
+C         SET UP TTYPE ARRAY
+   50 CONTINUE
+C        A         UNASSIGNED
+C        B         BANG-BANG
+      TTYPE(02)  =  'B'
+C        C         UNASSIGNED
+C        D         DEAD SPACE
+      TTYPE(04)  =  'D'
+C        E         UNASSIGNED
+C        F         FUNCTION GENERATOR
+      TTYPE(06)  =  'F'
+C        G         GAIN
+      TTYPE(07)  ='G'
+C        H         HALF POWER (SQUARE ROOT)
+      TTYPE(08)  ='H'
+C        I         INTEGRATOR   (MAXIMUM 25 ELEMENTS)
+      TTYPE(09)  ='I'
+C        J         JITTER (RANDOM NUMBER GENERATOR BETWEEN + AND - 1)
+      TTYPE(10)  ='J'
+C        K         CONSTANT
+      TTYPE(11)  ='K'
+C        L         LIMITER
+      TTYPE(12)  ='L'
+C        M         MAGNITUDE  (ABSOLUTE VALUE)
+      TTYPE(13)  ='M'
+C        N         NEGATIVE CLIPPER
+      TTYPE(14)  ='N'
+C        O         OFFSET
+      TTYPE(15)  ='O'
+C        P         POSITIVE CLIPPER
+      TTYPE(16)  ='P'
+C        Q         QUIT
+      TTYPE(17)  ='Q'
+C        R         RELAY
+      TTYPE(18)  ='R'
+C        S         UNASSIGNED
+C        T         TIMING PULSE GENERATOR
+      TTYPE(20)  ='T'
+C        U         UNIT DELAY   (MAXIMUM 25 ELEMENTS)
+      TTYPE(21)  ='U'
+C        V         VACUOUS  (USED IN CONJUNCTION WITH WYE ELEMENT)
+      TTYPE(22)  ='V'
+C        W         WEIGHTED SUMMER
+      TTYPE(23)  ='W'
+C        X         MULTIPLIER
+      TTYPE(24)  ='X'
+C        Y         WYE                IMPLICIT FUNCTION TEST
+      TTYPE(25)  ='Y'
+C        Z         ZERO ORDER HOLD
+      TTYPE(26)  ='Z'
+C      PLUS        SUMMER         ( THREE INPUTS PERMITTED)
+      TTYPE(27)  ='+'
+C        -         SIGN INVERTER  (LIMITED TO ONE INPUT CONNECTION)
+      TTYPE(28)  ='-'
+C        /         DIVIDER
+      TTYPE(29)  ='/'
+C  AMPERSAND       SUMMER         ( THREE INPUTS PERMITTED)
+      TTYPE(30)  ='&'
+C        1         SPECIAL ELEMENT NUMBER 1
+      TTYPE(31)  ='1'
+C        2         SPECIAL ELEMENT NUMBER 2
+      TTYPE(32)  ='2'
+C        3         SPECIAL ELEMENT NUMBER 3
+      TTYPE(33)  ='3'
+C        4         SPECIAL ELEMENT NUMBER 4
+      TTYPE(34)  ='4'
+C        5         SPECIAL ELEMENT NUMBER 5
+      TTYPE(35)  ='5'
+C                  ASSIGNED BLANK
+      TTYPE(40)  =' '
+      RETURN
+      END
+      SUBROUTINE CSM1
+C         CONFIGURATION SPECIFICATIONS
+      REAL    REALS(395)
+      INTEGER INTS(587), TTYPE(40), TEST1, TEST2
+      DIMENSION  MTRX(75,5), SY(4)
+      COMMON  REALS, INTS,IOUT
+      EQUIVALENCE  ( INTS(  1),  MTRX(1,1) )
+      EQUIVALENCE  ( INTS(376),   I        )
+      EQUIVALENCE  ( INTS(377),   J        )
+      EQUIVALENCE  ( INTS(378),   K        )
+      EQUIVALENCE  ( INTS(379),   L        )
+      EQUIVALENCE  ( INTS(380),   KEY1     )
+      EQUIVALENCE  ( INTS(390),   KEY11    )
+      EQUIVALENCE  ( INTS(525),  TEST1     )
+      EQUIVALENCE  ( INTS(526),  TEST2     )
+      EQUIVALENCE  ( INTS(546),  TTYPE(1)   )
+C
+C        SWITCH TEST2   = 1 FOR CARD ENTRY
+C        SWITCH TEST2   = 2 FOR KEYBOARD ENTRY
+    5 WRITE (5,201)
+C
+C         CARD ENTRY SECTION
+C
+10	READ (5,202)I,ITTYPE,J,K,L
+      IF (I)  150, 200, 100
+C
+C         PRINT CARD
+C
+20	GOTO10
+C        DECODE AND TEST CONFIGURATION STATEMENTS
+C
+  100 CONTINUE
+      IF ( I - 75 )   111, 111, 150
+  111 IF ( IABS(J) - 76 )    112, 112, 150
+  112 IF ( IABS(K) - 76 )    113, 113, 150
+  113 IF ( IABS(L) - 76 )    120, 120, 150
+C        PROGRAM LIBRARY LIMITED TO 39 ELEMENT TTYPES
+C        ELEMENT TTYPE 40 CORRESPONDS TO BLANK TTYPE ENTRY
+  120 DO 125    ITEST = 1, 40
+       IF ( ITTYPE .EQ. TTYPE(ITEST) ) GOTO 130
+  125 CONTINUE
+      GO TO 160
+  130 GO TO(  150,132,150,132,150,132,132,132,143,131,131,132,132,132,
+  1301       132,132,133,143,150,132,132,143,143,133,133,133,146,132,
+  1302       133,135,143,143,143,143,143,150,150,150,150,134 ),ITEST
+  131 IF   (J)     132,132,150
+  132 IF   (K)     133,133,150
+  133 IF   (L)     143,143,150
+  134    MTRX(I,1) = 0
+         MTRX(I,5) = 0
+      WRITE (5,207)I
+      GO TO 149
+  135        ITEST = 27
+             ITTYPE = '+'
+      GO TO 146
+  143 IF ( J )            150,144,144
+  144 IF ( K )            150,145,145
+  145 IF ( L )            150,146,146
+C        STORE CONFIGURATION FOR CORRECT STATEMENT
+  146 IF ( MTRX(I,1) )   148,148,147
+  147 WRITE (5,207)I
+  148    MTRX(I,1) = ITEST
+         MTRX(I,2) = J
+         MTRX(I,3) = K
+         MTRX(I,4) = L
+149	GOTO10
+C
+C         ERROR SECTION
+  150 WRITE (5,205) I
+      GO TO 10
+C        ERROR MESSAGE IF TTYPE IS NOT FOUND IN THE LIBRARY
+  160 WRITE (5,206) I
+      GO TO 10
+C
+C         EXIT FROM THIS SUBROUTINE
+  200 CONTINUE
+	TYPE 301
+301	FORMAT(' OK? '$)
+	READ(5,300)ANS
+300	FORMAT(A1)
+	IF(ANS.NE.'Y')GOTO5
+      TEST1 = 1
+      TEST2 = 1
+      RETURN
+201	FORMAT(' BLOCK# , TYPE , INPUT#1 , INPUT#2 , INPUT#3'/)
+202	FORMAT(I,A1,1X,3I)
+  204 FORMAT (18X,I2,9X,A1,3(7X,I3) )
+  205 FORMAT ( ' THE SPECIFICATION FOR BLOCK ' ,I2,13H IS INCORRECT  //)
+  206 FORMAT (' ILLEGAL SYMBOL SPECIFIED FOR BLOCK' ,I3/)
+207	FORMAT(' PREVIOUS BLOCK ',I2,' REPLACED'/)
+      END
+      SUBROUTINE CSM2
+C        PREPARE FOR SORT OPERATION
+      REAL    REALS(395)
+      INTEGER INTS(587),TEST( 9),DELAY(25),ORDER(76)
+      DIMENSION MTRX(75,5)  ,        INTG(25)
+      COMMON  REALS, INTS,IOUT
+C
+      EQUIVALENCE  ( INTS(  1),  MTRX(1,1) )
+      EQUIVALENCE  ( INTS(396),  INTG(1)   )
+      EQUIVALENCE  ( INTS(424), DELAY(1)   )
+      EQUIVALENCE  ( INTS(449), ORDER(1)   )
+      EQUIVALENCE  ( INTS(525),  TEST(1)   )
+      EQUIVALENCE  ( INTS(540),  NCON      )
+      EQUIVALENCE  ( INTS(541),   NOD      )
+      EQUIVALENCE  ( INTS(542),   NEQ      )
+      EQUIVALENCE  ( INTS(543),   NFG      )
+C
+C        RESET ERROR INDICATOR AND COUNTERS
+              IERR = 2
+             NOD   = 0
+               NEQ = 0
+               IFG = 0
+              NCON = 2
+          ORDER(1) = 76
+C
+C         TEST FOR SELECTED ELEMENTS
+C
+      DO   85    I = 1,75
+             ITTYPE = IABS( MTRX(I,1) )
+      IF ( ITTYPE ) 85,85,1
+    1    MTRX(I,1) = ITTYPE
+C
+C     TEST   IS ELEMENT A UNIT DELAY
+      IF ( ITTYPE - 21)  10,  5, 10
+    5        NOD   = NOD + 1
+       DELAY(NOD)  = I
+      GO TO 45
+   10 CONTINUE
+C
+C        TEST      IS ELEMENT AN INTEGRATOR
+      IF ( ITTYPE -  9 )  20, 15, 20
+   15          NEQ = NEQ + 1
+         INTG(NEQ) = I
+         MTRX(I,5) = NEQ
+      GO TO 45
+   20 CONTINUE
+C
+C        TEST      IS ELEMENT A CONSTANT
+      IF ( ITTYPE - 11)  30, 25, 30
+   25  ORDER( NCON ) = I
+              NCON = NCON + 1
+      GO TO 50
+   30 CONTINUE
+C
+C     TEST    IS ELEMENT A FUNCTION GENERATOR
+      IF ( ITTYPE -  6)  40, 35, 40
+   35          IFG = IFG + 1
+   40 CONTINUE
+C
+C        SET ELEMENT IDENTIFIER NEG UNTIL AFTER SORTING
+   45   MTRX(I,1)  = -ITTYPE
+   50 CONTINUE
+      DO   75    M = 2,4
+             LTEST = IABS( MTRX(I,M) )
+       IF (LTEST)   75,75,55
+   55 IF (LTEST - 76)   60,75,75
+   60 IF ( MTRX(LTEST,1) )   75,65,75
+C        TTYPE ERROR MESSAGE AND SET ERROR INDICATOR
+   65 WRITE (5,203) LTEST,I,I,LTEST
+              IERR = 1
+   75 CONTINUE
+   85 CONTINUE
+C
+C         TEST ON PROPER NUMBER OF ELEMENTS
+C
+      IF ( NEQ     ) 150, 150, 100
+  100 IF (NEQ - 25)  110, 110, 155
+  110 IF (NOD - 25)  120, 120, 160
+  120 IF (IFG -  3)  130, 130, 170
+  130      TEST(4) = 2
+      IF ( IFG )   140,140,141
+  140      TEST(4) = 1
+               NFG = 0
+      GO TO 300
+  141 IF ( IFG - NFG )   143,143,142
+  142      TEST(3) = 1
+C        SET TEST3 = 1 TO SIGNAL ADDITION OF FUNCTION GENERATOR BLOCK
+  143          NFG = IFG
+      GO TO 300
+C
+  150 WRITE (5,200)
+      GO TO 190
+  155 WRITE (5,204)
+      GO TO 190
+  160 WRITE (5,201)
+      GO TO 190
+  170 WRITE (5,202)
+  190         IERR = 1
+C
+  300 GO TO (310,320) ,IERR
+C         ERROR EXIT
+  310      TEST(1) = 1
+           TEST(2) = 2
+      GO TO 350
+C        SUCCESSFUL PRE-SORT EXIT
+  320      TEST(1) = 2
+  350 RETURN
+  200 FORMAT ('  THIS PROGRAM REQUIRES AT LEAST 1 INTEGRATOR ')
+  201 FORMAT (' THE MAXIMUM OF 25 UNIT DELAYS HAS BEEN EXCEEDED ')
+  202 FORMAT (' THE MAXIMUM OF 3 FUNCTION GENERATORS HAS BEEN EXCEEDED')
+  203 FORMAT (6H BLOCK,I3,28H, ONE OF THE INPUTS TO BLOCK,I3,
+  2031        24H, HAS NOT BEEN SPECIFIED /' REENTER BLOCK'I3,
+  2032' OR DEFINE BLOCK'I3/)
+  204 FORMAT ('  THE MAXIMUM OF 25 INTEGRATORS HAS BEEN EXCEEDED ')
+      END
+      SUBROUTINE CSM3
+C         SORT
+      REAL    REALS(395)
+      INTEGER INTS(587),TEST1,TEST2, DELAY(25), ORDER(76)
+      DIMENSION MTRX(75,5), INTG(25)
+      COMMON  REALS, INTS,IOUT
+C
+      EQUIVALENCE  ( INTS(  1),  MTRX(1,1) )
+      EQUIVALENCE  ( INTS(396),  INTG(1)   )
+      EQUIVALENCE  ( INTS(424), DELAY(1)   )
+      EQUIVALENCE  ( INTS(449), ORDER(1)   )
+      EQUIVALENCE  ( INTS(525),  TEST1     )
+      EQUIVALENCE  ( INTS(526),  TEST2     )
+      EQUIVALENCE  ( INTS(534), NLIST      )
+      EQUIVALENCE  ( INTS(540),  NCON      )
+      EQUIVALENCE  ( INTS(541),   NOD      )
+      EQUIVALENCE  ( INTS(542),   NEQ      )
+C
+C        RESET ERROR INDICATOR
+              IERR = 2
+      DO 10      N = NCON ,76
+   10     ORDER(N) = 0
+C
+C                  SORT OPERATION
+             NLIST = NCON - 1
+   20 DO 150     I = 1,75
+      IF (MTRX(I,1) )   30, 150, 150
+   30 CONTINUE
+      DO  100    M = 2,4
+             LTEST = IABS (MTRX(I,M) )
+      IF (LTEST)   40, 100, 40
+   40 CONTINUE
+      IF (NOD)   70, 70, 50
+   50 DO 60   N    = 1,NOD
+      IF (LTEST -  DELAY(N))  60, 100, 60
+   60 CONTINUE
+   70 CONTINUE
+      DO  80     N = 1,NEQ
+      IF (LTEST - INTG(N))  80, 100, 80
+   80 CONTINUE
+      DO  90     N = 1,NLIST
+      IF (LTEST -  ORDER(N) )   90, 100, 90
+   90 CONTINUE
+      GO TO 150
+  100 CONTINUE
+C
+  110        NLIST = NLIST + 1
+       ORDER(NLIST) = I
+         MTRX(I,1) = - MTRX(I,1)
+      GO TO 20
+  150 CONTINUE
+C
+C        SORT TEST
+         DO 180 I  = 1,75
+      IF(MTRX(I,1))  160, 180, 180
+C
+C        SET ERROR INDICATOR, TTYPE ERROR MESSAGE, THEN PUT BLOCK
+C        IN THE SORT ORDER LIST TO DETERMINE WHETHER THE REMAINDER
+C        OF THE CONFIGURATION WOULD BE OK
+  160         IERR = 1
+        MTRX(I,1) = -MTRX(I,1)
+      WRITE (5,199) I
+             NLIST = NLIST + 1
+      ORDER(NLIST) = I
+      GO TO 20
+  180 CONTINUE
+      GO TO (190,200), IERR
+C      UNSUCCESSFUL SORT
+  190        TEST1 = 1
+             TEST2 = 2
+      GO TO 210
+C        SUCCESSFUL SORT
+  200        TEST1 = 2
+  210 RETURN
+C
+  199 FORMAT (22H SORT FAILURE - BLOCK , I4)
+      END
+      SUBROUTINE CSM4
+C         INITIAL CONDITIONS AND PARAMETERS
+      REAL    REALS(395)
+      INTEGER  INTS(587), TEST2
+      DIMENSION PAR1(75),PAR2(75),PAR3(75),MTRX1(75)
+      COMMON  REALS, INTS,IOUT
+      EQUIVALENCE  ( INTS(  1), MTRX1(1)   )
+      EQUIVALENCE  ( INTS(376),   I        )
+      EQUIVALENCE  ( INTS(381),   KEY2     ) , ( REALS( 81),  PAR1(1)  )
+      EQUIVALENCE  ( INTS(390),   KEY11    ) , ( REALS(156),  PAR2(1)  )
+      EQUIVALENCE  ( INTS(526),  TEST2     ) , ( REALS(231),  PAR3(1)  )
+      TEST2 = 1
+1      WRITE (5,201)
+C         CARD ENTRY SECTION
+   10 READ  (5,206)I,P1,P2,P3
+      IF (I)  150,200, 100
+      GO TO 10
+  100 IF ( I - 75 )   101,101,150
+  101        ITTYPE = MTRX1(I)
+      IF ( ITTYPE )   111,102,103
+  102 WRITE (51,207 )
+      GO TO 111
+  103 GO TO (111,104,111,108,111,108,106,104,111,104,106,108,104,104,
+  1031       106,104,104,104,111,106,106,106,111,104,108,106,104,104,
+  1032       104,104,111,111,111,111,111) , ITTYPE
+  104 IF ( P1 )   110,106,110
+  106 IF ( P2 )   110,108,110
+  108 IF ( P3 )   110,111,110
+  110 WRITE (5,208)
+  111      PAR1(I) = P1
+           PAR2(I) = P2
+           PAR3(I) = P3
+145	GOTO10
+C
+C         ERROR SECTION
+  150 WRITE (5,204)
+      GO TO 10
+C
+201	FORMAT(' BLOCK# , IC/PAR1 , PAR2 , PAR3'/)
+  204 FORMAT('  ABOVE SPECIFICATION CONTAINS AN INVALID BLOCK NUMBER '/)
+  206 FORMAT (I,3E)
+  207 FORMAT (' NO CORRESPONDING CONFIGURATION STATEMENT'/)
+  208 FORMAT (' IMPROPER PARAMETER SPECIFICATION FOR ELEMENT'/)
+  200 TEST2 = 1
+	TYPE 301
+301	FORMAT(' OK? '$)
+	READ(5,300)ANS
+300	FORMAT(A1)
+	IF(ANS.NE.'Y')GOTO1
+      RETURN
+      END
+      SUBROUTINE CSM5
+C         FUNCTION GENERATOR SPECIFICATIONS
+      REAL    REALS(395)
+      INTEGER INTS(587), TEST2
+      DIMENSION MTRX(75,5), NOFG(3), F(3,11), C(76),PAR1(75),PAR2(75)
+      COMMON  REALS, INTS,IOUT
+C
+      EQUIVALENCE  ( INTS(  1),  MTRX(1,1) )
+      EQUIVALENCE  ( INTS(382),   KEY3     ) , ( REALS(  2),     C(1)  )
+      EQUIVALENCE  ( INTS(390),   KEY11    ) , ( REALS( 81),   PAR1(1) )
+      EQUIVALENCE  ( INTS(421),  NOFG(1)   ) , ( REALS(156),   PAR2(1) )
+      EQUIVALENCE  ( INTS(526),  TEST2     ) , ( REALS(306),     F(1,1))
+C
+      TEST2 = 1
+1      WRITE (5,201)
+C
+C         CARD ENTRY SECTION
+C
+5	TYPE 203
+203	FORMAT(' BLOCK# ,INT1,INT2,INT3,INT4,INT5'/' INT6,INT7,INT8
+     +,INT9,INT10,INT11'/)
+10	READ (5,202)I,(C(N),N=1,5)
+	IF (I) 150,200,990
+990	READ(5,204)(C(N),N=6,11)
+C
+C
+  100 IF (I-75) 110, 110, 150
+  110 IF (MTRX(I,1) - 6) 150, 111, 150
+  111 DO 112    I2 = 1,3
+      IF ( I - NOFG(I2) )   112,125,112
+  112 CONTINUE
+  115 DO 120 I2=1,3
+      M = NOFG(I2)
+      IF (M)  119, 125, 119
+  119 IF (MTRX(M,1) - 6) 125, 120, 125
+  120 CONTINUE
+      GO TO 150
+  125 MTRX(I,5) = I2
+      NOFG(I2) = I
+  130 DO 140     M = 1,11
+  140      F(I2,M) = C(M)
+C        CHECK PAR1 AND PAR2
+  141 IF ( PAR1(I) - PAR2(I) )   190,190,145
+145	GOTO10
+C
+C         ERROR SECTION
+C
+  150 WRITE (5,207) I
+      GO TO 10
+  190 WRITE (5,208) I
+      READ (5,209) PAR1(I),PAR2(I)
+      GO TO 141
+C
+  201 FORMAT (' FUNCTION GENERATOR SPECIFICATIONS '/)
+202	FORMAT(I,5F)
+204	FORMAT(6F)
+  207 FORMAT (/' BLOCK',I3,' HAS NOT BEEN SPECIFIED AS A FUNCTION
+     + GENERATOR'/)
+  208 FORMAT (' SPECIFY UPPER AND LOWER LIMITS FOR F.G. BLOCK' ,I3 
+     +,/' PAR1,PAR2'/)
+209	FORMAT(2F)
+C
+  200 TEST2 = 1
+	TYPE 301
+301	FORMAT(' OK? '$)
+	ACCEPT 300,ANS
+300	FORMAT(A1)
+	IF(ANS.NE.'Y')GOTO5
+      RETURN
+      END
+      SUBROUTINE CSM7
+C     REQUEST TIMING INFORMATION
+      REAL    REALS(395)
+      INTEGER INTS(587) ,TEST7
+      COMMON  REALS, INTS,IOUT
+      EQUIVALENCE  ( INTS(531),  TEST7     ) , ( REALS( 78),    DT     )
+      EQUIVALENCE (REALS(391),TSAMP),     ( REALS( 79),  DTS2     )
+      EQUIVALENCE                              ( REALS( 80),  TTOT     )
+C
+      GO TO (1,10) , TEST7
+C        TEST7 = 1 UNTIL FIRST TIME THROUGH CSM7
+C        TEST7 = 2 AFTER FIRST TIME THROUGH CSM7
+    1        TEST7 = 2
+   10 WRITE (5,100)
+      READ (5,101)  DT,TSAMP,TTOT
+      IF (DT) 50, 50, 20
+20	IF(TSAMP-DT)70,21,21
+21      IF (TTOT - DT) 60, 60, 30
+C
+100	FORMAT(' ENTER: INTEG INT , PRINT INT , TOTAL TIME'/)
+101	FORMAT(3F)
+  103 FORMAT(/' ERROR - INTEGRATION INTERVAL MUST BE GREATER THAN ZERO')
+  104 FORMAT(/' ERROR - TOTAL TIME MUST BE GREATER THAN INTEGRATION
+     + INTERVAL')
+102	FORMAT(' PRINT INT CANNOT BE LESS THAN INTEG INT'/)
+C
+C         SET UP INTEGRATION AND TIME EQUATIONS
+   30 CONTINUE
+      DTS2 = DT*0.5
+      RETURN
+C
+C         DT ERROR
+   50 WRITE (5,103)
+      GO TO 10
+C
+C         TTOT ERROR
+   60 WRITE (5,104)
+      GO TO 10
+C  TSAMP ERROR
+70	WRITE(5,102)
+	GOTO10
+        END
+      SUBROUTINE CSM8
+C    PRINT    JW   2/25/70
+      REAL    REALS(395)
+      INTEGER INTS(587)
+      DIMENSION C(76)
+      DIMENSION IPLOT(30)
+      COMMON  REALS, INTS,IOUT
+      EQUIVALENCE  ( INTS(535),    K1      ) ,ALS(  2),     C(1)  )
+      EQUIVALENCE  ( INTS(536),    K2      ) , ( REALS( 77),     T     )
+      EQUIVALENCE  ( INTS(537),    K3      ) , ( REALS(392),   VDEL    )
+      EQUIVALENCE  ( INTS(538),    K4      ) , ( REALS(394),   VMIN    )
+      EQUIVALENCE  (INTS(394),KEY15)
+2	CONTINUE
+                 N = 0.5 + 60.0*(C(K4)-VMIN) / VDEL
+      IF (N)   10,60,20
+   10            N = 0
+      GO TO 60
+   20 IF (N - 60)  40,40,30
+   30            N = 60
+   40            N = N/2
+C        DASHES TO LEFT OF PLOTTED POINT, BLANKS TO RIGHT
+   50 DO 51    IND = 1,N
+   51   IPLOT(IND) ='-'
+   60          NP1 = N + 1
+               NP2 = NP1 + 1
+      IF   (NP2 - 30)     61,61,63
+   61 DO 62    IND=   NP2,30
+   62   IPLOT(IND) =' '
+C        INDICATE MARGINS BY LETTER I
+   63    IPLOT( 1) ='I'
+         IPLOT(30) ='I'
+C        INDICATE PLOTTED POINT BY PLUS SIGN
+        IPLOT(NP1) ='+'
+	WRITE(IOUT,201) T,C(K1),C(K2),C(K4),IPLOT
+201	FORMAT(1X,F7.3,3F10.4,1X,30A1)
+      RETURN
+      END
+      SUBROUTINE CSM8A
+C     REQUEST PRINT INFORMATION
+      REAL    REALS(395)
+      INTEGER INTS(587),PRINT(4),TEST8
+      COMMON  REALS, INTS,IOUT
+	EQUIVALENCE                    ( REALS( 78),    DT     )
+      EQUIVALENCE  ( INTS(384),   KEY5     ) , ( REALS(391), TSAMP     )
+      EQUIVALENCE  ( INTS(385),   KEY6     ) , ( REALS(392),   VDEL    )
+      EQUIVALENCE  ( INTS(532),  TEST8     ) , ( REALS(394),   VMIN    )
+      EQUIVALENCE  ( INTS(535), PRINT(1)),(INTS(394),KEY15) 
+C
+	GO TO (60,6),KEY15
+C
+C         FIND OUT WHICH BLOCKS ARE TO BE PRINTED AND WHICH PLOTTED
+C
+    6        TEST8 = 2
+    7 CONTINUE
+      WRITE (5,106)
+      READ  (5,107) PRINT(4),VMIN,VMAX
+              VDEL = VMAX - VMIN
+C
+C             TEST IF BLOCK NUMBER TO BE PLOTTED IS BETWEEN 1 AND 75
+C                    AND IF VMAX IS GREATER THAN VMIN
+C
+      IF ( PRINT(4) ) 15,15,9
+    9 IF ( VDEL ) 15,15,10
+   10 IF ( PRINT(4) - 76 ) 20,20,15
+C
+C             Y-AXIS SPECIFICATION ERROR
+C
+   15 WRITE (5,108)
+      GO TO 7
+C
+   20 CONTINUE
+C
+C             READ IN VARIABLES TO BE PRINTED
+C
+      WRITE (5,103)
+	READ(5,105)PRINT(1),PRINT(2)
+C
+C         IF BLOCK NUMBER IS NOT BETWEEN 1 AND 75, PRINT 0.0
+C
+      DO 50 N=1,2
+      IF ( PRINT(N) ) 40,40,30
+   30 IF ( PRINT(N) - 75 ) 50,50,40
+   40     PRINT(N) = 0.0
+   50 CONTINUE
+              VMAX = VMIN + VDEL
+60	WRITE(IOUT,104)PRINT(1),PRINT(2),PRINT(4),VMIN,VMAX
+	RETURN
+102	FORMAT(F)
+103	FORMAT(/' ENTER 2 BLOCKS TO BE PRINTED'/)
+104	FORMAT(19X,'BLOCK OUTPUTS'/'   TIME',7X,I2,8X,I2,9X,I2
+     +,F8.3,17X,F9.3)
+105	FORMAT(2I)
+106	FORMAT(/' ENTER: PRINT-PLOT BLOCK# , MIN , MAX'/)
+107	FORMAT(I,2F)
+  108 FORMAT (//' ERROR IN MIN-MAX SPECIFICATION  ')
+C
+      END
+      SUBROUTINE CSM10
+C         CONTROLS THE COMPUTATION AND OUTPUT
+      REAL    REALS(395)
+      INTEGER  INTS(587), TEST5, ORDER(76),TEST6
+      DIMENSION INTG(25), C(76), PAR(75,3)  , Y(25), DYDT(25), YK(25)
+      COMMON  REALS, INTS
+      EQUIVALENCE( INTS(394), KEY15 ) , ( REALS(  2),     C(1)  )
+      EQUIVALENCE  ( INTS(395),   KEY16    ) , ( REALS( 77),     T     )
+      EQUIVALENCE  ( INTS(396),  INTG(1)   ) , ( REALS( 78),    DT     )
+      EQUIVALENCE  ( INTS(449), ORDER(1)   ) , ( REALS( 79),  DTS2     )
+      EQUIVALENCE  ( INTS(529),  TEST5     ) , ( REALS( 80),  TTOT     )
+      EQUIVALENCE  ( INTS(530),  TEST6     ) , ( REALS( 81),   PAR(1,1))
+      EQUIVALENCE  ( INTS(534), NLIST      ) , ( REALS(341),     Y(1)  )
+      EQUIVALENCE  ( INTS(540), NCON       ) , ( REALS(366),  DYDT(1)  )
+      EQUIVALENCE  ( INTS(542),   NEQ      ) , ( REALS(391), TSAMP     )
+      EQUIVALENCE  ( INTS(586),    IR      )
+C
+      GO TO (51,1), KEY15
+C
+C         NORMAL SETUP
+C
+    1 DO  10  NEXT = 2,NLIST
+                 I =  ORDER(NEXT)
+   10         C(I) =PAR(I,1)
+                 T = 0.0
+             TZERO = 0.0
+C
+C
+	DO 70 INTNO=1,NEQ
+	N=INTG(INTNO)
+70	Y(INTNO)=C(N)
+	IR=2*(2**34-2)+1
+51      EPSLN = DTS2 / (TSAMP*2.0)
+      TEST5 = 1
+      N = 1
+                NN = T/TSAMP + 1.0
+	GOTO(100,52),KEY15
+52      CALL CSM11
+             TEST6 = 1
+      GO TO 125
+   90 CALL CSM8
+C
+C         START EXECUTION
+C
+C         FIRST HALF-STEP
+  100 TEST5 = 2
+      DO 110    IX = 1,NEQ
+         YK(IX)    = Y(IX)
+  110        Y(IX) = Y(IX) + DTS2 * DYDT(IX)
+             TNEXT = N*DT + TZERO
+                 T = TNEXT - DTS2
+      CALL CSM11
+       GO TO 130
+C         SECOND HALF-STEP
+  115 TEST5 = 3
+       DO 120  IX  = 1,NEQ
+  120         Y(IX) = YK(IX) + DT*DYDT(IX)
+                 T = TNEXT
+                 N = N+1
+      CALL CSM11
+125	CONTINUE
+  130 GO TO ( 90,115,140,150,150,150) ,TEST5
+  140 CONTINUE
+C
+C         IS IT TIME TO PRINT
+                 M = T/TSAMP + EPSLN
+      IF ( M - NN ) 160, 150, 150
+  150 CONTINUE
+C         PRINT
+      CALL CSM8
+C         PRINT-TIME MARKER ON PLOTTER OUTPUT
+                NN = M+1
+C
+C         IS RUN FINISHED
+  160 GO TO (170,170,170,210,210,210), TEST5
+170	CONTINUE
+  190 IF (T - TTOT + DTS2   ) 100, 210, 210
+  200        TEST5 = 7
+  210 RETURN
+      END
+      SUBROUTINE CSM11
+C         DOES THE COMPUTATION FOR ONE HALF DT
+C
+      REAL    REALS(395)
+      INTEGER INTS(587), TEST5, ORDER(76)
+      INTEGER   TEST6
+      DIMENSION INTG(25), C(76), F(3,11), Y(25), DYDT(25)
+      DIMENSION MTRX1(75), MTRX2(75), MTRX3(75), MTRX4(75),MTRX5(75)
+      DIMENSION  PAR1(75), PAR2(75), PAR3(75)
+      COMMON  REALS, INTS
+      EQUIVALENCE  ( INTS(  1),  MTRX1(1)  ) , ( REALS(  2),     C(1)  )
+      EQUIVALENCE  ( INTS( 76),  MTRX2(1)  ) , ( REALS( 78),  DT       )
+      EQUIVALENCE  ( INTS(151),  MTRX3(1)  ) , ( REALS( 79),  DTS2     )
+      EQUIVALENCE  ( INTS(226),  MTRX4(1)  ) , ( REALS( 81),   PAR1(1) )
+      EQUIVALENCE  ( INTS(301),  MTRX5(1)  ) , ( REALS(156),   PAR2(1) )
+      EQUIVALENCE  ( INTS(376),     I      ) , ( REALS(231),   PAR3(1) )
+      EQUIVALENCE  ( INTS(377),     J      ) , ( REALS(306),     F(1,1))
+      EQUIVALENCE  ( INTS(378),     K      ) , ( REALS(341),     Y(1)  )
+      EQUIVALENCE  ( INTS(379),     L      ) , ( REALS(366),  DYDT(1)  )
+      EQUIVALENCE  ( INTS(395),   KEY16    )
+      EQUIVALENCE  ( INTS(396),  INTG(1)   )
+      EQUIVALENCE  ( INTS(449), ORDER(1)   )
+      EQUIVALENCE  ( INTS(529),  TEST5     )
+      EQUIVALENCE  ( INTS(534), NLIST      )
+      EQUIVALENCE  ( INTS(540), NCON       )
+      EQUIVALENCE  ( INTS(542),   NEQ      )
+      EQUIVALENCE  ( INTS(586),    IR      )
+      EQUIVALENCE (INTS (530) ,TEST6 ),( INTS (394) ,KEY15)
+C
+  900 DO 901 INTNO = 1,NEQ
+      N = INTG(INTNO)
+  901         C(N) = Y(INTNO)
+              NEXT = NCON
+ 1000  CONTINUE
+                 I =  ORDER(NEXT)
+             ITTYPE = MTRX1(I)
+      GO TO (140,56,140,53,140,53,54,56,51,10,11,53,56,56,54,56,55,52,
+     1   140,53,53,22,51,55,53,53,27,56,55,140,56,56,56,56,56), ITTYPE
+C			5 SPECIAL ROUTINES ARE SET UP TO BE
+C			1-INPUT TYPE.
+C       THREE PARAMETERS
+   51           P3 = PAR3(I)
+C       THREE INPUTS
+   52            L = MTRX4(I)
+                CL = C(L)
+C       TWO PARAMETERS
+   53           P2 = PAR2(I)
+C       ONE PARAMETER
+   54           P1 = PAR1(I)
+C       TWO INPUTS
+   55            K = MTRX3(I)
+                CK = C(K)
+C       ONE INPUT
+   56            J = MTRX2(I)
+                CJ = C(J)
+      GO TO (140,2,140,4,140,6,7,8,9,10,11,12,13,14,15,16,17,18,140,20,
+     1   21,140,23,24,25,26,27,28,29,100,31,32,33,34,35), ITTYPE
+C
+C        B         BANG-BANG
+    2 IF (CJ)    102,98,95
+  102           CI = -1.0
+      GO TO 99
+C        D         DEAD SPACE
+    4 IF(CJ) 304, 98, 104
+  104         DIFF = CJ - P1
+      IF (DIFF) 98,98,204
+  204           CI = DIFF
+      GO TO 99
+  304         DIFF = CJ - P2
+      IF (DIFF)  204,98,98
+C        F         FUNCTION GENERATOR
+    6           NF = MTRX5(I)
+                P3 = P1 - P2
+      IF (P3)   140,140,506
+  506           P1 = 10.0*(CJ - P2) / P3
+             NSECT = P1
+      IF ( P1 )   106,106,206
+  106           CI = F(NF,1)
+      GO TO 99
+  206 IF ( NSECT - 10 )   406,306,306
+  306           CI = F(NF,11)
+      GO TO 99
+  406           P2 = NSECT
+                P3 = P1 - P2
+                P1 = F(NF,NSECT+1)
+                P2 = F(NF,NSECT+2)
+                CI = P1 + P3*(P2 - P1)
+      GO TO 99
+C        G         GAIN
+   07           CI = P1 * CJ
+      GO TO 99
+C        H         HALF POWER (SQUARE ROOT)
+   08           CI = SQRT (CJ)
+      GO TO 99
+C        I         INTEGRATOR   (MAXIMUM 25 ELEMENTS)
+   09     INTNO    = MTRX5(I)
+       DYDT(INTNO) = CJ +P2*CK + P3*CL
+      GO TO 100
+C        J         JITTER (RANDOM NUMBER GENERATOR BETWEEN + AND - 1)
+10	IR=(IR*(2**18+3))
+	CI=IR
+	CI=CI*2.0**(-35)
+	CI=2.*CI-1.
+      GO TO 99
+C        K         CONSTANT
+   11 GO TO 100
+C        L         LIMITER
+   12        DIFF  = CJ - P1
+      IF (DIFF)    112,93,93
+  112         DIFF = CJ - P2
+      IF (DIFF)   94,97,97
+C        M         MAGNITUDE  (ABSOLUTE VALUE)
+   13           CI = ABS (CJ)
+      GO TO 99
+C        N         NEGATIVE CLIPPER
+   14 IF (CJ) 98,98,97
+C        O         OFFSET
+   15           CI = CJ + P1
+      GO TO 99
+C        P         POSITIVE CLIPPER
+   16 IF (CJ) 97,98,98
+C        Q         QUIT
+   17 IF (CJ - CK)   100,100,170
+C        R         RELAY
+   18 IF (CJ) 218, 118, 118
+  118           CI = CK
+      GO TO 99
+  218           CI = CL
+      GO TO 99
+   20 GO TO ( 120,98,1620),TEST5
+  120 GO TO ( 620,220),TEST6
+  220 IF ( MTRX5(I) )   320,320,520
+  320      PAR3(I) = 0.0
+      GO TO 1120
+  520      PAR3(I) = P2
+  620 GO TO ( 720,1120),KEY15
+  720 IF ( PAR3(I) )   820,1120,1120
+  820      PAR2(I) = PAR3(I)
+          MTRX5(I) = 1
+      GO TO 100
+ 1120     MTRX5(I) = 0
+ 1220 IF( CJ )   98,1320,1320
+ 1320     MTRX5(I) = 1
+ 1420      PAR2(I) = -P1 + DTS2   DT
+      GO TO 95
+ 1620 IF ( MTRX5(I) )   1220,1220,1720
+ 1720 IF ( P2 )   1820,1420,1420
+ 1820      PAR2(I) = P2 + DT
+      GO TO 98
+C        U         UNIT DELAY   (MAXIMUM 25 ELEMENTS)
+   21 GO TO (221,121,121), TEST5
+  121         C(I) = P2
+  221    PAR2(I)   = CJ
+      GO TO 100
+C        V         VACUOUS  (USED IN CONJUNCTION WITH WYE ELEMENT)
+   22 GO TO (122,100,100), TEST5
+  122    MTRX5(I)  = NEXT
+      GO TO 100
+C        W         WEIGHTED SUMMER
+   23           CI =  CJ *P1 + CK*P2 + CL*P3
+      GO TO 99
+C        X         MULTIPLIER
+   24           CI = CJ * CK
+      GO TO 99
+C        Y         WYE                IMPLICIT FUNCTION TEST
+   25       RELER  = ABS(1.-CK/CJ)
+      IF ( RELER  - P1)   97,97,125
+125	CONTINUE
+  225         C(K) = (1.0 - P2)*CJ + P2*CK
+            NEXT   = MTRX5(K)
+        GO TO 1000
+C        Z         ZERO ORDER HOLD
+   26 GO TO (126,226,226), TEST5
+  126     PAR2 (I)=P1
+       P2=P1
+  226 IF (CK)   94,94,326
+  326    PAR2(I)   = CJ
+      GO TO 97
+C        +         SUMMER         ( THREE INPUTS PERMITTED)
+   27 J = MTRX2(I)
+      IF (J) 127,927,227
+  127 J = -J
+      CI = -C(J)
+      GO TO 327
+  227 CI = C(J)
+  327 K = MTRX3(I)
+      IF (K) 427,627,527
+  427 K = -K
+      CI = CI - C(K)
+      GO TO 627
+  527 CI = CI + C(K)
+  627 L = MTRX4(I)
+      IF (L) 727,99,827
+  727 L = -L
+      CI = CI - C(L)
+      GO TO 99
+  827 CI = CI + C(L)
+      GO TO 99
+  927           CI = 0.0
+      GO TO 327
+C        -         SIGN INVERTER  (LIMITED TO ONE INPUT CONNECTION)
+   28 GO TO 96
+C        /         DIVIDER
+   29 IF (CK)   129,140,129
+  129           CI = CJ / CK
+      GO TO 99
+C        1         SPECIAL ELEMENT NUMBER 1
+31	CI=SIN(CJ)
+      GO TO 99
+C        2         SPECIAL ELEMENT NUMBER 2
+32	CI=COS(CJ)
+	GO TO 99
+C        3         SPECIAL ELEMENT NUMBER 3
+33	CI=ALOG(CJ)
+	GO TO 99
+C        4         SPECIAL ELEMENT NUMBER 4
+34	CI=ATAN(CJ)
+	GO TO 99
+C        5         SPECIAL ELEMENT NUMBER 5
+35	CI=EXP(CJ)
+	GO TO 99
+C
+   93           CI = P1
+      GO TO 99
+   94           CI = P2
+      GO TO 99
+   95           CI = 1.0
+      GO TO 99
+   96           CI = -CJ
+      GO TO 99
+   97           CI = CJ
+      GO TO 99
+   98           CI = 0.0
+   99         C(I) = CI
+  100 IF (NEXT - NLIST) 1100,1200,140
+ 1100        NEXT = NEXT + 1
+        GO TO 1000
+ 1200  CONTINUE
+      RETURN
+C
+C         ERROR
+  140 CONTINUE
+  150 TEST5 = 4
+      GO TO 180
+  160 TEST5 = 5
+      GO TO 180
+  170 TEST5 = 6
+  180 RETURN
+      END
+	SUBROUTINE MODIFY
+	REAL REALS(395)
+	INTEGER INTS(587),TEST1,TEST4
+	COMMON REALS,INTS
+	EQUIVALENCE (INTS(525),TEST1),(INTS(528),TEST4)
+C  MODIFY CONFIG SPECS
+	TYPE 100
+	ACCEPT 101,ANS
+	IF(ANS.EQ.'N')GOTO6
+1	CALL CSM1
+	CALL CSM2
+	GOTO (1,3),TEST1
+3	CALL CSM3
+	GO TO (1,4),TEST1
+4	GO TO(6,5) TEST4
+5	CALL CSM5
+C  MODIFY IC'S AND PARAMETERS
+6	TYPE 102
+	ACCEPT 101,ANS
+	IF(ANS.EQ.'N')GOTO7
+	CALL CSM4
+7	RETURN
+100	FORMAT(' CONFIGURATION SPECS? '$)
+101	FORMAT(A1)
+102	FORMAT(' IC''S & PARAMETERS? '$)
+	END
+	SUBROUTINE LIST
+	REAL REALS(395)
+	INTEGER INTS(587),TEST4,TTYPE(40)
+	DIMENSION MTRX(75,5),NOFG(3),F(3,11),PAR(75,3)
+	COMMON REALS,INTS
+	EQUIVALENCE (INTS(528),TEST4),(REALS(81),PAR(1,1))
+	EQUIVALENCE (INTS(1),MTRX(1,1)),(REALS(306),F(1,1))
+	EQUIVALENCE (INTS(421),NOFG(1))
+	EQUIVALENCE (INTS(546),TTYPE(1))
+C CONFIGURATION SPECS
+	TYPE 100
+100	FORMAT(' CONFIGURATION SPECIFICATIONS'/' BLOCK#
+     +   TYPE   INPUT#1     INPUT#2     INPUT#3')
+	DO 1 I=1,75
+	ITYPE=MTRX(I,1)
+	IF(ITYPE)1,1,2
+2	TYPE 101,I,TTYPE(ITYPE),MTRX(I,2),MTRX(I,3),MTRX(I,4)
+1	CONTINUE
+101	FORMAT(3X,I2,7X,A1,5X,I3,9X,I3,9X,I3)
+	TYPE 102
+102	FORMAT(//' INITIAL CONDITIONS AND PARAMETERS'/
+     +' BLOCK#         IC/PAR1            PAR2            PAR3')
+	DO 3 I=1,75
+	IF(MTRX(I,1))3,3,4
+4	DO 5 J=1,3
+	IF(PAR(I,J))6,5,6
+5	CONTINUE
+	GOTO3
+6	TYPE 103,I,(PAR(I,J),J=1,3)
+3	CONTINUE
+103	FORMAT(3X,I2,4X,F15.5,2X,F15.5,2X,F15.5)
+C  FUNCTION GENERATORS
+	GOTO (7,8)TEST4
+8	TYPE 104
+104	FORMAT(//' FUNCTION GENERATORS'/' BLOCK#       
+     +          INTERCEPT VALUES'/)
+	DO 9 I2=1,3
+	N=NOFG(I2)
+	IF(N) 9,9,10
+10	IF(MTRX(N,1)-6)9,11,9
+11	CONTINUE
+	TYPE 105,N,(F(I2,K),K=1,11)
+9	CONTINUE
+105	FORMAT(1X,I2,6(1X,F10.5)/3X,5(1X,F10.5))
+7	RETURN
+	END
+	SUBROUTINE SAVE
+	REAL REALS(395)
+	INTEGER INTS(587)
+	COMMON REALS,INTS
+101	FORMAT(A5)
+	TYPE 100
+	ACCEPT 101,NAME
+	CALL OFILE(1,NAME)
+	WRITE(1)REALS,INTS
+	END FILE 1
+100	FORMAT(' FILE NAME?'$)
+	RETURN
+	END
+	SUBROUTINE RECALL
+	REAL REALS(395)
+	INTEGER INTS(587)
+	COMMON REALS,INTS
+	TYPE 100
+	ACCEPT 101,NAME
+	CALL IFILE(1,NAME)
+	READ(1)REALS,INTS
+	CALL RELEAS(1)
+	DO 1 I=380,395
+1	INTS(I)=0
+	DO 2 I=525,533
+2	INTS(I)=0
+100	FORMAT(' FILE NAME? '$)
+101	FORMAT(A5)
+	RETURN
+	END
+	SUBROUTINE SUB1
+	RETURN
+	END
+	SUBROUTINE SUB2
+	RETURN
+	END
+	SUBROUTINE SUB3
+	RETURN
+	END
+	SUBROUTINE SUB4
+	RETURN
+	END
+	SUBROUTINE SUB5
+	RETURN
+	END
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            @U%
