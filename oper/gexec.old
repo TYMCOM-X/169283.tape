@@ -1,0 +1,469 @@
+MODULE GEXEC(DOLLAR,ENTRIES=($GEXEC,$GNEXT,$GNXSTN),FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+  BEGIN
+  REQUIRE ADEFS.BLI[7,107355];
+  REQUIRE CDEFS.BLI[7,107355];
+  REQUIRE FDEFS.BLI[7,107355];
+  REQUIRE FPDEFS.BLI[7,107355];
+  REQUIRE GDEFS.BLI[7,107355];
+  REQUIRE HDEFS.BLI[7,107355];
+  REQUIRE PDEFS.BLI[7,107355];
+  REQUIRE SDEFS.BLI[7,107355];
+  REQUIRE TDEFS.BLI[7,107355];
+  REQUIRE UDEFS.BLI[7,107355];
+  REQUIRE ZDEFS.BLI[7,107355];
+  UNDECLARE $GEXEC, $GNEXT, $GNXSTN, $GNOOP;
+
+    MAP G$ GGBFP$;              % GLOBAL POINTER TO GAMMA REC.       %
+    MAP GDBG$ GDBGF$;
+    MAP G$OPND GGBOP$;
+
+
+  GLOBAL ROUTINE $GNOOP = 0;
+
+
+
+%*****
+   THIS ROUTINE IS CALLED SOLELY BY GNEXT. IT HAS THE RESPONSIBILITY OF CHECKING THE NUMBER OF
+  DECIMAL DIGITS IN NUMERIC FIELD AND LITERAL TOKENS AGAINST "DMAX." IF THE VALUE OD  DMAX  IS SMALLER
+  THEN THE NUMBER OF DECIMAL DIGITS IS ASSIGNED TO DMAX.
+      PARAMETER:
+        BUFADR  INPUT  CONTAINS THE ADDRESS OF ABUFFER WHICH CONTAINS A BETA TOKEN.
+*****%
+  ROUTINE CDMAX(BUFADR) =
+    BEGIN
+    LOCAL S$ NSTEP, S$ DSTEP;
+    MAP A$ BUFADR;
+
+
+    NSTEP := $SGSTE(.BUFADR[A$STP]);     % GET NAME ENTRY FOR THIS TOKEN  %
+    IF .NSTEP[S$TYPE] EQL SV$NAME
+      THEN
+        BEGIN
+        DSTEP := $SGSTE(.NSTEP[S$DSTP]); % GET THE DEF. ENTRY            %
+        IF .DSTEP[S$TYPE] EQL SV$FIELD
+          THEN
+            IF .DSTEP[S$DTYP] EQL SV$SINGD   OR
+               .DSTEP[S$DTYP] EQL SV$DBLD    OR
+               .DSTEP[S$DTYP] EQL SV$TRID
+              THEN  %  NUMERIC FIELD  %
+                IF .DSTEP[S$DECD] GTR .GDMAX$
+                  THEN
+                    GDMAX$ := .DSTEP[S$DECD];
+        $SFRNCH(.DSTEP);
+        END
+      ELSE
+        IF .NSTEP[S$TYPE] EQL SV$SWLIT   OR
+           .NSTEP[S$TYPE] EQL SV$DWLIT
+          THEN  %  NUMERIC LITERAL  %
+            IF .NSTEP[S$NDP] GTR .GDMAX$
+              THEN
+                GDMAX$ := .NSTEP[S$NDP];
+    $SFRNCH(.NSTEP);
+    END;
+
+%*****
+    THIS ROUTINE IS RESPONSIBLE FOR SELECTING THE NEXT BETA TOKEN, FROM THE  BETA FILE, THAT IS
+   TO BE PROCESSED. IT ALSO HMUST DETERMINE THE GREATEST NUMBER OF DECIMAL PLACES IN ANY
+   OPERAND OF AN <ARITH-EXP> AND SAVE THAT VALUE IN  GDMAX$. THIS ROUTINE IS CALLED BY $GEXEC
+   EXCLUSIVELY.
+      PARAMETER:
+        BUFADR  INPUT  CONTAINS THE ADDRESS OF THE BUFFER WHICH IS TO RECEIVE THE NEXT BETA TOKEN
+                       THAT IS TO BE PROCESSED.
+*****%
+  GLOBAL ROUTINE $GNEXT(BUFADR) =
+    BEGIN
+    MAP A$ BUFADR;
+    MAP S$ GVCDB$;
+    MAP GRPTR$I GNAEP$;
+    MAP HNODE$ GSTNP$;
+    LOCAL GRPTR$I LASTREC;
+    LOCAL A$ RECPTR;
+    LOCAL AELEVEL;
+
+    IF .GNAEP$ NEQ 0
+      THEN
+        BEGIN
+        GNAEP$ := $GFBUF(.GNAEP$,.BUFADR-1);
+        IF .GNAEP$ EQL 0
+          THEN
+            $GCBUF(.GAEXI$);
+        END
+      ELSE
+        BEGIN
+        SELECT .GMODE$ OF
+                        NSET
+                GV$BETAF:
+                    $CINB(.BUFADR);
+                GV$VRF:
+                    BEGIN
+                    $UMOVE(3,(GVCDB$[S$CNST])[.GVCDC$],.BUFADR);
+                    GVCDC$ := .GVCDC$ + 3;
+                    END;
+                GV$SYMTREE:
+                    BEGIN
+                    $UMOVE(3,GSTNP$[H$TKNL],.BUFADR);
+                    GSTNP$ := .GSTNP$[H$SUC];
+                    END;
+                OTHERWISE:
+                    BEGIN
+                    $UOUTM(FTLMS$<36,7>,0);
+                    $FATAL(#120);
+                    END;
+                        TESN;
+        IF .BUFADR[A$ID] EQL TV$8BGAE
+          THEN  % SCAN TO TV$8NDAE AND CALC. DMAX ON THE WAY %
+            BEGIN
+            GDMAX$ := 0;
+            LASTREC := GNAEP$ := 0;
+            AELEVEL := 1;
+            DO
+              BEGIN
+              SELECT .GMODE$ OF
+                              NSET
+                      GV$BETAF:
+                          $CINB(.BUFADR);
+                      GV$VRF:
+                          BEGIN
+                          $UMOVE(3,(GVCDB$[S$CNST])[.GVCDC$],.BUFADR);
+                          GVCDC$ := .GVCDC$ + 3;
+                          END;
+                      GV$SYMTREE:
+                          BEGIN
+                          $UMOVE(3,GSTNP$[H$TKNL],.BUFADR);
+                          GSTNP$ := .GSTNP$[H$SUC];
+                          END;
+                      OTHERWISE:
+                          BEGIN
+                          $UOUTM(FTLMS$<36,7>,0);
+                          $FATAL(#120);
+                          END;
+                              TESN;
+              IF .BUFADR[A$ID] EQL TV$8BGAE
+                THEN
+                  AELEVEL := .AELEVEL +1
+                ELSE
+                  IF .BUFADR[A$ID] EQL TV$8NDAE
+                    THEN
+                      AELEVEL := .AELEVEL -1
+                    ELSE
+                      BEGIN
+                      IF .BUFADR[A$ID] EQL TV$NAME   OR
+                         .BUFADR[A$ID] EQL TV$DECLIT
+                        THEN
+                          CDMAX(.BUFADR);
+                      LASTREC := $GWBUF(.BUFADR-1,.GAEXI$);
+                      END;
+              END
+            UNTIL .AELEVEL EQL 0;
+            RECPTR := .LASTREC[G$RBADR] + .LASTREC[G$RBDISP] + 1;
+            IF .RECPTR[A$ID] EQL TV$STAR            OR
+               .RECPTR[A$ID] EQL TV$PLUS            OR
+               .RECPTR[A$ID] EQL TV$MINUS           OR
+               .RECPTR[A$ID] EQL TV$SLASH           OR
+               .RECPTR[A$ID] EQL TV$8UMINUS
+              THEN
+                RECPTR[A$SBID] := ZV$ENDAE;
+            GNAEP$ := $GFBUF($GFREC(.GAEXI$),.BUFADR-1);
+            IF .GNAEP$ EQL 0
+              THEN
+                $GCBUF(.GAEXI$);
+            END
+        END
+    END;
+
+%******
+  THIS ROUTINE READS TOKENS THAT ARE LINKED TO SOME SYMBOL TABLE ENTRY.
+******%
+  GLOBAL ROUTINE $GNXSTN(STEFLDADR, PGARBF) =
+    BEGIN
+
+    MAP A$ GBTKN$;
+    LOCAL GRT$ NODE;
+    LOCAL MODESAVE;
+
+    MODESAVE := .GMODE$;
+    GMODE$ := GV$SYMTREE;
+    GSTNP$ := ..STEFLDADR;
+    DO
+      BEGIN
+      $UZERO(ZV$MAXENTRY,.GBTKN$);
+      $GNEXT(.GBTKN$);
+      NODE := $GSRCH(.GBTKN$[A$ID]);
+      IF .NODE EQL -1
+        THEN
+          BEGIN
+          $UOUTM(FTLMS$<36,7>,0);
+          $FATAL(#067);
+          END;
+      (.NODE[G$RTROUT])();
+      END
+    UNTIL .GSTNP$ EQL HV$SIGMA;
+    GMODE$ := .MODESAVE;
+    IF .PGARBF EQL ZV$TRUE
+      THEN
+        BEGIN
+        $PGARB(..STEFLDADR);
+        .STEFLDADR := HV$EMPTY;
+        END;
+
+  END;
+
+
+  GLOBAL ROUTINE $GEXEC =
+    BEGIN
+
+    LOCAL BETAIN[ZV$MAXENTRY+1];% INPUT RECORD BUFFER FOR BETA FILE. IT
+                                  IS MAPPED WITH GAMMA RECORD STRUCTURE
+                                  BECAUSE THE BUFFER MANAGEMENT ROUTINES
+                                  EXPECT A LENGTH VALUE IN <27,9> OF THE
+                                  FIRST WORD. THIS FIELD IS INIT. TO A 
+                                  VALUE OF 4. ALL READS USE BETAIN[1]
+                                  AS ACTUAL FIRST WORD TO RECEIVE BETA
+                                  TOKENS.
+                                %
+    LOCAL G$ BETAINP;
+    LOCAL OLDLN;                % OLD LINE NO.                          %
+    LOCAL NSTP;                 % NAME STP DURING SCAN OF SYMBOL TABLE FOR VERIFY PROCESSING %
+    MAP FP$I GNPIC$:GCPIC$;
+    LOCAL S$ NAMESTE:DEFSTE;    % SYMBOL TABLE ENTRY BUFFER POINTERS  %
+    LOCAL S$ ITEMSTE:INCSTE;
+    LOCAL GRT$ NODE;
+    MAP A$ GBTKN$;              % GLOBAL POINTER TO THE CURRENT BETA REC. %
+    LOCAL NAMEB[2];
+    LOCAL SNAM$ NAMEP;
+
+    $GIBUF();                   % INIT. BUFFER MANAGEMENT               %
+    BETAINP := BETAIN;
+    BETAINP[G$LENGTH] := 4;
+    GBTKN$ := BETAIN + 1;
+    GAEXI$ := $GNBUF(60);        % GET A HOLDING BUFFER TO STORE TOKENS 
+                                  WHILE DETERMINING DMAX FOR ARITH. EXPS.
+                                %
+    GNAEP$ := GDMAX$ := 0;
+    GGBFP$ := $CGTZM(GV$MAXGREC);% GET GAMMA FILE RECORD BUFFER  %
+    GGBOP$ := .GGBFP$ + 2;        % POINTER TO THE FIRST OPERAND IN THE GAMMA RECORD BUFFER  %
+    OLDLN := 0;                  % INIT OLD LINE NO.                     %
+    GGFID$ := 1;                 % INIT. GAMMA RECORD NTUPLE ID          %
+    GNAMN$ := 0;
+    GDBGF$ := GDBUG$;
+
+    ZSTKS$ := ZV$STKSIZ;         % INIT. SEMANTIC STACK SIZE  %
+    ZESTK$ := $CGTZM(.ZSTKS$);    % ALLOCATE THE SEMANTIC STACK %
+    ZBSTK$ := .ZESTK$ + .ZSTKS$-1;
+    ZSTKP$ := 0;
+                                % THE SEMANTIC STACK IS FILLED FROM THE HIGH
+                                  ADDRESS END TO THE LOW ADDR. END SO CALC.
+                                  THE BEGIN STACK POINTAR AND THE CURRENT 
+                                  ENTRY STACK POINTER AS THE LOW ADDR. PLUS
+                                  THE LENGTH MINUS 1.
+                                %
+    $UZERO(ZV$MAXENTRY, .GBTKN$);
+    GALTF$ := GRCNF$ := GELSF$ := ZV$RESET;
+    GNOKF$ := GSELF$ := GFEAF$ := GOMYF$ := ZV$RESET;
+    GEIPF$ := GICNF$ := GFRCF$ := GRPFF$ := GOUTF$ := ZV$RESET;
+    GINSH$ := GINSL$ := ZV$NULL;
+    GFINH$ := GFINL$ := ZV$NULL;
+    GELSL$ := GNXCL$ := GEIPL$ := GERCL$ := ZV$NULL;
+    GELSP$ := GINSP$ := GEXRP$ := GEXOP$ := GFINP$ := ZV$NULL;
+    GFEAP$ := GSRCP$ := GBILP$ := GRPTP$ := GBCNP$ := GBSLP$ := ZV$NULL;
+    GRPIF$ := ZV$FALSE;
+    GLIST$ := GNDEL$ := GMVAL$ := GSELP$ := GBVTL$ := GEVTL$ := ZV$NULL;
+    GVCDB$ := GVCDC$ := GVCDL$ := GICLF$ := GNOQF$ := GBILP$ := ZV$NULL;
+
+    $CSTART(CV$BETAIN);
+    $CSTART(CV$GAMMAOUT);
+%***
+  INIT. FORMAT PICTURES FOR WORK VARS. GENERATED BY SEMANTICS PASS
+***%
+
+    GNPIC$ := 0;
+    GNPIC$[FP$XI] := 1;
+    GNPIC$[FP$TYPE] := FPV$NUM;
+    GNPIC$[FP$SIGN] := FPV$NSC;
+    GCPIC$ := 0;
+    GCPIC$[FP$TYPE] := FPV$STR;
+    GCPIC$[FP$C]   := 1;
+
+%***
+  INITIALIZE ERROR CORECTION FIELD AND LITERAL POINTERS
+***%
+
+    NAMESTE := $SGSTE(.SNAME$);
+    DEFSTE := $SGSTE(.NAMESTE[S$DSTP]);
+    GNFNP$ := .NAMESTE[S$STPX];
+    GNFDP$ := .NAMESTE[S$DSTP];
+    ITEMSTE := $SGSTE(.DEFSTE[S$RSFSN]);
+    ITEMSTE[S$KDFLG] := SV$DATAF;
+    $SFRCH(.ITEMSTE);
+    $SFRNCH($GNFI(.NAMESTE,.DEFSTE));
+    GNFIP$ := .NAMESTE[S$CISTP];
+    $SFRNCH(.NAMESTE);
+    $SFRNCH(.DEFSTE);
+
+    DEFSTE := $SGSTE(.SZERO$);
+    GNLNP$ := .DEFSTE[S$STP1];
+    GNLIP$ := .SZERO$;
+    $SFRNCH(.DEFSTE);
+
+    DEFSTE := $SGSTE(.SBLNK$);
+    GCLNP$ := .DEFSTE[S$STP1];
+    GCLIP$ := .SBLNK$;
+    $SFRNCH(.DEFSTE);
+
+    NAMESTE := $GWVAR(ZV$STRING,1,0);        % CREATE DUMMY CHAR.FIELD NAME ENTRY  %
+    GCFNP$  := .NAMESTE[S$STP1]; 
+    GCFDP$ := .NAMESTE[S$DSTP];
+    GCFIP$ := .NAMESTE[S$CISTP];
+    $SFNME(.NAMESTE,3);
+
+%****
+  CREATE A DUMMY SOURCE FILE TO BE USED IN ACCEPT STATEMENT PROCESSING. THE DEVICE FOR THIS FILE IS THE TTY AND IT'S 
+  INPUT IS FREE FORM.
+****%
+
+    NAMESTE := $SGSTE(.STERM$);
+    GTTYN$ := .NAMESTE[S$STPX];
+    GTTYI$ := .NAMESTE[S$LITINCP];
+    $SFRNCH(.NAMESTE);
+
+    NAMESTE := $GNNAME(SV$NAME);
+    DEFSTE := $SGSTSP(SV$SRC);
+    NAMESTE[S$STP1] := DEFSTE[S$STP1] := .NAMESTE[S$STPX];
+    NAMESTE[S$DSTP] := .DEFSTE[S$STPX];
+    INCSTE := $GNSI(.NAMESTE);
+    NAMESTE[S$IDSTP] := NAMESTE[S$CISTP] := .INCSTE[S$STPX];
+    DEFSTE[S$TERMSTP] := SV$NULL;
+    DEFSTE[S$SEPSTP]  := SV$NULL;
+    DEFSTE[S$VERFLG]  := SV$FALSE;
+    DEFSTE[S$SRCTYP]  := SV$FREE;
+    DEFSTE[S$ISTP]    := SV$NULL;
+    DEFSTE[S$SDFSTP]  := .GTTYN$;
+    DEFSTE[S$SCHF]    := SV$FALSE;
+    DEFSTE[S$TTYIN]   := SV$TRUE;
+
+    INCSTE[S$IDSTP]   := SV$NULL;
+    INCSTE[S$SDFSTP]  := .GTTYI$;
+    INCSTE[S$TTYIN]   := SV$TRUE;
+    GDSRC$ := .INCSTE[S$STPX];
+
+    $SFNME(.NAMESTE,3);
+    $SFRCH(.DEFSTE);
+    $SFRCH(.INCSTE);
+%******
+   CREATE A DUMMY REPORT FILE THAT USES THE TTY. THIS REPORT FILE IS USED FOR PROCESSING THE TYPE AND ABORT STATEMENTS.
+*****%
+    NAMESTE := $GNNAME(SV$NAME);
+    DEFSTE := $SGSTSP(SV$REPORT);
+
+    NAMESTE[S$STP1]  := DEFSTE[S$STP1] := .NAMESTE[S$STPX];
+    NAMESTE[S$DSTP]  := .DEFSTE[S$STPX];
+
+    DEFSTE[S$APND]   := SV$FALSE;
+    DEFSTE[S$RPFSTP] := .GTTYN$;
+    DEFSTE[S$SCHF]   := SV$NULL;
+    DEFSTE[S$PRPHD]  := SV$NULL;
+    DEFSTE[S$PRPFT]  := SV$NULL;
+    DEFSTE[S$PGPHD]  := SV$NULL;
+    DEFSTE[S$PGPFT]  := SV$NULL;
+    DEFSTE[S$TTYOUT] := SV$TRUE;
+
+    INCSTE := $GNRPI(.NAMESTE);
+    INCSTE[S$RPFSTP] := .GTTYI$;
+    INCSTE[S$TTYOUT] := SV$TRUE;
+
+    GDRPT$ := .INCSTE[S$STPX];
+
+    $SFNME(.NAMESTE,3);
+    $SFRCH(.DEFSTE);
+    $SFRCH(.INCSTE);
+
+%*****
+  ALLOCATE OUTPUT AND REPORT BUFFERS
+*****%
+  GOB1I$ := GRB1I$ := 0;
+  GOB2I$ := $GNBUF(127);
+  GOB3I$ := GRCBI$ := GINCI$ :=   $GNBUF(511);
+  GRB2I$ := GDETI$ := $GNBUF(127);
+  GRB3I$ := GINII$ := $GNBUF(127);
+  GRB4I$ := GRB5I$ := GASBI$ := 0;
+
+
+%****
+  SET UP @TOP VARIABLE AND LITERAL FOR "1"
+****%
+  NAMEP := NAMEB;
+  NAMEB[0] := 0;
+  NAMEB[1] := 1;
+  NAMEP[S$NID] := 1;
+  NAMEP[S$NDP] := 0;
+  NAMEP[S$DDTYPE] := SV$SINGD;
+  GONE$ := $GNLIT(.NAMEP,2);
+  GMODE$ := GV$BETAF;
+
+%*****
+   START THE BETA FILE PROCESSING.
+*****%
+    $GNEXT(.GBTKN$);
+
+    WHILE .GBTKN$[A$ID] NEQ TV$EOF
+       DO
+         BEGIN
+         IF .GBTKN$[A$LN] GTR .OLDLN
+           THEN
+             BEGIN
+             % GENERATE A NEW LINE GAMMA RECORD %
+             $GIREC(GV$NEWLINE,3);
+             GGBFP$[G$OPNDN ] := .GBTKN$[A$LN];
+             $GWBUF(.GGBFP$, .GOB1I$);
+             OLDLN := .GBTKN$[A$LN];
+             END;
+         NODE := $GSRCH(.GBTKN$[A$ID]); 
+         IF .NODE EQL -1
+           THEN
+             BEGIN
+             $UOUTM(FTLMS$<36,7>,0);    % OUTPUT MIDAS SYSTEM ERROR MESSAGE
+                                          PREAMBLE.
+                                        %
+             $UAPSZ($USPTR('*** TOKEN VALUE : '));
+             $UAPDC(.GBTKN$[A$ID]);
+             $UOUTL(0);
+             $FATAL(#067);
+             END;
+         (.NODE[G$RTROUT])();    % CALL THE APPROPRIATE SEMANTICS ROUT. %
+         $UZERO(ZV$MAXENTRY, .GBTKN$);
+         $GNEXT(.GBTKN$);
+         END;
+    %****
+      PROCESS VERIFY CODE.
+    ****%
+    GMODE$ := GV$VRF;
+    $SIGNE();
+    NSTP := $SGNE();
+    WHILE .NSTP NEQ SV$NULL
+      DO
+        BEGIN
+        $GVRF(.NSTP);
+        NSTP := $SGNE();
+        END;
+
+    %* EOF PROCESSING *%
+    $GEOF();
+
+    % CREATE AND WRITE AN END OF FILE N-TUPLE %
+    GGBFP$[G$TYPE] := GV$EOF;
+    GGBFP$[G$ID] := .GGFID$;
+    GGBFP$[G$LENGTH] := 2;
+    $GWBUF(.GGBFP$, .GOB1I$);
+    $GDBUF();
+    $CFREEM(.GGBFP$);                   % FREE THE GAMMA FIEL RECORD BUFFER
+                                          STORAGE.
+                                        %
+    $CFREEM(.ZESTK$);                   % FREE THE SEMANTIC STACK STORAGE.  %
+    $CSTOP(CV$BETAIN);
+    $CSTOP(CV$GAMMAOUT);
+    END;
+
+
+  END
+ELUDOM
+    
