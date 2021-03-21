@@ -1,0 +1,114 @@
+        DIMENSION X(4,120), IT(720), JT(720),  DONE(720), A(4), B(4)
+        T = (SQRT(5.)+1.)/2.
+        X(1,2) = T
+        X(2,2) = T
+        X(3,2) = T
+        X(4,2) = 1./T**2
+        X(1,1) = T**2
+        X(2,1) = 1./T
+        X(3,1) = 1./T
+        X(4,1) = 1./T
+        X(1,3) = SQRT(5.)
+        X(2,3) = 1.
+        X(3,3) = 1.
+        X(4,3) = -1.
+        DO 10 I = 4, 12
+        X(1,I) = X(2,I-3)
+        X(2,I) = X(3,I-3)
+        X(3,I) = X(4,I-3)
+10      X(4,I) = X(1,I-3)
+        DO 20 I = 13,24
+        X(1,I) = X(1,I-12)
+        X(2,I) = X(2,I-12)
+        X(3,I) = -X(3,I-12)
+20      X(4,I) = -X(4,I-12)
+        DO 30 I = 25, 48
+        X(1,I) = X(1,I-24)
+        X(2,I) = -X(2,I-24)
+        X(3,I) = -X(3,I-24)
+30      X(4,I) = X(4,I-24)
+        DO 40 I = 49, 96
+        X(1,I) = -X(1,I-48)
+        X(2,I) = -X(2,I-48)
+        X(3,I) = X(3,I-48)
+40      X(4,I) = X(4,I-48)
+        DO 50 I = 1, 2
+        DO 50 J = 1, 2
+        X(1,94+I+2*J) = 2.*(-1.)**I
+        X(2,94+I+2*J) = 2.*(-1.)**J
+        X(3,94+I+2*J) = 0.
+50      X(4,94+I+2*J) = 0.
+        DO 60 J = 101, 104
+        X(1,J) = X(1,J-4)
+        X(2,J) = 0.
+        X(3,J) = X(2,J-4)
+        X(4,J) = 0.
+        X(1,J+4) = 0.
+        X(2,J+4) = 0.
+        X(3,J+4) = X(1,J-4)
+60      X(4,J+4) = X(2,J-4)
+        DO 70 J = 109, 120
+        X(1,J) = X(2,J-12)
+        X(2,J) = X(3,J-12)
+        X(3,J) = X(4,J-12)
+70      X(4,J) = X(1,J-12)
+        L = 1
+        DO 100 I = 1, 119
+        DO 100 J = I+1, 120
+        S = 0.
+        DO 90 K = 1, 4
+90      S = S+(X(K,I)-X(K,J))**2
+        IF (S .GT. 3.1) GO TO 100
+        IT(L) = I
+        JT(L) = J
+        L = L+1
+100     CONTINUE
+        A(1) = 1.
+        A(3) = .05
+        B(2) = 1.
+        B(4) = .05
+        TYPE 77, (A(I), I = 1, 4), (B(I), I = 1, 4)
+77      FORMAT (4F13.8)
+        SS = SQRT(A(1)**2+A(2)**2+A(3)**2+A(4)**2)
+        DO 102 I = 1, 4
+102     A(I) = A(I)/SS
+        SS = 0.
+        DO 103 I = 1, 4
+103     SS = SS+A(I)*B(I)
+        DO 104 I = 1, 4
+104     B(I) = B(I) - A(I)*SS
+        SS = SQRT(B(1)**2+B(2)**2+B(3)**2+B(4)**2)
+        DO 105 I = 1, 4
+105     B(I) = B(I)/SS
+        TYPE 77, (A(I), I = 1, 4), (B(I), I = 1, 4)
+        DO 106 I = 1, 4
+        A(I) = 150.*A(I)
+106     B(I) = 150.*B(I)
+        DO 108 I = 1, 120
+        X1 = 0.
+        Y1 = 0.
+        DO 107 K = 1, 4
+        X1 = X1+X(K,I)*A(K)
+107     Y1 = Y1+X(K,I)*B(K)
+        X(1,I) = X1
+108     X(2,I) = Y1
+        CALL OPENPL
+        DO 160 LX = 1, 719
+110     IF(DONE(LX) .EQ. 1.) GO TO 160
+        L = LX
+        DONE(L) = 1.
+        CALL LINE(X(1,IT(L)),X(2,IT(L)),X(1,JT(L)),X(2,JT(L)))
+        L = JT(L)
+120     DO 130 M = LX + 1, 720
+130     IF((IT(M).EQ.L .OR. JT(M).EQ.L) .AND. DONE(M).EQ.0.) GO TO 140
+        GO TO 160
+140     DONE(M) = 1.
+        IF(L .EQ. JT(M)) GO TO 150
+        CALL LINE(X(1,IT(M)),X(2,IT(M)),X(1,JT(M)),X(2,JT(M)))
+        L = JT(M)
+        GO TO 120
+150     CALL LINE(X(1,JT(M)),X(2,JT(M)),X(1,IT(M)),X(2,IT(M)))
+        L = IT(M)
+        GO TO 120
+160     CONTINUE
+        END
