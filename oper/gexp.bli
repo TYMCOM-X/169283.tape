@@ -1,0 +1,907 @@
+MODULE GEXP(DOLLAR,ENTRIES=($GAOP,$GLOGC,$GROP,$GUOP,$GEXT,$GBOOL,$GDFSUB,$GEQ,$GCHGD),FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+  BEGIN
+
+  REQUIRE ADEFS.BLI[7,107355];
+  REQUIRE FDEFS.BLI[7,107355];
+  REQUIRE FPDEFS.BLI[7,107355];
+  REQUIRE GDEFS.BLI;  %*[7,107355];*%
+  REQUIRE SDEFS.BLI[7,107355];
+  REQUIRE TDEFS.BLI[7,107355];
+  REQUIRE UDEFS.BLI[7,107355];
+  REQUIRE ZDEFS.BLI[7,107355];
+
+  UNDECLARE $GAOP, $GLOGC, $GROP, $GUOP, $GEXT, $GBOOL, $GDFSUB, $GEQ, $GCHGD;
+  UNDECLARE $GILGL;
+
+    MAP G$ GGBFP$;
+    MAP G$OPND GGBOP$;
+    MAP A$ GBTKN$;
+    MAP Z$ ZBSTK$;
+
+  GLOBAL ROUTINE $GDFSUB(LOPND,ROPND) =
+    BEGIN
+
+    LOCAL S$ LIESTE : DEFSTE;
+    LOCAL FROMPTR, TOPTR;
+
+    IF .ZBSTK$[Z$ID,.LOPND] EQL TV$DEFAULT
+      THEN
+        IF .ZBSTK$[Z$ID,.ROPND] EQL TV$DEFAULT
+          THEN
+            BEGIN
+            $GERR(520,.LOPND);
+            ZBSTK$[Z$ID,.LOPND] := ZBSTK$[Z$ID,.ROPND] := TV$NAME;
+            $GEOPD(.LOPND,ZV$NUMERIC);
+            $GEOPD(.ROPND,ZV$NUMERIC);
+            RETURN;
+            END
+          ELSE
+            BEGIN                              % SUBSTITUTE NULL VALUE OF ROPND
+                                                  FOR LOPND
+                                                %
+            FROMPTR := .ROPND;
+            TOPTR   := .LOPND;
+            END
+      ELSE
+        BEGIN                                   % SUBSTITUTE NULL VALUE OF LOPND FOR ROPND %
+        FROMPTR := .LOPND;
+        TOPTR  := .ROPND;
+        END;
+
+    DEFSTE := $SGSTE(.ZBSTK$[Z$DEFSTP,.FROMPTR]);
+    LIESTE := $GDFVAL(.DEFSTE);
+    ZBSTK$[Z$SBID,.TOPTR]    := ZV$LIT;
+    ZBSTK$[Z$ICNT,.TOPTR]    := .LIESTE[S$NID];
+    ZBSTK$[Z$DCNT,.TOPTR]    := .LIESTE[S$NDP];
+    ZBSTK$[Z$INCSTP,.TOPTR]  := .LIESTE[S$STPX];
+    ZBSTK$[Z$STP,.TOPTR]     := .LIESTE[S$STP1];
+    ZBSTK$[Z$FP,.TOPTR]      := .DEFSTE[S$FP];
+    ZBSTK$[Z$DATATYP,.TOPTR] :=
+        IF .DEFSTE[S$DTYP] EQL SV$SLIT
+          THEN
+            ZV$STRING
+          ELSE
+            IF .DEFSTE[S$DTYP] EQL SV$DLIT
+              THEN
+                ZV$DATE
+              ELSE
+                ZV$NUMERIC;
+    $SFRNCH(.LIESTE);
+    $SFRNCH(.DEFSTE);
+
+    END;
+
+
+%****
+  PROCESS THE OPERANDS AND GENERATE A RELATIONAL OPERATION. THIS ROUTINE IS CALLED BY $GROP AND $GBOOL.
+      PARAMETERS:
+        LOPND  INPUT  A SEMANTIC STACK POINTER TO THE LEFT HAND OPERAND.
+        ROPND  INPUT  A SEMANTIC STACK POINTER TO THE RIGHT HAND OPERAND.
+        OP     INPUT  THE BETA TOKEN VALUE FOR A RELATIONAL OPERATOR.
+****%
+  GLOBAL ROUTINE $GLOGC(LOPND,ROPND,OP)=
+    BEGIN
+
+    LOCAL G$ BRECP, G$OPND BOPNDP, EXPREC[4];
+    LOCAL OPND, GTYPE, DECD;
+
+    GTYPE := ( SELECT .OP   OF                   % TRANSLATE THE ALPHE TOKEN VALUE TO IT'S
+                                                  CORRESPONDING GAMMA TOKEN VALUE.
+                                                %
+                   NSET
+                  TV$LT :   GV$LT;
+                  TV$LE :   GV$LE;
+                  TV$EQ :   GV$EQ;
+                  TV$NE :   GV$NE;
+                  TV$GE :   GV$GE;
+                  TV$GT :   GV$GT;
+                   TESN            );
+
+    $UZERO(4,EXPREC);
+    BRECP := EXPREC;
+    BOPNDP := .BRECP + 2;
+                                                % ARE THE OPERANDS OF THE SAME DATA TYPE? %
+    IF .ZBSTK$[Z$DATATYP,.ROPND] NEQ .ZBSTK$[Z$DATATYP,.LOPND]
+      THEN                                      % NO! OH! OH! %
+        BEGIN
+        $GERR(506,.ROPND);
+        $GEOPD(.ROPND,.ZBSTK$[Z$DATATYP,.LOPND]); % SUBSTITUTE A DUMMY OPERAND FOR THE RIGHT HAND ONE %
+        END;
+    IF $GICHK(.ROPND) EQL ZV$FALSE   AND        % INSURE THAT THE OPERANDS HAVE INCARNATIONS %
+       .ZBSTK$[Z$ID,.ROPND] EQL TV$NAME
+      THEN
+        $GERR(526,.ROPND);
+    IF $GICHK(.LOPND) EQL ZV$FALSE   AND
+       .ZBSTK$[Z$ID,.LOPND] EQL TV$NAME
+      THEN
+        $GERR(526,.LOPND);
+    DECD :=
+        IF .ZBSTK$[Z$DCNT,.LOPND] GTR .ZBSTK$[Z$DCNT,.ROPND]
+          THEN
+            .ZBSTK$[Z$DCNT,.LOPND]
+          ELSE
+            .ZBSTK$[Z$DCNT,.ROPND];
+    OPND := .LOPND;
+    INCR I FROM 0 TO 1
+      DO                                        % CHECK THE OPERANDS, INSURE PROPER ALIGNMENT AND
+                                                  SET UP THE OPERANDS IN THE N-TUPLE BEING GENERATED.
+                                                %
+        BEGIN
+        IF .ZBSTK$[Z$DATATYP,.OPND] EQL ZV$NUMERIC
+          THEN
+            IF . ZBSTK$[Z$DCNT,.OPND] LSS .DECD
+              THEN
+                (BRECP[G$OPNDN])[.I] := $GALIGN(.OPND,.DECD)
+              ELSE
+                (BRECP[G$OPNDN])[.I] := $GOPND(.OPND)
+          ELSE
+            (BRECP[G$OPNDN])[.I] := $GOPND(.OPND);
+        
+        OPND := .ROPND;
+        END;
+
+    BRECP[G$LENGTH]  := 4;                       % INIT. THE REST OF THE N-TUPLE AND WRITE IT %
+    BRECP[G$ID]      := .GGFID$;
+    BRECP[G$UCNT]    := 1;
+    BRECP[G$TYPE]    := .GTYPE;
+    GGFID$ := .GGFID$ +1;
+    $GWBUF(.BRECP,.GOB1I$);
+    END;
+
+
+%***
+  ARITH. OPERATOR ROUTINE. THIS ROUTINE IS CALLED BY $GEXEC EXCLUSIVELY.
+***%
+  GLOBAL ROUTINE $GAOP=
+    BEGIN
+
+    LOCAL S$ NAMESTE:DEFSTE : WVNSTE;
+    LOCAL Z$ LOPND:ROPND:OPND;
+    LOCAL G$ LRECP;
+    LOCAL G$OPND LOPNDP;
+    LOCAL FP$I ROPIC : LOPIC;
+    LOCAL GDTC$ DTCNODE;
+
+    LOCAL OP, EXPREC[4], LICNT, RICNT, CNT, ENTRY;
+    LOCAL TOT, DIF, DECD, LDCNT, RDCNT, GICNT, GDCNT, ERRFLG;
+    LOCAL SIGNEDF, LDTYPE, RDTYPE, OPERATION, RESULT, DATETEMP[2], DATESTKP;
+
+    MACRO COMBINATION(OP,LDTYPE,RDTYPE)=
+                .DTCNODE[GDTC$STATUS,GM$DTCIX(OP,LDTYPE,RDTYPE)] &;
+
+    MACRO OPRESULT(OP,LDTYPE,RDTYPE)=
+                .DTCNODE[GDTC$RESULT,GM$DTCIX(OP,LDTYPE,RDTYPE)] &;
+
+    ROUTINE FONY = $GDTC();
+
+
+    ERRFLG := AV$FALSE;
+    ROPND := .ZSTKP$;
+    LOPND := .ZBSTK$[Z$PREDP,.ZSTKP$];
+    OPND  := .ROPND;
+    %***
+      INSURE THAT BOTH OPERANDS  ARE NUMERIC OR DATE AND HAVE INCARNATION STPS
+    ***%
+    INCR I FROM 0 TO 1
+      DO
+        BEGIN
+        IF .ZBSTK$[Z$DATATYP,.OPND] EQL ZV$STRING
+          THEN
+            BEGIN
+            $GERR(502,.OPND);
+            $GEOPD(.OPND,ZV$NUMERIC);
+            END;
+        %**
+          SINCE LITERALS ARE STACKED WITH AN INCARNATION STP AND NAMES ARE NOT, THE ENTRY
+          MUST BE CHECKED TO SEE WHAT TYPE IT IS. IF IT IS A NAME ENTRY THEN AN INCARNATION STP 
+          MUST BE CONTAINED IN IT.
+        **%
+        IF $GICHK(.OPND) EQL ZV$FALSE  AND  .ZBSTK$[Z$ID,.OPND] EQL TV$NAME
+          THEN
+            $GERR(526,.OPND);
+        OPND := .LOPND;
+        END;
+
+    $UZERO(4,EXPREC);
+    LRECP := EXPREC;                                     % SET THE BUFFER POINTER FOR BUILDING THE BINARY-OP N-TUPLE %
+    LOPNDP := .LRECP + 2;
+    LICNT := .ZBSTK$[Z$ICNT,.LOPND];
+    RICNT := .ZBSTK$[Z$ICNT,.ROPND];
+    LDCNT := .ZBSTK$[Z$DCNT,.LOPND];
+    RDCNT := .ZBSTK$[Z$DCNT,.ROPND];
+    DECD := IF .LDCNT GTR .RDCNT
+             THEN
+               .LDCNT
+             ELSE
+               .RDCNT;
+    OP := .GBTKN$[A$ID];
+    OPERATION :=
+        SELECT .OP OF
+              NSET
+           TV$PLUS:   GDTCV$ADD;
+           TV$MINUS:  GDTCV$SUB;
+           TV$STAR :  GDTCV$MULT;
+           TV$SLASH:  GDTCV$DIV;
+              TESN;
+    LDTYPE := .ZBSTK$[Z$DATATYP,.LOPND];
+    RDTYPE := .ZBSTK$[Z$DATATYP,.ROPND];
+    DTCNODE := GDTCP$;
+  %***  CHECK TO SEE IF THIS IS A LEGAL OPERAND/OPERATION COMBINATION  ***%
+    IF COMBINATION(.OPERATION,.LDTYPE,.RDTYPE)EQL ZV$FALSE
+      THEN
+        BEGIN                           % NOT A LEGAL COMB.! %
+        OPND := IF .LDTYPE EQL ZV$DATE
+                  THEN
+                    .LOPND
+                  ELSE
+                    .ROPND;
+        $GERR(570,.OPND);
+        $GEOPD(.LOPND,ZV$NUMERIC);
+        $GEOPD(.ROPND,ZV$NUMERIC);
+        RESULT := LDTYPE := RDTYPE := ZV$NUMERIC;
+        END
+      ELSE
+        BEGIN                           % THIS IS A LEGAL COMB.! %
+        RESULT := OPRESULT(.OPERATION,.LDTYPE,.RDTYPE);
+        IF .RESULT EQL ZV$DATE
+          THEN
+            DATESTKP := IF .LDTYPE EQL ZV$DATE
+                          THEN
+                            .LOPND
+                          ELSE
+                            .ROPND
+          ELSE
+            DATESTKP := ZV$NULL;
+        END;
+    IF NOT(.LDTYPE EQL ZV$DATE  AND  .RDTYPE EQL ZV$DATE)   AND
+       (.LDTYPE EQL ZV$DATE   OR   .RDTYPE EQL ZV$DATE)
+      THEN
+        BEGIN                           % ONLY ONE OPERAND IS A DATE %
+        IF .LDTYPE EQL ZV$NUMERIC
+          THEN
+            OPND := .LOPND
+          ELSE
+            OPND := .ROPND;
+        DECD := RDCNT := LDCNT := 0;
+        IF .ZBSTK$[Z$DCNT,.OPND] GTR 0
+          THEN
+            BEGIN
+            WVNSTE := $GWVAR(ZV$NUMERIC,.ZBSTK$[Z$ICNT,.OPND],0);
+            $GIREC(GV$STORE,5);
+            GGBOP$[0,G$OPTYP] := GV$STP;
+            GGBOP$[0,G$OPVAL] := .WVNSTE[S$CISTP];
+            GGBFP$[G$OPND2]   := $GOPND(.OPND);
+            GGBFP$[G$OPND3]   := GV$ROUND;
+            $GWBUF(.GGBFP$,.GOB1I$);
+            ZBSTK$[Z$STP,.OPND] := .WVNSTE[S$STPX];
+            ZBSTK$[Z$DEFSTP,.OPND] := .WVNSTE[S$DSTP];
+            ZBSTK$[Z$INCSTP,.OPND] := .WVNSTE[S$CISTP];
+            ZBSTK$[Z$ICNT,.OPND]   := 8;
+            ZBSTK$[Z$DCNT,.OPND]   := 0;
+            ZBSTK$[Z$SBID,.OPND]   := ZV$FLD;
+            ZBSTK$[Z$ID,.OPND]     := TV$NAME;
+            $SFNME(.WVNSTE,3);
+            END;
+        LRECP[G$OPND1] := $GOPND(.LOPND);
+        LRECP[G$OPND2] := $GOPND(.ROPND);
+        END
+      ELSE
+        BEGIN
+        OPND := .LOPND;
+        INCR I FROM 0 TO 1           % CHECK OPERANDS AND INSURE PROPER ALIGNMENT %
+          DO
+            BEGIN
+            (LRECP[G$OPNDN])[.I] :=
+                    IF .GBTKN$[A$ID] EQL TV$SLASH
+                      THEN
+                        IF .LDCNT - .RDCNT LSS .GDMAX$  AND  .I EQL 0
+                          THEN
+                            $GALIGN(.OPND,.GDMAX$+.RDCNT)
+                          ELSE
+                            $GOPND(.OPND)
+                      ELSE
+                        IF .GBTKN$[A$ID] EQL TV$STAR
+                          THEN
+                            $GOPND(.OPND)
+                          ELSE
+                            IF .ZBSTK$[Z$DCNT,.OPND] LSS .DECD
+                              THEN
+                                $GALIGN(.OPND,.DECD)
+                              ELSE
+                                $GOPND(.OPND);
+            OPND := .ROPND;
+            END;
+        END;
+    %**
+          INIT. THE NON-OPERAND FIELDS OF THE BINARY-OP N-TUPLE 
+    **%
+    LRECP[G$LENGTH] := 4;
+    LRECP[G$ID]     := .GGFID$;
+    LRECP[G$UCNT]   :=
+            IF .GBTKN$[A$SBID] EQL ZV$ENDAE
+              THEN
+                IF .GBVTL$ GTR 0
+                  THEN
+                    BEGIN
+                    CNT := 0;
+                    ENTRY := .ZBSTK$[Z$SUCP,.GBVTL$];
+                    WHILE .ENTRY LSS .GEVTL$
+                      DO
+                        BEGIN
+                        CNT := .CNT + 1;
+                        ENTRY := .ZBSTK$[Z$SUCP,.ENTRY];
+                        END;
+                    .CNT
+                    END
+                  ELSE
+                    1
+              ELSE
+                1;
+    GDCNT   := .DECD;
+    GGFID$ := .GGFID$ + 1;
+
+    IF .OP EQL TV$PLUS
+      THEN
+        BEGIN
+        LRECP[G$TYPE] := GV$ADD;
+        GICNT :=
+            IF .LICNT LSS .RICNT
+              THEN
+                .RICNT + 1
+              ELSE
+                .LICNT + 1;
+        END
+      ELSE
+        IF .OP EQL TV$MINUS
+          THEN
+            BEGIN
+            LRECP[G$TYPE] := GV$SUB;
+            GICNT :=
+                IF .LICNT LSS .RICNT
+                  THEN
+                    .RICNT
+                  ELSE
+                    .LICNT;
+            END
+          ELSE
+            IF .OP EQL TV$STAR
+              THEN
+                BEGIN
+                LRECP[G$TYPE] := GV$MUL;
+                GICNT := .LICNT + .RICNT ;
+                GDCNT := .LDCNT + .RDCNT;
+                END
+              ELSE
+                BEGIN
+                LRECP[G$TYPE] := GV$DIV;
+                GICNT := .LICNT + .RDCNT;
+                GDCNT := IF .LDCNT - .RDCNT GTR .GDMAX$
+                                  THEN
+                                    .LDCNT - .RDCNT
+                                  ELSE
+                                    .GDMAX$;
+                END;
+    TOT := .GICNT + .GDCNT;
+    IF .TOT GTR 30
+      THEN
+        BEGIN
+        IF .ZBSTK$[Z$ERFL,.ZBSTK$[Z$PREDP,.ZSTKP$]] NEQ AV$TRUE   AND
+           .ZBSTK$[Z$ERFL,.ZSTKP$] NEQ AV$TRUE
+          THEN
+            BEGIN
+            $GPUSH(.GBTKN$,AV$SZTOK);
+            $GERR(517,.ZSTKP$);
+            $GPOP();
+            END;
+        ERRFLG := AV$TRUE;
+        DIF := .TOT - 30;
+        IF .GDCNT GEQ .DIF
+          THEN
+            GDCNT := .GDCNT - .DIF
+          ELSE
+            BEGIN
+            DIF := .DIF - .GDCNT;
+            GDCNT := 0;
+            GICNT := .GICNT - .DIF;
+            END;
+        END;
+    LRECP[G$ICNT] := .GICNT;
+    LRECP[G$DCNT] := .GDCNT;
+    $GWBUF(.LRECP,.GOB1I$);                             % WRITE THE BINARY-OP N-TUPLE %
+    ROPIC := .ZBSTK$[Z$FP,.ROPND];
+    LOPIC := .ZBSTK$[Z$FP,.LOPND];
+    IF .ROPIC[FP$SIGN] EQL FPV$NSC   AND
+       .LOPIC[FP$SIGN] EQL FPV$NSC
+      THEN
+        IF .OP NEQ TV$MINUS
+          THEN
+            SIGNEDF := ZV$FALSE
+          ELSE
+            IF .LICNT GTR .RICNT
+              THEN
+                SIGNEDF := ZV$FALSE
+              ELSE
+                SIGNEDF := ZV$TRUE
+      ELSE
+        SIGNEDF := ZV$TRUE;
+    IF .RESULT EQL ZV$DATE
+      THEN
+        BEGIN
+        DATETEMP[0] := .ZBSTK$[Z$DTMP,.DATESTKP][0];
+        DATETEMP[1] := .ZBSTK$[Z$DTMP,.DATESTKP][1];
+        END;
+    $GPOP();
+    $GPOP();
+    $GPUSH(.GBTKN$,AV$SZTOK+4);                         % PLACE THE RESULT TOKEN ON THE STACK %
+    ZBSTK$[Z$ID,.ZSTKP$]      := TV$NAME;
+    ZBSTK$[Z$SBID,.ZSTKP$]    := ZV$NRSLT;
+    ZBSTK$[Z$INCSTP,.ZSTKP$]  := .LRECP[G$ID];
+    ZBSTK$[Z$ICNT,.ZSTKP$]    := .LRECP[G$ICNT];
+    ZBSTK$[Z$DCNT,.ZSTKP$]    := .LRECP[G$DCNT];
+    ZBSTK$[Z$DATATYP,.ZSTKP$] := .RESULT;
+    ZBSTK$[Z$ERFL,.ZSTKP$]    := .ERRFLG;
+    IF .RESULT EQL ZV$DATE
+      THEN
+        BEGIN
+        ZBSTK$[Z$DTMP,.ZSTKP$][0] := .DATETEMP[0];
+        ZBSTK$[Z$DTMP,.ZSTKP$][1] := .DATETEMP[1];
+        ZBSTK$[Z$RSLTYP,.ZSTKP$]  := GV$DRSLT;
+        END
+      ELSE
+        BEGIN
+        ZBSTK$[Z$RSLTYP,.ZSTKP$] := GV$ARITH;
+        ZBSTK$[Z$FP,.ZSTKP$]     := $GNUMFP(.ZSTKP$,.SIGNEDF);
+        END;
+    END;
+
+
+%****
+  PROCESS A RELATIONAL OPERATOR. THIS ROUTINE IS CALLED BY $GEXEC EXCLUSIVELY.
+****%
+  GLOBAL ROUTINE $GROP =
+    BEGIN
+
+    LOCAL LOPND, ROPND;
+
+    ROPND := .ZSTKP$;
+    LOPND :=
+      IF .GEXRP$ EQL ZV$NULL   OR               % DOES AN EXTENDED RESULT EXIST? %
+         .ZBSTK$[Z$USECNT,.GEXRP$] LSS 0
+        THEN
+          .ZBSTK$[Z$PREDP,.ZSTKP$]              % NO! USE STK2 AS THE LEFT HAND OPERAND %
+        ELSE
+          BEGIN
+          ZBSTK$[Z$USECNT,.GEXRP$] := .ZBSTK$[Z$USECNT,.GEXRP$] - 1;
+          .GEXRP$
+          END;
+    IF .ZBSTK$[Z$ID,.LOPND] EQL TV$DEFAULT  OR
+       .ZBSTK$[Z$ID,.ROPND] EQL TV$DEFAULT  
+      THEN
+        IF .GBTKN$[A$ID] NEQ TV$EQ AND 
+           .GBTKN$[A$ID] NEQ TV$NE
+          THEN
+            BEGIN
+            $GPUSH(.GBTKN$,AV$SZTOK);
+            $GERR(521,.ZSTKP$);
+            $GPOP();
+            ZBSTK$[Z$ID,.LOPND] := ZBSTK$[Z$ID,.ROPND] := TV$NAME;
+            ZBSTK$[Z$SBID,.LOPND] := ZBSTK$[Z$SBID,.ROPND] := ZV$FLD;
+            $GEOPD(.LOPND,ZV$NUMERIC);
+            $GEOPD(.ROPND,ZV$NUMERIC);
+            END
+          ELSE
+            $GDFSUB(.LOPND,.ROPND);
+    $GLOGC(.LOPND,.ROPND,.GBTKN$[A$ID]);        % PROCESS AND GENERATE A RELATIONAL OPERATION %
+    $GPOP();
+    IF .GEXRP$ EQL ZV$NULL
+      THEN
+        $GPOP()
+      ELSE
+        IF .GBTKN$[A$SBID] EQL TV$8EXT          % IS THE OPERATOR TO BE EXTENDED? %
+          THEN
+            BEGIN;
+            $GPUSH(.GBTKN$,AV$SZTOK);           % YES! STACK IT. %
+            GEXOP$ := .ZSTKP$;
+            END;
+    $GPUSH(.GBTKN$,AV$SZTOK+4);                 % STACK AN LOGICAL RESULT ENTRY CORRESPONDING TO THE
+                                                  OPERATION JUST GENERATED.
+                                                %
+    ZBSTK$[Z$ID,.ZSTKP$] := TV$NAME;
+    ZBSTK$[Z$SBID,.ZSTKP$] := ZV$LRSLT;
+    ZBSTK$[Z$INCSTP,.ZSTKP$] := .GGFID$ - 1;
+    ZBSTK$[Z$DATATYP,.ZSTKP$] := ZV$LOGICAL;
+     ZBSTK$[Z$RSLTYP,.ZSTKP$] := GV$LOGICAL;
+    ZBSTK$[Z$USECNT,.ZSTKP$] := 1;
+    END;
+
+
+%****
+  PROCESS A UNARY OPERATOR. THIS ROUTINE IS CALLED BY GEXEC EXCLUSIVELY.
+****%
+  GLOBAL ROUTINE $GUOP =
+    BEGIN
+    
+    LOCAL S$ NAMESTE:DEFSTE;
+    LOCAL DTYPE, GTYPE;
+
+    IF .GBTKN$[A$ID] EQL TV$NOT
+      THEN
+        BEGIN
+        DTYPE := ZV$LOGICAL;
+        GTYPE := GV$NOT;
+        END
+      ELSE
+        BEGIN
+        DTYPE := ZV$NUMERIC;
+        GTYPE := GV$MIN;
+        END;
+
+    IF .ZBSTK$[Z$DATATYP,.ZSTKP$] NEQ .DTYPE    % IS THE OPERAND OF THE APPROPRIATE TYPE FOR THE OPERATOR %
+      THEN                                      % NO!  %
+        BEGIN
+        $GERR(505,.ZSTKP$);
+        $GEOPD(.ZSTKP$,.DTYPE);
+        END;
+    IF $GICHK(.ZSTKP$) EQL ZV$FALSE  AND  .ZBSTK$[Z$ID,.ZSTKP$] EQL TV$NAME
+      THEN
+        $GERR(526,.ZSTKP$);
+
+    $GIREC(.GTYPE,3);                           % GENERATE THE APPROPRIATE N-TUPLE %
+    GGBFP$[G$OPNDN] := $GOPND(.ZSTKP$);
+    IF .DTYPE EQL ZV$NUMERIC
+      THEN
+        BEGIN
+        GGBFP$[G$ICNT] := .ZBSTK$[Z$ICNT,.ZSTKP$];
+        GGBFP$[G$DCNT] := .ZBSTK$[Z$DCNT,.ZSTKP$];
+        END;
+    GGBFP$[G$UCNT] := 1;
+    $GWBUF(.GGBFP$,.GOB1I$);
+    $GPOP();
+    $GPUSH(.GBTKN$,AV$SZTOK+4);                 % STACK THE RESULT %
+    ZBSTK$[Z$ID,.ZSTKP$]     := TV$NAME;
+    ZBSTK$[Z$IN.ZSTKP$] := .GGFID$ - 1;
+    ZBSTK$[Z$DATATYP,.ZSTKP$] := .DTYPE;
+    IF .DTYPE EQL ZV$LOGICAL
+      THEN
+        BEGIN
+        ZBSTK$[Z$SBID,.ZSTKP$] := ZV$LRSLT;
+        ZBSTK$[Z$RSLTYP,.ZSTKP$] := GV$LOGICAL;
+        END
+      ELSE
+        BEGIN
+        ZBSTK$[Z$ICNT,.ZSTKP$] := .GGBFP$[G$ICNT];
+        ZBSTK$[Z$DCNT,.ZSTKP$] := .GGBFP$[G$DCNT];
+        ZBSTK$[Z$SBID,.ZSTKP$] := ZV$NRSLT;
+        ZBSTK$[Z$RSLTYP,.ZSTKP$] := GV$ARITH;
+        ZBSTK$[Z$FP,.ZSTKP$] := $GNUMFP(.ZSTKP$,ZV$TRUE);
+        END;
+    ZBSTK$[Z$USECNT,.ZSTKP$] := 1;
+    END;
+
+
+%****
+  PROCESS THE TV$8EXT TOKEN. THIS ROUTINE IS CALLED BY $GEXEC EXCLUSIVELY.
+****%
+  GLOBAL ROUTINE $GEXT =
+    BEGIN
+
+    IF .GBTKN$[A$SBID] GTR 63
+      THEN
+        BEGIN
+        $GERR(569,.ZSTKP$);
+        $UOUTM(FTLMS$<36,7>,0);
+        $FATAL(#121);
+        END;
+    ZBSTK$[Z$USECNT,.ZSTKP$] := .GBTKN$[A$SBID];
+    GEXRP$ := .ZSTKP$;
+
+    END;
+
+
+%****
+  GENERATE AN N-TUPLE FOR A BOOLEAN OPERATION. THIS ROUTINE IS CALLED BY $GBOOL EXCLUSIVELY.
+    PARAMETERS:
+        LOPND  INPUT  SEMANTIC STACK DISPLACEMENT TO THE LEFT HAND OPERAND.
+        ROPND  INPUT  SEMANTIC STACK DISPLACEMENT TO THE RIGHT HAND OPERAND.
+        GTYPE  INPUT  BETA TOKEN VALUE OF THE BOOLEAN OPERATION.
+****%
+  ROUTINE GENBOOL(LOPND,ROPND,GTYPE)=
+    BEGIN
+
+    IF .ZBSTK$[Z$DATATYP,.ROPND] NEQ ZV$LOGICAL % INSURE THAT BOTH OPERANDS ARE LOGICAL %
+      THEN
+        $FATAL(#107)
+      ELSE
+        IF .ZBSTK$[Z$DATATYP,.LOPND] NEQ ZV$LOGICAL
+          THEN
+            $FATAL(#107)
+          ELSE
+            BEGIN
+            $GIREC((SELECT.GTYPE OF             % GENERATE THE DESIRED N-TUPLE %
+                              NSET
+                           TV$AND : GV$AND;
+                           TV$OR  : GV$OR;
+                              TESN           ),
+                   4);
+            GGBFP$[G$UCNT] := 1;
+            (GGBFP$[G$OPNDN])[0] := $GOPND(.LOPND);
+            (GGBFP$[G$OPNDN])[1] := $GOPND(.ROPND);
+            $GWBUF(.GGBFP$,.GOB1I$);
+            END;
+    END;
+
+
+%****
+  PROCESS AN AND/OR TOKEN. THIS ROUTINE IS CALLED BY $GEXEC EXCLUSIVELY.
+****%
+  GLOBAL ROUTINE $GBOOL =
+    BEGIN
+
+    LOCAL LOPND, ROPND;
+
+    IF .GEXOP$ NEQ ZV$NULL                      % EXTENDED OPERATOR POINTER SET ? %
+      THEN                                      % YES !  %
+        BEGIN
+        ROPND := .ZSTKP$;                        % STK1  %
+        LOPND := .GEXRP$;                        % EXTENDED OPERAND %
+        IF .ZBSTK$[Z$ID,.LOPND] EQL TV$DEFAULT  OR
+           .ZBSTK$[Z$ID,.ROPND] EQL TV$DEFAULT  
+          THEN
+            IF .ZBSTK$[Z$ID,.GEXOP$] NEQ TV$EQ   AND
+               .ZBSTK$[Z$ID,.GEXOP$] NEQ TV$NE
+              THEN
+                BEGIN
+                $GERR(521,.GEXOP$);
+                ZBSTK$[Z$ID,.LOPND] := ZBSTK$[Z$ID,.ROPND] := TV$NAME;
+                $GEOPD(.LOPND,ZV$NUMERIC);
+                $GEOPD(.ROPND,ZV$NUMERIC);
+                END
+              ELSE
+                $GDFSUB(.LOPND,.ROPND);
+        $GLOGC(.LOPND,.ROPND,.ZBSTK$[Z$ID,.GEXOP$]);  % PROCESS AND GENERATE A RELATIONAL OPERATION %
+        $GPOP();
+        $GPUSH(.GBTKN$,AV$SZTOK+3);             % STACK A LOGICAL ENTRY CORRESPONDING TO THE
+                                                  OPERATION JUST GENERATED.
+                                                %
+        ZBSTK$[Z$ID,.ZSTKP$] := TV$NAME;
+        ZBSTK$[Z$SBID,.ZSTKP$] := ZV$LRSLT;
+        ZBSTK$[Z$INCSTP,.ZSTKP$] := .GGFID$ -1;
+        ZBSTK$[Z$DATATYP,.ZSTKP$] := ZV$LOGICAL;
+        ZBSTK$[Z$RSLTYP,.ZSTKP$] := GV$LOGICAL;
+        ZBSTK$[Z$USECNT,.ZSTKP$] := 1;
+        LOPND := .ZBSTK$[Z$PREDP,.ZSTKP$];         % GET THE OPERANDS FOR THE BOOLEAN OPERATION %
+        ROPND := .ZSTKP$;
+        GENBOOL(.LOPND,.ROPND,.GBTKN$[A$ID]);   % GENERATE THE BOOLEAN %
+        $GPOP();                                % POP THE BOOLEAN OP'S OPERANDS %
+        $GPOP();
+
+        IF .ZBSTK$[Z$USECNT,.GEXRP$] GTR 0      % IS THE RELATIONAL TO BE EXTENDED ANY FURTHER? %
+          THEN                                  % YES!  DECREMENT IT'S USE COUNT. %
+            ZBSTK$[Z$USECNT,.GEXRP$] := .ZBSTK$[Z$USECNT,.GEXRP$] - 1
+          ELSE
+            BEGIN
+            IF .GEXOP$ NEQ ZV$NULL
+              THEN
+                BEGIN
+                $GPOP();
+                $GPOP();
+                GEXOP$ := GEXRP$ := ZV$NULL;
+                END;
+            END
+        END
+      ELSE
+        BEGIN                                   % NO EXTENDED OPERATOR %
+        LOPND := .ZBSTK$[Z$PREDP,.ZSTKP$];
+        ROPND := .ZSTKP$;
+        GENBOOL(.LOPND,.ROPND,.GBTKN$[A$ID]);   % GENERATE THE BOOLEAN %
+        $GPOP();
+        $GPOP();
+        IF .GEXRP$ NEQ ZV$NULL
+          THEN
+            IF .ZBSTK$[Z$USECNT,.GEXRP$] LSS 0
+              THEN
+                BEGIN
+                $GPOP();
+                GEXRP$ := ZV$NULL;
+                END;
+        END;
+
+    $GPUSH(.GBTKN$,AV$SZTOK+3);                 % STACK A LOGICAL RESULT ENTRY CORRESPONDING TO THE
+                                                  BOOLEAN JUST GENERATED.
+                                                %
+    ZBSTK$[Z$ID,.ZSTKP$]     := TV$NAME;
+    ZBSTK$[Z$SBID,.ZSTKP$]     := ZV$LRSLT;
+    ZBSTK$[Z$INCSTP,.ZSTKP$]     := .GGFID$ - 1;
+    ZBSTK$[Z$DATATYP,.ZSTKP$]     :=  ZV$LOGICAL;
+    ZBSTK$[Z$RSLTYP,.ZSTKP$] :=  GV$LOGICAL;
+    ZBSTK$[Z$USECNT,.ZSTKP$]     := 0;
+    END;
+
+
+%*****
+  PROCESS THE TV$EQ AND TV$EQ(TV$LET) TOKENS.
+*****%
+  GLOBAL ROUTINE $GEQ =
+    BEGIN
+
+    LOCAL LOPND, ROPND,CISTPSAVE, SREC[5];
+    LOCAL S$ NAMESTE : DEFSTE : INCSTE;
+    LOCAL G$ SRECP;
+
+    IF .GBTKN$[A$SBID] NEQ TV$LET
+      THEN
+        $GROP()
+      ELSE
+        BEGIN
+        ROPND := .ZSTKP$;
+        LOPND := .ZBSTK$[Z$PREDP,.ZSTKP$];
+        IF .ZBSTK$[Z$DATATYP,.LOPND] NEQ .ZBSTK$[Z$DATATYP,.ROPND]
+          THEN
+            $GERR(503,.ROPND)
+          ELSE
+            BEGIN
+            IF $GICHK(.ROPND) EQL ZV$FALSE
+              THEN
+                $GERR(526,.ROPND);
+                                                % SET UP A SCALAR TO RECEIVE THE INIT. VALUE %
+            DEFSTE := $SGSTE(.ZBSTK$[Z$DEFSTP,.LOPND]);
+            $SFRNCH($GNITM(.DEFSTE));
+            NAMESTE := $SGSTE(.ZBSTK$[Z$STP,.LOPND]);
+            CISTPSAVE := .NAMESTE[S$CISTP];
+            INCSTE := $GNFI(.NAMESTE,.DEFSTE);
+            ZBSTK$[Z$INCSTP,.LOPND] := .INCSTE[S$STPX];
+            INCSTE[S$AFLG] := SV$FALSE;
+            $SFRCH(.INCSTE);
+            NAMESTE[S$CISTP] := .CISTPSAVE;
+            $SFRNCH(.NAMESTE);
+            $SFRNCH(.DEFSTE);
+            $GIREC(GV$STORE,5);
+            SRECP := SREC;
+            $UMOVE(5,.GGBFP$,.SRECP);
+            SRECP[G$OPND1] := $GOPND(.LOPND);
+            SRECP[G$OPND3] := GV$ROUND;
+            SRECP[G$OPND2] :=
+                        IF .ZBSTK$[Z$DATATYP,.LOPND] EQL ZV$NUMERIC   AND
+                           .ZBSTK$[Z$DCNT,.LOPND] GTR .ZBSTK$[Z$DCNT,.ROPND]
+                          THEN
+                            $GALIGN(.ROPND,.ZBSTK$[Z$DCNT,.LOPND])
+                          ELSE
+                            $GOPND(.ROPND);
+            $GWBUF(.SRECP,.GOB1I$);
+
+            $GPOP();                            % CLEAR THE RIGHT HAND OPERAND %
+
+            END;
+        END;
+    END;
+
+
+%******
+  PROCESS THE TV$CHANGD TOKEN.
+******%
+  GLOBAL ROUTINE $GCHGD =
+    BEGIN
+
+    LOCAL S$ FINCSTE : RINCSTE;
+    LOCAL RELINCSTP;
+
+    IF .$GICHK(.ZSTKP$) EQL -1
+      THEN
+        $GERR(526,.ZSTKP$)
+      ELSE
+        BEGIN
+        FINCSTE := $SGSTE(.ZBSTK$[Z$INCSTP,.ZSTKP$]);
+        IF .FINCSTE[S$SORTC] EQL SV$NULL     AND
+           .FINCSTE[S$SORTCPRED] EQL SV$NULL
+          THEN
+            $GERR(558,.ZSTKP$)
+          ELSE
+            IF .FINCSTE[S$RNSTP] EQL SV$NULL
+              THEN
+                $GERR(553,.ZSTKP$)
+              ELSE
+                BEGIN
+                RINCSTE := $SGSTE(.FINCSTE[S$RNSTP]);
+                IF .RINCSTE[S$TYPE] NEQ SV$RELINC
+                  THEN
+                    $GERR(553,.ZSTKP$)
+                  ELSE
+                    BEGIN
+                    IF .RINCSTE[S$CHGREF] EQL SV$FALSE
+                      THEN
+                        BEGIN
+                        $GIREC(GV$RESET,4);
+                        GGBOP$[0,G$OPVAL] := GV$CHGFLS;
+                        GGBOP$[1,G$OPTYP] := GV$STP;
+                        GGBOP$[1,G$OPVAL] := .RINCSTE[S$STPX];
+                        $GWBUF(.GGBFP$,.GOB1I$);
+                        $GIREC(GV$CHGD,3);
+                        GGBOP$[0,G$OPTYP] := GV$STP;
+                        GGBOP$[0,G$OPVAL] := .RINCSTE[S$STPX];
+                        $GWBUF(.GGBFP$,.GOB1I$);
+                        END;
+                    RELINCSTP := .RINCSTE[S$STPX];
+                    END;
+                $SFRNCH(.RINCSTE);
+                END;
+        $SFRNCH(.FINCSTE);
+        END;
+    $GIREC(GV$TEST,5);
+    GGBOP$[0,G$OPVAL] := GV$CHGFLS;
+    GGBOP$[1,G$OPTYP] := GV$STP;
+    GGBOP$[1,G$OPVAL] := .ZBSTK$[Z$INCSTP,.ZSTKP$];
+    GGBOP$[2,G$OPTYP] := GV$STP;
+    GGBOP$[2,G$OPVAL] := .RELINCSTP;
+    GGBFP$[G$UCNT]    := 1;
+    $GWBUF(.GGBFP$,.GOB1I$);
+    $GPOP();
+    $GPUSH(.GBTKN$,AV$SZTOK+3);
+    ZBSTK$[Z$ID,.ZSTKP$]     := TV$NAME;
+    ZBSTK$[Z$SBID,.ZSTKP$]   := ZV$LRSLT;
+    ZBSTK$[Z$INCSTP,.ZSTKP$] := .GGFID$ - 1;
+    ZBSTK$[Z$DATATYP,.ZSTKP$] := ZV$LOGICAL;
+    ZBSTK$[Z$RSLTYP,.ZSTKP$]  := GV$LOGICAL;
+    ZBSTK$[Z$USECNT,.ZSTKP$]  := 1;
+    END;
+
+
+%******
+    PROCESS THE 'ILLEGAL' OPTION OF THE CONDITIONAL EXPRESSION.
+*****%
+  GLOBAL ROUTINE $GILGL =
+    BEGIN
+
+    LOCAL S$ DEFSTE;
+    LOCAL BUFSAVE, MODESAVE;
+
+    DEFSTE := $SGSTE(.ZBSTK$[Z$DEFSTP,.ZSTKP$]);
+    DEFSTE[S$VRF] := SV$TRUE;
+    $SFRCH(.DEFSTE);
+
+    IF .GVRFI$ EQL 0
+      THEN
+        GVRFI$ := $GNBUF(127);
+    BUFSAVE := .GOB1I$;
+    GOB1I$ := .GVRFI$;
+    MODESAVE := .GMODE$;
+    GMODE$ := GV$VRF;
+    $GVRF(.ZBSTK$[Z$STP,.ZSTKP$]);
+    GOB1I$ := .BUFSAVE;
+    GMODE$ := .MODESAVE;
+    IF $GICHK(.ZSTKP$) EQL ZV$FALSE
+      THEN
+        $GERR(526,.ZSTKP$);
+    DEFSTE := $SGSTE(.ZBSTK$[Z$DEFSTP,.ZSTKP$]);
+    DEFSTE[S$VRF] := SV$FALSE;
+    IF .DEFSTE[S$VERFSTP] EQL SV$NULL
+      THEN
+        BEGIN
+        $GIREC(GV$LRESULT,3);
+        GGBFP$[G$UCNT] := 1;
+        GGBFP$[G$OPND1] := GV$TRUE;
+        $GWBUF(.GGBFP$,.GOB1I$);
+        END
+      ELSE
+        BEGIN
+        $GIREC(GV$CALL,5);
+        GGBFP$[G$UCNT] := 1;
+        GGBFP$[G$OPND1] := GV$RESULT;
+        GGBOP$[1,G$OPTYP] := GV$STP;
+        GGBOP$[1,G$OPVAL] := .DEFSTE[S$VERFSTP];
+        GGBOP$[2,G$OPTYP] := GV$STP;
+        GGBOP$[2,G$OPVAL] := .ZBSTK$[Z$INCSTP,.ZSTKP$];
+        $GWBUF(.GGBFP$,.GOB1I$);
+        END;
+    ZBSTK$[Z$SBID,.ZSTKP$]    := ZV$LRSLT;
+    ZBSTK$[Z$INCSTP,.ZSTKP$]  := .GGBFP$[G$ID];
+    ZBSTK$[Z$DATATYP,.ZSTKP$] := ZV$LOGICAL;
+    ZBSTK$[Z$RSLTYP,.ZSTKP$]  := GV$LOGICAL;
+    ZBSTK$[Z$USECNT,.ZSTKP$]  := 1;
+    $SFRCH(.DEFSTE);
+    END;
+
+
+  END
+
+ELUDOM
+  S=	rì
