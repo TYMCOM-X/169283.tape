@@ -1,0 +1,2010 @@
+;BLISS-10 3A(51)	9/12/73 1:46.22		SYNTAX.BLI		PAGE 1-1
+
+;     	0001    !***COPYRIGHT 1972, DIGITAL EQUIPEMENT CORP., MAYNARD, MASS.***
+;     	0002    !AUTHOR: T.E. OSTEN
+;     	0003    MODULE SYNTAX(STACK)=
+;     	0004    BEGIN
+
+TITLE	SYNT..
+TWOSEG
+RELOC 400000
+
+
+
+;ROUTINE PROLOGS AND EPILOGS
+
+.ENT.0::
+	PUSH	$S,2
+	HRRZ	$F,0
+	JRST	$S,0(12)
+
+.ENT.1::
+	PUSH	$S,2
+	HRRZ	$F,0
+	PUSH	$S,17
+	JRST	$S,0(12)
+
+.ENT.2::
+	PUSH	$S,2
+	HRRZ	$F,0
+	PUSH	$S,17
+	PUSH	$S,16
+	JRST	$S,0(12)
+
+.ENT.3::
+	PUSH	$S,2
+	HRRZ	$F,0
+	PUSH	$S,17
+	PUSH	$S,16
+	PUSH	$S,15
+	JRST	$S,0(12)
+
+.ENT.4::
+	PUSH	$S,2
+	HRRZ	$F,0
+	PUSH	$S,17
+	PUSH	$S,16
+	PUSH	$S,15
+	PUSH	$S,14
+	JRST	$S,0(12)
+
+.ENT.5::
+	PUSH	$S,2
+	HRRZ	$F,0
+	PUSH	$S,17
+	PUSH	$S,16
+	PUSH	$S,15
+	PUSH	$S,14
+	PUSH	$S,13
+	JRST	$S,0(12)
+;BLISS-10 3A(51)	9/12/73 1:46.23		SYNTAX.BLI		PAGE 1-2
+
+
+.EXT.5::
+	POP	$S,13
+.EXT.4::
+	POP	$S,14
+.EXT.3::
+	POP	$S,15
+.EXT.2::
+	POP	$S,16
+.EXT.1::
+	POP	$S,17
+.EXT.0::
+	POP	$S,2
+	POPJ	$S,0
+
+
+;STACK=SYNT.O+0
+;     	0005    	MACRO
+;     	0006    	DOLLAR=	1$,
+;     	0007    	LITSTRING=	2$,
+;     	0010    	LPAREN=	3$,
+;     	0011    	RPAREN=	4$,
+;     	0012    	ASTERISK=	5$,
+;     	0013    	PLUS=	6$,
+;     	0014    	COMMA=	7$,
+;     	0015    	MINUS=	8$,
+;     	0016    	PERIOD=	9$,
+;     	0017    	SLASH=	10$,
+;     	0020    	CONSTANT=	11$,
+;     	0021    	ACHAR=	12$,
+;     	0022    	BCHAR=	13$,
+;     	0023    	DCHAR=	14$,
+;     	0024    	ECHAR=	15$,
+;     	0025    	FCHAR=	16$,
+;     	0026    	GCHAR=	17$,
+;     	0027    	ICHAR=	18$,
+;     	0030    	LCHAR=	19$,
+;     	0031    	OCHAR=	20$,
+;     	0032    	PCHAR=	21$,
+;     	0033    	TCHAR=	22$,
+;     	0034    	XCHAR=	23$,
+;     	0035    	LINEND=	24$,
+;     	0036    	LASTLEX= LINEND$;
+;     	0037    
+;     	0040    	MACRO
+;     	0041    	LEXEME=	1$,
+;     	0042    	META=	2$,
+;     	0043    	ALL=	3$,
+;     	0044    	ONE=	4$,
+;     	0045    	OPTION=	5$,
+;     	0046    	LIST=	6$,
+;     	0047    	REPEAT=	7$,
+;     	0050    	ACTION=	8$,
+;     	0051    	TERMINAL=	9$;
+;     	0052    
+;     	0053    	STRUCTURE STRING[I]=@(.STRING+.I);
+;     	0054    	STRUCTURE VECTX[I]=[I] .VECTX+.I;
+;BLISS-10 3A(51)	9/12/73 1:46.24		SYNTAX.BLI		PAGE 1-3
+
+;     	0055    
+;     	0056    	BIND VECTOR LEXNAME=PLIT(
+;     	0057    %1%	PLIT'DOLLAR',
+;     	0060    %2%	PLIT'LITSTRING',
+;     	0061    %3%	PLIT'LPAREN',
+;     	0062    %4%	PLIT'RPAREN',
+;     	0063    %5%	PLIT'ASTERISK',
+;     	0064    %6%	PLIT'PLUS',
+;     	0065    %7%	PLIT'COMMA',
+;     	0066    %8%	PLIT'MINUS',
+;     	0067    %9%	PLIT'PERIOD',
+;     	0070    %10%	PLIT'SLASH',
+;     	0071    %11%	PLIT'CONSTANT',
+;     	0072    %12%	PLIT'ACHAR',
+;     	0073    %13%	PLIT'BCHAR',
+;     	0074    %14%	PLIT'DCHAR',
+;     	0075    %15%	PLIT'ECHAR',
+;     	0076    %16%	PLIT'FCHAR',
+;     	0077    %17%	PLIT'GCHAR',
+;     	0100    %18%	PLIT'ICHAR',
+;     	0101    %19%	PLIT'LCHAR',
+;     	0102    %20%	PLIT'OCHAR',
+;     	0103    %21%	PLIT'PCHAR',
+;     	0104    %22%	PLIT'TCHAR',
+;     	0105    %23%	PLIT'XCHAR')-1;
+;     	0106    
+;     	0107    ! ;THE MODIFIED BNF SYNTAX DESCRIBED IN TERMS OF ITSELF .
+;     	0110    ! 
+;     	0111    ! BNFDEFINITION      = METASYMBOL "="  BNFCOMPONENT  [ COMMENT ] "." .
+;     	0112    ! 
+;     	0113    ! BNFCOMPONENT       = ( TERMINAL l
+;     	0114    !                      METASYMBOL l
+;     	0115    !                      OR l
+;     	0116    !                      AND l
+;     	0117    !                      OPTION l
+;     	0120    !                      LIST l
+;     	0121    !                      REPEAT l
+;     	0122    !                      ACTION ) .
+;     	0123    ! 
+;     	0124    ! TERMINAL           = """ *ASCIICHARACTER """ ;TERMINAL CHARACTER STRING .
+;     	0125    ! 
+;     	0126    ! METASYMBOL         = [ *LETTER  "-" ] *LETTER  ;AN ELEMENT
+;     	0127    !                      OF THE SYNTAX DEFINED BY THE SYNTAX OR BY A LEXICAL
+;     	0130    !                      PROCESS .
+;     	0131    ! 
+;     	0132    ! OR                 = "(" BNFCOMPONENT *[ "l" BNFCOMPONENT ] ")" 
+;     	0133    !                      ;ONLY ONE OF THE BNFCOMPONENTS IS REQUIRED .
+;     	0134    ! 
+;     	0135    ! AND                = BNFCOMPONENT *[ BNFCOMPONENT ] ;ALL OF THE
+;     	0136    !                      BNFCOMPONENTS ARE REQUIRED .
+;     	0137    ! 
+;     	0140    ! OPTION             = "[" BNFCOMPONENT "]" ;USE OF THE BNFCOMPONENT IS
+;     	0141    !                      OPTIONAL .
+;     	0142    ! 
+;     	0143    ! LIST               = "+" BNFCOMPONENT ;BNFCOMPONENTS SEPERATED BY
+;     	0144    !                      COMMAS .
+;     	0145    ! 
+;BLISS-10 3A(51)	9/12/73 1:46.25		FORMAT.BLI		PAGE 1-4
+
+;     	0146    ! REPEAT             = "*" BNFCOMPONENT ;BNFCOMPONENTS NOT SEPERATED BY
+;     	0147    !                      COMMAS .
+;     	0150    ! 
+;     	0151    ! ACTION             = "%" ACTIONNAME "%" ;ACTION TO BE PERFORMED WHEN ENCOUNTERED .
+;     	0152    ! 
+;     	0153    ! COMMENT            = ";" *ASCIICHARACTER .
+;     	0154    ! 
+;     	0155    ! ;*****************************************************************************************************************
+;BLISS-10 3A(51)	9/12/73 1:46.26		FORMAT.BLI		PAGE 2-1
+
+;     	0156    ! 
+;     	0157    ! ;CHECKS THAT THE FORMAT STATEMENT CONFORMS TO THE SYNTAX WHICH FOLLOWS.
+;     	0160    ! 
+;     	0161    ! FORMATSPEC        = LPAREN  [ FDGROUP ] RPAREN LINEND .
+;     	0162    ! 
+;     	0163    ! FDGROUP           = +( FIELDDESCRIPTOR [ SLASH ] ) .
+;     	0164    ! 
+;     	0165    ! FIELDDESCRIPTOR   = ( ( PLUS l MINUS ) CONSTANT PCHAR [ NUMBEROF ] TWODESCRIPTOR l
+;     	0166    !                     NUMBEROF ( PCHAR [ NUMBEROF ] TWODESCRIPTOR l
+;     	0167    !                     TWODESCRIPTOR l ONEDESCRIPTOR l XCHAR l LPAREN  FDGROUP RPAREN )  l
+;     	0170    !                     TWODESCRIPTOR l ONEDESCRIPTOR l TCHAR NUMBEROF l DOLLAR l SLASH l
+;     	0171    !                     LITSTRING l LPAREN  FDGROUP RPAREN ) .
+;     	0172    ! 
+;     	0173    ! TWODESCRIPTOR     = ( GCHAR [ NUMBEROF [ PERIOD NUMBEROF ] ] l
+;     	0174    !                     ( FCHAR l ECHAR l DCHAR l BCHAR ) [ NUMBEROF PERIOD NUMBEROF ] ) .
+;     	0175    ! 
+;     	0176    ! ONEDESCRIPTOR     = ( ICHAR l LCHAR l OCHAR l ACHAR ) [ NUMBEROF ] .
+;     	0177    ! 
+;     	0200    ! NUMBEROF          = ( CONSTANT l ASTERISK ) .
+;BLISS-10 3A(51)	9/12/73 1:46.26		FORMAT.BLI		PAGE 3-1
+
+;     	0201    ! 
+;     	0202    
+;     	0203    !THE FOLLOWING TABLES WERE PRODUCED BY THE BLISS MODULE "BUILD.BLI"
+;     	0204    
+;     	0205    BIND
+;     	0206    
+;     	0207    VECTOR	METANAME=PLIT(
+;     	0210    %1%	PLIT'FORMATSPEC',
+;     	0211    %2%	PLIT'LPAREN',
+;     	0212    %3%	PLIT'FDGROUP',
+;     	0213    %4%	PLIT'RPAREN',
+;     	0214    %5%	PLIT'LINEND',
+;     	0215    %6%	PLIT'FIELDDESCRIPTOR',
+;     	0216    %7%	PLIT'SLASH',
+;     	0217    %8%	PLIT'PLUS',
+;     	0220    %9%	PLIT'MINUS',
+;     	0221    %10%	PLIT'CONSTANT',
+;     	0222    %11%	PLIT'PCHAR',
+;     	0223    %12%	PLIT'NUMBEROF',
+;     	0224    %13%	PLIT'TWODESCRIPTOR',
+;     	0225    %14%	PLIT'ONEDESCRIPTOR',
+;     	0226    %15%	PLIT'XCHAR',
+;     	0227    %16%	PLIT'TCHAR',
+;     	0230    %17%	PLIT'DOLLAR',
+;     	0231    %18%	PLIT'LITSTRING',
+;     	0232    %19%	PLIT'GCHAR',
+;     	0233    %20%	PLIT'PERIOD',
+;     	0234    %21%	PLIT'FCHAR',
+;     	0235    %22%	PLIT'ECHAR',
+;     	0236    %23%	PLIT'DCHAR',
+;     	0237    %24%	PLIT'BCHAR',
+;     	0240    %25%	PLIT'ICHAR',
+;     	0241    %26%	PLIT'LCHAR',
+;     	0242    %27%	PLIT'OCHAR',
+;     	0243    %28%	PLIT'ACHAR',
+;     	0244    %29%	PLIT'ASTERISK')-1;
+;     	0245    
+;BLISS-10 3A(51)	9/12/73 1:46.27		FORMAT.BLI		PAGE 4-1
+
+;     	0246    
+;     	0247    MACRO	LLSIZE=80$;
+;     	0250    
+;     	0251    BIND	BNFTBL= PLIT(	!80 ENTRIES
+;     	0252    	!TYPE		SUB		NUMBER
+;     	0253    	ALL^24+		3^12+	3,	!1
+;     	0254    	META^24+	7^12+	3,	!FDGROUP
+;     	0255    	LEXEME^24+	LPAREN^12+	2,	!3
+;     	0256    	OPTION^24+	2^12+	0,	!4
+;     	0257    	LEXEME^24+	RPAREN^12+	4,	!5
+;     	0260    	LEXEME^24+	LINEND^12+	5,	!6
+;     	0261    	LIST^24+	11^12+	1,	!7
+;     	0262    	LEXEME^24+	SLASH^12+	7,	!8
+;     	0263    	META^24+	12^12+	6,	!FIELDDESCRIPTOR
+;     	0264    	OPTION^24+	8^12+	0,	!10
+;     	0265    	ALL^24+		9^12+	1,	!11
+;     	0266    	ONE^24+		40^12+	8,	!12
+;     	0267    	LEXEME^24+	PLUS^12+	8,	!13
+;     	0270    	LEXEME^24+	MINUS^12+	9,	!14
+;     	0271    	META^24+	78^12+	12,	!NUMBEROF
+;     	0272    	ONE^24+		13^12+	1,	!16
+;     	0273    	LEXEME^24+	CONSTANT^12+	10,	!17
+;     	0274    	LEXEME^24+	PCHAR^12+	11,	!18
+;     	0275    	OPTION^24+	15^12+	0,	!19
+;     	0276    	META^24+	49^12+	13,	!TWODESCRIPTOR
+;     	0277    	META^24+	78^12+	12,	!NUMBEROF
+;     	0300    	LEXEME^24+	PCHAR^12+	11,	!22
+;     	0301    	OPTION^24+	21^12+	0,	!23
+;     	0302    	META^24+	49^12+	13,	!TWODESCRIPTOR
+;     	0303    	LEXEME^24+	LPAREN^12+	2,	!25
+;     	0304    	META^24+	7^12+	3,	!FDGROUP
+;     	0305    	LEXEME^24+	RPAREN^12+	4,	!27
+;     	0306    	ALL^24+		22^12+	2,	!28
+;     	0307    	META^24+	49^12+	13,	!TWODESCRIPTOR
+;     	0310    	META^24+	70^12+	14,	!ONEDESCRIPTOR
+;     	0311    	LEXEME^24+	XCHAR^12+	15,	!31
+;     	0312    	ALL^24+		25^12+	2,	!32
+;     	0313    	META^24+	78^12+	12,	!NUMBEROF
+;     	0314    	ONE^24+		28^12+	4,	!34
+;     	0315    	LEXEME^24+	TCHAR^12+	16,	!35
+;     	0316    	META^24+	78^12+	12,	!NUMBEROF
+;     	0317    	LEXEME^24+	LPAREN^12+	2,	!37
+;     	0320    	META^24+	7^12+	3,	!FDGROUP
+;     	0321    	LEXEME^24+	RPAREN^12+	4,	!39
+;     	0322    	ALL^24+		16^12+	4,	!40
+;     	0323    	ALL^24+		33^12+	1,	!41
+;     	0324    	META^24+	49^12+	13,	!TWODESCRIPTOR
+;     	0325    	META^24+	70^12+	14,	!ONEDESCRIPTOR
+;     	0326    	ALL^24+		35^12+	1,	!44
+;     	0327    	LEXEME^24+	DOLLAR^12+	17,	!45
+;     	0330    	LEXEME^24+	SLASH^12+	7,	!46
+;     	0331    	LEXEME^24+	LITSTRING^12+	18,	!47
+;     	0332    	ALL^24+		37^12+	2,	!48
+;     	0333    	ONE^24+		68^12+	1,	!49
+;     	0334    	LEXEME^24+	PERIOD^12+	20,	!50
+;     	0335    	META^24+	78^12+	12,	!NUMBEROF
+;     	0336    	ALL^24+		50^12+	1,	!52
+;BLISS-10 3A(51)	9/12/73 1:46.30		FORMAT.BLI		PAGE 4-2
+
+;     	0337    	META^24+	78^12+	12,	!NUMBEROF
+;     	0340    	OPTION^24+	52^12+	0,	!54
+;     	0341    	ALL^24+		53^12+	1,	!55
+;     	0342    	LEXEME^24+	GCHAR^12+	19,	!56
+;     	0343    	OPTION^24+	55^12+	0,	!57
+;     	0344    	LEXEME^24+	FCHAR^12+	21,	!58
+;     	0345    	LEXEME^24+	ECHAR^12+	22,	!59
+;     	0346    	LEXEME^24+	DCHAR^12+	23,	!60
+;     	0347    	LEXEME^24+	BCHAR^12+	24,	!61
+;     	0350    	META^24+	78^12+	12,	!NUMBEROF
+;     	0351    	LEXEME^24+	PERIOD^12+	20,	!63
+;     	0352    	META^24+	78^12+	12,	!NUMBEROF
+;     	0353    	ALL^24+		62^12+	2,	!65
+;     	0354    	ONE^24+		58^12+	3,	!66
+;     	0355    	OPTION^24+	65^12+	0,	!67
+;     	0356    	ALL^24+		56^12+	1,	!68
+;     	0357    	ALL^24+		66^12+	1,	!69
+;     	0360    	ALL^24+		76^12+	1,	!70
+;     	0361    	LEXEME^24+	ICHAR^12+	25,	!71
+;     	0362    	LEXEME^24+	LCHAR^12+	26,	!72
+;     	0363    	LEXEME^24+	OCHAR^12+	27,	!73
+;     	0364    	LEXEME^24+	ACHAR^12+	28,	!74
+;     	0365    	META^24+	78^12+	12,	!NUMBEROF
+;     	0366    	ONE^24+		71^12+	3,	!76
+;     	0367    	OPTION^24+	75^12+	0,	!77
+;     	0370    	ONE^24+		79^12+	1,	!78
+;     	0371    	LEXEME^24+	CONSTANT^12+	10,	!79
+;     	0372    	LEXEME^24+	ASTERISK^12+	29,	!80
+;     	0373    	0)-1;
+;BLISS-10 3A(51)	9/12/73 1:46.31		LEFT.BLI		PAGE 5-1
+
+;     	0374    !FILE LEFT.BLI MUST BE COMPILED IN THE ORDER LHEAD.BLI,F71BNF.BLI(PRODUCED BY BUILD.BLI),LEFT.BLI
+;     	0375    !***COPYRIGHT 1972, DIGITAL EQUIPEMENT CORP., MAYNARD, MASS.***
+;     	0376    !AUTHOR: T.E. OSTEN
+;     	0377    GLOBAL BIND LEFTV=20;	!9-JUN-72
+LEFTV=:24
+;     	0400    REGISTER R;
+;     	0401    MACHOP BLT=#251,TTCALL=#051;
+;     	0402    BIND	VECTX	TYPE[0]=	BNFTBL<24,12>,
+;     	0403    	VECTX	SUBP[0]=	BNFTBL<12,12>,
+;     	0404    	VECTX	NUMBER[0]=	BNFTBL<0,12>,
+;     	0405    	VECTX	LEXNUM[0]=	BNFTBL<12,6>;
+;     	0406    FORWARD
+;     	0407    	CERR,		%(S,N,L)= OUTPUT THE MESSAGE: "CONFLICT IN ",.METANAME[.S]," AT NODE ",.N,
+;     	0410    			"WITH LEXEME" .L
+;     	0411    			)%
+;     	0412    	LEFT;		%(NODE,LAST,NAME)= CHECKS CONFLICTS WITH THE LEFT SON
+;     	0413    			OF EACH NODE
+;     	0414    			)%
+;     	0415    EXTERNAL OUTZ,INIT,OCTOUT,DECOUT;
+;     	0416    !******************************************************************************************************************
+;     	0417    ROUTINE DEC(N)=
+;     	0420    BEGIN
+;     	0421    	LOCAL A;
+;     	0422    	A_((.N MOD 10)+"0")^29;
+;     	0423    	N_.N/10;
+;     	0424    	IF .N NEQ 0 THEN DEC(.N);
+;     	0425    	TTCALL(3,A)
+;     	0426    END;
+;     	0427    !******************************************************************************************************************
+
+DEC:
+
+	JSP	12,.ENT.0			;00000		EXTERNAL
+	ADD	$S,SYNT.L+0			;00001	0421
+	MOVE	04,-2($F)			;00002	0422	FORMAL
+	IDIVI	04,12				;00003	
+	ADDI	05,60				;00004	
+	LSH	05,35				;00005	
+	MOVEM	05,1($F)			;00006		LOCAL
+	MOVEM	04,-2($F)			;00007	0424	FORMAL
+	JUMPE	04,L.1				;00010	
+	PUSH	$S,4				;00011	
+	PUSHJ	$S,DEC				;00012	
+	SUB	$S,SYNT.L+0			;00013	
+L.1:	TTCALL	$V,1($F)			;00014	0425	LOCAL
+	SUB	$S,SYNT.L+0			;00015	
+	JRST	$S,.EXT.0			;00016	0427	EXTERNAL
+
+
+;     	0430    ROUTINE CERR(S,N,L)=
+;     	0431    %(-----------------------------------------------------------------------------------------------------------------
+;     	0432    	S=	NUMBER OF THE METANAME STRING FROM THE LAST METASYMBOL
+;     	0433    	N=	NODE AT WHICH CONFLICT OCCURED
+;     	0434    	L=	LEXEME (OR TERMINAL) WHICH CONFLICTED
+;     	0435    		(RESULT OF THE AND)
+;     	0436    -----------------------------------------------------------------------------------------------------------------)%
+;     	0437    BEGIN
+;BLISS-10 3A(51)	9/12/73 1:46.33		LEFT.BLI		PAGE 5-2
+
+;     	0440    	OUTZ(3,PLIT'%CONFLICT IN ');
+;     	0441    	OUTZ(3,.METANAME[.S]);
+;     	0442    	OUTZ(3,PLIT' AT NODE ');
+;     	0443    	DECOUT(3,4,.N);
+;     	0444    	OUTZ(3,PLIT' WITH ');
+;     	0445    	VREG_FIRSTONE(.L);
+;     	0446    	IF .VREG GTR LASTLEX THEN
+;     	0447    	BEGIN
+;     	0450    		VREG_.VREG-LASTLEX;
+;     	0451    		OUTZ(3,PLIT'ACTION ?0');
+;     	0452    		OUTZ(3,.ACTIONNAME[.VREG])
+;%WARN#000      ::ACTIONNAME
+;     	0453    	END
+;     	0454    	ELSE
+;     	0455    	BEGIN
+;     	0456    		OUTZ(3,PLIT'LEXEME ');
+;     	0457    		OUTZ(3,.LEXNAME[.N])
+;     	0460    	END;
+;     	0461    	OUTZ(3,PLIT'%?M?J');
+;     	0462    	R_.R+1
+;     	0463    END;
+;     	0464    !******************************************************************************************************************
+
+CERR:
+
+	JSP	12,.ENT.0			;00000		EXTERNAL
+	PUSH	$S,SYNT.L+1			;00001	0440
+	PUSH	$S,SYNT.C+0			;00002	
+	PUSHJ	$S,OUTZ				;00003		EXTERNAL
+	SUB	$S,SYNT.L+2			;00004	
+	PUSH	$S,SYNT.L+1			;00005	0441
+	MOVE	$V,-4($F)			;00006		FORMAL
+	PUSH	$S,SYNT.P+230($V)		;00007	
+	PUSHJ	$S,OUTZ				;00010		EXTERNAL
+	SUB	$S,SYNT.L+2			;00011	
+	PUSH	$S,SYNT.L+1			;00012	0442
+	PUSH	$S,SYNT.C+1			;00013	
+	PUSHJ	$S,OUTZ				;00014		EXTERNAL
+	SUB	$S,SYNT.L+2			;00015	
+	PUSH	$S,SYNT.L+1			;00016	0443
+	PUSH	$S,SYNT.L+3			;00017	
+	PUSH	$S,-3($F)			;00020		FORMAL
+	PUSHJ	$S,DECOUT			;00021		EXTERNAL
+	SUB	$S,SYNT.L+4			;00022	
+	PUSH	$S,SYNT.L+1			;00023	0444
+	PUSH	$S,SYNT.C+2			;00024	
+	PUSHJ	$S,OUTZ				;00025		EXTERNAL
+	SUB	$S,SYNT.L+2			;00026	
+	MOVE	04,-2($F)			;00027	0445	FORMAL
+	JFFO	04,L.2				;00030	
+	SETO	05,0				;00031	
+L.2:	MOVE	$V,5				;00032	0446
+	CAIG	$V,30				;00033	
+	JRST	$S,L.3				;00034	
+	SUBI	$V,30				;00035	0451
+	PUSH	$S,SYNT.L+1			;00036	
+	PUSH	$S,SYNT.C+3			;00037	
+;BLISS-10 3A(51)	9/12/73 1:46.34		LEFT.BLI		PAGE 5-3
+
+	PUSHJ	$S,OUTZ				;00040		EXTERNAL
+	SUB	$S,SYNT.L+2			;00041	
+	PUSH	$S,SYNT.L+1			;00042	0452
+	PUSH	$S,ACTIONNAME($V)		;00043	0453	EXTERNAL
+	JRST	$S,L.4				;00044	
+L.3:	PUSH	$S,SYNT.L+1			;00045	0454
+	PUSH	$S,SYNT.C+4			;00046	
+	PUSHJ	$S,OUTZ				;00047		EXTERNAL
+	SUB	$S,SYNT.L+2			;00050	
+	PUSH	$S,SYNT.L+1			;00051	0457
+	MOVE	$V,-3($F)			;00052	0460	FORMAL
+	PUSH	$S,SYNT.P+65($V)		;00053	
+L.4:	PUSHJ	$S,OUTZ				;00054		EXTERNAL
+	SUB	$S,SYNT.L+2			;00055	
+	PUSH	$S,SYNT.L+1			;00056	0461
+	PUSH	$S,SYNT.C+5			;00057	
+	PUSHJ	$S,OUTZ				;00060		EXTERNAL
+	SUB	$S,SYNT.L+2			;00061	
+	AOJ	17,0				;00062	0462
+	MOVE	$V,17				;00063	0464
+	JRST	$S,.EXT.0			;00064		EXTERNAL
+
+
+;     	0465    BIND VECTOR TFIELD=PLIT(
+;     	0466    %1%	PLIT'LEXEME',
+;     	0467    %2%	PLIT'META',
+;     	0470    %3%	PLIT'ALL',
+;     	0471    %4%	PLIT'ONE',
+;     	0472    %5%	PLIT'OPTION',
+;     	0473    %6%	PLIT'LIST',
+;     	0474    %7%	PLIT'REPEAT',
+;     	0475    %8%	PLIT'ACTION',
+;     	0476    %9%	PLIT'TERMINAL')-1;
+;LEFTLEX=SYNT.O+1000
+;RIGHT=SYNT.O+1120
+;LEX=SYNT.O+1121
+;TRACE=SYNT.O+1122
+;START=SYNT.O+1123
+;     	0477    OWN VECTOR LEFTLEX[LLSIZE],RIGHT,LEX,TRACE,START;
+;     	0500    %(-----------------------------------------------------------------------------------------------------------------
+;     	0501    	LEFTLEX=A BIT MASK OF THE LEXEMES COMPRISING THE LEFT SON OF EACH
+;     	0502    		NODE IN THE BNF TABLE.
+;     	0503    	RIGHT=	THE RIGHT BROTHER OF THE CURRENT SON OF AN ALL.
+;     	0504    	LEX=	THE RESULT OF A LEXEME CONFLICT CHECK.
+;     	0505    -----------------------------------------------------------------------------------------------------------------)%
+;     	0506    ROUTINE TYPEOUT(N)=
+;     	0507    !------------------------------------------------------------------------------------------------------------------
+;     	0510    !	N= NODE TO BE TYPED
+;     	0511    !
+;     	0512    !TYPES: NODE(.N)= .TYPE, .SUBP, .NUMBER - .LEFTLEX
+;     	0513    !------------------------------------------------------------------------------------------------------------------
+;     	0514    BEGIN
+;     	0515    	OUTZ(3,PLIT'NODE(');T(3,4,@N);OUTZ(3,PLIT')= ');
+;     	0516    	OUTZ(3,.TFIELD[.TYPE[@N]]);
+;     	0517    	OUTZ(3,PLIT', ');DECOUT(3,4,.SUBP[@N]);OUTZ(3,PLIT', ');
+;     	0520    	IF .TYPE[@N] EQL LEXEME OR .TYPE[@N] EQL META THEN OUTZ(3,.METANAME[.NUMBER[@N]])
+;     	0521    		ELSE DECOUT(3,4,.NUMBER[@N]);
+;BLISS-10 3A(51)	9/12/73 1:46.37		LEFT.BLI		PAGE 5-4
+
+;     	0522    	IF @LEFTLEX[@N] NEQ 0 THEN
+;     	0523    	BEGIN
+;     	0524    		OUTZ(3,PLIT'?M?J	');
+;     	0525    		INCR I FROM -35 TO 0 DO
+;     	0526    		BEGIN
+;     	0527    			IF @LEFTLEX[@N]^@I THEN OUTZ(3,PLIT'X') ELSE OUTZ(3,PLIT'O');
+;     	0530    			IF (.I MOD 3) EQL 0 THEN OUTZ(3,PLIT' ')
+;     	0531    		END;
+;     	0532    	END;
+;     	0533    	OUTZ(3,PLIT'?M?J')
+;     	0534    END;
+;     	0535    !******************************************************************************************************************
+
+TYPEOUT:
+
+	JSP	12,.ENT.0			;00000		EXTERNAL
+	PUSH	$S,16				;00001	
+	PUSH	$S,13				;00002	
+	PUSH	$S,SYNT.L+1			;00003	0515
+	PUSH	$S,SYNT.C+6			;00004	
+	PUSHJ	$S,OUTZ				;00005		EXTERNAL
+	SUB	$S,SYNT.L+2			;00006	
+	PUSH	$S,SYNT.L+1			;00007	
+	PUSH	$S,SYNT.L+3			;00010	
+	PUSH	$S,-2($F)			;00011		FORMAL
+	PUSHJ	$S,DECOUT			;00012		EXTERNAL
+	SUB	$S,SYNT.L+4			;00013	
+	PUSH	$S,SYNT.L+1			;00014	
+	PUSH	$S,SYNT.C+7			;00015	
+	PUSHJ	$S,OUTZ				;00016		EXTERNAL
+	SUB	$S,SYNT.L+2			;00017	
+	PUSH	$S,SYNT.L+1			;00020	0516
+	MOVE	$V,-2($F)			;00021		FORMAL
+	ADD	$V,SYNT.C+10			;00022	
+	LDB	04,3				;00023	
+	PUSH	$S,SYNT.P+461(04)		;00024	
+	PUSHJ	$S,OUTZ				;00025		EXTERNAL
+	SUB	$S,SYNT.L+2			;00026	
+	PUSH	$S,SYNT.L+1			;00027	0517
+	PUSH	$S,SYNT.C+11			;00030	
+	PUSHJ	$S,OUTZ				;00031		EXTERNAL
+	SUB	$S,SYNT.L+2			;00032	
+	PUSH	$S,SYNT.L+1			;00033	
+	PUSH	$S,SYNT.L+3			;00034	
+	MOVE	$V,-2($F)			;00035		FORMAL
+	ADD	$V,SYNT.C+12			;00036	
+	LDB	05,3				;00037	
+	PUSH	$S,5				;00040	
+	PUSHJ	$S,DECOUT			;00041		EXTERNAL
+	SUB	$S,SYNT.L+4			;00042	
+	PUSH	$S,SYNT.L+1			;00043	
+	PUSH	$S,SYNT.C+13			;00044	
+	PUSHJ	$S,OUTZ				;00045		EXTERNAL
+	SUB	$S,SYNT.L+2			;00046	
+	MOVE	06,-2($F)			;00047	0520	FORMAL
+	ADD	06,SYNT.C+10			;00050	
+	LDB	07,6				;00051	
+;BLISS-10 3A(51)	9/12/73 1:46.39		LEFT.BLI		PAGE 5-5
+
+	MOVEI	10,1				;00052	
+	CAIE	07,1				;00053	
+	SETZ	10,0				;00054	
+	LDB	11,6				;00055	
+	MOVEI	12,1				;00056	
+	CAIE	11,2				;00057	
+	SETZ	12,0				;00060	
+	IOR	10,12				;00061	
+	TRNN	10,1				;00062	
+	JRST	$S,L.5				;00063	
+	PUSH	$S,SYNT.L+1			;00064	
+	MOVE	$V,-2($F)			;00065	0521	FORMAL
+	ADD	$V,SYNT.C+14			;00066	
+	LDB	04,3				;00067	
+	PUSH	$S,SYNT.P+230(04)		;00070	
+	PUSHJ	$S,OUTZ				;00071		EXTERNAL
+	SUB	$S,SYNT.L+2			;00072	
+	JRST	$S,L.6				;00073	
+L.5:	PUSH	$S,SYNT.L+1			;00074	
+	PUSH	$S,SYNT.L+3			;00075	
+	MOVE	$V,-2($F)			;00076		FORMAL
+	ADD	$V,SYNT.C+14			;00077	
+	LDB	04,3				;00100	
+	PUSH	$S,4				;00101	
+	PUSHJ	$S,DECOUT			;00102		EXTERNAL
+	SUB	$S,SYNT.L+4			;00103	
+L.6:	MOVE	04,-2($F)			;00104	0522	FORMAL
+	SKIPN	05,SYNT.O+1000(04)		;00105	
+	JRST	$S,L.7				;00106	
+	PUSH	$S,SYNT.L+1			;00107	0524
+	PUSH	$S,SYNT.C+15			;00110	
+	PUSHJ	$S,OUTZ				;00111		EXTERNAL
+	SUB	$S,SYNT.L+2			;00112	
+	MOVNI	16,43				;00113	0525
+L.10:	MOVE	06,-2($F)			;00114	0526	FORMAL
+	MOVE	11,SYNT.O+1000(06)		;00115	
+	LSH	11,0(16)			;00116	
+	TRNN	11,1				;00117	
+	JRST	$S,L.11				;00120	
+	PUSH	$S,SYNT.L+1			;00121	
+	PUSH	$S,SYNT.C+16			;00122	
+	JRST	$S,L.12				;00123	
+L.11:	PUSH	$S,SYNT.L+1			;00124	
+	PUSH	$S,SYNT.C+17			;00125	
+L.12:	PUSHJ	$S,OUTZ				;00126		EXTERNAL
+	SUB	$S,SYNT.L+2			;00127	
+	MOVE	12,16				;00130	0530
+	IDIVI	12,3				;00131	
+	JUMPN	13,L.13				;00132	
+	PUSH	$S,SYNT.L+1			;00133	
+	PUSH	$S,SYNT.C+20			;00134	0531
+	PUSHJ	$S,OUTZ				;00135		EXTERNAL
+	SUB	$S,SYNT.L+2			;00136	
+L.13:	AOJLE	16,L.10				;00137	0532
+	JRST	$S,L.7				;00140	
+L.7:	PUSH	$S,SYNT.L+1			;00141	
+	PUSH	$S,SYNT.C+21			;00142	0534
+;BLISS-10 3A(51)	9/12/73 1:46.39		LEFT.BLI		PAGE 5-6
+
+	PUSHJ	$S,OUTZ				;00143		EXTERNAL
+	SUB	$S,SYNT.L+2			;00144	
+	POP	$S,13				;00145	0535
+	POP	$S,16				;00146	
+	JRST	$S,.EXT.0			;00147		EXTERNAL
+
+
+;     	0536    ROUTINE DECIN=
+;     	0537    BEGIN
+;     	0540    	REGISTER R1,R2;
+;     	0541    	R1_R2_0;
+;     	0542    	UNTIL (TTCALL(4,R1);.R1) EQL #015 OR .R1 EQL #012 DO
+;     	0543    		R2_(.R2*10)+(.R1-"0");
+;     	0544    	.R2
+;     	0545    END;
+;     	0546    !******************************************************************************************************************
+
+DECIN:
+
+	JSP	12,.ENT.0			;00000		EXTERNAL
+	PUSH	$S,16				;00001	
+	PUSH	$S,15				;00002	
+	SETZ	15,0				;00003	0541
+	MOVE	16,15				;00004	
+L.14:	TTCALL	04,16				;00005	
+	MOVEI	05,1				;00006	0543
+	CAIE	16,15				;00007	
+	SETZ	05,0				;00010	
+	MOVEI	06,1				;00011	
+	CAIE	16,12				;00012	
+	SETZ	06,0				;00013	
+	IOR	05,6				;00014	
+	TRNE	05,1				;00015	
+	JRST	$S,L.15				;00016	
+	MOVE	07,15				;00017	0544
+	IMULI	07,12				;00020	
+	ADD	07,16				;00021	
+	SUBI	07,60				;00022	
+	MOVE	15,7				;00023	
+	JRST	$S,L.14				;00024	
+L.15:	MOVE	$V,15				;00025	
+	POP	$S,15				;00026	0546
+	POP	$S,16				;00027	
+	JRST	$S,.EXT.0			;00030		EXTERNAL
+
+
+;     	0547    ROUTINE LEFT(NODE,LAST,NAME)=
+;     	0550    %(-----------------------------------------------------------------------------------------------------------------
+;     	0551    	NODE=	THE CURRENT LOCATION IN THE BNF TABLE (BNFTBL).
+;     	0552    	LAST=	THE RIGHT BROTHER OF THE CURRENT NODE AT THE LAST ALL.
+;     	0553    		INITIALLY SET TO ZERO.
+;     	0554    	NAME=	LOCATION IN THE METANAME TABLE OF THE LAST META.
+;     	0555    -----------------------------------------------------------------------------------------------------------------)%
+;     	0556    BEGIN
+;     	0557    	LOCAL SON;
+;     	0560    	IF .TRACE THEN (OUTZ(3,PLIT'BEGIN - ');TYPEOUT(@NODE));
+;     	0561    	CASE .TYPE[@NODE] OF SET
+;BLISS-10 3A(51)	9/12/73 1:46.41		LEFT.BLI		PAGE 5-7
+
+;     	0562    %CASE 0%		EXITCASE;
+;     	0563    %CASE 1-LEXEME%	LEFTLEX[@NODE]_1^.LEXNUM[@NODE];
+;     	0564    %CASE 2-META%	BEGIN
+;     	0565    			IF .LEFTLEX[.SUBP[@NODE]] EQL 0 THEN
+;     	0566    			BEGIN
+;     	0567    				LEFTLEX[.SUBP[@NODE]]<35,1>_1;	!INDICATE NODE ALREADY SEEN
+;     	0570    				LEFT(.SUBP[@NODE],@LAST,.NUMBER[@NODE]);
+;     	0571    			END;
+;     	0572    			LEFTLEX[@NODE]_@LEFTLEX[.SUBP[@NODE]];
+;     	0573    		END;
+;     	0574    %CASE 3-ALL%	BEGIN
+;     	0575    			RIGHT_@LAST;
+;     	0576    			SON_.SUBP[@NODE]+.NUMBER[@NODE]+1;
+;     	0577    			WHILE (SON_.SON-1) GEQ .SUBP[@NODE] DO
+;     	0600    			BEGIN
+;     	0601    				LEFT(@SON,@RIGHT,@NAME);
+;     	0602    				RIGHT_@SON
+;     	0603    			END;
+;     	0604    			WHILE (SON_.SON+1) LEQ .SUBP[@NODE]+.NUMBER[@NODE] DO
+;     	0605    			BEGIN
+;     	0606    				LEFTLEX[@NODE]_@LEFTLEX[@NODE] OR @LEFTLEX[@SON];
+;     	0607    				IF .TYPE[@SON] NEQ OPTION THEN EXITLOOP	
+;     	0610    			END;
+;     	0611    			LEFTLEX[@NODE]_@LEFTLEX[@NODE] OR @LEFTLEX[@SON];
+;     	0612    		END;
+;     	0613    %CASE 4-ONE%	BEGIN
+;     	0614    			SON_.SUBP[@NODE]+.NUMBER[@NODE]+1;
+;     	0615    			WHILE (SON_.SON-1) GEQ .SUBP[@NODE] DO
+;     	0616    			BEGIN
+;     	0617    				LEFT(@SON,@LAST,@NAME);
+;     	0620    				IF (LEX_@LEFTLEX[@NODE] AND @LEFTLEX[@SON] AND NOT 1^35) NEQ 0
+;     	0621    					THEN CERR(@NAME,@NODE,.LEX);
+;     	0622    				LEFTLEX[@NODE]_@LEFTLEX[@NODE] OR @LEFTLEX[@SON];
+;     	0623    			END;
+;     	0624    		END;
+;     	0625    %CASE 5-OPTION%	BEGIN
+;     	0626    			SON_.SUBP[@NODE]+.NUMBER[@NODE]+1;
+;     	0627    			WHILE (SON_.SON-1) GEQ .SUBP[@NODE] DO
+;     	0630    			BEGIN
+;     	0631    				LEFT(@SON,@LAST,@NAME);
+;     	0632    				IF (LEX_@LEFTLEX[@NODE] AND @LEFTLEX[@SON] AND NOT 1^35) NEQ 0
+;     	0633    					THEN CERR(@NAME,@NODE,.LEX);
+;     	0634    				LEFTLEX[@NODE]_@LEFTLEX[@NODE] OR @LEFTLEX[@SON];
+;     	0635    			END;
+;     	0636    		END;
+;     	0637    %CASE 6-LIST%	BEGIN
+;     	0640    			LEFT(.SUBP[@NODE],@LAST,@NAME);
+;     	0641    			LEFTLEX[@NODE]_@LEFTLEX[.SUBP[@NODE]];
+;     	0642    		END;
+;     	0643    %CASE 7-REPEAT%	BEGIN
+;     	0644    			LEFT(.SUBP[@NODE],@LAST,@NAME);
+;     	0645    			LEFTLEX[@NODE]_@LEFTLEX[.SUBP[@NODE]];
+;     	0646    			RIGHT_IF @LAST NEQ 0 THEN @LEFTLEX[@LAST] ELSE 0;
+;     	0647    			IF (LEX_@LEFTLEX[@NODE] AND @RIGHT AND NOT 1^35) NEQ 0
+;     	0650    				 THEN CERR(@NAME,@NODE,@LEX);
+;     	0651    		END;
+;     	0652    %CASE 8-ACTION%	LEFTLEX[@NODE]_(1^LASTLEX)^.SUBP[@NODE];
+;BLISS-10 3A(51)	9/12/73 1:46.48		LEFT.BLI		PAGE 5-8
+
+;     	0653    %CASE 9-TERMINAL%	LEFTLEX[@NODE]_1^.SUBP[@NODE]
+;     	0654    		TES;
+;     	0655    		IF .TRACE THEN (OUTZ(3,PLIT'  END - ');TYPEOUT(@NODE));
+;     	0656    END;
+
+LEFT:
+
+	JSP	12,.ENT.0			;00000		EXTERNAL
+	ADD	$S,SYNT.L+0			;00001	0557
+	MOVE	04,SYNT.O+1122			;00002	0560
+	TRNN	04,1				;00003	
+	JRST	$S,L.16				;00004	
+	PUSH	$S,SYNT.L+1			;00005	
+	PUSH	$S,SYNT.C+22			;00006	
+	PUSHJ	$S,OUTZ				;00007		EXTERNAL
+	SUB	$S,SYNT.L+2			;00010	
+	PUSH	$S,-4($F)			;00011		FORMAL
+	PUSHJ	$S,TYPEOUT			;00012	
+	SUB	$S,SYNT.L+0			;00013	
+L.16:	MOVE	05,-4($F)			;00014	0561	FORMAL
+	ADD	05,SYNT.C+10			;00015	
+	LDB	06,5				;00016	
+	XCT	$S,L.17(06)			;00017	
+	JRST	$S,L.20				;00020	
+L.17:	JRST	$S,L.20				;00021	
+	JRST	$S,L.21				;00022	
+	JRST	$S,L.22				;00023	
+	JRST	$S,L.23				;00024	
+	JRST	$S,L.24				;00025	
+	JRST	$S,L.25				;00026	
+	JRST	$S,L.26				;00027	
+	JRST	$S,L.27				;00030	
+	JRST	$S,L.30				;00031	
+	JRST	$S,L.31				;00032	
+L.21:	MOVE	$V,-4($F)			;00033	0564	FORMAL
+	MOVE	07,3				;00034	
+	ADD	07,SYNT.C+23			;00035	
+	JRST	$S,L.32				;00036	
+L.22:	MOVE	07,-4($F)			;00037	0565	FORMAL
+	ADD	07,SYNT.C+12			;00040	
+	LDB	10,7				;00041	
+	SKIPE	11,SYNT.O+1000(10)		;00042	
+	JRST	$S,L.33				;00043	
+	MOVEI	04,1				;00044	0570
+	DPB	04,SYNT.C+24			;00045	
+	LDB	05,7				;00046	
+	PUSH	$S,5				;00047	
+	PUSH	$S,-3($F)			;00050		FORMAL
+	MOVE	$V,-4($F)			;00051		FORMAL
+	ADD	$V,SYNT.C+14			;00052	
+	LDB	06,3				;00053	
+	PUSH	$S,6				;00054	
+	PUSHJ	$S,LEFT				;00055	
+	SUB	$S,SYNT.L+4			;00056	
+L.33:	MOVE	04,-4($F)			;00057	0571	FORMAL
+	MOVE	05,4				;00060	
+	ADD	05,SYNT.C+12			;00061	
+;BLISS-10 3A(51)	9/12/73 1:46.50		LEFT.BLI		PAGE 5-9
+
+	LDB	06,5				;00062	
+	MOVE	07,SYNT.O+1000(06)		;00063	
+	MOVEM	07,SYNT.O+1000(04)		;00064	
+	JRST	$S,L.20				;00065	0574
+L.23:	MOVE	07,-3($F)			;00066	0575	FORMAL
+	MOVEM	07,SYNT.O+1120			;00067	
+	MOVE	10,-4($F)			;00070	0577	FORMAL
+	ADD	10,SYNT.C+12			;00071	
+	MOVE	11,-4($F)			;00072		FORMAL
+	ADD	11,SYNT.C+14			;00073	
+	LDB	12,10				;00074	
+	LDB	04,11				;00075	
+	ADD	12,4				;00076	
+	AOJ	12,0				;00077	
+	MOVEM	12,1($F)			;00100		LOCAL
+L.34:	SOS	05,1($F)			;00101	0600	LOCAL
+	MOVE	06,-4($F)			;00102		FORMAL
+	ADD	06,SYNT.C+12			;00103	
+	LDB	07,6				;00104	
+	CAMGE	05,7				;00105	
+	JRST	$S,L.35				;00106	
+	PUSH	$S,5				;00107	0601
+	PUSH	$S,SYNT.O+1120			;00110	
+	PUSH	$S,-2($F)			;00111		FORMAL
+	PUSHJ	$S,LEFT				;00112	
+	SUB	$S,SYNT.L+4			;00113	
+	MOVE	$V,1($F)			;00114	0602	LOCAL
+	MOVEM	$V,SYNT.O+1120			;00115	
+	JRST	$S,L.34				;00116	0604
+L.35:	AOS	11,1($F)			;00117	0605	LOCAL
+	MOVE	04,-4($F)			;00120		FORMAL
+	ADD	04,SYNT.C+12			;00121	
+	MOVE	12,-4($F)			;00122		FORMAL
+	ADD	12,SYNT.C+14			;00123	
+	LDB	06,4				;00124	
+	LDB	07,12				;00125	
+	ADD	06,7				;00126	
+	CAMLE	11,6				;00127	
+	JRST	$S,L.36				;00130	
+	MOVE	05,-4($F)			;00131	0607	FORMAL
+	MOVE	04,SYNT.O+1000(11)		;00132	
+	IORB	04,SYNT.O+1000(05)		;00133	
+	ADD	11,SYNT.C+10			;00134	
+	LDB	12,11				;00135	
+	CAIN	12,5				;00136	
+	JRST	$S,L.35				;00137	
+L.36:	MOVE	06,1($F)			;00140	0611	LOCAL
+	MOVE	10,-4($F)			;00141		FORMAL
+	MOVE	05,SYNT.O+1000(06)		;00142	
+	IORB	05,SYNT.O+1000(10)		;00143	
+	JRST	$S,L.20				;00144	0613
+L.24:	MOVE	07,-4($F)			;00145	0614	FORMAL
+	ADD	07,SYNT.C+12			;00146	
+	MOVE	10,-4($F)			;00147		FORMAL
+	ADD	10,SYNT.C+14			;00150	
+	LDB	11,7				;00151	
+	LDB	12,10				;00152	
+;BLISS-10 3A(51)	9/12/73 1:46.51		LEFT.BLI		PAGE 5-10
+
+	ADD	11,12				;00153	
+	AOJ	11,0				;00154	
+	MOVEM	11,1($F)			;00155		LOCAL
+L.37:	SOS	04,1($F)			;00156	0616	LOCAL
+	MOVE	05,-4($F)			;00157		FORMAL
+	ADD	05,SYNT.C+12			;00160	
+	LDB	06,5				;00161	
+	CAMGE	04,6				;00162	
+	JRST	$S,L.20				;00163	
+	PUSH	$S,4				;00164	0617
+	PUSH	$S,-3($F)			;00165		FORMAL
+	PUSH	$S,-2($F)			;00166		FORMAL
+	PUSHJ	$S,LEFT				;00167	
+	SUB	$S,SYNT.L+4			;00170	
+	MOVE	10,-4($F)			;00171	0620	FORMAL
+	MOVE	12,1($F)			;00172		LOCAL
+	MOVE	11,SYNT.O+1000(12)		;00173	
+	AND	11,SYNT.O+1000(10)		;00174	
+	AND	11,SYNT.L+5			;00175	
+	MOVEM	11,SYNT.O+1121			;00176	
+	JUMPE	11,L.40				;00177	
+	PUSH	$S,-2($F)			;00200		FORMAL
+	PUSH	$S,10				;00201	
+	PUSH	$S,11				;00202	
+	PUSHJ	$S,CERR				;00203	
+	SUB	$S,SYNT.L+4			;00204	
+L.40:	MOVE	06,1($F)			;00205	0622	LOCAL
+	MOVE	07,-4($F)			;00206		FORMAL
+	MOVE	04,SYNT.O+1000(06)		;00207	
+	IORB	04,SYNT.O+1000(07)		;00210	
+	JRST	$S,L.37				;00211	0624
+L.25:	MOVE	07,-4($F)			;00212	0626	FORMAL
+	ADD	07,SYNT.C+12			;00213	
+	MOVE	10,-4($F)			;00214		FORMAL
+	ADD	10,SYNT.C+14			;00215	
+	LDB	11,7				;00216	
+	LDB	12,10				;00217	
+	ADD	11,12				;00220	
+	AOJ	11,0				;00221	
+	MOVEM	11,1($F)			;00222		LOCAL
+L.41:	SOS	04,1($F)			;00223	0630	LOCAL
+	MOVE	05,-4($F)			;00224		FORMAL
+	ADD	05,SYNT.C+12			;00225	
+	LDB	06,5				;00226	
+	CAMGE	04,6				;00227	
+	JRST	$S,L.20				;00230	
+	PUSH	$S,4				;00231	0631
+	PUSH	$S,-3($F)			;00232		FORMAL
+	PUSH	$S,-2($F)			;00233		FORMAL
+	PUSHJ	$S,LEFT				;00234	
+	SUB	$S,SYNT.L+4			;00235	
+	MOVE	10,-4($F)			;00236	0632	FORMAL
+	MOVE	12,1($F)			;00237		LOCAL
+	MOVE	11,SYNT.O+1000(12)		;00240	
+	AND	11,SYNT.O+1000(10)		;00241	
+	AND	11,SYNT.L+5			;00242	
+	MOVEM	11,SYNT.O+1121			;00243	
+;BLISS-10 3A(51)	9/12/73 1:46.51		LEFT.BLI		PAGE 5-11
+
+	JUMPE	11,L.42				;00244	
+	PUSH	$S,-2($F)			;00245		FORMAL
+	PUSH	$S,10				;00246	
+	PUSH	$S,11				;00247	
+	PUSHJ	$S,CERR				;00250	
+	SUB	$S,SYNT.L+4			;00251	
+L.42:	MOVE	06,1($F)			;00252	0634	LOCAL
+	MOVE	07,-4($F)			;00253		FORMAL
+	MOVE	04,SYNT.O+1000(06)		;00254	
+	IORB	04,SYNT.O+1000(07)		;00255	
+	JRST	$S,L.41				;00256	0636
+L.26:	MOVE	$V,-4($F)			;00257	0640	FORMAL
+	ADD	$V,SYNT.C+12			;00260	
+	LDB	07,3				;00261	
+	PUSH	$S,7				;00262	
+	PUSH	$S,-3($F)			;00263		FORMAL
+	PUSH	$S,-2($F)			;00264		FORMAL
+	PUSHJ	$S,LEFT				;00265	
+	SUB	$S,SYNT.L+4			;00266	
+	MOVE	10,-4($F)			;00267	0641	FORMAL
+	MOVE	11,10				;00270	
+	ADD	11,SYNT.C+12			;00271	
+	LDB	12,11				;00272	
+	MOVE	04,SYNT.O+1000(12)		;00273	
+	MOVEM	04,SYNT.O+1000(10)		;00274	
+	JRST	$S,L.20				;00275	0643
+L.27:	MOVE	$V,-4($F)			;00276	0644	FORMAL
+	ADD	$V,SYNT.C+12			;00277	
+	LDB	07,3				;00300	
+	PUSH	$S,7				;00301	
+	PUSH	$S,-3($F)			;00302		FORMAL
+	PUSH	$S,-2($F)			;00303		FORMAL
+	PUSHJ	$S,LEFT				;00304	
+	SUB	$S,SYNT.L+4			;00305	
+	MOVE	10,-4($F)			;00306	0645	FORMAL
+	MOVE	11,10				;00307	
+	ADD	11,SYNT.C+12			;00310	
+	LDB	12,11				;00311	
+	MOVE	04,SYNT.O+1000(12)		;00312	
+	MOVEM	04,SYNT.O+1000(10)		;00313	
+	SKIPE	05,-3($F)			;00314		FORMAL
+	SKIPA	$V,SYNT.O+1000(05)		;00315	
+	SETZ	$V,0				;00316	
+	MOVEM	$V,SYNT.O+1120			;00317	
+	MOVE	07,-4($F)			;00320	0650	FORMAL
+	MOVE	11,SYNT.O+1120			;00321	
+	AND	11,SYNT.O+1000(07)		;00322	
+	AND	11,SYNT.L+5			;00323	
+	MOVEM	11,SYNT.O+1121			;00324	
+	JUMPE	11,L.43				;00325	
+	PUSH	$S,-2($F)			;00326		FORMAL
+	PUSH	$S,7				;00327	
+	PUSH	$S,11				;00330	
+	PUSHJ	$S,CERR				;00331	
+	SUB	$S,SYNT.L+4			;00332	
+	JRST	$S,L.20				;00333	0651
+L.43:	JRST	$S,L.20				;00334	
+;BLISS-10 3A(51)	9/12/73 1:46.52		LEFT.BLI		PAGE 5-12
+
+L.30:	MOVE	$V,-4($F)			;00335	0653	FORMAL
+	MOVE	07,3				;00336	
+	ADD	07,SYNT.C+12			;00337	
+	HRLZI	10,100				;00340	
+	JRST	$S,L.44				;00341	
+L.31:	MOVE	$V,-4($F)			;00342	0654	FORMAL
+	MOVE	07,3				;00343	
+	ADD	07,SYNT.C+12			;00344	
+L.32:	MOVEI	10,1				;00345	
+L.44:	LDB	11,7				;00346	
+	LSH	10,0(11)			;00347	
+	MOVEM	10,SYNT.O+1000($V)		;00350	
+L.20:	MOVE	07,SYNT.O+1122			;00351	
+	TRNN	07,1				;00352	
+	JRST	$S,L.45				;00353	
+	PUSH	$S,SYNT.L+1			;00354	
+	PUSH	$S,SYNT.C+25			;00355	
+	PUSHJ	$S,OUTZ				;00356		EXTERNAL
+	SUB	$S,SYNT.L+2			;00357	
+	PUSH	$S,-4($F)			;00360		FORMAL
+	PUSHJ	$S,TYPEOUT			;00361	
+	SUB	$S,SYNT.L+0			;00362	
+L.45:	SETZ	$V,0				;00363	0656
+	SUB	$S,SYNT.L+0			;00364	
+	JRST	$S,.EXT.0			;00365	0657	EXTERNAL
+
+
+;ANDS=SYNT.O+1124
+;ANDBRANCHE=SYNT.O+1125
+;ORS=SYNT.O+1126
+;ORBRANCHES=SYNT.O+1127
+;     	0657    OWN ANDS,ANDBRANCHES,ORS,ORBRANCHES;
+;     	0660    LEFTLEX[0]_0;
+;     	0661    R<18,18>_LEFTLEX[0];
+;     	0662    R<0,18>_LEFTLEX[0]+1;
+;     	0663    BLT(R,LEFTLEX[LLSIZE]);
+;     	0664    !CLEAR LEFTLEX TABLE
+;     	0665    INIT();	!3=DSK:LKAHD.BLI
+;     	0666    R_0;
+;     	0667    TTCALL(3,PLIT'?M?JSTART TRACE AT NODE #(0=NONE):');START_DECIN();
+;     	0670    TTCALL(3,PLIT'?M?J');
+;     	0671    TRACE_IF .START EQL 1 THEN 1 ELSE 0;
+;     	0672    !------------------------------------------------------------------------------------------------------------------
+;     	0673    !THE CODE THAT FOLLOWS ASSUMES THAT BNFTBL[1] IS THE BEGINNING OF THE
+;     	0674    !DEFINITION OF THE FIRST METASYMBOL WHOSE NAME IS METANAME[1].
+;     	0675    !------------------------------------------------------------------------------------------------------------------
+;     	0676    LEFTLEX[1]<35,1>_1;	!INDICATES NODE ALREADY SEEN
+;     	0677    LEFT(1,0,1);
+;     	0700    ANDS_ANDBRANCHES_ORS_ORBRANCHES_0;
+;     	0701    INCR I FROM 2 TO @BNFTBL-1 DO
+;     	0702    BEGIN
+;     	0703    	IF .START EQL .I THEN TRACE_1;
+;     	0704    	IF .TYPE[@I] EQL META AND .LEFTLEX[@I]<0,35> EQL 0 THEN (LEFT(.I,0,.NUMBER[.I]);TRACE_0);
+;     	0705    	IF .TYPE[@I] EQL ONE THEN (ORS_.ORS+1;ORBRANCHES_.ORBRANCHES+.NUMBER[@I]);
+;     	0706    	IF .TYPE[@I] EQL ALL THEN (ANDS_.ANDS+1;ANDBRANCHES_.ANDBRANCHES+.NUMBER[@I]);
+;     	0707    END;
+;     	0710    INCR I FROM 2 TO @BNFTBL-1 DO
+;BLISS-10 3A(51)	9/12/73 1:46.55		LEFT.BLI		PAGE 5-13
+
+;     	0711    BEGIN
+;     	0712    	IF .START EQL .I THEN TRACE_1;
+;     	0713    	IF .LEFTLEX[@I]<0,35> EQL 0 THEN 
+;     	0714    	BEGIN
+;     	0715    		LEFT(.I,0,.NUMBER[.I]);
+;     	0716    		TRACE_0;
+;     	0717    		IF .TYPE[@I] EQL ONE THEN (ORS_.ORS+1;ORBRANCHES_.ORBRANCHES+.NUMBER[@I]);
+;     	0720    		IF .TYPE[@I] EQL ALL THEN (ANDS_.ANDS+1;ANDBRANCHES_.ANDBRANCHES+.NUMBER[@I]);
+;     	0721    	END
+;     	0722    END;
+;     	0723    DEC(.R);TTCALL(3,PLIT ' CONFLICTS EXIST?M?J');
+;     	0724    TTCALL(3,PLIT'# OF ANDS: ');DEC(.ANDS);
+;     	0725    TTCALL(3,PLIT'?M?J# OF AND BRANCHES: ');DEC(.ANDBRANCHES);
+;     	0726    TTCALL(3,PLIT'?M?J# OF ORS: ');DEC(.ORS);
+;     	0727    TTCALL(3,PLIT'?M?J# OF OR BRANCHES: ');DEC(.ORBRANCHES);TTCALL(3,PLIT'?M?J');
+;     	0730    OUTZ(3,PLIT'?M?J!THE FOLLOWING TABLE WAS PRODUCED BY THE BLISS MODULE "LEFT.BLI"?M?J');
+;     	0731    OUTZ(3,PLIT'?M?JBIND VECTOR LOOKAHEAD=PLIT(?M?J%');
+;     	0732    INCR I FROM 1 TO @BNFTBL-1 DO
+;     	0733    BEGIN
+;     	0734    	DECOUT(3,4,@I);OUTZ(3,PLIT'%	#');OCTOUT(3,12,.LEFTLEX[@I]<0,35>);
+;     	0735    	IF .LEFTLEX[@I]<0,30> LSS #100000 THEN OUTZ(3,PLIT',		%')
+;     	0736    		ELSE OUTZ(3,PLIT',	%');
+;     	0737    	OUTZ(3,.TFIELD[.TYPE[@I]]);OUTZ(3,PLIT', ');
+;     	0740    	IF .TYPE[@I] EQL LEXEME THEN OCTOUT(3,4,.SUBP[@I]) ELSE DECOUT(3,4,.SUBP[@I]);
+;     	0741    	OUTZ(3,PLIT', ');
+;     	0742    	IF .TYPE[@I] EQL LEXEME OR .TYPE[@I] EQL META
+;     	0743    		THEN OUTZ(3,.METANAME[.NUMBER[@I]])
+;     	0744    		ELSE DECOUT(3,4,.NUMBER[@I]);
+;     	0745    	OUTZ(3,PLIT'%?M?J%');
+;     	0746    END;
+;     	0747    DECOUT(3,4,@BNFTBL);
+;     	0750    OUTZ(3,PLIT'%	0)-1;?M?J?L?0');
+;     	0751    END
+;     	0752    ELUDOM
+
+SYNT.F::
+
+	HRRZI	$B,SYNT.O+0			;00000	0001
+	HRLI	$S,-767				;00001	
+	HRRZI	$F,11($B)			;00002	
+	HRR	$S,2				;00003	
+	ADD	$S,SYNT.L+4			;00004	
+	SETZM	$S,SYNT.O+1000			;00005	0006
+	MOVE	04,SYNT.C+26			;00006	0662
+	HRL	17,4				;00007	
+	MOVE	05,SYNT.C+27			;00010	0663
+	HRR	17,5				;00011	
+	BLT	17,SYNT.O+1120			;00012	
+	PUSHJ	$S,INIT				;00013	0664	EXTERNAL
+	SETZ	17,0				;00014	0667
+	TTCALL	$V,SYNT.P+524			;00015	
+	PUSHJ	$S,DECIN			;00016	
+	MOVEM	$V,SYNT.O+1123			;00017	0670
+	TTCALL	$V,SYNT.P+534			;00020	
+	MOVE	06,SYNT.O+1123			;00021	0671
+	CAIE	06,1				;00022	
+	JRST	$S,L.46				;00023	
+;BLISS-10 3A(51)	9/12/73 1:47.1		LEFT.BLI		PAGE 5-14
+
+	MOVEI	$V,1				;00024	
+	JRST	$S,L.47				;00025	
+L.46:	SETZ	$V,0				;00026	
+L.47:	MOVEM	$V,SYNT.O+1122			;00027	
+	MOVEI	10,1				;00030	0677
+	DPB	10,SYNT.C+30			;00031	
+	PUSH	$S,10				;00032	
+	PUSH	$S,SYNT.L+6			;00033	
+	PUSH	$S,10				;00034	
+	PUSHJ	$S,LEFT				;00035	
+	SUB	$S,SYNT.L+4			;00036	
+	SETZM	$S,SYNT.O+1127			;00037	0700
+	SETZM	$S,SYNT.O+1126			;00040	
+	SETZM	$S,SYNT.O+1125			;00041	
+	SETZM	$S,SYNT.O+1124			;00042	
+	MOVEI	16,2				;00043	
+	MOVE	11,SYNT.P+266			;00044	0702
+	SOJ	11,0				;00045	
+	MOVEM	11,1($F)			;00046		LOCAL
+L.50:	CAMLE	16,1($F)			;00047		LOCAL
+	JRST	$S,L.51				;00050	
+	CAME	16,SYNT.O+1123			;00051	0703
+	JRST	$S,L.52				;00052	
+	MOVEI	04,1				;00053	0704
+	MOVEM	04,SYNT.O+1122			;00054	
+L.52:	MOVE	04,16				;00055	
+	ADD	04,SYNT.C+10			;00056	
+	LDB	05,4				;00057	
+	MOVEI	06,1				;00060	
+	CAIE	05,2				;00061	
+	SETZ	06,0				;00062	
+	LDB	07,SYNT.C+31			;00063	
+	MOVEI	10,1				;00064	
+	CAIE	07,0				;00065	
+	SETZ	10,0				;00066	
+	AND	06,10				;00067	
+	TRNN	06,1				;00070	
+	JRST	$S,L.53				;00071	
+	PUSH	$S,16				;00072	
+	PUSH	$S,SYNT.L+6			;00073	
+	MOVE	$V,16				;00074	
+	ADD	$V,SYNT.C+14			;00075	
+	LDB	11,3				;00076	
+	PUSH	$S,11				;00077	
+	PUSHJ	$S,LEFT				;00100	
+	SUB	$S,SYNT.L+4			;00101	
+	SETZM	$S,SYNT.O+1122			;00102	
+L.53:	MOVE	11,16				;00103	0705
+	ADD	11,SYNT.C+10			;00104	
+	LDB	12,11				;00105	
+	CAIE	12,4				;00106	
+	JRST	$S,L.54				;00107	
+	AOS	05,SYNT.O+1126			;00110	
+	MOVE	$V,16				;00111	
+	ADD	$V,SYNT.C+14			;00112	
+	LDB	07,3				;00113	
+	ADDB	07,SYNT.O+1127			;00114	
+;BLISS-10 3A(51)	9/12/73 1:47.1		LEFT.BLI		PAGE 5-15
+
+L.54:	MOVE	05,16				;00115	0706
+	ADD	05,SYNT.C+10			;00116	
+	LDB	07,5				;00117	
+	CAIE	07,3				;00120	
+	JRST	$S,L.55				;00121	
+	AOS	06,SYNT.O+1124			;00122	
+	MOVE	$V,16				;00123	
+	ADD	$V,SYNT.C+14			;00124	
+	LDB	11,3				;00125	
+	ADDB	11,SYNT.O+1125			;00126	
+L.55:	AOJA	16,L.50				;00127	0707
+L.51:	MOVEI	16,2				;00130	
+	MOVE	06,SYNT.P+266			;00131	0711
+	SOJ	06,0				;00132	
+	MOVEM	06,2($F)			;00133		LOCAL
+L.56:	CAMLE	16,2($F)			;00134		LOCAL
+	JRST	$S,L.57				;00135	
+	CAME	16,SYNT.O+1123			;00136	0712
+	JRST	$S,L.60				;00137	
+	MOVEI	12,1				;00140	0713
+	MOVEM	12,SYNT.O+1122			;00141	
+L.60:	LDB	12,SYNT.C+31			;00142	0714
+	JUMPN	12,L.61				;00143	
+	PUSH	$S,16				;00144	0715
+	PUSH	$S,SYNT.L+6			;00145	
+	MOVE	$V,16				;00146	
+	ADD	$V,SYNT.C+14			;00147	
+	LDB	05,3				;00150	
+	PUSH	$S,5				;00151	
+	PUSHJ	$S,LEFT				;00152	
+	SUB	$S,SYNT.L+4			;00153	
+	SETZM	$S,SYNT.O+1122			;00154	0716
+	MOVE	07,16				;00155	
+	ADD	07,SYNT.C+10			;00156	
+	LDB	10,7				;00157	
+	CAIE	10,4				;00160	
+	JRST	$S,L.62				;00161	
+	AOS	11,SYNT.O+1126			;00162	
+	MOVE	$V,16				;00163	
+	ADD	$V,SYNT.C+14			;00164	
+	LDB	12,3				;00165	
+	ADDB	12,SYNT.O+1127			;00166	
+L.62:	MOVE	11,16				;00167	0720
+	ADD	11,SYNT.C+10			;00170	
+	LDB	12,11				;00171	
+	CAIE	12,3				;00172	
+	JRST	$S,L.61				;00173	
+	AOS	05,SYNT.O+1124			;00174	
+	MOVE	$V,16				;00175	
+	ADD	$V,SYNT.C+14			;00176	
+	LDB	07,3				;00177	
+	ADDB	07,SYNT.O+1125			;00200	
+L.61:	AOJA	16,L.56				;00201	0721
+L.57:	PUSH	$S,17				;00202	
+	PUSHJ	$S,DEC				;00203	
+	SUB	$S,SYNT.L+0			;00204	
+	TTCALL	$V,SYNT.P+536			;00205	
+;BLISS-10 3A(51)	9/12/73 1:47.1		LEFT.BLI		PAGE 5-16
+
+	TTCALL	$V,SYNT.P+543			;00206	0724
+	PUSH	$S,SYNT.O+1124			;00207	
+	PUSHJ	$S,DEC				;00210	
+	SUB	$S,SYNT.L+0			;00211	
+	TTCALL	$V,SYNT.P+547			;00212	0725
+	PUSH	$S,SYNT.O+1125			;00213	
+	PUSHJ	$S,DEC				;00214	
+	SUB	$S,SYNT.L+0			;00215	
+	TTCALL	$V,SYNT.P+555			;00216	0726
+	PUSH	$S,SYNT.O+1126			;00217	
+	PUSHJ	$S,DEC				;00220	
+	SUB	$S,SYNT.L+0			;00221	
+	TTCALL	$V,SYNT.P+561			;00222	0727
+	PUSH	$S,SYNT.O+1127			;00223	
+	PUSHJ	$S,DEC				;00224	
+	SUB	$S,SYNT.L+0			;00225	
+	TTCALL	$V,SYNT.P+566			;00226	
+	PUSH	$S,SYNT.L+1			;00227	0730
+	PUSH	$S,SYNT.C+32			;00230	
+	PUSHJ	$S,OUTZ				;00231		EXTERNAL
+	SUB	$S,SYNT.L+2			;00232	
+	PUSH	$S,SYNT.L+1			;00233	0731
+	PUSH	$S,SYNT.C+33			;00234	
+	PUSHJ	$S,OUTZ				;00235		EXTERNAL
+	SUB	$S,SYNT.L+2			;00236	
+	MOVEI	16,1				;00237	0732
+	MOVE	05,SYNT.P+266			;00240	0733
+	SOJ	05,0				;00241	
+	MOVEM	05,3($F)			;00242		LOCAL
+L.63:	CAMLE	16,3($F)			;00243		LOCAL
+	JRST	$S,L.64				;00244	
+	PUSH	$S,SYNT.L+1			;00245	0734
+	PUSH	$S,SYNT.L+3			;00246	
+	PUSH	$S,16				;00247	
+	PUSHJ	$S,DECOUT			;00250		EXTERNAL
+	SUB	$S,SYNT.L+4			;00251	
+	PUSH	$S,SYNT.L+1			;00252	
+	PUSH	$S,SYNT.C+34			;00253	
+	PUSHJ	$S,OUTZ				;00254		EXTERNAL
+	SUB	$S,SYNT.L+2			;00255	
+	PUSH	$S,SYNT.L+1			;00256	
+	PUSH	$S,SYNT.L+7			;00257	
+	LDB	07,SYNT.C+31			;00260	
+	PUSH	$S,7				;00261	
+	PUSHJ	$S,OCTOUT			;00262		EXTERNAL
+	SUB	$S,SYNT.L+4			;00263	
+	LDB	10,SYNT.C+35			;00264	0735
+	CAIL	10,100000			;00265	
+	JRST	$S,L.65				;00266	
+	PUSH	$S,SYNT.L+1			;00267	
+	PUSH	$S,SYNT.C+36			;00270	0736
+	JRST	$S,L.66				;00271	
+L.65:	PUSH	$S,SYNT.L+1			;00272	
+	PUSH	$S,SYNT.C+37			;00273	
+L.66:	PUSHJ	$S,OUTZ				;00274		EXTERNAL
+	SUB	$S,SYNT.L+2			;00275	
+	PUSH	$S,SYNT.L+1			;00276	0737
+;BLISS-10 3A(51)	9/12/73 1:47.2		LEFT.BLI		PAGE 5-17
+
+	MOVE	$V,16				;00277	
+	ADD	$V,SYNT.C+10			;00300	
+	LDB	11,3				;00301	
+	PUSH	$S,SYNT.P+461(11)		;00302	
+	PUSHJ	$S,OUTZ				;00303		EXTERNAL
+	SUB	$S,SYNT.L+2			;00304	
+	PUSH	$S,SYNT.L+1			;00305	
+	PUSH	$S,SYNT.C+40			;00306	
+	PUSHJ	$S,OUTZ				;00307		EXTERNAL
+	SUB	$S,SYNT.L+2			;00310	
+	MOVE	12,16				;00311	0740
+	ADD	12,SYNT.C+10			;00312	
+	LDB	04,12				;00313	
+	CAIE	04,1				;00314	
+	JRST	$S,L.67				;00315	
+	PUSH	$S,SYNT.L+1			;00316	
+	PUSH	$S,SYNT.L+3			;00317	
+	MOVE	$V,16				;00320	
+	ADD	$V,SYNT.C+12			;00321	
+	LDB	07,3				;00322	
+	PUSH	$S,7				;00323	
+	PUSHJ	$S,OCTOUT			;00324		EXTERNAL
+	JRST	$S,L.70				;00325	
+L.67:	PUSH	$S,SYNT.L+1			;00326	
+	PUSH	$S,SYNT.L+3			;00327	
+	MOVE	$V,16				;00330	
+	ADD	$V,SYNT.C+12			;00331	
+	LDB	07,3				;00332	
+	PUSH	$S,7				;00333	
+	PUSHJ	$S,DECOUT			;00334		EXTERNAL
+L.70:	SUB	$S,SYNT.L+4			;00335	
+	PUSH	$S,SYNT.L+1			;00336	0741
+	PUSH	$S,SYNT.C+41			;00337	
+	PUSHJ	$S,OUTZ				;00340		EXTERNAL
+	SUB	$S,SYNT.L+2			;00341	
+	MOVE	07,16				;00342	0742
+	ADD	07,SYNT.C+10			;00343	
+	LDB	10,7				;00344	
+	MOVEI	06,1				;00345	
+	CAIE	10,1				;00346	
+	SETZ	06,0				;00347	
+	LDB	11,7				;00350	
+	MOVEI	12,1				;00351	
+	CAIE	11,2				;00352	
+	SETZ	12,0				;00353	
+	IOR	06,12				;00354	
+	TRNN	06,1				;00355	
+	JRST	$S,L.71				;00356	
+	PUSH	$S,SYNT.L+1			;00357	
+	MOVE	$V,16				;00360	0744
+	ADD	$V,SYNT.C+14			;00361	
+	LDB	04,3				;00362	
+	PUSH	$S,SYNT.P+230(04)		;00363	
+	PUSHJ	$S,OUTZ				;00364		EXTERNAL
+	SUB	$S,SYNT.L+2			;00365	
+	JRST	$S,L.72				;00366	
+L.71:	PUSH	$S,SYNT.L+1			;00367	
+;BLISS-10 3A(51)	9/12/73 1:47.2		LEFT.BLI		PAGE 5-18
+
+	PUSH	$S,SYNT.L+3			;00370	
+	MOVE	$V,16				;00371	
+	ADD	$V,SYNT.C+14			;00372	
+	LDB	04,3				;00373	
+	PUSH	$S,4				;00374	
+	PUSHJ	$S,DECOUT			;00375		EXTERNAL
+	SUB	$S,SYNT.L+4			;00376	
+L.72:	PUSH	$S,SYNT.L+1			;00377	0745
+	PUSH	$S,SYNT.C+42			;00400	
+	PUSHJ	$S,OUTZ				;00401		EXTERNAL
+	SUB	$S,SYNT.L+2			;00402	
+	AOJA	16,L.63				;00403	0746
+L.64:	PUSH	$S,SYNT.L+1			;00404	
+	PUSH	$S,SYNT.L+3			;00405	
+	PUSH	$S,SYNT.P+266			;00406	
+	PUSHJ	$S,DECOUT			;00407		EXTERNAL
+	SUB	$S,SYNT.L+4			;00410	
+	PUSH	$S,SYNT.L+1			;00411	0750
+	PUSH	$S,SYNT.C+43			;00412	
+	PUSHJ	$S,OUTZ				;00413		EXTERNAL
+	SUB	$S,SYNT.L+2			;00414	
+	SETZ	$V,0				;00415	0751
+	SUB	$S,SYNT.L+4			;00416	
+	CALLI 	$S,12				;00417	0753
+
+
+
+
+;SPECIAL REGISTER DECLARATIONS
+
+$S=:	0
+$B=:	1
+$F=:	2
+$V=:	3
+
+
+;EXTERNAL REQUESTS
+
+EXTERN	OCTOUT,INIT,ACTIONNAME,DECOUT,OUTZ
+
+;PLIT AREA
+
+SYNT.P::
+XWD	000000,000002	;00000
+XWD	422371,446202	;00001
+XWD	510000,000000	;00002
+XWD	000000,000002	;00003
+XWD	462232,451650	;00004
+XWD	512231,643400	;00005
+XWD	000000,000002	;00006
+XWD	462410,151212	;00007
+XWD	470000,000000	;00010
+XWD	000000,000002	;00011
+XWD	512410,151212	;00012
+XWD	470000,000000	;00013
+XWD	000000,000002	;00014
+XWD	406472,442644	;00015
+;BLISS-10 3A(51)	9/12/73 1:47.4		LEFT.BLI		PAGE 5-19
+
+XWD	446471,300000	;00016
+XWD	000000,000001	;00017
+XWD	502312,551400	;00020
+XWD	000000,000001	;00021
+XWD	416371,546602	;00022
+XWD	000000,000001	;00023
+XWD	466231,652646	;00024
+XWD	000000,000002	;00025
+XWD	502132,244636	;00026
+XWD	420000,000000	;00027
+XWD	000000,000001	;00030
+XWD	516310,151620	;00031
+XWD	000000,000002	;00032
+XWD	416371,651650	;00033
+XWD	406352,400000	;00034
+XWD	000000,000001	;00035
+XWD	406071,040644	;00036
+XWD	000000,000001	;00037
+XWD	412071,040644	;00040
+XWD	000000,000001	;00041
+XWD	422071,040644	;00042
+XWD	000000,000001	;00043
+XWD	426071,040644	;00044
+XWD	000000,000001	;00045
+XWD	432071,040644	;00046
+XWD	000000,000001	;00047
+XWD	436071,040644	;00050
+XWD	000000,000001	;00051
+XWD	446071,040644	;00052
+XWD	000000,000001	;00053
+XWD	462071,040644	;00054
+XWD	000000,000001	;00055
+XWD	476071,040644	;00056
+XWD	000000,000001	;00057
+XWD	502071,040644	;00060
+XWD	000000,000001	;00061
+XWD	522071,040644	;00062
+XWD	000000,000001	;00063
+XWD	542071,040644	;00064
+XWD	000000,000027	;00065
+XWD	004400,SYNT.P+1	;00066
+XWD	004400,SYNT.P+4	;00067
+XWD	004400,SYNT.P+7	;00070
+XWD	004400,SYNT.P+12	;00071
+XWD	004400,SYNT.P+15	;00072
+XWD	004400,SYNT.P+20	;00073
+XWD	004400,SYNT.P+22	;00074
+XWD	004400,SYNT.P+24	;00075
+XWD	004400,SYNT.P+26	;00076
+XWD	004400,SYNT.P+31	;00077
+XWD	004400,SYNT.P+33	;00100
+XWD	004400,SYNT.P+36	;00101
+XWD	004400,SYNT.P+40	;00102
+XWD	004400,SYNT.P+42	;00103
+XWD	004400,SYNT.P+44	;00104
+XWD	004400,SYNT.P+46	;00105
+XWD	004400,SYNT.P+50	;00106
+;BLISS-10 3A(51)	9/12/73 1:47.4		LEFT.BLI		PAGE 5-20
+
+XWD	004400,SYNT.P+52	;00107
+XWD	004400,SYNT.P+54	;00110
+XWD	004400,SYNT.P+56	;00111
+XWD	004400,SYNT.P+60	;00112
+XWD	004400,SYNT.P+62	;00113
+XWD	004400,SYNT.P+64	;00114
+XWD	000000,000002	;00115
+XWD	432372,246602	;00116
+XWD	522472,042606	;00117
+XWD	000000,000002	;00120
+XWD	462410,151212	;00121
+XWD	470000,000000	;00122
+XWD	000000,000002	;00123
+XWD	432110,751236	;00124
+XWD	526400,000000	;00125
+XWD	000000,000002	;00126
+XWD	512410,151212	;00127
+XWD	470000,000000	;00130
+XWD	000000,000002	;00131
+XWD	462231,642634	;00132
+XWD	420000,000000	;00133
+XWD	000000,000003	;00134
+XWD	432230,546210	;00135
+XWD	422132,341644	;00136
+XWD	446412,447644	;00137
+XWD	000000,000001	;00140
+XWD	516310,151620	;00141
+XWD	000000,000001	;00142
+XWD	502312,551400	;00143
+XWD	000000,000001	;00144
+XWD	466231,652646	;00145
+XWD	000000,000002	;00146
+XWD	416371,651650	;00147
+XWD	406352,400000	;00150
+XWD	000000,000001	;00151
+XWD	502071,040644	;00152
+XWD	000000,000002	;00153
+XWD	472531,541212	;00154
+XWD	512370,600000	;00155
+XWD	000000,000003	;00156
+XWD	522571,742212	;00157
+XWD	516072,244640	;00160
+XWD	522372,200000	;00161
+XWD	000000,000003	;00162
+XWD	476350,542212	;00163
+XWD	516072,244640	;00164
+XWD	522372,200000	;00165
+XWD	000000,000001	;00166
+XWD	542071,040644	;00167
+XWD	000000,000001	;00170
+XWD	522071,040644	;00171
+XWD	000000,000002	;00172
+XWD	422371,446202	;00173
+XWD	510000,000000	;00174
+XWD	000000,000002	;00175
+XWD	462232,451650	;00176
+XWD	512231,643400	;00177
+;BLISS-10 3A(51)	9/12/73 1:47.4		LEFT.BLI		PAGE 5-21
+
+XWD	000000,000001	;00200
+XWD	436071,040644	;00201
+XWD	000000,000002	;00202
+XWD	502132,244636	;00203
+XWD	420000,000000	;00204
+XWD	000000,000001	;00205
+XWD	432071,040644	;00206
+XWD	000000,000001	;00207
+XWD	426071,040644	;00210
+XWD	000000,000001	;00211
+XWD	422071,040644	;00212
+XWD	000000,000001	;00213
+XWD	412071,040644	;00214
+XWD	000000,000001	;00215
+XWD	446071,040644	;00216
+XWD	000000,000001	;00217
+XWD	462071,040644	;00220
+XWD	000000,000001	;00221
+XWD	476071,040644	;00222
+XWD	000000,000001	;00223
+XWD	406071,040644	;00224
+XWD	000000,000002	;00225
+XWD	406472,442644	;00226
+XWD	446471,300000	;00227
+XWD	000000,000035	;00230
+XWD	004400,SYNT.P+116	;00231
+XWD	004400,SYNT.P+121	;00232
+XWD	004400,SYNT.P+124	;00233
+XWD	004400,SYNT.P+127	;00234
+XWD	004400,SYNT.P+132	;00235
+XWD	004400,SYNT.P+135	;00236
+XWD	004400,SYNT.P+141	;00237
+XWD	004400,SYNT.P+143	;00240
+XWD	004400,SYNT.P+145	;00241
+XWD	004400,SYNT.P+147	;00242
+XWD	004400,SYNT.P+152	;00243
+XWD	004400,SYNT.P+154	;00244
+XWD	004400,SYNT.P+157	;00245
+XWD	004400,SYNT.P+163	;00246
+XWD	004400,SYNT.P+167	;00247
+XWD	004400,SYNT.P+171	;00250
+XWD	004400,SYNT.P+173	;00251
+XWD	004400,SYNT.P+176	;00252
+XWD	004400,SYNT.P+201	;00253
+XWD	004400,SYNT.P+203	;00254
+XWD	004400,SYNT.P+206	;00255
+XWD	004400,SYNT.P+210	;00256
+XWD	004400,SYNT.P+212	;00257
+XWD	004400,SYNT.P+214	;00260
+XWD	004400,SYNT.P+216	;00261
+XWD	004400,SYNT.P+220	;00262
+XWD	004400,SYNT.P+222	;00263
+XWD	004400,SYNT.P+224	;00264
+XWD	004400,SYNT.P+226	;00265
+XWD	000000,000121	;00266
+XWD	000300,030003	;00267
+XWD	000200,070003	;00270
+;BLISS-10 3A(51)	9/12/73 1:47.5		LEFT.BLI		PAGE 5-22
+
+XWD	000100,030002	;00271
+XWD	000500,020000	;00272
+XWD	000100,040004	;00273
+XWD	000100,300005	;00274
+XWD	000600,130001	;00275
+XWD	000100,120007	;00276
+XWD	000200,140006	;00277
+XWD	000500,100000	;00300
+XWD	000300,110001	;00301
+XWD	000400,500010	;00302
+XWD	000100,060010	;00303
+XWD	000100,100011	;00304
+XWD	000201,160014	;00305
+XWD	000400,150001	;00306
+XWD	000100,130012	;00307
+XWD	000100,250013	;00310
+XWD	000500,170000	;00311
+XWD	000200,610015	;00312
+XWD	000201,160014	;00313
+XWD	000100,250013	;00314
+XWD	000500,250000	;00315
+XWD	000200,610015	;00316
+XWD	000100,030002	;00317
+XWD	000200,070003	;00320
+XWD	000100,040004	;00321
+XWD	000300,260002	;00322
+XWD	000200,610015	;00323
+XWD	000201,060016	;00324
+XWD	000100,270017	;00325
+XWD	000300,310002	;00326
+XWD	000201,160014	;00327
+XWD	000400,340004	;00330
+XWD	000100,260020	;00331
+XWD	000201,160014	;00332
+XWD	000100,030002	;00333
+XWD	000200,070003	;00334
+XWD	000100,040004	;00335
+XWD	000300,200004	;00336
+XWD	000300,410001	;00337
+XWD	000200,610015	;00340
+XWD	000201,060016	;00341
+XWD	000300,430001	;00342
+XWD	000100,010021	;00343
+XWD	000100,120007	;00344
+XWD	000100,020022	;00345
+XWD	000300,450002	;00346
+XWD	000401,040001	;00347
+XWD	000100,110024	;00350
+XWD	000201,160014	;00351
+XWD	000300,620001	;00352
+XWD	000201,160014	;00353
+XWD	000500,640000	;00354
+XWD	000300,650001	;00355
+XWD	000100,210023	;00356
+XWD	000500,670000	;00357
+XWD	000100,200025	;00360
+XWD	000100,170026	;00361
+;BLISS-10 3A(51)	9/12/73 1:47.5		LEFT.BLI		PAGE 5-23
+
+XWD	000100,160027	;00362
+XWD	000100,150030	;00363
+XWD	000201,160014	;00364
+XWD	000100,110024	;00365
+XWD	000201,160014	;00366
+XWD	000300,760002	;00367
+XWD	000400,720003	;00370
+XWD	000501,010000	;00371
+XWD	000300,700001	;00372
+XWD	000301,020001	;00373
+XWD	000301,140001	;00374
+XWD	000100,220031	;00375
+XWD	000100,230032	;00376
+XWD	000100,240033	;00377
+XWD	000100,140034	;00400
+XWD	000201,160014	;00401
+XWD	000401,070003	;00402
+XWD	000501,130000	;00403
+XWD	000401,170001	;00404
+XWD	000100,130012	;00405
+XWD	000100,050035	;00406
+XWD	000000,000000	;00407
+XWD	000000,000003	;00410
+XWD	226071,747214	;00411
+XWD	462230,352100	;00412
+XWD	446344,000000	;00413
+XWD	000000,000002	;00414
+XWD	202032,420234	;00415
+XWD	476110,520000	;00416
+XWD	000000,000002	;00417
+XWD	202571,152220	;00420
+XWD	200000,000000	;00421
+XWD	000000,000002	;00422
+XWD	406072,444636	;00423
+XWD	471000,000000	;00424
+XWD	000000,000002	;00425
+XWD	462133,042632	;00426
+XWD	425000,000000	;00427
+XWD	000000,000001	;00430
+XWD	224321,200000	;00431
+XWD	000000,000002	;00432
+XWD	462133,042632	;00433
+XWD	424000,000000	;00434
+XWD	000000,000001	;00435
+XWD	466132,440400	;00436
+XWD	000000,000001	;00437
+XWD	406311,400000	;00440
+XWD	000000,000001	;00441
+XWD	476350,500000	;00442
+XWD	000000,000002	;00443
+XWD	476412,444636	;00444
+XWD	470000,000000	;00445
+XWD	000000,000001	;00446
+XWD	462232,352000	;00447
+XWD	000000,000002	;00450
+XWD	512132,042602	;00451
+XWD	520000,000000	;00452
+;BLISS-10 3A(51)	9/12/73 1:47.5		LEFT.BLI		PAGE 5-24
+
+XWD	000000,000002	;00453
+XWD	406072,444636	;00454
+XWD	470000,000000	;00455
+XWD	000000,000002	;00456
+XWD	522132,246622	;00457
+XWD	472031,400000	;00460
+XWD	000000,000011	;00461
+XWD	004400,SYNT.P+433	;00462
+XWD	004400,SYNT.P+436	;00463
+XWD	004400,SYNT.P+440	;00464
+XWD	004400,SYNT.P+442	;00465
+XWD	004400,SYNT.P+444	;00466
+XWD	004400,SYNT.P+447	;00467
+XWD	004400,SYNT.P+451	;00470
+XWD	004400,SYNT.P+454	;00471
+XWD	004400,SYNT.P+457	;00472
+XWD	000000,000001	;00473
+XWD	472370,442520	;00474
+XWD	000000,000001	;00475
+XWD	245724,000000	;00476
+XWD	000000,000001	;00477
+XWD	261000,000000	;00500
+XWD	000000,000001	;00501
+XWD	261000,000000	;00502
+XWD	000000,000001	;00503
+XWD	064241,100000	;00504
+XWD	000000,000001	;00505
+XWD	540000,000000	;00506
+XWD	000000,000001	;00507
+XWD	474000,000000	;00510
+XWD	000000,000001	;00511
+XWD	200000,000000	;00512
+XWD	000000,000001	;00513
+XWD	064240,000000	;00514
+XWD	000000,000002	;00515
+XWD	412130,744634	;00516
+XWD	201324,000000	;00517
+XWD	000000,000002	;00520
+XWD	201010,547210	;00521
+XWD	201324,000000	;00522
+XWD	000000,000007	;00523
+XWD	064252,352202	;00524
+XWD	512504,052244	;00525
+XWD	406070,520202	;00526
+XWD	521011,647610	;00527
+XWD	425004,324140	;00530
+XWD	366351,747212	;00531
+XWD	245640,000000	;00532
+XWD	000000,000001	;00533
+XWD	064240,000000	;00534
+XWD	000000,000004	;00535
+XWD	202071,747214	;00536
+XWD	462230,352246	;00537
+XWD	202133,044646	;00540
+XWD	520321,200000	;00541
+XWD	000000,000003	;00542
+XWD	215011,743100	;00543
+;BLISS-10 3A(51)	9/12/73 1:47.6		LEFT.BLI		PAGE 5-25
+
+XWD	406350,451564	;00544
+XWD	200000,000000	;00545
+XWD	000000,000005	;00546
+XWD	064244,320236	;00547
+XWD	431010,147210	;00550
+XWD	202052,240634	;00551
+XWD	416210,551564	;00552
+XWD	200000,000000	;00553
+XWD	000000,000003	;00554
+XWD	064244,320236	;00555
+XWD	431011,751246	;00556
+XWD	351000,000000	;00557
+XWD	000000,000004	;00560
+XWD	064244,320236	;00561
+XWD	431011,751100	;00562
+XWD	412450,147206	;00563
+XWD	442132,335100	;00564
+XWD	000000,000001	;00565
+XWD	064240,000000	;00566
+XWD	000000,000016	;00567
+XWD	064244,152220	;00570
+XWD	425010,647630	;00571
+XWD	462372,744634	;00572
+XWD	435012,440604	;00573
+XWD	462124,053602	;00574
+XWD	515012,051236	;00575
+XWD	422530,342610	;00576
+XWD	202053,120250	;00577
+XWD	442124,041230	;00600
+XWD	446472,320232	;00601
+XWD	476112,546212	;00602
+XWD	201051,442614	;00603
+XWD	521350,246222	;00604
+XWD	210321,200000	;00605
+XWD	000000,000007	;00606
+XWD	064250,244634	;00607
+XWD	421012,642606	;00610
+XWD	522372,220230	;00611
+XWD	476371,340620	;00612
+XWD	426030,436640	;00613
+XWD	462232,424032	;00614
+XWD	051120,000000	;00615
+XWD	000000,000001	;00616
+XWD	224224,300000	;00617
+XWD	000000,000001	;00620
+XWD	260221,122400	;00621
+XWD	000000,000001	;00622
+XWD	260224,500000	;00623
+XWD	000000,000001	;00624
+XWD	261000,000000	;00625
+XWD	000000,000001	;00626
+XWD	261000,000000	;00627
+XWD	000000,000001	;00630
+XWD	224321,222400	;00631
+XWD	000000,000003	;00632
+XWD	224226,024532	;00633
+XWD	305661,505030	;00634
+;BLISS-10 3A(51)	9/12/73 1:47.6		LEFT.BLI		PAGE 5-26
+
+XWD	000000,000000	;00635
+
+
+;CONSTANT POINTERS
+
+SYNT.C::
+XWD	004400,SYNT.P+411	;00000
+XWD	004400,SYNT.P+415	;00001
+XWD	004400,SYNT.P+420	;00002
+XWD	004400,SYNT.P+423	;00003
+XWD	004400,SYNT.P+426	;00004
+XWD	004400,SYNT.P+431	;00005
+XWD	004400,SYNT.P+474	;00006
+XWD	004400,SYNT.P+476	;00007
+XWD	301400,SYNT.P+266	;00010
+XWD	004400,SYNT.P+500	;00011
+XWD	141400,SYNT.P+266	;00012
+XWD	004400,SYNT.P+502	;00013
+XWD	001400,SYNT.P+266	;00014
+XWD	004400,SYNT.P+504	;00015
+XWD	004400,SYNT.P+506	;00016
+XWD	004400,SYNT.P+510	;00017
+XWD	004400,SYNT.P+512	;00020
+XWD	004400,SYNT.P+514	;00021
+XWD	004400,SYNT.P+516	;00022
+XWD	140600,SYNT.P+266	;00023
+XWD	430110,SYNT.O+1000	;00024
+XWD	004400,SYNT.P+521	;00025
+XWD	004400,SYNT.O+1000	;00026
+XWD	004400,SYNT.O+1001	;00027
+XWD	430100,SYNT.O+1001	;00030
+XWD	004316,SYNT.O+1000	;00031
+XWD	004400,SYNT.P+570	;00032
+XWD	004400,SYNT.P+607	;00033
+XWD	004400,SYNT.P+617	;00034
+XWD	003616,SYNT.O+1000	;00035
+XWD	004400,SYNT.P+621	;00036
+XWD	004400,SYNT.P+623	;00037
+XWD	004400,SYNT.P+625	;00040
+XWD	004400,SYNT.P+627	;00041
+XWD	004400,SYNT.P+631	;00042
+XWD	004400,SYNT.P+633	;00043
+
+;LITERALS
+
+SYNT.L::
+
+XWD	000001,000001	;00000
+XWD	000000,000003	;00001
+XWD	000002,000002	;00002
+XWD	000000,000004	;00003
+XWD	000003,000003	;00004
+XWD	377777,777777	;00005
+XWD	000000,000000	;00006
+XWD	000000,000014	;00007
+
+RELOC		;TO LOW SEGMENT
+;BLISS-10 3A(51)	9/12/73 1:47.6		LEFT.BLI		PAGE 5-27
+
+
+;GLOBAL AREA
+SYNT.G::
+
+;OWN AREA
+SYNT.O::	BLOCK	1130
+
+
+	END	SYNT.F	;PSEUDO-OP FOR MACRO-10;BLISS-10 3A(51)	9/12/73 1:47.6		LEFT.BLI		PAGE 5-28
+
+IDENTIFIER BL  DECL    USED
+------------------------------
+A          03 00421   00422 00425 
+ACHAR      01 00021   00364 
+ACTION     01 00050   
+ACTIONNAME 02 00452   
+ALL        01 00043   00253 00265 00306 00312 00322 00323 00326 00332 00336 00341 00353 00356 00357 00360 00706 00720 
+ANDBRANCHE 01 00657   00700 00706 00706 00720 00720 00725 
+ANDS       01 00657   00700 00706 00706 00720 00720 00724 
+ASTERISK   01 00012   00372 
+BCHAR      01 00022   00347 
+BLT        01 00401   00663 
+BNFTBL     01 00251   00402 00403 00404 00405 00701 00710 00732 00747 
+CERR       01 00407   00430 00621 00633 00650 
+COMMA      01 00014   
+CONSTANT   01 00020   00273 00371 
+DCHAR      01 00023   00346 
+DEC        01 00417   00424 00723 00724 00725 00726 00727 
+DECIN      01 00536   00667 
+DECOUT     01 00415   00443 00515 00517 00521 00734 00740 00744 00747 
+DOLLAR     01 00006   00327 
+ECHAR      01 00024   00345 
+FCHAR      01 00025   00344 
+GCHAR      01 00026   00342 
+I          02 00053   
+I          02 00053   00053 
+I          02 00054   
+I          02 00054   00054 00054 
+I          02 00525   
+I          03 00525   00527 00530 
+I          01 00701   
+I          02 00701   00703 00704 00704 00704 00704 00705 00705 00706 00706 
+I          02 00710   00712 00713 00715 00715 00717 00717 00720 00720 
+I          02 00732   00734 00734 00735 00737 00740 00740 00740 00742 00742 00743 00744 
+ICHAR      01 00027   00361 
+INIT       01 00415   00665 
+L          02 00430   00445 
+LAST       02 00547   00570 00575 00617 00631 00640 00644 00646 00646 
+LASTLEX    01 00036   00446 00450 00652 
+LCHAR      01 00030   00362 
+LEFT       01 00412   00547 00570 00601 00617 00631 00640 00644 00677 00704 00715 
+LEFTLEX    01 00477   00477 00522 00527 00563 00565 00567 00572 00572 00606 00606 00606 00611 00611 00611 00620 00620 00622 00622 
+                      00622 00632 00632 00634 00634 00634 00641 00641 00645 00645 00646 00647 00652 00653 00660 00661 00662 00663 
+                      00676 00704 00713 00734 00735 
+LEFTV      01 00377   
+LEX        01 00477   00620 00621 00632 00633 00647 00650 
+LEXEME     01 00041   00255 00257 00260 00262 00267 00270 00273 00274 00300 00303 00305 00311 00315 00317 00321 00327 00330 00331 
+                      00334 00342 00344 00345 00346 00347 00351 00361 00362 00363 00364 00371 00372 00520 00740 00742 
+LEXNAME    01 00056   00056 00457 
+LEXNUM     01 00405   00405 00563 
+LINEND     01 00035   00260 00446 00450 00652 
+LIST       01 00046   00261 
+LITSTRING  01 00007   00331 
+LLSIZE     01 00247   00477 00663 
+LPAREN     01 00010   00255 00303 00317 
+META       01 00042   00254 00263 00271 00276 00277 00302 00304 00307 00310 00313 00316 00320 00324 00325 00335 00337 00350 00352 
+                      00365 00520 00704 00742 
+;BLISS-10 3A(51)	9/12/73 1:47.7		LEFT.BLI		PAGE 5-29
+
+IDENTIFIER BL  DECL    USED
+------------------------------
+METANAME   01 00207   00207 00441 00520 00743 
+MINUS      01 00015   00270 
+N          02 00417   00422 00423 00423 00424 00424 
+N          02 00430   00443 00457 
+N          02 00506   00515 00516 00517 00520 00520 00520 00521 00522 00527 
+NAME       02 00547   00601 00617 00621 00631 00633 00640 00644 00650 
+NODE       02 00547   00560 00561 00563 00563 00565 00567 00570 00570 00572 00572 00576 00576 00577 00604 00604 00606 00606 00611 
+                      00611 00614 00614 00615 00620 00621 00622 00622 00626 00626 00627 00632 00633 00634 00634 00640 00641 00641 
+                      00644 00645 00645 00647 00650 00652 00652 00653 00653 00655 
+NUMBER     01 00404   00404 00520 00521 00570 00576 00604 00614 00626 00704 00705 00706 00715 00717 00720 00743 00744 
+OCHAR      01 00031   00363 
+OCTOUT     01 00415   00734 00740 
+ONE        01 00044   00266 00272 00314 00333 00354 00366 00370 00705 00717 
+OPTION     01 00045   00256 00264 00275 00301 00340 00343 00355 00367 00607 
+ORBRANCHES 01 00657   00700 00705 00705 00717 00717 00727 
+ORS        01 00657   00700 00705 00705 00717 00717 00726 
+OUTZ       01 00415   00440 00441 00442 00444 00451 00452 00456 00457 00461 00515 00515 00516 00517 00517 00520 00524 00527 00527 
+                      00530 00533 00560 00655 00730 00731 00734 00735 00736 00737 00737 00741 00743 00745 00750 
+PCHAR      01 00032   00274 00300 
+PERIOD     01 00016   00334 00351 
+PLUS       01 00013   00267 
+R          01 00400   00462 00462 00661 00662 00663 00666 00723 
+R1         03 00540   00541 00542 00542 00542 00543 
+R2         03 00540   00541 00543 00543 00544 
+REPEAT     01 00047   
+RIGHT      01 00477   00575 00601 00602 00646 00647 
+RPAREN     01 00011   00257 00305 00321 
+S          02 00430   00441 
+SLASH      01 00017   00262 00330 
+SON        03 00557   00576 00577 00577 00601 00602 00604 00604 00606 00607 00611 00614 00615 00615 00617 00620 00622 00626 00627 
+                      00627 00631 00632 00634 
+STACK      00 00003   
+STACK      00 00003   
+START      01 00477   00667 00671 00703 00712 
+STRING     01 00053   
+STRING     02 00053   00053 
+SUBP       01 00403   00403 00517 00565 00567 00570 00572 00576 00577 00604 00614 00615 00626 00627 00640 00641 00644 00645 00652 
+                      00653 00740 00740 
+SYNTAX     00 00003   
+TCHAR      01 00033   00315 
+TERMINAL   01 00051   
+TFIELD     01 00465   00465 00516 00737 
+TRACE      01 00477   00560 00655 00671 00703 00704 00712 00716 
+TTCALL     01 00401   00425 00542 00667 00670 00723 00724 00725 00726 00727 00727 
+TYPE       01 00402   00402 00516 00520 00520 00561 00607 00704 00705 00706 00717 00720 00737 00740 00742 00742 
+TYPEOUT    01 00506   00560 00655 
+VECTX      01 00054   00402 00403 00404 00405 
+VECTX      02 00054   00054 
+XCHAR      01 00034   00311 
+
+
+# WARNINGS =   1
+# ERRORS =     0
+MODULE LENGTH =755+458
+LITERAL TABLE USED =     212 OF 512 ENTR  IES
+;BLISS-10 3A(51)	9/12/73 1:47.8		LEFT.BLI		PAGE 5-30
+
+STACK USED   = 291 OF 768 WORD    S
+MAX CORE USED =     10 + 33 K
+COMPILATION COMPLETE
+
+
+
+
+
+                                                                                                                                              P ,Q
