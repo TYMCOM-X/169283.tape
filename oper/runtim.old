@@ -1,0 +1,92 @@
+MODULE RUNTIM(DOLLAR,STACK=GLOBAL($CSTK$,#177),CCL,
+                FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+BEGIN
+
+
+REQUIRE KDEFS.BLI[7,107355];
+REQUIRE BTDEFS.BLI[7,107355];
+REQUIRE CDEFS.BLI[7,107355];
+REQUIRE JDEFS.BLI[7,107355];
+REQUIRE RDEFS.BLI[7,107355];
+REQUIRE UDEFS.BLI[7,107355];
+
+EXTERNAL JOBDDT;
+
+LOCAL KEEPCCLVREG, RETCSTK6;
+
+MACHOP  TTCALL=#051,
+        HALT  =#254;
+
+ROUTINE FOOR(RTNADR)=
+   BEGIN
+   LOCAL PDB$ PDB, X;
+
+   KBTIX$ := KCHTB$ := 0;
+   $CPOP(CPARM$, PDB);
+   $JLINK(.PDB);        % LINK TO ROUTINE ROUTINES %
+   X := .PDB[PD$PROG];
+   $UOUTL();
+   IF .JOBDDT NEQ 0 THEN
+      BEGIN
+      $UAPSZ($USPTR('PROCBASE = '));
+      $UAPOC(.PDB);
+      $UOUTL();
+      $UAPSZ($USPTR('STARTING ADDRESS = '));
+      $UAPOC(.X); $UOUTL()
+      END;
+   $UMESS($USPTR('EXECUTION'));
+   $UOUTL();
+   (.X)();    % invoke user's procedure %
+   $UOUTL();  % clear out any existing buffer contents %
+   $CFREEM(.PDB);
+   $UMESS($USPTR('EXECUTION COMPLETED'));  % reassuring message %
+   RTNADR _ EXCHJ($CSTK$,-1)
+
+   END;
+
+
+KEEPCCLVREG _ .VREG;
+
+IF .KEEPCCLVREG EQL 0 THEN
+  BEGIN
+  TTCALL(3,PLIT(ASCIZ'?M?JThis file may not be RUN directly.?M?J'));
+  HALT(4,0,0,0)
+  END;
+
+$CIHDT$ALIGN;
+$CISREN();
+
+$CDDT$RESET;
+
+BEGIN
+  MAP KFCB$ CTERM$;
+  CTERM$[K$RR] _ $KGLED;
+  CTERM$[K$WR] _ $KTYPL;
+  CTERM$[K$SCPR] _ $KILIO;
+  CTERM$[K$EXCEPT] _ $KIOAB
+END;
+
+
+IF .CSTK6$ EQL 0 THEN   % initializing %
+  BEGIN
+  CSTK6$ _ -1;
+  $UMESS($USPTR('CSTK6$ Initialized for RUNTIM'));
+  $COLAY()
+  END;
+
+IF .CSTK6$ EQL -1 THEN  % new execution instance %
+  CSTK6$ _ CREATE FOOR(.BREG)
+                AT $CGTZM(#777)
+                LENGTH #777
+                THEN EXCHJ($CSTK$,-1);
+
+RETCSTK6 _ EXCHJ(.CSTK6$,.BREG);
+
+IF .RETCSTK6 EQL -1 THEN
+   $CFREEM(.CSTK6$);
+CSTK6$ _ .RETCSTK6;
+
+$COLAY()
+
+END
+ELUDOM
