@@ -1,0 +1,533 @@
+MODULE GUTIL(DOLLAR,ENTRIES=($GIREC,$GERR,$GTOKN,$GEOPD,$GLIT,$GOPND,$GNITM,$GNFI,$GICHK,$GNSI,$GNRPI,$GNRI,$GALIGN),
+                                FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+  BEGIN
+  REQUIRE ADEFS.BLI[7,107355];
+  REQUIRE FDEFS.BLI[7,107355];
+  REQUIRE FPDEFS.BLI[7,107355];
+  REQUIRE GDEFS.BLI[7,107355];
+  REQUIRE UDEFS.BLI[7,107355];
+  REQUIRE SDEFS.BLI[7,107355];
+  REQUIRE TDEFS.BLI[7,107355];
+  REQUIRE ZDEFS.BLI[7,107355];
+  UNDECLARE $GIREC, $GERR, $GTOKN, $GALIGN;
+  UNDECLARE $GLIT,$GOPND, $GNITM, $GNFI, $GEOPD, $GICHK, $GNSI, $GNRPI, $GNRI;
+
+    MAP G$ GGBFP$;              % GLOBAL POINTER TO GAMMA REC.       %
+    MAP GDBG$ GDBGF$;
+    MAP Z$ ZBSTK$;
+
+
+%***
+  INITIALIZE A GAMMA FILE RECORD
+***%
+  GLOBAL ROUTINE $GIREC(TYPE,SIZE)=
+    BEGIN
+    $UZERO(GV$MAXGREC, .GGBFP$);
+    GGBFP$[G$LENGTH] := .SIZE;
+    GGBFP$[G$ID]     := .GGFID$;
+    GGBFP$[G$TYPE]   := .TYPE;
+    GGFID$ := .GGFID$ + 1;
+    END;
+
+%****
+   USER ERROR MESSAGE ROUTINE
+****%
+  GLOBAL ROUTINE $GERR(ERRNO,STKP)=
+    BEGIN
+    LOCAL LEVEL;
+    LEVEL := SELECT .ERRNO OF
+                        NSET
+                      507 : FV$WARNING;
+                      525 : FV$WARNING;
+                      526 : FV$WARNING;
+                      531 : FV$WARNING;
+                      532 : FV$WARNING;
+                OTHERWISE : FV$FATAL;
+                        TESN;
+    IF .ZBSTK$[Z$ERFL,.STKP] EQL AV$FALSE
+      THEN
+        $FERROR(.LEVEL,ZBSTK$[Z$ID,.STKP]<0,36>,.ERRNO,0);
+    END;
+
+%***
+  SUBSTITUTE A STANDARD FIELD OR LITERAL FOR THE ONE DETERMINED TO BE IN ERROR
+***%
+  GLOBAL ROUTINE $GEOPD(STKP,TYPE) =
+    BEGIN
+
+    MAP Z$ ZBSTK$;
+
+    IF .TYPE EQL ZV$NUMERIC   OR   .TYPE EQL ZV$DATE
+      THEN
+        BEGIN
+        IF .ZBSTK$[Z$ID,.STKP] EQL TV$NAME
+          THEN
+            BEGIN
+            ZBSTK$[Z$STP,.STKP]  := .GNFNP$;     % NUMERIC FIELD %
+            ZBSTK$[Z$DEFSTP,.STKP]:= .GNFDP$;
+            ZBSTK$[Z$INCSTP,.STKP]:= .GNFIP$;
+            END
+          ELSE
+            BEGIN
+            ZBSTK$[Z$STP,.STKP]    := .GNLNP$;   % NUMERIC LITERAL %
+            ZBSTK$[Z$ID,.STKP] := TV$INTLIT;
+            ZBSTK$[Z$INCSTP,.STKP] := .GNLIP$;
+            END;
+        ZBSTK$[Z$ICNT,.STKP] := 1;
+        ZBSTK$[Z$DCNT,.STKP] := 0;
+        END
+      ELSE
+        IF .ZBSTK$[Z$ID,.STKP] EQL TV$NAME
+          THEN
+            BEGIN
+            ZBSTK$[Z$STP,.STKP]    := .GCFNP$;   %STRING FIELD %
+            ZBSTK$[Z$DEFSTP,.STKP] := .GCFDP$;
+            ZBSTK$[Z$INCSTP,.STKP] := .GCFIP$;
+            END
+          ELSE
+            BEGIN
+            ZBSTK$[Z$STP,.STKP]    := .GCLNP$;   % STRING LITERAL %
+            ZBSTK$[Z$ID,.STKP] := TV$STRING;
+            ZBSTK$[Z$INCSTP,.STKP] := .GCLIP$;
+            END;
+    ZBSTK$[Z$DATATYP,.STKP] := .TYPE;
+    ZBSTK$[Z$ERFL,.STKP]    := AV$TRUE;
+    END;
+
+
+
+%****
+   PUSH THE CURRENT TOKEN ON TO THE STACK
+****%
+  GLOBAL ROUTINE $GTOKN=
+    BEGIN
+
+    $GPUSH(.GBTKN$,AV$SZTOK);
+
+    END;
+
+%***
+  STACK A LITERAL
+***%
+  GLOBAL ROUTINE $GLIT =
+    BEGIN
+
+    LOCAL FP$I PICTURE;
+    LOCAL S$ NAMESTE:INCSTE;
+    MAP Z$ ZBSTK$;
+    MAP A$ GBTKN$;
+
+    IF .GBTKN$[A$SBID] EQL TV$9CR               % IF THE TOKEN IS FOR @CR THEN STACK IT AND GET OUT. %
+      THEN
+        BEGIN
+        $GPUSH(.GBTKN$,AV$SZTOK);
+        RETURN 0;
+        END;
+
+    %**
+      GET THE LITERAL INCARNATION ENTRY VIA THE NAME ENTRY THEN STACK THE LITERAL 
+    **%
+
+    NAMESTE := $SGSTE(.GBTKN$[A$STP]);
+    INCSTE  := $SGSTE(.NAMESTE[S$LITINCP]);
+    $SFRNCH(.NAMESTE);
+    $GPUSH(.GBTKN$,AV$SZTOK+4);
+    ZBSTK$[Z$SBID,.ZSTKP$] := ZV$LIT;
+    ZBSTK$[Z$DEFSTP,.ZSTKP$] := .INCSTE[S$STPX];
+    ZBSTK$[Z$INCSTP,.ZSTKP$] := .INCSTE[S$STPX];
+
+    PICTURE := 0;
+    IF .GBTKN$[A$ID] EQL TV$STRING    OR
+       .GBTKN$[A$ID] EQL TV$CCLIT
+      THEN
+        BEGIN
+        PICTURE[FP$TYPE]   := FPV$STR;
+        PICTURE[FP$C]      := .INCSTE[S$NCHAR];
+        ZBSTK$[Z$DATATYP,.ZSTKP$] := ZV$STRING;
+        ZBSTK$[Z$LCHAR,.ZSTKP$]   := .INCSTE[S$NCHAR];
+        END
+      ELSE
+        IF .GBTKN$[A$ID] EQL TV$DTLIT
+          THEN
+            BEGIN
+            ZBSTK$[Z$DATATYP,.ZSTKP$] := ZV$DATE;
+            ZBSTK$[Z$ICNT   ,.ZSTKP$] := .INCSTE[S$NID];
+            ZBSTK$[Z$DCNT   ,.ZSTKP$] := .INCSTE[S$NDP];
+            ZBSTK$[Z$DTMP   ,.ZSTKP$][0] := .INCSTE[S$DTP][0];
+            ZBSTK$[Z$DTMP   ,.ZSTKP$][1] := .INCSTE[S$DTP][1];
+            END
+          ELSE
+            BEGIN
+            PICTURE[FP$SIGN]   := FPV$NSC;
+            PICTURE[FP$TYPE]   := FPV$NUM;
+            PICTURE[FP$SP2]    := FPV$TRUE;
+            PICTURE[FP$XI]     := .INCSTE[S$NID];
+            PICTURE[FP$DI]     := .INCSTE[S$NDP];
+            ZBSTK$[Z$DATATYP,.ZSTKP$] := ZV$NUMERIC;
+            ZBSTK$[Z$ICNT,.ZSTKP$] := .INCSTE[S$NID];
+            ZBSTK$[Z$DCNT,.ZSTKP$] := .INCSTE[S$NDP];
+            END;
+    ZBSTK$[Z$FP,.ZSTKP$] := .PICTURE;
+    $SFRNCH(.INCSTE);
+    IF .GICNF$ EQL ZV$SET                       % IF THE CONDITIONAL INPUT LIST FLAG IS SET THEN THIS
+                                                  IS THE CONDITIONAL LITERAL, SO SET THE INPUT CASE
+                                                  LIST FLAG.
+                                                %
+      THEN
+        GICLF$ := ZV$SET;
+    END;
+
+%***
+  SET UP A GAMMA N-TUPLE OPERAND USING A STACK ENTRY. G$OPTYP IS EQUAL TO GV$STP
+  SINCE IT IS INIT. TO ZERO AND GV$STP IS BOUND TO ZERO.
+***%
+  GLOBAL ROUTINE $GOPND(OPND) =
+    BEGIN
+    LOCAL GOPND;
+    LOCAL G$OPND GOPNDP;
+    MAP   Z$     ZBSTK$;
+
+    GOPND := 0;
+    GOPNDP := GOPND;
+    IF .ZBSTK$[Z$SBID,.OPND] EQL ZV$RPITEM
+      THEN
+        BEGIN
+        GOPNDP[0,G$OPTYP] := GV$RIP;
+        GOPNDP[0,G$RITYP] := .ZBSTK$[Z$RITYP,.OPND];        % THIS VALUE WAS DETERMINED, WHEN THE REPORT ITEM
+                                                                  WAS STACKED, ACCORDING TO THE CRITERIA STATED IN
+                                                                  THE GAMMA FILE DOCUMENTATION.
+                                                                    (IE GV4PAGENO,GV$PAGESIZ,ETC.)
+                                                                %
+        GOPNDP[0,G$OPVAL] := .ZBSTK$[Z$RPISTP,.OPND];       % THIS VALUE IS THE INCARNATION STP FOR THE
+                                                                  ASSOCIATED REPORT AND WEA ALSO ESTABLOSHED
+                                                                  WHEN THE REPORT ITEM WAS STACKED.
+                                                                %
+        END
+      ELSE
+        BEGIN
+        GOPNDP[0,G$OPTYP] :=
+           (SELECT .ZBSTK$[Z$SBID,.OPND] OF
+                  NSET
+              ZV$REL   : GV$STP;
+              ZV$LRSLT :
+                        BEGIN
+                        GOPNDP[0,G$NPTYPE] := .ZBSTK$[Z$RSLTYP,.OPND];
+                        GV$NP
+                        END;
+              ZV$FLD   :
+                        BEGIN
+                        IF .GMODE$ EQL GV$VRF
+                          THEN
+                            BEGIN
+                            ZBSTK$[Z$INCSTP,.OPND] := 0;
+                            SELECT .ZBSTK$[Z$DATATYP,.OPND] OF
+                                        NSET
+                                ZV$NUMERIC:
+                                    BEGIN
+                                    GOPNDP[0,G$OPDTYP] := GV$NUMERIC;
+                                    GOPNDP[0,G$OPICNT] := .ZBSTK$[Z$ICNT,.OPND];
+                                    GOPNDP[0,G$OPDCNT] := .ZBSTK$[Z$DCNT,.OPND];
+                                    END;
+                                ZV$STRING:
+                                    BEGIN
+                                    GOPNDP[0,G$OPDTYP] := GV$STRING;
+                                    GOPNDP[0,G$OPNCHAR]:= .ZBSTK$[Z$LCHAR,.OPND];
+                                    END;
+                                ZV$DATE:
+                                    BEGIN
+                                    GOPNDP[0,G$OPDTYP] := GV$DATE;
+                                    GOPNDP[0,G$OPICNT] := 8;
+                                    GOPNDP[0,G$OPDCNT] := 0;
+                                    END;
+                                        TESN;
+                            GV$PARAM
+                            END
+                          ELSE
+                            GV$STP
+                        END;
+              ZV$NRSLT :
+                        BEGIN
+                        GOPNDP[0,G$NPTYPE] := .ZBSTK$[Z$RSLTYP,.OPND];
+                        GV$NP
+                        END;
+              ZV$LIT   : GV$LIT;
+              ZV$DRSLT :
+                        BEGIN
+                        GOPNDP[0,G$NPTYPE] := .ZBSTK$[Z$RSLTYP,.OPND];
+                        GV$NP
+                        END;
+              ZV$SRSLT :
+                        BEGIN
+                        GOPNDP[0,G$NPTYPE] := .ZBSTK$[Z$RSLTYP,.OPND];
+                        GV$NP
+                        END;
+                  TESN      );
+        GOPNDP[0,G$OPVAL] := .ZBSTK$[Z$INCSTP,.OPND];
+        END;
+
+    .GOPND
+    END;
+
+%***
+  CREATE AN ITEM ENTRY
+***%
+  GLOBAL ROUTINE $GNITM(DEFP) =
+    BEGIN
+
+    LOCAL S$ ITEMP;
+    MAP   S$ DEFP;
+
+    ITEMP := $SGSTSP(SV$ITEM);
+    ITEMP[S$STP1] := .DEFP[S$STP1];
+    ITEMP[S$ISTP] := SV$NULL;
+    ITEMP[S$FDSTP]:= .DEFP[S$STPX];
+    ITEMP[S$DDBT] := SV$NONE;
+    ITEMP[S$TPKI] := SV$NULL;
+    ITEMP[S$PKI]  := 0;
+    ITEMP[S$KDFLG]:= SV$DATAF;
+    ITEMP[S$RSFSN]:= .DEFP[S$RSFSN];
+    ITEMP[S$RSDSTP] := SV$NULL;
+    ITEMP[S$NOCF]   := SV$FALSE;
+    ITEMP[S$RSBO]   := 0;
+    DEFP[S$RSFSN] := .ITEMP[S$STPX];
+    $SFGCH(.ITEMP);
+    $SFGCH(.DEFP);
+
+
+    .ITEMP
+    END;
+
+%***
+  CREATE A NEW FIELD INCARNATION ENTRY
+***%
+  GLOBAL ROUTINE $GNFI(NAMEP,DEFP) =
+    BEGIN
+
+    LOCAL S$ INCARP;
+    MAP   S$ NAMEP:DEFP;
+
+    INCARP := $SGSTSP(SV$FLDINC);
+    INCARP[S$STP1]   := .DEFP[S$STP1];
+    INCARP[S$IDSTP]  := .NAMEP[S$IDSTP];
+    INCARP[S$AFLG]   := SV$TRUE;
+    INCARP[S$DTYP]   := .DEFP[S$DTYP];
+    INCARP[S$FP]     := .DEFP[S$FP];
+    INCARP[S$DTP][0] := .DEFP[S$DTP][0];
+    INCARP[S$DTP][1] := .DEFP[S$DTP][1];
+    INCARP[S$RNSTP]  := SV$NULL;
+    INCARP[S$DDBT]   := SV$NONE;
+    INCARP[S$DBT]    := SV$NONE;
+    INCARP[S$FISTP]  := SV$NULL;
+    INCARP[S$KDFLG]  := SV$DATAF;                % THIS ASSIGNMENT IS MADE ON THE ASSUMPTION THAT THE INCARNATION
+                                                  IS BEING ALLOCATED FOR A SCALAR FIELD. IF IT RELATES TO A RELATION
+                                                  ITS VALUE IS OVERRRIDEN IN THE ROUTINE $GASCOPE TO REFLECT ITS
+                                                  USAGE IN THAT RELATION.
+                                                %
+    INCARP[S$IESTP] := .DEFP[S$RSFSN];           % THIS ASSIGNMENT IS MADE UNDER THE SAME ASSUMPTION AS FOR S$KDFLG %
+    INCARP[S$VALCHGF] := SV$FALSE;
+    INCARP[S$SORTORD] := SV$ASCEND;
+    INCARP[S$LCHAR]  := .DEFP[S$LCHAR];
+    INCARP[S$INTD]   := .DEFP[S$INTD];
+    INCARP[S$DECD]   := .DEFP[S$DECD];
+    INCARP[S$DFLT]   := .DEFP[S$DFLT];
+    INCARP[S$CGC]    := SV$NULL;
+    INCARP[S$SORTCPRED] := SV$NULL;
+    NAMEP[S$IDSTP]   := NAMEP[S$CISTP] := .INCARP[S$STPX];
+    $SFGCH(.INCARP);
+    $SFGCH(.NAMEP);
+
+
+    .INCARP
+    END;
+
+%*** 
+  CHECK A SEMANTIC STACK ENTRY AND INSURE THAT IT CONTAINS AN ACTIVE INCARNATION STP.
+  THIS ROUTINE RETURNS  ZV$FALSE IF AN ACTIVE INCARNATION DID NOT EXIST, OTHERWISE IT
+  RETURNS THE VALUE  ZV$TRUE.
+***%
+  GLOBAL ROUTINE $GICHK(OPND)=
+    BEGIN
+
+    MAP Z$ ZBSTK$;
+    LOCAL S$ NAMESTE:DEFSTE;
+    LOCAL STATUS;
+
+    IF .ZBSTK$[Z$ID,.OPND] EQL TV$NAME
+      THEN
+        IF .ZBSTK$[Z$SBID,.OPND] NEQ ZV$NRSLT AND
+           .ZBSTK$[Z$INCSTP,.OPND] EQL ZV$NULL
+          THEN
+            IF .GMODE$ EQL GV$VRF
+              THEN
+                STATUS := ZV$TRUE
+              ELSE
+                BEGIN
+                NAMESTE := $SGSTE(.ZBSTK$[Z$STP,.OPND]);
+                IF .NAMESTE[S$CISTP] EQL SV$NULL
+                  THEN
+                    BEGIN
+                    DEFSTE := $SGSTE(.NAMESTE[S$DSTP]);
+                    $SFRNCH($GNITM(.DEFSTE));
+                    $SFRNCH($GNFI(.NAMESTE,.DEFSTE));
+                    IF .DEFSTE[S$DFLT] EQL SV$NULL
+                      THEN
+                        $SFRNCH($GDFVAL(.DEFSTE));
+                    $SFRNCH(.DEFSTE);
+                    STATUS := ZV$FALSE;
+                    END
+                  ELSE
+                    STATUS := ZV$TRUE;
+                ZBSTK$[Z$INCSTP,.OPND] := .NAMESTE[S$CISTP];
+                $SFRNCH(.NAMESTE);
+                END
+          ELSE
+            STATUS := ZV$TRUE
+      ELSE
+        STATUS := ZV$TRUE;
+
+    .STATUS
+
+    END;
+
+
+%****
+  CREATE A SOURCE INCARNATION ENTRY.
+****%
+  GLOBAL ROUTINE $GNSI(NAMESTE)=
+    BEGIN
+
+    MAP S$ NAMESTE;
+    LOCAL S$ INCSTE;
+
+    INCSTE := $SGSTSP(SV$SRCINC);
+    INCSTE[S$STP1]   := .NAMESTE[S$STPX];
+    INCSTE[S$IDSTP]  := .NAMESTE[S$IDSTP];
+    INCSTE[S$DBT]    := SV$NONE;
+    INCSTE[S$SDSTP]  := .NAMESTE[S$DSTP];
+    INCSTE[S$FISTP]  := SV$NULL;
+    INCSTE[S$RICSTP] := SV$NULL;
+    INCSTE[S$RNUM]   := 0;
+    INCSTE[S$SDFSTP] := SV$NULL;
+    INCSTE[S$INFSTP] := SV$NULL;
+
+    NAMESTE[S$IDSTP] := NAMESTE[S$CISTP] := .INCSTE[S$STPX];
+
+    $SFGCH(.NAMESTE);
+    $SFGCH(.INCSTE);
+
+    .INCSTE
+    END;
+
+
+%*****
+  RETURNS RELATION INCARNATION IN A SYMBOL TABLE BUFFER.
+*****%
+  GLOBAL ROUTINE $GNRI(NAMESTE)=
+    BEGIN
+
+    MAP S$ NAMESTE;
+    LOCAL S$ INCSTE;
+
+    INCSTE := $SGSTSP(SV$RELINC);
+    INCSTE[S$STP1]     := .NAMESTE[S$STPX];
+    INCSTE[S$IDSTP]    := .NAMESTE[S$IDSTP];
+    INCSTE[S$AFLG]     := SV$TRUE;
+    INCSTE[S$DBT]      := SV$NULL;
+    INCSTE[S$RESTP]    := .NAMESTE[S$DSTP];
+    INCSTE[S$FISTP]    := SV$NULL;
+    INCSTE[S$REALIZED] := SV$FALSE;
+    INCSTE[S$RCBTY]    := SV$NULL;
+    INCSTE[S$RICSTP]   := SV$NULL;
+    INCSTE[S$SORTC]    := SV$NULL;
+    INCSTE[S$RNUM]     := 0;
+    INCSTE[S$SORTN]    := 0;
+    INCSTE[S$CHGREF]   := SV$FALSE;
+    INCSTE[S$IOMODE]   := SV$NULL;
+
+    NAMESTE[S$CISTP] := NAMESTE[S$IDSTP] := .INCSTE[S$STPX];
+
+    $SFGCH(.NAMESTE);
+    $SFGCH(.INCSTE);
+
+    .INCSTE
+
+    END;
+
+
+%****
+  CREATE A REPORT INCARNATION ENTRY.
+****%
+  GLOBAL ROUTINE $GNRPI(NAMESTE)=
+    BEGIN
+
+    MAP S$ NAMESTE;
+    LOCAL S$ INCSTE : DEFSTE;
+
+    DEFSTE := $SGSTE(.NAMESTE[S$DSTP]);
+    INCSTE := $SGSTSP(SV$REPTINC);
+    INCSTE[S$STP1]    := .NAMESTE[S$STPX];
+    INCSTE[S$IDSTP]   := .NAMESTE[S$IDSTP];
+    INCSTE[S$APND]    := .DEFSTE[S$APND];
+    INCSTE[S$RHL]     := SV$NULL;
+    INCSTE[S$RFINIL]  := SV$NULL;
+    INCSTE[S$RFDTLL]  := SV$NULL;
+    INCSTE[S$RFINCL]  := SV$NULL;
+    INCSTE[S$RCGPI]   := SV$NULL;
+    INCSTE[S$PHL]     := SV$NULL;
+    INCSTE[S$PFL]     := SV$NULL;
+    INCSTE[S$RPDSTP]  := .NAMESTE[S$DSTP];
+    INCSTE[S$AFLG]    := SV$TRUE;
+
+    NAMESTE[S$IDSTP] := NAMESTE[S$CISTP] := .INCSTE[S$STPX];
+
+    $SFGCH(.INCSTE);
+    $SFGCH(.NAMESTE);
+    $SFRNCH(.DEFSTE);
+
+    .INCSTE
+    END;
+
+
+%*****
+  THIS ROUTINE ALIGNS NUMERIC ITEMS, WRITES THE APPROPRIATE GAMMA RECORD, AND RETURNS THE N-TUPLE OPERAND TO THE USER.
+*****%
+  GLOBAL ROUTINE $GALIGN(STKPTR,DCNT)=
+    BEGIN
+
+    LOCAL OPND, ICNT, DIFF;
+    LOCAL G$OPND OPNDP;
+
+    OPNDP := OPND;
+    ICNT := .ZBSTK$[Z$ICNT,.STKPTR];
+    IF .ICNT + .DCNT GTR 30
+      THEN
+        BEGIN
+        $GERR(513,.STKPTR);
+        DIFF := .ICNT + .DCNT - 30;
+        IF .ICNT GTR .DIFF
+          THEN
+            ICNT := .ICNT -.DIFF
+            ELSE
+              ICNT := 0;
+        ZBSTK$[Z$ICNT,.STKPTR] := .ICNT;
+        ZBSTK$[Z$ERFL,.STKPTR] := AV$TRUE;
+        END;
+
+    $GIREC(GV$ALIGN,4);
+    GGBFP$[G$ICNT]  := .ICNT;
+    GGBFP$[G$DCNT]  := .DCNT;
+    GGBFP$[G$UCNT]  := 1;
+    GGBFP$[G$OPND1] := $GOPND(.STKPTR);
+    GGBFP$[G$OPND2] := .DCNT - .ZBSTK$[Z$DCNT,.STKPTR];
+    $GWBUF(.GGBFP$,.GOB1I$);
+
+    OPNDP[0,G$OPTYP] := GV$NP;
+    OPNDP[0,G$NPTYPE] := GV$ARITH;
+    OPNDP[0,G$OPVAL] := .GGBFP$[G$ID];
+
+    .OPND
+
+    END;
+  END
+ELUDOM
+ 
