@@ -1,0 +1,644 @@
+
+                         IOCS Reference Manual
+                            Table of Contents
+
+1.  Initialization
+
+2.  Opening a File
+
+3.  Dynamic Storage Allocation
+
+4.  Cursor Position
+
+5.  File Reading and Writing
+         5.1  Reading or Writing an Element
+         5.2  Reading a File Line
+         5.3  Special File Format Handling
+
+6.  File Size
+
+7.  Erasing File Space
+
+8.  Closing Files
+
+9.  File Utility Operations
+         9.1  Deleting a File
+         9.2  Renaming a File
+
+10. Terminal Input and Output
+        10.1  Terminal Input
+        10.2  Terminal Output
+
+11. Exception Handling
+        11.1  Interrupts
+        11.2  Errors
+
+12. Monitor Calls
+$
+#1
+    This document describes the PDP-10 implementation of the input/
+    output control system, IOCS, which provides SIMPL procedures for:
+
+    * Opening and closing files.  Sequential or direct access, word or
+      character organization, and several file types are available.  A
+      file number is returned when a file is opened.
+
+    * Reading and writing on a file specified by file number.  Direct
+      access is achieved through cursor manipulation at the element
+      (word or character) level.
+
+    * Core storage allocation.
+
+    * Utility operations (such as deleting and renaming) on files
+      specified by name.
+
+    * Terminal input with or without editing specified by control
+      characters.  Terminal output of a character or string.
+
+    * Error and interrupt handling.
+
+    * Execution of monitor calls.
+
+
+    Please direct any comments on IOCS to Caroline Diehl.
+$
+
+
+
+1  Initialization
+
+     All files associated with IOCS are currently located in the
+     directory CD.
+
+     The file IOCSU.SIM must precede any SIMPL program using IOCS.
+     For example, to use IOCS with PROG.SIM:
+
+     DEB (CD)IOCS,(CD)IOCSU+PROG
+
+     IOCSU contains FIND statements and macro definitions associated
+     with IOCS.
+
+     IOCS must be initialized with the call IOCS(nbufs), where
+     nbufs is the number of buffers to be allocated for DIRECT
+     (dump) mode file operations, as explained below.  If DIRECT
+     mode is never used, nbufs may be 0.
+
+2  Opening a File
+
+     OPEN(fid, mode+type+org, errlabel:, nsbufs)
+
+     The parameters are explained in more detail below.  Briefly,
+
+     fid is either the address of the first word of the string
+          identifying the file, or the negative of the
+          address of a table in which information identifying
+          the file has already been stored in the form required
+          by OPEN.
+
+     mode+type+org are the file mode, type and organization.  The
+          words used to designate these descriptors are macros
+          defined in IOCSU.
+
+     errlabel: is the label branched to if an error is encountered.
+          For details, see 12.2 Errors.
+
+     nsbufs is the number of buffers to be used in accessing a
+          sequential file; OPEN is called without this argument if the
+          file is not sequential.
+
+     OPEN returns the file number.
+
+     2.1  File identifier
+
+          If the fid parameter is 0 or positive, it is assumed to
+          be the address of the first word of the string identifying
+          the file (by name and whatever else applies, such as
+          user name or project-programmer number).  A procedure
+          named SETFID is called within OPEN to examine the
+          string, check that is is a valid file identifier, and
+          store whatever information is required by OPEN in order
+          to open the file.  The user may, however, call SETFID
+          himself, specifying an address at which to store the
+          file identifying information, and then later pass the
+          negative of that address as the fid parameter to
+          OPEN, which recognizes a negative fid as such.
+
+               SETFID (fidtbl, @ptr, extdef, seterr: )
+
+          The pointer ptr must be a character pointer to one
+          character before the first character of the file
+          identifier.  The @ is used with the parameter and
+          argument so that the pointer will advance in the
+          calling program as it advances within SETFID.
+          Extdef is the extension default (0 if none), used
+-         if the file identifying string does not specify an
+          extension.
+
+          SETFID terminates on any character that is illegal in a
+          file identifier, including a blank, and goes to the
+          label seterr if a valid file identifier is not found.
+          Otherwise, the proper file information is stored and
+          ptr is left at one position before the terminator.
+
+          Examples:
+
+          FN1-OPEN("TKFS",DIRECT+UPDATE+CHARACTER,EROUT)
+
+          SETFID(FIDTB,@LPTR,F4EXT,SETERR)
+          ..
+          ..
+          FIN2-OPEN(-FIDTB,SEQUEN+OUTPUT+WORD,EROUT,2)
+
+          Included in IOCSU are:
+
+          FIND FIDP()      The address at which SETFID stores
+                           the file identifying information
+                           (whether called by the user or by
+                           OPEN).
+          WPF              The number of words
+                           written by SETFID at fidtbl.
+          PPNARG(fidtbl)   Macros defining elements of fidtbl:
+          NAMARG(fidtbl)   the project programmer number, file
+          EXTARG(fidtbl)   name in SIXBIT, file extension, priv-
+          PRVARG(fidtbl)   ilege bits, file size in words, address
+          USRNAM(fidtbl)   of user name, and EXTQ, which is 1 if
+          FILSIZ(fidtbl)   an extension was specified in the file
+          EXTQ(fidtbl)     identifying string, 0 if the extension
+                           default (extdef) was used.  Each macro
+                           references the entire word containing
+                           the specified parameter; other bits in
+                           the word may be set, as in the right
+                           half of EXTARG.  Refer to the DEC de-
+                           scription of the extended argument
+                           table for details.
+
+
+
+          Note, then, that after the first OPEN in the above ex-
+          amples, the user can move WPF words from FIDP to a local
+          array, and later reference that file by the negative of
+          the array address.
+
+
+     2.2  File mode
+
+     a.  DIRECT
+
+         When DIRECT is specified, the cursor position may be set
+         to indicate where elements are to be read or written on
+         the FILE.
+
+         The PDP-10 unbuffered (dump) data mode is used in this
+         case.
+
+     b.  SEQUEN
+
+         When SEQUEN mode is specified, only sequential reading
+         and writing is permitted.  Thus, the cursor position can
+         not be set (but it can be accessed) when this mode is
+         used, and the file type cannot be UPDATE (see 2.3).
+         Each file has its own set of buffers, or buffer
+         ring; the user specifies the number of buffers
+         desired for a particular file (nsbufs).  The PDP-10 buffered
+         data mode is used in this case.
+
+     2.3  File type
+
+
+     a.  INPUT
+
+         1.  File must exist
+         2.  File cannot be written on (to allow simultaneous access
+             by more than one user).
+
+     b.  OUTPUT or OUTMSG
+
+         1.  File need not exist
+         2.  If file exists, its previous contents are disregarded
+             and will be destroyed at the time the file is closed.
+         3.  If DIRECT mode, file can be read from as well as
+             written on.
+
+         OUTMSG is identical to OUTPUT except that a NEW FILE
+         or OLD FILE message is printed.  If the message is not
+         confirmed with a carriage return or line feed, the
+         file is not opened.  NOTE:  If the OPEN is aborted
+         with an escape character, the error return is still
+         taken; the usual escape handling is bypassed (see Exception
+         Handling, below).
+
+     c.  UPDATE (DIRECT mode only)
+
+         Same as OUTPUT except that if file exists, its previous
+         contents are preserved except where overwritten.
+
+     Note:  The only type protected from read access is
+            SEQUEN OUTPUT/OUTMSG.
+
+
+     2.4  File organization
+
+         May be WORD or CHARACTER.  Designates what size "elements"
+         will be read or written by the I/O procedures.
+
+     2.5  File number
+
+         The file number, or fn, is used to identify the file in
+         subsequent I/O operations.
+
+         On the PDP-10, the channel number serves as the fn.
+         The range of channel numbers used is FNMIN (DEF'd as 1)
+         to FNMAX (DEF'd as 15),.  The fn TEL, indicating the ter-
+         minal, is DEF'd as FNMIN-1, and is returned by OPEN if
+         the file name specified is any subset (from the beginning)
+         of the string TELETYPE.
+
+         Note: Opening the terminal in DIRECT mode or WORD organization
+               is assumed to be an error.
+
+3  Dynamic Storage Allocation
+
+     The following procedures may be used to allocate contiguous
+     blocks of core storage.  IOCS uses them in allocating
+     file buffers.
+
+     %BLOCK(nblks,val, errlabel:)
+
+     returns the address of a storage area consisting
+     of the specified number of blocks (nblks).  A block
+     consists of 131 words for this implementation.  Val is the
+     value to be stored throughout the area.  If there is not
+     enough core to provide the specified number of blocks, a
+     branch to errlabel is made.
+
+     %RELEASE(nblks,adr)
+
+     releases the specified number of blocks starting at the
+     specified address, making the area again available to
+     BLOCK.
+
+4  Cursor Position
+
+     CP(fn) is a procedure that returns the cursor position on
+     file fn.  It may be called whether the file mode is DIRECT
+     or SEQUEN.
+
+     SETCP(fn,p) sets the cursor position on file fn to p.  It may
+     be called only if the file mode is DIRECT.
+
+     When a file is opened, its cursor position is initialized
+     to 0.  The cursor is advanced one position with every read
+     or write of an element on the file.
+
+5  File Reading and Writing
+
+   5.1  Reading or Writing an Element
+
+     R(fn) returns the value of the element (word or character) at
+     the current cursor position on file fn.  The end-of-file exit
+     (as described under Exception Handling, below) is taken when
+     an attempt is made to read beyond the file end.  In the case
+     of a SEQUEN CHARACTER file, any trailing EOLITS in the last
+     word of the file will be read.
+
+     W(fn,val) writes the specified element value at the current cursor
+     position on file fn and returns the value written.
+
+     A carriage return is written after every line feed
+     and vice versa.  This additional action may be suppressed
+     through the use of WX(fn,val), which writes exactly the value
+     specified, and nothing more.
+
+     The R, W, and WX procedures may be called with the fn TEL
+     indicating terminal input or output of a character (see Ter-
+     minal Input and Output below).
+
+   5.2  Reading a File Line
+
+     The GETLINE(fn) procedure may be used to read a line from
+     the terminal (as explained below) or from the file whose num-
+     ber is fn.  When reading a file line, GETLINE ignores EOLITS,
+     stores CARRET followed by LNFEED as CARRET, and LNFEED
+     followed by CARRET as LNFEED, and terminates on a carriage
+     return, ignoring any characters that may lie between the
+     last line terminator and the file end.  The line is stored
+     with an EOLIT after the terminating character, and a double-
+     word value is returned:  a pointer to one character before
+     the first character of the line, and the number of char-
+     acters stored (excluding the EOLIT).  The buffer in which
+     the line is stored is GLOBALLY declared (as FREE) and is also
+     used during GETLINE(TEL) calls.
+
+     As described below in the description of GETLINE(TEL), the
+     SET.TERM procedure may be used to specify another line ter-
+     minator in addition to carriage return.
+
+
+5.3  Special File Format Handling
+
+     The following procedures have been included in IOCS
+     in an attempt to handle files specially formatted with
+     DEC line numbers.
+
+     PLNCHK(fn)
+
+     where fn is the number of a character-organized file just
+     opened, returns 1 if the first word on file fn is a DEC
+     line number (bit 35 on), else returns 0.
+
+     PLNW(fn, addr, wdcnt)
+
+     may be used for writing DEC line numbers on a character-
+     organized file.  The file number is fn, addr is the address
+     at which wdcnt words are stored that contain the line
+     number to be written.  EOLITs are written to the next word
+     position on fn, where the line number is then written
+     (bit 35 set in each word) and followed by a tab character.
+
+6  File Size
+
+     The procedure SIZE(fn) returns the current size of the specified
+     file, in elements (characters or words, depending on the
+     organization of fn).
+
+     a.  DIRECT mode
+
+         The size is calculated as the highest position of the cursor
+         (at which I/O was done) up to the time the size is requested,
+         or the size of the file at OPEN time, whichever is greater.
+
+
+     b.  SEQUEN mode
+
+         The SIZE of a SEQUEN INPUT CHARACTER file is the
+         number of words in the file multiplied by CHARS.PER.WORD.
+
+         The SIZE of a SEQUEN OUTPUT file is simply CP(fn).
+
+7  Freeing File Space
+
+     ERASE(fn, CPI, CPF)
+
+     The file mode must be DIRECT; the file type may not be INPUT.
+
+     Zeroes are written in the specified positions.
+
+     The position corresponding to the value of SIZE(fn)-1 is that
+     of the last element.  If CPF is greater than SIZE(fn)-1 it is
+     set to SIZE(fn)-1, so that a very large CPF will erase up to
+     and including the last element of fn.  Also in this case, the
+     cursor is left at position CPI and SIZE(fn) is reduced accordingly.
+     If CPF is less than SIZE(fn)-1 (that is, before the last
+     element), ERASE leaves the cursor at CPF+1.
+
+8  Closing Files
+
+8.1  Closing a File
+
+     CLOSE(fn)
+
+     If fn is TEL, a RETURN is executed.
+
+8.2  Closing All Files
+
+     CLOSE.ALL closes all files.
+
+9  File Utility Operations
+
+   The fid parameter is as described for OPEN (see 2.1) but may
+   not designate the terminal.
+
+     9.1  Deleting a File
+
+          DELETE(fid, errlabel:)
+
+     9.2  Renaming a File
+
+          RENAME(old fid, new fid, errlabel:)
+
+10  Terminal Input and Output
+
+     10.1  Terminal Input
+
+
+     10.1.1  Without Editing
+
+             GET
+
+             reads a character from the terminal.  The system
+             echoes a line feed after a carriage return but not vice
+             versa.  Any pending output spaces (see Terminal Output,
+             below) are printed when GET is called.
+
+             If a file name is passed to OPEN that is any subset
+             (from the beginning) of the string TELETYPE, the
+             special file number TEL is returned.  When this
+             file number passed to the R procedure, a GET is
+             performed.
+
+     10.1.2  With Editing
+
+             The GETLINE(fn) procedure, when called with the
+             argument TEL, reads a line of terminal input,
+             performing editing as specified by control characters,
+             stores the line in a buffer with an EOLIT after the
+             line terminator (carriage return), and returns a double-
+             word value: a pointer to one character before the first
+             character of the line, and the number of characters
+             stored (excluding the EOLIT).  GETLINE stores CARRET
+             followed by LNFEED as CARRET, and LNFEED followed by
+             CARRET as LNFEED.
+
+             Certain editing characters require an "old" or "image"
+             line in order to be meaningful; the image line is
+             normally assumed to be the previous line read.  At
+             times it may be necessary to alter this - to explicitly
+             store characters into the image line buffer.  Thus, this
+             buffer (named IMAGE) is GLOBALly declared (may be
+             accessed through FIND by the IOCS user).  It is based
+             at 0 and is large enough to hold 257 characters (256
+             positions for line characters and one for EOLIT).
+             Note that the last character of the image line must
+             be followed by an EOLIT; an EOLIT alone indicates that
+             there is no image line. (IOCS initialization includes
+             the storing of an EOLIT in IMAGE.)
+
+             GETLINE begins by moving the contents of the IMAGE buffer
+             to a buffer of the same size, clears IMAGE with EOLITS,
+             and then stores the new user input into IMAGE, refer-
+             encing the old line when necessary.  The buffer to
+             which the IMAGE line is moved is used only within
+             GETLINE and may be used by the IOCS user between
+             GETLINE calls if desired; thus, it too is GLOBALLY
+             declared (as FREE) .  Note:  FREE is also the buffer
+             in which GETLINE stores a line read from a file (see 5.2).
+
+             SET.TERM(TERMCH)
+
+             This procedure may be called to specify that GETLINE
+             should recognize not only a carriage return as a line
+             terminator, but also the special character TERMCH.
+             (This applies to GETLINE from either TEL or a file).
+             IOCS initialization includes the call SET.TERM(EOLIT),
+             indicating that carriage return is the only terminator.
+
+             SET.PRMPT(%PROMPT)
+
+             The procedure passed by SET.PRMPT is called within
+             GETLINE(TEL), when GETLINE is first called and after
+             a control Q or a control Y, to print prompting char-
+             acters (such as a "glitch" mark) on thminal.  IOCS
+             initializes the prompt procedure to a procedure that
+             prints nothing.
+
+     10.2  Terminal Output
+
+     10.2.1  Character Output
+
+             PUT(char)
+
+             prints the specified character on the terminal (and
+             returns it).
+
+             PUT follows a carriage return by a line feed (and vice
+             versa), and prints control characters other than control
+             I, J, L and M as & followed by the corresponding
+             alphabetic character.  To allow for straight
+             printout of a control character, of a carriage
+             return without a line feed or vice versa, the
+             procedure PUTX(char) is provided, which prints only
+             the character specified.
+
+             PUTC(char) is equivalent to PUT(char) except that
+             control I and control L are included among the
+             control characters printed in & format.
+
+
+             During terminal output, blanks are printed not when
+             requested, but only when it is discovered that a printing
+             character will follow.  In other words, a count is kept of
+             spaces pending, and the spaces are printed only if the
+             output of a printing character is requested before the
+             next return of the carriage, which resets the count to
+             zero.  Thus trailing spaces are never printed.
+
+             If desired by the IOCS user, PUT(char) can also be called
+             through W(TEL,char), and PUTX(char) through WX(TEL,char).
+
+     10.2.2  String Output
+
+             PRINT(addr)
+
+             Calls PUT to print the string of characters starting
+             at the specified address, up to but not including the
+             EOLIT character.
+
+             MSG(addr)
+
+             is the same as PRINT except that every $ in the string
+             represents a carriage return and every   indicates that
+             the next character specifies the control character to
+             be printed using PUTX.  Thus MSG(" GHELLO$") prints HELLO
+             preceded by a control G (to ring the bell) and followed
+             by a carriage return.
+
+             PRINTC (addr) may be used to print the string at
+             addr using PUTC.
+
+11  Exception Handling
+
+    11.1  Interrupts (ALT MODE, ESC)
+
+          In the GLOBAL variable ALTLOC the user must store the
+          label to which IOCS should branch when an ALT MODE or
+          ESC is typed.  IOCS initialization sets ALTLOC to a
+          location at which a CLOSE.ALL and EXIT are done.
+
+          The OFFALT and ONALT procedures may be used to disable and
+          enable the ALT MODE.  IOCS knows enough to ignore nested
+          OFFALT/ONALT pairs; for example,
+
+          %PROC.A
+          OFFALT;...;PROC.B;...;ONALT;RETURN
+          END PROC.A
+
+          %PROC.B
+          OFFALT;...;ONALT;RETURN
+          END PROC.B
+
+          The OFFALT and ONALT calls within PROC.B will not
+          actually turn the ALT MODE on and off, since it was
+          already disabled when PROC.B was called, and clearly
+          should not be enabled until the ONALT within PROC.A
+          is encountered.  This is accomplished by means of
+          checking the ALT MODE level (ALTLEV), which is initialized
+          to 0, incremented by 1 within OFFALT, and decremented
+          by 1 within ONALT.  OFFALT always increments ALTLEV but
+          actually disables the ALT MODE only if ALTLEV is 0 when
+          OFFALT is called.  Similarly, ONALT actually enables the
+          ALT MODE only if it encounters an ALTLEV of 1.  Note that
+          ONALT will not decrement an ALTLEV of 0, so that redundant
+          ONALTs are completely ignored.
+
+          The ONALT.C procedure clears all but 1 of any stacked
+          OFFALTs and executes an ONALT that then definitely enables
+          the ALT MODE.  This might be used, for example, in a
+          procedure that is called at different ALTLEVs but
+          always wants the ALT MODE enabled rather than just the level
+          decremented; this would likely be an exception handling
+          procedure that would not RETURN but rather go to a label.
+
+          Note:  If an ALT MODE is typed while the GETLINE procedure
+                 is in progress, IOCS restores the contents of the
+                 image buffer at the time GETLINE was called, so that
+                 any characters typed before the ALT MODE are ignored
+                 and do not interfere with the former image line.  A
+                 branch to the label stored in ALTLOC is then made as
+                 usual.
+
+    11.2  Errors
+
+          As stated above, several of the IOCS procedures have a
+          parameter specifying a label to be branched to in case an
+          error is encountered.  At that lable, the GLOBAL variable
+          ERRNUM may be referenced to describe the exact nature of
+          of the error; IOCSU provides a list of ERRNUM value DEFs,
+          their meanings, and the procedures in which they may occur.
+
+          Errors that occur during operations on file fn, including
+          end-of-file in reading a DIRECT file beyond the last ele-
+          ment or a SEQUEN file past the last word, cause IOCS
+          to branch to the error label previously set using the
+          procedure SETRWE (fn, lab:).  If SETRWE has not been called
+          explicitly by the user previous to the error, the error
+          label specified at OPEN time is used (since OPEN calls
+          SETRWE).  SETRWE returns the error label last specified 
+          for file fn.
+
+          Note that upon an error return from IOCS, it cannot be
+          determined whether alt modes are enabled.  To be sure
+          that they are, the user must call ONALT.C.
+
+          CLOBUF may be called to clear the output buffer;
+          CLIBUF to clear the input buffer.
+
+12  Monitor Calls
+
+    A monitor programmed operator may be called on the PDP-10 using
+    the procedure:
+
+    %EXU (code, acc, addr, skplab)
+
+    where code is the operation code, acc and addr are the contents
+    of the accumulator and address fields, and skplab is the label 
+    to which EXU branches if the skip return is taken.  If the
+    non-skip return is taken, EXU returns.  The last argument
+    may be omitted in calls to UUOs which never skip.  For example,
+
+    EXU(OCT 47, OCT 16, OCT 44, DONE)
+
+    executes a CALLI 16, 44 (or TMPCOR) UUO and branches to the de-
+    clared label DONE if the skip (in this case, normal) return is
+    taken.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
+«
