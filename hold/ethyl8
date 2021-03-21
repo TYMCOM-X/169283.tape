@@ -1,0 +1,1618 @@
+C     PROGRAM 9     PROGRAM FOR INTERLINKED COLUMNS WITH REACTION       
+C                      
+C     BASIC PROGRAM    
+C                      
+C     PROGRAM 9     PROGRAM FOR INTERLINKED COLUMNS                     
+C                      
+C     BASIC PROGRAM    
+C                      
+      COMMON GENX(20,50,2),GENY(20,50,2),EXTFD(20,50,2),ACTV(20,50,2)   
+     1,A(20,2),B(20,2),C(20,2),ENTHK(20),ENTHL(20),ENTHM(20),ENTHU(20)  
+     2,ENTHV(20),ENTHW(20),TOTFDH(50,2),VAPPRO(50,2),QUIPRO(50,2)       
+     3,VAPFLO(50,2),QUIFLO(50,2),TEMP(50,2),VAPOR(50,2),QUID(50,2)      
+     4,SUMX(50,2),SUMY(50,2),QUIMOH(50,2),VAPMOH(50,2),QUNBAL(50,2)     
+     5,QUITOP(2),TCSET(2),SUMFD(20),FLFEED(20),VAPY(20),QUIDX(20)       
+     6,FLVAP(20),FLLIQ(20),FLVAP1(20),FLLIQ1(20),PRDSUM(20),RFSUM(20)   
+     7,CONDLD(2),REBLD(2),RKB(20,20),RKC(20,20),RKD(20,20),PRESS(50,2)  
+     8,PCRIT(20),TCRIT(20),STORY(20),TRVOL(50,2),REACTN(20,50,2)        
+      COMMON NSTGS(2),JFVFRO(50,2),KFVFRO(50,2),JFVTO(50,2),KFVTO(50,2) 
+     1,JFLFRO(50,2),KFLFRO(50,2),JFLTO(50,2),KFLTO(50,2),JVVFRO(50,2)   
+     2,KVVFRO(50,2),JVVTO(50,2),KVVTO(50,2),JVLFRO(50,2),KVLFRO(50,2)   
+     3,JVLTO(50,2),KVLTO(50,2),JRETYP(2),JCOTYP(2),KITER                
+      COMMON/ERROR/PRDERR,BDFERR,CHECK                                  
+      COMMON/KONTER/ITERAT,NCOMPS,NCOLS                                 
+      COMMON/COMYEN/KYEN                                                
+      COMMON /COMACT/ KACTV,LACTV                                       
+      COMMON /COMRAC/ HREAC(50,2),RCO(2,50,2),RCN(2,50,2),RCF(2,50,2)   
+     1,LRC(2,50,2)     
+      COMMON /COMCHK/ KOUNTR                                            
+      DIMENSION VAPW(20)                                                
+      CALL USENAM(21)  
+      CALL ERRSET(207,256,-1,0,0,210)                                   
+1     CALL INPUT       
+      ITERAT=0         
+      CALL ACTIV       
+      CALL INPUT2      
+      FACTOR=10.0      
+      TOTFD=0.0        
+      DO 2 I=1,NCOMPS  
+      SUMFD(I)=0.0     
+      DO 2 K=1,NCOLS   
+      JT=NSTGS(K)      
+      DO 2 J=1,JT      
+      SUMFD(I)=SUMFD(I)+EXTFD(I,J,K)                                    
+2     TOTFD=TOTFD+EXTFD(I,J,K)                                          
+3     HBALOK=0.0       
+      CALL ACTIV       
+      CALL REACTR      
+      DO 146 K=1,NCOLS                                                  
+      JT=NSTGS(K)      
+      J=1              
+      JDELTA=1         
+      KTIMES=2*JT-1    
+      DO 125 KCOUNT=1,KTIMES                                            
+C                      
+C     DETERMINATION OF COMPONENT FEEDS AND ENTHALPIES TO THE STAGE      
+C                      
+      FLFEES=0.0       
+      IF (J-1) 4,4,6   
+4     DO 5 I=1,NCOMPS  
+      FLFEED(I)=GENX(I,2,K)*QUID(2,K)+EXTFD(I,1,K)                      
+5     FLFEES=FLFEES+FLFEED(I)                                           
+      QIN=TOTFDH(1,K)+QUID(2,K)*QUIMOH(2,K)                             
+      GO TO 11         
+6     IF (J-JT) 9,7,9  
+7     DO 8 I=1,NCOMPS  
+      FLFEED(I)=GENY(I,JT-1,K)*VAPOR(JT-1,K)+EXTFD(I,JT,K)              
+8     FLFEES=FLFEES+FLFEED(I)                                           
+      QIN=TOTFDH(JT,K)+VAPOR(JT-1,K)*VAPMOH(JT-1,K)                     
+      GO TO 11         
+9     DO 10 I=1,NCOMPS                                                  
+      FLFEED(I)=GENX(I,J+1,K)*QUID(J+1,K)+GENY(I,J-1,K)*VAPOR(J-1,K)+   
+     1EXTFD(I,J,K)     
+10    FLFEES=FLFEES+FLFEED(I)                                           
+      QIN=TOTFDH(J,K)+VAPOR(J-1,K)*VAPMOH(J-1,K)+QUID(J+1,K)*           
+     1QUIMOH(J+1,K)    
+11    IF (KFVFRO(J,K)) 14,14,12                                         
+12    JV=JFVFRO(J,K)   
+      KV=KFVFRO(J,K)   
+      DO 13 I=1,NCOMPS                                                  
+      FLFEED(I)=FLFEED(I)+VAPFLO(JV,KV)*GENY(I,JV,KV)                   
+13    FLFEES=FLFEES+VAPFLO(JV,KV)*GENY(I,JV,KV)                         
+      QIN=QIN+VAPFLO(JV,KV)*VAPMOH(JV,KV)                               
+14    IF (KVVFRO(J,K)) 17,17,15                                         
+15    JV=JVVFRO(J,K)   
+      KV=KVVFRO(J,K)   
+      DO 16 I=1, NCOMPS                                                 
+      FLFEED(I)=FLFEED(I)+GENY(I,JV,KV)*VAPOR(JV,KV)                    
+16    FLFEES=FLFEES+VAPOR(JV,KV)*GENY(I,JV,KV)                          
+      QIN=QIN+VAPOR(JV,KV)*VAPMOH(JV,KV)                                
+17    IF (KFLFRO(J,K)) 20,20,18                                         
+18    JV=JFLFRO(J,K)   
+      KV=KFLFRO(J,K)   
+      DO 19 I=1,NCOMPS                                                  
+      FLFEED(I)=FLFEED(I)+QUIFLO(JV,KV)*GENX(I,JV,KV)                   
+19    FLFEES=FLFEES+QUIFLO(JV,KV)*GENX(I,JV,KV)                         
+      QIN=QIN+QUIFLO(JV,KV)*QUIMOH(JV,KV)                               
+20    IF (KVLFRO(J,K)) 26,26,21                                         
+21    JV=JVLFRO(J,K)   
+      KV=KVLFRO(J,K)   
+      IF (JV-1) 22,22,24                                                
+22    DO 23 I=1,NCOMPS                                                  
+      FLFEED(I)=FLFEED(I)+GENX(I,JV,KV)*QUID(JV,KV)                     
+23    FLFEES=FLFEES+QUID(JV,KV)*GENX(I,JV,KV)                           
+      QIN=QIN+QUID(JV,KV)*QUIMOH(JV,KV)                                 
+      GO TO 26         
+24    DO 25 I=1,NCOMPS                                                  
+      FLFEED(I)=FLFEED(I)+GENX(I,JV,KV)*QUITOP(KV)                      
+25    FLFEES=FLFEES+QUITOP(KV)*GENX(I,JV,KV)                            
+      QIN=QIN+QUITOP(KV)*QUIMOH(JV,KV)                                  
+C                      
+C     CALCULATION OF REBOILER                                           
+C                      
+26    FACT=1.          
+      DO 263 I=1,2     
+261   FEED=FLFEED(I)+FACT*REACTN(I,J,K)                                 
+      IF(FEED)262,262,263                                               
+262   FACT=FACT/2.     
+      GO TO 261        
+263   CONTINUE         
+      IF(FACT.EQ.1.)GO TO 265                                           
+      WRITE(6,1000)ITERAT,J,FACT,REACTN(1,J,K),REACTN(2,J,K)            
+1000  FORMAT(2I5,3E15.6)                                                
+265   DO 264 I=1,2     
+      AMT=FACT*REACTN(I,J,K)                                            
+      FLFEES=FLFEES+AMT                                                 
+264   FLFEED(I)=FLFEED(I)+AMT                                           
+      QIN=QIN+FACT*HREAC(J,K)                                           
+      IF (J-1) 27,27,39                                                 
+27    IF (JRETYP(K)) 94,94,28                                           
+28    SUMX(1,K)=0.0    
+      SUMY(1,K)=0.0    
+      QUIMOH(1,K)=0.0  
+      VAPMOH(1,K)=0.0  
+C                      
+C     REBOILER TYPE 1 HOLDS VAPOR CONSTANT                              
+C     REBOILER TYPE 2 HOLDS LIQUID CONSTANT                             
+C                      
+      IF(JRETYP(K)-1)307,307,310                                        
+310   FIXSUM=QUID(1,K)+VAPPRO(1,K)+VAPFLO(1,K)+QUIPRO(1,K)+QUIFLO(1,K)  
+      IF(FLFEES-FIXSUM)301,303,306                                      
+301   DO 302 I=1,NCOMPS                                                 
+302   FLFEED(I)=FLFEED(I)+GENX(I,2,K)*(FIXSUM-FLFEES)                   
+      FLFEES=FIXSUM    
+303   VAPOR(1,K)=0.    
+      IF(VAPPRO(1,K)+VAPFLO(1,K))304,304,36                             
+304   DO 305 I=1,NCOMPS                                                 
+305   QUIDX(I)=FLFEED(I)/FLFEES                                         
+      CALL BUBPT(QUIDX,VAPY,TEMP(1,K),1,K)                              
+      GO TO 37         
+306   VAPOR(1,K)=FLFEES-FIXSUM                                          
+      GO TO 36         
+307   FIXSUM=VAPOR(1,K)+VAPPRO(1,K)+VAPFLO(1,K)+QUIPRO(1,K)+QUIFLO(1,K) 
+      IF (FLFEES-FIXSUM) 29,31,35                                       
+29    DO 30 I=1,NCOMPS                                                  
+30    FLFEED(I)=FLFEED(I)+GENX(I,2,K)*(FIXSUM-FLFEES)                   
+      FLFEES=FIXSUM    
+31    QUID(1,K)=0.0    
+      IF (QUIPRO(1,K)+QUIFLO(1,K)) 32,32,36                             
+32    DO 33 I=1,NCOMPS                                                  
+33    VAPY(I)=FLFEED(I)/FLFEES                                          
+      CALL DEWPT (VAPY,QUIDX,TEMP(1,K),1,K)                             
+      GO TO 37         
+35    QUID(1,K)=FLFEES-FIXSUM                                           
+36    FLVAS=VAPOR(1,K)+VAPPRO(1,K)+VAPFLO(1,K)                          
+      CALL ISOVFL (FLFEED,FLFEES,FLVAS,TEMP(1,K),VAPY,QUIDX,1,K)        
+37    DO 38 I=1,NCOMPS                                                  
+      GENX(I,1,K)=QUIDX(I)                                              
+      GENY(I,1,K)=VAPY(I)                                               
+      SUMX(1,K)=SUMX(1,K)+GENX(I,1,K)                                   
+      SUMY(1,K)=SUMY(1,K)+GENY(I,1,K)                                   
+      QUIMOH(1,K)=QUIMOH(1,K)+GENX(I,1,K)*THALPL(I,TEMP(1,K))           
+38    VAPMOH(1,K)=VAPMOH(1,K)+GENY(I,1,K)*THALPV(I,TEMP(1,K))           
+      IF(KYEN.EQ.0)GO TO 122                                            
+      CALL MOVE(VAPW,1,K)                                               
+      VAPMOH(1,K)=VAPMOH(1,K)+YENF(VAPW,TEMP(1,K),PRESS(1,K))           
+      GO TO 122        
+C                      
+C     CALCULATION OF CONDENSER                                          
+C                      
+39    IF (J-JT) 94,40,40                                                
+40    IF (JCOTYP(K)-1) 94,41,41                                         
+41    SUMX(JT,K)=0.0   
+      SUMY(JT,K)=0.0   
+      QUIMOH(JT,K)=0.0                                                  
+      VAPMOH(JT,K)=0.0                                                  
+      FIXSUM=QUID(JT,K)+QUIPRO(JT,K)+QUIFLO(JT,K)+VAPPRO(JT,K)+         
+     1VAPFLO(JT,K)     
+      IF (FLFEES-FIXSUM) 42,44,45                                       
+42    DO 43 I=1,NCOMPS                                                  
+43    FLFEED(I)=FLFEED(I)+GENY(I,JT-1,K)*(FIXSUM-FLFEES)                
+44    FLFEES=FIXSUM    
+45    IF (JCOTYP(K)-2) 46,54,63                                         
+C                      
+C     CALCULATION OF PARTIAL CONDENSER                                  
+C                      
+46    QUITOP(K)=0.0    
+      IF (FLFEES-FIXSUM) 47,47,50                                       
+47    VAPOR(JT,K)=0.0  
+      IF (VAPPRO(JT,K)+VAPFLO(JT,K)) 48,48,51                           
+48    DO 49 I=1,NCOMPS                                                  
+49    QUIDX(I)=FLFEED(I)/FLFEES                                         
+      CALL BUBPT (QUIDX,VAPY,TEMP(JT,K),JT,K)                           
+      GO TO 52         
+50    VAPOR(JT,K)=FLFEES-FIXSUM                                         
+51    FLVAS=VAPOR(JT,K)+VAPPRO(JT,K)+VAPFLO(JT,K)                       
+61    CALL ISOVFL (FLFEED,FLFEES,FLVAS,TEMP(JT,K),VAPY,QUIDX,JT,K)      
+52    DO 53 I=1,NCOMPS                                                  
+      GENX(I,JT,K)=QUIDX(I)                                             
+      GENY(I,JT,K)=VAPY(I)                                              
+      SUMX(JT,K)=SUMX(JT,K)+GENX(I,JT,K)                                
+      SUMY(JT,K)=SUMY(JT,K)+GENY(I,JT,K)                                
+      QUIMOH(JT,K)=QUIMOH(JT,K)+GENX(I,JT,K)*THALPL(I,TEMP(JT,K))       
+53    VAPMOH(JT,K)=VAPMOH(JT,K)+GENY(I,JT,K)*THALPV(I,TEMP(JT,K))       
+      IF(KYEN.EQ.0)GO TO 122                                            
+      CALL MOVE(VAPW,JT,K)                                              
+      VAPMOH(JT,K)=VAPMOH(JT,K)+YENF(VAPW,TEMP(JT,K),PRESS(JT,K))       
+      GO TO 122        
+C                      
+C     CALCULATION OF TOTAL CONDENSER                                    
+C                      
+54    VAPOR(JT,K)=0.0  
+      IF (FLFEES-FIXSUM) 55,55,56                                       
+55    QUITOP(K)=0.0    
+      GO TO 57         
+56    QUITOP(K)=FLFEES-FIXSUM                                           
+57    IF (VAPPRO(JT,K)+VAPFLO(JT,K)) 58,58,60                           
+58    GO TO 48         
+60    FLVAS=VAPPRO(JT,K)+VAPFLO(JT,K)                                   
+      GO TO 61         
+C                      
+C     CALCULATION OF TWO PRODUCT CONDENSER                              
+C                      
+63    IF (FLFEES-FIXSUM) 64,64,74                                       
+64    QUITOP(K)=0.0    
+      VAPOR(JT,K)=0.0  
+      IF (VAPPRO(JT,K)+VAPFLO(JT,K)) 65,65,72                           
+65    DO 66 I=1,NCOMPS                                                  
+66    QUIDX(I)=FLFEED(I)/FLFEES                                         
+      CALL BUBPT (QUIDX,VAPY,TEMP(JT,K),JT,K)                           
+      DO 67 I=1,NCOMPS                                                  
+      GENX(I,JT,K)=QUIDX(I)                                             
+67    SUMX(JT,K)=SUMX(JT,K)+GENX(I,JT,K)                                
+      IF (TEMP(JT,K)-TCSET(K)) 68,68,70                                 
+68    DO 69 I=1,NCOMPS                                                  
+      GENY(I,JT,K)=VAPY(I)                                              
+69    SUMY(JT,K)=SUMY(JT,K)+GENY(I,JT,K)                                
+      GO TO 91         
+70    DO 71 I=1,NCOMPS                                                  
+71    GENY(I,JT,K)=0.0                                                  
+      SUMY(JT,K)=1.0   
+      TEMP(JT,K)=TCSET(K)                                               
+      GO TO 91         
+72    FLVAS=VAPPRO(JT,K)+VAPFLO(JT,K)                                   
+      KNTRL=1          
+      GO TO 73         
+74    IF (VAPPRO(JT,K)+VAPFLO(JT,K)) 75,75,81                           
+75    DO 76 I=1,NCOMPS                                                  
+76    QUIDX(I)=FLFEED(I)/FLFEES                                         
+      CALL BUBPT (QUIDX,VAPY,TEMP(JT,K),JT,K)                           
+      IF (TEMP(JT,K)-TCSET(K)) 81,77,79                                 
+77    KNTRL=2          
+      GO TO 200        
+78    QUITOP(K)=FLFEES-FIXSUM                                           
+      VAPOR(JT,K)=0.0  
+      GO TO 91         
+79    DO 80 I=1,NCOMPS                                                  
+      GENX(I,JT,K)=QUIDX(I)                                             
+      GENY(I,JT,K)=0.0                                                  
+80    SUMX(JT,K)=SUMX(JT,K)+GENX(I,JT,K)                                
+      SUMY(JT,K)=1.0   
+      QUITOP(K)=FLFEES-FIXSUM                                           
+      VAPOR(JT,K)=0.0  
+      TEMP(JT,K)=TCSET(K)                                               
+      GO TO 91         
+81    FLLIS=QUID(JT,K)+QUIPRO(JT,K)+QUIFLO(JT,K)+QUITOP(K)              
+      FLVAS=FLFEES-FLLIS                                                
+      IF (FLVAS) 82,82,83                                               
+82    FLLIS=QUID(JT,K)+QUIPRO(JT,K)+QUIFLO(JT,K)                        
+      FLVAS=FLFEES-FLLIS                                                
+83    TEMP(JT,K)=TCSET(K)                                               
+      FIXV=VAPPRO(JT,K)+VAPFLO(JT,K)                                    
+      FIXL=QUID(JT,K)+QUIPRO(JT,K)+QUIFLO(JT,K)                         
+      CALL ISOTFL (FLFEED,FLFEES,FLVAS,FLLIS,FIXV,FIXL,TEMP(JT,K),JT,K) 
+      IF (FIXL-FLLIS) 84,84,87                                          
+84    IF (FIXV-FLVAS) 85,85,89                                          
+85    KNTRL=3          
+      GO TO 200        
+86    QUITOP(K)=FLLIS-FIXL                                              
+      VAPOR(JT,K)=FLVAS-FIXV                                            
+      GO TO 91         
+87    FLVAS=FLFEES-FIXL                                                 
+      KNTRL=4          
+      GO TO 73         
+88    QUITOP(K)=0.0    
+      VAPOR(JT,K)=FLFEES-FIXSUM                                         
+      GO TO 91         
+89    FLVAS=FIXV       
+      KNTRL=5          
+73    CALL ISOVFL (FLFEED,FLFEES,FLVAS,TEMP(JT,K),VAPY,QUIDX,JT,K)      
+200   DO 90 I=1,NCOMPS                                                  
+      GENX(I,JT,K)=QUIDX(I)                                             
+      GENY(I,JT,K)=VAPY(I)                                              
+      SUMX(JT,K)=SUMX(JT,K)+GENX(I,JT,K)                                
+90    SUMY(JT,K)=SUMY(JT,K)+GENY(I,JT,K)                                
+      GO TO (91,78,86,88,201),KNTRL                                     
+201   VAPOR(JT,K)=0.0  
+      QUITOP(K)=FLFEES-FIXSUM                                           
+91    DO 92 I=1,NCOMPS                                                  
+      QUIMOH(JT,K)=QUIMOH(JT,K)+GENX(I,JT,K)*THALPL(I,TEMP(JT,K))       
+92    VAPMOH(JT,K)=VAPMOH(JT,K)+GENY(I,JT,K)*THALPV(I,TEMP(JT,K))       
+      IF(KYEN.EQ.0)GO TO 122                                            
+      CALL MOVE(VAPW,JT,K)                                              
+      VAPMOH(JT,K)=VAPMOH(JT,K)+YENF(VAPW,TEMP(JT,K),PRESS(JT,K))       
+93    GO TO 122        
+C                      
+C     CALCULATION OF COMPONENT FLOWS FROM TYPICAL STAGE                 
+C                      
+94    FIXSUM=VAPPRO(J,K)+VAPFLO(J,K)+QUIPRO(J,K)+QUIFLO(J,K)            
+      IF (FLFEES-FIXSUM) 95,95,96                                       
+95    VAPOR(J,K)=FLFEES*1.0E-4                                          
+      QUID(J,K)=FLFEES*1.0E-4                                           
+      GO TO 122        
+96    FLVASO=VAPOR(J,K)+VAPPRO(J,K)+VAPFLO(J,K)                         
+      FLLISO=QUID(J,K)+QUIPRO(J,K)+QUIFLO(J,K)                          
+      IF (FLLISO-FLVASO) 97,98,98                                       
+97    FLL=FLFEES/(FLVASO/FLLISO+1.0)                               
+      FLV=FLFEES-FLL   
+      GO TO 99         
+98    FLV=FLFEES/(FLLISO/FLVASO+1.0)                                    
+      FLL=FLFEES-FLV   
+99    FLVASC=0.0       
+      FLLISC=0.0       
+      QUIH=0.0         
+      VAPH=0.0         
+      DO 100 I=1,NCOMPS                                                 
+      EQCST=EQUILK(I,J,K,TEMP(J,K))                                     
+      FLVAP(I)=FLFEED(I)/(FLL/FLV/EQCST+1.0)                            
+      FLLIQ(I)=FLFEED(I)/(FLV*EQCST/FLL+1.0)                            
+      FLVASC=FLVASC+FLVAP(I)                                            
+      FLLISC=FLLISC+FLLIQ(I)                                            
+      QUIH=QUIH+FLLIQ(I)*THALPL(I,TEMP(J,K))                            
+100   VAPH=VAPH+FLVAP(I)*THALPV(I,TEMP(J,K))                            
+      IF(KYEN.NE.0)VAPH=VAPH+YENF(FLVAP,TEMP(J,K),PRESS(J,K))           
+      SUMX(J,K)=FLLISC/FLL                                              
+      SUMY(J,K)=FLVASC/FLV                                              
+      T=TEMP(J,K)+1.0  
+      QUIH1=0.0        
+      VAPH1=0.0        
+      DO 101 I=1,NCOMPS                                                 
+      EQCST=EQUILK(I,J,K,T)                                             
+      FLVAP1(I)=FLFEED(I)/(FLL/FLV/EQCST+1.0)                           
+      FLLIQ1(I)=FLFEED(I)/(FLV*EQCST/FLL+1.0)                           
+      VAPH1=VAPH1+FLVAP1(I)*THALPV(I,T)                                 
+101   QUIH1=QUIH1+FLLIQ1(I)*THALPL(I,T)                                 
+      IF(KYEN.NE.0)VAPH1=VAPH1+YENF(FLVAP1,T,PRESS(J,K))                
+      HCAP=VAPH1+QUIH1-VAPH-QUIH                                        
+      DELT=(QIN-QUIH-VAPH)/HCAP                                         
+      DELT=SIGN(AMIN1(10.,ABS(DELT)),DELT)                              
+      TEMP(J,K)=TEMP(J,K)+DELT                                          
+      FLVASP=0.0       
+      FLLISP=0.0       
+      DO 107 I=1,NCOMPS                                                 
+      DELV=DELT*(FLVAP1(I)-FLVAP(I))                                    
+      IF (DELV) 102,106,104                                             
+102   IF (ABS (DELV)-FLVAP(I)) 106,103,103                              
+103   DELV=-FLVAP(I)   
+      GO TO 106        
+104   IF (DELV-FLLIQ(I)) 106,106,105                                    
+105   DELV=FLLIQ(I)    
+106   FLVAP(I)=FLVAP(I)+DELV                                            
+      FLLIQ(I)=FLLIQ(I)-DELV                                            
+      FLVASP=FLVASP+FLVAP(I)                                            
+107   FLLISP=FLLISP+FLLIQ(I)                                            
+      VAPMOH(J,K)=0.0  
+      QUIMOH(J,K)=0.0  
+      DO 108 I=1,NCOMPS                                                 
+      GENY(I,J,K)=FLVAP(I)/FLVASP+1.0E-20                               
+      GENX(I,J,K)=FLLIQ(I)/FLLISP+1.0E-20                               
+      VAPMOH(J,K)=VAPMOH(J,K)+GENY(I,J,K)*THALPV(I,TEMP(J,K))           
+108   QUIMOH(J,K)=QUIMOH(J,K)+GENX(I,J,K)*THALPL(I,TEMP(J,K))           
+      IF(KYEN.EQ.0)GO TO 300                                            
+      CALL MOVE(VAPW,J,K)                                               
+      VAPMOH(J,K)=VAPMOH(J,K)+YENF(VAPW,TEMP(J,K),PRESS(J,K))           
+300   VAPORN=FLVASP-VAPPRO(J,K)-VAPFLO(J,K)                             
+      QUIDN=FLLISP-QUIPRO(J,K)-QUIFLO(J,K)                              
+      IF (FLVASP/FLV-1.0) 109,109,111                                   
+109   IF (VAPORN/FLFEES-1.0E-4) 110,110,111                             
+110   HBALOK=1.0       
+      VAPOR(J,K)=FLFEES*1.0E-4                                          
+      QUID(J,K)=QUIDN  
+      GO TO 122        
+111   IF (FLLISP/FLL-1.0) 112,112,114                                   
+112   IF (QUIDN/FLFEES-1.0E-4) 113,113,114                              
+113   HBALOK=1.0       
+      QUID(J,K)=FLFEES*1.0E-4                                           
+      VAPOR(J,K)=VAPORN                                                 
+      GO TO 122        
+114   IF (ABS (FLV-FLVASP)/FLV-FACTOR*PRDERR)115,115,116                
+115   IF (ABS (FLL-FLLISP)/FLL-FACTOR*PRDERR)117,117,116                
+116   FLV=FLVASP       
+      FLL=FLLISP       
+      GO TO 99         
+117   IF (ABS (FLVASP-FLVASO)/FLFEES-PRDERR)119,119,118                 
+118   HBALOK=1.0       
+      GO TO 121        
+119   IF (ABS (FLLISP-FLLISO)/FLFEES-PRDERR)121,121,120                 
+120   HBALOK=1.0       
+121   QUID(J,K)=QUIDN  
+      VAPOR(J,K)=VAPORN                                                 
+122   IF (J-JT) 124,123,123                                             
+123   JDELTA=-1        
+124   J=J+JDELTA       
+125   CONTINUE         
+C                      
+C     CALCULATION OF HEAT UNBALANCES                                    
+C                      
+126   DO 141 J=1,JT    
+      IF (J-1) 127,127,128                                              
+127   QUNBAL(1,K)=TOTFDH(1,K)+QUID(2,K)*QUIMOH(2,K)                     
+      GO TO 131        
+128   IF (J-JT) 130,129,129                                             
+129   QUNBAL(JT,K)=TOTFDH(JT,K)+VAPOR(JT-1,K)*VAPMOH(JT-1,K)            
+      GO TO 131        
+130   QUNBAL(J,K)=TOTFDH(J,K)+VAPOR(J-1,K)*VAPMOH(J-1,K)+QUID(J+1,K)*   
+     1QUIMOH(J+1,K)    
+131   QUNBAL(J,K)=QUNBAL(J,K)-(VAPOR(J,K)+VAPPRO(J,K)+VAPFLO(J,K))*     
+     1VAPMOH(J,K)-(QUID(J,K)+QUIPRO(J,K)+QUIFLO(J,K))*QUIMOH(J,K)       
+     2+HREAC(J,K)      
+      IF (KFVFRO(J,K)) 133,133,132                                      
+132   JV=JFVFRO(J,K)   
+      KV=KFVFRO(J,K)   
+      QUNBAL(J,K)=QUNBAL(J,K)+VAPFLO(JV,KV)*VAPMOH(JV,KV)               
+133   IF (KVVFRO(J,K)) 135,135,134                                      
+134   JV=JVVFRO(J,K)   
+      KV=KVVFRO(J,K)   
+      QUNBAL(J,K)=QUNBAL(J,K)+VAPOR(JV,KV)*VAPMOH(JV,KV)                
+135   IF (KFLFRO(J,K)) 137,137,136                                      
+136   JV=JFLFRO(J,K)   
+      KV=KFLFRO(J,K)   
+      QUNBAL(J,K)=QUNBAL(J,K)+QUIFLO(JV,KV)*QUIMOH(JV,KV)               
+137   IF (KVLFRO(J,K)) 141,141,138                                      
+138   JV=JVLFRO(J,K)   
+      KV=KVLFRO(J,K)   
+      IF (JV-1) 139,139,140                                             
+139   QUNBAL(J,K)=QUNBAL(J,K)+QUID(JV,KV)*QUIMOH(JV,KV)                 
+      GO TO 141        
+140   QUNBAL(J,K)=QUNBAL(J,K)+QUITOP(KV)*QUIMOH(JV,KV)                  
+141   CONTINUE         
+      IF (JRETYP(K)) 143,143,142                                        
+142   REBLD(K)=-QUNBAL(1,K)                                             
+      QUNBAL(1,K)=0.0  
+143   IF (JCOTYP(K)) 145,145,144                                        
+144   CONDLD(K)=QUNBAL(JT,K)-QUITOP(K)*QUIMOH(JT,K)                     
+      QUNBAL(JT,K)=0.0                                                  
+145   CONTINUE         
+146   CONTINUE         
+      FACTOR=0.50      
+C                      
+C     CALCULATION OF COMPONENT RECOVERY FRACTIONS                       
+C                      
+      DO 147 I=1,NCOMPS                                                 
+147   PRDSUM(I)=0.0    
+      DO 163 K=1,NCOLS                                                  
+      JT=NSTGS(K)      
+      DO 153 J=1,JT    
+      IF (VAPPRO(J,K)) 150,150,148                                      
+148   DO 149 I=1,NCOMPS                                                 
+149   PRDSUM(I)=PRDSUM(I)+VAPPRO(J,K)*GENY(I,J,K)                       
+150   IF (QUIPRO(J,K)) 153,153,151                                      
+151   DO 152 I=1,NCOMPS                                                 
+152   PRDSUM(I)=PRDSUM(I)+QUIPRO(J,K)*GENX(I,J,K)                       
+153   CONTINUE         
+      IF (KVLTO(1,K)) 154,154,156                                       
+154   DO 155 I=1,NCOMPS                                                 
+155   PRDSUM(I)=PRDSUM(I)+QUID(1,K)*GENX(I,1,K)                         
+156   IF (KVVTO(JT,K)) 157,157,159                                      
+157   DO 158 I=1,NCOMPS                                                 
+158   PRDSUM(I)=PRDSUM(I)+VAPOR(JT,K)*GENY(I,JT,K)                      
+159   IF (JCOTYP(K)-2) 163,160,160                                      
+160   IF (KVLTO(JT,K)) 161,161,163                                      
+161   DO 162 I=1,NCOMPS                                                 
+162   PRDSUM(I)=PRDSUM(I)+QUITOP(K)*GENX(I,JT,K)                        
+163   CONTINUE         
+      DO 164 I=1,NCOMPS                                                 
+      RFSUM(I)=PRDSUM(I)/SUMFD(I)                                       
+164   PRDSUM(I)=PRDSUM(I)-SUMFD(I)                                      
+C                      
+C     OUTPUT           
+C                      
+      ITERAT=ITERAT+1  
+      IF(ITERAT.GT.KOUNTR)GO TO 1                                       
+      PRSERR=0.0       
+      DO 165 I=1,NCOMPS                                                 
+165   PRSERR=PRSERR+ABS (PRDSUM(I))                                     
+      IF (PRSERR-PRDERR) 166,166,169                                    
+166   IF (HBALOK) 167,167,169                                           
+167   CHECK=1.0        
+168   IF(LACTV.GT.0)GO TO 3                                             
+      CALL OUTPUT      
+      GO TO 1          
+169   IF(MOD(ITERAT,KITER))3,170,3                                      
+170   CHECK=1.0        
+      CALL OUTPUT      
+      GO TO 3          
+      END              
+C     PROGRAM 9    PROGRAM FOR INTERLINKED COLUMNS                      
+C                      
+C     SUBROUTINE FOR INPUT                                              
+C                      
+      SUBROUTINE INPUT                                                  
+      COMMON GENX(20,50,2),GENY(20,50,2),EXTFD(20,50,2),ACTV(20,50,2)   
+     1,A(20,2),B(20,2),C(20,2),ENTHK(20),ENTHL(20),ENTHM(20),ENTHU(20)  
+     2,ENTHV(20),ENTHW(20),TOTFDH(50,2),VAPPRO(50,2),QUIPRO(50,2)       
+     3,VAPFLO(50,2),QUIFLO(50,2),TEMP(50,2),VAPOR(50,2),QUID(50,2)      
+     4,SUMX(50,2),SUMY(50,2),QUIMOH(50,2),VAPMOH(50,2),QUNBAL(50,2)     
+     5,QUITOP(2),TCSET(2),SUMFD(20),FLFEED(20),VAPY(20),QUIDX(20)       
+     6,FLVAP(20),FLLIQ(20),FLVAP1(20),FLLIQ1(20),PRDSUM(20),RFSUM(20)   
+     7,CONDLD(2),REBLD(2),RKB(20,20),RKC(20,20),RKD(20,20),PRESS(50,2)  
+     8,PCRIT(20),TCRIT(20),STORY(20),TRVOL(50,2),REACTN(20,50,2)        
+      COMMON NSTGS(2),JFVFRO(50,2),KFVFRO(50,2),JFVTO(50,2),KFVTO(50,2) 
+     1,JFLFRO(50,2),KFLFRO(50,2),JFLTO(50,2),KFLTO(50,2),JVVFRO(50,2)   
+     2,KVVFRO(50,2),JVVTO(50,2),KVVTO(50,2),JVLFRO(50,2),KVLFRO(50,2)   
+     3,JVLTO(50,2),KVLTO(50,2),JRETYP(2),JCOTYP(2),KITER                
+      COMMON/ERROR/PRDERR,BDFERR,CHECK                                  
+      COMMON/KONTER/ITERAT,NCOMPS,NCOLS                                 
+      COMMON/COMYEN/KYEN                                                
+      COMMON /COMACT/ KACTV,LACTV                                       
+      COMMON /COMCHK/ KOUNTR                                            
+      DIMENSION DUMMY(5)                                                
+      DIMENSION VAPW(20)                                                
+1     FORMAT(5F10.0)   
+      READ(5,101,END=100)STORY                                          
+101   FORMAT(20A4)     
+      READ(5,2,END=100)DUMMY,COUNTR                                     
+      KOUNTR=COUNTR    
+      IF(KOUNTR.EQ.0)KOUNTR=1000                                        
+      NCOMPS=DUMMY(1)  
+      NCOLS=DUMMY(2)   
+      KYEN=DUMMY(3)    
+      KITER=DUMMY(4)   
+      KACTV=DUMMY(5)   
+      IF(KITER.EQ.0)KITER=200                                           
+      READ           (5,1)DUMMY                                         
+      CALL SHIFT(DUMMY,NSTGS,NCOLS)                                     
+2     FORMAT(8F10.0)   
+      READ(5,3)((A(I,K),B(I,K),C(I,K),I=1,NCOMPS),K=1,NCOLS)            
+3     FORMAT(3F10.0)   
+      READ(5,3)(ENTHK(I),ENTHL(I),ENTHM(I),I=1,NCOMPS)                  
+      READ(5,3)(ENTHU(I),ENTHV(I),ENTHW(I),I=1,NCOMPS)                  
+      IF(KYEN.EQ.0)GO TO 94                                             
+      READ(5,95)(TCRIT(I),PCRIT(I),I=1,NCOMPS)                          
+95    FORMAT(2F10.0)   
+94    READ           (5,2)PRDERR,BDFERR                                 
+C                      
+C     SPECIFY FEEDS NFEEDS IS THE TOTAL NUMBER OF EXTERNAL FEED STREAMS,
+C     A PARTICULAR FEED ENTERING STAGE J OF COLUMN K                    
+C     HEAT MAY BE ADDED OR SUBTRACTED AT ANY TRAY CONSIDERED AS A FEED  
+C                      
+4     DO 5 K=1,NCOLS   
+      JT=NSTGS(K)      
+      DO 5 J=1,JT      
+      TOTFDH(J,K)=0.0  
+      DO 5 I=1,NCOMPS  
+5     EXTFD(I,J,K)=0.0                                                  
+      READ           (5,1)DUMMY                                         
+      NFEEDS=DUMMY(1)  
+      DO 6 JV=1,NFEEDS                                                  
+      READ           (5,1)DUMMY                                         
+      J=DUMMY(1)       
+      K=DUMMY(2)       
+      LSTAT=DUMMY(3)   
+      READ(5,2)TFEED,HFEED,PFEED                                        
+      READ           (5,2)(EXTFD(I,J,K),I=1,NCOMPS)                     
+      S=0.             
+      DO 92 I=1,NCOMPS                                                  
+      IF(LSTAT)90,90,91                                                 
+90    H=THALPL(I,TFEED)                                                 
+      GO TO 92         
+91    H=THALPV(I,TFEED)                                                 
+92    S=S+EXTFD(I,J,K)*H                                                
+      IF(LSTAT.EQ.0)GO TO 6                                             
+      IF(KYEN.EQ.0)GO TO 6                                              
+      DO 93 I=1,NCOMPS                                                  
+93    VAPW(I)=EXTFD(I,J,K)                                              
+      S=S+YENF(VAPW,TFEED,PFEED)                                        
+6     TOTFDH(J,K)=S+HFEED                                               
+C                      
+C     SPECIFY FIXED PRODUCT STREAMS NVPROS IS THE TOTAL NUMBER OF FIXED 
+C     VAPOR PRODUCTS, NLPROS IS THE TOTAL NUMBER OF FIXED LIQUID PRODUCT
+C     A PARTICULAR PRODUCT OF AMOUNT VAPPRO OR QUIPRO BEING DRAWN FROM  
+C     STAGE J OF COLUMN K                                               
+C                      
+      DO 7 K=1,NCOLS   
+      JT=NSTGS(K)      
+      DO 7 J=1,JT      
+      VAPPRO(J,K)=0.0  
+7     QUIPRO(J,K)=0.0  
+      READ           (5,1)DUMMY                                         
+      NVPROS=DUMMY(1)  
+      NLPROS=DUMMY(2)  
+      IF (NVPROS) 10,10,8                                               
+8     DO 9 JV=1,NVPROS                                                  
+      READ           (5,1)DUMMY                                         
+      J=DUMMY(1)       
+      K=DUMMY(2)       
+9     VAPPRO(J,K)=DUMMY(3)                                              
+10    IF (NLPROS) 13,13,11                                              
+11    DO 12 JV=1,NLPROS                                                 
+      READ           (5,1)DUMMY                                         
+      J=DUMMY(1)       
+      K=DUMMY(2)       
+12    QUIPRO(J,K)=DUMMY(3)                                              
+C                      
+C     SPECIFY FIXED STREAMS INTERCONNECTING ANY STAGE IN ANY COLUMN WITH
+C     ANY OTHER STAGE IN ANY COLUMN NVFLOS IS THE TOTAL NUMBER OF FIXED 
+C     VAPOR STREAMS, NLFLOS IS THE TOTAL NUMBER OF FIXED LIQUID STREAMS,
+C     A PARTICULAR STREAM LEAVING STAGE JFROM OF COLUMN KFROM AND       
+C     ENTERING STAGE JTO OF COLUMN KTO                                  
+C                      
+13    DO 14 K=1,NCOLS  
+      JT=NSTGS(K)      
+      DO 14 J=1,JT     
+      VAPFLO(J,K)=0.0  
+      QUIFLO(J,K)=0.0  
+      JFVFRO(J,K)=0    
+      KFVFRO(J,K)=0    
+      JFVTO(J,K)=0     
+      KFVTO(J,K)=0     
+      JFLFRO(J,K)=0    
+      KFLFRO(J,K)=0    
+      JFLTO(J,K)=0     
+14    KFLTO(J,K)=0     
+      READ           (5,1)DUMMY                                         
+      NVFLOS=DUMMY(1)  
+      NLFLOS=DUMMY(2)  
+      IF (NVFLOS) 17,17,15                                              
+15    DO 16 JV=1,NVFLOS                                                 
+      READ           (5,1)DUMMY                                         
+      JFROM=DUMMY(1)   
+      KFROM=DUMMY(2)   
+      JTO=DUMMY(3)     
+      KTO=DUMMY(4)     
+      VAPFLO(JFROM,KFROM)=DUMMY(5)                                      
+      JFVFRO(JTO,KTO)=JFROM                                             
+      KFVFRO(JTO,KTO)=KFROM                                             
+      JFVTO(JFROM,KFROM)=JTO                                            
+16    KFVTO(JFROM,KFROM)=KTO                                            
+17    IF (NLFLOS) 20,20,18                                              
+18    DO 19 JV=1,NLFLOS                                                 
+      READ           (5,1)DUMMY                                         
+      JFROM=DUMMY(1)   
+      KFROM=DUMMY(2)   
+      JTO=DUMMY(3)     
+      KTO=DUMMY(4)     
+      QUIFLO(JFROM,KFROM)=DUMMY(5)                                      
+      JFLFRO(JTO,KTO)=JFROM                                             
+      KFLFRO(JTO,KTO)=KFROM                                             
+      JFLTO(JFROM,KFROM)=JTO                                            
+19    KFLTO(JFROM,KFROM)=KTO                                            
+C                      
+C     SPECIFY VARIABLE STREAMS INTERCONNECTING ANY END STAGE IN ANY     
+C     COLUMN WITH ANY STAGE IN ANY OTHER COLUMN NVAPOS IS THE TOTAL     
+C     TOTAL NUMBER OF VARIABLE LIQUID STREAMS LINKING COLUMNS, A        
+C     NUMBER OF VARIABLE VAPOR STREAMS LINKING COLUMNS, NQUIDS IS THE   
+C     PARTICULAR STREAM LEAVING END STAGE JFROM OF COLUMN KFROM AND     
+C     ENTERING STAGE JTO OF COLUMN KTO                                  
+C                      
+20    DO 21 K=1,NCOLS  
+      JT=NSTGS(K)      
+      DO 21 J=1,JT     
+      JVVFRO(J,K)=0    
+      KVVFRO(J,K)=0    
+      JVVTO(J,K)=0     
+      KVVTO(J,K)=0     
+      JVLFRO(J,K)=0    
+      KVLFRO(J,K)=0    
+      JVLTO(J,K)=0     
+21    KVLTO(J,K)=0     
+      READ           (5,1)DUMMY                                         
+      NVAPOS=DUMMY(1)  
+      NQUIDS=DUMMY(2)  
+      IF (NVAPOS) 24,24,22                                              
+22    DO 23 JV=1,NVAPOS                                                 
+      READ           (5,1)DUMMY                                         
+      JFROM=DUMMY(1)   
+      KFROM=DUMMY(2)   
+      JTO=DUMMY(3)     
+      KTO=DUMMY(4)     
+      JVVFRO(JTO,KTO)=JFROM                                             
+      KVVFRO(JTO,KTO)=KFROM                                             
+      JVVTO(JFROM,KFROM)=JTO                                            
+23    KVVTO(JFROM,KFROM)=KTO                                            
+24    IF (NQUIDS) 27,27,25                                              
+25    DO 26 JV=1,NQUIDS                                                 
+      READ           (5,1)JFROM,KFROM,JTO,KTO                           
+      JFROM=DUMMY(1)   
+      KFROM=DUMMY(2)   
+      JTO=DUMMY(3)     
+      KTO = DUMMY(4)   
+      JVLFRO(JTO,KTO)=JFROM                                             
+      KVLFRO(JTO,KTO)=KFROM                                             
+      JVLTO(JFROM,KFROM)=JTO                                            
+26    KVLTO(JFROM,KFROM)=KTO                                            
+C                      
+C     SPECIFY REBOILER TYPE AT BOTTOM OF COLUMN K FOR ALL COLUMNS       
+C     JRETYP(K)=0 INDICATES NO REBOILER                                 
+C     JRETYP(K)=1 INDICATES REBOILER HOLDING VAPOR AT VAPOR(1,K)        
+C     JRETYP(K)=2 INDICATES REBOILER HOLDING LIQUID AT QUID(1,K)        
+C                      
+27    READ           (5,1)DUMMY                                         
+      CALL SHIFT(DUMMY,JRETYP,NCOLS)                                    
+C                      
+C     SPECIFY CONDENSER TYPE AT TOP OF COLUMN K FOR ALL COLUMNS         
+C     JCOTYP(K)=0 INDICATES NO CONDENSER JCOTYP(K)=1 INDICATES PARTIAL  
+C     CONDENSER, REFLUX WILL BE HELD CONSTANT AT QUID(JT,K) JCOTYP(K)=2 
+C     INDICATES TOTAL CONDENSER, REFLUX WILL BE HELD CONSTANT AT QUID   
+C     (JT,K) JCOTYP(K)=3 INDICATES TWO PRODUCT CONDENSER, REFLUX WILL BE
+C     HELD CONSTANT AT QUID(JT,K) AND CONDENSER TEMPERATURE WILL BE HELD
+C     CONSTANT AT TEMP(JT,K) IF IT IS POSSIBLE TO PRODUCE FIXED STREAMS 
+C                      
+      READ           (5,1)DUMMY                                         
+      CALL SHIFT(DUMMY,JCOTYP,NCOLS)                                    
+C                      
+C     INITIAL ESTIMATES OF TEMPERATURE, VAPOR AND LIQUID FLOW,          
+C     TRAY PRESSURE AND VOLUME, 5 NUMBERS PER CARD                      
+C                      
+      DO 28 K=1,NCOLS  
+      JT=NSTGS(K)      
+      DO 28 J=1,JT     
+      READ           (5,2)TEMP(J,K),VAPOR(J,K),QUID(J,K),PR,TRVOL(J,K)  
+      IF(PR.EQ.0.0)PR=1.0                                               
+      PRESS(J,K)=PR    
+28    CONTINUE         
+C                      
+C     INITIAL ESTIMATES OF LIQUID TOP PRODUCTS FOR COLUMNS WITH TOTAL OR
+C     TWO PRODUCT CONDENSERS                                            
+C                      
+      DO 31 K=1,NCOLS  
+      JT=NSTGS(K)      
+      QUITOP(K)=0.0    
+      IF (JCOTYP(K)-2) 31,29,30                                         
+29    VAPOR(JT,K)=0.0  
+      READ           (5,2)QUITOP(K)                                     
+      GO TO 31         
+30    TCSET(K)=TEMP(JT,K)                                               
+      READ           (5,2)QUITOP(K)                                     
+31    CONTINUE         
+      RETURN           
+100   CALL EXIT        
+      END              
+      SUBROUTINE INPUT2                                                 
+      COMMON GENX(20,50,2),GENY(20,50,2),EXTFD(20,50,2),ACTV(20,50,2)   
+     1,A(20,2),B(20,2),C(20,2),ENTHK(20),ENTHL(20),ENTHM(20),ENTHU(20)  
+     2,ENTHV(20),ENTHW(20),TOTFDH(50,2),VAPPRO(50,2),QUIPRO(50,2)       
+     3,VAPFLO(50,2),QUIFLO(50,2),TEMP(50,2),VAPOR(50,2),QUID(50,2)      
+     4,SUMX(50,2),SUMY(50,2),QUIMOH(50,2),VAPMOH(50,2),QUNBAL(50,2)     
+     5,QUITOP(2),TCSET(2),SUMFD(20),FLFEED(20),VAPY(20),QUIDX(20)       
+     6,FLVAP(20),FLLIQ(20),FLVAP1(20),FLLIQ1(20),PRDSUM(20),RFSUM(20)   
+     7,CONDLD(2),REBLD(2),RKB(20,20),RKC(20,20),RKD(20,20),PRESS(50,2)  
+     8,PCRIT(20),TCRIT(20),STORY(20),TRVOL(50,2),REACTN(20,50,2)        
+      COMMON NSTGS(2),JFVFRO(50,2),KFVFRO(50,2),JFVTO(50,2),KFVTO(50,2) 
+     1,JFLFRO(50,2),KFLFRO(50,2),JFLTO(50,2),KFLTO(50,2),JVVFRO(50,2)   
+     2,KVVFRO(50,2),JVVTO(50,2),KVVTO(50,2),JVLFRO(50,2),KVLFRO(50,2)   
+     3,JVLTO(50,2),KVLTO(50,2),JRETYP(2),JCOTYP(2),KITER                
+      COMMON/ERROR/PRDERR,BDFERR,CHECK                                  
+      COMMON/KONTER/ITERAT,NCOMPS,NCOLS                                 
+      COMMON/COMYEN/KYEN                                                
+      DIMENSION VAPW(20)                                                
+C                      
+C     PRINT INPUT DATA                                                  
+C                      
+32    FORMAT(1H1,1X,'INPUT DATA',3X,20A4)                               
+      WRITE(6,32)STORY                                                  
+33    FORMAT(1X,'NO. OF COMPONENTS',I10,/1X,'NO. OF COLUMNS',I13)       
+      WRITE            (6,33)NCOMPS,NCOLS                               
+34    FORMAT (63H0                                                 *****
+     1 COLUMN I1,6H *****)                                              
+35    FORMAT (20H0NUMBER OF STAGES = I3)                                
+36    FORMAT (24H0EXTERNAL FEED TO STAGE I3,11H OF COLUMN I1)           
+37    FORMAT (20H   COMPONENT AMOUNTS/(10E14.6))                        
+38    FORMAT (22H   ENTHALPY OF FEED = E15.8)                           
+39    FORMAT (12H0NO REBOILER)                                          
+40    FORMAT (1X,'REBOILER, FIXED REBOILER VAPOR = ',E15.8)             
+492   FORMAT (1X,'REBOILER, FIXED REBOILER LIQUID = ',E15.8)            
+41    FORMAT (13H0NO CONDENSER)                                         
+42    FORMAT (45H0PARTIAL CONDENSER, FIXED SATURATED REFLUX = E15.8)    
+43    FORMAT (43H0TOTAL CONDENSER, FIXED SATURATED REFLUX = E15.8)      
+44    FORMAT (39H0TWO PRODUCT CONDENSER, FIXED REFLUX = E15.8,22H     CO
+     1NDENSER TEMP = E15.8,12H IF POSSIBLE)                             
+      DO 57 K=1,NCOLS  
+      JT=NSTGS(K)      
+      WRITE            (6,34)K                                          
+      WRITE            (6,35)NSTGS(K)                                   
+      DO 47 J=1,JT     
+      DO 45 I=1,NCOMPS                                                  
+      IF(ABS(EXTFD(I,J,K))+ABS(TOTFDH(J,K)))45,45,46                    
+45    CONTINUE         
+      GO TO 47         
+46    WRITE            (6,36)J,K                                        
+      WRITE            (6,37)(EXTFD(I,J,K),I=1,NCOMPS)                  
+      WRITE            (6,38)TOTFDH(J,K)                                
+47    CONTINUE         
+      IF (JRETYP(K)-1)48,49,491                                         
+48    WRITE            (6,39)                                           
+      GO TO 50         
+49    WRITE            (6,40)VAPOR(1,K)                                 
+      GO TO 50         
+491   WRITE(6,492)QUID(1,K)                                             
+50    IF (JCOTYP(K)) 51,51,52                                           
+51    WRITE            (6,41)                                           
+      GO TO 57         
+52    IF (JCOTYP(K)-1) 53,53,54                                         
+53    WRITE            (6,42)QUID(JT,K)                                 
+      GO TO 57         
+54    IF (JCOTYP(K)-2) 55,55,56                                         
+55    WRITE            (6,43)QUID(JT,K)                                 
+      GO TO 57         
+56    WRITE            (6,44)QUID(JT,K),TEMP(JT,K)                      
+57    CONTINUE         
+58    FORMAT (31H0FIXED VAPOR PRODUCT STREAM OF E15.8,18H MOLES FROM STA
+     1GE I3,11H OF COLUMN I1)                                           
+59    FORMAT (32H0FIXED LIQUID PRODUCT STREAM OF E15.8,18H MOLES FROM ST
+     1AGE, I3,11H OF COLUMN I1)                                         
+60    FORMAT (39H0FIXED INTERCONNECTING VAPOR STREAM OF E15.8,17H MOLES 
+     1FROM STAGE I3,11H OF COLUMN I1,10H TO STAGE I3,11H OF COLUMN I1)  
+61    FORMAT (40H0FIXED INTERCONNECTING LIQUID STREAM OF E15.8,17H MOLES
+     1 FROM STAGE I3,11H OF COLUMN I1,10H TO STAGE I3,11H OF COLUMN I1) 
+62    FORMAT (50H0VARIABLE INTERCONNECTING VAPOR STREAM FROM STAGE I3,11
+     1H OF COLUMN I1,10H TO STAGE I3,11H OF COLUMN I1)                  
+63    FORMAT (51H0VARIABLE INTERCONNECTING LIQUID STREAM FROM STAGE I3,1
+     11H OF COLUMN I1,10H TO STAGE I3,11H OF COLUMN I1)                 
+      DO 67 K=1,NCOLS  
+      JT=NSTGS(K)      
+      DO 67 J=1,JT     
+      IF (VAPPRO(J,K)) 64,65,64                                         
+64    WRITE            (6,58)VAPPRO(J,K),J,K                            
+65    IF (QUIPRO(J,K)) 66,67,66                                         
+66    WRITE            (6,59)QUIPRO(J,K),J,K                            
+67    CONTINUE         
+      DO 71 K=1,NCOLS  
+      JT=NSTGS(K)      
+      DO 71 J=1,JT     
+      IF (VAPFLO(J,K)) 68,69,68                                         
+68    WRITE            (6,60)VAPFLO(J,K),J,K,JFVTO(J,K),KFVTO(J,K)      
+69    IF (QUIFLO(J,K)) 70,71,70                                         
+70    WRITE            (6,61)QUIFLO(J,K),J,K,JFLTO(J,K),KFLTO(J,K)      
+71    CONTINUE         
+      DO 75 K=1,NCOLS  
+      JT=NSTGS(K)      
+      DO 75 J=1,JT     
+      IF (KVVTO(J,K)) 72,73,72                                          
+72    WRITE            (6,62)J,K,JVVTO(J,K),KVVTO(J,K)                  
+73    IF (KVLTO(J,K)) 74,75,74                                          
+74    WRITE         (6,63)J,K,JVLTO(J,K),KVLTO(J,K)
+C
+75    CONTINUE         
+76    FORMAT (82H0EQUILIBRIUM CONSTANTS A EQUILIBRIUM CONSTANTS B       
+     1    EQUILIBRIUM CONSTANTS C/(E19.8,2E29.8))                       
+      WRITE(6,76)((A(I,K),B(I,K),C(I,K),I=1,NCOMPS),K=1,NCOLS)          
+      WRITE(6,78)(ENTHK(I),ENTHL(I),ENTHM(I),ENTHU(I),ENTHV(I),ENTHW(I) 
+     1,I=1,NCOMPS)     
+78    FORMAT(1X, 'ENTHALPY CONSTANTS FOR LIQ AND VAP',/(6E20.8))        
+      IF(KYEN.EQ.0)GO TO 100                                            
+      WRITE(6,101)(TCRIT(I),PCRIT(I),I=1,NCOMPS)                        
+101   FORMAT(/,1X,'CRITICAL TEMPERATURE,F   CRITICAL PRESSURE',//       
+     1(F16.3,6X,F16.3))                                                 
+79    FORMAT (52H0PRODUCT ERROR LIMIT    BUBBLE DEW FLASH ERROR LIMIT/(E
+     117.8,E28.8))     
+100   WRITE            (6,79)PRDERR,BDFERR                              
+80    FORMAT(8X,'TEMPERATURES',9X,'VAPOR FLOWS',8X,'LIQUID FLOWS',9X    
+     1,'PRESSURES',9X,'TRAY VOLUME',//(5E20.6))                         
+81    FORMAT(E60.6)    
+      DO 83 K=1,NCOLS  
+      JT=NSTGS(K)      
+      WRITE            (6,34)K                                          
+      WRITE(6,80)(TEMP(J,K),VAPOR(J,K),QUID(J,K),PRESS(J,K),TRVOL(J,K)  
+     1,J=1,JT)         
+      IF (JCOTYP(K)-2) 83,82,82                                         
+82    WRITE            (6,81)QUITOP(K)                                  
+83    CONTINUE         
+      FLFEES=0.0       
+      FIXV=0.0         
+      FIXL=0.0         
+      BDFERR=10.0*BDFERR                                                
+      DO 84 I=1,NCOMPS                                                  
+      FLFEED(I)=0.0    
+      DO 84 K=1,NCOLS  
+      JT=NSTGS(K)      
+      DO 84 J=1,JT     
+      FLFEED(I)=FLFEED(I)+EXTFD(I,J,K)                                  
+84    FLFEES=FLFEES+EXTFD(I,J,K)                                        
+      DO 88 K=1,NCOLS  
+      JT=NSTGS(K)      
+      DO 88 J=1,JT     
+      IF (J-1) 85,85,86                                                 
+85    FLVAS=.5*FLFEES  
+      FLLIS=FLFEES-FLVAS                                                
+86    CALL ISOTFL (FLFEED,FLFEES,FLVAS,FLLIS,FIXV,FIXL,TEMP(J,K),J,K)   
+      QUIMOH(J,K)=0.0  
+      VAPMOH(J,K)=0.0  
+      DO 87 I=1,NCOMPS                                                  
+      GENX(I,J,K)=QUIDX(I)                                              
+      QUIMOH(J,K)=QUIMOH(J,K)+GENX(I,J,K)*THALPL(I,TEMP(J,K))           
+      GENY(I,J,K)=VAPY(I)                                               
+87    VAPMOH(J,K)=VAPMOH(J,K)+GENY(I,J,K)*THALPV(I,TEMP(J,K))           
+      IF(KYEN.EQ.0)GO TO 88                                             
+      CALL MOVE(VAPW,J,K)                                               
+      VAPMOH(J,K)=VAPMOH(J,K)+YENF(VAPW,TEMP(J,K),PRESS(J,K))           
+88    CONTINUE         
+      BDFERR=BDFERR/10.0                                                
+      RETURN           
+      END              
+C     PROGRAM 9    PROGRAM FOR INTERLINKED COLUMNS                      
+C                      
+C     SUBROUTINE FOR OUTPUT                                             
+C                      
+      SUBROUTINE OUTPUT                                                 
+      COMMON GENX(20,50,2),GENY(20,50,2),EXTFD(20,50,2),ACTV(20,50,2)   
+     1,A(20,2),B(20,2),C(20,2),ENTHK(20),ENTHL(20),ENTHM(20),ENTHU(20)  
+     2,ENTHV(20),ENTHW(20),TOTFDH(50,2),VAPPRO(50,2),QUIPRO(50,2)       
+     3,VAPFLO(50,2),QUIFLO(50,2),TEMP(50,2),VAPOR(50,2),QUID(50,2)      
+     4,SUMX(50,2),SUMY(50,2),QUIMOH(50,2),VAPMOH(50,2),QUNBAL(50,2)     
+     5,QUITOP(2),TCSET(2),SUMFD(20),FLFEED(20),VAPY(20),QUIDX(20)       
+     6,FLVAP(20),FLLIQ(20),FLVAP1(20),FLLIQ1(20),PRDSUM(20),RFSUM(20)   
+     7,CONDLD(2),REBLD(2),RKB(20,20),RKC(20,20),RKD(20,20),PRESS(50,2)  
+     8,PCRIT(20),TCRIT(20),STORY(20),TRVOL(50,2),REACTN(20,50,2)        
+      COMMON NSTGS(2),JFVFRO(50,2),KFVFRO(50,2),JFVTO(50,2),KFVTO(50,2) 
+     1,JFLFRO(50,2),KFLFRO(50,2),JFLTO(50,2),KFLTO(50,2),JVVFRO(50,2)   
+     2,KVVFRO(50,2),JVVTO(50,2),KVVTO(50,2),JVLFRO(50,2),KVLFRO(50,2)   
+     3,JVLTO(50,2),KVLTO(50,2),JRETYP(2),JCOTYP(2),KITER                
+      COMMON/ERROR/PRDERR,BDFERR,CHECK                                  
+      COMMON/KONTER/ITERAT,NCOMPS,NCOLS                                 
+1     FORMAT(1H1,1X,'PROBLEM',3X,20A4,/1X,'ITERATION NO. = ',I5)        
+      WRITE(6,1)STORY,ITERAT                                            
+      DO 95 K=1,NCOLS  
+      JT=NSTGS(K)      
+2     FORMAT (63H0                                                 *****
+     1 COLUMN I1,6H *****)                                              
+      WRITE            (6,2)K                                           
+3     IF (CHECK) 31,31,5                                                
+4     FORMAT (63H0LIQUID AND VAPOR MOLE FRACTIONS LISTED AS COMPONENTS P
+     1ER STAGE)        
+5     WRITE            (6,4)                                            
+6     FORMAT (19H0      STAGE NO. = I3)                                 
+7     FORMAT (19H0      STAGE NO. = I3,15H     (REBOILER))              
+8     FORMAT (19H0      STAGE NO. = I3,24H     (PARTIAL CONDENSER))     
+9     FORMAT (19H0      STAGE NO. = I3,22H     (TOTAL CONDENSER))       
+10    FORMAT (19H0      STAGE NO. = I3,28H     (TWO PRODUCT CONDENSER)) 
+11    FORMAT (7H LIQUID/(10E14.6))                                      
+12    FORMAT (6H VAPOR/(10E14.6))                                       
+      JSTAGE=1         
+      IF (JRETYP(K)) 13,13,14                                           
+13    WRITE            (6,6)JSTAGE                                      
+      GO TO 15         
+14    WRITE            (6,7)JSTAGE                                      
+15    WRITE            (6,11)(GENX(I,1,K),I=1,NCOMPS)                   
+      WRITE            (6,12)(GENY(I,1,K),I=1,NCOMPS)                   
+      JMIN=JT-1        
+      DO 16 J=2,JMIN   
+      JSTAGE=JSTAGE+1  
+      WRITE            (6,6)JSTAGE                                      
+      WRITE            (6,11)(GENX(I,J,K),I=1,NCOMPS)                   
+16    WRITE            (6,12)(GENY(I,J,K),I=1,NCOMPS)                   
+      IF (JCOTYP(K)-1) 17,18,19                                         
+17    WRITE            (6,6)JT                                          
+      GO TO 22         
+18    WRITE            (6,8)JT                                          
+      GO TO 22         
+19    IF (JCOTYP(K)-2) 20,20,21                                         
+20    WRITE            (6,9)JT                                          
+      GO TO 22         
+21    WRITE            (6,10)JT                                         
+22    WRITE            (6,11)(GENX(I,JT,K),I=1,NCOMPS)                  
+23    WRITE            (6,12)(GENY(I,JT,K),I=1,NCOMPS)                  
+24    FORMAT (27H0LIQUID PRODUCT FROM STAGE I3,5H  OF E15.8,7H  MOLES)  
+25    FORMAT (26H0VAPOR PRODUCT FROM STAGE I3,5H  OF E15.8,7H  MOLES)   
+26    FORMAT (19H0BOTTOM PRODUCT OF E15.8,7H  MOLES)                    
+27    FORMAT (23H0LIQUID TOP PRODUCT OF E15.8,7H  MOLES)                
+28    FORMAT (22H0VAPOR TOP PRODUCT OF E15.8,7H  MOLES)                 
+29    FORMAT (21H    COMPONENT AMOUNTS/(10E14.6))                       
+30    FORMAT (32H    COMPONENT RECOVERY FRACTIONS/(10E14.6))            
+31    DO 39 J=1,JT     
+      IF (QUIPRO(J,K)) 35,35,32                                         
+32    WRITE            (6,24)J,QUIPRO(J,K)                              
+      DO 33 I=1,NCOMPS                                                  
+33    QUIDX(I)=QUIPRO(J,K)*GENX(I,J,K)                                  
+      WRITE            (6,29)(QUIDX(I),I=1,NCOMPS)                      
+      DO 34 I=1,NCOMPS                                                  
+34    QUIDX(I)=QUIDX(I)/SUMFD(I)                                        
+      WRITE            (6,30)(QUIDX(I),I=1,NCOMPS)                      
+35    IF (VAPPRO(J,K)) 39,39,36                                         
+36    WRITE            (6,25)J,VAPPRO(J,K)                              
+      DO 37 I=1,NCOMPS                                                  
+37    QUIDX(I)=VAPPRO(J,K)*GENY(I,J,K)                                  
+      WRITE            (6,29)(QUIDX(I),I=1,NCOMPS)                      
+      DO 38 I=1,NCOMPS                                                  
+38    QUIDX(I)=QUIDX(I)/SUMFD(I)                                        
+      WRITE            (6,30)(QUIDX(I),I=1,NCOMPS)                      
+39    CONTINUE         
+      IF (KVLTO(1,K)) 43,40,43                                          
+40    WRITE            (6,26)QUID(1,K)                                  
+      DO 41 I=1,NCOMPS                                                  
+41    QUIDX(I)=QUID(1,K)*GENX(I,1,K)                                    
+      WRITE            (6,29)(QUIDX(I),I=1,NCOMPS)                      
+      DO 42 I=1,NCOMPS                                                  
+42    QUIDX(I)=QUIDX(I)/SUMFD(I)                                        
+      WRITE            (6,30)(QUIDX(I),I=1,NCOMPS)                      
+43    IF (JCOTYP(K)-2) 49,44,44                                         
+44    IF (QUITOP(K)) 49,49,45                                           
+45    IF (KVLTO(JT,K)) 49,46,49                                         
+46    WRITE            (6,27)QUITOP(K)                                  
+      DO 47 I=1,NCOMPS                                                  
+47    QUIDX(I)=QUITOP(K)*GENX(I,JT,K)                                   
+      WRITE            (6,29)(QUIDX(I),I=1,NCOMPS)                      
+      DO 48 I=1,NCOMPS                                                  
+48    QUIDX(I)=QUIDX(I)/SUMFD(I)                                        
+      WRITE            (6,30)(QUIDX(I),I=1,NCOMPS)                      
+49    IF (JCOTYP(K)-2) 51,57,50                                         
+50    IF (VAPOR(JT,K)) 57,57,51                                         
+51    IF (KVVTO(JT,K)) 57,52,57                                         
+52    WRITE            (6,28)VAPOR(JT,K)                                
+      DO 53 I=1,NCOMPS                                                  
+53    QUIDX(I)=VAPOR(JT,K)*GENY(I,JT,K)                                 
+      WRITE            (6,29)(QUIDX(I),I=1,NCOMPS)                      
+      DO 54 I=1,NCOMPS                                                  
+54    QUIDX(I)=QUIDX(I)/SUMFD(I)                                        
+      WRITE            (6,30)(QUIDX(I),I=1,NCOMPS)                      
+55    FORMAT (22H0FIXED LIQUID FLOW OF E15.8,19H  MOLES FROM STAGE I3,11
+     1H  TO STAGE I3,12H  OF COLUMN I3)                                 
+56    FORMAT (21H0FIXED VAPOR FLOW OF E15.8,19H  MOLES FROM STAGE I3,11H
+     1  TO STAGE I3,12H  OF COLUMN I3)                                  
+57    DO 63 J=1,JT     
+      IF (QUIFLO(J,K)) 60,60,58                                         
+58    WRITE            (6,55)QUIFLO(J,K),J,JFLTO(J,K),KFLTO(J,K)        
+      DO 59 I=1,NCOMPS                                                  
+59    QUIDX(I)=QUIFLO(J,K)*GENX(I,J,K)                                  
+      WRITE            (6,29)(QUIDX(I),I=1,NCOMPS)                      
+60    IF (VAPFLO(J,K)) 63,63,61                                         
+61    WRITE            (6,56)VAPFLO(J,K),J,JFVTO(J,K),KFVTO(J,K)        
+      DO 62 I=1,NCOMPS                                                  
+62    QUIDX(I)=VAPFLO(J,K)*GENY(I,J,K)                                  
+      WRITE            (6,29)(QUIDX(I),I=1,NCOMPS)                      
+63    CONTINUE         
+64    FORMAT (16H0LIQUID FLOW OF E15.8,19H  MOLES FROM STAGE I3,11H  TO 
+     1STAGE I3,12H  OF COLUMN I3)                                       
+65    FORMAT (16H0LIQUID FLOW OF E15.8,31H  MOLES FROM REBOILER TO STAGE
+     1 I3,12H  OF COLUMN I3)                                            
+66    FORMAT (16H0LIQUID FLOW OF E15.8,32H  MOLES FROM CONDENSER TO STAG
+     1E I3,12H  OF COLUMN I3)                                           
+67    FORMAT (15H0VAPOR FLOW OF E15.8,19H  MOLES FROM STAGE I3,11H  TO S
+     1TAGE I3,12H  OF COLUMN I3)                                        
+68    FORMAT (15H0VAPOR FLOW OF E15.8,32H  MOLES FROM CONDENSER TO STAGE
+     1 I3,12H  OF COLUMN I3)                                            
+69    IF (KVLTO(1,K)) 75,75,70                                          
+70    IF (JRETYP(K)) 71,71,72                                           
+71    J=1              
+97    FORMAT (77H0EXCESS MOLES OF EACH COMPONENT LEAVING THE SYSTEM IN P
+     1RODUCTS OVER MOLES FED/(10E14.6))                                 
+      WRITE            (6,97)(PRDSUM(I),I=1,NCOMPS)                     
+      WRITE            (6,64)QUID(1,K),J,JVLTO(1,K),KVLTO(1,K)          
+      GO TO 73         
+72    WRITE            (6,65)QUID(1,K),JVLTO(1,K),KVLTO(1,K)            
+73    DO 74 I=1,NCOMPS                                                  
+74    QUIDX(I)=QUID(1,K)*GENX(I,1,K)                                    
+      WRITE            (6,29)(QUIDX(I),I=1,NCOMPS)                      
+75    IF (KVLTO(JT,K)) 78,78,76                                         
+76    WRITE            (6,66)QUITOP(K),JVLTO(JT,K),KVLTO(JT,K)          
+      DO 77 I=1,NCOMPS                                                  
+77    QUIDX(I)=QUITOP(K)*GENX(I,JT,K)                                   
+      WRITE            (6,29)(QUIDX(I),I=1,NCOMPS)                      
+78    IF (KVVTO(JT,K)) 86,86,79                                         
+79    IF (JCOTYP(K)) 80,80,81                                           
+80    WRITE            (6,67)VAPOR(JT,K),JT,JVVTO(JT,K),KVVTO(JT,K)     
+      GO TO 82         
+81    WRITE            (6,68)VAPOR(JT,K),JVVTO(JT,K),KVVTO(JT,K)        
+82    DO 83 I=1,NCOMPS                                                  
+83    QUIDX(I)=VAPOR(JT,K)*GENY(I,JT,K)                                 
+      WRITE            (6,29)(QUIDX(I),I=1,NCOMPS)                      
+84    FORMAT (16H0STAGE VARIABLES)                                      
+85    FORMAT (120H0     SUMX           SUMY       TEMPERATURE       VAPO
+     1R          LIQUID      VAP MOL ENTH   LIQ MOL ENTH  HEAT UNBALANCE
+     2/(8E15.8))       
+86    WRITE            (6,84)                                           
+      WRITE            (6,85)(SUMX(J,K),SUMY(J,K),TEMP(J,K),VAPOR(J,K),Q
+     1UID(J,K),VAPMOH(J,K),QUIMOH(J,K),QUNBAL(J,K),J=1,JT)              
+87    FORMAT (E75.8)   
+      IF (JCOTYP(K)-2) 91,88,88                                         
+88    WRITE            (6,87)QUITOP(K)                                  
+89    FORMAT (17H0REBOILER LOAD = E15.8)                                
+90    FORMAT (18H0CONDENSER LOAD = E15.8)                               
+91    IF (JRETYP(K)) 93,93,92                                           
+92    WRITE            (6,89)REBLD(K)                                   
+93    IF (JCOTYP(K)) 95,95,94                                           
+94    WRITE            (6,90)CONDLD(K)                                  
+95    CONTINUE         
+96    FORMAT (2H0 /48H0RECOVERY FRACTION SUMMATIONS FOR EACH COMPONENT/(
+     110E14.6))        
+      WRITE            (6,96)(RFSUM(I),I=1,NCOMPS)                      
+      CALL OUTPT2      
+      RETURN           
+      END              
+      SUBROUTINE ACTIV                                                  
+      DIMENSION RB(20,20),RC(20,20),X(20)                               
+      COMMON GENX(20,50,2),GENY(20,50,2),EXTFD(20,50,2),ACTV(20,50,2)
+     1,A(20,2),B(20,2),C(20,2),ENTHK(20),ENTHL(20),ENTHM(20),ENTHU(20)  
+     2,ENTHV(20),ENTHW(20),TOTFDH(50,2),VAPPRO(50,2),QUIPRO(50,2)       
+     3,VAPFLO(50,2),QUIFLO(50,2),TEMP(50,2),VAPOR(50,2),QUID(50,2)      
+     4,SUMX(50,2),SUMY(50,2),QUIMOH(50,2),VAPMOH(50,2),QUNBAL(50,2)     
+     5,QUITOP(2),TCSET(2),SUMFD(20),FLFEED(20),VAPY(20),QUIDX(20)       
+     6,FLVAP(20),FLLIQ(20),FLVAP1(20),FLLIQ1(20),PRDSUM(20),RFSUM(20)   
+     7,CONDLD(2),REBLD(2),RKB(20,20),RKC(20,20),RKD(20,20),PRESS(50,2)  
+     8,PCRIT(20),TCRIT(20),STORY(20),TRVOL(50,2),REACTN(20,50,2)        
+      COMMON NSTGS(2),JFVFRO(50,2),KFVFRO(50,2),JFVTO(50,2),KFVTO(50,2) 
+     1,JFLFRO(50,2),KFLFRO(50,2),JFLTO(50,2),KFLTO(50,2),JVVFRO(50,2)   
+     2,KVVFRO(50,2),JVVTO(50,2),KVVTO(50,2),JVLFRO(50,2),KVLFRO(50,2)   
+     3,JVLTO(50,2),KVLTO(50,2),JRETYP(2),JCOTYP(2),KITER                
+      COMMON/ERROR/PRDERR,BDFERR,CHECK                                  
+      COMMON/KONTER/ITERAT,NCOMPS,NCOLS                                 
+      COMMON /COMACT/ KACTV,LACTV                                       
+      EQUIVALENCE (L,NCOMPS)                                            
+      IF(KACTV-1)30,40,50                                               
+30    DO 31 K=1,NCOLS  
+      JK=NSTGS(K)      
+      DO 31 I=1,NCOMPS                                                  
+      DO 31 J=1,JK     
+31    ACTV(I,J,K)=1.   
+      RETURN           
+40    KACTV=2          
+      DO 41 I=1,NCOMPS                                                  
+      DO 41 J=1,NCOMPS                                                  
+      RKB(I,J)=0.      
+      RKC(I,J)=0.      
+41    RKD(I,J)=0.      
+42    READ(5,43)XI,XJ,B1,B2,C1,C2,D1,D2                                 
+43    FORMAT(8F10.2)   
+      I=XI             
+      J=XJ             
+      IF(I)30,30,44    
+44    RKB(I,J)=B1      
+      RKB(J,I)=B2      
+      RKC(I,J)=C1      
+      RKC(J,I)=C2      
+      RKD(I,J)=D1      
+      RKD(J,I)=D2      
+      GO TO 42         
+50    DO 10 KOL=1,NCOLS                                                 
+      JTC=NSTGS(KOL)   
+      DO   10 KTRAY=1,JTC                                               
+      T=TEMP(KTRAY,KOL)+460.                                            
+      K=0              
+      S=0.             
+      DO    2 I=1,L    
+      X(I)=GENX(I,KTRAY,KOL)                                            
+    2 S=S+X(I)         
+      IF(S-.0001)3,3,4                                                  
+    3 GO TO   10       
+    4 DO    5 I=1,L    
+    5 X(I)=X(I)/S      
+      N=L-1            
+      DO    6 I=1,N    
+      RB(I,I)=0.       
+      RC(I,I)=0.       
+      II=I+1           
+      DO    6 J=II,L   
+      RB(I,J)=RKB(I,J)+RKB(J,I)/T                                       
+      RB(J,I)=RB(I,J)  
+      RC(I,J)=RKC(I,J)+RKC(J,I)/T                                       
+    6 RC(J,I)=-RC(I,J)                                                  
+      RB(L,L)=0.       
+      RC(L,L)=0.       
+      S=0.             
+      DO    7 I=1,N    
+      II=I+1           
+      DO    7 J=II,L   
+    7 S=S+X(I)*X(J)*(RB(I,J)+2.*RC(I,J)*(X(I)-X(J)))                    
+      DO   10 J=1,L    
+      W=0.             
+      DO    8 I=1,L    
+    8 W=W+X(I)*(RB(I,J)+RC(J,I)*(2.*X(J)-X(I)))                         
+      W=EXP(W-S)       
+      V=ACTV(J,KTRAY,KOL)                                               
+      IF( ABS(V/W-1.)-.001)10,10,9                                      
+    9 K=K+1            
+      ACTV(J,KTRAY,KOL)=.75*V+.25*W                                     
+   10 CONTINUE         
+      LACTV=MIN0(K,1)  
+      RETURN           
+      END              
+C     PROGRAM 9    PROGRAM FOR INTERLINKED COLUMNS                      
+C                      
+C     SUBROUTINE FOR BUBBLE POINTS                                      
+C                      
+      SUBROUTINE BUBPT (QUIDX,VAPY,T,JT,KT)                             
+      DIMENSION QUIDX(20),VAPY(20)                                      
+      COMMON/ERROR/PRDERR,BDFERR,CHECK                                  
+      COMMON/KONTER/ITERAT,NCOMPS,NCOLS                                 
+      KBUB=1           
+10    KTIMES=1         
+      KOUNT=50         
+1     SUMY=0.0         
+      KOUNT=KOUNT-1    
+      IF(KOUNT.LE.0)GO TO 20                                            
+      DO 2 I=1,NCOMPS  
+      GO TO (11,12),KBUB                                                
+11    VAPY(I)=QUIDX(I)*EQUILK(I,JT,KT,T)                                
+      GO TO 2          
+12    VAPY(I)=QUIDX(I)/EQUILK(I,JT,KT,T)                                
+2     SUMY=SUMY+VAPY(I)                                                 
+      IF (ABS (SUMY-1.0)-BDFERR) 6,6,3                                  
+3     KTIMES=KTIMES-1  
+      IF (KTIMES) 5,4,4                                                 
+4     SUMYO=SUMY       
+      TO=T             
+      T=T+10.0*SIGN(1.,(1.-SUMY))                                       
+      GO TO 1          
+5     SLOPE=(SUMY-SUMYO)/(T-TO)                                         
+      SUMYO=SUMY       
+      TO=T             
+      DT=(1.-SUMY)/SLOPE                                                
+      DT=SIGN(AMIN1(10.,ABS(DT)),DT)                                    
+      T=T+DT           
+      GO TO 1          
+6     RETURN           
+      ENTER      DEWPT (QUIDX,VAPY,T,JT,KT)                             
+      KBUB=2           
+      GO TO 10         
+20    WRITE(6,21)ITERAT                                                 
+21    FORMAT(1X,'BUBDEW FAIL TO CONVERGE',I5)                           
+      RETURN           
+      END              
+C     PROGRAM 9    PROGRAM FOR INTERLINKED COLUMNS                      
+C                      
+C     SUBROUTINE FOR CALCULATION OF FLASH TEMPERATURE                   
+C                      
+      SUBROUTINE ISOVFL (FLFEED,FLFEES,FLVAS,T,VAPY,QUIDX,JT,KT)        
+      DIMENSION FLFEED(20),VAPY(20),QUIDX(20)                           
+      COMMON/ERROR/PRDERR,BDFERR,CHECK                                  
+      COMMON/KONTER/ITERAT,NCOMPS,NCOLS                                 
+      FLLIS=FLFEES-FLVAS                                                
+      THOLD=T          
+      KTIMES=1         
+      KOUNT=50         
+1     SUMY=0.0         
+      KOUNT=KOUNT-1    
+      IF(KOUNT.LE.0)GO TO 20                                            
+      SUMX=0.0         
+      DO 2 I=1,NCOMPS  
+      VAPY(I)=FLFEED(I)/(FLLIS/FLVAS/EQUILK(I,JT,KT,T)+1.)              
+      QUIDX(I)=(FLFEED(I)-VAPY(I))/FLLIS                                
+      VAPY(I)=VAPY(I)/FLVAS                                             
+      SUMY=SUMY+VAPY(I)                                                 
+2     SUMX=SUMX+QUIDX(I)                                                
+      IF((SUMX+SUMY).LE.0.0)GO TO 7                                     
+      IF (ABS (SUMY-1.0)-BDFERR) 3,3,4                                  
+3     IF (ABS (SUMX-1.0)-BDFERR) 7,7,4                                  
+4     KTIMES=KTIMES-1  
+      IF (KTIMES) 6,5,5                                                 
+5     SUMYO=SUMY       
+      TO=T             
+      T=T+10.0         
+      GO TO 1          
+6     SLOPE=(SUMY-SUMYO)/(T-TO)                                         
+      SUMYO=SUMY       
+      TO=T             
+      DT=(1.-SUMY)/SLOPE                                                
+      DT=SIGN(AMIN1(10.,ABS(DT)),DT)                                    
+      T=T+DT           
+      GO TO 1          
+7     RETURN           
+21    FORMAT(1X,'ISOVFL FAIL TO CONVERGE',2I5)                          
+20    WRITE(6,21)ITERAT,JT                                              
+      WRITE(6,22)THOLD,T,FLFEES,FLVAS,FLLIS,(FLFEED(L),L=1,NCOMPS)      
+22    FORMAT(5E20.8)   
+      CALL EXIT        
+      END              
+C     PROGRAM 9    PROGRAM FOR INTERLINKED COLUMNS                      
+C                      
+C     SUBROUTINE FOR ISOTHERMAL FLASH                                   
+C                      
+      SUBROUTINE ISOTFL (FLFEED,FLFEES,FLVAS,FLLIS,FIXV,FIXL,T,JT,KT)   
+      COMMON GENX(20,50,2),GENY(20,50,2),EXTFD(20,50,2),ACTV(20,50,2)   
+     1,A(20,2),B(20,2),C(20,2),ENTHK(20),ENTHL(20),ENTHM(20),ENTHU(20)  
+     2,ENTHV(20),ENTHW(20),TOTFDH(50,2),VAPPRO(50,2),QUIPRO(50,2)       
+     3,VAPFLO(50,2),QUIFLO(50,2),TEMP(50,2),VAPOR(50,2),QUID(50,2)      
+     4,SUMX(50,2),SUMY(50,2),QUIMOH(50,2),VAPMOH(50,2),QUNBAL(50,2)     
+     5,QUITOP(2),TCSET(2),SUMFD(20),FLFEED(20),VAPY(20),QUIDX(20)       
+     6,FLVAP(20),FLLIQ(20),FLVAP1(20),FLLIQ1(20),PRDSUM(20),RFSUM(20)   
+     7,CONDLD(2),REBLD(2),RKB(20,20),RKC(20,20),RKD(20,20),PRESS(50,2)  
+     8,PCRIT(20),TCRIT(20),STORY(20),TRVOL(50,2),REACTN(20,50,2)        
+      COMMON NSTGS(2),JFVFRO(50,2),KFVFRO(50,2),JFVTO(50,2),KFVTO(50,2) 
+     1,JFLFRO(50,2),KFLFRO(50,2),JFLTO(50,2),KFLTO(50,2),JVVFRO(50,2)   
+     2,KVVFRO(50,2),JVVTO(50,2),KVVTO(50,2),JVLFRO(50,2),KVLFRO(50,2)   
+     3,JVLTO(50,2),KVLTO(50,2),JRETYP(2),JCOTYP(2),KITER                
+      COMMON/ERROR/PRDERR,BDFERR,CHECK                                  
+      COMMON/KONTER/ITERAT,NCOMPS,NCOLS                                 
+      DIMENSION EQK(20)
+      KTIMES=1         
+      DO 1 I=1,NCOMPS  
+1     EQK(I)=EQUILK(I,JT,KT,T)                                          
+2     SUMX=0.          
+      SUMY=0.          
+      IF(KTIMES+ 50)31,32,32                                            
+31    WRITE(6,33)ITERAT,JT,KT                                           
+33    FORMAT(' WATCH OUT - ISOTFL DID NOT CONVERGE',3I5)                
+      GO TO 29         
+32    CONTINUE         
+      IF (FLVAS-FLLIS) 3,3,16                                           
+3     DO 4 I=1,NCOMPS  
+      FLVAP(I)=FLFEED(I)/(FLLIS/FLVAS/EQK(I)+1.0)                       
+      VAPY(I)=FLVAP(I)/FLVAS                                            
+      QUIDX(I)=(FLFEED(I)-FLVAP(I))/FLLIS                               
+      SUMY=SUMY+VAPY(I)                                                 
+4     SUMX=SUMX+QUIDX(I)                                                
+      IF (ABS (SUMY-1.0)-BDFERR) 5,5,6                                  
+5     IF (ABS (SUMX-1.0)-BDFERR) 15,15,6                                
+6     IF (FLVAS/FLFEES-1.0E-6) 29,29,7                                  
+7     KTIMES=KTIMES-1  
+      IF (KTIMES) 12,8,8                                                
+8     SUMYO=SUMY       
+      SUMXO=SUMX       
+      FLVASO=FLVAS     
+      FLLISO=FLLIS     
+9     FLVAS=0.0        
+      DO 10 I=1,NCOMPS                                                  
+10    FLVAS=FLVAS+FLVAP(I)                                              
+      FLLIS=FLFEES-FLVAS                                                
+      IF (FLVAS-FIXV) 15,15,11                                          
+11    IF (FLLIS-FIXL) 15,15,2                                           
+12    SLOPE=(SUMY-SUMYO)/(FLVAS-FLVASO)                                 
+      FLVASO=FLVAS     
+      FLLISO=FLLIS     
+      SUMYO=SUMY       
+      SUMXO=SUMX       
+      FLVAS=((1.0-SUMY)/SLOPE)+FLVAS                                    
+      IF (FLVAS-FIXV) 9,9,13                                            
+13    IF (FLFEES-FLVAS-FIXL) 9,9,14                                     
+14    FLLIS=FLFEES-FLVAS                                                
+      GO TO 2          
+15    RETURN           
+16    DO 17 I=1,NCOMPS                                                  
+      FLLIQ(I)=FLFEED(I)/(FLVAS*EQK(I)/FLLIS+1.0)                       
+      QUIDX(I)=FLLIQ(I)/FLLIS                                           
+      VAPY(I)=(FLFEED(I)-FLLIQ(I))/FLVAS                                
+      SUMX=SUMX+QUIDX(I)                                                
+17    SUMY=SUMY+VAPY(I)                                                 
+      IF (ABS (SUMX-1.0)-BDFERR) 18,18,19                               
+18    IF (ABS (SUMY-1.0)-BDFERR) 28,28,19                               
+19    IF (FLLIS/FLFEES-1.0E-6) 29,29,20                                 
+20    KTIMES=KTIMES-1  
+      IF (KTIMES) 25,21,21                                              
+21    SUMXO=SUMX       
+      SUMYO=SUMY       
+      FLLISO=FLLIS     
+      FLVASO=FLVAS     
+22    FLLIS=0.0        
+      DO 23 I=1,NCOMPS                                                  
+23    FLLIS=FLLIS+FLLIQ(I)                                              
+      FLVAS=FLFEES-FLLIS                                                
+      IF (FLLIS-FIXL) 28,28,24                                          
+24    IF (FLVAS-FIXV) 28,28,2                                           
+25    SLOPE=(SUMX-SUMXO)/(FLLIS-FLLISO)                                 
+      FLLISO=FLLIS     
+      FLVASO=FLVAS     
+      SUMXO=SUMX       
+      SUMYO=SUMY       
+      FLLIS=((1.0-SUMX)/SLOPE)+FLLIS                                    
+      IF (FLLIS-FIXL) 22,22,26                                          
+26    IF (FLFEES-FLLIS-FIXV) 22,22,27                                   
+27    FLVAS=FLFEES-FLLIS                                                
+      GO TO 2          
+28    RETURN           
+29    IF(SUMX.EQ.0.0)SUMX=1.                                            
+      IF(SUMY.EQ.0.0)SUMY=1.                                            
+      DO 30 I=1,NCOMPS                                                  
+      VAPY(I)=VAPY(I)/SUMY                                              
+30    QUIDX(I)=QUIDX(I)/SUMX                                            
+      RETURN           
+      END              
+      FUNCTION YENF(V,TI,P)                                             
+C     PRESSURE CORRECTION,ENTHALPY,YEN AND ALEXANDER                    
+      COMMON GENX(20,50,2),GENY(20,50,2),EXTFD(20,50,2),ACTV(20,50,2)   
+     1,A(20,2),B(20,2),C(20,2),ENTHK(20),ENTHL(20),ENTHM(20),ENTHU(20)  
+     2,ENTHV(20),ENTHW(20),TOTFDH(50,2),VAPPRO(50,2),QUIPRO(50,2)       
+     3,VAPFLO(50,2),QUIFLO(50,2),TEMP(50,2),VAPOR(50,2),QUID(50,2)      
+     4,SUMX(50,2),SUMY(50,2),QUIMOH(50,2),VAPMOH(50,2),QUNBAL(50,2)     
+     5,QUITOP(2),TCSET(2),SUMFD(20),FLFEED(20),VAPY(20),QUIDX(20)       
+     6,FLVAP(20),FLLIQ(20),FLVAP1(20),FLLIQ1(20),PRDSUM(20),RFSUM(20)   
+     7,CONDLD(2),REBLD(2),RKB(20,20),RKC(20,20),RKD(20,20),PRESS(50,2)  
+     8,PCRIT(20),TCRIT(20),STORY(20),TRVOL(50,2),REACTN(20,50,2)        
+      COMMON NSTGS(2),JFVFRO(50,2),KFVFRO(50,2),JFVTO(50,2),KFVTO(50,2) 
+     1,JFLFRO(50,2),KFLFRO(50,2),JFLTO(50,2),KFLTO(50,2),JVVFRO(50,2)   
+     2,KVVFRO(50,2),JVVTO(50,2),KVVTO(50,2),JVLFRO(50,2),KVLFRO(50,2)   
+     3,JVLTO(50,2),KVLTO(50,2),JRETYP(2),JCOTYP(2),KITER                
+      COMMON/ERROR/PRDERR,BDFERR,CHECK                                  
+      COMMON/KONTER/ITERAT,NCOMPS,NCOLS                                 
+      COMMON/COMYEN/KYEN                                                
+      DIMENSION V(20)  
+      DEXP(X)=EXP(X)   
+      L=NCOMPS         
+      IF(KYEN)3,3,1    
+    1 T=TI+460.        
+      SV=0.            
+      SP=0.1E-20       
+      ST=0.1E-20       
+      DO       2 I=1,L                                                  
+      VW=V(I)          
+      SV=SV+VW         
+      SP=SP+VW*PCRIT(I)                                                 
+    2 ST=ST+VW*(TCRIT(I)+460.)                                          
+      PR=P*SV/SP       
+      TR=T*SV/ST       
+      IF(TR-.6)3,4,4   
+    3 YENF=0.          
+      RETURN           
+    4 IF(TR-0.98)5,5,8                                                  
+    5 PM=DEXP(4.6/TR-4.6)                                               
+      IF(PR-PM)6,7,7   
+    6 PM=PR/TR         
+      H=PR**2*(4.079*PM-7.513)+PM*(2.91+4.776*PM/TR)                    
+      GO TO     14     
+    7 GO TO       3    
+    8 IF(TR-1.)9,10,10                                                  
+    9 IF(PR-1.)11,7,7  
+   10 IF(PR-20.)11,11,7                                                 
+   11 C1=0.01+40.*DEXP(-5.7*TR)/(TR-.81)                                
+      X=TR-1.          
+      C2=0.31+0.35*DEXP(-26.2*X)/TR                                     
+      C3=2.75+17.25*DEXP(-16.7*X)                                       
+      X=TR-2.          
+      C4=.6564+X*(.444-X*(.0215-X*(.061-.0404*X)))                      
+      C5=0.            
+      IF(TR-2.25)12,12,13                                               
+   12 C5=.0125-X*(.0697-X*(.0734-.0533*X**3))                           
+   13 X=TR-.8          
+      C6=.00301*X*DEXP(-.87*X**2)                                       
+      C7=8.5+10.5*(TR-4.)**2                                            
+      C8=1./(.1052+1.2044*(TR-.4429)**2.135)                            
+      H=C8*PR*(1.-PR/C7)/(DEXP(-C1*PR**2)*(1.-C2-C4-C5*PR               
+     1+C2*(0.5+ ATAN(C3-C3*PR)/3.14159)**2)+C4+PR*(C5+C6*PR))           
+   14 YENF=-H*ST       
+      RETURN           
+      ENTER    EQUILK(I,J,K,T)                                          
+      TW=T+460.        
+      EQUILK=EXP(A(I,K)/TW+B(I,K)+C(I,K)*TW)*ACTV(I,J,K)/PRESS(J,K)     
+      RETURN           
+      ENTER THALPL(I,T)                                                 
+      THALPL=ENTHK(I)+T*(ENTHL(I)+T*(ENTHM(I)))                         
+      RETURN           
+      ENTER THALPV(I,T)                                                 
+      THALPV=ENTHU(I)+T*(ENTHV(I)+T*(ENTHW(I)))                         
+      RETURN           
+      END              
+      SUBROUTINE MOVE(V,J,K)                                            
+      COMMON GENX(20,50,2),GENY(20,50,2),EXTFD(20,50,2),ACTV(20,50,2)   
+     1,A(20,2),B(20,2),C(20,2),ENTHK(20),ENTHL(20),ENTHM(20),ENTHU(20)  
+     2,ENTHV(20),ENTHW(20),TOTFDH(50,2),VAPPRO(50,2),QUIPRO(50,2)       
+     3,VAPFLO(50,2),QUIFLO(50,2),TEMP(50,2),VAPOR(50,2),QUID(50,2)      
+     4,SUMX(50,2),SUMY(50,2),QUIMOH(50,2),VAPMOH(50,2),QUNBAL(50,2)     
+     5,QUITOP(2),TCSET(2),SUMFD(20),FLFEED(20),VAPY(20),QUIDX(20)       
+     6,FLVAP(20),FLLIQ(20),FLVAP1(20),FLLIQ1(20),PRDSUM(20),RFSUM(20)   
+     7,CONDLD(2),REBLD(2),RKB(20,20),RKC(20,20),RKD(20,20),PRESS(50,2)  
+     8,PCRIT(20),TCRIT(20),STORY(20),TRVOL(50,2),REACTN(20,50,2)        
+      COMMON NSTGS(2),JFVFRO(50,2),KFVFRO(50,2),JFVTO(50,2),KFVTO(50,2) 
+     1,JFLFRO(50,2),KFLFRO(50,2),JFLTO(50,2),KFLTO(50,2),JVVFRO(50,2)   
+     2,KVVFRO(50,2),JVVTO(50,2),KVVTO(50,2),JVLFRO(50,2),KVLFRO(50,2)   
+     3,JVLTO(50,2),KVLTO(50,2),JRETYP(2),JCOTYP(2),KITER                
+      COMMON/ERROR/PRDERR,BDFERR,CHECK                                  
+      COMMON/KONTER/ITERAT,NCOMPS,NCOLS                                 
+      DIMENSION V(20)  
+      DO 1 I=1,NCOMPS  
+1     V(I)=GENY(I,J,K)                                                  
+      RETURN           
+      END              
+      SUBROUTINE SHIFT(A,K,N)                                           
+      DIMENSION A(5),K(5)                                               
+      DO 1 I=1,N       
+1     K(I)=A(I)        
+      RETURN           
+      END              
+      SUBROUTINE OUTPT2                                                 
+C                      
+C     THIS SUBROUTINES PRINTS SELECTED REACTION                         
+C                      
+      COMMON GENX(20,50,2),GENY(20,50,2),EXTFD(20,50,2),ACTV(20,50,2)   
+     1,A(20,2),B(20,2),C(20,2),ENTHK(20),ENTHL(20),ENTHM(20),ENTHU(20)  
+     2,ENTHV(20),ENTHW(20),TOTFDH(50,2),VAPPRO(50,2),QUIPRO(50,2)       
+     3,VAPFLO(50,2),QUIFLO(50,2),TEMP(50,2),VAPOR(50,2),QUID(50,2)      
+     4,SUMX(50,2),SUMY(50,2),QUIMOH(50,2),VAPMOH(50,2),QUNBAL(50,2)     
+     5,QUITOP(2),TCSET(2),SUMFD(20),FLFEED(20),VAPY(20),QUIDX(20)       
+     6,FLVAP(20),FLLIQ(20),FLVAP1(20),FLLIQ1(20),PRDSUM(20),RFSUM(20)   
+     7,CONDLD(2),REBLD(2),RKB(20,20),RKC(20,20),RKD(20,20),PRESS(50,2)  
+     8,PCRIT(20),TCRIT(20),STORY(20),TRVOL(50,2),REACTN(20,50,2)        
+      COMMON NSTGS(2),JFVFRO(50,2),KFVFRO(50,2),JFVTO(50,2),KFVTO(50,2) 
+     1,JFLFRO(50,2),KFLFRO(50,2),JFLTO(50,2),KFLTO(50,2),JVVFRO(50,2)   
+     2,KVVFRO(50,2),JVVTO(50,2),KVVTO(50,2),JVLFRO(50,2),KVLFRO(50,2)   
+     3,JVLTO(50,2),KVLTO(50,2),JRETYP(2),JCOTYP(2),KITER                
+      COMMON/ERROR/PRDERR,BDFERR,CHECK                                  
+      COMMON/KONTER/ITERAT,NCOMPS,NCOLS                                 
+      COMMON/COMYEN/KYEN                                                
+      COMMON /COMACT/ KACTV,LACTV                                       
+      DO 1 K=1,NCOLS   
+      JT=NSTGS(K)      
+      WRITE(6,200)K    
+      DO 1 J=1,JT      
+1     WRITE(6,100)REACTN(1,J,K),REACTN(2,J,K)                           
+100   FORMAT(2E15.6)   
+200   FORMAT(/,1X,'REACTION FOR COLUMN',I3,/)                           
+      RETURN           
+      END              
+      SUBROUTINE REACTR                                                 
+      DIMENSION ADENS(7),BDENS(7)                                       
+      COMMON GENX(20,50,2),GENY(20,50,2),EXTFD(20,50,2),ACTV(20,50,2)   
+     1,A(20,2),B(20,2),C(20,2),ENTHK(20),ENTHL(20),ENTHM(20),ENTHU(20)  
+     2,ENTHV(20),ENTHW(20),TOTFDH(50,2),VAPPRO(50,2),QUIPRO(50,2)       
+     3,VAPFLO(50,2),QUIFLO(50,2),TEMP(50,2),VAPOR(50,2),QUID(50,2)      
+     4,SUMX(50,2),SUMY(50,2),QUIMOH(50,2),VAPMOH(50,2),QUNBAL(50,2)     
+     5,QUITOP(2),TCSET(2),SUMFD(20),FLFEED(20),VAPY(20),QUIDX(20)       
+     6,FLVAP(20),FLLIQ(20),FLVAP1(20),FLLIQ1(20),PRDSUM(20),RFSUM(20)   
+     7,CONDLD(2),REBLD(2),RKB(20,20),RKC(20,20),RKD(20,20),PRESS(50,2)  
+     8,PCRIT(20),TCRIT(20),STORY(20),TRVOL(50,2),REACTN(20,50,2)        
+      COMMON NSTGS(2),JFVFRO(50,2),KFVFRO(50,2),JFVTO(50,2),KFVTO(50,2) 
+     1,JFLFRO(50,2),KFLFRO(50,2),JFLTO(50,2),KFLTO(50,2),JVVFRO(50,2)   
+     2,KVVFRO(50,2),JVVTO(50,2),KVVTO(50,2),JVLFRO(50,2),KVLFRO(50,2)   
+     3,JVLTO(50,2),KVLTO(50,2),JRETYP(2),JCOTYP(2),KITER                
+      COMMON/ERROR/PRDERR,BDFERR,CHECK                                  
+      COMMON/KONTER/ITERAT,NCOMPS,NCOLS                                 
+      COMMON/COMYEN/KYEN                                                
+      COMMON /COMACT/ KACTV,LACTV                                       
+      COMMON /COMRAC/ HREAC(50,2),RCO(2,50,2),RCN(2,50,2),RCF(2,50,2)   
+     1,LRC(2,50,2)     
+      DATA ADENS/.6567,.3815,.4604,.4092,.2758,.2342,.1847/             
+      DATA BDENS/-.0004153,-.0001945,-.0002825,-.000186,                
+     1-.0001006,-.0000855,-.0000674/                                    
+C                      
+C     REACTION - MCP TO DIMER                                           
+C                      
+      IF(ITERAT.EQ.0)GO TO 1                                            
+4     DO 7 K=1,NCOLS   
+      IEND=NSTGS(K)    
+      DO 7 I=1,IEND    
+      T=TEMP(I,K)      
+      FLOW=0.          
+      DO 5 J=1,7       
+5     FLOW=FLOW+QUID(I,K)*GENX(J,I,K)/(ADENS(J)+BDENS(J)*T)             
+      CM=QUID(I,K)*GENX(1,I,K)/FLOW                                     
+      CD=QUID(I,K)*GENX(2,I,K)/FLOW                                     
+C                      
+C     TR=273.2+5.*(T-32.)/9.                                            
+C                      
+      RK1=EXP(36.1222-(58700./(1.987*(T+460.))))                        
+      RK2=EXP(34.6431-(43750./(1.987*(T+460.))))                        
+      RATE=-RK2*CM**2/7.48+RK1*CD                                       
+      RCN(1,I,K)   =2.*RATE*TRVOL(I,K)                                  
+      RCN(2,I,K)   =-RATE*TRVOL(I,K)                                    
+      AC=.1            
+      DO 10 L=1,2      
+      V1=RCO(L,I,K)    
+      V2=REACTN(L,I,K)                                                  
+      V3=RCN(L,I,K)    
+      V4=RCF(L,I,K)    
+      I5=LRC(L,I,K)    
+      CALL ACCEL(V1,V2,V3,V4,I5,AC)                                     
+      RCO(L,I,K)=V1    
+      REACTN(L,I,K)=V2                                                  
+      RCN(L,I,K)=V3    
+      RCF(L,I,K)=V4    
+      LRC(L,I,K)=I5    
+10    CONTINUE         
+      HREAC(I,K)=REACTN(2,I,K)*(34002.+T*(-14.534+.078978*T))           
+7     CONTINUE         
+      RETURN           
+C                      
+C     ZEROES REACTION FOR FIRST PASS                                    
+C                      
+1     DO 34 K=1,NCOLS  
+      IEND=NSTGS(K)    
+      DO 34 I=1,IEND   
+      HREAC(I,K)=0.    
+      DO 35 J=1,2      
+35    LRC(J,I,K)=1     
+      DO 34 J=1,NCOMPS                                                  
+34    REACTN(J,I,K)=0.                                                  
+      RETURN           
+      END              
+      SUBROUTINE ACCED(O,C,N,F,L,A)                                     
+      IMPLICIT REAL*8(A-H,O-Z)                                          
+      REAL*8 N         
+      AMIN(A,B)=DMIN1(A,B)                                              
+      IF(L-1)2,11,2    
+2     Y=C-O            
+      Z=N-C            
+      W=Y*Z            
+      IF(L-3)4,5,4     
+4     IF(W)12,10,9     
+5     L=2              
+      IF(W)6,6,8       
+6     F=AMIN(F,A)      
+7     O=C              
+8     N=N*F+O*(1.-F)   
+      C=N              
+      RETURN           
+9     F=F*1.1          
+      GO TO 7          
+10    IF(Z)7,8,7       
+11    L=2              
+      F=A              
+      GO TO 7          
+12    W=DABS(Z/Y)      
+      IF(W-1.)13,13,15                                                  
+13    F=AMIN(F,A/2.)   
+      IF(W-.5)7,14,14  
+14    F=F/1.1          
+      GO TO 7          
+15    L=3              
+      N=O              
+      F=AMIN(F/1.1,A/2.)                                                
+      GO TO 7          
+   ,gx9Á
