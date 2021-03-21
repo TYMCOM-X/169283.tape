@@ -1,0 +1,1097 @@
+WIR6.IMP
+        WIRE WRAP IMPLEMENTATION SPECIFICATION--SECTION 6
+
+
+
+
+
+
+        6.1       CHARACTER BUFFER ROUTINES
+
+
+
+
+
+
+   6.1.1     LOGICAL FUNCTION PACK (buffer, nchar, "span")
+
+        PACK INPUTS UP TO nchar CHARACTERS FROM NEXTCH, PACKS THEM INTO
+buffer.  CHARACTERS INCLUDE ALL ALPHA-NUMERIC AND ANY CHARACTERS WHICH
+APPEAR IN THE PACKED STRING "span", EXCLUDING BLANKS (" ").  REFERENCE
+STRINGS TERMINATE WITH A 0 CHARACTER.
+THE BUFFER IS LEFT POINTING AT THE TERMINATOR.
+
+        THE FUNCTION RETURNS .TRUE. IF SUCCESSFUL IN FINDING A STRING
+WITH A LEGAL TERMINATOR.  IT RETURNS .FALSE. IF THERE IS A NULL STRING,
+OR THE STRING IS TOO LONG.
+
+        EACH NON-ALPHANUMBERIC CHARACTER ENCOUNTERED IS FIRST COMPARED
+WITH THE STANDARD TERMINATORS (" ") AND WITH "span".  IF nchar
+CHARACTERS ARE INPUT, THE SINGLE FOLLOWING CHARACTER IS MATCHED
+WITH THE VALID CHARACTERS, AND IF A MATCH IS MADE, THE STRING IS TOO
+LONG.
+
+        CALLS ROUTINES: MATCH
+                        MPUTCH
+                        NEXCAR
+
+        EXAMPLES OF STRING USAGE
+BUFFER          RETURNS T/F     "break"        "span"
+-----------------------------------------------------------
+ABC13 DEF       ABC13   T       0               0
+12AB-3          12AB    T       "-"             0
+R/ABC S/B       R/ABC   T       0               "+-/`"
+ABC; DEF        ABC     F       0               0
+ ABC            NULL    F       0               0
+-----------------------------------------------------------
+
+
+
+   6.1.2     LOGICAL FUNCTION MATCH (char, "string")
+
+        MATCH TAKES char (IN R1 FORMAT) AND COMPARES IT WITH THE LIST
+OF CHARS SPECIFIED BY "string".  "string" IS TERMINATED BY A 0 OR " "
+CHARACTER.  MATCH RETURNS .TRUE. IF char MATCHES ANY OF THE CHARACTERS
+IN "string", ELSE RETURNS .FALSE.
+
+        CALLS ROUTINES: MGETCH
+
+
+   6.1.3     SUBROUTINE BUFSTR (buffer, nchar, "string" )
+
+        BUFSTR COPIES THE STRING "string", UP TO THE FIRST BLANK OR 0
+CHARACTER, INTO THE STRING buffer, STARTING AT THE nchar-TH POSITION IN
+buffer.  nchar IS UPDATED AS NECESSARY EVERY TIME A CHARACTER IS MOVED,
+AND IS RETURNED POINTING AT THE NEXT CHARACTER OF buffer AFTER THE 
+CHARACTERS OF "string" HAVE BEEN MOVED.
+
+        CALLS ROUTINES: MGETCH
+                        MPUTCH
+
+
+
+
+
+
+
+
+
+        6.2       GENERAL ROUTINES
+
+
+   6.2.1        SUBROUTINE ERROR ( 'error text' )
+
+        ERROR IS USED TO GENERATE ERROR MESSAGES.  A WITNESS COPY OF
+THE SOURCE LINE IS PRODUCED IF NECESSARY.  THEN THE LOCATION OF THE 
+ERROR IS INDICATED, AND THE ERROR MESSAGE IS OUTPUT.  A NEW LINE IS
+INPUT, AND SCANNED TO THE FIRST NON-BLANK CHARACTER.
+
+        CALLS ROUTINES: 
+
+        THE PROCESS:
+
+        1       DETERMINE IF THE INPUT LINE IS PRINTED AT THE
+                TERMINAL...GO TO 3 IF SO:
+
+        2       RE-FORMAT THE LINE INPUT;  TYPE IT OUT:
+
+        3       BLANK THE INPUT BUFFER;
+                SET A "^" AT THE CURSOR POSITION AND TYPE OUT;
+                COPY "error text" TO BUFFER; APPEND "...REENTER LINE";
+                TYPE OUT THE ERROR MESSAGE:
+
+        4       READ IN A NEW LINE VIA FETCHL;
+                SET CURSOR TO FIRST NON-BLANK CHARACTER;  RETURN:
+
+
+   6.2.2        SUBROUTINE FUSED ( array(3), char )
+
+        FUSED GENERATES A FILE-NAME, UNIQUE TO THE CURRENT USER.
+USE IS MADE OF THE USER NUMBER, AS PROVIDED BY MUSENO.  THE FIRST
+CHARACTER OF THE STRING char IS USED TO GIVE THE LEADING CHARACTER OF THE
+FILE-NAME GENERATED.
+        AN EXAMPLE.  LET char BE "#", THE USER NUMBER BE "nn", AND THE
+CHARACTER "*" INDICATE STRING CONCATINATION.  THE STRING GENERATED WOULD THEN 
+BE:
+
+        #*nn*"WIR.TMP";  OR #nnWIR.TMP
+
+THE SUCCESSIVE WORDS OF ARRAY WOULD CONTAIN:
+
+        array(1)        #nnWI
+        array(2)        R.TMP
+        array(3)        0
+
+        CALLS ROUTINES: MUSENO
+                        BUFSTR
+
+        THE PROCESS:
+
+        1       SET array(3) = 0; array(1) = char;  I = 2:
+
+        2       GET USER NUMBER VIA A CALL TO MUSENO(J):
+
+        3       CALL BUFSTR(array(1), I, J);
+                CALL BUFSTR(array(1), I, "WIR.TMP");  RETURN:
+
+
+   6.2.3        SUBROUTINE HELP ( n )
+
+        HELP CAUSES THE n-TH INFO FILE BLOCK TO BE OUTPUT.  IT
+THEN INPUTS A NEW COMMAND, AND IF THIS IS AGAIN "HELP", PUTS OUT THE
+FIRST INFO FILE BLOCK.  IT WILL KEEP DOING THIS UNTIL THE NEW 
+COMMAND IS NOT "HELP".
+
+        CALLS ROUTINES: CPINFO
+                        CPPROM
+                        FETCHL
+                        LPARSE
+
+        THE PROCESS:
+
+        1       SET I = n:
+
+        2       CALL CPINFO(I);  SET I = 1:
+
+        3       CALL CPPROM;  IF FETCHL(NULL), GO TO 3;
+                GO TO (3, 2, 4), LPARSE(HELPLIST)+1:
+
+        4       RETURN:
+
+   6.2.4         SUBROUTINE PRINTIT
+
+        PRINTIT CAUSES linsiz CHARACTERS OF THE INPUT BUFFER inline TO
+BE OUTPUT ON FILE 2.  IT IS EXPECTED THAT FILE 2 BE OPENED BEFORE
+CALLING PRINT.  THE BUFFER inline IS EXPECTED TO BE IN R-FORMAT.
+
+        THE PROCESS:
+
+        CALL RTOA TO CONVERT FORMATS;
+        WRITE (2, [130A1]), inline(1:linsiz)
+        RETURN:
+
+
+   6.2.5        SUBROUTINE TYPE
+
+        TYPE CAUSES linsiz CHARACTERS OF THE INPUT BUFFER inline TO
+BE TYPED OUT.
+
+        THE PROCESS:
+
+        CALL RTOA TO CONVERT FORMATS;
+        TYPE [72A1] inline (1:linsiz);
+        RETURN:
+
+
+   6.2.6        SUBROUTINE PRNTITL ( n )
+
+        THIS ROUTINE PRINTS THE CURRENT TITLE, AND MOD IF APPLICABLE.
+IF n IS POSATIVE, IT IS OUTPUT AS A PAGE NUMBER.  THE LINE WILL GENERATE
+A NEW PAGE ON THE PRINTER.  DATE AND TIME ARE ALSO INCLUDED.
+
+        USES ROUTINES:  PRINT
+                        BUFSTR
+
+        THE PROCESS:
+
+        1       BLANK OUT inline<25>;  SET K = MGETCH(1,.TITLE.):
+
+        2       FOR J = <2:K>, I = MGETCH(J, .TITLE.);
+                CALL MPUTCH(I, J, inline):
+
+        3       K = MGETCH(1, .MODIFY.);  IF K .EQ. 0, GO TO 4;
+                SET J = J + 5;  CALL BUFSTR(inline, J, '*MOD*');
+                FOR L = <2,K>, I = MGETCH(L, .MODIFY.);
+                CALL MPUTCH(I, J+L, inline):
+
+        4       IF n .LE. 0, GO TO 5;  SET J = 115;
+                CALL BUFSTR(inline, J, 'PAGE');  ENCODE(n, inline(25), [I5]):
+
+        5       SET J = 95;  BUFFER TIME, DATE:
+
+        6       CALL PRINT(125);  RETURN:
+
+
+
+   6.2.7        FUNCTION HOWFAR ( here, there )
+
+        here IS DIMENSIONED <2>, AND IS THE VALUE PAIR (X1, Y1). there
+IS DIMENSIONED <2>, AND IS THE VALUE PAIR (X2, Y2).  HOWFAR COMPUTES THE
+DISTANCE FROM HERE TO THERE.
+
+        THE PROCESS:
+
+        1       IF /FLAGS/:PICFRAME, GO TO 2;
+                ELSE COMPUTE DISTANCE = SQRT( (X2-X1)**2 + (Y2-Y1)**2 );
+                RETURN:
+
+        2       CONSTRUCT A BOX AROUND EACH PIN, THE EDGES OF WHICH
+                CORRESPOND TO BOUNDING WIRING CHANNELS;  IF THERE IS
+                NO CORRESPONDING CHANNEL, SET THE APPROPRIATE EDGE TO
+                THE APPROPRIATE INFINITY;  COMPUTE THE EDGE-POINT
+                COORDINATE ON EACH EDGE, CLOSEST TO THE ENCLOSED POINT:
+
+        3       FIND THE MINIMUM DISTANCE, MEASURING FROM EACH POINT
+                TO THE EDGE, AND THE PICTURE-DISTANCE BETWEEN THESE
+                EDGE-POINTS;  RETURN:
+
+
+
+   6.2.8        SUBROUTINE BLANK
+
+        SET inline TO ALL BLANK CODES (BOTH 1L  AND 1R ) AND RETURN:
+
+
+
+   6.2.9        SUBROUTINE WCLOSE ( file array < 5 > )
+
+        THIS ROUTINE CLOSES THE FILE, AND CLEARS THE OPEN FLAG.
+
+        THE PROCESS:
+
+        IF file array(3), CLOSE(file array(1) );  file array(3) = .FALSE.;
+        RETURN:
+
+
+
+   6.2.10       SUBROUTINE GENERAL
+
+        THIS ROUTINE PROCESSES THE CURRENT LINE IN inline, AND HANDLES
+THE GENERAL COMMANDS:
+
+        QUIT
+        ? OR HELP
+        CAPABILITIES
+        INSTRUCTIONS
+        PREMIUM
+        CREDIT
+        VERSION
+        HUSH
+        NO HUSH
+
+        IF NONE OF THESE, LOOKS FOR THE COMMANDS:
+
+        BOARD
+        PLUG
+        ENTER
+        DOCUMENT
+        CHANGE
+
+AND IF FOUND, PERFORMS THE APPROPRIATE ACTION.  IF NONE OF THESE,
+ERROR 'UNRECOGNIZED COMMAND:  PLEASE REENTER'.  IN ANY CASE, GET A NEW
+LINE INTO THE INPUT BUFFER inline BEFORE RETURNING.
+
+        THE PROCESS:
+
+
+
+  6.2.11        SUBROUTINE LISTEST
+
+        THIS ROUTINE PROCESSES THE CURRENT LINE IN inline, TO
+DETERMINE IF IT IS A LIST COMMAND.  IF NOT, CALLS GENERAL AND RETURNS.
+THE VALID LIST COMMANDS ARE:
+
+        LIST SIGNAL
+        LIST SOCKET
+        LIST LOAD
+        LIST LENGTH
+        LIST CONFLICT
+        LIST EMPTY SOCKETS
+        LIST UNUSED GROUPS
+        LIST UNUSED SUBGROUPS
+
+        IF ONE OF THESE IS FOUND, IT IS PROCESSED, AND A NEW LINE
+IS INPUT INTO inline BEFORE RETURNING.
+
+        CALLS ROUTINES: GENERAL
+                        FETCHL
+                        LPARSE
+
+        THE PROCESS:
+
+
+
+  6.2.12        SUBROUTINE BUFOUT ( 'text' )
+
+        THIS ROUTINE COPIES ALL CHARACTERS FROM 'text' INTO inline STARTING
+AT THE linsiz CHARACTER (PUTS THERE IN R1 FORMAT).
+
+        THE PROCESS:
+
+        1       SET INDEX = 1;
+
+        2       GET CHARACTER FROM 'text'(INDEX);  IF = 0, RETURN;
+                PUT INTO inline(linsiz);  linsiz = linsiz + 1;  go to 2:
+
+
+
+   6.2.13       SUBROUTINE RTOA
+
+        THIS ROUTINE CONVERTS linsiz CHARACTERS OF inline FROM R1 FORMAT
+TO A1 FORMAT, AND THEN RETURNS.
+
+        THE PROCESS:
+
+        DO [1:linsiz];  inline(I) = MCNGCH(inline(I), 0, 2);  return:
+
+
+
+
+   6.2.14       SUBROUTINE EPROMP
+
+        THIS ROUTINE UPDATES THE CLAUSE PROMPT NUMBER, IF REQUIRED, AND
+THEN OUTPUTS IT AND THE PROMPT.
+
+        THE PROCESS:
+
+        UPDATE PROMPT IF NECESSARY;  TYPE [I4,'! '] IF REQUIRED;
+        RETURN:
+
+
+
+   6.2.15       SUBROUTINE TRUNC ( text<3> )
+
+        THIS ROUTINE EXPECTS A BCD REPRESENTATION OF A FLOATING-POINT
+NUMBER IN text.  IT STRIPS OFF TRAILING ZEROS, AND PACKS THE NUMBER
+LEFT-JUSTIFIED IN text.
+
+        CALLS ROUTINES: MPUTCH
+                        MGETCH
+
+        THE PROCESS:
+
+        1       FOR I (15:1) DO:  J = MGETCH(I, text);
+                IF J .EQ. "0", GO TO 2;  ELSE CALL MPUTCH(0, J, text):
+
+        2       FOR I (1:15) DO:  IF MGETCH(I, text) .NE. " ", GO TO 3:
+
+        3       FOR J (1:15) AND I (I:15) DO:  K = MGETCH(I, text);
+                IF K .EQ. 0, GO TO 4;  CALL MPUTCH(K, J, text):
+
+        4       FOR J (I:15) DO:  CALL MPUTCH(0, J, text);  RETURN:
+
+
+
+   6.2.16       SUBROUTINE BEST (it, is, in )
+
+        FIND THE BEST PLACE (IN TERMS OF SHORT WIRES) TO PUT PIN it
+IN THE LIST OF PINS BOUNDED BY is AND in.  RETURN is AND in AS THE
+ADJACENT PAIR OF PINS TO INSERT BETWEEN.
+
+
+
+   6.2.17       SUBROUTINE BEST2 (it1, it2, is, in )
+
+        FIND THE BEST PLACE TO PUT THE WIRE STRING BOUNDED BY it1 AND
+it2 IN THE LIST OF PINS BOUNDED BY is AND in.  RETURN is AND in AS
+THE ADJACENT PAIR OF PINS TO INSERT THE LIST BETWEEN.
+
+
+
+  6.2.18        SUBROUTINE WOPEN ( file )
+
+        THIS ROUTINE RETURNS IF file IS FLAGGED OPEN, ELSE VERIFY NAME,
+THEN CALL MOPEN(file), SET FLAG = .TRUE., AND RETURN.
+
+
+
+
+
+
+
+
+
+        6.3       SIGNAL TABLE MANIPULATION ROUTINES
+
+
+
+
+        THE FOLLOWING ROUTINES MAY USE THE LABELED COMMON:
+   /hashcon/ nhash, nblock, thisig, listh(4), sigwrit, DSHEAD(2), CDSN
+
+WHERE:  nhash IS THE NUMBER OF ELEMENTS IN THE HASH TABLE
+        nblock IS THE NUMBER OF BLOCKS IN USE
+        thisig IS THE BLOCK NUMBER OF THE SIGNAL CURRENTLY IN listh
+        listh(1), listh(2) CORRESPOND TO BLOCK-ID;
+        listh(3) CORRESPONDS TO .NEXT. (NEXT ENTRY IN SIGNAL TABLE);
+        listh(4) CORRESPONDS TO .NEXTPIN.;
+        sigwrit IS A LOGICAL FLAG INDICATING CURRENT SIGNAL SHOULD BE
+                WRITTEN BACK TO THE TABLE.
+        DSHEAD IS THE DEFINED SIGNAL HEADER
+        CDSN IS THE CURRENT DEFINED SIGNAL NUMBER
+
+listh IS LEFT WITH THE APPROPRIATE TABLE ENTRY ON EXIT.
+
+        THESE ROUTINES MAY ALSO REFERENCE FILE fsignal, WHICH CONTAINS
+ALL THE SIGNAL BLOCKS IN THE SIGNAL TABLE.
+
+        ANY REFERENCE TO id EXPECTS id TO BE A 2-WORD ARRAY id(2).
+
+
+
+   6.3.1     INTEGER FUNCTION HASH ( id)
+
+        HASH USES nhash.  COMPUTE:
+
+        HASH = (ID(1) .EOR. ID(2) )/2 .AND. "377777777777
+        HASH = MOD ( HASH, nhash ) + 1
+
+
+
+   6.3.2     LOGICAL FUNCTION SIGLOOK ( id )
+
+        SIGLOOK COMPUTES:
+
+        nid = HASH(id)
+
+SIGLOOK THEN USES GETSIG.
+
+        1       IF BLOCK nid CORRESPONDS TO id, RETURN .TRUE.; THEN
+                THISSIG CONTAINS FOUND SIGNAL:
+
+        2       IF .NEXT. OF BLOCK nid IS = 0, RETURN .FALSE.; THEN
+                THISSIG CONTAINS EITHER EMPTY OR LAST CELL:
+
+        3       nid = .NEXT. OF BLOCK nid;  GO TO 1:
+
+        CALLS ROUTINES: HASH
+
+
+
+   6.3.3     SUBROUTINE SIGSET (id )
+
+        THE PROCESS:
+
+        1       IF BLOCK-ID IS NULL, GO TO 3:
+
+        2       SET .NEXT. = nblock+1;  SIGWRIT = .TRUE.;  CALL PUTSIG;
+                SET nblock = nblock + 1;  THISSIG = NBLOCK:
+
+        3       SET BLOCK-ID = id; .NEXT. = 0;  .NEXTPIN. = 0;
+                SIGWRIT = .TRUE.;  CALL PUTSIG;  RETURN:
+
+
+
+   6.3.4     SUBROUTINE SIGFIND ( id )
+
+        SIGFIND RETURNS THE BLOCK INDEX OF THE SIGNAL BLOCK 
+CORRESPONDING TO id, GENERATING A NEW BLOCK ENTRY IF NECESSARY.
+
+        CALLS ROUTINES: SIGLOOK
+                        SIGSET
+
+        THE PROCESS:
+
+        1       IF SIGLOOK(id), RETURN:
+
+        2       ELSE CALL SIGSET(id); RETURN:
+
+
+
+   6.3.5     LOGICAL FUNCTION SIGDID (n, id )
+
+        SIGDID (SIGNAL-DEFINE-ID) GENERATES id IN THE CURRENT FORM OF
+DEFINED SIGNAL, WITH THE DEFINED SIGNAL NUMBER n.  RETURNS .TRUE. IF
+n FITS WITHIN THE NUMERIC FIELD SPECIFIED, ELSE TRUNCATES, RETURNS
+.FALSE.
+
+        CALLS ROUTINES: MPUTCH
+                        MGETCH
+
+        THE PROCESS:
+
+        1       id = DEFINED.SIGNAL.HEADER:
+
+        2       I = INDEX OF LAST "9" IN id:
+
+        3       ENCODE n (I10 FORMAT) INTO IDTEMP:
+
+        4       J = 10; FOR K = I, 1, -1 DO:
+
+        5       IF id(K) .NE. "9", GO TO 6;  id(K) = IDTEMP(J);
+                J = J - 1;  END DO:
+
+        6       FOR K = J, 1, -1, DO:
+
+        7       IF IDTEMP(K) .NE. "0", RETURN .FALSE; END DO; RETURN 
+                .TRUE.
+
+
+   6.3.6     SUBROUTINE SIGDNEW
+
+        SIGDNEW (SIGNAL-DEFINE-NEW) INCREMENTS THE CURRENTLY.DEFINED.
+SIGNAL.NUMBER (CDSN), AND DEFINES A UNIQUE SIGNAL.  IF IT IS IMPOSSIBLE
+TO DEFINE A NEW SIGNAL, AN ERROR MESSAGE IS OUTPUT AND A NON-UNIQUE 
+SIGNAL ENTRY IS RETURNED.
+
+        CALLS ROUTINES: ERROR
+                        SIGSET
+                        SIGDID
+                        SIGLOOK
+                        SIGFIND
+
+        THE PROCESS:
+
+        1       SET CDSN = CDSN + 1;  IF SIGDID(CDSN, ID), GO TO 2;
+                IF SIGLOOK(ID), GO TO 1;
+                CALL SIGSET(ID); RETURN:
+
+        2       CALL ERROR("DEFINED SIGNAL LIMIT REACHED");
+                SIGDNEW = SIGFIND(ID); RETURN:
+
+
+
+   6.3.7     INTEGER FUNCTION SIGDEF ( NULL )
+
+
+        SIGDEF LOOKS AT THE LINE INPUT AND DETERMINES IF THERE IS A
+SIGNAL REFERENCE OF THE FORM "*" OR "**".  IF NOT, RETURNS -1.
+IF THERE IS AN ERROR IN THE SPEC, RETURNS 0, ELSE RETURNS >0 (THE BLOCK
+NUMBER OF THE SPECIFIED SIGNAL.  SIGNALS OF THE FORM "**-nn" ARE ALSO
+PERFORMED.
+
+        CALLS ROUTINES: SIGDNEW
+                        SIGDID
+                        SIGFIND
+
+        THE PROCESS:
+
+        1       IF NOWCH .NE. "*", RETURN .FALSE.; ELSE SET SIGDEF = .TRUE.:
+
+        2       IF NEXTCH .EQ. "*", GO TO 3; ELSE CALL SIGDNEW(n);
+                RETURN:
+
+        3       SET n = CDSN; IF NEXTCH .NE. "-", GO TO 4;
+                ELSE SET n = n - nn:
+
+        4       CALL SIGDID(n,ID);  n = SIGFIND(ID);  RETURN:
+
+
+
+   6.3.8     LOGICAL FUNCTION SIGREF ( n )
+
+        SIGREF VERIFIES THAT THE INPUT LINE CONTAINS A VALID SIGNAL
+NAME.  IF NOT, SIGREF RETURNS .FALSE.  ELSE IT RETURNS .TRUE., AND THEN n 
+IS THE INDEX TO THE REFERENCED SIGNAL BLOCK.
+
+        CALLS ROUTINES: SIGDEF
+                        SIGFIND
+
+        THE PROCESS:
+
+        1       IF SIGDEF(n), RETURN .TRUE.; 
+                IF .NOT. PACK(ID, 10, ",;:", "+-/`" ), RETURN .FALSE.:
+
+        2       SET n = SIGFIND(ID); RETURN .TRUE.:
+
+   6.3.9     SUBROUTINE PUTSIG
+
+        PUTSIG WRITES THE CURRENT SIGNAL BACK TO THE TABLE IF
+NECESSARY, AND SETS SIGWRIT = .FALSE.
+
+        THE PROCESS:
+
+        IF SIGWRIT WRITE listh TO TABLE(THISSIG);  SET SIGWRIT =
+        .FALSE.;  RETURN:
+
+
+
+   6.3.10       SUBROUTINE GETSIG(N)
+
+        RETURN IF N .EQ. THISSIG.  IF SIGWRIT, CALL PUTSIG.  READ
+TABLE(n) INTO LISTH, AND SET THISSIG = n.  RETURN.
+
+
+
+   6.3.12       LOGICAL FUNCTION VFYSIG ( bitch )
+
+        bitch IS A LOGICAL FLAG.  LOOK AT THE INPUT LINE AND VERIFY
+THAT A VALID SIGNAL NAME EXISTS.  IF SO, RETURN .TRUE., NO CHANGES TO
+ANYTHING.  ELSE IF NOT bitch, RETURN .FALSE.;  ELSE ERROR "INVALID
+SIGNAL NAME", GET NEW LINE, AND RESCAN.
+
+
+
+
+
+
+
+
+
+        6.4       LISTING ROUTINES
+
+        ALL THE ROUTINES DESCRIBED IN THIS SECTION REQUIRE AS ONE
+PARAMETER THE LOGICAL VARIABLE term.  IF term IS .TRUE., OUTPUT
+WILL BE TO THE TERMINAL;  OTHERWISE OUTPUT WILL BE TO FILE 2.  ON
+ENTRY, THIS FILE MUST HAVE BEEN OPENED BY THE CALLING ROUTINE.
+
+
+   6.4.1        SUBROUTINE SIGLIST ( term, n )
+
+        SIGLIST ASSUMES THAT /hashcon/ CONTAINS THE INFORMATION ON
+THE SIGNAL REQUIRED.  n IS A SWITCH CODE WHICH INDICATES WHAT
+ADDITIONAL INFORMATION IS TO BE GENERATED AND OUTPUT.  IT HAS THE
+LEGAL VALUES:
+
+        1       PIN NAMES ONLY
+        2       PINS AND LOAD/DRIVES OUTPUT
+        3       PINS AND LENGTHS OUTPUT
+
+        SIGLIST USES THE INPUT BUFFER inline TO GENERATE TEXT IN,
+AND DESTROYS THE CONTENTS ON EXIT.
+
+        USES ROUTINES:  MGETCH
+                        MPUTCH
+
+        THE PROCESS:
+
+        1       BLANK OUT inline;  SET linsiz = 2;  CALL BUFOUT(listh);
+                SET I = .NEXTPIN;  linsiz = 15;  SUM = 0.0;  MAX = 120;
+           IF term, MAX = 60;  IF I .NE. 0, GO TO 2;
+                ELSE CALL BUFOUT('*NOT IN USE*');  GO TO 7:
+
+        2       CALL BPID(I,ID<2>); SET K = linsiz;  CALL BUFOUT(ID);
+                IF .NOT. .SOURCE.(PIN(I)), GO TO 3;
+                ELSE SET  linsiz = K - 4;  CALL BUFOUT( '($)' ):
+
+        3       GO TO (6, 4, 5) n:
+
+        4       !LOAD!  SET K = K + 5;  linsiz = K + 5;
+                IF .LOAD.(PIN(I)), V = - LOAD;
+                IF .DRIVE.(PIN(I)), V = DRIVE;
+                SUM = SUM + V;  ENCODE (V, ID<1>, [F5.1]);
+                CALL BUFOUT(ID);  GO TO 6:
+
+        5       !LENGTH!  SET linsiz = K + 10;
+                IF .NEXT.(PIN(I)), GO TO 7;
+                SET K = K + 8;  V = .LENGTH.(PIN(I));
+                SUM = SUM + V;  ENCODE (V, ID<2>, [1H(,F6.1,1H)];
+                CALL BUFOUT(ID):
+
+        6       SET linsiz = K + 15;  I = .NEXT.(PIN(I));
+                IF I .EQ. 0, GO TO 7;  IF linsiz .LT. MAX, GO TO 2;
+                IF term, CALL TYPE;  ELSE CALL PRINT;
+                SET linsiz = 15;  GO TO 2:
+
+        7       IF term, CALL TYPE;  ELSE CALL PRINT;
+                GO TO (11, 8, 9) n:
+
+        8       !LOAD!  SET linsiz = 15;  CALL BUFOUT('TOTAL LOAD');
+                GO TO 10:
+
+        9       !LENGTH!  SET linsiz = 15;  CALL BUFOUT('TOTAL LENGTH'):
+
+        10      CALL BUFOUT( ' IS ' );  ENCODE (SUM, ID<2>, [F10.2]);
+                CALL TRUNC(ID);  CALL BUFOUT(ID);
+                IF term, CALL TYPE;  ELSE CALL PRINT:
+
+        11      RETURN:
+
+
+
+
+
+
+
+
+
+        6.5     ROUTINES DEALING WITH SOCKETS
+
+        THIS SET OF ROUTINES MAKES USE OF COMMON BLOCK /SOCKET/,
+WHICH HAS THE FOLLOWING VARIABLES:
+
+        WORD            USAGE
+-----------------------------------------------------------------
+        1,2             SOCKET ID (FORMAT A10)
+        3               NUMBER OF PINS IN SOCKET
+        4               NUMBER OF WORDS IN PIN TABLE FOR THIS SOCKET
+        5               "rbn" OF START BLOCK OF SOCKET DESCRIPTION IN
+                        PIN TABLE
+        6               LOGICAL FLAG:  .TRUE. IF CURRENT ENTRY CHANGED
+        7               BLOCK NUMBER OF CURRENT ENTRY
+-----------------------------------------------------------------
+
+
+   6.5.1        SUBROUTINE PUTSOC
+
+        PUTSOC WRITES THE CURRENT SOCKET DESCRIPTION BACK TO THE FILE
+AND CLEARS THE CURRENT.ENTRY.CHANGED 
+FLAG.
+
+        THE PROCESS:
+
+        1       SET SOCKET FLAG .FALSE.;  WRITE TO BLOCK ON FILE
+fsocket;  RETURN
+
+
+   6.5.2        SUBROUTINE GETSOC ( n )
+
+        GETSOC GETS THE SOCKET DESCRIPTION BLOCK FROM THE TABLE, SAVING
+THE CURRENT DESCRIPTION IF NECESSARY.
+
+        CALLS ROUTINES: PUTSOC
+
+        THE PROCESS:
+
+        1       IF n .EQ. CURRENT BLOCK, RETURN;
+                IF FLAG IS .TRUE., CALL PUTSOC;
+                SET CURRENT BLOCK = n;
+                READ BLOCK n FROM TABLE;  RETURN:
+
+
+
+
+
+
+
+
+
+        6.6     ROUTINES DEALING WITH PINS
+
+        THIS SET OF ROUTINES MAKES USE OF COMMON BLOCK /PINS/ WHICH
+HAS THE FOLLOWING ATTRIBUTES:
+
+        WORD    BIT     USAGE
+---------------------------------------------------------------------
+        1               PIN ID (A5 FORMAT)
+        2,3             C O R A L  RING FOR SOCKET PINS
+         2                 "rbn" OF NEXT PIN IN RING
+         3      1          FLAG FOR INDEX TO SOCKET TABLE ENTRY IF SET
+         3      2-36       EITHER:  INDEX TO SOCKET TABLE ENTRY;
+                           OR:      "rbn" OF SECOND PREVIOUS RING ENTRY
+        4               X-POSITION OF PIN ON BOARD (FLOATING POINT)
+        5               Y-POSITION OF PIN ON BOARD (FLOATING POINT)
+        6-7             SIGNAL NAME (A10 FORMAT)
+        8               .FROM. "rbn" OF LAST PIN IN SIGNAL LIST
+        9               .TO. "rbn" OF NEXT PIN IN SIGNAL LIST
+        10              "rbn" OF CORESPONDING PIN IN PLUG PIN TABLE
+        11              "rbn" OF NEXT PIN IN RING ASSOCIATED WITH
+                        SOCKET/PLUG
+        12              PACKED FORM OF VARIOUS SHORT ATTRIBUTES
+                1         FLAG FOR UPPER-LEVEL WRAP ON .TO.
+                2          FLAG FOR EDGE PIN IF SET
+                3          FLAG FOR PLUG ATTACHED
+                4          FLAG FOR DEFAULT SIGNAL
+                5          FLAG FOR GROUP ATTACHED
+                6          FLAG FOR SUB-GROUP ATTACHED
+                7          FLAG FOR SIGNAL SOURCE
+                8-10       WIRED-OR CODE
+                11-13      TIE CONDITION CODE
+        13              DISTANCE TO NEXT PIN IN SIGNAL LIST
+        14              FLAG USED BY CHANGE UNIT
+        15              UNUSED--FOR FUTURE EXPANSION
+        16              LOGICAL FLAG:  .TRUE. IF ENTRY MUST BE RE-WRITTEN
+                        TO THE PIN TABLE
+        17              NUMBER OF CURRENT PIN BLOCK IN COMMON BLOCK
+---------------------------------------------------------------------
+
+
+   6.6.1        SUBROUTINE PUTPIN
+
+        PUTPIN WRITES THE COMMON BLOCK TO THE CURRENT BLOCK OF THE
+PIN TABLE.
+
+        THE PROCESS:
+
+        1       CLEAR FLAG;  WRITE OUT CURRENT BLOCK:
+
+
+   6.6.2        SUBROUTINE GETPIN ( n )
+
+        GETPIN  GETS THE n-TH PIN BLOCK FROM THE TABLE,  WRITING OUT
+THE CURRENT ENTRY IF NECESSARY.
+        CALLS ROUTINES: PUTPIN
+
+        THE PROCESS:
+
+        1       IF .WRITE.FLAG., CALL PUTPIN;  SET CURRENT BLOCK = n;
+                INPUT BLOCK n;  RETURN
+
+
+   6.6.3        SUBROUTINE BBID ( n, id<2> )
+
+        BPID, GIVEN THE BLOCK NUMBER OF A PIN, RETURNS id AS
+THE NAME OF THE PIN (A10 FORMAT).
+
+        BPID LEAVES THE SPECIFIED PIN DISCRIPTION IN THE COMMON BLOCK.
+
+        CALLS ROUTINES: GETSOC
+                        GETPIN
+                        BUFSTR
+
+        THE PROCESS:
+
+        1       CALL GETPIN(n):
+        2       SET J = .SOCKET POINTER.;  IF J .EQ. SOCKET, GO TO 3;
+                ELSE CALL GETPIN(J);  GO TO 2:
+
+        3       CALL GETSOC(J);  SET I = 1;  CALL BUFSTR(id, I, .SOCID.);
+                CALL BUFSTR(id, I, '-');  call getpin(N);
+                CALL BUFSTR(id, I, .PINID.);  RETURN
+
+
+
+
+   6.6.4        LOGICAL FUNCTION BPVFY ( id<2>, bitch )
+
+        VERIFY BOARD PIN, RETURN .TRUE IF SUCCESS.  THEN id IS THE
+IDENTIFIER OF BOARDPIN, /SOCKET/, /PINS/ ARE SET UP FOR THE PIN.
+IF FAIL, RETURN .FALSE. IF NOT bitch;  ELSE ERROR "INVALID BOARD
+PIN REFERENCE", INPUT NEW LINE, AND RESCAN.
+
+        THE PROCESS:
+
+        1       SAVE THISPIN, THISSOC
+
+        2       INITIALIZE B<2>, P;  PACK STRING INTO B BREAK "-";
+                IF NOT TERMINAL "-", GO TO 4;  ELSE LOOKUP B IN SOCKET
+                TABLE;  GO TO 3 IF NOT THERE;  SKIP "-";  PACK STRING INTO
+                P;  SEARCH /PINS/(/SOCKET/) FOR PID MATCHING P;
+                GO TO 3 IF NOT THERE;  ELSE CALL BPID(id);  RETURN .TRUE.:
+
+        3       HERE IF ERROR!  IF NOT bitch, RESTORE THISPIN, THISSOC,
+                RETURN .FALSE.;  ELSE ERROR "INVALID PIN DESCRIPTION";
+                GET NEW LINE; GO TO 2 TO RESCAN:
+
+        4       !HERE IF NOT INCLUDED "-"!  SEARCH /SOCKET/ FOR A MATCH
+                WITH B;  GO TO 5 IF FAIL;  ELSE SET /PINS/ TO
+                PINPNT(/SOCKET/); CALL BPID(id);  RETURN .TRUE.:
+
+        5       RESTORE THISSOC;  SEARCH /PINS/(/SOCKET/) FOR MATCH WITH
+                B;  IF FAIL, GO TO 3;  ELSE CALL BPID(id);  RETURN .TRUE.:
+
+
+
+   6.6.5        LOGICAL FUNCTION PSPVFY ( bitch )
+
+        1       SAVE THISPIN:
+
+        2       RETURN .TRUE. IF INPUT LINE IS NOT "("; ELSE SKIP "(";
+                PACK PINID BREAK ")";  VERIFY ")", GO TO 3 IF NOT;
+                SKIP ")"; SEARCH PINRING FOR MATCH WITH PINID;
+                GO TO 3 IF FAIL;  ELSE RETURN .TRUE.:
+
+        3       !HERE IF ERROR!  IF bitch, GO TO 4;  ELSE RESTORE THISPIN;
+                RETURN .FALSE.:
+
+        4       ERROR "INVALID PIN DESIGNATION", INPUT NEW LINE;  RESTORE
+                THISPIN; GO TO 2:
+
+
+
+
+
+
+        6.7     ROUTINES DEALING WITH PLUGS
+
+        THIS SET OF ROUTINES MAKES USE OF COMMON BLOCK /PLUGS/. WHICH
+HAS THE FOLLOWING ATTRIBUTES:
+
+        VARIABLE        USAGE
+---------------------------------------------------------------------
+        PLGID<3>        PLUG IDENTIFICATION (A15 FORMAT)
+        PLGPNT          "rbn" OF START OF PLUG DESCRIPTION
+        PLGSIZ          SIZE OF PLUG DESCRIPTION IN WORDS
+        NPLGPIN         NUMBER OF PINS IN PLUG DESCRIPTION
+        PLGFLAG         LOGICAL FLAG:  .TRUE. IF CURRENT PLUG
+                           HAS BEEM MODIFIED
+        THISPLG         CURRENT PLUG BLOCK NUMBER
+----------------------------------------------------------------------
+
+
+
+   6.7.1        SUBROUTINE PUTPLUG
+
+        PUTPLUG WRITES THE COMMON BLOCK TO THE CURRENT BLOCK OF THE
+PLUG TABLE.
+
+        THE PROCESS:
+
+        IF PLGFLAG, WRITE TO FPLUGID(THISPLG);  SET PLGFLAG = .FALSE.;
+        RETURN:
+
+
+
+   6.7.2        SUBROUTINE GETPLUG ( n )
+
+        GETPLUG GETS PLUG BLOCK n, WRITING OUT THE CURRENT BLOCK
+IF NECESSARY.
+
+        CALLS ROUTINES: PUTPLUG
+
+        THE PROCESS:
+
+        IF THISPLG .EQ. n, RETURN;  IF PLGFLAG, CALL PUTPLUG;
+        READ FPLUGID(n);  SET THISPLG = n;  RETURN:
+
+
+
+
+
+
+        6.8     ROUTINES DEALING WITH PLUG-PINS
+
+        THIS SET OF ROUTINES MAKES USE OF COMMON BLOCK /PLUGPIN/, WHICH
+HAS THE FOLLOWING ATTRIBUTES:
+
+        VARIABLE        USAGE
+-------------------------------------------------------------------
+        PPID            PLUG PIN ID (A5 FORMAT)
+        DEFAULT<2>      DEFAULT SIGNAL TO ASSIGN TO SOCKET (A10 FORMAT)
+        GROUP<2>        GROUP ID (A10 FORMAT)
+        SUBGRP<2>       SUB-GROUP ID (A10 FORMAT)
+        ILT             INPUT LOGIC TYPE (A5 FORMAT)
+        OLT             OUTPUT LOGIC TYPE (A5 FORMAT)
+        GRPNO           GROUP NUMBER
+        SGRPNO          SUB-GROUP NUMBER 
+        LOAD            INPUT LOAD (REAL)
+        DRIVE           OUTPUT DRIVE (REAL)
+        WOCC            WIRE-OR CONDITION CODE
+        TCC             TIE CONDITION CODE
+        CORAL<2>        C O R A L  RING POINTERS FOR PLUG PIN LIST
+        GRPRNG          GROUP RING
+        SGRPRNG         SUB-GROUP RING
+        X               X-POSITION OF PIN (REAL)
+        Y               Y-POSITION OF PIN (REAL)
+        PPFLAG          LOGICAL FLAG:  .TRUE. IF CURRENT PLUG PIN
+                           HAS BEEN MODIFIED
+        THISPP          BLOCK NUMBER OF THIS PLUG PIN
+------------------------------------------------------------------
+
+
+
+   6.8.1        SUBROUTINE PUTPP
+
+        PUTPP WRITES THE COMMON BLOCK TO THE CURRENT BLOCK OF THE 
+PLUG-PIN TABLE.
+
+        THE PROCESS:
+
+        IF PPFLAG, WRITE TO FPLUGDE(THISPP);  SET PPFLAG = .FALSE.;
+        RETURN:
+
+
+
+   6.8.2        SUBROUTINE GETPP ( n )
+
+        GETPP GETS PLUG-PIN BLOCK n, WRITING OUT THE CURRENT BLOCK IF
+NECESSARY.
+
+        CALLS ROUTINES: PUTPP
+
+        THE PROCESS:
+
+        IF THISPP .EQ. n, RETURN;  IF PPFLAG, CALL PUTPP;
+        READ FPLUGDE(n), SET THISPP = n;  RETURN:
+
+
+
+   6.8.3        LOGICAL FUNCTION PPPVFY ( bitch )
+
+        1       SAVE THISPP:
+
+        2       RETURN .TRUE. IF INPUT LINE IS NOT "("; ELSE SKIP "(";
+                PACK PPID BREAK ")";  VERIFY ")", GO TO 3 IF NOT;
+                SKIP ")"; SEARCH PLUGPINRING FOR MATCH WITH PPID;
+                GO TO 3 IF FAIL;  ELSE RETURN .TRUE.:
+
+        3       !HERE IF ERROR!  IF bitch, GO TO 4;  ELSE RESTORE THISPP;
+                RETURN .FALSE.:
+
+        4       ERROR "INVALID PIN DESIGNATION", INPUT NEW LINE;  RESTORE
+                THISPP; GO TO 2:
+
+
+
+
+        6.9     ROUTINES DEALING WITH LIBRARY PREAMBLES
+
+
+
+
+   6.9.1        LOGICAL FUNCTION GETLP ( file )
+
+        GET THE LIBRARY FILE PREAMBLE FROM file THROUGH LIBFILE.
+
+        THE PROCESS:
+
+        1       IF LIBFILE IS OPEN, RETURN IF SAME;  ELSE CLOSE IT:
+
+        2       SET LIBFILE TO file, OPEN IT;  READ PREAMBLE AND VERIFY;
+                IF SUCCESS, RETURN .TRUE.;  ELSE ERROR "LIBRARY NOT IN PROPER
+                FORMAT", GET NEW LINE INTO BUFFER, RETURN .FALSE.
+
+
+
+
+   6.9.2        SUBROUTINE PUTLP
+
+        IF LIBFILE IS OPEN, WRITE THE PREAMBLE TO IT.
+
+
+
+
+
+        6.10    ROUTINES DEALING WITH LIBRARY INDEX TABLES
+
+
+
+   6.10.1       SUBROUTINE GETLPX ( n )
+
+        GET THE n-TH INDEX ENTRY
+
+
+   6.10.2       SUBROUTINE PUTLPX
+
+        WRITE THE CURRENT ENTRY BACK OUT.
+
+
+
+
+
+        6.11    LIBRARY ROUTINES
+
+
+  6.11.1        LOGICAL FUNCTION LPXLOOK ( id<3> )
+
+        SEARCH THE CURRENT LIBRARY FILE FOR AN INDEX ENTRY CORRESPONDING
+TO id. IF ANY.  RETURN .TRUE. IF SUCCESS.
+
+
+   6.11.2       LOGICAL FUNCTION LPXFIND ( id<3> )
+
+        SEARCH ALL LIBRARIES FOR AN INDEX ENTRY CORRESPONDING TO id.
+IF SUCCESS, RETURN .TRUE. WITH /LIBPRE/ AND /LIBINXP/ SETUP.  ELSE
+ERROR "PLUG NOT DEFINED IN ANY DECLARED LIBRARIES", RETURN .FALSE.
+WITH NEW LINE IN INPUT BUFFER.
+
+
+   6.11.3       LOGICAL FUNCTION PLGFIND ( id<3> )
+
+        IF SUCCESS, RETURN .TRUE. WITH /PLUGS/ SET UP.  ELSE RETURN
+.FALSE. WITH ERROR MESSAGE OUTPUT, NEW LINE IN INPUT BUFFER.
+
+        THE PROCESS:
+
+        1       SEARCH EXISTING PLUG ENTRIES, RETURN .TRUE. IF FOUND:
+
+        2       LOOK IT UP USING LPXFIND;  RETURN .FALSE. IF NOT THERE:
+
+        3       ELSE COPY FROM LIBRARY TO TABLES, CLOSE LIBRARY, RETURN
+                .TRUE.:
+
+
+   6.11.4       SUBROUTINE PLUGIT
+
+        GENERATE A CONNECTION FROM THE CURRENT /PINS/ TO THE CURRENT
+/PLUGPIN/.
+
+
+   6.11.5       LOGICAL FUNCTION PLUGSOC ( bpno, plugid<3> )
+
+        THIS FUNCTION ATTEMPTS TO MATCH THE SPECIFIED PLUG NAME WITH
+THE SPECIFIED SOCKET, STARTING AT bpno.  IF SUCCESSFUL, RETURN .TRUE.,
+ALL LINKAGES MADE BETWEEN PINS AND PLUG, SOCKET RE-ORDERED.  ELSE
+RETURN .FALSE., SOCKET-PIN DESCRIPTION NOT MODIFIED.
+   
+aQŸ
