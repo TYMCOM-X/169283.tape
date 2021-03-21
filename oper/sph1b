@@ -1,0 +1,312 @@
+      SUBROUTINE SPH1B
+C     LINK SPH1B                                                        PH1B0060
+C     CHECKS THE INPUT DATA SUFFICIENT FOR SOLUTION AND CONVERTS THE    PH1B0070
+C     EXTERNAL JOINT NUMBERS IN MEMBER INCIDENCE TO THEIR INTERNAL      PH1B0080
+C     NUMBERS                                                           PH1B0090
+C     STRESS PROGRAMMING SYSTEM FOR IBM 1130                            PH1B0110
+C     DIMENSION AND COMMON STATEMENTS WHICH MUST APPEAR IN ALL ROUTINES PH1B0120
+      DIMENSION  KMEG2(250),SK1(10)
+      DIMENSION NSYSF(6)                                                PH1B0130
+      DIMENSION NPRBF(6)                                                PH1B0140
+      DIMENSION NARRF(20)                                               $H1B0150
+      DIMENSION  JMIN(250),JPLS(250),MTYP(250)
+      DIMENSION A(40),BETA(37),LABL(16),IFREE(20),ICHK(2),IBUFF(40)     PH1B0170
+C     SYSTEM PARAMETERS  -  14 WORDS                                    PH1B0180
+      COMMON NTMP,KCUR,NAVAL,NOVER,ISOLV,ISUCC,ISCAN,ITRAC,NSYSF        PH1B0190
+C     PROBLEM PARAMETERS  -  32 WORDS                                   PH1B0200
+      COMMON NJ,NB,NDAT,NFJS,NLDS,NLDSI,ID,NCORD,JF,NSQ,IMETH,NMR,NJR,  PH1B0210
+     1IBETA,IYOUN,ISHEA,GSHEA,EYOUN,FILL1,FILL2,IPZER,ISTRS,NPRBF       $H1B0220
+C     PLATE PARAMETERS                                                  $H1B0222
+      COMMON IPLAT,NPLAT,KPLA1,KPLAT,KTHI1,KTHIK                        $H1B0224
+C     ARRAY CODEWORDS  40 PAIRS = 80 WORDS                              PH1B0230
+      COMMON KNAM1,KNAME,KXY1,KXYZ,KJRE1,KJREL,MEGA1,MEGAZ,KMEM1,KMEMB, PH1B0240
+     1KBET1,KBETA,KYON1,KYOUN,KSHE1,KSHEA,KMRE1,KMREL,KMEG1,KMEGA,      PH1B0250
+     2KMKS1,KMKST,KROT1,KROTE,KPPL1,KPPLS,KPMN1,KPMNS,LOAD1,LOADS,      PH1B0260
+     3KLIN1,KLINT,MLOA1,MLOAD,JLOA1,JLOAD,KDIA1,KDIAG,KOFD1,KOFDG,      PH1B0270
+     4KPPR1,KPPRI,KSTA1,KSTAT,KJIN1,KJINT,KJEX1,KJEXT,KPDS1,KPDSP,      PH1B0280
+     5KPLO1,KPLOD                                                       PH1B0290
+      COMMON NARRF,KPST2,KPSTR,KPST1,KPSTF,KPME1,KPMEM,KPZE1,KPZER      $H1B0300
+C  MEMBER INCIDENCE AND TYPE TABLES  250 JOINTS  500 MEMBERS
+      COMMON JMIN,JPLS,MTYP,IAMDU                                       PH1B0320
+C     SCRATCH AREA CAN BE INSERTED AS DESIRED FOR EACH ROUTINE          PH1B0330
+C     SCRATCH AREA FOR INPUT PHASE  -  SPH1A AND SPH1B                  PH1B0340
+      COMMON A,BETA,IFREE,LABL,IB,IL,ILOOK,JTOMB,K1,IPRER,JLD,INDEX,    PH1B0350
+     1JINDL,JDEPL,IPRTA,KK,JJC,JDC,IS,ICHK,JMIC,JMPC,JCODE,JIB          PH1B0360
+     2,MEMRE,CTE,KS1,LEM     ,IBUFF,K3,NTHIK                            $H1B0370
+2     FORMAT(51H PROBLEM CORRECTLY SPECIFIED, EXECUTION TO PROCEED.)    PH1B0380
+3     FORMAT(45H EXECUTION DELETED DUE TO CONSISTENCY ERRORS.)          PH1B0390
+4     FORMAT(39H EXECUTION DELETED DUE TO FATAL ERRORS.)                PH1B0400
+44    FORMAT(19H LOADING CONDITION ,I3,14H HAS NO LOADS.)               PH1B0410
+62    FORMAT(27H PROBLEM TOO LARGE FOR DISC/2H (,I9,19H) RECORD OVER FLOPH1B0420
+     1W/)                                                               PH1B0430
+82    FORMAT(27H CONSTANT VALUE FOR MEMBER ,I3,15H NOT SPECIFIED.)      PH1B0440
+59    FORMAT(49H NO PRINTING SPECIFIED FOR ANY LOADING CONDITION.)      PH1B0450
+C     CONSISTENCY CHECK                                                 PH1B0460
+      IK=0                                                              PH1B0470
+      N=NSYSF(1)                                                        PH1B0480
+      IF(ICHK(1)-11111)8,7,6                                            $H1B0490
+    6 IF(ICHK(1)-11121)8,7,8                                            $H1B0498
+C     WRITE CORRECTED CARD OR RELEASE-START TO IGNORE                   PH1B0500
+8     CALL SPRER(36)                                                    PH1B0510
+      GO TO 53                                                          PH1B0520
+C     COMPARE INTERNAL JOINT SUPPORT WITH EXTERNAL JOINT NO.            PH1B0530
+7     IF(NDAT-JDC)9,10,9                                                PH1B0540
+9     CALL SPRER(31)                                                    PH1B0550
+      IK=1                                                              PH1B0560
+C     SUMMATION OF INTERNAL JT. NO = TOTAL NO. OF JOINTS SPECIFIED.     PH1B0570
+10    IF(NJ-JJC-JDC)14,15,14                                            PH1B0580
+14    CALL SPRER(32)                                                    PH1B0590
+      IK=1                                                              PH1B0600
+15    IF(NB-JMPC)19,20,19                                               PH1B0610
+19    CALL SPRER(33)                                                    PH1B0620
+      IK=1                                                              PH1B0630
+20    IF(NB-JMIC)24,25,24                                               PH1B0640
+24    CALL SPRER(34)                                                    PH1B0650
+      IK=1                                                              PH1B0660
+   25 IF(IPLAT)37,37,26
+   26 IF(ID-5)27,28,27
+   27 CALL SPRER(53)
+      IK=1
+   28 IF(IPLAT-NTHIK)29,30,29
+   29 CALL SPRER(52)
+      IK=1
+   30 CONTINUE
+   37 IF(NLDS-JINDL-JDEPL)38,39,38                                      $H1B0670
+   38 CALL SPRER(35)                                                    $H1B0680
+      IK=1                                                              PH1B0690
+   39 IKAY=1                                                            $H1B0700
+      DO 50 J=1,NLDS                                                    PH1B0710
+      CALL SDATA(LOAD1,LOADS,J,A,NAR,-1,0)                              PH1B0720
+      CALL SPAK4(0,A(1),ILD,K1,K2,IPR)                                  PH1B0730
+      IF(ILD)46,45,46                                                   PH1B0740
+   45 WRITE(N,44) J                                                     PH1B0750
+      IF(N-1)145,245,145                                                PH1B0760
+145   WRITE(N,44)J                                                      PH1B0770
+245   IK=1                                                              PH1B0772
+C     WAS SPECIFIC TABULATE COMMAND GIVEN 47=NO  48=YES                 PH1B0780
+46    IF(IPR)47,47,48                                                   PH1B0790
+C     WAS GENERAL TABULATE COMMAND GIVEN 50=NO  40=YES                  PH1B0800
+47    IF(IPRTA)50,50,40                                                 PH1B0810
+40    CALL SPAK4(1,A(1),ILD,K1,K2,IPRTA)                                PH1B0820
+      CALL SDATA(LOAD1,LOADS,J,A,NAR,-2,0)                              PH1B0830
+48    IKAY=2                                                            PH1B0840
+50    CONTINUE                                                          PH1B0850
+      GO TO(58,60),IKAY                                                 PH1B0860
+58    WRITE(N,59)                                                       PH1B0870
+       IF(N-1)159,259,159                                               PH1B0880
+159   WRITE(N,59)                                                       PH1B0890
+259   IK=1                                                              PH1B0892
+60    IDONE=0                                                           PH1B0900
+      IF (IYOUN-1)83,83,80                                              PH1B0910
+80    ICO1=KYON1                                                        PH1B0920
+      ICOD=KYOUN                                                        PH1B0930
+      GO TO 85                                                          PH1B0940
+83    IF(ISHEA-1)89,89,84                                               PH1B0950
+84    ICO1=KSHE1                                                        PH1B0960
+      ICOD=KSHEA                                                        PH1B0970
+      IDONE=1                                                           PH1B0980
+85    LIM=(NB+IPLAT-1)/10+1                                             $H1B0990
+      DO 87 I=1,LIM                                                     PH1B1000
+      CALL SDATA(ICO1,ICOD,10*I,A,NARE,-1,0)                            PH1B1010
+      DO 87 J=1,10                                                      PH1B1020
+      K1=10*(I-1)+J                                                     PH1B1030
+      IF(K1-NB-IPLAT)801,801,802                                        $H1B1040
+801   IF(A(J))88,88,87                                                  PH1B1050
+   88 WRITE (N,82) K1                                                   PH1B1060
+      IF(N-1)188,288,188                                                PH1B1070
+188   WRITE(N,82)K1                                                     PH1B1080
+288    IK=1                                                             PH1B1082
+87    CONTINUE                                                          PH1B1090
+802   IF(IDONE)83,83,89                                                 PH1B1100
+C     ISCAN=2=CHECK DATA FOR CONSISTENCY BUT DO NOT STORE               PH1B1110
+89    IF(ISCAN-2)49,53,53                                               PH1B1120
+49    IF(IK)52,51,52                                                    PH1B1130
+51    NLDSI=JINDL                                                       PH1B1140
+      NFJS=JJC                                                          PH1B1150
+      IF(NB)602,602,601
+  601 CONTINUE
+C  ALLOTE SPACE FOR MEMBER END LOADS
+      CALL SBITE(KPPL1,KPPLS,2,NB*NLDS,JF)                              $H1B1790
+      CALL SBITE(KPMN1,KPMNS,2,NB*NLDS,JF)                              $H1B1800
+C     CONVERT JPLS AND JMIN TO INTERNAL JOINT NUMBERS                   PH1B1160
+      DO 600 I=1,NB                                                     PH1B1170
+      CALL SPAK2(I,JPLS,JSTA)                                           $H1B1180
+      CALL SPAK2(I,JMIN,JEND)                                           $H1B1190
+      CALL SDATA(KJIN1,KJINT,JSTA,A,JSTA,+1,10)                         PH1B1200
+      CALL SDATA(KJIN1,KJINT,JEND,A,JEND,+1,10)                         PH1B1210
+      CALL SPAK2(-I,JPLS,JSTA)                                          $H1B1220
+600   CALL SPAK2(-I,JMIN,JEND)                                          $H1B1230
+C     LOOP THRU MEMBERS AND COUNT MEMBERS WITH START RELEASES           PH1B1240
+      DO 5113 I=1,NB                                                    PH1B1250
+      CALL SPAK2(I,MTYP,J)                                              PH1B1260
+      IF(J)5112,5113,5113                                               PH1B1270
+5112  MEMRE=MEMRE+1                                                     PH1B1280
+5113  CONTINUE                                                          PH1B1290
+      CALL SBITE(KROT1,KROTE,2,NB,NSQ)                                  PH1B1300
+C     DEFINE BOOKEEPING ARRAY MEGAZ                                     PH1B1310
+C     THIS WOULD NOT HAVE TO BE STORED ON DISK, BUT THEN TOTAL          PH1B1320
+C     LENGTH OF KOFDG WOULD HEVE TO BE RECOMPUTED IN SLNK6              PH1B1330
+C     OR ALLOCATION OF KOFDG WOULD BE DEFERRED TO SLNK6                 PH1B1340
+  602 CONTINUE
+      CALL SBITE(MEGA1,MEGAZ,1,NJ+1,0)                                  PH1B1350
+C     COMPUTE BANDWIDTH OF EACH ROW, STORE IN MEGAZ(I) THE STARTING     PH1B1360
+C     SUBSCRIPT OF FIRST NON-ZERO MATRIX IN ROW I.  ALL MATRICIES       PH1B1370
+C     FROM THIS FIRST NON-ZERO ONE TO THE DIAGONAL ARE STORED FOR       PH1B1380
+C     EACH ROW.  NOTE...THE FIRST ENTRY IN MEGAZ IS 0.  THE LAST ENTRY  PH1B1390
+C     IN MEGAZ(NJ+1) IS THE TOTAL LENGTH OF KOFDG+1                     PH1B1400
+      IAMDU=MEMRE
+      DO 705 I=1,NJ
+  705 KMEG2(I)=0
+      NBAND=0                                                           PH1B1410
+      NSUM=0                                                            PH1B1420
+      IF(NB)795,795,794
+  794 CONTINUE
+C  SETUP FOR PRISMATIC MEMBERS
+      DO 700 JT=1,NJ                                                    PH1B1430
+      DO 710 JM=1,NB                                                    PH1B1440
+      CALL SPAK2(JM,JPLS,NP)                                            $H1B1450
+      IF(NP-JT)710,720,710                                              PH1B1460
+C     MATCH OF JT IN JPLS(NM)                                           PH1B1470
+720   CALL SPAK2(JM,JMIN,NM)                                            $H1B1480
+      IF(NM-JT)730,710,710                                              PH1B1490
+730   IF(IABS(NM-NP)-NBAND)710,710,740                                  PH1B1500
+740   NBAND=IABS(NM-NP)                                                 PH1B1510
+710   CONTINUE                                                          PH1B1520
+      DO 750 JM=1,NB                                                    PH1B1530
+      CALL SPAK2(JM,JMIN,NM)                                            $H1B1540
+      IF(NM-JT)750,760,750                                              PH1B1550
+C     MATCH OF JT IN JMIN(JT)                                           PH1B1560
+760   CALL SPAK2(JM,JPLS,NP)                                            $H1B1570
+      IF(NP-JT)770,750,750                                              PH1B1580
+770   IF(IABS(NP-NM)-NBAND)750,750,780                                  PH1B1590
+780   NBAND=IABS(NP-NM)                                                 PH1B1600
+750   CONTINUE                                                          PH1B1610
+      IF(NSUM)790,790,793                                               PH1B1620
+790   IF(NBAND)791,791,792                                              PH1B1630
+C     NO BANDS YET, STORE ZERO                                          PH1B1640
+  791 KMEG2(JT)=0
+      GO TO 700                                                         PH1B1660
+C     FIRST BAND FOUND, STORE 1 IN THIS ENTRY OF MEGAZ AND ALSO NEXT    PH1B1670
+  792 NSUM=1
+  793 NSUM=NSUM+NBAND
+      KMEG2(JT)=NBAND
+  700 CONTINUE
+  795 IF(IPLAT)950,950,900
+C  SETUP FOR PLATE MEMBERS
+  900 DO 930 JM=1,NPLAT
+C  GET THE MEMBER DATA FROM DISK
+      CALL SDATA(KPLA1,KPLAT,JM,SK1,KMEG2,-1,0)
+C  ORDER THE NODE NUMBERS IN DESENDING MAGNITUDE
+      N1=SK1(2)+.1
+      N2=SK1(3)+.1
+      N3=SK1(4)+.1
+C  CONVERT TO INTERNAL NODE NUMBERS
+      CALL SDATA(KJIN1,KJINT,N1,SK1,N1,+1,10)
+      CALL SDATA(KJIN1,KJINT,N2,SK1,N2,+1,10)
+      CALL SDATA(KJIN1,KJINT,N3,SK1,N3,+1,10)
+C  WRITE THE PLATE DATA ON THE DISK WITH INTERNAL NODE NUMBERS
+      SK1(2)=N1
+      SK1(3)=N2
+      SK1(4)=N3
+      CALL SDATA(KPLA1,KPLAT,JM,SK1,NAREA,-2,0)
+      IF(N3-N2)903,9957,902
+  902 NSAVE=N3
+      N3=N2
+      N2=NSAVE
+  903 IF(N2-N1)905,9957,904
+  904 NSAVE=N2
+      N2=N1
+      N1=NSAVE
+      IF(N3-N2)905,9957,902
+  905 CONTINUE
+C  SET NBND1 AND LOOP FOR ALL THREE LOWER DIAGONAL, RESETTING KMEG2
+C  IF NECESSARY.
+      KKK=0
+      GO TO 914
+  912 NSAVE=N2
+      N2=N3
+      GO TO 914
+  913 N1=NSAVE
+  914 NBND1=N1-N2
+      IF(NBND1-KMEG2(N1))916,916,915
+  915 KMEG2(N1)=NBND1
+  916 KKK=KKK+1
+      GO TO (912,913,930),KKK
+  930 CONTINUE
+C  AT THIS POINT, KMEG2 HAS BEEN REST.  NOW CALCULATE NSUM
+      NSUM=1
+      DO 940 JT=2,NJ
+  940 NSUM=NSUM+KMEG2(JT)
+C  LOOP BACKWARDS THROUGH KMEG2 TO RENUMBER SUCH THAT THE I TH
+C   BANDWIDTH IS GIVEN BY KMEG2(I+1)-KMEG2(I)
+C  CHECK NSUM, IT SHOULD NOT BE SMALLER THAN 1
+  950 KMEG2(NJ+1)=NSUM
+      DO 955 JT=1,NJ
+      IF(NSUM-1) 953,953,954
+  953 NSUM=0
+  954 KOUNT=NJ-JT+1
+      NSUM=NSUM-KMEG2(KOUNT)
+  955 KMEG2(KOUNT)=NSUM
+      NSUM=KMEG2(NJ+1)
+C  WRITE KMEG2 ONTO THE DISK
+      NRECR=(NJ-1)/20+1
+      DO 960 JM=1,NRECR
+      I=20*JM-19
+  960 CALL SDATA(MEGA1,MEGAZ,I,A,KMEG2(I),+2,0)
+      MEMRE=IAMDU
+      CALL SBITE(KOFD1,KOFDG,2,NSUM-1,NSQ)                              PH1B1730
+C  STORAGE FOR THE PLATE STIFFNESS MATRICIES TR,K11,K12,K13,K22,K23,K33
+      IF(IPLAT)307,307,308
+  308 CALL SBITE(KPST1,KPSTF,2,7*IPLAT,NSQ)
+C  STORAGE FOR THE PLATE BENDING STRESS MATRIX, A 3X9 MATREX PER PLATE
+C  NO STORAGE ALLOCATION IF THE STRESSES ARE NOT TO BE TABULATED
+      IF(ISTRS) 307,307,309
+  309 CALL SBITE(KPST2,KPSTR,2,IPLAT,27)
+C  STORAGE FOR PLATE MEMBRANE STRESS INFORMATION, 10 WORDS PER ELEMENT
+      CALL SBITE(KPME1,KPMEM,2,IPLAT,10)
+C  ALLOCATE SPACE FOR STORAGE OF PLATE MEMBER
+C  ALLOCATE SPACE FOR STORAGE OF PLATE MEMBER STRESSES, 6 FLOATING
+C   POINT WORDS PER MEMBER.  THE STRESS IS STORED TO FACILITATE THE
+C    COMBINED LOADING FEATURE AND TO PRINT STRESSES BY MEMBER.
+      CALL SBITE(KTHI1,KTHIK,2,IPLAT*NLDS,6)
+  307 CONTINUE
+      IF(NJR)57,57,71                                                   PH1B1740
+71    CALL SBITE(KPDS1,KPDSP,2,NLDSI,JF)                                PH1B1750
+      CALL SBITE(KPLO1,KPLOD,2,NLDSI,JF)                                PH1B1760
+57    CALL SBITE(KDIA1,KDIAG,2,NJ,NSQ)                                  PH1B1770
+      CALL SBITE(KPPR1,KPPRI,2,NJ*NLDS,JF)                              PH1B1780
+      CALL SBITE(KSTA1,KSTAT,2,NJ*NLDS,JF)                              PH1B1810
+      IF(MEMRE)72,72,70                                                 $H1B1820
+70    CALL SBITE(KMEG1,KMEGA,2,MEMRE,NSQ)                               PH1B1830
+C     NOVER = ANY OVERFLOW OF THE DISK STORAGE                          PH1B1840
+   72 IF (NOVER) 56,55,56                                               PH1B1850
+   56 WRITE (N,62) NOVER                                                PH1B1860
+      IF(N-1)156,53,156                                                 PH1B1870
+156   WRITE(N,62)NOVER                                                  PH1B1872
+      GO TO 53                                                          PH1B1880
+   55 WRITE (N,2)                                                       PH1B1890
+255   ISUCC=1                                                           PH1B1912
+      IF(NB)411,411,420
+C  IF ONLY PLATES IN THIS PROBLEM, ZERO KPPRI HERE, SINCE IT WILL NOT
+C  GET INITIALIZED IN SLNK5
+  411 DO 410 I=1,JF
+  410 A(I)=0.    N=NJ*NLDS
+      DO 400 I=1,N
+400   CALL SDATA(KPPR1,KPPRI,I,A,JKL,-2,0)
+  420 RETURN
+52    WRITE(N,3)                                                        PH1B1930
+      IF(N-1)152,54,152                                                 PH1B1940
+152   WRITE(N,3)                                                        PH1B1942
+      GO TO 54                                                          PH1B1950
+53    WRITE(N,4)                                                        PH1B1960
+      IF(N-1)153,54,153                                                 PH1B1970
+153   WRITE(N,4)                                                        PH1B1972
+54    ISUCC=2                                                           PH1B1980
+      RETURN
+ 9957 IPRER=57
+      GO TO 9903
+ 9903 CALL SPRER(IPRER)
+      ISCAN=0
+      GO TO 54
+      END                                                               PH1B2030
+G@dK
