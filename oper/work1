@@ -1,0 +1,1002 @@
+CBMD03V       ANALYSIS OF COVARIANCE              AUGUST 17, 1966       0030
+C        THIS IS A SIFTED VERSION OF BMD03M ORIGINALLY WRITTEN IN       0040
+C        FORTRAN II. SOME MODIFICATIONS WERE MADE TO MAKE IT OPERABLE   0050
+C        AND SLIGHTLY MORE EFFICIENT THAN THE SIFTED VERSION.           0060
+C                                                                       *LMSC
+C            CONVERTED FOR LMSC UNIVAC 1108 BY DEPT 84-72               *LMSC
+C                   LEW BUTLER   DECEMBER 1967                          *LMSC
+C                                                                       *LMSC
+      DIMENSION X(1500,9),SCALE(9),AV(9),L(6),LL(6),N(6),M(6),MM(7),    0070
+     1K5(7),KM(6),S(65,9,9),T(9,9),PQ(64),A(64),B(64),R(64,8),KV(9),    V0300080
+     2KW(9),MD(6),CON(8),NEWA(64),LCODE(64),LVA(64),BNEW(64)            V0300090
+      COMMON /A/R                                                         V0300100
+      COMMON /B/X      , SCALE  , AV     , L      , LL     , N            V0300110
+      COMMON /C/M      , MM     , K5     , KM     , S      , T            V0300120
+      COMMON /D/PQ     , NV     , NR     , NT     , NI     , NVM          V0300130
+      COMMON /E/I5     , MARK   , JW     , Z      , IJK    , KK           V0300140
+      COMMON /F/KZ     , NN     , ON     , NW     , A      , B            V0300150
+      COMMON /G/KV     , KW     , NY     , NZ     , CON    , ONNN         V0300160
+      EQUIVALENCE (R(1),BNEW(1)),(R(65),NEWA),(R(129),LVA),             V0300170
+     1(R(193),LCODE)                                                    V0300180
+        DOUBLE PRECISION Q000HL,Q001HL,Q002HL,Q003HL,ON,ONR
+C                                                                       V0300190
+  902 FORMAT(46H1BMD03V - ANALYSIS OF COVARIANCE - VERSION OF ,         V0300200
+     113HJULY 22, 1965/                                                 V0300210
+     263H HEALTH SCIENCES COMPUTING FACILITY, UCLA--LMSC REVISION, DECEM*LMSC
+     3 9HBER, 1967//)                                                   *LMSC
+C                                                                       V0300230
+      MTAPE=5                                                           V0300240
+      REWIND 1                                                          V0300250
+ 4    READ (20,900)ON,PROB,NV,NR,NI,NVM,NJ,JW,(L(I),I=1,6), NTAPE,IJK    V0300260
+      DATA Q000HL/6HPROBLM/                                             V0300270
+      ONR=(+Q000HL)                                                     V0300280
+      IF(ON.EQ.Q000HL)GO TO 6
+      DATA Q001HL/6HFINISH/                                             V0300300
+ 5    IF(ON-(+Q001HL)) 990, 1000, 990                                   V0300310
+ 6    IF(NTAPE-2)8,990,8                                                V0300320
+ 8    CALL TPWD(NTAPE,MTAPE)                                            V0300330
+ 9    WRITE (5,902)                                                     V0300340
+      WRITE (5,903)PROB                                                 V0300350
+      IF(NV*(NV-7)) 6001,990,990                                        V0300360
+ 6001 IF(NI*(NI-9)) 6002,990,990                                        V0300370
+ 6002 IF((NJ+8)*(NJ-8)) 6003,990,990                                    V0300380
+ 6003 IF((NI+NJ)*(NI+NJ-9)) 6004,990,990                                V0300390
+ 6004 IF(NVM-64) 6005,6005,990                                          V0300400
+ 6005 IF(IJK*(IJK-6)) 6006,990,990                                      V0300410
+ 6006 KZ=0                                                              V0300420
+      NTT=NI+1                                                          V0300430
+      NI=NI+NJ                                                          V0300440
+      NT=NTT+NJ                                                         V0300450
+      IF(NR) 41, 41, 42                                                 V0300460
+ 41   NR=1                                                              V0300470
+ 42   WRITE (5,904)NV,NR,NI                                             V0300480
+      WRITE (5,908)                                                     V0300490
+      DO 7 I=1,NV                                                       V0300500
+ 7    WRITE (5,909)I,L(I)                                               V0300510
+      IF(NVM)410,410,400                                                V0300520
+ 400  WRITE (5,912)                                                     V0300530
+      WRITE (5,914)                                                     V0300540
+      DATA Q002HL/6HTRNGEN/                                             V0300550
+      ONR=(+Q002HL)                                                     V0300560
+      DO 405 I=1,NVM                                                    V0300570
+      READ (20,911)ON,NEWA(I),LCODE(I),LVA(I),BNEW(I)                    V0300580
+      IF(ON.NE.ONR) GO TO 403                                           V0300590
+  401 IF(LCODE(I)*(LCODE(I)-15))404,402,402                             V0300600
+  402 WRITE (5,910)I                                                    V0300610
+      GO TO 4035                                                        V0300620
+  403 WRITE (5,906)ON                                                   V0300630
+ 4035 KZ=-9                                                             V0300640
+      WRITE (5,916)                                                     V0300650
+      GO TO 405                                                         V0300660
+  404 WRITE (5,913)I,NEWA(I),LCODE(I),LVA(I),BNEW(I)                    V0300670
+  405 CONTINUE                                                          V0300680
+ 410  DO 10 I=1,NT                                                      V0300690
+ 10   AV(I)=0.0                                                         V0300700
+      IF(JW) 432, 432, 435                                              V0300710
+ 432  DO 433 I=1,NI                                                     V0300720
+ 433  CON(I)=0.0                                                        V0300730
+      GO TO 413                                                         V0300740
+ 435  READ (20,901)ON,(CON(I), I=1,NI)                                   V0300750
+      DATA Q003HL/6HCONSTS/                                             V0300760
+      ONR=(+Q003HL)                                                     V0300770
+      IF(ON.EQ.ONR) GO TO 413                                           V0300780
+ 411  WRITE (5,915)                                                     V0300790
+      GO TO 1000                                                        V0300800
+ 413  CALL VFCHCK(IJK)                                                  V0300810
+      IJK=IJK*12                                                        V0300820
+      READ (20,907)(B(I), I=1,IJK)                                       V0300830
+ 11   NN=1                                                              V0300840
+      DO 12 I=1,NV                                                      V0300850
+ 12   NN=NN*L(I)                                                        V0300860
+      ON=NN                                                             V0300870
+      ONR=NR                                                            V0300880
+      ONN=ON*ONR                                                        V0300890
+      ONNN=ONN+1.0                                                      V0300900
+      NW=2**NV-1                                                        V0300910
+      NY=NW+1                                                           V0300920
+      NZ=NY+1                                                           V0300930
+      DO 25 I=1,64                                                      V0300940
+      DO 25 J=1,NT                                                      V0300950
+      DO 25 K=1,NT                                                      V0300960
+ 25   S(I,J,K)=0.0                                                      V0300970
+      IF(NR-1) 13, 13, 17                                               V0300980
+ 13   MARK=1                                                            V0300990
+      DO 14 I=1,NN                                                      V0301000
+      READ (MTAPE,B)(T(1,J),J=1,NTT)                                    V0301010
+      IF(KZ) 14, 418, 418                                               V0301020
+ 418  IF(NVM)420,420,415                                                V0301030
+ 415  CALL TRANZ                                                        V0301040
+ 420  DO 75 J=1,NT                                                      V0301050
+      X(I,J)=T(1,J)                                                     V0301060
+ 75   AV(J)=AV(J)+X(I,J)                                                V0301070
+ 14   CONTINUE                                                          V0301080
+      IF(KZ) 4, 79, 79                                                  V0301090
+ 79   DO 15 J=1,NT                                                      V0301100
+ 15   AV(J)=AV(J)/ON                                                    V0301110
+      DO 16 I=1,NN                                                      V0301120
+      DO 16 J=1,NT                                                      V0301130
+ 16   X(I,J)=X(I,J)-AV(J)                                               V0301140
+      DO 81 I=1,NN                                                      V0301150
+      DO 81 J=1,NT                                                      V0301160
+      DO 81 K=J,NT                                                      V0301170
+ 81   S(NZ,J,K)=S(NZ,J,K)+X(I,J)*X(I,K)                                 V0301180
+      GO TO 26                                                          V0301190
+ 17   DO 18 I=1,NN                                                      V0301200
+      DO 18 J=1,NT                                                      V0301210
+ 18   X(I,J)=0.0                                                        V0301220
+       DO 20 I=1,NR
+      MARK=I                                                            V0301240
+      WRITE(5,923)
+      DO 20 J=1,NN                                                      V0301250
+      READ (20,924) (T(1,K),K=1,NTT)                                    V0301260
+       WRITE(5,922) (T(1,K),K=1,NTT)
+      IF(KZ) 20, 440, 440                                               V0301270
+ 440  IF(NVM) 90, 90, 430                                               V0301280
+ 430  CALL TRANZ                                                        V0301290
+ 90   DO 99 K=1,NT                                                      V0301300
+      AV(K)=AV(K)+T(1,K)                                                V0301310
+ 99   X(J,K)=X(J,K)+T(1,K)                                              V0301320
+      WRITE (1)(T(1,K), K=1,NT)                                         V0301330
+ 20   CONTINUE                                                          V0301340
+      END FILE 1                                                        V0301350
+      REWIND 1                                                          V0301360
+      IF(KZ) 4, 445, 445                                                V0301370
+ 445  DO 21 I=1,NN                                                      V0301380
+      DO 21 J=1,NT                                                      V0301390
+ 21   X(I,J)=X(I,J)/ONR                                                 V0301400
+      DO 22 J=1,NT                                                      V0301410
+ 22   AV(J)=AV(J)/ONN                                                   V0301420
+      DO 24 I=1,NR                                                      V0301430
+      DO 24 J=1,NN                                                      V0301440
+      READ (1)(T(1,K),K=1,NT)                                           V0301450
+      DO 23 K=1,NT                                                      V0301460
+      T(2,K)=T(1,K)-AV(K)                                               V0301470
+ 23   T(1,K)=T(1,K)-X(J,K)                                              V0301480
+      DO 24 JA=1,NT                                                     V0301490
+      DO 24 JB=JA,NT                                                    V0301500
+      S(NY,JA,JB)=S(NY,JA,JB)+T(1,JA)*T(1,JB)                           V0301510
+ 24   S(NZ,JA,JB)=S(NZ,JA,JB)+T(2,JA)*T(2,JB)                           V0301520
+      REWIND 1                                                          V0301530
+      DO 38 J=1,NT                                                      V0301540
+      AV(J)=AV(J)*ONR                                                   V0301550
+      DO 38 I=1,NN                                                      V0301560
+      X(I,J)=X(I,J)*ONR                                                 V0301570
+ 38   X(I,J)=X(I,J)-AV(J)                                               V0301580
+ 26   NVM=NV-1                                                          V0301590
+      I5=(6-NV)+1                                                       V0301600
+      DO 32 I=1,NVM                                                     V0301610
+      LL(I)=1                                                           V0301620
+      I1=I+1                                                            V0301630
+      DO 32 J=I1,NV                                                     V0301640
+ 32   LL(I)=LL(I)*L(J)                                                  V0301650
+      LL(NV)=1                                                          V0301660
+      DO 40 I=1,NV                                                      V0301670
+      I1=I-1                                                            V0301680
+      I2=NV-I1                                                          V0301690
+      I3=6-I1                                                           V0301700
+ 40   L(I3)=L(I2)                                                       V0301710
+      KZ=0                                                              V0301720
+      DO 45 I=1,64                                                      V0301730
+ 45   PQ(I)=0.0                                                         V0301740
+      DO 231 IJ=1,NVM                                                   V0301750
+      MARK=0                                                            V0301760
+      IJK=IJ                                                            V0301770
+      JW=NVM-(IJ-1)                                                     V0301780
+      DO 51 I=I5,6                                                      V0301790
+ 51   M(I)=0                                                            V0301800
+      J1=I5+(NVM-JW)                                                    V0301810
+      DO 52 I=I5,J1                                                     V0301820
+ 52   M(I)=1                                                            V0301830
+      Z=1.0                                                             V0301840
+ 70   CALL TABLE (M,I5,Z,MARK,IJK)                                      V0301850
+      IF(MARK) 205, 205, 231                                            V0301860
+ 205  KZ=KZ+1                                                           V0301870
+      CALL XLOCAT                                                       V0301880
+      NDF=1                                                             V0301890
+      MDF=1                                                             V0301900
+      I6=I5+(IJ-1)                                                      V0301910
+      DO 206 I=I5,I6                                                    V0301920
+      NDF=NDF*MM(I)                                                     V0301930
+ 206  MDF=MDF*(MM(I)+1)                                                 V0301940
+      FNDF=NDF                                                          V0301950
+      DF=MDF                                                            V0301960
+      FACT=DF/ONN                                                       V0301970
+      DO 200 I=1,NT                                                     V0301980
+      DO 200 J=1,NT                                                     V0301990
+ 200  S(KZ,I,J)=S(KZ,I,J)*FACT                                          V0302000
+      A(KZ)=FNDF                                                        V0302010
+      IF(NVM)2232,2232,2231                                             V0302020
+ 2231 DO 204 I=1,IJK                                                    V0302030
+      I4=I5+(I-1)                                                       V0302040
+      ROSE=K5(I4)                                                       V0302050
+ 204  PQ(KZ)=(PQ(KZ)+ROSE)*10.0                                         V0302060
+      PQ(KZ)=PQ(KZ)/10.0                                                V0302070
+      I7=I6-I5                                                          V0302080
+      IF(I7-1) 70, 207, 207                                             V0302090
+ 207  DO 208 J=1,NT                                                     V0302100
+      DO 208 K=J,NT                                                     V0302110
+ 208  T(J,K)=0.0                                                        V0302120
+      DO 220 JK=1,I7                                                    V0302130
+      ICE=0                                                             V0302140
+      KL=JK                                                             V0302150
+      DO 209 I=I5,6                                                     V0302160
+ 209  MD(I)=0                                                           V0302170
+      I8=6-I7                                                           V0302180
+      I9=I8+(JK-1)                                                      V0302190
+      DO 210 I=I8,I9                                                    V0302200
+ 210  MD(I)=1                                                           V0302210
+      Y=1.0                                                        V0302220
+ 211  CALL PARTS(MD,I8,Y,ICE,KL)                                        V0302230
+      IF(ICE) 212, 212, 220                                             V0302240
+ 212  FISH=0.0                                                          V0302250
+      KK=0                                                              V0302260
+      DO 215 I=I8,6                                                     V0302270
+      KK=KK+1                                                           V0302280
+      IF(MD(I)) 215, 215, 213                                           V0302290
+ 213  I4=I5+(KK-1)                                                      V0302300
+      ROSE=K5(I4)                                                       V0302310
+      FISH=(FISH+ROSE)*10.0                                             V0302320
+ 215  CONTINUE                                                          V0302330
+      FISH=FISH/10.0                                                    V0302340
+      DO 217 I=1, 64                                                    V0302350
+      IF(PQ(I)-FISH) 217, 216, 211                                      V0302360
+ 216  DO 222 J=1,NT                                                     V0302370
+      DO 222 K=J,NT                                                     V0302380
+ 222  T(J,K)=T(J,K)+S(I,J,K)                                            V0302390
+      GO TO 211                                                         V0302400
+ 217  CONTINUE                                                          V0302410
+ 220  CONTINUE                                                          V0302420
+      DO 223 J=1,NT                                                     V0302430
+      DO 223 K=J,NT                                                     V0302440
+ 223  S(KZ,J,K)=S(KZ,J,K)-T(J,K)                                        V0302450
+      GO TO 70                                                          V0302460
+ 231  CONTINUE                                                          V0302470
+ 2232 DO 236 I=1,KZ                                                     V0302480
+      DO 236 J=1,NT                                                     V0302490
+      DO 236 K=J,NT                                                     V0302500
+ 236  S(NW,J,K)=S(NW,J,K)+S(I,J,K)                                      V0302510
+      IF(NR-1) 238, 238, 250                                            V0302520
+ 238  DO 237 J=1,NT                                                     V0302530
+      DO 237 K=J,NT                                                     V0302540
+ 237  S(NW,J,K)=S(NZ,J,K)-S(NW,J,K)                                     V0302550
+      GO TO 360                                                         V0302560
+ 250  DO 255 I=1,NT                                                     V0302570
+      DO 255 J=I,NT                                                     V0302580
+ 255  S(NW,I,J)=S(NZ,I,J)-S(NY,I,J)-S(NW,I,J)                           V0302590
+ 360  CALL FINAL                                                        V0302600
+      CALL ANOVA                                                        V0302610
+      GO TO 4                                                           V0302620
+ 900  FORMAT(A6,A4,I2,I3,4I2,6I3,27X,I2,I2)                             V0302630
+ 901  FORMAT(A6,9F6.0)                                                  V0302640
+ 903  FORMAT(14H0PROBLEM NO.  A4)                                       V0302650
+ 904  FORMAT(17H0NO. OF VARIABLESI5/18H NO. OF REPLICATESI4/18H NO. OF CV0302660
+     1OVARIATESI4)                                                      V0302670
+ 905  FORMAT(1H0//37H0ERROR ON PROBLEM CARD OR DECK SET-UP)             V0302680
+  906 FORMAT(54H0CONTROL CARD ERROR. A TRNGEN CARD WAS EXPECTED BUT A , V0302690
+     1A6,16H CARD WAS FOUND.)                                           V0302700
+ 907  FORMAT(12A5)                                                      V0302710
+ 908  FORMAT(27H0VARIABLE     NO. OF LEVELS)                            V0302720
+ 909  FORMAT(I6,11X,I4)                                                 V0302730
+  910 FORMAT(45H0ILLEGAL TRANSGENERATION CODE ON CARD NUMBER ,I2)       V0302740
+ 911  FORMAT(A6,I3,I2,I3,F6.0)                                          V0302750
+ 912  FORMAT(1H06X,22HTRANS-GENERATION CARDS)                           V0302760
+ 913  FORMAT(2H  I2,I8,2I9,4X,F10.5)                                    V0302770
+ 914  FORMAT(46H0CARD    NEW     TRANS    ORIG.   ORIG. VAR(B)/45H  NO. V0302780
+     1VARIABLE   CODE    VAR(A)   OR CONSTANT)                          V0302790
+ 915  FORMAT(24H0ERROR ON CONSTANTS CARD)                               V0302800
+  916 FORMAT(64H PROGRAM WILL GO TO THE NEXT PROBLEM CARD, IF ANY, OR TEV0302810
+     1RMINATE.)                                                         V0302820
+ 920  FORMAT(25H ERROR ON TAPE ASSIGNMENT)                              V0302830
+ 922  FORMAT(1H ,10F10.4)
+ 924  FORMAT(15F5.0)
+ 923  FORMAT(16H INPUT DATA LIST)
+ 990  WRITE (5,905)                                                     V0302840
+ 1000 IF(MTAPE-5)1002,1002,1001                                         V0302850
+ 1001 REWIND MTAPE                                                      V0302860
+ 1002 STOP                                                              V0302870
+      END                                                               V0302880
+CANOVA        SUBROUTINE ANOVA FOR BMD03V         AUGUST 17, 1966       V0302900
+C                                                                       *LMSC
+C            CONVERTED FOR LMSC UNIVAC 1108 BY DEPT 84-72               *LMSC
+C                   LEW BUTLER   DECEMBER 1967                          *LMSC
+C                                                                       *LMSC
+      SUBROUTINE ANOVA                                                  V0302910
+      DIMENSION X(1500,9),SCALE(9),AV(9),L(6),LL(6),N(6),M(6),MM(7),    V0302920
+     1K5(7),KM(6),S(65,9,9),T(9,9),PQ(64),A(64),B(64),R(64,8),KV(9),    V0302930
+     2KW(9),CON(8),NEWA(64),LCODE(64),LVA(64),BNEW(64)                  *LMSC
+      COMMON /A/R                                                         V0302950
+      COMMON /B/X      , SCALE  , AV     , L      , LL     , N            V0302960
+      COMMON /C/M      , MM     , K5     , KM     , S      , T            V0302970
+      COMMON /D/PQ     , NV     , NR     , NT     , NI     , NVM          V0302980
+      COMMON /E/I5     , MARK   , JW     , Z      , IJK    , KK           V0302990
+      COMMON /F/KZ     , NN     , ON     , NW     , A      , B            V0303000
+      COMMON /G/KV     , KW     , NY     , NZ     , CON    , ONNN         V0303010
+        DOUBLE PRECISION ON
+      EQUIVALENCE (R(1),BNEW(1)),(R(65),NEWA),(R(129),LVA),             V0303020
+     1(R(193),LCODE)                                                    V0303030
+C     DATA Q000HL/6H(     /                                             V0303040
+C     BNEW(1)=(+Q000HL)                                                 V0303050
+C     DATA Q001HL/6H1H    /                                             V0303060
+C     BNEW(2)=(+Q001HL)                                                 V0303070
+C     DO 250 I=3,8                                                      V0303080
+C     DATA Q002HL/6H1X,   /                                             V0303090
+C250  BNEW(I)=(+Q002HL)                                                 V0303100
+C     DATA Q003HL/6H9X,I8,/                                             V0303110
+C     BNEW(9)=(+Q003HL)                                                 V0303120
+C     DATA Q004HL/6HF22.5,/                                             V0303130
+C     BNEW(10)=(+Q004HL)                                                V0303140
+C     DATA Q005HL/6HF17.5,/                                             V0303150
+C     BNEW(11)=(+Q005HL)                                                V0303160
+C     BNEW(11)=(+Q005HL)                                                V0303160
+C     DATA Q006HL/6H)     /                                             V0303170
+C     BNEW(12)=(+Q006HL)                                                V0303180
+      WRITE (5,914)                                                     V0303190
+      WRITE (5,907)                                                     V0303200
+      WRITE (5,908)                                                     V0303210
+      IF(NR-1) 270, 270, 275                                            V0303220
+ 270  LZ=NW-1                                                           V0303230
+      GO TO 280                                                         V0303240
+ 275  LZ=NW                                                             V0303250
+ 280  DO 300 I=1,LZ                                                     V0303260
+      LL(1)=PQ(I)                                                       V0303270
+      DO 281 J=1,NV                                                     V0303280
+      LL(2)=LL(1)                                                       V0303290
+      LL(2)=LL(2)/10                                                    V0303300
+      LL(3)=LL(2)                                                       V0303310
+      LL(2)=LL(2)*10                                                    V0303320
+      LY=NV-(J-1)                                                       V0303330
+      N(LY)=LL(1)-LL(2)                                                 V0303340
+ 281  LL(1)=LL(3)                                                       V0303350
+      LY=0                                                              V0303360
+      KZ=2                                                              V0303370
+      DO 285 J=1,NV                                                     V0303380
+      IF(N(J)) 285, 285, 282                                            V0303390
+ 282  LY=LY+1                                                           V0303400
+      LL(LY)=N(J)                                                       V0303410
+      KZ=KZ+1                                                           V0303420
+      DATA Q007HL/5HI1,  /
+      BNEW(KZ)=(+Q007HL)                                                V0303440
+ 285  CONTINUE                                                          V0303450
+      SQM=B(I)/A(I)                                                     V0303460
+      NDF=A(I)                                                          V0303470
+ 300  WRITE (5,915)(LL(J), J=1,LY), NDF,B(I),SQM  
+      IF(NR-1) 310, 310, 320                                            V0303490
+ 310  SQM=B(NW)/A(NW)                                                   V0303500
+      NDF=A(NW)                                                         V0303510
+      WRITE (5,911)NDF,B(NW),SQM                                        V0303520
+      GO TO 330                                                         V0303530
+ 320  SQM=B(NY)/A(NY)                                                   V0303540
+      NDF=A(NY)                                                         V0303550
+      WRITE (5,913)NDF,B(NY),SQM                                        V0303560
+ 907  FORMAT(59H0SOURCE OF        DEGREES OF          SUMS OF          MV0303570
+     1EAN)                                                              V0303580
+ 908  FORMAT(61H VARIATION         FREEDOM            SQUARES         SQV0303590
+     1UARES/)                                                           V0303600
+ 911  FORMAT(18H RESIDUAL         I6,F22.5,F17.5)                       V0303610
+ 912  FORMAT(18H TOTAL            I6,F22.5)                             V0303620
+ 913  FORMAT(18H WITHIN REPLICATESI6,F22.5,F17.5)                       V0303630
+ 914  FORMAT(1H0)                                                       V0303640
+  915 FORMAT(' 'I1,T22,I3,T35,F12.5,T52,F12.5)
+ 330  RETURN                                                            V0303650
+      END                                                               V0303660
+CFINAL     SUBROUTINE FINAL FOR BMD03V            AUGUST 17,1966        V0303680
+C                                                                       *LMSC
+C            CONVERTED FOR LMSC UNIVAC 1108 BY DEPT 84-72               *LMSC
+C                   LEW BUTLER   DECEMBER 1967                          *LMSC
+C                                                                       *LMSC
+      SUBROUTINE FINAL                                                  V0303690
+      DIMENSION X(1500,9),SCALE(9),AV(9),L(6),LL(6),N(6),M(6),MM(7),    V0303700
+     1K5(7),KM(6),S(65,9,9),T(9,9),PQ(64),A(64),B(64),R(64,8),KV(9),    V0303710
+     2KW(9),CON(8),NEWA(64),LCODE(64),LVA(64),BNEW(64),TT(9,9)          *LMSC
+      COMMON /A/R                                                         V0303730
+      COMMON /B/X      , SCALE  , AV     , L      , LL     , N            V0303740
+      COMMON /C/M      , MM     , K5     , KM     , S      , T            V0303750
+      COMMON /D/PQ     , NV     , NR     , NT     , NI     , NVM          V0303760
+      COMMON /E/I5     , MARK   , JW     , Z      , IJK    , KK           V0303770
+      COMMON /F/KZ     , NN     , ON     , NW     , A      , B            V0303780
+      EQUIVALENCE (R(1),BNEW(1)),(R(65),NEWA),(R(129),LVA),             V0303800
+     1(R(193),LCODE)                                                    V0303810
+        DOUBLE PRECISION ON
+      COMMON /G/KV     , KW     , NY     , NZ     , CON    , ONNN         V0303790
+      IF(NR-1) 4, 4, 6                                                  V0303820
+ 4    DF=0.0                                                            V0303830
+      DO 5 I=1,KZ                                                       V0303840
+ 5    DF=DF+A(I)                                                        V0303850
+      DDF=ON-1.0                                                        V0303860
+      DNI=NI                                                            V0303870
+      A(NW)=DDF-DF-DNI                                                  V0303880
+      LZ=NW-1                                                           V0303890
+      GO TO 13                                                          V0303900
+ 6    ANW=1.0                                                           V0303910
+      DO 7 I=1,NV                                                       V0303920
+ 7    ANW=ANW*A(I)                                                      V0303930
+      A(NW)=ANW                                                         V0303940
+      NDF=NR*NN-NN                                                      V0303950
+      A(NY)=NDF-NI                                                      V0303960
+      PQ(NW)=0.0                                                        V0303970
+      DO 3 I=1,NV                                                       V0303980
+      DF=I                                                              V0303990
+ 3    PQ(NW)=PQ(NW)*10.0+DF                                             V0304000
+      LZ=NW                                                             V0304010
+ 13   LP=LZ+1                                                           V0304020
+      ASSIGN 21 TO NNY                                                  V0304030
+      ASSIGN 25 TO NNW                                                  V0304040
+      ASSIGN 60 TO NNX                                                  V0304050
+      NF=1                                                              V0304060
+ 15   DO 50 K=NF,LZ                                                     V0304070
+      DO 16 I=1,NI                                                      V0304080
+      DO 16 J=I,NI                                                      V0304090
+      T(I,J)=S(K,I+1,J+1)                                               V0304100
+ 16   T(J,I)=S(K,I+1,J+1)                                               V0304110
+      WRITE (5,903)                                                     V0304120
+      GO TO NNY, (21,22)                                                V0304130
+ 21   LL(1)=PQ(K)                                                       V0304140
+      DO 17 I=1,NV                                                      V0304150
+      LL(2)=LL(1)                                                       V0304160
+      LL(2)=LL(2)/10                                                    V0304170
+      LL(3)=LL(2)                                                       V0304180
+      LL(2)=LL(2)*10                                                    V0304190
+      LY=NV-(I-1)                                                       V0304200
+      N(LY)=LL(1)-LL(2)                                                 V0304210
+ 17   LL(1)=LL(3)                                                       V0304220
+      LY=0                                                              V0304230
+      DO 20 I=1,NV                                                      V0304240
+      IF(N(I)) 20, 20, 18                                               V0304250
+      IF(N(I)) 20, 20, 18                                               V0304250
+ 18   LY=LY+1                                                           V0304260
+      LL(LY)=N(I)                                                       V0304270
+ 20   CONTINUE                                                          V0304280
+      WRITE (5,901)(LL(I), I=1,LY)                                      V0304290
+      GO TO 23                                                          V0304300
+ 22   WRITE (5,908)                                                     V0304310
+ 23   WRITE (5,902)                                                     V0304320
+      WRITE (5,907)(S(K,1,J), J=1,NT)                                   V0304330
+      WRITE (5,913)                                                     V0304340
+      CALL REPORT                                                       V0304350
+      GO TO NNW, (25,30)                                                V0304360
+ 25   DO 27 I=1,NI                                                      V0304370
+      DO 27 J=I,NI                                                      V0304380
+ 27   T(I,J)=T(I,J)+S(LP,I+1,J+1)                                       V0304390
+      IM=NI-1                                                           V0304400
+      DO 28 I=1,IM                                                      V0304410
+      IN=I+1                                                            V0304420
+      DO 28 J=IN,NI                                                     V0304430
+ 28   T(J,I)=T(I,J)                                                     V0304440
+      DO 29 I=1,NI                                                      V0304450
+ 29   AV(I)=S(K,1,I+1)+S(LP,1,I+1)                                      V0304460
+      DF=S(K,1,1)+S(LP,1,1)                                             V0304470
+      WRITE (5,905)                                                     V0304480
+      WRITE (5,904)                                                     V0304490
+      WRITE (5,902)                                                     V0304500
+      WRITE (5,907)DF,(AV(I), I=1,NI)                                   V0304510
+      WRITE (5,913)                                                     V0304520
+      CALL REPORT                                                       V0304530
+      GO TO 32                                                          V0304540
+ 30   DO 31 I=1,NI                                                      V0304550
+ 31   AV(I)=S(LP,1,I+1)                                                 V0304560
+      DF=S(LP,1,1)                                                      V0304570
+   32 DO 315 I=1,NI                                                     V0304580
+      DO 315 J=I,NI                                                     V0304590
+      TT(I,J)=T(I,J)                                                    V0304600
+      TT(J,I)=T(I,J)                                                    V0304610
+  315 CONTINUE                                                          V0304620
+      IF(NI-1) 33,33,34                                                 V0304630
+ 33   T(1,1)=1.0/T(1,1)                                                 V0304640
+      GO TO 36                                                          V0304650
+ 34   CALL INVERT (T,NI,DET,KV,KW)                                      V0304660
+ 36   WRITE (5,905)                                                     V0304670
+      WRITE (5,909)                                                     V0304680
+      CALL REPORT                                                       V0304690
+      DO 35 I=1,NI                                                      V0304700
+      R(K,I)=0.0                                                        V0304710
+      DO 35 J=1,NI                                                      V0304720
+ 35   R(K,I)=R(K,I)+T(I,J)*AV(J)                                        V0304730
+      WRITE (5,906)                                                     V0304740
+      WRITE (5,915)(R(K,I), I=1,NI)                                     V0304750
+      B(K)=0.0                                                          V0304760
+      DO 40 I=1,NI                                                      V0304770
+ 40   B(K)=B(K)+AV(I)*R(K,I)                                            V0304780
+      B(K)=DF-B(K)                                                      V0304790
+ 50   CONTINUE                                                          V0304800
+      GO TO NNX, (60,65)                                                V0304810
+ 60   ASSIGN 22 TO NNY                                                  V0304820
+      ASSIGN 30 TO NNW                                                  V0304830
+      ASSIGN 65 TO NNX                                                  V0304840
+      IF(NR-1) 61, 61, 62                                               V0304850
+ 61   NF=NW                                                             V0304860
+      LZ=NW                                                             V0304870
+      GO TO 15                                                          V0304880
+ 62   NF=NY                                                             V0304890
+      LZ=NY                                                             V0304900
+      GO TO 15                                                          V0304910
+ 65   DO 70 I=1,NI                                                      V0304920
+ 70   AV(I)=R(LZ,I)/SQRT(T(I,I))                                        V0304930
+      SCALE(1)=B(LZ)/A(LZ)                                              V0304940
+      SCALE(2)=SQRT(SCALE(1))                                           V0304950
+      DO 67 I=1,NI                                                      V0304960
+ 67   AV(I)=AV(I)/SCALE(2)                                              V0304970
+      LZZ=LZ-1                                                          V0304980
+      DO 71 I=1,LZZ                                                     V0304990
+ 71   B(I)=B(I)-B(LZ)                                                   V0305000
+      WRITE (5,903)                                                     V0305010
+      WRITE (5,910)                                                     V0305020
+      WRITE (5,915)(AV(I), I=1,NI)                                      V0305030
+      WRITE (5,911)SCALE(1)                                             V0305040
+      WRITE (5,912)SCALE(2)                                             V0305050
+      DF=NI                                                             V0305060
+      DF=A(LZ)/DF                                                       V0305070
+      DO 72 I=1,NI                                                      V0305080
+   72 AV(I)=R(LZ,I)-CON(I)                                              V0305090
+      DO 73 I=1,NI                                                      V0305100
+      SCALE(I)=0.0                                                      V0305110
+      DO 73 J=1,NI                                                      V0305120
+   73 SCALE(I)=SCALE(I)+AV(J)*TT(J,I)                                   V0305130
+      DD=0.0                                                            V0305140
+      DO 74 I=1,NI                                                      V0305150
+ 74   DD=DD+SCALE(I)*AV(I)                                              V0305160
+      DF=(DF*DD)/B(LZ)                                                  V0305170
+      NDF=A(LZ)                                                         V0305180
+      WRITE (5,916)NI,NDF,DF                                            V0305190
+      WRITE (5,914)                                                     V0305200
+      WRITE (5,902)                                                     V0305210
+      WRITE (5,907)(S(NZ,1,I), I=1,NT)                                  V0305220
+      DO 75 I=1,NI                                                      V0305230
+      DO 75 J=I,NI                                                      V0305240
+ 75   T(I,J)=S(NZ,I+1,J+1)                                              V0305250
+      WRITE (5,913)                                                     V0305260
+      CALL REPORT                                                       V0305270
+ 901  FORMAT(33H0TABLE OF VARIATION FOR VARIABLE I2,5I2)                V0305280
+ 902  FORMAT(8H VARIATE)                                                V0305290
+ 903  FORMAT(1H0)                                                       V0305300
+ 904  FORMAT(41H0TABLE OF VARIATION ADJUSTED BY RESIDUALS)              V0305310
+ 905  FORMAT(1H )                                                       V0305320
+ 906  FORMAT(24H0REGRESSION COEFFICIENTS)                               V0305330
+ 907  FORMAT(1X,9F14.5)                                                 V0305340
+ 908  FORMAT(33H0TABLE OF VARIATION FOR RESIDUALS)                      V0305350
+ 909  FORMAT(29H0INVERSE OF COVARIATES MATRIX)                          V0305360
+ 910  FORMAT(18H0COMPUTED T VALUES)                                     V0305370
+ 911  FORMAT(21H0RESIDUAL MEAN SQUAREF17.5)                             V0305380
+ 912  FORMAT(25H SQRT. OF RESID. MEAN SQ.F13.5)                         V0305390
+ 913  FORMAT(11H COVARIATES)                                            V0305400
+ 914  FORMAT(29H0TABLE OF VARIATION FOR TOTAL)                          V0305410
+ 915  FORMAT(13X,8F13.5)                                                V0305420
+ 916  FORMAT(4H0F (I2,1H,I4,3H) =F13.5//)                               V0305430
+      RETURN                                                            V0305440
+      END                                                               V0305450
+      SUBROUTINE TABLE (M,I5,Z,MARK,IJK)                                V0306810
+      DIMENSION M(6)                                                    V0306820
+      GO TO (71,72,73,74,75),IJK                                        V0306830
+ 71   IF(Z-1.0) 61, 60, 61                                              V0306840
+ 60   KA=I5                                                             V0306850
+      GO TO 299                                                         V0306860
+ 61   IF(KA-6) 118, 200, 200                                            V0306870
+ 72   IF(Z-1.0) 63, 62, 63                                              V0306880
+ 62   KB=I5                                                             V0306890
+      KA=I5+1                                                           V0306900
+      GO TO 299                                                         V0306910
+ 63   IF(KA-6) 118, 93, 93                                              V0306920
+ 93   IF(KB-5) 117, 200, 200                                            V0306930
+ 73   IF(Z-1.0) 65, 64, 65                                              V0306940
+ 64   KC=I5                                                             V0306950
+      KB=I5+1                                                           V0306960
+      KA=I5+2                                                           V0306970
+      GO TO 299                                                         V0306980
+ 65   IF(KA-6) 118, 97, 97                                              V0306990
+ 97   IF(KB-5) 117, 98, 98                                              V0307000
+ 98   IF(KC-4) 116, 200, 200                                            V0307010
+ 74   IF(Z-1.0) 67, 66, 67                                              V0307020
+ 66   KD=I5                                                             V0307030
+      KC=I5+1                                                           V0307040
+      KB=I5+2                                                           V0307050
+      KA=I5+3                                                           V0307060
+      GO TO 299                                                         V0307070
+ 67   IF(KA-6) 118, 103, 103                                            V0307080
+ 103  IF(KB-5) 117, 104, 104                                            V0307090
+ 104  IF(KC-4) 116, 105, 105                                            V0307100
+ 105  IF(KD-3) 115, 200, 200                                            V0307110
+ 75   IF(Z-1.0) 69,68,69                                                V0307120
+ 68   KE=I5                                                             V0307130
+      KD=I5+1                                                           V0307140
+      KC=I5+2                                                           V0307150
+      KB=I5+3                                                           V0307160
+      KA=I5+4                                                           V0307170
+      GO TO 299                                                         V0307180
+ 69   IF(KA-6) 118, 110, 110                                            V0307190
+ 110  IF(KB-5) 117, 111, 111                                            V0307200
+ 111  IF(KC-4) 116, 112, 112                                            V0307210
+ 112  IF(KD-3) 115, 113, 113                                            V0307220
+ 113  IF(KE-2) 114, 200, 200                                            V0307230
+ 114  DO 123 I=KE,6                                                     V0307240
+ 123  M(I)=0                                                            V0307250
+      KE=KE+1                                                           V0307260
+      M(KE)=1                                                           V0307270
+      KD=KE+1                                                           V0307280
+      M(KD)=1                                                           V0307290
+ 10   KC=KD+1                                                           V0307300
+      M(KC)=1                                                           V0307310
+ 20   KB=KC+1                                                           V0307320
+      M(KB)=1                                                           V0307330
+ 30   KA=KB+1                                                           V0307340
+      M(KA)=1                                                           V0307350
+      GO TO 300                                                         V0307360
+ 115  DO 122 I=KD,6                                                     V0307370
+ 122  M(I)=0                                                            V0307380
+      KD=KD+1                                                           V0307390
+      M(KD)=1                                                           V0307400
+      GO TO 10                                                          V0307410
+ 116  DO 121 I=KC,6                                                     V0307420
+ 121  M(I)=0                                                            V0307430
+      KC=KC+1                                                           V0307440
+      M(KC)=1                                                           V0307450
+      GO TO 20                                                          V0307460
+ 117  DO 120 I=KB,6                                                     V0307470
+ 120  M(I)=0                                                            V0307480
+      KB=KB+1                                                           V0307490
+      M(KB)=1                                                           V0307500
+      GO TO 30                                                          V0307510
+ 118  DO 119 I=KA,6                                                     V0307520
+ 119  M(I)=0                                                            V0307530
+      KA=KA+1                                                           V0307540
+      M(KA)=1                                                           V0307550
+      GO TO 300                                                         V0307560
+ 200  MARK=1                                                            V0307570
+      GO TO 300                                                         V0307580
+ 299  Z=0.0                                                             V0307590
+ 300  RETURN                                                            V0307600
+      END                                                               V0307610
+      SUBROUTINE TPWD(NT1,NT2)                                          V0307640
+      IF(NT1)40,10,12                                                   V0307650
+ 10   NT1=5                                                             V0307660
+ 12   IF(NT1-NT2)14,19,14                                               V0307670
+ 14   IF(NT2-5)15,19,15                                                 V0307680
+   15 REWIND NT2                                                        V0307690
+   19 IF(NT1-5)18,24,18                                                 V0307700
+ 18   IF(NT1-6)22,40,22                                                 V0307710
+ 22   REWIND NT1                                                        V0307720
+ 24   NT2=NT1                                                           V0307730
+ 28   RETURN                                                            V0307740
+ 40   WRITE (5,49)                                                      V0307750
+      STOP                                                              V0307760
+ 49   FORMAT(25H ERROR ON TAPE ASSIGNMENT)                              V0307770
+      END                                                               V0307780
+      SUBROUTINE VFCHCK(NVF)                                            V0308700
+      IF(NVF.GT.0.AND.NVF.LE.5) RETURN                                  V0308710
+ 10   WRITE (5,4000)                                                    V0308720
+      NVF=1                                                             V0308730
+ 50   RETURN                                                            V0308740
+ 4000 FORMAT(1H023X71HNUMBER OF VARIABLE FORMAT CARDS INCORRECTLY SPECIFV0308750
+     1IED, ASSUMED TO BE 1.)                                            V0308760
+      END                                                               V0308770
+C                                                                       *LMSC
+C            CONVERTED FOR LMSC UNIVAC 1108 BY DEPT 84-72               *LMSC
+C                   LEW BUTLER   DECEMBER 1967                          *LMSC
+C                                                                       *LMSC
+      SUBROUTINE XLOCAT                                                 V0308800
+      DIMENSION X(1500,9),SCALE(9),AV(9),L(6),LL(6),N(6),M(6),MM(7),    V0308810
+     1K5(7),KM(6),S(65,9,9),T(9,9),PQ(64),A(64),B(64),R(64,8),KV(9),    V0308820
+     2KW(9),CON(8),NEWA(64),LCODE(64),LVA(64),BNEW(64)                  *LMSC
+      COMMON /A/R                                                         V0308840
+      COMMON /B/X      , SCALE  , AV     , L      , LL     , N            V0308850
+      COMMON /C/M      , MM     , K5     , KM     , S      , T            V0308860
+      COMMON /D/PQ     , NV     , NR     , NT     , NI     , NVM          V0308870
+      COMMON /E/I5     , MARK   , JW     , Z      , IJK    , KK           V0308880
+      COMMON /F/KZ     , NN     , ON     , NW     , A      , B            V0308890
+      COMMON /G/KV     , KW     , NY     , NZ     , CON    , ONNN         V0308900
+        DOUBLE PRECISION ON
+      EQUIVALENCE (R(1),BNEW(1)),(R(65),NEWA),(R(129),LVA),             V0308910
+     1(R(193),LCODE)                                                    V0308920
+      DO 300 I=1,6                                                      V0308930
+ 300  N(I)=0                                                            V0308940
+      KI=0                                                              V0308950
+      K=1                                                               V0308960
+      DO 302 I=I5,6                                                     V0308970
+      KI=KI+1                                                           V0308980
+      IF(M(I)) 301, 301, 302                                            V0308990
+ 301  N(K)=KI                                                           V0309000
+      K=K+1                                                             V0309010
+ 302  CONTINUE                                                          V0309020
+      DO 303 I=I5,6                                                     V0309030
+ 303  MM(I)=L(I)-1                                                      V0309040
+      DO 305 I=1,NV                                                     V0309050
+      K=I5+(I-1)                                                        V0309060
+ 305  K5(K)=I                                                           V0309070
+      DO 310 I=1,JW                                                     V0309080
+      DO 309 J=I5,6                                                     V0309090
+      IF(N(I)-K5(J)) 309, 306, 309                                      V0309100
+ 306  K5(7)=K5(J)                                                       V0309110
+      MM(7)=MM(J)                                                       V0309120
+      DO 307 J2=J,6                                                     V0309130
+      K5(J2)=K5(J2+1)                                                   V0309140
+ 307  MM(J2)=MM(J2+1)                                                   V0309150
+      GO TO 310                                                         V0309160
+ 309  CONTINUE                                                          V0309170
+ 310  CONTINUE                                                          V0309180
+      DO 320 J=1,NT                                                     V0309190
+ 320  AV(J)=0.0                                                         V0309200
+ 351  N(1)=0                                                            V0309210
+ 352  N(2)=0                                                            V0309220
+ 353  N(3)=0                                                            V0309230
+ 354  N(4)=0                                                            V0309240
+ 355  N(5)=0                                                            V0309250
+ 356  N(6)=0                                                            V0309260
+ 359  DO 360 J=I5,6                                                     V0309270
+      KK=K5(J)                                                          V0309280
+ 360  KM(KK)=N(J)                                                       V0309290
+      LX=1                                                              V0309300
+      DO 361 J=1,NV                                                     V0309310
+ 361  LX=LX+KM(J)*LL(J)                                                 V0309320
+      DO 200 J=1,NT                                                     V0309330
+ 200  AV(J)=AV(J)+X(LX,J)                                               V0309340
+      IF(N(6)-MM(6)) 362, 363, 363                                      V0309350
+ 362  N(6)=N(6)+1                                                       V0309360
+      GO TO 359                                                         V0309370
+ 363  IF(JW-1) 212, 364, 370                                            V0309380
+ 364  DO 210 I=1,NT                                                     V0309390
+      DO 210 J=I,NT                                                     V0309400
+ 210  S(KZ,I,J)=S(KZ,I,J)+AV(I)*AV(J)                                   V0309410
+      DO 211 I=1,NT                                                     V0309420
+ 211  AV(I)=0.0                                                         V0309430
+ 212  IF(NV-1) 70, 70, 370                                              V0309440
+ 370  IF(N(5)-MM(5)) 371, 372, 372                                      V0309450
+ 371  N(5)=N(5)+1                                                       V0309460
+      GO TO 356                                                         V0309470
+ 372  IF(JW-2) 232, 373, 381                                            V0309480
+ 373  DO 230 I=1,NT                                                     V0309490
+      DO 230 J=I,NT                                                     V0309500
+ 230  S(KZ,I,J)=S(KZ,I,J)+AV(I)*AV(J)                                   V0309510
+      DO 231 I=1,NT                                                     V0309520
+ 231  AV(I)=0.0                                                         V0309530
+ 232  IF(NV-2) 70, 70, 381                                              V0309540
+ 381  IF(N(4)-MM(4)) 382, 383, 383                                      V0309550
+ 382  N(4)=N(4)+1                                                       V0309560
+      GO TO 355                                                         V0309570
+ 383  IF(JW-3) 242, 384, 394                                            V0309580
+ 384  DO 240 I=1,NT                                                     V0309590
+      DO 240 J=I,NT                                                     V0309600
+ 240  S(KZ,I,J)=S(KZ,I,J)+AV(I)*AV(J)                                   V0309610
+      DO 241 I=1,NT                                                     V0309620
+ 241  AV(I)=0.0                                                         V0309630
+ 242  IF(NV-3) 70, 70, 394                                              V0309640
+ 394  IF(N(3)-MM(3)) 395, 396, 396                                      V0309650
+ 395  N(3)=N(3)+1                                                       V0309660
+      GO TO 354                                                         V0309670
+ 396  IF(JW-4) 252, 397, 407                                            V0309680
+ 397  DO 250 I=1,NT                                                     V0309690
+      DO 250 J=I,NT                                                     V0309700
+ 250  S(KZ,I,J)=S(KZ,I,J)+AV(I)*AV(J)                                   V0309710
+      DO 251 I=1,NT                                                     V0309720
+ 251  AV(I)=0.0                                                         V0309730
+ 252  IF(NV-4) 70, 70, 407                                              V0309740
+ 407  IF(N(2)-MM(2)) 408, 409, 409                                      V0309750
+ 408  N(2)=N(2)+1                                                       V0309760
+      GO TO 353                                                         V0309770
+ 409  IF(JW-5) 262, 410, 420                                            V0309780
+ 410  DO 260 I=1,NT                                                     V0309790
+      DO 260 J=I,NT                                                     V0309800
+ 260  S(KZ,I,J)=S(KZ,I,J)+AV(I)*AV(J)                                   V0309810
+      DO 261 I=1,NT                                                     V0309820
+ 261  AV(I)=0.0                                                         V0309830
+ 262  IF(NV-5) 70, 70, 420                                              V0309840
+ 420  IF(N(1)-MM(1)) 444, 70, 70                                        V0309850
+ 444  N(1)=N(1)+1                                                       V0309860
+      GO TO 352                                                         V0309870
+ 70   RETURN                                                            V0309880
+      END                                                               V0309890
+      SUBROUTINE INVERT(A,NN,D,ID,DUMY)                                 V0305480
+      DIMENSION A(9,9),ID(9)                                            V0305490
+      N=NN                                                              V0305500
+      D=0.0                                                             V0305510
+      DO 60 I=1,N                                                       V0305520
+      B=0.0                                                             V0305530
+      II=0                                                              V0305540
+      DO 10 J=I,N                                                       V0305550
+      IF(ABS(B).GE.ABS(A(J,I))) GO TO 10                                V0305560
+      II=J                                                              V0305570
+      B=A(J,I)                                                          V0305580
+   10 CONTINUE                                                          V0305590
+      IF(II.GT.0) GO TO 20                                              V0305600
+      PRINT 200                                                         V0305610
+      RETURN                                                            V0305620
+   20 ID(I)=II                                                          V0305630
+      DO 30 J=1,N                                                       V0305640
+      T=A(II,J)/B                                                       V0305650
+      A(II,J)=A(I,J)                                                    V0305660
+   30 A(I,J)=T                                                          V0305670
+      DO 40 II=1,N                                                      V0305680
+      T=A(II,I)                                                         V0305690
+      DO 40 JJ=1,N                                                      V0305700
+      IF(JJ.EQ.I.OR.II.EQ.I) GO TO 40                                   V0305710
+      A(II,JJ)=A(II,JJ)-A(I,JJ)*T                                       V0305720
+   40 CONTINUE                                                          V0305730
+      DO 50 II=1,N                                                      V0305740
+   50 A(II,I)=-A(II,I)/B                                                V0305750
+      D=D*B                                                             V0305760
+      A(I,I)=1.0/B                                                      V0305770
+   60 CONTINUE                                                          V0305780
+      DO 80 JJ=1,N                                                      V0305790
+      J=N+1-JJ                                                          V0305800
+      II=ID(J)                                                          V0305810
+      IF(II.EQ.J) GO TO 80                                              V0305820
+      DO 70 I=1,N                                                       V0305830
+      T=A(I,J)                                                          V0305840
+      A(I,J)=A(I,II)                                                    V0305850
+   70 A(I,II)=T                                                         V0305860
+   80 CONTINUE                                                          V0305870
+      RETURN                                                            V0305880
+  200 FORMAT(//34H MATRIX TO BE INVERTED IS SINGULAR      )             V0305890
+      END                                                               V0305900
+      SUBROUTINE REPORT                                                 V0306570
+      DIMENSION X(1500,9),SCALE(9),AV(9),L(6),LL(6),N(6),M(6),MM(7),    V0306580
+     1K5(7),KM(6),S(65,9,9),T(9,9),PQ(64),A(64),B(64),R(64,8),KV(9),    V0306590
+     2KW(9),CON(8),NEWA(64),LCODE(64),LVA(64),BNEW(64)                  *LMSC
+      COMMON /A/R                                                         V0306610
+      COMMON /B/X      , SCALE  , AV     , L      , LL     , N            V0306620
+      COMMON /C/M      , MM     , K5     , KM     , S      , T            V0306630
+      COMMON /D/PQ     , NV     , NR     , NT     , NI     , NVM          V0306640
+      COMMON /E/I5     , MARK   , JW     , Z      , IJK    , KK           V0306650
+      COMMON /F/KZ     , NN     , ON     , NW     , A      , B            V0306660
+      COMMON /G/KV     , KW     , NY     , NZ     , CON    , ONNN         V0306670
+        DOUBLE PRECISION ON
+      EQUIVALENCE (R(1),BNEW(1)),(R(65),NEWA),(R(129),LVA),             V0306680
+     1(R(193),LCODE)                                                    V0306690
+      DOUBLE PRECISION FM1(9),FMT(2)
+      DATA (FM1(I),I=1,9)/6H(15X,8,6H(29X,7,6H(43X,6,6H(57X,5,          V0306710
+     *   6H(71X,4,6H(85X,3,6H(99X,2,6H(113X,,6HF14.5)     /             V0306720
+      DO 20 I=1,NI                                                      V0306730
+      FMT(1)=FM1(I)                                                     V0306740
+      FMT(2)=FM1(9)                                                     V0306750
+   20 WRITE(5,FMT)(T(I,J),J=I,NI)                                       V0306760
+      RETURN                                                            V0306770
+      END                                                               V0306780
+      SUBROUTINE TRANZ                                                  V0307810
+      DIMENSION X(1500,9),SCALE(9),AV(9),L(6),LL(6),N(6),M(6),MM(7),    V0307820
+     1K5(7),KM(6),S(65,9,9),T(9,9),PQ(64),D(64),E(64),R(64,8),KV(9),    V0307830
+     2KW(9),CON(8),NEWA(64),LCODE(64),LVA(64),BNEW(64)                  *LMSC
+      COMMON /A/R                                                         V0307850
+      COMMON /B/X      , SCALE  , AV     , L      , LL     , N            V0307860
+      COMMON /C/M      , MM     , K5     , KM     , S      , T            V0307870
+      COMMON /D/PQ     , NV     , NR     , NT     , NI     , NVM          V0307880
+      COMMON /E/I5     , MARK   , JW     , Z      , IJK    , KK           V0307890
+      COMMON /F/KZ     , NN     , ON     , NW     , A      , B            V0307900
+      COMMON /G/KV     , KW     , NY     , NZ     , CON    , ONNN         V0307910
+        DOUBLE PRECISION ON
+      EQUIVALENCE (R(1),BNEW(1)),(R(65),NEWA),(R(129),LVA),             V0307920
+     1(R(193),LCODE)                                                    V0307930
+      ASN(Q000FL)=ATAN(Q000FL/SQRT(1.0-Q000FL**2))                      V0307940
+ 6003 DO 200 I=1,NVM                                                    V0307950
+      J=NEWA(I)                                                         V0307960
+      IJK=LCODE(I)                                                      V0307970
+      K=LVA(I)                                                          V0307980
+      IF(IJK-11)5,7,7                                                   V0307990
+    5 POWER=BNEW(I)                                                     V0308000
+      GO TO 8                                                           V0308010
+    7 II=BNEW(I)                                                        V0308020
+    8 GO TO(10,20,30,40,50,60,70,80,90,100,110,120,130,140),IJK         V0308030
+   10 IF(T(1,K))99,32,9                                                 V0308040
+    9 T(1,J)=SQRT(T(1,K))                                               V0308050
+      GO TO 200                                                         V0308060
+   20 IF(T(1,K))99,11,12                                                V0308070
+   11 T(1,J)=1.0                                                        V0308080
+      GO TO 200                                                         V0308090
+   12 T(1,J)=SQRT(T(1,K))+SQRT(T(1,K)+1.0)                              V0308100
+      GO TO 200                                                         V0308110
+   30 IF(T(1,K))99,99,14                                                V0308120
+   14 T(1,J)=ALOG10(T(1,K))                                             V0308130
+      GO TO 200                                                         V0308140
+   40 T(1,J)=EXP(T(1,K))                                                V0308150
+      GO TO 200                                                         V0308160
+   50 IF(T(1,K))99,32,17                                                V0308170
+   17 IF(T(1,K)-1.0)18,19,99                                            V0308180
+   19 T(1,J)=3.14159265/2.0                                             V0308190
+      GO TO 200                                                         V0308200
+   18 A=SQRT(T(1,K))                                                    V0308210
+      T(1,J)=ASN(A)                                                     V0308220
+      GO TO 200                                                         V0308230
+   60 A=T(1,K)/ONNN                                                     V0308240
+      B=A+1.0/ONNN                                                      V0308250
+      IF(A)99,23,24                                                     V0308260
+   23 IF(B)99,32,27                                                     V0308270
+   27 T(1,J)=ASN(SQRT(B))                                               V0308280
+      GO TO 200                                                         V0308290
+   24 IF(B)99,28,29                                                     V0308300
+   28 T(1,J)=ASN(SQRT(A))                                               V0308310
+      GO TO 200                                                         V0308320
+   29 A=SQRT(A)                                                         V0308330
+      B=SQRT(B)                                                         V0308340
+      T(1,J)=ASN(A)+ASN(B)                                              V0308350
+      GO TO 200                                                         V0308360
+   70 IF(T(1,K))31,99,31                                                V0308370
+   31 T(1,J)=1.0/T(1,K)                                                 V0308380
+      GO TO 200                                                         V0308390
+   80 T(1,J)=T(1,K)+POWER                                               V0308400
+      GO TO 200                                                         V0308410
+   90 T(1,J)=T(1,K)*POWER                                               V0308420
+      GO TO 200                                                         V0308430
+  100 IF(T(1,K))33,32,33                                                V0308440
+   32 T(1,J)=0.0                                                        V0308450
+      GO TO 200                                                         V0308460
+   33 T(1,J)=T(1,K)**POWER                                              V0308470
+      GO TO 200                                                         V0308480
+  110 T(1,J)=T(1,K)+T(1,II)                                             V0308490
+      GO TO 200                                                         V0308500
+  120 T(1,J)=T(1,K)-T(1,II)                                             V0308510
+      GO TO 200                                                         V0308520
+  130 T(1,J)=T(1,K)*T(1,II)                                             V0308530
+      GO TO 200                                                         V0308540
+  140 IF(T(1,II))34,99,34                                               V0308550
+   34 T(1,J)=T(1,K)/T(1,II)                                             V0308560
+      GO TO 200                                                         V0308570
+   99 WRITE (5,900)I,MARK,T(1,K)                                        V0308580
+      KZ=-99                                                            V0308590
+      GO TO 250                                                         V0308600
+  200 CONTINUE                                                          V0308610
+  900 FORMAT(51H0ERROR OCCURRED DURING TRANS-GENERATION PASS NUMBERI3,  V0308620
+     120H, REPLICATION NUMBERI5,1H./26H VALUE OF THIS REPLICATE =F15.5,2V0308630
+     2H. 36HTHIS IS THE FIRST ERROR ENCOUNTERED./41H PROGRAM WILL GO TO V0308640
+     3NEXT PROBLEM, IF ANY.)                                            V0308650
+  250 RETURN                                                            V0308660
+      END                                                               V0308670
+      SUBROUTINE PARTS(J,IP,Q,ICE,KL)                                   V0305930
+      DIMENSION J(6)                                                    V0305940
+      GO TO (71,72,73,74), KL                                           V0305950
+ 71   IF(Q-1.0) 61, 60, 61                                              V0305960
+ 60   KA=IP                                                             V0305970
+      GO TO 299                                                         V0305980
+ 61   IF(KA-6) 109, 200, 200                                            V0305990
+ 72   IF(Q-1.0) 63, 62, 63                                              V0306000
+ 62   KB=IP                                                             V0306010
+      KA=IP+1                                                           V0306020
+      GO TO 299                                                         V0306030
+ 63   IF(KA-6) 109, 93, 93                                              V0306040
+ 93   IF(KB-5) 108, 200, 200                                            V0306050
+ 73   IF(Q-1.0) 65, 64, 65                                              V0306060
+ 64   KC=IP                                                             V0306070
+      KB=IP+1                                                           V0306080
+      KA=IP+2                                                           V0306090
+      GO TO 299                                                         V0306100
+ 65   IF(KA-6) 109, 97, 97                                              V0306110
+ 97   IF(KB-5) 108, 98, 98                                              V0306120
+ 98   IF(KC-4) 107, 200, 200                                            V0306130
+ 74   IF(Q-1.0) 67, 66, 67                                              V0306140
+ 66   KD=IP                                                             V0306150
+      KC=IP+1                                                           V0306160
+      KB=IP+2                                                           V0306170
+      KA=IP+3                                                           V0306180
+      GO TO 299                                                         V0306190
+ 67   IF(KA-6) 109, 103, 103                                            V0306200
+ 103  IF(KB-5) 108, 104, 104                                            V0306210
+ 104  IF(KC-4) 107, 105, 105                                            V0306220
+ 105  IF(KD-3) 106, 200, 200                                            V0306230
+ 106  DO 113 I=KD,6                                                     V0306240
+ 113  J(I)=0                                                            V0306250
+      KD=KD+1                                                           V0306260
+      J(KD)=1                                                           V0306270
+      KC=KD+1                                                           V0306280
+      J(KC)=1                                                           V0306290
+ 10   KB=KC+1                                                           V0306300
+      J(KB)=1                                                           V0306310
+ 20   KA=KB+1                                                           V0306320
+      J(KA)=1                                                           V0306330
+      GO TO 300                                                         V0306340
+ 107  DO 112 I=KC,6                                                     V0306350
+ 112  J(I)=0                                                            V0306360
+      KC=KC+1                                                           V0306370
+      J(KC)=1                                                           V0306380
+      GO TO 10                                                          V0306390
+ 108  DO 111 I=KB,6                                                     V0306400
+ 111  J(I)=0                                                            V0306410
+      KB=KB+1                                                           V0306420
+      KB=KB+1                                                           V0306420
+      J(KB)=1                                                           V0306430
+      GO TO 20                                                          V0306440
+ 109  DO 110 I=KA,6                                                     V0306450
+ 110  J(I)=0                                                            V0306460
+      KA=KA+1                                                           V0306470
+      J(KA)=1                                                           V0306480
+      GO TO 300                                                         V0306490
+ 200  ICE=1                                                             V0306500
+      GO TO 300                                                         V0306510
+ 299  Q=0.0                                                             V0306520
+ 300  RETURN                                                            V0306530
+      END                                                               V0306540
+   *U
