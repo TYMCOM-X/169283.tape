@@ -1,0 +1,155 @@
+      SUBROUTINE SOJTS                                                  OJTS0050
+C     SUBROUTINE SOJTS-SETS ILOOK FOR JOINT COORD AND JOINT RELEASES CAROJTS0060
+C     STORES JOINT COORD.DATA AND BRANCHES TO STOREL FOR STORAGE OF     OJTS0070
+C     JOINT RELEASE DATA                                                OJTS0080
+C     STRESS PROGRAMMING SYSTEM FOR IBM 1130                            OJTS0090
+C     DIMENSION AND COMMON STATEMENTS WHICH MUST APPEAR IN ALL ROUTINES OJTS0100
+C     SYSTEM PARAMETERS  -  14 WORDS                                    OJTS0110
+      DIMENSION NSYSF(6)                                                OJTS0120
+      DIMENSION NPRBF(6)                                                OJTS0130
+      DIMENSION NARRF(32)                                               OJTS0140
+      DIMENSION  JMIN(250),JPLS(250),MTYP(250)
+      DIMENSION A(40),BETA(37),LABL(16),IFREE(20),ICHK(2),IBUFF(40)     OJTS0160
+      COMMON NTMP,KCUR,NAVAL,NOVER,ISOLV,ISUCC,ISCAN,ITRAC,NSYSF        OJTS0170
+C     PROBLEM PARAMETERS  -  32 WORDS                                   OJTS0180
+      COMMON NJ,NB,NDAT,NFJS,NLDS,NLDSI,ID,NCORD,JF,NSQ,IMETH,NMR,NJR,  OJTS0190
+     1IBETA,IYOUN,ISHEA,GSHEA,EYOUN,FILL1,FILL2,IPZER,ISTRS,NPRBF             OJTS0200
+C     PLATE PARAMETERS                                                  $JTS0202
+      COMMON IPLAT,NPLAT,KPLA1,KPLAT,KTHI1,KTHIK                        $JTS0204
+C     ARRAY CODEWORDS  40 PAIRS = 80 WORDS                              OJTS0210
+      COMMON KNAM1,KNAME,KXY1,KXYZ,KJRE1,KJREL,MEGA1,MEGAZ,KMEM1,KMEMB, OJTS0220
+     1KBET1,KBETA,KYON1,KYOUN,KSHE1,KSHEA,KMRE1,KMREL,KMEG1,KMEGA,      OJTS0230
+     2KMKS1,KMKST,KROT1,KROTE,KPPL1,KPPLS,KPMN1,KPMNS,LOAD1,LOADS,      OJTS0240
+     3KLIN1,KLINT,MLOA1,MLOAD,JLOA1,JLOAD,KDIA1,KDIAG,KOFD1,KOFDG,      OJTS0250
+     4KPPR1,KPPRI,KSTA1,KSTAT,KJIN1,KJINT,KJEX1,KJEXT                   OJTS0260
+      COMMON NARRF                                                      OJTS0270
+C  MEMBER INCIDENCE AND TYPE TABLES  250 JOINTS  500 MEMBERS
+      COMMON JMIN,JPLS,MTYP,IAMDU                                       OJTS0290
+C     SCRATCH AREA CAN BE INSERTED AS DESIRED FOR EACH ROUTINE          OJTS0300
+C     SCRATCH AREA FOR INPUT PHASE  -  SPH1A AND SPH1B                  OJTS0310
+      COMMON A,BETA,IFREE,LABL,IB,IL,ILOOK,JTOMB,K1,IPRER,JLD,INDEX,    OJTS0320
+     1JINDL,JDEPL,IPRTA,KK,JJC,JDC,IS,ICHK,JMIC,JMPC,JCODE,JIB          OJTS0330
+     2,MEMRE,CTE,KS1,LEM,IBUFF,K3                                       $JTS0340
+      IPRER=-1                                                          OJTS0350
+C     JTOMB=JOINT NUMBER                                                OJTS0360
+      IF(JTOMB)200,100,200                                              OJTS0370
+C     ONLY WORD JOINT (NOT LOADS) HAS BEEN READ                         OJTS0380
+C     M=0,READ NEXT LOGICAL FIELD ,WORD FROM LIST 3.                    OJTS0390
+100   CALL MATCH (KK,AA,0,3,IBUFF,I)                                    OJTS0400
+      GO TO (9905,9901,9902,9900,103),I                                 OJTS0410
+C     JOINT COORDINATES OR RELEASE HAVE BEEN READ SO FAR                OJTS0420
+103   IF(KK-2)101,400,9906                                              OJTS0430
+C JOINT COORDINATES, OR JOINT COORD.SYMMETRY AND MEMBER     OJTS0440
+C     PROPERTIES                                                        OJTS0450
+C     KK=2 ,   JOINT RELEASES                                           OJTS0460
+C     M=0, READ NEXT LOGICAL FIELD, WORD FROM LIST                      OJTS0470
+C     TO READ SYMMETRY OR END OF STATEMENT                              OJTS0480
+101   CALL MATCH (KS,AA,0,1,IBUFF,IQ)                                   OJTS0490
+      GO TO (150,9901,9902,9900,102),IQ                                 OJTS0500
+102   IF (KS-13)9900,105,9900                                           OJTS0510
+C     KS-13=SYMM.IN LIST 1                                              OJTS0520
+C     NSYSF(2)-SYMMETRY -1, 2, 3 INDICATE IN X,Y,Z DIRECTIONS           OJTS0530
+105   CALL MATCH (NSYSF(2), AA,0,5,IBUFF,IQ)                            OJTS0540
+      GO TO (9905,9901,9902,9900,106),IQ                                OJTS0550
+106   CALL MATCH (K,ALPHA,3,LISTN,IBUFF,IQ)                             OJTS0560
+      IF (IQ-3)99  ,101,9906                                            OJTS0570
+   99 IF(IQ-2) 98,9906,101                                              OJTS0580
+   98 ALPHA=0.0                                                         OJTS0590
+C     IQ=3,FLOATING POINT NO.                                           OJTS0600
+150   IF(NJ)9916,9916,151                                               OJTS0610
+151   IF(NDAT)9915,9915,152                                             OJTS0620
+C     SET UP TABLE OF INTERNAL JOINT NUMBERS=KJIN1,KJINT,-EXT=KJEX1,KJEXOJTS0630
+C     SBITE ASSIGNS DISK STORAGE FOR INTERNAL JOINT AND EXTERNAL JOINT  OJTS0640
+C     NOS.                                                              OJTS0650
+152   CALL SBITE(KJIN1,KJINT,1,NJ,0)                                    OJTS0660
+      CALL SBITE(KJEX1,KJEXT,1,NJ,0)                                    OJTS0670
+      GO TO 500                                                         OJTS0680
+C     JTOMB=A JOINT NUMBER                                              OJTS0690
+C     ENTER THRU JTOMB=K, READ SPH1A AND ENTER SOJTS                    OJTS0700
+200   IF(JTOMB-NJ)300,300,9911                                          OJTS0710
+C     JOINT COORDINATES OR JOINT COORDINATE SYMMETRY AND MEMBER PROP.   OJTS0720
+C     CALL SREAD - READS DATA WITH OR WITHOUT LABELS-1 X0. Y20.0 Z0. OR OJTS0730
+C     1 0. 20.0 0.                                                      OJTS0740
+300   IG=1                                                              OJTS0750
+      CALL SREAD(IG)                                                    OJTS0760
+      IF(IG-1)500,333,500                                               OJTS0770
+C     COORDINATES-X,Y, + Z - DATA GIVEN IN CORRECT FORM                 OJTS0780
+C     IB-CHECK FOR FLOATING POINT X,Y,Z,IL=CODE FOR NEXT ELEMENT OF LABEOJTS0790
+C     IS - CHECK FOR FREE OR SUPPORT JOINTS.                            OJTS0800
+333   A(1)=0.0                                                          OJTS0810
+      A(2)=0.                                                           OJTS0820
+      A(3)=0.                                                           OJTS0830
+C     IB=2 FOR PLANE STRUCTURE,=3 FOR SPACE STRUCTURE                   OJTS0840
+347   IF(IB-3)349,349,9902                                              OJTS0850
+349   IF(IL-3)351,351,9906                                              OJTS0860
+351   IF(IB-IL)352,352,9906                                             OJTS0870
+352   IF(IS-1)371,371,372                                               OJTS0880
+C     FREE JOINT=NFJS COMES FROM SOO1A                                  OJTS0890
+371   IF(JJC+1-NFJS)360,360,9918                                        OJTS0900
+C     JJC=JOINT COORD. JOINT NO.-INTERNAL                               OJTS0910
+360   JJC=JJC+1                                                         OJTS0920
+      ISS=-1                                                            OJTS0930
+      GO TO 362                                                         OJTS0940
+C     SUPPORT JOINT=NDAT COMES FROM SOO1A                               OJTS0950
+C     JDC=JOINT COORD. SUPPORT JOINT NO.-INTERNAL                       OJTS0960
+372   IF(JDC+1-NDAT)361,361,9918                                        OJTS0970
+361   JDC=JDC+1                                                         OJTS0980
+      ISS=0                                                             OJTS0990
+362   II=JJC+JDC                                                        OJTS1000
+C     SDATA=STORES FIXED JTOMB TO DISK-TABLE OF EXT. JOINT NUMBERS      OJTS1010
+      CALL SDATA (KJEX1,KJEXT,II,AREA,JTOMB,+2,10)                      OJTS1020
+      CALL SDATA (KJIN1,KJINT,JTOMB,AREA,II,+2,10)                      OJTS1030
+C     SET UP KJREL(II)=0, SUPPORT OR =-1, FREE                          OJTS1040
+      CALL SDATA(KJRE1,KJREL,II,AREA,ISS,+2,10)                         OJTS1050
+      JTOMB=II                                                          OJTS1060
+C     ISCAN=1, STORE DATA                                               OJTS1070
+355   IF(ISCAN-1)500,357,500                                            OJTS1080
+357   IF(NSYSF(3))609,609,191                                           OJTS1090
+  191 CALL SDATA (KJIN1,KJINT,K1,AREA,KT1,+1,1)                         OJTS1100
+      CALL SDATA (KXY1,KXYZ,KT1,A,JKL,-1,0)                             OJTS1110
+C     NSYSF(2)=1,2,3 INDICATES SYMM IN X,Y,Z DIRECTIONS                 OJTS1120
+C     SYMMETRICAL.                                                      OJTS1130
+      IF (NSYSF(2)-2) 192,193,194                                       OJTS1140
+C     X VALUES=ALPHA                                                    OJTS1150
+192   A(1)=2.*ALPHA-A(1)                                                OJTS1160
+      GO TO 359                                                         OJTS1170
+C     Y VALUES=ALPHA                                                    OJTS1180
+193   A(2)=2.*ALPHA-A(2)                                                OJTS1190
+      GO TO 359                                                         OJTS1200
+C     Z VALUES=ALPHA                                                    OJTS1210
+194   A(3)=2.*ALPHA-A(3)                                                OJTS1220
+      GO TO 359                                                         OJTS1230
+609   IF(IB)359,359,358                                                 OJTS1240
+358   DO 353 II=1,IB                                                    OJTS1250
+      ISUB=LABL(II)                                                     OJTS1260
+353   A(ISUB)=BETA(II)                                                  OJTS1270
+C     SDATA-STORES FLOATING POINT NUMBERS FROM AREA TO DISK             OJTS1280
+359   NSYSF(3)=0                                                        OJTS1290
+      CALL SDATA(KXY1,KXYZ,JTOMB,A,NAREA,-2,0)                          OJTS1300
+      GO TO 500                                                         OJTS1310
+C     JOINT RELEASES                                                    OJTS1320
+400   ILOOK=5                                                           OJTS1330
+      RETURN                                                            OJTS1340
+9900  IPRER=0                                                           OJTS1350
+      GO TO 500                                                         OJTS1360
+9901  IPRER=1                                                           OJTS1370
+      GO TO 500                                                         OJTS1380
+9902  IPRER=2                                                           OJTS1390
+      GO TO 500                                                         OJTS1400
+9905  IPRER=5                                                           OJTS1410
+      GO TO 500                                                         OJTS1420
+9906  IPRER=6                                                           OJTS1430
+      GO TO 500                                                         OJTS1440
+9911  IPRER=11                                                          OJTS1450
+      GO TO 500                                                         OJTS1460
+9915  IPRER=15                                                          OJTS1470
+      GO TO 600                                                         OJTS1480
+9916  IPRER=16                                                          OJTS1490
+      GO TO 600                                                         OJTS1500
+9918  IPRER=18                                                          OJTS1510
+      GO TO 500                                                         OJTS1520
+600   IF(ISCAN-1)601,601,500                                            OJTS1530
+601   ISCAN=0                                                           OJTS1540
+500   ILOOK=2                                                           OJTS1550
+      RETURN                                                            OJTS1560
+      END                                                               OJTS1570
