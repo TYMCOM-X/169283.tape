@@ -1,0 +1,2052 @@
+
+CHAPTER 6 - DIRECTORY DEVICES
+
+
+This chapter explains the unique features of the standard directory
+devices.  Each device accepts the programmed operators explained
+in Chapter 4, unless otherwise indicated.  Table 6-l is a summary
+of the characteristics of the directory devices.  Buffer sizes
+are given in octal and include three bookkeeping words.  The
+user may determine the physical characteristics associated
+with a logical device name by calling the DEVCHR UUO (refer to
+Paragraph 4.9.4.2).
+
+
+
+(Table 6-l - Directory Devices)
+
+
+
+
+
+
+
+
+
+6.l  DECTAPE
+
+The device mnemonic is DTA0, DTAl, ..., DTA7; the buffer size is
+202  words (l77  user data, 200  transferred).
+   8           8               8
+
+
+6.l.l  Data Modes
+
+Two hundred words are written.  The first word is the link plus
+word count.  The following l77 words are data supplied to and 
+from user programs.
+
+
+6.l.l.l  Buffered Data Modes - Data is written on DECtape exactly
+as it appears in the buffer and consists of 36-bit words.  No
+processing or checksumming of any kind is performed by the
+serivce routine.  The self-checking of the DECtape system is
+sufficient assurance that the data is correct.  Refer to
+Paragraph 6.l.2 for further information concerning blocking
+of information.
+
+
+6.l.l.2  Unbuffered Data Modes - Data is read into or written
+from anywhere in the user's core area without regard to the
+standard buffering scheme.  Control for read or write operations
+must be via a command list in core memory.  The command list
+format is described in Chapter 4.  File-structured dump mode
+data is automatically blocked into standard-length DECtape blocks
+by the DECtape service routine.  Each block read or written
+contains l link word plus l to l77  data words.  Unless the number
+                                  8
+of data words is an e=act multiple of the data portion of a 
+DECtape block (l77 ), the remainder of the last block written
+                  8
+after each OUTPUT programmed operator is wasted.  The input
+programmed operator must specify the same number of words that
+the corresponding output programmed operator specified to skip
+over the wasted fractions of blocks.
+
+
+6.l.2  DECtape Format
+
+A standard reel of DECtape consists of 578 (ll02 ) prerecorded
+                                                8
+blocks each capable of storing l28(200 ) 36-bit words of data.
+                                      8
+Block numbers that label the blocks for addressing purposes
+are recorded between blocks.  These block numbers run from 0
+to ll0l .  Blocks 0, l and 2 are normally not used during time-
+       8
+sharing and are reserved for a bootstrap loader.  Block
+l00   (l44 ) is the directory block, with contains the names
+   l0     8
+of all files on the tape and information relating to each file.
+Blocks 3   through 99   (l-l43  ) and l0l   through 577 
+        l0           l0       8          l0            l0
+(l45-ll0l ) are usable for data.
+         8
+
+If, in the process of DECtape I/O, the I/O service routine is
+requested to use a block number larger than ll0l  or smaller 
+                                                8
+than 0, the monitor sets the IOBKTL flag (bit 2l) in the file
+status and returns.
+
+
+6.l.3  DECtape Directory Format
+
+The directory block (block l00  ) of a DECtape contains directory
+                              l0
+information for all files on that tape; a maximum of 22 files
+can be stored on any one DECtape (see Figure 6-l).
+
+The first 83 words (l through 82  ) of the directory block
+                                l0
+contain slots for each of the 577 blocks on a DECtape.  Each
+slot occupies five bits (seven slots are stored per word)
+and represents a given block on the DECtape.  Each slot
+contains the number of the file (l-26 ) occupying the given
+                                     8
+block.  This allows for 58l slots (83 words x 7 slots per 
+word).  The four extra slots represent nonexistent blocks
+ll02 through ll05 .  The next 22 words of the directory block
+                 8
+(words 83 through l04  ) contain the filenames of the 22 files
+                     l0
+that reside on the DECtape.  Word 83 contains the filename
+for file l, word 84 contains the filename for file 2.  
+Filenames are stored in SIXBIT code.
+
+The next 22 words of the directory block (words l05 through 
+l26  ) primarily contain the filename extensions and dates of
+   l0
+the 22 files that reside on the DECtape, in the same relative
+order as their filenames.  The bits for each word are as
+follows:
+
+   Bits 0 - l7       The filename extension is SIXBIT code.
+              l0
+
+   Bits l8 - 23      The number of lK blocks minus l needed to
+               l0    load the file (maximum value is 63.)  This
+                     information is stored for zero-compressed
+                     files only.
+
+   Bits 24 - 35      The date the file was last updated, according
+               l0    to the formula:  ((year-l964) * l2+(month-l))
+                     *3l+day -l.
+
+Word l27   of the directory block is unused.
+        l0
+
+The message:
+
+   BAD DIRECTORY FOR DEVICE DTAn: EXEC CALLED FROM USER LOC n
+
+occurs when any of the following conditions are detected:
+
+a.  A parity error occurred while readint the directory
+    block.
+
+b.  No slots are assigned to the file number of the file.
+
+c.  The tape block, which may be the first block of the file
+    (i.e., the first block for the file encountered while
+    searching backwards from the directory block), cannot 
+    be read.
+
+
+
+(figure 6-l  DECtape Directory Format)
+
+
+
+
+
+
+
+6.l.4  DECtape File Format
+
+A file consists of any number of DECtape blocks.
+
+
+(Figure 6-2  Format of a File on Tape)
+
+
+
+
+Each block contains the following:
+
+   Word 0     Left half      The link.  The link is the block
+                             number of the next block in the file.
+                             If the link is zero, this block is 
+                             the last in the file.
+
+              Right half     Bits l8 through 27: the block number
+                             of the first block of the file.  Bits
+                             28 through 35: a count of the number
+                             of words in this block that are
+                             used.  (Maximum l77 ).
+                                                8
+
+   Words l through l77       Data packed exactly as the user placed
+                      8      in his buffer or in dump mode files,
+                             The next l27 words of memory.
+
+
+
+(Figure 6-3  Format of a DECtape Block
+
+
+
+
+
+
+
+6.l.4.l  Block Allocation - Normally, blocks are allocated by
+starting with the first free block nearest the directory and
+going backwards to the front of the tape (block 0).  When the end
+of the tape is reached, the direction of the scan is reversed.
+Blocks are not written contiguously; rather they are separated
+by a spacing factor.  This allows the drive to stop and restart
+to read the next block of the file without having to back up
+the tape.  The spacing factor is normally four, but for dump
+mode and UGETF followed by an ENTER, the spacing factor is
+two (refer to Paragraph 6.l.6.3).
+
+
+6.l.5  I/O Programming
+
+DECtape is a directory device; therefore, file selection must be
+performed by the user before data is transferred.  File selection
+is accomplished with LOOKUP and ENTER UUOs.  The UUO format is
+as follows:
+
+   UUO D,E
+
+where D specifies the user channel associated with this
+device, and E points to a four-word parameter block.  The
+parameter block has the following format:
+
+
+
+
+
+
+
+where:
+
+   FILE is the filename in SIXBIT ASCII
+
+   EXT is the filename extension in SIXBIT ASCII.
+
+   BLOCK   is the number of the first block of the file.
+
+      of lK blocks is the number of blocks needed to load the
+   file if the file is a zero-compressed file (bits l8-23).
+
+   DATE is the date the file was originally created in the
+   format of the DAYTIME programmed operator (bits 24-35).
+
+   -N is the negative word length of the zero-compressed file.
+
+   ADR-l is the core address of the first word of the file 
+   minus l.
+
+Locaton E + 3 is used only for zero-compressed file.
+
+
+6.l.5.l  LOOKUP D,E - The LOOKUP programmed operator sets up an
+input file on channel D.  The contents of location E and E+l
+(left half) are matched against the filenames and filename
+extensions in the DECtape directory.  If no match is found,
+the error return is taken.  If a match is found, location E+l
+through E+3 are filled by the monitor, and the normal return is
+taken (refer to Table 6-2).
+
+
+                           Table 6-2
+                      LOOKUP Parameters
+
+         ON CALL                              ON RETURN
+
+Parameter    Use*     Contents      Parameter     Use*       Contents
+-------------------------------     ----------------------------------
+
+E            A     SIXBIT/FILE/     E             V      SIXBIT/FILE
+
+E + l        A     SIXBIT/EXT/      E + l         V      LH=SIXBIT/EXT/
+                                                         RH=first block
+
+E + 2        I          -           E + 2         V      LH=0
+                                                         RH=  of lK blocks
+                                                            (bits l8-23)**
+
+                                                            creation date
+                                                            (bits 24-35)**
+
+E + 3        I          -           E + 3         V      IOWD LENGTH, ADR**
+
+
+   *   A = argument from user program, V = value from monitor,
+       I = ignored.
+
+   **  For zero-compressed files only.
+
+
+
+The first block of the file is then found as follows:
+
+a.  The first 83 words of the DECtape directory are searched
+    backwards, beginning with the slot immediately prior to the
+    directory block, until the slot containing the desired file
+    number if found.
+
+b.  The block associated with this slot is read in and bits l8
+    through 27 of the first word of the block (these bits contain
+    the block number of the first block of the file) are checked.
+    If the bits are equal to the block number of this block,
+    then this block is the first block; if not, then the block
+    with that block number is read as the first block of the file.
+
+
+6.l.5.2  ENTER D,E - The ENTER programmed operator sets up an
+output file on channel D.  The DECtape directory is searched for
+a filename and filename extension, which match the contents of
+location E and the left half of location E + l.  If no match is
+found and there is room in the directory, the monitor records the
+information in locations E through E + 2 in the DECtape directory
+(refer to Table 6-3).  An error return is given if there
+is no room in the directory for the file.  If a match is
+found, the new entry replaces the old entry, the old file
+space is reclaimed immediately, and the monitor records the
+file information.  This process is called superseding and
+differs from disk in that, because of the small size of
+DECtape, the space is reclaimed before the file is
+written rather than after.
+
+
+                           Table 6-3
+                         ENTER Parameters
+
+        ON CALL                               ON RETURN
+
+Parameter    Use*    Contents       Parameter    Use*      Contents
+-----------------------------       -------------------------------
+
+E            A    SIXBIT/FILE       E            V      SIXBIT/FILE/
+
+E + l        A    SIXBIT/EXT/       E + l        V      LH=SIXBIT/EXT/
+
+E + 2        A    RH=desired        E + 2        V      RH=creation date
+                  creation date
+                  or 0. (0 implies
+                  current date)
+
+E + 3        I         -            E + 3        I            -
+
+
+   * A = argument from user program, V = value from monitor,
+     I = ignored.
+
+
+6.l.5.3  RENAME D,E - The RENAME programmed operator alters the
+filename or filename extension of an existing file, or deletes
+the file directory from the DECtape associated with channel D.
+If location E contains an 0, RENAME deletes the directory of
+the specified file, otherwise; RENAME searches for the file and
+enters the information specified in location E and E + l into
+the DECtape directory (refer to Table 6-4).  RENAME must be
+preceded by a LOOKUP to select the file that is to be RENAMED
+and a CLOSE.  The error return is given if a LOOKUP has not
+been done.
+
+Unlike on disk a DECtape RENAME works on the last file LOOKUPed
+and ENTERed for the device, not the last file for this channel.
+The UUO sequence required to successfully RENAME a file on
+DECtape is as follows:
+
+   LOOKUP    D,E
+   RENAME    D,El
+
+     or
+
+   ENTER     D,E
+   RENAME    D,El
+
+
+6.l.5.4  INPUT, OUTPUT, CLOSE, RELEASE - When performing nondump
+input operations, the DECtape service routine reads the
+links in each block to determine what block to read next and
+when to raise the EOF flag.
+
+
+                              Table 6-4
+                          RENAME Parameters
+
+       ON CALL                                 ON RETURN
+
+Parameter    Use*    Contents        Parameter     Use*     Contents
+-----------------------------        -------------------------------
+
+E            A    SIXBIT/FILE/       E              V    SIXBIT/FILE/
+                  or 0
+
+E + l        A    LH=SIXBIT/EXT/     E + l          V    LH=SIXBIT/EXT/
+                                                         RH=error code on
+                                                         error return
+                                                         0=old name not
+                                                         found
+                                                         4=rename to
+                                                         existing name
+
+E + 2        I         -             E + 2          I         -
+
+E + 3        I         -             E + 3          I         -
+
+
+   *  A = argument from user program, V = value from monitor,
+      I = ignored.
+
+
+When an OUTPUT is given, the DECtape service routine examines the
+left half of the third word in the output buffer (the word 
+containing the word count in the right half).  If this half
+contains -l, it is replaced with a 0 before being written out,
+and the file is thus terminated.  If this half word is greater
+than 0, it is not changed and the service routine uses it as
+the block number for the next OUTPUT.  If this half word is
+0, the DECtape service routines assigns the block number of the
+next block for the next OUTPUT.
+
+For both INPUT and OUTPUT, block l00 (the directory) is treated 
+as an exception case.  If the user's program gives
+
+   USETI D, l44
+               8
+
+to read block l00, it is treated as a l-block file.
+
+The CLOSE operator places a -l in the left half of the first word
+in the last output buffer, thus terminating the file.
+
+The RELEASE operator writes the copy of the directory, which
+is normally kept in core onto block l00, but only if any
+changes have been made.  Certain console commands, such as
+KJOB or CORE 0, perform an implicit RELEASE of all devices
+and thus write out a changed directory even though the user's
+program failed to give a RELEASE (refer to Chapter 2).
+
+
+6.l.6  Special Programmed Operator Service
+
+Several programmed operators are provided for manipulating 
+DECtape.  These UUOs allow the user to manipulate block numbers
+and to handle directories.
+
+6.l.6.l  USETI D,E - the USETI programmed operator sets the
+DECtape on channel D to input block E next.  Input operations
+on the DECtape must not be active; otherwise, the user has no
+way of determining which buffer contains block E.
+
+
+6.l.6.2  USETO D,E - The USETO programmed operator sets the
+DECtape on channel D to output block E next.  USETO waits
+until the device is inactive before setting up the new output
+block number.
+
+
+6.l.6.3  UGETF D,E - The UGETF programmed operator places the
+number of the next free block of the file in the user's location E.
+
+If UGETF is followed by an ENTER, the monitor modifies its
+algorithm in the following manner:
+
+l.  The first block is written nearest the fron of the tape
+    instead of nearest the directory.
+
+2.  The spacing factor is changed to 2 instead of 4 so that
+    very large programs can fit almost entirely in a forward
+    direction.
+
+This feature allows user programs, such as PIP, to write
+SAV format files which can be read by the executive mode
+utility program TENDMP (See the PDP-l0 Software Notebook).
+
+
+
+6.l.6.4  CALL AC, (SIXBIT/UTPCLRI/) or CALLI AC, l3 - The UTPCLR
+programmed operator clears the directory of the DECtape on the
+device channel specified in the AC field.  A cleared directory
+has zeroes in the first 83 words except in the slots related
+to blocks 0, l, 2, and l00   and nonexistent blocks ll02 to ll05 .
+                          l0                                    8
+Only the directory block is affected by UTPCLR.  This programmed
+operator is a no-operation if the device on the channel is not
+a DECtape.
+
+
+6.l.6.5  MTAPE D, l and MTAPE D, ll - MTAPE D,l rewinds the 
+DECtape and moves it into the end zone at the front of the tape.
+MTAPE D,ll rewinds and unloads the tape, pulling the tape 
+completely onto the left-hand reel.  These commands affect
+only the physical position of the tape, not the logical position.
+When either is used, the user's job can be swapped out while
+the DECtape is rewinding; however, the job cannot be swapped
+out if an INPUT or OUTPUT is done while the tape is rewinding.
+
+
+
+6.l.6.6  DEVSTS UUO - After each interrupt, the DECtape service
+routine stores the results of a CONI in the DEVSTS word of the device
+data block.  The DEVSTS UUO is used to return the contents of 
+the DEVSTS word to the user (refer to Paragraph 4.9.3.4).
+
+
+6.l.7  File Status (Refer to Appendix D)
+
+The file status of the DECtape is shown below:
+
+
+
+
+
+
+
+   Bit l8 - IOIMPM   An attempt was madread block 0 in
+                     nonstandard dump mode.
+
+   Bit l9 - IODERR   Data was missed.
+
+   Bit 20 - IODTER   Parity error.
+
+   Bit 2l - IOBKTL   Block number is too large or tape is full
+                     on OUTPUT.
+
+   Bit 22 - IOEOF    EOF mark encountered on input.  No special
+                     character appears in buffer.
+
+   Bit 23 - IOACT    Device is active.
+
+
+
+
+
+
+
+
+
+
+   Bit 29   DECtape is in a nonstandard-dump mode format as
+            opposed to standard-dump mode.  No file structured
+            operations are performed on the tape.  Blocks are
+            read or written sequentially; no links are generated
+            (output) or recognized (input).  The first block
+            to be read or written must be set by a USETI or
+            USETO.  In nonstandard-dump mode, all 200  words per
+                                                     8
+            block are read or written are user data (as opposed
+            to the standard mode of l link plus word count
+            followed by l77  words).  No dead reckoning is used
+                           8
+            on a search for a block number as the tape may be
+            composed of blocks shorter than 200 words.  The
+            ENTER, LOOKUP and UTPCLR UUOs are treated as no-ops.
+            Block 0 of the tape may not be read or written in
+            dump mode if bit 29 is on, because the data must be
+            read in a forward direction and block 0 normally
+            cannot be read forward.
+
+
+6.l.8  Important Considerations
+
+If an attempt is made to write on a write-locked tape or to
+access a drive that has no tape mounted, the message
+
+   DEVICE DTAn OK?
+
+is given.  When the situation has been rectified, CONT may be
+typed to proceed.
+
+The DECtape service routines read the directory from a tape the
+first time it is required to perform a LOOKUP, ENTER or UGETF;
+the directory image remains in core until a new ASSIGN command
+is executed from the console.  To inform the DECtape service
+routine that a new tape has been mounted on an assigned unit,
+the user uses an ASSIGN command.  The directory from the old
+tape can be transferred to the new tape, thus destroying the
+information on that tape unless the user reassigns the DECtape
+transport every time he mounts a new reel.
+
+Although DECtape is a file-structured blocked device, there is a
+limit to the number of files that may be opened simultaneously
+on a single DECtape.  A given DECtape may be OPENed or INITed
+on two software channels (maximum) at the same time, one for
+INPUT and one for OUTPUT.  An attempt to INIT on two channels
+for INPUT or two channels for OUTPUT generates no error 
+indication, and only the most recent INIT is effective.  This
+restriction explains why the following examples do not work.
+
+Example l:
+
+   .R SRCCOM
+   *TTY:!DTAl:Pl,DTAl:P2
+
+SRCCOM accepts the command string but the comparison does not
+work because the DECtape cannot be associated with the input
+side of two software channels at the same time.
+
+Example 2:
+
+   .R MACRO
+   *DTAl:BIN,DTAl:LST!DTA2:PROG
+
+MACRO accepts the command string but does not produce the
+desired results because a single DECtape cannot be
+associated with the output side of two software channels at
+the same time.  However, the following example works, because
+only one file is opened for reading and one file for writing.
+
+   .R MACRO
+   *DTAl:BIN!DTAl:SOURCE
+
+
+6.2  DISK
+
+The device mnemonic id DSK, FHA, DPA; the buffer size is
+203  (200  data) words.
+   8     8
+
+
+
+6.2.l  Data Modes
+
+6.2.l.l  Buffered Data Modes - Data is written on the disk 
+exactly as it appers in the buffer.  Data consists of 36-bit words.
+
+CAUTION:
+
+All buffered mode operations utilize a 200 octal word data buffer.
+Attempts to set up non-standard buffer sizes are ignored.  In
+particular, attempting to use buffer sizes smaller than 200
+words for input result in data being read in past the end
+of the buffer destroying what information was there (e.g.,
+the buffer header of the next buffer).
+
+
+6.2.l.2  Unbuffered Data Modes - Data is read into or written
+from anywhere in the user's core area without regard to
+the normal buffering scheme.  Control for read or write opera-
+tions must be via a command list in core memory.  The
+command list format is described in Paragraph 4.l0.5.l.  The
+disk control automatically measures dump data into standard-
+length disk blocks of 200 octal words.  Unless the number of
+data words is an exact multiple of the standard length of a
+disk block (200 words) after each command word in the command
+list, the remainder of that blocis wasted.
+
+
+6.2.2  Structure of Disk Files
+
+The file structures of a disk system minimize the number of disk
+seeks for sequential or random accessing during either buffered
+or unbuffered I/O.  The assignment of physical space for data
+is performed automatically by the monitor when logical files are
+written or deleted by user programs.  Files may be any length,
+and each user may have as many files as he wishes, as long as
+disk space is available and the user has not exceeded his
+logged in quota.  Users or their programs do not need to give
+initial estimates of file length or number of files.  Files
+may be simultaneously read by more than one user at a time,
+thus allowing data sharing.  A new version of a file may be
+recreated by one user while other users continue to read the old
+version, thus allowing for smooth replacement of shared programs
+and data files.  Finally, one user may selectively update portions
+of a file, rather than creating a new one.
+
+
+6.2.2.l  Addressing by Monitor - The file structure described
+in this section is generally transparent to the user, and a
+detailed knowledge of this material is not esssential
+for effective user-mode use of the disk.  One set of disk-
+independent file handling routines in the timesharing monitor
+services all disks and drums.  This set of routines, FILSER,
+interprets and operates upon files structures, processes disk
+UUOs, queues disk requests and makes optimization decisions.
+The monitor deals primarily with logical units within file structures
+and converts to physical units in the small device-dependent routines
+just before issuing I/O commands.  All queues, statuses, and flags
+are organized by logical unit rather than by physical unit.
+The device-dependent routines perform the I/O for specific
+storage devices and translate logical block numbers to physical
+disk addresses.
+
+All references made to disk addresses refer to the logical or
+relative addresses used by the system and not to any physical
+addressing scheme involving records; sectors, or tracks that
+may pertain to a particular physical device.  The basic unit
+that may be addressed is a logical disk block, which consists
+of 200  36-bit words.
+      8
+
+
+6.2.2.2  Storage Allocation Table (SAT) Blocks - Unique to each
+file structure is a file named SAT.SYS.  This file reflects the
+current status of every addressable block on the disk.  Only
+the monitor can modify the contents of SAT.SYS as a result of
+file creation, deletion, or space allocation, although this file
+may be read by any user.  The SAT file consists of bits indicating
+the portion of file storage in use and the portion that is 
+available.  To reduce the size of SAT.SYS, each bit can be
+used to represent a contiguous set of blocks called a cluster.
+Monitor overhead is decreased by assigning and relasing file
+storage in clusters of blocks rather than single blocks.
+
+If a particular bit is on, it indicates that the corresponding
+cluster is filled with data (all blocks on the disk are filled
+when any information is written on them) or is bad or nonexistent;
+if the bit is off, it indicates that the corresponding cluster
+is empty, or available to be written on.
+
+
+6.2.2.3  File Directories - There are two levels of directories
+in each file structure:
+
+a.  The master file directory (MFD)
+b.  The user file directory (UFD)
+
+The master file directory consists of two-word entries; the
+entries are the names of hte user file directories.  The first word
+of each entry contains the project-programmer number of the user.
+The left half of the second word of each entry contains the
+mnemonic UFD in SIXBIT and the right half contains a pointer
+to the first cluster of the user file directory (see Figure 6-4).
+The main function of the master file directory is to serve as a
+directory for individual user file directories.
+
+The entries within a user file directory are the names of files
+existing in a given project-programmer number area within the
+file structure.  The first word of each entry contains the 
+filename in SIXBIT.  The left half of the second word
+contains the filename extension in SIXBIT, and the right
+half contains a pointer to the first cluster of the file (see
+Figure 6-4).  This pointer specifies both the unit and the
+super-cluster of the file structure in which the file appears.
+The right half of the directory entry is referred to as a
+compressed file pointer (CFP).
+
+When a user is logged in, each file structure for which he has
+a quota contains a UFD for his project-programmer number.  Each
+UFD contains the names of all the user's file's for that
+file structure only.  The term disk directory refers to all
+the UFDs for a particular project-programmer number.  A user
+is not prevented from attempting to read a file in another user's
+UFD on a file structure for which he does not have a UFD.  
+Whether or not the user is successful depends on the protection
+specified for the file being referenced.
+
+
+(figure 6-4)
+
+
+
+
+
+
+
+
+To improve disk access and core searching times, only UFD names
+are kept in the MFD (project-programmer number l,l).  All CUSPs
+and monitor file structure files are contained in another
+project-programmer number directory called the system library.
+For convenience to users typing commands and to user programs,
+device name SYS is interpreted as the system library; therefore,
+no special programming is required to read as a specific file
+from device SYS.
+
+
+6.2.2.4  File Format - All disk files (including MFD and UFDs)
+are composed of two parts:
+
+a.  Pure data
+b.  Information needed by the system to retrieve this data
+
+Each data block contains exactly 200 (octal) words.  If a
+partially filled buffer is output to the disk by a user, a full
+block is written with trailing zeros filling in to make
+200  words.  A partial block input later appears to have a full
+   8
+200  data words.  Word counts associated with individual blocks
+   8
+are not retained by the system except in the case of the last
+block of the file.
+
+There are three links in the chain by which the system references
+data on the disk.  This chain is transparent to the user,
+who might look on the directory as having four-word entries
+analogous to DECtapes.  The first link is the two-word directory
+entry, which points to the second link, the retrieval information
+block (RIB).  The RIB, in turn, points to the third link, the
+individual data blocks of the file (see Figure 6-5).
+
+The retrieval block contains all the pointers to the entire
+file.  Retrieval information associated with each file is
+stored and accessed separately from the data; therefore, system
+reliability is increased and the number of positionings
+necessary for random access is reduced.
+
+For recovery purposes, a copy of the retrieval information block 
+is written immediately after the last data block of the file
+when a CLOSE is completed.  If the first RIB is lost or bad,
+the monitor can recover by allowing a recovery program to use 
+the second RIB; therefore, a data file of n blocks has two
+additional overhead blocks:  relative block 0, containing the
+primary RIB; and relative block n + l, containing the redundant
+RIB (refer to Appendix I).
+
+
+6.2.3  Access Protection
+
+Nine bits of the retrieval information of a file are used to
+specify the protection of the file.  This procedure is necessary
+because a disk is shared by many users, each of whom may desire
+to keep certain files from being written on, read, or deleted
+by other users.
+
+Users are divided into three categories:  the owner of the
+file, the members with the owner's project number, and all others.
+Each UFD in a file structure is associated with a distinct project-
+programmer number pair.
+
+
+
+(figure 6-5  Disk File Organization)
+
+
+
+
+
+
+
+
+
+
+Any users who is logged in with the same programmer number is
+considered to be the owner of the filrs in that UFD; therefore,
+the same programmer numbers can be assigned to different
+users in different projects.  However, a user who is working
+on more than one project cannot have the same access to all files
+he has written.  Some installations may decide that a user is not
+an owner unless both the project and programmer number the user
+is logged in under match the pair associated with the UFD.
+This decision is made at monitor generation time with the
+MONGEN program.
+
+A user is allowed project access if the programmer number he is 
+logged in under is different from the one associated with the UFD,
+but his project number is the same as the one associated with
+the UFD.
+
+The three bits associated with each category of users are encoded
+as follows:
+
+   Code                          Access Protection
+
+    7          No access privileges,  File may be loed up if the
+               UFD permits.
+
+    6          Execute only.
+
+    5          Read, execute.
+
+    4          Append, read, execute.
+
+    3          Update, append, read, execute.
+
+    2          Wte, update, append, read, execute.
+
+    l          Rename, write, update, append, read, execute.
+
+    0          Change protection, rename, write, update, append,
+               read, execute.
+
+The greatest protection a file can have is 7, and the least
+protection is 0.  It is always possible for the owner of a
+file to change the access rpotection associated with that file
+even if the owner-protection field is set to 0, thus, 0 and l are
+equivalent in the owner field.  Access protection can be changed
+by executing a RENAME UUO or by using the RENAME switch in PIP
+as follows:
+
+   .R PIP
+   *FILE,EXT  NEW PROT  /R!FILE.EXT
+
+When a file is created with a protection code of 000, the monitor
+substitutes the standard protection code as defined by the
+installation.  The normal system standard is 057.  This protection
+prevents user in different projects from accessing another 
+user's files; however, a standard protection of 055 is recommended
+for in-house systems where privacy is not as important as the
+capability of sharing files among projects.  No program should
+be coded to assume knowledge of the standard protection.  If
+it is necessary to use this standard, it should be obtained
+through the GETTAB UUO.
+
+To preserve files with LOGOUT, a protection code of l in the
+owner's field should be associated with the files.  LOGOUT
+preserves all files in a UFD for which the protection code for
+the owner is greater than zero.
+
+
+
+6.2.3.l  UFD Privileges - The protection code associated with each
+file completely describes the access rights to that file independently
+of the protection code of the UFD.  UFDs may be read in the same
+manner as files but cannot be written explicitly, because they
+contain RIB pointers to particular disk blocks.  For UFD privileges,
+users are divided into the same three categories as for files.
+Each category has three independent bits:
+
+   Code          Access Privileges
+
+    4         Allow LOOKUPs in UFD.
+    2         Allow CREATEs in UFD.
+    l         Allow the UFD to be read as a file.
+
+The owner is permitted to control access to his own UFD.  It is
+always legal for the owner to issue a RENAME to change the
+protection of his UFD.  Only privileged programs are allowed to
+create, supersede, or delete a UFD.  The monitor checks for the
+following types of privileged programs:
+
+a.  Jobs logged in under project-programmer number l,2.  (FAILSAFE)
+
+b.  Jobs running with the JACCT bit set in JBTSTS (LOGIN, LOGOUT).
+
+Privileged programs are allowed to:
+
+a.  Create UFDs.
+b.  Delete UFDs.
+c.  Set privileged LOOKUP, ENTER and RENAME arguments.
+d.  Ignore file protection codes.
+
+
+6.2.4  Disk Quotas
+
+Each project-programmer number in each file structure is associated
+with two quotas that limit the number of blocks that can be stored
+under the UFD in the particular file structure.  The quotas are:
+
+a.  Logged-in quota.
+b.  Logged-out quota.
+
+When the user logs in, he automatically starts using his logged-in
+quota.  This is not a guaranteed amount of space, and the user 
+competes with other users for it.  The logged-out quota is the
+amount of space that the user must be within in order to log
+off the system.  Normally, the logged-out quota is less than or
+equal to the logged-in quota, so that the user must delete
+temporary files.
+
+If a user exceeds his logged-in quota, the monitor types the
+following message:
+
+   (EXCEEDING QUOTA ON fs)
+
+where fs is the name of the file structure.  The message appears
+in square brackets (like the TECO core expansion message) to
+suggest a warning rather than an error.  Unlike most monitor
+messages, this message indicates that the user program may
+continue to run, and the console remains in user mode.  The
+user program can no longer create or supersede files (ENTER gives
+an error return).  Files already ENTERed are allowed to continue
+for a specified amount of blocks.  This amount is called the
+overdrawn amot and is a parameter of the file structure.  The
+overdrawn amount specifies the number of blocks by which the
+logged-in UFD may excced its logged-in quota.  When the user
+exceeds hte overdrawn amount, the IOBKTL bit is set, and further
+OUTPUTs are not allowed.  A CLOSE operates successfully, including
+the writing of the last buffers and the RIBs.
+
+When the user logs in, the LOGIN CUSP reads the logged-in
+quota from the file AUXACC.SYS for all public file structures
+in which the user is allowed to have a UFD.  This information is
+passed to the monitor where it is kept in core.  If the quota
+has changed since the user logged in last, LOGIN updates (or
+creates) the RIB of each UFD with the new quotas.
+
+
+6.2.5  Simultaneous Access
+
+In its core area, the monitor maintains two four-word blocks
+called access blocks.  These blocks control simultaneous access
+to a single file by a number of user channels.  All active files
+have access blocks that contain file status information.  The
+access blocks ensure that a maximum of one user channel supersedes
+or updates a given file at a given time.
+
+
+6.2.6  File Structure Names
+
+Each file structure has a SIXBIT name specified by the
+operator at system initialization time.  The recommanded names
+for the file structures in the public pool are DSKA, DSKB,...,
+DSKN (in order of decreasing speed).   Names for private file
+structures may be any name starting with a letter.  The system
+manager should ensure that private file structure names do not
+conflict with any device or file structure name or its abbreviation.
+
+When a specific file structure is INITed (e.g., DSKA),
+LOOKUP and ENTER searches are restricted to that file structure.
+Usually a channel is INITed with the generic name DSK, in which
+case all file structures in the active search list of the job are
+searched (refer to Paragraph 6.2.7).
+
+
+
+6.2.6.l  Logical Unit Names - When a single file structure name is
+specified, the set of all the units in that file structure is
+implied; however, it is possible to specify a particular logical
+unit within a file structure (e.g., DKAD0, DSKAl, DSKA2 are three
+logical units in the file structure DSKA).  The monitor deals
+with file structures rather than with individual units; therefore,
+when reading files, specifying a logical unit within a file
+structure is equivalent to specifying the file structure itself.
+The monitor locates the file regardless of which unit it is on
+within a file structure.  However, in writing a file, the monitor
+uses the logical unit name as a guide in allocating space and will,
+if possible, write the file on the unit specified.  In this way, a
+user can separate files on to different units for increased
+throughput.
+
+
+6.2.6.2  Physical Controller Class Names - In addition to DSK,
+single file structure names (DSKA) and logical unit names (DSKA0)
+, it is possible to specify a class of controllers.  If the system
+has one controller of the type specified, the result is the same
+as if the user had specified the physical controller name.  The
+controller classes supported by DEC are:
+
+   DR (future drum), FH, DP, MD
+
+
+6.2.6.3  Physical Controller Names - It is possible to specify
+any of the units on a particular controller.  The monitor
+relates that name to the file structures, which contain at least
+one unit on the specified controller.  More than one file
+structure may be specified when a physical controller name is 
+used.  The controllers that DEC supports are:
+
+   DRA, DRB (future drum), FHA, FHB, DPA, DPB, MDA
+
+
+6.2.6.4  Physical Unit Names - When a physical controller name
+is specified, all units on that controller are implied.  It is
+possible to specify a physical unit name on a particular
+controller.  The physical unit names that DEC supports are:
+
+   DRA0,DRB0         Reserved for future drum (RXl0)
+
+   FHA0,...,FHA3     Mixture of Burroughs fixed-head disks (RDl0)
+                     and Bryant drums (RMl0B) on RCl0 control.
+
+   FHB0,...,FHB3     Mixture of Burroughs fixed-head disks (RKl0)
+                     and Bryant drums (RMl0B) on second RCl0
+                     control.
+
+   DPA0,...,DPA7     Mixture of RP0l and RP02 Memorex disk packs
+                     on RPl0 control.
+
+   DPB0,...,DPB7     Mixture of RP0l and RP02 Memorex disk packs
+                     on second RPl0 control.
+
+   MDA0              Single-positioner Bryant mass disk (RBl0B)
+                     on RAl0 control.
+
+   MDB0              Single-positioner Bryant mass disk (RBl0B)
+                     on second RAl0 control.
+
+
+6.2.6.5  Unit Selection on Output - If the user specifies a
+file structure name on an ENTER, the monitor chooses the
+emptiest unit on the file structure which does not currently have
+an open file for the job.  This selection improves disk throughput
+by distributing files for a particular job on different units.
+For example, in a MACRO assembly with two output files and
+one input file, it is probable that the monitor would allocate
+the output files on separate units from each other and from the
+input file.  If this were the only job running, there would be
+almost no seeks.  Therefore, to take advantage of this, programs
+should LOOKUP input files before ENTERing output files.
+
+
+6.2.6.6  Abbreviations - Abbreviations may be used as
+arguments to the ASSIGN command and the INIT and OPEN UUOs.
+The abbreviation is checked for a first match when the ASSIGN,
+INIT or OPEN is executed.  The file structure or device eventually
+represented by the particular abbreviation depends on whether a
+LOOKUP or ENTER follows.  A LOOKUP applies to as wide a class of
+units as possible; however, an ENTER applies to a restricted
+set to allow files to be written on particular units at the
+user's option.  For example, consider the following configuration:
+
+   File Structure    Physical Unit
+
+      DSKA        =    FHA0, FHAl
+      DSKB        =    FHA2,FHB0,FHBl
+      DSKC        =    DPA0, DPAl, DPA2, DPA3
+      DSKD        =    DPB0, DPBl, DPB2
+      PRVA        =    DPB3
+
+Table 6-5 shows the file structures and unit implied by the
+various names and abbreviations.
+
+
+                          Table 6-5
+                      File Structure Names
+
+
+                                File Structures or Units Implied
+  Argument Supplied to
+  ASSIGN, INIT, OPEN            LOOKUP                   ENTER
+
+   D, DS, DSK                     Generic DSK according to job search
+                                  list (refer to Paragraph 6.2.7).
+
+   P, PR, PRV, PRVA             DPB3                    DPB3
+
+   F, FH, FHA                   DSKA, DSKB              FHA0
+
+   FHB                          DSKB                    FHB0
+
+   FHA0                         DSKA                    FHA0
+
+   FHB0                         DSKB                    FHB0
+
+   DP                           DSKC, DSKD, PRVA*       DSKC
+
+   DPA                          DSKC                    DSKC
+
+   DPB                          DSKD, PRVA*             DSKD
+
+   DPA0                         DSKC                    DPA0
+
+   DPB2                         DSKD                    DPB2
+
+   DPB3                         PRVA                    PRVA
+
+* Only if user has done a MOUNT (available in 5.02 and later monitors).
+
+
+6.2.7  Job Search List
+
+To a user, a file structure is like a device; that is, a file
+structure or a set of file structures may be specified by an INIT,
+or OPEN UUO or by the first argument of the ASSIGN command.  A
+console user specifies a file structure by naming the file
+structure and following it with a colon.
+
+There is a flexible naming scheme that applies to file structures;
+however, most user programs INIT device DSK, which selects the
+appropriate file structure, unless directed to do otherwise by
+the user.  The appropriate file structure is determined by a
+job search list.  A job search list is divided into two parts:
+
+a.  An active search list (usually referred to as the job search
+    list), and
+
+b.  A passive search list.
+
+The active search is an ordered list of the file structures
+that are to be searched on a LOOKUP or ENTER when device DSK
+is used.  The passive search list is an unordered list of file
+structures maintained by the monitor for LOGOUT time.  At this
+time, LOGOUT requires that the total allocated blocks on each
+UFD in both the active and passive search lists be below the
+logged-out quota.  Each job has its own active search list
+(established by LOGIN) with file structures in the order
+that they appear in the administrative control file AUXACC.SYS.
+Thus, a user has a UFD for his project-programmer number in each
+file structure in which LOGIN allows him to have files.  With
+the MOUNT command, mounted file structures may be added to the
+active search list.  The following is an example of a search
+list:
+
+   DSKB,DSKA,FENCE,DSKC
+
+DSKB and DSKA comprise the active search list.  These file
+structures are represented by generic name DSK for this job.
+DSKC is the name of a file structure that was previously
+in the active search list.  FENCE represents the boundary
+vetween the active and passive search list.
+
+Each file structure in a job search list may be modified by
+setting one of two flags:
+
+a.  Do not create in this structure if just generic DSK is
+    specified.
+
+b.  Do not write in this structure.
+
+Setting the do not create flag indicates that no new files are
+to be created on this file structure unless explicitly stated.
+For example:  if the "don't create" flag is set
+
+   DSKA: FOO!
+
+allows FOO to be created on DSKA, but
+
+   DSK: FOO!
+
+does not.  For LOOKUPs on device DSK, the monitor searches the
+structures in the order specified by the job search list.  For
+ENTERs the file is placed on the first structure in the search
+list that has space and does not have the do not create flag
+set.
+
+
+6.2.8  User Programming
+
+Three types of writing on the disk may be distinguished.  If
+a user does an ENTER with a filename which did not previously
+exist in his UFD, he is said to be creating that file.  If the
+filename previously existed in his UFD, he is said to be super-
+seding that file; the old version of the file stays on the disk
+(and is available to anyone who wants to read it) until the
+user does the output CLOSE.  At the time of the CLOSE, the
+user's UFD is changed to point to the new version of the file
+and the old version is either deleted immediately or marked for
+deletion later is someone is currently reading it; the space
+occupied by deleted files is always reclaimed in the SAT tables
+(refer to Paragraph 6.2.2.2).  Finally, if a user does a
+LOOKUP followed by an ENTER (the order is important) the same
+filename on the same user channel, he will be able to modify
+selected blocks of that file, using USETO and USETI UUOs
+without creating an entirely new version; this third type
+of writing, called updating, eliminates the need to copy a
+file when making a small number of changes.
+
+As a standard practice, user programs should read, create, and
+supersede (new file with same filename) files on different user
+channels.  However, for compatibility with DECtapes, it is
+possible to read and create, or read and supersede, two files
+on the same user channel as long as all OUTPUTs and the CLOSE
+output are done before the LOOKUP and the first input, or vice
+versa.  In other words, a CLOSE UUO is required between successive
+LOOKUPs and ENTERs unless updating is intended.
+
+The actual file structure of the disk is generally transparent
+to the user.  In programming for I/O on disk, a format
+analogous to that of DECtapes is used; that is, the user assumes
+a four-word directory entry similar in form to the first four
+words of retrieval information.  The UUO format is approximately
+the same as for DECtapes:
+
+   UUO D,E
+
+where UUO is an I/O programmed operator, and D specifies the user
+channel associated with this device.  E points either to a
+four-word directory entry or an extended argument block in the
+user's program.
+
+
+6.2.8.l  Four-Word Arguments for LOOKUP, ENTER, RENAME UUOs -
+The four-word argument block has the following format:
+
+
+
+
+
+
+where:
+
+NAME is the filename in SIXBIT ASCII, if a UFD, or the project-
+programmer number in binary, if a MFD.
+
+EXT is the filename extension in SIXBIT ASCII, if a UFD, or
+the word UFD, if a MFD.
+
+DATE l is the date the file was last referenced (RENAME, ENTER
+or INPUT) in the format of the DATE UUO (bits 24-35).
+
+PROT is the protection code for the file (bits 0-8).
+
+M is the data mode (ASCII, binary, dump) (bits 9-l2).
+
+TIME is the time that the file was originally created (bits l3-23).
+
+DATE 2 is the date (in the same format as DATE l) that the file
+was originally created (bits 24-35).
+
+The programmed operators (UUOs) operate as follows:
+
+a.  ENTER UUO - ENTER D,E causes the monitor to store the
+    four-word directory entry for later entry into the proper
+    UFD when user channel D is closed or released.
+
+    NAME                The filename must be nonzero; otherwise,
+                        an error return results.
+
+    EXT                 The filename extension may be zero; if
+                        so, the monitor leaves it as zero.
+
+    DATE l              The date may be zero, in which case the
+                        substitutes the current date.  The date
+                        must not be in the future; if this is so,
+                        the current date is used.
+
+    PROT                If the protection code is 0, the monitor
+                        substitutes the installation standard as
+                        specified at MONGEN time.  If protection code
+                        is 0 and this ENTER is superseding a file,
+                        the protection of the new file is copied
+                        from the old file.  RENAME may be used to
+                        change the protection after a file has
+                        been completely written and when it is
+                        being closed.
+
+    M                   The data mode is supplied by the monitor.
+                        It was set by the user in the last INIT or
+                        SETSTS UUO on channel D.
+
+    TIME, DATE 2        If both of these are 0, the monitor supplies
+                        current date and time as the creation date
+                        and time for the file.  If either
+                        is nonzero, the monitor uses the TIME
+                        and DATE 2 supplied by the user E + 2;
+                        thus, files may be copied without changing
+                        the original creation time and date.
+
+    PROJECT NUMBER      If both of these are 0, the project-
+    PROGRAMMER NUMBER   programmer number (binary) under which
+                        the user is logged in is supplied by the
+                        monitor. Otherwise, the monitor uses the
+                        project-number and programmer-number supplied
+                        by the user in E + 3.  However, it is
+                        generally not possible to create (ENTER)
+                        files in another user's area of the disk,
+                        because UFDs are usually protected against
+                        creation with all but the owner.
+
+    With certain types of error returns peculiar to the disk, the
+    right half of E + l is set to a specific number to indicate
+    the error that caused the return.  Refer to Appendix E for the
+    error codes returned on the ENTER UUO.
+
+    When an ENTER is executed by the monitor on a file that
+    exists, a new file by that name is written, and those bits in
+    the SAT blocks that correspond to the blocks of the old file
+    are zeroed when the CLOSE (or RELEAS) UUO is executed, thereby
+    retrieving space and making it available to other users after
+    the new file has been successfully written.  If a file structure
+    is INITed on channel D, the monitor maximizes the job's
+    throughput by selecting the emptiest unit for which the job
+    as no opened files (refer to Paragraphs 6.2.6.5 and 6.2.6.6).
+
+b.  LOOKUP UUO - LOOKUP D,E causes the monitor to read the 
+    appropriate UFD.  If a later version of the file is being
+    written, the old version pointed to by the UFD read.
+
+    NAME                The same ay on an ENTER.
+
+    EXT                 The sams on an ENTER.
+
+    DATE l, PROT, M,    These arguments are ignored.  The monitor
+    TIME, DATE 2        returns these quantities to the user in
+                        E + l and E + 2.
+
+    PROJECT NUMBER,     If both of these are 0, the project and
+    PROGRAMMER NUMBER   programmer number (binary) under which the
+                        user is logged in is supplied by the monitor.
+                        Otherwise, the monitor uses the project-
+                        number, programmer-number supplied by the
+                        user in E + 3.  Thus, it is possible to
+                        read files in other user's directories,
+                        provided the file's protection mask permits
+                        reading and the UFD permits LOOKUPs.
+
+    The monitor returns the negative word count (or positive block
+    count for files larger than 2   words) in the LH of E + 3, 0 in
+                                 l7
+    RH of E + 3.  As a result, the monitor treats a negative
+    project-programmer number as if it were 0, however, this will
+    not always be true; therefore, programs must be written to
+    either clear E + 3 before doing a LOOKUP, ENTER or RENAME or
+    set E + 3 to the desired project-programmer number.  In the
+    future, a negative project-programmer number may be used
+    to indicate SIXBIT alphabetic characters for project and
+    programmer initials.
+
+    The numbers placed in the RH of E + l on an error return have
+    a significance analogous to that described for the ENTER UUO
+    (refer to Appendix E).
+
+    If the file is currently being superseded, the old file is
+    used.
+
+c.  RENAME UUO - RENAME D,E is used to alter the filename, the
+    filename extension/protection of a file, or to delete a file
+    from the disk.  Locations E through E + 3 are as described
+    for ENTER.  To RENAME a file, a LOOKUP or ENTER must first be
+    done to identify the file for the RENAME UUO.  CLOSE is
+    optional becauseRENAME performs a CLOSE.  In fact, to minimize
+    disk accesses, a RENAME should not be preceded by a CLOSE.
+
+    RENAME enters the information specified in E through E + 2
+    into the retrieval information and proper directory.  If
+    the contents of E is zero, RENAME has the effect of
+    deleting the file.
+
+    The error codes in the right half of E + l are the same as
+    for ENTER (refer to Appendix E).
+
+    When issuing a RENAME UUO, the user must ensure that the
+    status at locations E through E + 3 are as he desires.  An
+    ENTER or LOOKUP must have preceded the RENAME; therefore, 
+    the contents of E through E + 3 will have been altered, or
+    filled if the E is the same for all UUOs.  If E + 3 has
+    a different project-programmer number than the one in
+    which the file is LOOKUPed or ENTERed, the monitor deletes
+    the directory entry from the old UFD and inserts the directory
+    entry in the new UFD, provided the user has the privileges
+    to delete files from the old UFD, and to create files in the
+    new UFD.  This is an efficient way to move a file from one
+    directory to another, since no I/O needs to be done on the data
+    blocks of the file.
+
+
+
+6.2.8.2  Extended Argument for LOOKUP, ENTER, RENAME UUOs - A
+number of quantities have been added to the existing four-word
+block.  The user program may specify exactly the number of words
+in the argument block.  If the left half of E is 0 and the right
+half of E is three or greater, the right half of E is interpreted
+as the count of the number of words which follow.  If the right
+half of E is less than three, a file-not-found return is given
+because the user program is not supplying enough arguments.
+Allowed arguments supplied by the user program are returned
+by the monitor as values.  If the user program supplies 
+arguments that are not allowed, the monitor ignores these arguments
+and supplies values on return.  Table 6-6 indicates the
+arguments that may be supplied by a user program.
+
+
+                         Table 6-6
+                  Extended LOOKUP, ENTER and
+                      RENAME arguments
+
+
+Rel                     Create   Update
+Loc   Symbol   Lookup   Supers   Rename      Arguments and Value
+---   ------   ------   ------   ------      -------------------
+
+ 0      -        A        A        A     Count of arguments following.
+
+ l    .RBPPN     A0       A0       A0    Directory name (project-
+                                         programmer number).
+
+ 2    .RBNAM     A        A        A     Filename in SIXBIT.
+
+ 3    .RBEXT     A        A        A     File extension (LH)
+                 V        A0       A     Access date (bits 24-35).
+
+ 4    .RBPRV     V        A0       A     Privilege (bits l-8).
+                 V         V       V     Mode (bits 9-l2).
+                 V        A0       A     Creation time (bits l3-23).
+                 V        A0       A     Creation date (bits 24-35).
+
+ 5    .RBSIZ     V        V        V     Length of file in data words
+                                         written (+no. words).
+
+ 6    .RBVER     V        A        A     Octal version no. (36 bits).
+
+ 7    .RBFUT     V        A        A     Reserved for future.
+
+l0    .RBEST     V        A        A     Estimated length of file
+                                         (+no. blocks).
+
+ll    .RBALC     V        A        A     Highest relative block no.
+                                         within F.S. allocated by user
+                                         or monitor to file (not 
+                                         counting 2nd RIB).
+
+l2    .RBPOS     V        A        A     Logical block no. of first
+                                         block to allocate within F.S.
+
+l3    .RBFTl     V        A        A     Future nonprivileged argument
+                                         reserved for DEC.
+
+l4    .RBNCA     V        A        A     Nonprivileged argument reserved
+                                         for customer to define.
+
+l5    .RBMTA     V        Al       Al    Tape label if on backup tape.
+
+l6    .RBDEV     V        V        V     Unit name on which file is
+                                         located.
+
+l7    .RBSTS     V        Al       Al    l) LH=Combined status of all
+                                         files in UFD. 2) RH=Status of
+                                         this file.
+
+20    .RBELB     V        V        V     Bad logical block within error
+                                         unit. 
+
+2l    .RBEUN     V        V        V     l) LH=Logical unit no. within
+                                         F.S. of bad unit (O,,,N).
+                 V        V        V     2) RH=No. of consecutive blocks
+                                         in bad region.
+
+22    .RBQTF     V        Al       Al    (UFD only) FCFS logged-in
+                                         quota in blocks.
+
+23    .RBQTO     V        Al       Al    (UFD only) logged-out quota
+                                       in blocks.
+
+24    .RBQTR     V        Al       Al    (UFD only) reserved logged-in
+                                         quota.
+
+25    .RBUSD     V        Al       Al    (UFD only) no. of blocks used
+a                                -        at last logout.
+
+26    .RBAUT     V        Al       Al    Author project-programmer no.
+                                         (creater or superseder).
+
+27    .RBNXT     V        Al       Al    Next file structure name if
+                                         file continued.
+
+30    .RBPRD     V        Al       Al    Predecessor file structure
+                                         nme if file continued.
+
+3l    .RBPCA     V        Al       Al    Privileged argument word 
+                                         reserved for each customer
+                                         to define as he wishes.
+
+32    .RBUFD     V        Al       V     Logical block number within
+                                         FS (not cluster no.) of UFD
+                                         data block in which the name
+                                         of this file appears.
+
+
+A = Arguemnt (supplied by privileged or nonprivileged user program)
+    and returned by monitor as a value.
+
+A0 = Argument like A with the addition that a 0 argument cabses the
+     monitor to substitute a default value.
+
+V = Value (returned by monitor) cannot be set even by privileged
+    program, monitor ignores argument.
+
+Al = Argument if privileged program (ignored if nonprivileged).
+
+
+The following explanation is a more complete description of the
+terms used in Table 6-6.
+
+.RBPPN    LH=octal project number (right-justified).
+          RH=octal programmer number.
+          The project-programmer number is of the UFD in which
+          the file is to be LOOKedUP, ENTERed, or RENAMEd.  To
+          LOOKUP the MFD, .RBPPN must contain a l in the left
+          half and a l in the right half indicating that the
+          filename (.RBNAM) is to be LOOKedUP in project 1,
+          programmer l's UFD (the MFD).
+
+.RBNAM    SIXBIT filename, left justified with trailing nulls.
+          If the MFD or UFD is being LOOKedUP, ENTERed, or
+          RENAMEd, this location contains the project-programmer
+          number.  The argument can be 0 only on a RENAME,
+          in which case the file is deleted.  If the filename 
+          is not left justified on ENTER, most programs are
+          unsuccessful on a subsequent LOOKUP.  The monitor
+          cannot left-justify the argument because it may be
+          an octal project-programmer number.
+
+.RBEXT    LH=SIXBIT filename extension, left justified with 
+          trailing nulls.  Null extensions are discouraged
+          because they convey no information.  If the extension
+          is not left justified on ENTER, most programs are
+          unsuccessful on a subsequent LOOKUP.  RH, bits 24-35=
+          access date in standard format.  If an error return is
+          given, bits l8-35 are set to an error code by the
+          monitor before the error (no skip) return is taken.
+
+.RBPRV    Bits 0-8=protection codes.
+          Bits 9-l2=data mode in which file is created.
+          Bits l3-23=creation time in minutes since midnight.
+          Bits 24-35=creation date in standard format.
+
+.RBSIZ    Written length of file.  The word is the positive
+          number of words written in the file.  For extended
+          arguments, this word is never used for project-
+          programmer numbers.  (The four-word block remains
+          compatible so that LH=-number of words in file, RH=0).
+          This argument is ignored, and a value is always
+          returned.
+
+.RBVER    Octal version number like the contents of location l37
+          in the job data area.
+
+          LH=patch level (A=l, B=2, etc.)
+          Set by monitor except in the case of privileged programs.
+
+          RH=octal version number, never converted to decimal.
+          This argument is accepted, except on a LOOKUP.  If
+          a user program wishes to increase the version number by
+          l on each UPDATE, it should add l to location E + 6
+          between the LOOKUP and the ENTER.
+
+.RBFUT    Reserved for the future.
+
+.RBEST    Reserved for the future.
+
+.RBALC    Number of l28-word blocks, N, to be allocated to
+          the file, including both RIB blocks, after completion
+          of ENTER or RENAME.
+
+          The smallest unit of disk space that the monitor can
+          allocate is a cluster of 128-word blocks.  Typically
+          small devices use a cluster size of l block.  If
+          N is not the last block of a cluster, the monitor
+          rounds up, thereby adding a few more blocks that the
+          user requested.
+
+.RBPOS    Logical block number, L, of the first block to be
+          allocated for a new group of clusters appended to the
+          file.  A logical block number is specified with respect
+          to the entire file structure.  Logical block numbers
+          begin with logical block number 0.  This feature 
+          combined with DSKCHR UUO allows a user program to 
+          allocate a file with respect to tracks and cylinders
+          for maximum efficiency when the program runs alone.
+          Because SAT blocks, swapping space, and bad blocks
+          are scattered throughout a file structure, programs
+          using this feature must be prepared to handle such
+          contingencies.  It is discouraged for any programs to
+          depend on blocks actually used for allocation to operate
+          without errors.
+
+.RBFTl    Future nonprivileged argument reserved for DEC.
+
+.RBNCA    Nonprivileged argument reserved for customer definition.
+
+.RBMTA    A 36-bit tape label if file has been put on magnetic
+          tape.  If allocated space is 0, then file was deleted
+          from disk when it was copied on magnetic tape.  Argument
+          is accepted only from privileged programs; otherwise,
+          it is ignored.
+
+.RBDEV    The name of the unit on which the file is located.
+          Ignored as an argument, returned as a value.
+
+.RBSTS    File status word
+
+          LH=status of UFD.  Bit 0=l if the user is logged in
+          and is set by LOGIN.  LOGOUT clears this bit.
+
+          RH=status of file.
+
+          Bit l8=l (.RPDIR) if file is a directory file;
+          needed to protect the system from a user who might
+          try to modify a directory file.
+
+          Bit l9=l (.RPNDL) if file cannot be deleted, even by
+          a privileged program.
+
+          Bit 20=l (.RPNCN) if file cannot be renamed, even by
+          a privileged program.
+
+          Bit 2l=l (.RPNFS) if file should not be dumped by
+          FAILSAFE because certain files are needed before
+          FAILSAFE can run.
+
+          The following bits appear in both the LH and RH of
+          this location.
+
+          Bit ll and 29=l if any file in this UFD (or this
+          file) has had a hard data error while reading.
+          (The IODTER bit has been set.)  An entry is made
+          in the BAT block so that the bad region is not reused.
+
+          Bit l0 and 28=l if any file in this UFD (or this file)
+          has had a hard data error while writing.  (The IODTER
+          bit has been set).  An entry is made in the BAT block
+          so that the bad region is not reused.
+
+          Bit 9 and 27=l if any file in this UFD (or this file)
+          has had a software checksum error or redundancy check
+          error.  (The IOTMPM bit has been set).
+
+          NOTE:  Device errors (IODERR) are not flagged in the
+          file status word because they refer to a device and
+          disappear when a device is fixed.
+
+.RBELB    Logical block number within the unit on which last
+          data error (IODTER) occurred, as opposed to block
+          within file structure.  Set by the monitor in the
+          RIB on a CLOSE when the hardware detects either a
+          hard bad parity error or two search errors while 
+          reading or writing the file.  Device errors, checksum,
+          and redundancy errors are not stored here.  This
+          argument is ignored, and a value is returned.
+
+.RBEUN    LH=logical unit number within file structure on which
+          last bad region was detected.
+
+          RH=number of bad blocks in the last-detected bad
+          region.  The bad region may extend beyond the file.
+          This argument is ignored, and a value is returned.
+
+.RBQTF    Meaningful for UFD only.  Contains first-come-first
+          served logged-in quota.  This quota is the maximum
+          number of data and RIB blocks that can be in
+          this directory in this structure while the user is
+          logged in.  The UFD and its RIB are not counted.
+          Argument is ignored unless it is from a privileged
+          CUSP.
+
+.RBQTO    Meaningful for UFD only.  Contains logged-out quota.
+          This quota is the maximum no. of data and RIB blocks
+          that can be left in this directory in this file 
+          structure after the user logs off.  LOGOUT requires
+          the user to be below this quota to log off.  LOGIN
+          stores these quotas in the RIB of the UFD, so that
+          LOGOUT does not have to scan ACCT.SYS at LOGOUT time
+          to find the quota.  Argument is ignored unless it is
+          from a privileged CUSP.
+
+.RBQTR    Meaningful for UFD only.  (In 5.02 and later monitors).
+          Contains reserved logged-in quota.  This quota is
+          the guaranteed number of blocks the user has when he
+          logs in.  Argument is ignored unless it is from a
+          privileged CUSP.
+
+.RBUSD    Meaningful for UFD only.  Contains number of data and
+          RIB blocks used in this directory in this file
+          structure by the user when he last logged off.  LOGIN
+          reads this word so that it does not have to LOOKUP
+          all files in order to set up the number of blocks
+          the user has written.  LOGIN sets bit 0 of the file
+          status word (.RBSTS) and LOGOUT clears it in order to
+          indicate whether LOGOUT has stored the quantity.
+          Argument is ignored unless it is from a privileged
+          CUSP.
+
+.RBAUT    Contains project-porgrammer number of the creator
+          or superseder of the file, as opposed to owner of
+          the file.  Usually the author and the owner are the same.
+          Only when a file is created in a different directory
+          are these different.  This argument is used
+          by Batch for validating queue entries in other
+          directories.  Argument is ignored unless it is from a
+          privileged program.
+
+.RBNXT    Reserved for future.
+
+.RBPRD    Reserved for future.
+
+.RBPCA    Privileged argument reserved for customer definition.
+
+.RBUFD    The logical block number (not cluster number) in the
+          file structure of the UFD's data block in which the
+          name of this file appears.
+
+
+
+6.2.8.3  Special Programmed Operator Service - The following are
+special programmed operator service UUOs.
+
+a.  USETI and USETO UUOs - USETI D,A and USETO D,A are treated
+    similarly by the disk service routines.  Their function
+    is to notify the service routine that a particular relative
+    block is to be used on the next INPUT or OUTPUT on channel D
+    (whichever occurs first).  A designates a particular block
+    relative to the beginning of the file.  The only differ-
+    ence between USETI and USETO occurs when A is greater
+    than the current size of the file (in blocks).  On USETI,
+    the monitor simply sets the IODEOF flag and returns, whereas
+    on USETO, the monitor zeroes the intervening blocks and
+    does not set the IODEOF flag.  The next INPUT or IN
+    causes the EOF flag to be set.  The next OUTPUT or OUT
+    writes the block at the appropriate place.  The first data
+    block of the file (i.e., the one following the RIB) is
+    designated by A=l.  A=0 is treated the same as A=l.
+    If no previous LOOKUP or ENTER has been done, this UUO
+    will set the improper mode error bit (IOIMPM).
+
+b.  Super USETI and USETO UUOs - With disk packs, there is a need
+    to read and write data without using a directory hierarchy
+    (e.g., for testing a pack in a timesharing environment or
+    for a privileged recovery on any file structure).  There
+    must be a way to specify individual blocks of a file
+    structure and/or unit without reference to any file.  These
+    blocks are called logical blocks because they must be
+    transformed for the particular hardware before doing I/O.
+    Under certain conditions, USETI and USETO are used to specify
+    these logical blocks.  When the following conditions are
+    true, USETI and USETO reference logical block numbers with
+    respect to a file structure instead of relative blocks
+    within a file:
+
+    1)  The channel is INITed with a file structure name.
+    2)  No file is opened on the channel specified in the
+        AC field.
+    3)  The structure is a single-access structure assigned to
+        the user, or the program is privileged.
+
+    When the following conditions are true, USETI and USETO
+    reference logical block numbers with respect to a unit
+    instead of logical block numbers with respect to a file
+    structure or relative blocks within a file.
+
+    1)  The channel is INITed with a physical unit name.
+    2)  No file is opened on the channel specified in the AC
+        field.
+    3)  The unit is a member of a single-access file structure
+        mounted for the user, or the program is privileged.
+
+    The terms super-USETI and super-USETO distinguish these UUOs
+    from regular USETI and USETO.  Super-USETI and super-USETO
+    provide their arguments in the contents of the effective
+    address, rather than the effective address itself.
+
+    USETI and USETO and their counterparts do not perform
+    I/O; they change either the current position of the file
+    (regular) or the current position in the file structure
+    (super).  Both super-USETI and super-USETO set the IOBKTL
+    flag if a specified logical block is too large for the
+    file structure or unit.
+
+    If a program is nonprivileged, super-USETI and super-USETO
+    is a no-operation.
+
+
+c.  SEEK UUO - This UUO, when used in conjunction with USETI
+    and USETO, allows user programs control over the time at
+    which positioning operations occur.  Following a regular
+    USETI or USETO, positioning is to the cylinder containing
+    the requested relative block within a file.  Following a
+    super-USETI/USETO, positioning is to the cylinder 
+    containing the specified disk block.
+
+    The call is:
+
+        CALL D, (SIXBIT/SEEK/); or CALLI D,56
+        return
+
+    D specifies a software channel number.  The SEEK UUOs are
+    honored by the monitor only if the unit for which they are
+    issued is idle.  If the unit is in any other state, the
+    SEEK UUO is a no-operation.
+
+    SEEK UUOs issued for public file structures are treated in
+    the same way as private file structures.  This allows users
+    to debug programs using a public disk pack and later run
+    the same programs using a private disk pack.
+
+    The following is proper UUO sequence for issuing a SEEK.
+
+    1)  USETO to select a block (relative or actual).
+    2)  SEEK to request positioning.
+    3)  Computations.
+    4)  OUTPUT to request actual output.
+
+    For input
+
+    1)  SEETI to select a block (relative or actual)
+    2).  SEEK to request positioning.
+    3)  Computations.
+    4)  INPUT to request actual input.
+
+d.  CALL (SIXBIT/RESET/)- This UUO causes files that are in
+    the process of being written, but have not been CLOSEd or
+    RELEASed, to be deleted; the space is reclaimed.  If a
+    previous version of the file with the same name and
+    extension wxisted, it remains unchanged on the disk (and
+    in the UFD).  If the programmer wishes to retain the newly
+    created file and to delete the older version, he must 
+    CLOSE or RELEASe the file before doing a RESET UUO.
+
+e.  DEVSTS UUO - After each interrupt, FILSER stores the results
+    of a CONI in the DEVSTS word of the device data block.  The
+    DEVSTS UUO is used to return the contents of the DEVSTS
+    word to the user (refer to Paragraph 4.9.3.4).
+
+
+
+6.2.8.4  Simultaneous Supersede and Update - Files that may be
+simultaneously superseded or updated by several different users
+should be treated with care.  The problem arises when one user
+has a copy of information to be superseded by another user.
+For example; file F contains a count of the number of
+occurrences of a certain event.  The count is l0 at a given
+time.  When two users observe separate instances of the
+event, each tries to increment the count.
+
+Supersede - Incorrectly
+
+          Job l              Job 2
+
+     LOOKUP A,F         
+                        LOOKUP C,F
+     READ COUNT (=l0)   READ COUNT (=l0)
+     ADD l (=ll)        ADD l (=ll)
+                           .
+     ENTER B,F             .
+     WRITE OUT (=ll)    ENTER D,F        (fail)
+     CLOSE B,F             .
+                        ENTER D,F        (succeed)
+                        WRITE OUT (=ll)
+                        CLOSE D,F
+
+In this example, job 2 ignored job l's increment.
+
+Supersede - Correctly
+
+-         Job l             -Job 2
+
+     ENTER B,F
+     LOOKUP A,F
+                         ENTER D,F       (fail)
+     INPUT A,(=l0)       LOOKUP C,F
+     ADDl(=ll)              .
+     OUTPUT B,(=ll)         .
+     CLOSE B,F              .
+                         ENTER D,F       (succeed)
+                         INPUT C,(=ll)
+                         ADDl(=l2)
+                         OUTPUT D,(=l2)
+                         CLOSE D,F
+
+In this example, both jobs performed the ENTER FIRST; therefore,
+incorrect copies were not made and the increment of each job
+was recorded properly.
+
+The similar problem with an update can be avoided by never
+using the information returned by the LOOKUP:
+
+         Job l              Job 2
+
+     LOOKUP A,F
+     INPUT A,            LOOKUP B,F
+                         INPUT B,
+     ENTER A,F
+     OUTPUT              ENTER B,F       (fail)
+     CLOSE               Here any information from the LOOKUP
+                         and INPUT must be discarded.
+
+
+
+6.2.9  File Status (refer to Appendix D)
+
+The file status of the disk is shown below:
+
+
+
+
+
+
+
+Bit l8 - IOIMPM    a.  INPUT UUO attempted on a read-protected file.
+                   b.  INPUT UUO when no LOOKUP was done (or
+                       super-USETI/USETO previously attempted by
+                       nonprivileged user).
+                   c.  OUTPUT UUO when no ENTER was done (or
+                       super-USETI/USETO previously attempted by
+                       nonprivileged user).
+                   d.  Software-detected checksum error.
+                   e.  Software-detected redundancy error in SAT
+                       block or RIB, or (6)buffered mode I/O
+                       attempted after super-USETI/USETO.
+
+Bit l9 - IODERR    Search error, power supply failure.
+
+Bit 20 - IODTER    Disk or data channel parity error.  Checksum
+                   failure on INPUT.
+
+Bit 2l - IOBKTL    a.  Quota is exhausted (past overdrawn).
+                   b.  File structure is exhausted.
+                   c.  RIB is full.
+                   d.  Super-USETI/USETO block is too large for
+                       the file structure.
+                   e.  More than 777777 blocks were read with one
+                       super-USETI/USETO.
+
+Bit 22 - IODEOF    EOF encountered on INPUT.  No special character
+                   appears in the buffer.
+
+Bit 23 - IOACT     Device is active.
+
+
+
+There are no device dependent bits.
+
+
+
+6.2.l0  Disk Packs
+
+A disk pack system combines disk and the DECtape features.
+Some packs (similar to individual DECtapes) are designed to
+be private, assignable, and removable.  The other packs make
+up part or all of the public disk storage area where CUSPs and
+user files are stored.  These disk packs belong to file structures
+in the storage pool and cannot be assigned to any single user.  
+The system library and shared on-line storage is maintained
+and swapping storage is assigned within the public disk pack area.
+
+The most important distinction between public and private packs
+is that private packs are intended to be removed from the system
+during regular operation.  Public packs stay on-line all the time.
+However, the file structure format for public and private disk
+packs is identical.
+
+User programs can exercise much greater control over private
+packs.  For example; a program may attempt to position the arms
+of disk packs in anticipation of future I/O (refer to Paragraph
+6.2.8.3c).  This capability is useful to a program that is
+aware of the contents of a disk and is able to use this information
+to optimize positioning.  The program may also specify the
+position of files on the disk by using the allocate arguments
+of the extended LOOKUP, ENTER and RENAME UUOs.
+
+Private packs may be accessed by more than one job (multi-      
+access) or restricted to nly one job (single-access).  To
+access a private file structure, the user must type the MOUNT
+command (available in 5.02 and later monitors).  If the private
+file structure is already mounted, on-line, and multi-access,
+the user receives an immediate response and may start using 
+qthe private pack.  When the user is finished using the private
+pack, he should type the REMOVE command.  If no other job is
+using the file structure, a message is typed to the operator
+informing him that the drives belonging to the file structure
+are free.
+
+
+6.2.l0.l  Removable File Structures - All file structures are
+designed as if they could be removed from the syste; therefore,
+disk packs are handled the same as other types of disks.
+
+
+6.2.l0.2  Identification - Disk packs have identifying infor-
+mation written on the home block, a block on every unit identifying
+the file structure to which the unit belongs and its position
+within the file structure.  Part of this information is the
+pack ID, a one to six-character SIXBIT name uniquely identifying
+the disk pack.  The MOUNT and OMOUNT CUSPs check that the operator
+has mounted the proper packs by comparing the pack ID in the
+home block with the information stored in the system adminis-
+tration file STRLST.SYS.
+
+
+6.2.l0.3  IBM Disk Pack Compatibility - The data format of IBM
+disk packs has variable-length sectors and no sector headers.
+DEC format has fixed-length sectors (l28 words) and specially
+written sector headers.  Latency optimization is employed
+to improve system throughput (refer to Paragraph 7.3).
+DEC's significantly simpler hardware controller is used without
+reducing user capabilities.
+
+To transfer data from an IBM pack system to a DEC pack system,
+a simple program in a higher-level language should be written
+for both machines.  The program then reads the IBM disk pack on
+the IBM computer and writes the files onto magnetic tape.
+The magnetic tape is then transferred to a DEC computer and
+read by another program, which writes the files onto the DEC
+RP0l or RP02 packs.
+  #MI~Û
