@@ -1,0 +1,639 @@
+
+
+CHAPTER 7 - MONITOR ALGORITHMS
+
+
+7.l  JOB SCHEDULING
+
+The number of jobs that may be run simultaneously must be specified
+in creating a PDP-l0 Timesharing Monitor.  Up to l27 jobs may
+be specified.  Each user accessing the system is assigned a job
+number.
+
+In multiprogramming system all jobs reside in core, and the
+scheduler decides what jobs should run.  In a swapping syste,
+jobs exist on an external storage device (usually disk or dum)
+as well as in core.  The scheduler decides not only what job is
+to run, but also when a job is to be swapped out onto the disk
+(drum) or brought back into core.
+
+In a swapping system, jobs are retained in queues of varying
+priorities that reflect the status of the jobs at any given
+mement.  Each job number possible in the system resides in
+only one queue at any time.  A job may be in one of the following
+queues:
+
+a.  Run queues - for runnable jobs waiting to execute.  (There
+    are three run queues of different levels of priorities).
+
+b.  I/O wait queue - for jobs waiting while doing I/O.
+
+c.  I/O wait satisfied queue - for jobs waiting to run after
+    finishing I/O.
+
+d.  Sharable device wait queue - for jobs waiting to use sharable
+    devices.
+
+e.  Teletype wait queue - for jobs waiting for input or output
+    on the user's console.
+
+f.  Teletype wait satisfied queue - for jobs that completed a
+    Teletype operation and are awaiting action.
+
+g.  Stop queue - for processes that have been completed or 
+    aborted by an error and are awaiting a new command for
+    further action.
+
+h.  Null queue - for all jobs numbers that are inactive
+    (unassigned).
+
+Each queue is addressed through a table.  The position of a queue
+address in a table represents the priority of the queue with
+respect to the other queues.  Within each queue, the position
+of a job determines its priority with respect to the other jobs
+in the same queue.  The status of a job is changed when it is
+placed in a different queue.
+
+Each job, when it is assigned to run, is given a quantum time.
+When the quantum time expires, the job ceases to run and moves to
+a lower priority run queue.  The activities of the job currently
+running may cause it to move out of the run queue and enter one
+of the wait queues.  For example:  when a currently running job
+begins input for a DECtape, it is placed in the I/O wait queue,
+and the input is begun.  A second job is set to run while the
+input of the first job proceeds.  If the second job then decides
+to access a DECtape for an I/O operation, it is stopped because
+the DECtape control is busy, and it is put in the queue for
+jobs waiting to access the DECtape control.  A third job is
+set to run.  The input operation of the first job finishes,
+making the DECtape control available to the second job.  The
+I/O operation of the second job is initiated, and the job is
+transferred from the device wait queue to the I/O wait queue.
+The first job is transferred from the I/O wait queue to the
+highest priority run queue.  This permits the first job to
+preempt the running of the third job.  When the quantum time
+of the first job becomes zero, it is moved into the second
+run queue, and the third job runs again until the second job
+completes its I/O operations.
+
+Data transfers also use the scheduler to permit the user to
+overlap computation with data transmission.  In unbuffered modes,
+the user supplies an address of a command list containing 
+pointers to relative locations in the user area to and from
+which data is to be transferred.  When the transfer is
+initiated, the job is scheduled into an I/O wait queue where it
+remains until the device signals the scheduler that the entire
+transfer has been completed.
+
+In buffered modes, each buffer contains a use bit to prevent
+the user and the device from using the same buffer at the same
+time (refer to Paragraph 4.l0.3).  If the user overtakes the
+device and requires the buffer currently being used by the device
+as his next buffer, the user's job is scheduled into an I/O
+wait queue.  When the device finishes using the buffer, the
+device calls the scheduler to reactivate the job.  If the device
+overtakes the user, the device is stopped at the end of the
+buffer and is restarted when the user finishes with the buffer.
+
+Scheduling occurs at each clock tick (l/60th or l/50 or a
+second) or may be forced at monitor level between clock ticks
+if the current job becomes blocked (unrunnable).  The asynchronous
+swapping algorithm is also called at each clock tick and has the
+task of bringing a job from disk into core.  This function 
+depdns on
+
+a.  The core shuffling routine, which consolidates unused areas
+    in core to make sufficient room for the incoming job.
+
+b.  The swapperk which creates additional room in core by
+    transferring jobs from core to disk.
+
+Therefore, when the scheduler is selecting the next job to be
+run, the swapper is bringing the next job to be run into core.
+The transfer from disk to core takes place while the central
+processor continues computation for the previous job.
+
+
+7.2  PROGRAM SWAPPING
+
+Program swapping is performed by the monitor on one or more
+units of the system independent of the file structures that
+may also use the units.  Swapping space is allocated and deallocated
+in clusters of lK words (Exactly), this size is the increment
+size of the memory relocation and protection mechanism.
+Directories are not maintained, and retrieval information is
+retained in core.  Most user segments are written onto the
+swapping units as contiguous units.   Swapping time and
+retrieval information is, therefore, minimized.  Segments are
+always read completely from the swapping unit into core with
+one I/O operation.  The swapping space on all units appears as
+a single system file, SWAP.SYS, in directory SYS in each file
+structure.  This file is protected from all but privileged
+programs by the standard file protection mechansim (refer to
+Paragraph 6.2.3).
+
+The reentrant capability reduces the demands on core memory,
+swapping space, swapping channel, and storage channel; however,
+to reduce the use of the storage channel, copies of sharable
+segments are kept on the swapping device.  This increases the
+demand for swapping space.  To prevent the swapping space from
+being filled by user's files and to keep swapped segments
+from being fragmented, swapping space is preallocated when the
+file structure is refreshed.  The monitor dynamically achieves
+the space-time balance by assuming that there is no shortage
+of swapping space.  Swapping space is never used for anything
+except segments, and the monitor keeps a single copy of as many
+segments as possible in this space.  (The maximum number of
+segments that may be kept may be increased by individual
+installations but is always at least as great as the number of
+jobs plus one).  If a sharable segment on the swapping space is
+currently unused, it is called a dormant segment.  An idle
+segment is a sharable segment that is not used by users in core;
+however, at least one swapped-out user must be using the segment
+or it would be a dormant segment.
+
+Swapping disregards the grouping of similar units into file
+structures; therefore, swapping is done on a unit basis rather 
+than a file structure basis.  The units for swapping are grouped
+in a sorted order, referred to as the active swapping list.  
+The total virtual core, which the system can allocate to users,
+is equal to the total swapping space preallocated on all units
+in the active swapping list.  In computing virtual core, sharable
+segments count only once, and dormant segments do not count at
+all.  The monitor does not allow more virtual core to be granted
+than the system has capacity to handle.
+
+When the system is started, the monitor reads the home blocks
+on all the units that it was generated to handle.  The monitor
+determines from the home blocks which units are members of the
+active swapping list.  This list may be changed at once-only
+timme.  The change does not require refreshing of the file
+structures, as long as swapping space was preallocated on the
+units when they were refreshed.  All of the units with swapping
+space allocated need not appear in the active swapping list.
+For example:  a drum and disk pack system should have swapping
+space allocated on both drum and disk packs.  Then, if the drum
+becomes inoperable, the disk packs may be used for swapping
+without refreshing.
+
+Users cannot proceed when virtual core is exhausted; therefore,
+FILSER is designed to handle a variety of disks as swapping
+media.  The system administrator allocates additional
+swapping space on slower disks and virtually eliminates the
+possibility of exhausting virtual core; therefore, in periods
+of heavy demand, swapping is slower for segments that must
+be swapped on the slower devices.  It is also undesirable to
+allow dormant segments to take up space on high-speed units.
+This forces either fragmentation on fast units or swapping on
+slow units; therefore, the allocation of swapping space
+is important to overall system efficiency.
+
+The swapping allocator is responsible for assigning space for
+the segment the swapper wants to swap out.  It must decide:
+
+a.  Onto which unit to swap the segment.
+b.  Whether to fragment the unit if not enough contiguous
+    space is available.
+c.  Whether to make room by deleting a dormant segment.
+d.  Whether to use a slower unit.
+
+The units in the active swapping list are divided into swapping
+classes, usually according to device speed.  For simplicity,
+the monitor assumes that all the units of class 0 are first
+followed by all the units of class l.  Swapping classes are
+defined when the file structures are refreshed, and may be
+changed at once-only time.
+
+When attempting to allocate space to swap out a low or high
+segment, the monitor performs the following:
+
+   Step                       Procedure
+
+    l         The monitor looks for contiguous space on one of
+              the units of the first swapping class.
+
+    2         The monitor looks for noncontiguous space on one
+              of the units in the same class.
+
+    3         The monitor checks whether deleting one or more
+              dormant segments would yield enough contiguous or
+              noncontiguous space.
+
+If all of these measures fail, the monitor repeats the process
+on the next swapping class in the active swapping list.  If
+none of the classes yield enough space, the swapper begins again
+and deletes enough dormant segments to fragment the segment acros
+units and classes.  When a deleted segment is needed again, it
+is retrieved from the storage device.
+
+
+7.3  DEVICE OPTIMIZATION
+
+7.3.l  Concepts
+
+Each I/O operation on a unit consists of two steps:  positioning
+and data transferring.  To perform I/O, the unit must be positioned,
+unless it is already on a cylinder or is a non-positioning device.
+To position a unit, the controller cannot be performing a data
+transfer.  If the controller is engaged in a data transfer, the
+positioning operation of moving the arm to the desired cylinder
+cannot begin until the data transfer is complete.
+
+The controller ensures that the arms have actually moved to the
+correct cylinder.  This check is callec verification, and the time
+required is fixed by hardware.  If verification fails, the 
+controller interrupts the processor, and the software recalibrates
+the positioner by moving it to a fixed place and beginning again.
+When verification is complete, the controller reads the sector
+headers to find the proper sector on which to perfrom the operation.
+This operation is called searching.  Finally, the data is trans-
+ferred to or from the desired sectors.  To understand the optimi-
+zation, the transfer operation includes verification, searching,
+and actual transfer.  The time from the initiation of the
+transfer operation to the actual beginning of the transfer
+is called the latency time.  The channel is busy with the controller
+for the entire transfer time; therefore, it is important for
+the software to minimize the latency time.
+
+The FILSER code, a routine that queues disk requests and makes
+optimization decisions, handles any number of channels and
+controllers and up to eight units for each controller.
+Optimization is designed to keep:
+
+a.  As many channels as possible performing data transfers at
+    the same time.
+
+b.  As many units positioning on all controllers, which are not
+    already in position for a data transfer.
+
+Several constraints are imposed by the hardware.  A channel can
+handle only one data transfer on one control at a time.  Further-
+more, the control can handle a data transfer on only one of its
+units at a time.  However, the other units on the control can
+be positioning while a data transfer is taking place provided 
+the positioning commands were issued prior to the data transfer.
+Positioning requests for a unit on a controller, which is busy
+doing a data transfer for another of its units, ust be queued
+until the data transfer is finished.  When a positioning
+command is given to a unit through a controller, the controller 
+is busy for only a few microseconds; therefore, the software
+can issue a number of positioning commands to different units
+as soon as a data transfer is complete.  All units have only
+positioning mechanism that reaches each point; therefore,
+only one positioning operation can be performed on a unit
+at the same time.  All other positioning requests for a unit
+must be queued.
+
+The software keeps a state code in memory for each active
+file, unit, controller, and channel, to remember the status
+of the hardware.  Reliability is increased because the software
+does not depend on the status information of the hardware.  
+The state of a unit is as follows:
+
+   I       Idle; no positions or transfers waiting or being
+           performed.
+
+   SW      Seek Wait; unit is waiting for control to become idle
+           so that it can initiate positioning (refer to 
+           Paragraph 6.2).
+
+   S       Seek; unit is positioning in response to a SEEK UUO
+           no transfer of data follows.
+
+   PW      Position Wait; unit is waiting for control to become
+           idle so that it can initiate positioning.
+
+   P       Position; unit is positioning; transfer of data
+           follows although not necessarily on this controller.
+
+   TW      Transfer Wait; unit is in position and is waiting for
+           the controller/channel to become idle so that it can
+           transfer data.
+
+   T       Transfer; unit is transferring; the controller and
+           channel are busy performing the operation.
+
+Table 7-l lists the possible states for files, units, controllers
+and channels.
+
+                           Table 7-l
+                         Software States
+
+
+        File*       Unit       Controller      Channel
+        ----        ----       ----------      -------
+
+        I           I              I              I
+                    SW
+                    S
+
+        PW          PW
+        P           P
+        TW          TW
+        T           T              T              T
+
+   * Cannot be in S or SW state because SEEKs are ignored if
+     the unit is not idle.
+
+
+7.3.2  Queuing Strategy
+
+When an I/O request for a unit is made by a user program because
+of an INPUT or OUTPUT UUO, one of several things can happen
+at UUO level before control is returned to the buffer-strategy
+module in UUOCON, which may, in turn, pass control back to the
+user without rescheduling.  If an I/O request requires positioning
+of the unit, either the request is added to the end of the
+position-wait queue for the unit if the control or unit is busy,
+or the positioning is initiated immediately.  If the request does
+not require positioning, the data is transferred immediately.
+If the channel is busy, the request is added to the end of the
+transfer-wait queue for the channel.  The control gives the
+processor an interrupt after each phase is completed.  Optimization
+occurs at interrupt level when a position-done or transfer-done
+interrupt occurs.
+
+
+7.3.2.l  Position-Done Interrupt Optimization - The following
+action occurs only if a transfer-done interrupt does not
+occur first.  Data transfer is started on the unit unless
+the channel is busy transferring data for some other unit or
+control.  If the channel is busy, the request goes to the end
+of the transfer-wait queue for that channel.
+
+
+7.3.2.2  Transfer-Done Interrupt Optimization - When a 
+transfer-done interrupt occurs, all the position-done interrupts
+inhibited during the data transfer are processed for the controller,
+and the requests are placed at the end of the transfer-wait
+queue for the channel.  All units on the controller are then
+scanned.  The requests in the position-wait queues on each unit
+are scanned to see the request nearest the current cylinder.
+Positioning is begun on the unit of the selected request.  All
+requests in the transfer-wait queue for all units on the channel
+that caused the interrupt are then scanned and the latency time
+is measured.  The request with the shortest latency time is
+selected, and the new transfer begins.
+
+
+7.3.3  Fairness Considerations
+
+When the system selects the best talk to run, users making 
+requests to distant parts of the disk may not be serviced for
+a long tim.e  The disk software is designed to make a fair
+decision for a fixed percentage of time.  Every n decisions the
+disk software selects the requests at the front of the position
+wait or transfer-wait queue and processes it, because that
+request has been waiting the longest.  The value of n is set
+to l0 (decimal) and may be changed by redefining symbols with
+MONGEN (see MONITR.OPR).
+
+
+7.3.4  Channel Command Chaining
+
+7.3.4.l  Buffered Mode - Disk accesses are reduced by using
+the chaining feature of the data channel.  Prior to reading a
+block in buffered mode, the device independent routine checks
+to see if there is another empty buffer, and if the next relative
+block within the file is a consee logical block within
+the unit.  If both checks are true, FILSER creates a command
+list to read two or more consecutive blocks into scattered
+core buffers.  Corresponding decisions are made when writing
+data in buffered mode, and, if possible, two or more separate
+buffers are written in one operation.  The command chaining
+decision is not made when a request is put into a position-wait
+or transfer-wait queue; instead, it is postponed until the
+operation is performed, thus increasing the chances that the
+user program will have more buffers available for input or
+output.
+
+
+7.3.4.2  Unbuffered Mode - Unbuffered modes do not use channel
+chaining, and therefore, read or write on ecommand word at a
+time.  Each command word begins at the beginning of a l28-word
+block.
+
+If a command word does not contain an even multiple of l28
+words, the remaining words of t-e last block are not read, if
+reading, and are written with zeroes, if writing.
+
+
+7.4  MONITOR ERROR HANDLING
+
+The monitor detects a number of errors.  If a hardware error is
+detected, the monitor repeats the operation three times.
+If the failure occurs four times in a row, it is classified
+as a hard error.  If the operation succeeds after failing
+one to three times, it is a soft error.
+
+
+7.4.1  Hardware Detected Errors
+
+Hardware detected errors are classified either as device
+errors or as data errors.  A device error indicates a mal-
+function of the controller or channel.  A data error indicates
+that the hardware parity did not check or a search for a sector
+header either did not succeed or had bad parity (the user's data
+is probably bad).
+
+A device error sets the IODERR bit in the channel status word,
+and a data error sets the IODTER bit.
+
+Disk units may have imperfect surfaces; therefore, a special
+non-timesharing diagnostic program, MAP, is provided to
+initially find all the bad blocks on a specified unit.  The
+logical disk addresses of any bad regions of one or more bad
+blocks are recorded in the bad allocation table (BAT) block on
+the unit.  The timesharing monitor allocates all storage for
+files; therefore, it uses the BAT block to avoid allocating 
+blocks that have previously proven bad.  The MAP program writes
+two copies of the BAT block because the BAT block might be 
+destroyed.  If the MAP program is not used, the monitor discovers
+the bad regions when it tries to use them and adds this information
+to the BAD block.  However, the first user of the bad region loses.
+that part of his data.
+
+A hard data error usually indicates a bad surface; therefore,
+the monitor never returns the bad region to free storage.
+This results in the bad region causing an error only once.  The
+bad unit and the logical disk address are stored in the retrieval
+information block (RIB) of the file when the file is CLOSEd or
+RESET and the extent of the bad region is determined.  The origin
+and length of the bad region is stored in the bad allocation
+table (BAT) block.
+
+
+7.4.2  Software Detected Errors
+
+The monitor makes a number of software checks on itself.  It
+checks the folded checksum (refer to Appendix I) computed for the
+first word of every group and stored in the retrieval pointer.
+The monitor also checks for in9onsistencies when comparing
+locations in the retrieval information block with expected values
+(filename, filename extension, project-programmer number, special
+code, logical block number).  The monitor checks for incon-
+sistencies in the storage allocation table block when comparing
+the number of free clusters expected with the number of zeroes.
+A checksum error or an inconsistency error in the SAT block or
+RIB normally indicates that the monitor is reading the wrong
+block.  When these errors occur, the monitor sets the improper
+mode error bit (IOIMPM) in the user channel status word and
+returns control to the user program.
+
+
+7.5  DIRECTORIES
+
+7.5.l  Order of Filenames
+
+The names of newly created files are appended to the directory
+if the directory does not contain more than 64 filenames.  If
+the directory contains more than 64 filenames, a second block
+is used for the new filenames.  When filenames are deleted from
+the first blcok, entries from the second block are not moved
+into the first.  When additional new files are created, their
+,names are added to the end of the first block of the directory
+instead of the end of the directory.  Thus, the order of the
+filenames in the directory may not be according to the date of
+careation.
+
+
+7.5.2  Directory Searches
+
+Table space in core memory is used to reduce directory searching
+times.  The JBTPPB table contains pointers to a list of four-
+word blocks for the user's project-programmer number, one block
+for each file structure on which the user has a UFD.
+
+Four-word name and access blocks contain copies of LOOKUP
+information for recently-accessed files and may reduce disk
+accesses to one directory read for a LOOKUP on a recently-
+active file.  Recent LOOKUP failures are also kept in core,
+but are deleted when space is needed.
+
+
+7.6  PRIORITY INTERRUPT ROUTINES
+
+7.6.l  Channel Interrupt Routines
+
+Each of the seven PI channels has two absolute locations associated
+with it in memory:  40+2n and 4l+2n, where n is a channel number
+(l-7).  When an interrupt occurs on a channel, control is immediately
+transferred to the first of the two associated locations (unless
+an interrupt on a higher priority channel is being processed).
+For fast service of a single device, the first location contains
+either a BLKI or BLKO instruction.  For service of more than one
+device on the same channel, the first location contains a JSR
+to location CHn in the appropriate channel interrupt routine.
+The JSR ensures that the current state of the program counter
+is saved.
+
+Each channel interrupt routine (mnemonic name, CHANn, where n is
+the channel number) consists of three separate routines:
+
+   CHn       The contents of the program counter is saved in
+             location CHn.  CHn+l contains a JRST to the first
+             device service routine in the interrupt chain.
+
+   SAVCHn    The routine to save the contents of a specified
+             number of accumulators.  It is called from the 
+             device service routines with a JSR.
+
+   XITCHn    The routine to restore saved accumulators.  Device
+             service routines exit to XITCHn with a POPJ PDP,
+             if SAVCHn was previously called.
+
+
+7.6.2  Interrupt Chains
+
+Each device routine contains a device interrupt routine DEVINT
+where DEV is the three-letter mnemonic for the device concerned.
+This routine checks to determine whether an interrupt was
+caused by device DEV.  The interrupt chain of a given channel
+is a designation for the logical positioning of each device
+interrupt routine associated with that channel.
+
+The monitor flow of control on the interrupt level through a
+chain is illustrated below.  Channel 5 is used in the example.
+
+Monitor Routine          Relevant Code          Explanation
+---------------          -------------          -----------
+
+Absolute         52/JSR CH5                ;control transferred here
+Locations        53/                       ;on interrupt
+
+CHAN5            CH5: 0                    ;contents of PC saved here
+                    JRST PTPINT            ;control transfers to first
+                                           ;link in interrupt chain
+
+                 PTPINT: CONSO PTP,PTPDON  ;if PTP done bit is on,
+PTPSER              JRST LPTINT            ;PTP was cause of interrupt -
+                         .                 ;otherwise, go to next device.
+
+                 LPTINT: CONSO LPT,LPTLOV+LPTERR+LPTDON
+LPTSER              JEN  CH5               ;three possible bits may
+                         .                 ;indicate that LPT caused
+                         .                 ;interrupt.
+
+
+When a real-time device is added to the interrupt chain (CONSO
+skip chain) by a RTTRP UUO (refer to Paragraph 8.3), the device
+is added to the front of the chain.  After putting a real-time
+device on Channel 5 in single mode (refer to Paragraph 8.3),
+the chain is as follows:
+
+Monitor Routine        Relevant Code              Explanation
+----,,---------        -------------              -----------
+
+Absolute         52/JSR CH5               ;control transferred here
+Locations        53/                      ;on interrupt
+
+CHAN5            CH5: 0                   ;contents of PC saved hwer
+                    JRST RDTINT           ;control transfers to first
+                                          ;link in interrupt chain.
+
+RTDEV            RTDINT: CONSO RTD,BITS
+                    JRST PTPINT
+                    JRST (context switcher and
+                         dispatch for real-time
+                         interrupts).
+
+                 PTPINT: CONSO PTP,PTPDON  ;if PTP done bit is on,
+PTPSER              JRST LPTINT            ;PTP was cause of interrupt -
+                         .                 ;otherwise, go to next device.
+
+                 LPTINT:CONSO LPT, LPTVOL+LPTERR+LPTDON
+LPTSER              JEN  CH5               ;three possible bits may
+                         .                 ;indicate that LPT caused
+                         .                 ;interrupt.
+
+
+After putting a real-time device on Channel 5 in normal block
+mode (refer to Paragraph 8.3), the chain is as follows:
+
+Monitor Routine          Relevant Code          Explanation
+---------------          -------------          -----------
+
+Absolute         52/JSR CH5                ;control transferred here
+Locations        53/                       ;on interrupt.
+
+CHAN5            CH5: 0                    ;contents of PC saved here
+                   JRST RTDINT             ;control transfers to first
+                                           ;link in interrupt chain.
+
+RTDEV            RTDINT:CONSO RTD,BITS
+                   JRST PTPINT
+                   BLKI RTD,POINTR
+                   JRST (context switcher)
+                   JEN  CH5
+
+                 PTPINT:CONSO PTP,PTPDON   ;if PTP done bit is on,
+PTPSER             JRST LPTINT             ;PTP was cause of interrupt
+                       .                   ;otherwise, go to
+                        .                  ;next device
+
+                 LPTINT:CONSO LPT,LPTLOV+LPTERR+LPTDON
+LPTSER             JEN  CH5                ;three possible bits may
+                        .                  ;indicate that LPT caused
+                        .                  ;interrupt.
+    
+#Nú
