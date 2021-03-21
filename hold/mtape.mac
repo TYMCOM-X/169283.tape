@@ -1,0 +1,90 @@
+        TITLE   MTAPE
+        ENTRY   MTAPE
+MTAPE:  JUMP
+        TBUFP=TBUF+1
+        DBUFP=DBUF+1
+        CALL    [SIXBIT/RESET/]
+        INIT    1,1
+        SIXBIT/TTY/
+        XWD     0,TBUF
+        0
+        INBUF   1,15
+        INIT    2,1
+        SIXBIT/DSK/
+        XWD     DBUF,0
+        0
+        OUTBUF  2,10
+        ENTER   2,EFILE
+        JRST    CATLKP
+;  TURN OFF LINE FEEDS...
+        SETO    1,0
+        TTCALL  6,1     ;GETSTATUS
+        TLON    1,000002        ;DO RIGHT BIT,SKIP IF DONE
+        TTCALL  7,1     ;SET STATUS
+        OUT     2,      ;SET UP BUFFERS
+        JUMP
+        SETZM   7
+BEGIN:  MOVEI   2,1200
+READ:   JRST    CHECK   ;CHECK TIME ON ETC.
+        IN      1,
+        SKIPA
+        JRST    RERR
+        MOVE    1,TBUF+2
+        JRST    OFFYET  ;CHECK BUFFERS
+NXT:    SOJL    1,READ
+        ILDB    TBUFP
+        JUMPE   NXT
+        CAIN    4       ;CHECK FOR ^D, WE ARE DONE
+        JRST    EOF
+        IDPB    DBUFP
+        SOJG    2,NXT   ;0=> NO MORE ROOM
+        OUT     2,
+        JRST    BEGIN
+        JRST    DERR
+EOF:    CLOSE   2,
+        TTCALL  3,[ASCIZ/
+
+END OF TAPE READ-IN
+/]
+        SETO    1,0     ;NOW PUT BACK L.F.'S
+        TTCALL  6,1
+        TLZE    1,000002
+        TTCALL  7,1
+        EXIT
+RERR:   TTCALL  3,[ASCIZ/READ ERROR.../]
+        JRST    EOF
+DERR:   TTCALL  3,[ASCIZ/DISK OUTPUT ERROR.../]
+        JRST    EOF
+CATLKP: TTCALL  3,[ASCIZ/CAN'T ENTER DATA.DAT.../]
+;   THIS ROUTINE TURNS OFF THE READER IF BUFFER IS TOO FULL
+        JRST    EOF
+OFFYET: CALL    5,[SIXBIT/MSTIME/]
+        ADD     10,1
+        SUB     5,7     ;R7=START TIME
+        IDIVI   5,144   ;GET CHARS IN BUFFER
+        SUB     5,10    ;BUFFER-READ IS IN R5
+        CAMG    5,BUFCON        ;TOO MANY?
+        JRST    NXT     ;NOPE
+;  TO MANY IN BUFERS IN TYMSATS...TURN OFF READER
+        HRLOI    7,377777        ;ZAP START TIME
+        HRRZI   11,023  ;^S IN R11
+        TTCALL  15,11   ;OUT IT  GOES
+        JRST    NXT
+;    THIS ROUTINE CHECKS FOR INPUT-READY CONDITION
+;    AND TURNS ON THE READER IF NEDD BE
+CHECK:  SKPINC
+        SKIPA
+        JRST    READ+1
+        HRRZI   11,021  ;^Q IN R11
+        CALL    7,[SIXBIT/MSTIME/]      ;GET START TIME
+        SETZM   10
+        TTCALL  15,11   ;OUT IT GOES
+        JRST    READ+1
+BUFCON: XWD     0,240   ;CONSTANT=160
+EFILE:  SIXBIT  /DATA/
+        SIXBIT/DAT/
+        0
+        0
+TBUF:   BLOCK   3
+DBUF:   BLOCK   3
+        END     MTAPE
