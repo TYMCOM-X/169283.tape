@@ -1,0 +1,113 @@
+000000 IDENTIFICATION DIVISION.                                         00000010
+000010 PROGRAM-ID. S0CMR090.                                            00000020
+000020 AUTHOR. S GOGELA.                                                00000030
+000030 ENVIRONMENT DIVISION.                                            00000040
+000040 CONFIGURATION SECTION.                                           00000050
+000050 INPUT-OUTPUT SECTION.                                            00000060
+000060 FILE-CONTROL.                                                    00000070
+000070     SELECT CARD-F ASSIGN TO UT-S-SYS010.                         00000080
+000080     SELECT PR-LINE ASSIGN TO UT-S-SYS008.                        00000090
+000090 DATA DIVISION.                                                   00000100
+000100 FILE SECTION.                                                    00000110
+000110 FD  CARD-F                                                       00000120
+000120     RECORDING MODE F                                             00000130
+000130     RECORD CONTAINS 80   CHARACTERS                              00000140
+000140     DATA RECORDS ARE CARD                                        00000150
+000150     BLOCK CONTAINS 0 RECORDS                                     00000160
+000160     LABEL RECORDS ARE STANDARD.                                  00000170
+000170 01  CARD SYNC.                                                   00000180
+000180     02 F-C    PICTURE X(2).                                      00000190
+000190     02 FILLER   PICTURE X(5).                                    00000200
+000200     02 PRIORITY    PICTURE XX.                                   00000210
+000210     02 FILLER     PICTURE X(35).                                 00000220
+000220     02 TEXT.                                                     00000230
+000230      03 FILLER   PICTURE X.                                      00000240
+000240      03 XZA    PICTURE XX.                                       00000250
+000250      03 FILLER    PICTURE X(22).                                 00000260
+000260     02 FILLER      PICTURE X(11).                                00000270
+000270 FD  PR-LINE                                                      00000280
+000280     RECORDING MODE F                                             00000290
+000290     RECORD CONTAINS 133  CHARACTERS                              00000300
+000300     DATA RECORDS ARE PRINT                                       00000310
+000310     BLOCK CONTAINS 0 RECORDS                                     00000320
+000320     LABEL RECORDS ARE STANDARD.                                  00000330
+000330 01  PRINT SYNC.                                                  00000340
+000340     02 C       PICTURE X.                                        00000350
+000350     02 FILLER   PICTURE X(6).                                    00000360
+000360     02 DC     PICTURE 9(2).                                      00000370
+000370     02 FILLER     PICTURE X(11).                                 00000380
+000380     02 DESC      PICTURE X(25).                                  00000390
+000390     02 FILLER    PICTURE X(7).                                   00000400
+000400     02 FIL-SP   PICTURE X.                                       00000410
+000410     02 FILLER    PICTURE X.                                      00000420
+000420     02 PRIOR-N   PICTURE XX.                                     00000430
+000430     02 FILLER   PICTURE X(77).                                   00000440
+000440 WORKING-STORAGE SECTION.                                         00000450
+000460 77  L-C        PICTURE 99 VALUE 1.                               00000460
+000470 77  SW    PICTURE 9 VALUE 0.                                     00000470
+000480 77  CNT     PICTURE 99 VALUE 1.                                  00000480
+000490 77  PROP    PICTURE X(25) VALUE SPACES.                          00000490
+000500 77  XPN     PICTURE XX VALUE SPACES.                             00000500
+000510 01  PRINTWKS SYNC.                                               00000510
+000520     02 CWKS    PIC    X.                                         00000520
+000530     02 PRECWKS.                                                  00000530
+000540       03 INFWKS1    PIC    X(15).                                00000540
+000550       03 PROPWKS    PIC    X(25).                                00000550
+000560       03 INFWKS2    PIC    X(92).                                00000560
+000580 PROCEDURE DIVISION.                                              00000570
+000600 BEGIN.                                                           00000580
+000610     OPEN  INPUT  CARD-F                                          00000590
+000620     OPEN  OUTPUT PR-LINE.                                        00000600
+000630 READ-C.                                                          00000610
+000640     READ CARD-F AT END GO TO EOP--X.                             00000620
+000650     IF F-C NOT = '  ' MOVE XZA TO XPN GO TO WR-H.                00000630
+000660 LOAD.                                                            00000640
+000670     MOVE SPACES TO PRINT.                                        00000650
+000680     MOVE CNT TO DC.                                              00000660
+000690     MOVE PRIORITY TO PRIOR-N.                                    00000670
+000700     IF XPN = '42' AND PRIORITY NOT = SPACES                      00000680
+000710     MOVE '=' TO FIL-SP.                                          00000690
+000720     MOVE TEXT TO DESC.                                           00000700
+000730     IF L-C > 52 MOVE 1 TO SW MOVE 1 TO L-C GO TO WR-H.           00000710
+000740 WR-REC.                                                          00000720
+000750     WRITE PRINT AFTER POSITIONING C.                             00000730
+000760     ADD 1 TO L-C.                                                00000740
+000770     ADD 1 TO CNT.                                                00000750
+000780     GO TO READ-C.                                                00000760
+000790 WR-H.                                                            00000770
+000800     MOVE SPACES TO PRINT  PRINTWKS.                              00000780
+000810     MOVE '1' TO CWKS.                                            00000790
+000820     MOVE    '  ***  L I S T   O F   P R O P E R T I E S   &   D -00000800
+000830-    ' CODES  ***'  TO PRECWKS.                                   00000810
+000840 WKS-OUT.                                                         00000820
+000850     MOVE PRINTWKS TO PRINT.                                      00000830
+000860     WRITE PRINT AFTER POSITIONING C.                             00000840
+000870     MOVE SPACES TO PRINT  PRINTWKS.                              00000850
+000880 E-WKS-OUT.                                                       00000860
+000890     MOVE '0' TO C.                                               00000870
+000900     WRITE PRINT AFTER POSITIONING C.                             00000880
+000910     MOVE SPACES TO PRINT.                                        00000890
+000920     IF F-C NOT = '  '                                            00000900
+000930     MOVE TEXT TO PROP.                                           00000910
+000940     MOVE PROP TO PROPWKS.                                        00000920
+000950     MOVE    '  PROPERTY *** ' TO INFWKS1.                        00000930
+000960                               MOVE ' ***'  TO INFWKS2.           00000940
+000970     PERFORM WKS-OUT.                                             00000950
+000980     MOVE    '  --------------------------------------------------00000960
+000990-    '---'  TO PRECWKS.                                           00000970
+001000     PERFORM WKS-OUT.                                             00000980
+001010     MOVE    '  D-CODE                  DESCRIPTION          PRIOR00000990
+001020-    'ITY'  TO PRECWKS.                                           00001000
+001030     PERFORM WKS-OUT.                                             00001010
+001040     MOVE    '  --------------------------------------------------00001020
+001050-    '---'  TO PRECWKS.                                           00001030
+001060     PERFORM WKS-OUT.                                             00001040
+001070     IF SW NOT = 0 MOVE 0 TO SW GO TO LOAD.                       00001050
+001080     MOVE 1 TO CNT.                                               00001060
+001090     MOVE 1 TO L-C.                                               00001070
+001100     GO TO READ-C.                                                00001080
+001110 EOP--X.                                                          00001090
+001120     CLOSE        CARD-F.                                         00001100
+001130     CLOSE        PR-LINE.                                        00001110
+001140     GOBACK.                                                      00001120
+                                                                                                                                                                                                                                                                                                                                                                                                                                
