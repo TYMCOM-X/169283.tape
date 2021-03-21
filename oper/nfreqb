@@ -1,0 +1,132 @@
+      SUBROUTINE NFREQB
+C      LINK NFREQ
+C  ---------------------------------------------------------------------      2
+      REAL   TITLE(70),CODE(80),WORD(3)                                       3
+C                  DIMENSION TO APPROPRIATE SIZE                              4
+C                  D1 IS (NEQ*(NEQ+1))/2                                      5
+C                  D2 IS NEQ*NEQ                                              6
+C                  VAL IS ND                                                  7
+C                  D IS THE LARGER OF NVPR AND ND                             8
+      DIMENSION  D1(11325),D2(22500),VAL(150),D(150)
+      COMMON IN,IOUT,NOUTP,IFPLT,NEXEC,NERR,NNT,NEQ,IFEQ(3),IFUNA,           10
+     1   IFUPD(3),NREC(4),NFN(4),NELMT,NS(9),NSTAT(600),TITLE,CODE           11
+     1      ,IDMY(8),RDMY(34)                                                12
+      DATA WORD/'M','C','K'/                                                 13
+      ND=150
+      NVPR=40                                                                15
+      CALL GETIN(NEIG,1,1,NFD,CODE,80)                                       16
+      IF(NEQ-ND)5,5,210                                                      17
+    5 IF(NERR)10,10,200                                                      18
+C                  READ MASS MATRIX                                          19
+   10 NV=(NEQ*(NEQ+1))/2                                                     20
+      CALL VRDWT(D1,NV,NFN(1),NVPR,D,-1)                                     21
+C                  READ STIFFNESS MATRIX                                     22
+      CALL VRDWT(D2,NV,NFN(3),NVPR,D,-1)                                     23
+C                  CHANGE TO GENERAL VECTOR                                  24
+      CALL MSTOR(D2,ND,NEQ,NEQ,6)                                            25
+C                  FACTOR MASS MATRIX                                        26
+      EPS=1.E-6                                                              27
+      CALL MFACT(D1,NEQ,EPS,IER)                                             28
+C                  COMPUTE  K * INVERSE(U)                                   29
+      CALL MFUNC(D2,NEQ,NEQ,D1,-1,IER)                                       30
+C                  COMPUTE TRANSPOSE(INVERSE(U)) * K * INVERSE(U)            31
+      CALL MFUNC(D2,NEQ,NEQ,D1,2,IER)                                        32
+C                  WRITE VECTOR ON SCRATCH                                   33
+      NV=(NEQ*(NEQ+1))/2                                                     34
+      CALL VRDWT(D1,NV,NFN(4),NVPR,D,1)                                      35
+      IF(NFD)16,16,11                                                        36
+   11 IF(NEIG-NEQ)13,13,12                                                   37
+   12 NEIG=NEQ                                                               38
+C      -----------------------------------------------------------------     39
+      GO TO 16
+C                  CHANGE STORAGE MODE FOR EIGN2                             40
+C      -----------------------------------------------------------------     41
+   13 NCT=0                                                                  42
+      DO 14 I=1,NEQ                                                          43
+      NV=NEQ*(I-1)                                                           44
+      JST=I                                                                  45
+      DO 14 J=JST,NEQ                                                        46
+      NCT=NCT+1                                                              47
+   14 D1(NCT)=-D2(NV+J)                                                      48
+      CALL EIGN2(D1,D2,VAL,NEQ,NEIG,NEIG)                                    49
+      NCT=NEIG                                                               50
+      DO 15 I=1,NCT                                                          51
+   15 VAL(I)=-VAL(I)                                                         52
+      GO TO 20                                                               53
+C      -----------------------------------------------------------------     54
+C                  CHANGE STORAGE MODE FOR JACOBI                            55
+C      -----------------------------------------------------------------     56
+   16 NCT=0                                                                  57
+      DO 17 I=1,NEQ                                                          58
+      JND=I                                                                  59
+      NV=NEQ*(I-1)                                                           60
+      DO 17 J=1,JND                                                          61
+      NCT=NCT+1                                                              62
+   17 D1(NCT)=-D2(NV+J)                                                      63
+      CALL EIGEN(D1,D2,NEQ,0)                                                64
+C                  GET VALUES                                                65
+      NCT=0                                                                  66
+      DO 18 I=1,NEQ                                                          67
+      NCT=NCT+I                                                              68
+   18 VAL(I)=-D1(NCT)                                                        69
+      NCT=NEQ                                                                70
+C      -----------------------------------------------------------------     71
+C                  READ U AND TRANSFORM VECTOR                               72
+   20 NV=(NEQ*(NEQ+1))/2                                                     73
+      CALL VRDWT(D1,NV,NFN(4),NVPR,D,-1)                                     74
+      CALL MFUNC(D2,NEQ,NEQ,D1,1,IER)                                        75
+      DO 50 I=1,NCT                                                          76
+      IF(VAL(I))50,40,40                                                     77
+   40 VAL(I)=SQRT(VAL(I))                                                    78
+   50 CONTINUE                                                               79
+      CALL EBLNK(TITLE,70,IEND)
+      WRITE(IOUT,60)(TITLE(I),I=1,IEND)
+   60 FORMAT(//  10X,70A1)
+      IST=1-NEQ                                                              82
+      DO 100 J=1,NCT                                                         83
+      CON=VAL(J)/6.2831853                                                   84
+      WRITE(IOUT,70)CON,VAL(J)                                               85
+   70 FORMAT(//5X,'MODE SHAPE AT',E13.5,' CPS (',E13.5,' RAD/SEC)'/)         86
+      IST=IST+NEQ                                                            87
+      IND=IST+NEQ-1                                                          88
+      CON=0.                                                                 89
+      DO 80 I=IST,IND                                                        90
+      IF(ABS(D2(I))-1.0E-18)80,80,75
+   75 CON=CON+D2(I)*D2(I)
+   80 CONTINUE
+      CON=1./SQRT(CON)                                                       92
+      DO 90 I=IST,IND                                                        93
+   90 D2(I)=D2(I)*CON                                                        94
+  100 WRITE(IOUT,120)(D2(I),I=IST,IND)                                       95
+  120 FORMAT(1X,6E12.4)
+C                  CHECK FOR MODAL TRANSFORMATION                            97
+  130 IF(NEXEC-2)140,200,140                                                 98
+  140 DO 190 ISYS=1,3                                                        99
+      IF(IFUPD(ISYS))190,190,150                                            100
+  150 NV=(NEQ*(NEQ+1))/2                                                    101
+      CALL VRDWT(D1,NV,NFN(ISYS),NVPR,D,-1)                                 102
+      DO 170 ICOL=1,NCT                                                     103
+      DO 160 I=1,NEQ                                                        104
+      D(I)=0.                                                               105
+      N2=NEQ*(ICOL-1)                                                       106
+      DO 160 J=1,NEQ                                                        107
+      N1=NFND1(I,J)                                                         108
+      N2=N2+1                                                               109
+  160 D(I)=D(I)+D1(N1)*D2(N2)                                               110
+      VAL(ICOL)=0.                                                          111
+      N2=NEQ*(ICOL-1)                                                       112
+      DO 170 I=1,NEQ                                                        113
+      N2=N2+1                                                               114
+  170 VAL(ICOL)=VAL(ICOL)+D2(N2)*D(I)                                       115
+      WRITE(IOUT,180)WORD(ISYS)                                             116
+  180 FORMAT(///5X,'MODAL VALUES FOR ',A1,' MATRIX'/)                       117
+      WRITE(IOUT,120)(VAL(I),I=1,NCT)                                       118
+  190 CONTINUE                                                              119
+  200 NEXEC=0                                                               120
+      RETURN
+  210 WRITE(IOUT,220)ND                                                     122
+  220 FORMAT(//10X,'----- SOLUTION CANCELLED, (MORE THAN',I4,' EQUATIONS    123
+     1) -----')                                                             124
+      GO TO 200                                                             125
+      END                                                                   126
+  
