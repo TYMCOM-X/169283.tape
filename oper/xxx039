@@ -1,0 +1,1021 @@
+C	  BMD03V
+CBMD03V       ANALYSIS OF COVARIANCE		      JULY 22, 1965
+      REAL*8 ON,ONR,PROBLM,FINISH,TRNGEN,CONSTS,BNEW,Q000HL,Q001HL,Q00
+     12HL,Q003HL
+      DIMENSION X(1500,9),SCALE(9),AV(9),L(6),LL(6),N(6),M(6),MM(7),
+     1K5(7),KM(6),S(65,9,9),T(9,9),PQ(64),A(64),B(90),R(64,8),KV(9),
+     2KW(9),MD(6),CON(8),NEWA(64),LCODE(64),LVA(64),BNEW(64)
+      COMMON  ON,B,R
+      COMMON  X      , SCALE  , AV     , L	, LL	 , N
+      COMMON  M      , MM     , K5     , KM	, S	 , T
+      COMMON  PQ     , NV     , NR     , NT	, NI	 , NVM
+      COMMON  I5     , MARK   , JW     , Z	, IJK	 , KK
+      COMMON  KZ     , NN	       , NW	, A
+      COMMON  KV     , KW     , NY     , NZ	, CON	 , ONNN
+      EQUIVALENCE (R(1),BNEW(1)),(R(65),NEWA(1)),(R(129),LVA(1))
+     1,(R(193),LCODE(1))
+C
+  902 FORMAT('1BMD03V - ANALYSIS OF COVARIANCE - REVISED ',
+     116HJANUARY 29, 1970/
+     241H HEALTH SCIENCES COMPUTING FACILITY, UCLA/)
+      DATA REWNO/'NO'/
+      MTAPE=5
+      REWIND 2
+    4 READ(5,900)ON,PROB,NV,NR,NI,NVM,NJ,JW,(L(I),I=1,6),REW,NTAPE,IJK
+      DATA Q000HL/6HPROBLM/
+      KZZZ=0
+      ONR=(+Q000HL)
+      IF(ON.EQ.ONR) GO TO 6
+      DATA Q001HL/6HFINISH/
+ 5    IF(ON-(+Q001HL)) 990, 1000, 990
+ 6    IF(NTAPE-2)8,991,8
+    8 IF(REW.NE.REWNO)CALL TPWD(NTAPE,MTAPE)
+ 9    WRITE (6,902)
+      WRITE (6,903)PROB
+      IF(NV*(NV-7)) 6001,992,992
+ 6001 IF(NI*(NI-9)) 6002,993,993
+ 6002 IF((NJ+8)*(NJ-8)) 6003,994,994
+ 6003 IF((NI+NJ)*(NI+NJ-9)) 6004,995,995
+ 6004 IF(NVM-64) 6005,6005,996
+ 6005 IF(IJK*(IJK-6)) 6006,997,997
+ 6006 KZ=0
+      NTT=NI+1
+      NI=NI+NJ
+      NT=NTT+NJ
+      IF(NR) 41, 41, 42
+ 41   NR=1
+ 42   WRITE (6,904)NV,NR,NI
+      WRITE (6,908)
+      DO 7 I=1,NV
+ 7    WRITE (6,909)I,L(I)
+      IF(NVM)410,410,400
+ 400  WRITE (6,912)
+      WRITE (6,914)
+      DATA Q002HL/6HTRNGEN/
+      ONR=(+Q002HL)
+      DO 405 I=1,NVM
+      READ (5,911)ON,NEWA(I),LCODE(I),LVA(I),BNEW(I)
+      IF(ON.NE.ONR) GO TO 403
+  401 IF(LCODE(I)*(LCODE(I)-15))404,402,402
+  402 WRITE (6,910)I
+      GO TO 4035
+  403 WRITE (6,906)ON
+ 4035 KZ=-9
+      WRITE (6,916)
+      GO TO 405
+  404 WRITE (6,913)I,NEWA(I),LCODE(I),LVA(I),BNEW(I)
+  405 CONTINUE
+ 410  DO 10 I=1,NT
+ 10   AV(I)=0.0
+      IF(JW) 432, 432, 435
+ 432  DO 433 I=1,NI
+ 433  CON(I)=0.0
+      GO TO 413
+ 435  READ (5,901)ON,(CON(I), I=1,NI)
+      DATA Q003HL/6HCONSTS/
+      ONR=(+Q003HL)
+      IF(ON.EQ.ONR) GO TO 413
+ 411  WRITE (6,915)
+      GO TO 1000
+ 1003 WRITE(6,1013)
+ 1013 FORMAT(44H0VIOLATING LIMITATION (4) ON PAGE 511 OF BMD)
+      GO TO 1000
+  991 WRITE(6,1991)
+ 1991 FORMAT(63H02 CAN NOT BE SPECIFIED AS DATA INPUT TAPE UNIT FOR THIS
+     1PROBLEM)
+      GO TO 1000
+  992 WRITE(6,1992)
+ 1992 FORMAT(55H0TOO MANY NUMBER OF ANALYSIS OF VARIANCE CLASSIFICATION)
+      GO TO 1000
+  993 WRITE(6,1993)
+ 1993 FORMAT(51H0THE BUMBER OF ORIGINAL COVARIATES CAN NOT EXCEED 8)
+      GO TO 1000
+994   WRITE(6,1994)
+ 1994 FORMAT(41H0ILLEGAL NUMBER OF COVARIATES TO BE ADDED)
+      GO TO 1000
+  995 WRITE(6,1995)
+ 1995 FORMAT(51H0ILLEGAL NUMBER OF COVARIATES AFTER TRANSGENERATION)
+      GO TO 1000
+  996 WRITE(6,1996)
+ 1996 FORMAT(31H0TOO MANY TRANSGENERATION CARDS)
+      GO TO 1000
+  997 WRITE(6,1997)
+ 1997 FORMAT(31H0TOO MANY VARIABLE FORMAT CARDS)
+      GO TO 1000
+ 413  CALL VFCHCK(IJK)
+      IJK=IJK*18
+      WRITE(6,970)
+      READ (5,907)(B(I), I=1,IJK)
+      WRITE(6,999)(B(I),I=1,IJK)
+999   FORMAT(1X,18A4)
+ 11   NN=1
+      DO 12 I=1,NV
+ 12   NN=NN*L(I)
+      IF(NN.GT.1500)GO TO 1003
+      ON=NN
+      ONR=NR
+      ONN=ON*ONR
+      ONNN=ONN+1.0
+      NW=2**NV-1
+      NY=NW+1
+      NZ=NY+1
+      DO 25 I=1,64
+      DO 25 J=1,NT
+      DO 25 K=1,NT
+ 25   S(I,J,K)=0.0
+      IF(NR-1) 13, 13, 17
+ 13   MARK=1
+      DO 14 I=1,NN
+      READ (MTAPE,B)(T(1,J),J=1,NTT)
+      IF(KZ) 14, 418, 418
+ 418  IF(NVM)420,420,415
+ 415  CALL TRANZ
+ 420  DO 75 J=1,NT
+      X(I,J)=T(1,J)
+ 75   AV(J)=AV(J)+X(I,J)
+ 14   CONTINUE
+      IF(KZ) 4, 79, 79
+ 79   DO 15 J=1,NT
+ 15   AV(J)=AV(J)/ON
+      DO 16 I=1,NN
+      DO 16 J=1,NT
+ 16   X(I,J)=X(I,J)-AV(J)
+      DO 81 I=1,NN
+      DO 81 J=1,NT
+      DO 81 K=J,NT
+ 81   S(NZ,J,K)=S(NZ,J,K)+X(I,J)*X(I,K)
+      GO TO 26
+ 17   DO 18 I=1,NN
+      DO 18 J=1,NT
+ 18   X(I,J)=0.0
+      DO 20 I=1,NR
+      MARK=I
+      DO 20 J=1,NN
+      READ (MTAPE,B)(T(1,K),K=1,NTT)
+      IF(KZ) 20, 440, 440
+ 440  IF(NVM) 90, 90, 430
+ 430  CALL TRANZ
+ 90   DO 99 K=1,NT
+      AV(K)=AV(K)+T(1,K)
+ 99   X(J,K)=X(J,K)+T(1,K)
+      KZZZ=1
+      WRITE(2,9876)(T(1,K),K=1,NT)
+ 20   CONTINUE
+      IF(KZZZ.EQ.0) GO TO 445
+      END FILE 2
+      REWIND 2
+      IF(KZ) 4, 445, 445
+ 445  DO 21 I=1,NN
+      DO 21 J=1,NT
+ 21   X(I,J)=X(I,J)/ONR
+      DO 22 J=1,NT
+ 22   AV(J)=AV(J)/ONN
+      DO 24 I=1,NR
+      DO 24 J=1,NN
+      READ(2,9876)(T(1,K),K=1,NT)
+      DO 23 K=1,NT
+      T(2,K)=T(1,K)-AV(K)
+ 23   T(1,K)=T(1,K)-X(J,K)
+      DO 24 JA=1,NT
+      DO 24 JB=JA,NT
+      S(NY,JA,JB)=S(NY,JA,JB)+T(1,JA)*T(1,JB)
+ 24   S(NZ,JA,JB)=S(NZ,JA,JB)+T(2,JA)*T(2,JB)
+      REWIND 2
+      DO 38 J=1,NT
+      AV(J)=AV(J)*ONR
+      DO 38 I=1,NN
+      X(I,J)=X(I,J)*ONR
+ 38   X(I,J)=X(I,J)-AV(J)
+ 26   NVM=NV-1
+      I5=(6-NV)+1
+      DO 32 I=1,NVM
+      LL(I)=1
+      I1=I+1
+      DO 32 J=I1,NV
+ 32   LL(I)=LL(I)*L(J)
+      LL(NV)=1
+      DO 40 I=1,NV
+      I1=I-1
+      I2=NV-I1
+      I3=6-I1
+ 40   L(I3)=L(I2)
+      KZ=0
+      DO 45 I=1,64
+ 45   PQ(I)=0.0
+      DO 231 IJ=1,NVM
+      MARK=0
+      IJK=IJ
+      JW=NVM-(IJ-1)
+      DO 51 I=I5,6
+ 51   M(I)=0
+      J1=I5+(NVM-JW)
+      DO 52 I=I5,J1
+ 52   M(I)=1
+      Z=1.0
+ 70   CALL TABLE (M,I5,Z,MARK,IJK)
+      IF(MARK) 205, 205, 231
+ 205  KZ=KZ+1
+      CALL XLOCAT
+      NDF=1
+      MDF=1
+      I6=I5+(IJ-1)
+      DO 206 I=I5,I6
+      NDF=NDF*MM(I)
+ 206  MDF=MDF*(MM(I)+1)
+      FNDF=NDF
+      DF=MDF
+      FACT=DF/ONN
+      DO 200 I=1,NT
+      DO 200 J=1,NT
+ 200  S(KZ,I,J)=S(KZ,I,J)*FACT
+      A(KZ)=FNDF
+      IF(NVM)2232,2232,2231
+ 2231 DO 204 I=1,IJK
+      I4=I5+(I-1)
+      ROSE=K5(I4)
+ 204  PQ(KZ)=(PQ(KZ)+ROSE)*10.0
+      PQ(KZ)=PQ(KZ)/10.0
+      I7=I6-I5
+      IF(I7-1) 70, 207, 207
+ 207  DO 208 J=1,NT
+      DO 208 K=J,NT
+ 208  T(J,K)=0.0
+      DO 220 JK=1,I7
+      ICE=0
+      KL=JK
+      DO 209 I=I5,6
+ 209  MD(I)=0
+      I8=6-I7
+      I9=I8+(JK-1)
+      DO 210 I=I8,I9
+ 210  MD(I)=1
+      Y=1.0
+ 211  CALL PARTS(MD,I8,Y,ICE,KL)
+      IF(ICE) 212, 212, 220
+ 212  FISH=0.0
+      KK=0
+      DO 215 I=I8,6
+      KK=KK+1
+      IF(MD(I)) 215, 215, 213
+ 213  I4=I5+(KK-1)
+      ROSE=K5(I4)
+      FISH=(FISH+ROSE)*10.0
+ 215  CONTINUE
+      FISH=FISH/10.0
+      DO 217 I=1, 64
+      IF(PQ(I)-FISH) 217, 216, 211
+ 216  DO 222 J=1,NT
+      DO 222 K=J,NT
+ 222  T(J,K)=T(J,K)+S(I,J,K)
+      GO TO 211
+ 217  CONTINUE
+ 220  CONTINUE
+      DO 223 J=1,NT
+      DO 223 K=J,NT
+ 223  S(KZ,J,K)=S(KZ,J,K)-T(J,K)
+      GO TO 70
+ 231  CONTINUE
+ 2232 DO 236 I=1,KZ
+      DO 236 J=1,NT
+      DO 236 K=J,NT
+ 236  S(NW,J,K)=S(NW,J,K)+S(I,J,K)
+      IF(NR-1) 238, 238, 250
+ 238  DO 237 J=1,NT
+      DO 237 K=J,NT
+ 237  S(NW,J,K)=S(NZ,J,K)-S(NW,J,K)
+      GO TO 360
+ 250  DO 255 I=1,NT
+      DO 255 J=I,NT
+ 255  S(NW,I,J)=S(NZ,I,J)-S(NY,I,J)-S(NW,I,J)
+ 360  CALL FINAL
+      CALL ANOVA
+      GO TO 4
+  900 FORMAT(A6,A4,I2,I3,4I2,6I3,25X,A2,I2,I2)
+ 901  FORMAT(A6,9F6.0)
+ 903  FORMAT(14H0PROBLEM NO.  A4)
+ 904  FORMAT(17H0NO. OF VARIABLESI5/18H NO. OF REPLICATESI4/18H NO. OF C
+     1OVARIATESI4)
+  905 FORMAT(58H0PROBLM IS PUNCHED WRONG OR INPUT DECK IS SET UP INCORRE
+     1CT)
+  906 FORMAT(54H0CONTROL CARD ERROR. A TRNGEN CARD WAS EXPECTED BUT A ,
+     1A6,16H CARD WAS FOUND.)
+ 907  FORMAT(18A4)
+ 908  FORMAT(27H0VARIABLE     NO. OF LEVELS)
+ 909  FORMAT(I6,11X,I4)
+  910 FORMAT(45H0ILLEGAL TRANSGENERATION CODE ON CARD NUMBER ,I2)
+ 911  FORMAT(A6,I3,I2,I3,F6.0)
+ 912  FORMAT(1H06X,22HTRANS-GENERATION CARDS)
+ 913  FORMAT(2H  I2,I8,2I9,4X,F10.5)
+ 914  FORMAT(46H0CARD	 NEW	 TRANS	  ORIG.   ORIG. VAR(B)/45H  NO.
+     1VARIABLE	 CODE	 VAR(A)   OR CONSTANT)
+ 915  FORMAT(24H0ERROR ON CONSTANTS CARD)
+  916 FORMAT(64H PROGRAM WILL GO TO THE NEXT PROBLEM CARD, IF ANY, OR TE
+     1RMINATE.)
+ 920  FORMAT(25H ERROR ON TAPE ASSIGNMENT)
+  970 FORMAT(///16H0VARIABLE FORMAT)
+ 9876 FORMAT(20A4)
+ 990  WRITE (6,905)
+ 1000 IF(MTAPE-5)1002,1002,1001
+ 1001 REWIND MTAPE
+ 1002 STOP
+      END
+CANOVA	      SUBROUTINE ANOVA FOR BMD03V	      JULY 22, 1965
+      SUBROUTINE ANOVA
+      REAL*8 ON,BNEW,Q000HL,Q001HL,Q002HL,Q003HL,Q004HL,Q005HL,Q006HL,Q0
+     107HL
+      DIMENSION X(1500,9),SCALE(9),AV(9),L(6),LL(6),N(6),M(6),MM(7),
+     1K5(7),KM(6),S(65,9,9),T(9,9),PQ(64),A(64),B(90),R(64,8),KV(9),
+     2KW(9),MD(6),CON(8),NEWA(64),LCODE(64),LVA(64),BNEW(64)
+      COMMON  ON,B,R
+      COMMON  X      , SCALE  , AV     , L	, LL	 , N
+      COMMON  M      , MM     , K5     , KM	, S	 , T
+      COMMON  PQ     , NV     , NR     , NT	, NI	 , NVM
+      COMMON  I5     , MARK   , JW     , Z	, IJK	 , KK
+      COMMON  KZ     , NN	       , NW	, A
+      COMMON  KV     , KW     , NY     , NZ	, CON	 , ONNN
+      EQUIVALENCE (R(1),BNEW(1)),(R(65),NEWA(1)),(R(129),LVA(1))
+     1,(R(193),LCODE(1))
+      DATA Q000HL/6H(	  /
+      BNEW(1)=(+Q000HL)
+      DATA Q001HL/6H1H	  /
+      BNEW(2)=(+Q001HL)
+      DATA Q002HL/6H1X,   /
+      DO 250 I=3,8
+ 250  BNEW(I)=(+Q002HL)
+      DATA Q003HL/6H9X,I8,/
+      BNEW(9)=(+Q003HL)
+      DATA Q004HL/6HF22.5,/
+      BNEW(10)=(+Q004HL)
+      DATA Q005HL/6HF17.5,/
+      BNEW(11)=(+Q005HL)
+      DATA Q006HL/6H)	  /
+      BNEW(12)=(+Q006HL)
+      WRITE (6,914)
+      WRITE (6,907)
+      WRITE (6,908)
+      IF(NR-1) 270, 270, 275
+ 270  LZ=NW-1
+      GO TO 280
+ 275  LZ=NW
+ 280  DO 300 I=1,LZ
+      LL(1)=PQ(I)
+      DO 281 J=1,NV
+      LL(2)=LL(1)
+      LL(2)=LL(2)/10
+      LL(3)=LL(2)
+      LL(2)=LL(2)*10
+      LY=NV-(J-1)
+      N(LY)=LL(1)-LL(2)
+ 281  LL(1)=LL(3)
+      LY=0
+      KZ=2
+      DO 285 J=1,NV
+      IF(N(J)) 285, 285, 282
+ 282  LY=LY+1
+      LL(LY)=N(J)
+      KZ=KZ+1
+      DATA Q007HL/6HI1,   /
+      BNEW(KZ)=(+Q007HL)
+ 285  CONTINUE
+      SQM=B(I)/A(I)
+      NDF=A(I)
+ 300  WRITE (6,BNEW)(LL(J), J=1,LY), NDF,B(I),SQM
+      IF(NR-1) 310, 310, 320
+ 310  SQM=B(NW)/A(NW)
+      NDF=A(NW)
+      WRITE (6,911)NDF,B(NW),SQM
+      GO TO 330
+ 320  SQM=B(NY)/A(NY)
+      NDF=A(NY)
+      WRITE (6,913)NDF,B(NY),SQM
+ 907  FORMAT(59H0SOURCE OF	  DEGREES OF	      SUMS OF	       M
+     1EAN)
+ 908  FORMAT(61H VARIATION	   FREEDOM	      SQUARES	      SQ
+     1UARES/)
+ 911  FORMAT(18H RESIDUAL	  I6,F22.5,F17.5)
+ 912  FORMAT(18H TOTAL		  I6,F22.5)
+ 913  FORMAT(18H WITHIN REPLICATESI6,F22.5,F17.5)
+ 914  FORMAT(1H0)
+ 330  RETURN
+      END
+CFINAL	   SUBROUTINE FINAL FOR BMD03V	  JULY 12, 1963
+      SUBROUTINE FINAL
+      REAL*8 ON,BNEW
+      DIMENSION X(1500,9),SCALE(9),AV(9),L(6),LL(6),N(6),M(6),MM(7),
+     1K5(7),KM(6),S(65,9,9),T(9,9),PQ(64),A(64),B(90),R(64,8),KV(9),
+     2KW(9),MD(6),CON(8),NEWA(64),LCODE(64),LVA(64),BNEW(64),TT(9,9)
+      COMMON  ON,B,R
+      COMMON  X      , SCALE  , AV     , L	, LL	 , N
+      COMMON  M      , MM     , K5     , KM	, S	 , T
+      COMMON  PQ     , NV     , NR     , NT	, NI	 , NVM
+      COMMON  I5     , MARK   , JW     , Z	, IJK	 , KK
+      COMMON  KZ     , NN	       , NW	, A
+      COMMON  KV     , KW     , NY     , NZ	, CON	 , ONNN
+      EQUIVALENCE (R(1),BNEW(1)),(R(65),NEWA(1)),(R(129),LVA(1))
+     1,(R(193),LCODE(1))
+      IF(NR-1) 4, 4, 6
+ 4    DF=0.0
+      DO 5 I=1,KZ
+ 5    DF=DF+A(I)
+      DDF=ON-1.0
+      DNI=NI
+      A(NW)=DDF-DF-DNI
+      LZ=NW-1
+      GO TO 13
+ 6    ANW=1.0
+      DO 7 I=1,NV
+ 7    ANW=ANW*A(I)
+      A(NW)=ANW
+      NDF=NR*NN-NN
+      A(NY)=NDF-NI
+      PQ(NW)=0.0
+      DO 3 I=1,NV
+      DF=I
+ 3    PQ(NW)=PQ(NW)*10.0+DF
+      LZ=NW
+ 13   LP=LZ+1
+      ASSIGN 21 TO NNY
+      ASSIGN 25 TO NNW
+      ASSIGN 60 TO NNX
+      NF=1
+ 15   DO 50 K=NF,LZ
+      DO 16 I=1,NI
+      DO 16 J=I,NI
+      T(I,J)=S(K,I+1,J+1)
+ 16   T(J,I)=S(K,I+1,J+1)
+      WRITE (6,903)
+      GO TO NNY, (21,22)
+ 21   LL(1)=PQ(K)
+      DO 17 I=1,NV
+      LL(2)=LL(1)
+      LL(2)=LL(2)/10
+      LL(3)=LL(2)
+      LL(2)=LL(2)*10
+      LY=NV-(I-1)
+      N(LY)=LL(1)-LL(2)
+ 17   LL(1)=LL(3)
+      LY=0
+      DO 20 I=1,NV
+      IF(N(I)) 20, 20, 18
+ 18   LY=LY+1
+      LL(LY)=N(I)
+ 20   CONTINUE
+      WRITE (6,901)(LL(I), I=1,LY)
+      GO TO 23
+ 22   WRITE (6,908)
+ 23   WRITE (6,902)
+      WRITE (6,907)(S(K,1,J), J=1,NT)
+      WRITE (6,913)
+      CALL REPORT
+      GO TO NNW, (25,30)
+ 25   DO 27 I=1,NI
+      DO 27 J=I,NI
+ 27   T(I,J)=T(I,J)+S(LP,I+1,J+1)
+      IM=NI-1
+      DO 28 I=1,IM
+      IN=I+1
+      DO 28 J=IN,NI
+ 28   T(J,I)=T(I,J)
+      DO 29 I=1,NI
+ 29   AV(I)=S(K,1,I+1)+S(LP,1,I+1)
+      DF=S(K,1,1)+S(LP,1,1)
+      WRITE (6,905)
+      WRITE (6,904)
+      WRITE (6,902)
+      WRITE (6,907)DF,(AV(I), I=1,NI)
+      WRITE (6,913)
+      CALL REPORT
+      GO TO 32
+ 30   DO 31 I=1,NI
+ 31   AV(I)=S(LP,1,I+1)
+      DF=S(LP,1,1)
+   32 DO 315 I=1,NI
+      DO 315 J=I,NI
+      TT(I,J)=T(I,J)
+      TT(J,I)=T(I,J)
+  315 CONTINUE
+      IF(NI-1) 33,33,34
+ 33   T(1,1)=1.0/T(1,1)
+      GO TO 36
+ 34   CALL INVERT (T,NI,DET,KV,KW)
+ 36   WRITE (6,905)
+      WRITE (6,909)
+      CALL REPORT
+      DO 35 I=1,NI
+      R(K,I)=0.0
+      DO 35 J=1,NI
+ 35   R(K,I)=R(K,I)+T(I,J)*AV(J)
+      WRITE (6,906)
+      WRITE (6,915)(R(K,I), I=1,NI)
+      B(K)=0.0
+      DO 40 I=1,NI
+ 40   B(K)=B(K)+AV(I)*R(K,I)
+      B(K)=DF-B(K)
+ 50   CONTINUE
+      GO TO NNX, (60,65)
+ 60   ASSIGN 22 TO NNY
+      ASSIGN 30 TO NNW
+      ASSIGN 65 TO NNX
+      IF(NR-1) 61, 61, 62
+ 61   NF=NW
+      LZ=NW
+      GO TO 15
+ 62   NF=NY
+      LZ=NY
+      GO TO 15
+ 65   DO 70 I=1,NI
+ 70   AV(I)=R(LZ,I)/SQRT(T(I,I))
+      SCALE(1)=B(LZ)/A(LZ)
+      SCALE(2)=SQRT(SCALE(1))
+      DO 67 I=1,NI
+ 67   AV(I)=AV(I)/SCALE(2)
+      LZZ=LZ-1
+      DO 71 I=1,LZZ
+ 71   B(I)=B(I)-B(LZ)
+      WRITE (6,903)
+      WRITE (6,910)
+      WRITE (6,915)(AV(I), I=1,NI)
+      WRITE (6,911)SCALE(1)
+      WRITE (6,912)SCALE(2)
+      DF=NI
+      DF=A(LZ)/DF
+      DO 72 I=1,NI
+   72 AV(I)=R(LZ,I)-CON(I)
+      DO 73 I=1,NI
+      SCALE(I)=0.0
+      DO 73 J=1,NI
+   73 SCALE(I)=SCALE(I)+AV(J)*TT(J,I)
+      DD=0.0
+      DO 74 I=1,NI
+ 74   DD=DD+SCALE(I)*AV(I)
+      DF=(DF*DD)/B(LZ)
+      NDF=A(LZ)
+      WRITE (6,916)NI,NDF,DF
+      WRITE (6,914)
+      WRITE (6,902)
+      WRITE (6,907)(S(NZ,1,I), I=1,NT)
+      DO 75 I=1,NI
+      DO 75 J=I,NI
+ 75   T(I,J)=S(NZ,I+1,J+1)
+      WRITE (6,913)
+      CALL REPORT
+ 901  FORMAT(33H0TABLE OF VARIATION FOR VARIABLE I2,5I2)
+ 902  FORMAT(8H VARIATE)
+ 903  FORMAT(1H0)
+ 904  FORMAT(41H0TABLE OF VARIATION ADJUSTED BY RESIDUALS)
+ 905  FORMAT(1H )
+ 906  FORMAT(24H0REGRESSION COEFFICIENTS)
+ 907  FORMAT(1X,9F14.5)
+ 908  FORMAT(33H0TABLE OF VARIATION FOR RESIDUALS)
+ 909  FORMAT(29H0INVERSE OF COVARIATES MATRIX)
+ 910  FORMAT(18H0COMPUTED T VALUES)
+ 911  FORMAT(21H0RESIDUAL MEAN SQUAREF17.5)
+ 912  FORMAT(25H SQRT. OF RESID. MEAN SQ.F13.5)
+ 913  FORMAT(11H COVARIATES)
+ 914  FORMAT(29H0TABLE OF VARIATION FOR TOTAL)
+ 915  FORMAT(13X,8F13.5)
+ 916  FORMAT(4H0F (I2,1H,I4,3H) =F13.5//)
+      RETURN
+      END
+CINVERT    SUBROUTINE INVERT FOR BMD03V   JULY 12, 1963
+      SUBROUTINE INVERT(A,NN,D,ID,DUMY)
+      REAL*8 B
+      DIMENSION A(9,9),ID(9)
+      N=NN
+      D=0.0
+      DO 60 I=1,N
+      B=0.0
+      II=0
+      DO 10 J=I,N
+      IF(DABS(B).GE.ABS(A(J,I)))GO TO 10
+      II=J
+      B=A(J,I)
+   10 CONTINUE
+      IF(II.GT.0) GO TO 20
+      PRINT 200
+      RETURN
+   20 ID(I)=II
+      DO 30 J=1,N
+      T=A(II,J)/B
+      A(II,J)=A(I,J)
+   30 A(I,J)=T
+      DO 40 II=1,N
+      T=A(II,I)
+      DO 40 JJ=1,N
+      IF(JJ.EQ.I.OR.II.EQ.I) GO TO 40
+      A(II,JJ)=A(II,JJ)-A(I,JJ)*T
+   40 CONTINUE
+      DO 50 II=1,N
+   50 A(II,I)=-A(II,I)/B
+      D=D*B
+      A(I,I)=1.0/B
+   60 CONTINUE
+      DO 80 JJ=1,N
+      J=N+1-JJ
+      II=ID(J)
+      IF(II.EQ.J) GO TO 80
+      DO 70 I=1,N
+      T=A(I,J)
+      A(I,J)=A(I,II)
+   70 A(I,II)=T
+   80 CONTINUE
+      RETURN
+  200 FORMAT(//34H MATRIX TO BE INVERTED IS SINGULAR	  )
+      END
+CPART	  SUBROUTINE PART FOR BMD03V	  JULY 12, 1963
+      SUBROUTINE PARTS(J,IP,Q,ICE,KL)
+      REAL*8 ON,BNEW
+      DIMENSION J(6)
+      GO TO (71,72,73,74), KL
+ 71   IF(Q-1.0) 61, 60, 61
+ 60   KA=IP
+      GO TO 299
+ 61   IF(KA-6) 109, 200, 200
+ 72   IF(Q-1.0) 63, 62, 63
+ 62   KB=IP
+      KA=IP+1
+      GO TO 299
+ 63   IF(KA-6) 109, 93, 93
+ 93   IF(KB-5) 108, 200, 200
+ 73   IF(Q-1.0) 65, 64, 65
+ 64   KC=IP
+      KB=IP+1
+      KA=IP+2
+      GO TO 299
+ 65   IF(KA-6) 109, 97, 97
+ 97   IF(KB-5) 108, 98, 98
+ 98   IF(KC-4) 107, 200, 200
+ 74   IF(Q-1.0) 67, 66, 67
+ 66   KD=IP
+      KC=IP+1
+      KB=IP+2
+      KA=IP+3
+      GO TO 299
+ 67   IF(KA-6) 109, 103, 103
+ 103  IF(KB-5) 108, 104, 104
+ 104  IF(KC-4) 107, 105, 105
+ 105  IF(KD-3) 106, 200, 200
+ 106  DO 113 I=KD,6
+ 113  J(I)=0
+      KD=KD+1
+      J(KD)=1
+      KC=KD+1
+      J(KC)=1
+ 10   KB=KC+1
+      J(KB)=1
+ 20   KA=KB+1
+      J(KA)=1
+      GO TO 300
+ 107  DO 112 I=KC,6
+ 112  J(I)=0
+      KC=KC+1
+      J(KC)=1
+      GO TO 10
+ 108  DO 111 I=KB,6
+ 111  J(I)=0
+      KB=KB+1
+      J(KB)=1
+      GO TO 20
+ 109  DO 110 I=KA,6
+ 110  J(I)=0
+      KA=KA+1
+      J(KA)=1
+      GO TO 300
+ 200  ICE=1
+      GO TO 300
+ 299  Q=0.0
+ 300  RETURN
+      END
+CREPORT    SUBROUTINE REPORT FOR BMD03V   JULY 22, 1963
+      SUBROUTINE REPORT
+      REAL*8 ON,BNEW,FM1,FMT
+      DIMENSION X(1500,9),SCALE(9),AV(9),L(6),LL(6),N(6),M(6),MM(7),
+     1K5(7),KM(6),S(65,9,9),T(9,9),PQ(64),A(64),B(90),R(64,8),KV(9),
+     2KW(9),MD(6),CON(8),NEWA(64),LCODE(64),LVA(64),BNEW(64)
+      COMMON  ON,B,R
+      COMMON  X      , SCALE  , AV     , L	, LL	 , N
+      COMMON  M      , MM     , K5     , KM	, S	 , T
+      COMMON  PQ     , NV     , NR     , NT	, NI	 , NVM
+      COMMON  I5     , MARK   , JW     , Z	, IJK	 , KK
+      COMMON  KZ     , NN	       , NW	, A
+      COMMON  KV     , KW     , NY     , NZ	, CON	 , ONNN
+      EQUIVALENCE (R(1),BNEW(1)),(R(65),N)),(R(129),LVA(1))
+     1,(R(193),LCODE(1))
+      DIMENSION FM1(9),FMT(2)
+      DATA FM1/'  (15X,8  (29X,7  (43X,6  (57X,5  (71X,4  (85X,3  (99X,2
+     1	(113X,F14.5)  '/
+      DO 20 I=1,NI
+      FMT(1)=FM1(I)
+      FMT(2)=FM1(9)
+   20 WRITE(6,FMT)(T(I,J),J=I,NI)
+      RETURN
+      END
+CTABLE	   SUBROUTINE TABLE FOR BMD03V	  JULY 12, 1963
+      SUBROUTINE TABLE (M,I5,Z,MARK,IJK)
+      DIMENSION M(6)
+      GO TO (71,72,73,74,75),IJK
+ 71   IF(Z-1.0) 61, 60, 61
+ 60   KA=I5
+      GO TO 299
+ 61   IF(KA-6) 118, 200, 200
+ 72   IF(Z-1.0) 63, 62, 63
+ 62   KB=I5
+      KA=I5+1
+      GO TO 299
+ 63   IF(KA-6) 118, 93, 93
+ 93   IF(KB-5) 117, 200, 200
+ 73   IF(Z-1.0) 65, 64, 65
+ 64   KC=I5
+      KB=I5+1
+      KA=I5+2
+      GO TO 299
+ 65   IF(KA-6) 118, 97, 97
+ 97   IF(KB-5) 117, 98, 98
+ 98   IF(KC-4) 116, 200, 200
+ 74   IF(Z-1.0) 67, 66, 67
+ 66   KD=I5
+      KC=I5+1
+      KB=I5+2
+      KA=I5+3
+      GO TO 299
+ 67   IF(KA-6) 118, 103, 103
+ 103  IF(KB-5) 117, 104, 104
+ 104  IF(KC-4) 116, 105, 105
+ 105  IF(KD-3) 115, 200, 200
+ 75   IF(Z-1.0) 69,68,69
+ 68   KE=I5
+      KD=I5+1
+      KC=I5+2
+      KB=I5+3
+      KA=I5+4
+      GO TO 299
+ 69   IF(KA-6) 118, 110, 110
+ 110  IF(KB-5) 117, 111, 111
+ 111  IF(KC-4) 116, 112, 112
+ 112  IF(KD-3) 115, 113, 113
+ 113  IF(KE-2) 114, 200, 200
+ 114  DO 123 I=KE,6
+ 123  M(I)=0
+      KE=KE+1
+      M(KE)=1
+      KD=KE+1
+      M(KD)=1
+ 10   KC=KD+1
+      M(KC)=1
+ 20   KB=KC+1
+      M(KB)=1
+ 30   KA=KB+1
+      M(KA)=1
+      GO TO 300
+ 115  DO 122 I=KD,6
+ 122  M(I)=0
+      KD=KD+1
+      M(KD)=1
+      GO TO 10
+ 116  DO 121 I=KC,6
+ 121  M(I)=0
+      KC=KC+1
+      M(KC)=1
+      GO TO 20
+ 117  DO 120 I=KB,6
+ 120  M(I)=0
+      KB=KB+1
+      M(KB)=1
+      GO TO 30
+ 118  DO 119 I=KA,6
+ 119  M(I)=0
+      KA=KA+1
+      M(KA)=1
+      GO TO 300
+ 200  MARK=1
+      GO TO 300
+ 299  Z=0.0
+ 300  RETURN
+      END
+CTPWD	 SUBROUTINE TPWD FOR BMD03V	    VERSION OF SEPT. 26, 1963
+      SUBROUTINE TPWD(NT1,NT2)
+      IF(NT1)40,10,12
+ 10   NT1=5
+ 12   IF(NT1-NT2)14,19,14
+ 14   IF(NT2-5)15,19,15
+   15 REWIND NT2
+   19 IF(NT1-5)18,24,18
+ 18   IF(NT1-6)22,40,22
+ 22   REWIND NT1
+ 24   NT2=NT1
+ 28   RETURN
+ 40   WRITE (6,49)
+      STOP
+ 49   FORMAT(25H ERROR ON TAPE ASSIGNMENT)
+      END
+CTRANZ	      SUBROUTINE TRANZ FOR  BMD03V	      JUNE 30, 1964
+      SUBROUTINE TRANZ
+      REAL*8 ON,BNEW
+      DIMENSION X(1500,9),SCALE(9),AV(9),L(6),LL(6),N(6),M(6),MM(7),
+     1K5(7),KM(6),S(65,9,9),T(9,9),PQ(64),D(64),E(90),R(64,8),KV(9),
+     2KW(9),MD(6),CON(8),NEWA(64),LCODE(64),LVA(64),BNEW(64)
+      COMMON  ON,E,R
+      COMMON  X      , SCALE  , AV     , L	, LL	 , N
+      COMMON  M      , MM     , K5     , KM	, S	 , T
+      COMMON  PQ     , NV     , NR     , NT	, NI	 , NVM
+      COMMON  I5     , MARK   , JW     , Z	, IJK	 , KK
+      COMMON  KZ     , NN	       , NW	, D
+      COMMON  KV     , KW     , NY     , NZ	, CON	 , ONNN
+      EQUIVALENCE (R(1),BNEW(1)),(R(65),NEWA(1)),(R(129),LVA(1))
+     1,(R(193),LCODE(1))
+      ASN(Q000FL)=ATAN(Q000FL/SQRT(1.0-Q000FL**2))
+ 6003 DO 200 I=1,NVM
+      J=NEWA(I)
+      IJK=LCODE(I)
+      K=LVA(I)
+      IF(IJK-11)5,7,7
+    5 POWER=BNEW(I)
+      GO TO 8
+    7 II=BNEW(I)
+    8 GO TO(10,20,30,40,50,60,70,80,90,100,110,120,130,140),IJK
+   10 IF(T(1,K))99,32,9
+    9 T(1,J)=SQRT(T(1,K))
+      GO TO 200
+   20 IF(T(1,K))99,11,12
+   11 T(1,J)=1.0
+      GO TO 200
+   12 T(1,J)=SQRT(T(1,K))+SQRT(T(1,K)+1.0)
+      GO TO 200
+   30 IF(T(1,K))99,99,14
+   14 T(1,J)=ALOG10(T(1,K))
+      GO TO 200
+   40 T(1,J)=EXP(T(1,K))
+      GO TO 200
+   50 IF(T(1,K))99,32,17
+   17 IF(T(1,K)-1.0)18,19,99
+   19 T(1,J)=3.14159265/2.0
+      GO TO 200
+   18 A=SQRT(T(1,K))
+      T(1,J)=ASN(A)
+      GO TO 200
+   60 A=T(1,K)/ONNN
+      B=A+1.0/ONNN
+      IF(A)99,23,24
+   23 IF(B)99,32,27
+   27 T(1,J)=ASN(SQRT(B))
+      GO TO 200
+   24 IF(B)99,28,29
+   28 T(1,J)=ASN(SQRT(A))
+      GO TO 200
+   29 A=SQRT(A)
+      B=SQRT(B)
+      T(1,J)=ASN(A)+ASN(B)
+      GO TO 200
+   70 IF(T(1,K))31,99,31
+   31 T(1,J)=1.0/T(1,K)
+      GO TO 200
+   80 T(1,J)=T(1,K)+POWER
+      GO TO 200
+   90 T(1,J)=T(1,K)*POWER
+      GO TO 200
+  100 IF(T(1,K))33,32,33
+   32 T(1,J)=0.0
+      GO TO 200
+   33 T(1,J)=T(1,K)**POWER
+      GO TO 200
+  110 T(1,J)=T(1,K)+T(1,II)
+      GO TO 200
+  120 T(1,J)=T(1,K)-T(1,II)
+      GO TO 200
+  130 T(1,J)=T(1,K)*T(1,II)
+      GO TO 200
+  140 IF(T(1,II))34,99,34
+   34 T(1,J)=T(1,K)/T(1,II)
+      GO TO 200
+   99 WRITE (6,900)I,MARK,T(1,K)
+      KZ=-99
+      GO TO 250
+  200 CONTINUE
+  900 FORMAT(51H0ERROR OCCURRED DURING TRANS-GENERATION PASS NUMBERI3,
+     120H, REPLICATION NUMBERI5,1H./26H VALUE OF THIS REPLICATE =F15.5,2
+     2H. 36HTHIS IS THE FIRST ERROR ENCOUNTERED./41H PROGRAM WILL GO TO
+     3NEXT PROBLEM, IF ANY.)
+  250 RETURN
+      END
+CVFCHCK    SUBROUTINE TO CHECK FOR PROPER NUMBER OF VARIABLE FORMAT CRDS
+      SUBROUTINE VFCHCK(NVF)
+      IF(NVF.GT.0.AND.NVF.LE.5) RETURN
+ 10   WRITE (6,4000)
+      NVF=1
+ 50   RETURN
+ 4000 FORMAT(1H023X71HNUMBER OF VARIABLE FORMAT CARDS INCORRECTLY SPECIF
+     1IED, ASSUMED TO BE 1.)
+      END
+CXLOCAT   SUBROUTINE XLOCAT FOR BMD03V	  JULY 12, 1963
+      SUBROUTINE XLOCAT
+      REAL*8 ON,BNEW
+      DIMENSION X(1500,9),SCALE(9),AV(9),L(6),LL(6),N(6),M(6),MM(7),
+     1K5(7),KM(6),S(65,9,9),T(9,9),PQ(64),A(64),B(90),R(64,8),KV(9),
+     2KW(9),MD(6),CON(8),NEWA(64),LCODE(64),LVA(64),BNEW(64)
+      COMMON ON,B,R
+      COMMON  X      , SCALE  , AV     , L	, LL	 , N
+      COMMON  M      , MM     , K5     , KM	, S	 , T
+      COMMON  PQ     , NV     , NR     , NT	, NI	 , NVM
+      COMMON  I5     , MARK   , JW     , Z	, IJK	 , KK
+      COMMON  KZ     , NN	       , NW	, A
+      COMMON  KV     , KW     , NY     , NZ	, CON	 , ONNN
+      EQUIVALENCE (R(1),BNEW(1)),(R(65),NEWA(1)),(R(129),LVA(1))
+     1,(R(193),LCODE(1))
+      DO 300 I=1,6
+ 300  N(I)=0
+      KI=0
+      K=1
+      DO 302 I=I5,6
+      KI=KI+1
+      IF(M(I)) 301, 301, 302
+ 301  N(K)=KI
+      K=K+1
+ 302  CONTINUE
+      DO 303 I=I5,6
+ 303  MM(I)=L(I)-1
+      DO 305 I=1,NV
+      K=I5+(I-1)
+ 305  K5(K)=I
+      DO 310 I=1,JW
+      DO 309 J=I5,6
+      IF(N(I)-K5(J)) 309, 306, 309
+ 306  K5(7)=K5(J)
+      MM(7)=MM(J)
+      DO 307 J2=J,6
+      K5(J2)=K5(J2+1)
+ 307  MM(J2)=MM(J2+1)
+      GO TO 310
+ 309  CONTINUE
+ 310  CONTINUE
+      DO 320 J=1,NT
+ 320  AV(J)=0.0
+ 351  N(1)=0
+ 352  N(2)=0
+ 353  N(3)=0
+ 354  N(4)=0
+ 355  N(5)=0
+ 356  N(6)=0
+ 359  DO 360 J=I5,6
+      KK=K5(J)
+ 360  KM(KK)=N(J)
+      LX=1
+      DO 361 J=1,NV
+ 361  LX=LX+KM(J)*LL(J)
+      DO 200 J=1,NT
+ 200  AV(J)=AV(J)+X(LX,J)
+      IF(N(6)-MM(6)) 362, 363, 363
+ 362  N(6)=N(6)+1
+      GO TO 359
+ 363  IF(JW-1) 212, 364, 370
+ 364  DO 210 I=1,NT
+      DO 210 J=I,NT
+ 210  S(KZ,I,J)=S(KZ,I,J)+AV(I)*AV(J)
+      DO 211 I=1,NT
+ 211  AV(I)=0.0
+ 212  IF(NV-1) 70, 70, 370
+ 370  IF(N(5)-MM(5)) 371, 372, 372
+ 371  N(5)=N(5)+1
+      GO TO 356
+ 372  IF(JW-2) 232, 373, 381
+ 373  DO 230 I=1,NT
+      DO 230 J=I,NT
+ 230  S(KZ,I,J)=S(KZ,I,J)+AV(I)*AV(J)
+      DO 231 I=1,NT
+ 231  AV(I)=0.0
+ 232  IF(NV-2) 70, 70, 381
+ 381  IF(N(4)-MM(4)) 382, 383, 383
+ 382  N(4)=N(4)+1
+      GO TO 355
+ 383  IF(JW-3) 242, 384, 394
+ 384  DO 240 I=1,NT
+      DO 240 J=I,NT
+ 240  S(KZ,I,J)=S(KZ,I,J)+AV(I)*AV(J)
+      DO 241 I=1,NT
+ 241  AV(I)=0.0
+ 242  IF(NV-3) 70, 70, 394
+ 394  IF(N(3)-MM(3)) 395, 396, 396
+ 395  N(3)=N(3)+1
+      GO TO 354
+ 396  IF(JW-4) 252, 397, 407
+ 397  DO 250 I=1,NT
+      DO 250 J=I,NT
+ 250  S(KZ,I,J)=S(KZ,I,J)+AV(I)*AV(J)
+      DO 251 I=1,NT
+ 251  AV(I)=0.0
+ 252  IF(NV-4) 70, 70, 407
+ 407  IF(N(2)-MM(2)) 408, 409, 409
+ 408  N(2)=N(2)+1
+      GO TO 353
+ 409  IF(JW-5) 262, 410, 420
+ 410  DO 260 I=1,NT
+      DO 260 J=I,NT
+ 260  S(KZ,I,J)=S(KZ,I,J)+AV(I)*AV(J)
+      DO 261 I=1,NT
+ 261  AV(I)=0.0
+ 262  IF(NV-5) 70, 70, 420
+ 420  IF(N(1)-MM(1)) 444, 70, 70
+ 444  N(1)=N(1)+1
+      GO TO 352
+ 70   RETURN
+      END
+   yPâ
