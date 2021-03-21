@@ -1,0 +1,241 @@
+      COMMON/B1/ NC1(2),JKK(4),NC2(2),LENAE,NC3(4),MAPCE,NC4(20),
+     *LENI(20),
+     1MAPI(100),MAPP(20,4),LENAD(20),MAPAD(140),LENA(100),MAPA(200),
+     2IDG1(100),IDG2(100),LEND(20),MAPC(200),MAPD(200),ITRANS(200),
+     3NN,NT,NR,NC,NTTL,NCL,JUMP,IDUM1(900),XIS,XIF,XLOV,TPRINT,DTMAX,
+     4DTMIN,DVMAX,XNTI,VB,RB,XKP,VTP,CGATEP,CJNP,THETAP,CVTP1,CVTP2,
+     5DDVDT,P(2),XKN,VTN,CGATEN,CJNN,THETAN,CVTN1,CVTN2,XN(3),W(40),
+     6L(40),CH(40),R(20),C(20),PA(20),XNA(20),CX(20),VI(20),VX(5),TC(20)
+     7,VCL(21,4)//PDQ(40),PDR(20),VDOT(30),V(30),T,TP,TS,TX,NCY,IGO
+      REAL L,A(400),IN(20),VDP(20),AD(20),INET(202),CG(141),CGC(40),
+     1COV(40),PH(4),DP(4)
+      INTEGER MO(4)
+      DO 400 J=1,NCL
+      J1=JKK(J)
+      DO 400 JJ=1,J1
+  400 INET(100+20*J+JJ)=0
+      DO 297 J=1,5
+  297 V(24+J)=VX(J)
+      VDD=VX(1)
+      DO 298 J=1,NC
+  298 CG(120+J)=C(J)
+      DT=DTMIN
+      DO 299 J=1,NT
+      IF (CH(J).EQ.30) GOTO 280
+      CGC(J)=CGATEP*W(J)*L(J)
+      COV(J)=CGATEP*W(J)*XLOV
+      GOTO 296
+  280 CGC(J)=CGATEN*W(J)*L(J)
+      COV(J)=CGATEN*W(J)*XLOV
+  296 CONTINUE
+      CG(J)=CGC(J)+2*COV(J)
+      CG(40+J)=CG(J)/2.
+  299 CG(80+J)=CG(J)/2.
+      TCC=TX+TS
+      TX=TX+TC(NCY)
+      TC1=TX+TS
+        DO 401 J=1,NCL
+      MO(J)=1
+      PH(J)=VCL(NCY,J)
+      DP(J)=VCL((NCY+1),J)-PH(J)
+      IF (DP(J).EQ.0) MO(J)=0
+      DP(J)=DP(J)/TC(NCY)
+  401 V(20+J)=PH(J)
+   10 IF (T-TC1) 43,44,44
+   44 T=TC1
+      CALL CHAIN('CMOS')
+   43 DO 171 J=1,NCL
+      IF (MO(J).EQ.0) GOTO 171
+      V(20+J)=PH(J)+DP(J)*(T-TCC)
+      J1=JKK(J)
+      DO 172 JJ=1,J1
+  172 INET(100+20*J+JJ)=CG(MAPP(JJ,J))*DP(J)
+  171 CONTINUE
+      IF (NTTL) 180,180,181
+  181 VTTL=V(NTTL)
+      IF (VTTL-VB) 182,182,183
+  182 INET(201)=0
+      GOTO 180
+  183 INET(201)=-1E3*VTTL/RB
+  180 CONTINUE
+      M=0
+   61 M=M+1
+      IF (M.GT.NT) GOTO 30
+      GOTO 40
+   30 MR=0
+   31 MR=MR+1
+      IF (MR.GT.NR) GOTO 60
+      MX=3*NT+2*MR
+      VOLT=V(ITRANS(MX-1))-V(ITRANS(MX))
+      RXX=1E3*VOLT/R(MR)
+      PDR(MR)=PDR(MR)+RXX*VOLT*DT
+      INET(80+MR)=RXX
+      INET(100+MR)=-RXX
+      GOTO 31
+   60 CONTINUE
+      J1=1
+        J5=1
+      DO 51 J=1,NN
+      A1=0
+        J4=LENAD(J)
+      J2=J1+J4-1
+      DO 52 J3=J1,J2
+   52 A1=A1+CG(MAPAD(J3))
+       J1=J1+J4
+      VX1=V(J)
+      IF (VX1) 58,59,510
+   58 VX1=0
+      GOTO 59
+  510 IF (VDD-VX1) 511,59,59
+  511 VX1=VDD
+   59 CONTINUE
+      AD(J)=A1+CJNP*PA(J)/SQRT(VX1+.7)+CJNN*XNA(J)/SQRT(VDD-VX1+.7)
+     *+CX(J)
+      J4=LENI(J)
+      J2=J5+J4-1
+      A1=0
+      DO 53 J3=J5,J2
+   53 A1=A1+INET(MAPI(J3))
+      IN(J)=A1
+      J5=J5+J4
+   51 CONTINUE
+      J1=1
+      DO 80 J=1,LENAE
+      A1=0
+      J4=LENA(J)
+      J2=J1+J4-1
+      DO 82 J3=J1,J2
+   82 A1=A1+CG(MAPA(J3))
+      A(IDG1(J))=A1
+      A(IDG2(J))=A1
+      J1=J1+J4
+   80 CONTINUE
+   14 DO 200 J=1,NN
+  200 VDP(J)=VDOT(J)
+      J1=1
+      DO 20 I=1,NN
+      J4=LEND(I)
+      J2=J1+J4-1
+      A1=0
+      DO 21 J3=J1,J2
+   21 A1=A1+A(MAPC(J3))*VDOT(MAPD(J3))
+      VDOT(I)=(A1+IN(I))/AD(I)
+   20 J1=J1+J4
+      DO 13 J=1,NN
+      IF (DDVDT-ABS(VDOT(J)-VDP(J))) 14,13,13
+   13 CONTINUE
+      VDMX=.0001
+      DO 203 J=1,NN
+      IF (ABS(VDOT(J))-VDMX) 203,203,244
+  244 VDMX=ABS(VDOT(J))
+  203 CONTINUE
+      DT=DVMAX/VDMX
+      IF (DT-DTMIN) 210,211,212
+  210 DT=DTMIN
+      GOTO 211
+  212 IF (DT-DTMAX) 211,211,213
+  213 DT=DTMAX
+  211 CONTINUE
+      DO 204 J=1,NN
+      VX1=V(J)+VDOT(J)*DT
+      IF (VX1+.7) 205,217,217
+  205 VX1=-.7
+      VDOT(J)=0
+      GOTO 204
+  217 IF (VX1-VDD-.7) 204,204,206
+  206 VX1=VDD+.7
+      VDOT(J)=0
+  204 V(J)=VX1
+      T=T+DT
+      IF (T-TP) 10,208,208
+208     IT=INT(T)
+      TYPE 503,IT,(V(J),J=1,NN)
+      TP=TP+TPRINT
+      GOTO 10
+  402 TYPE 403,M
+      CALL CHAIN('CMOS')
+  403 FORMAT(' W OF MOSFET ',I2,' IS NEGATIVE')
+   40 CUR=0
+      CGSS=1
+      BD=0
+      BS=0
+      BG=CGC(M)
+      JN=0
+      IF (W(M)) 402,990,991
+  990 CG(40+M)=BS+COV(M)
+      CG(80+M)=BD+COV(M)
+      INET(40+M)=-CUR
+      INET(M)=CUR
+      GOTO 61
+  991 M3=3*M
+      ZD=V(ITRANS(M3))
+      VG=V(ITRANS(M3-2))
+      ZS=V(ITRANS(M3-1))
+      IF (IFIX(CH(M))-30) 550,551,550
+  550 CONTINUE
+      IF (ZD-ZS) 992,407,407
+  407 F=1
+  988 VDS=ZD-ZS
+      IF (VG-ZS) 990,990,404
+  404 IF (ZS) 405,405,993
+  405 VT=VTP
+      GOTO 994
+  993 VT=VTP+CVTP1*ZS**CVTP2
+  994 VGS=VG-VT-ZS
+      IF (VGS) 995,995,560
+  560 CONTINUE
+      XX=1E-3*XKP*W(M)/(L(M)*(1.+THETAP*VGS))
+  578 IF (VGS-VDS) 406,406,996
+  995 CUR=0
+      XXX=(VG-ZS)/VT+.01
+      CGSS=XXX**4
+      GOTO 987
+  406 CUR=XX*VGS*VGS*.5+.001
+  987 BD=0
+      BS=BG*CGSS
+      GOTO 997
+  996 CUR=XX*VDS*(VGS-VDS*.5)+.001
+      BD=.5*BG*(1-(VDS/VGS)**2)
+      BS=BG-BD
+  997 IF (JN) 580,580,581
+  581 XCX=BD
+      BD=BS
+      BS=XCX
+  580 IF (F) 998,998,989
+  998 XCX=BD
+      BD=BS
+      BS=XCX
+  989 PDQ(M)=PDQ(M)+CUR*VDS*DT
+      CUR=F*CUR
+      GOTO 990
+  992 XCX=ZD
+      ZD=ZS
+      ZS=XCX
+      F=-1
+      GOTO 988
+  551 JN=1
+      XCX=VDD-ZS
+      ZS=VDD-ZD
+      ZD=XCX
+      VG=VDD-VG
+      IF (ZD-ZS) 570,570,571
+  571 F=1
+  572 VDS=ZD-ZS
+      IF (VG-ZS) 990,990,573
+  573 IF (ZS) 574,574,575
+  574 VT=VTN
+      GOTO 576
+  575 VT=VTN+CVTN1*ZS**CVTN2
+  576 VGS=VG-VT-ZS
+      IF (VGS) 995,995,577
+  577 CONTINUE
+      XX=1.E-3*XKN*W(M)/(L(M)*(1.+THETAN*VGS))
+      GOTO 578
+  570 F=-1
+      XCX=ZD
+      ZD=ZS
+      ZS=XCX
+      GOTO 572
+  503 FORMAT(1H ,I3,10F6.2,(/1X,10F6.2))
+  999 STOP
+      END
