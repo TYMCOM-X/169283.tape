@@ -1,0 +1,957 @@
+        TITLE  LIBRARY FILE CHECKER
+        SALL
+        MLON
+        DEFINE  CALL (X)< PUSHJ AC17,X>
+        DEFINE  RET(X)< POPJ AC17,>
+        DEFINE  MSG(X)<OUTSTR [ ASCIZ /X/]>
+        DEFINE RET1 < AOS AC,0(AC17)
+        POPJ    AC17,>
+        EXTERNAM JOBFF
+        MAS=1
+        AC=0
+        AC1=1
+        AC2=2
+        AC3=3
+        ISCR=3
+        AC4=4
+        AC5=5
+        AC6=6
+        AC7=7
+        X=10
+        IPPN=2
+        AC11=11
+        AC12=12
+        AC13=13
+        AC14=14
+        AC17=17
+        PAGE
+        SUBTTL  GET A COMMAND FROM THE TERMINAL
+START0: SETOM   ALLFLG
+        SETZM   CKSFLG
+        SETZM   LICFLG
+        SETOM   PROFLG
+        MSG     (VER 04-04-73 16:15)
+        MOVE    AC,[-20]
+        GETTAB  AC,
+        JRST    QUI
+        SETCA   AC,
+        TLNE    AC,10
+        JRST    QUI
+        HRRZI   AC,11
+        GETTAB  AC,
+        JRST    QUI
+        LSH     AC,16
+        LSH     AC,-35
+        SUBI    AC,60
+        MOVEM   AC,AC13
+START:  OUTSTR  CRLF
+        SETZM   DSKFLG
+        OUTCHR  PROMPT
+        MOVE    AC17,[IOWD 20,PDL]
+        SETZB   AC3,AC4
+        MOVE    AC2,[-2]
+        CALL    (GETC)
+        JRST    START
+        LSHC    AC3,-6
+        AOJLE   AC2,.-3
+        CALL    (SUCK)
+        CAMN    AC4,[ SIXBIT /REV/]
+        JRST    VER
+        CAMN    AC4,[ SIXBIT /DDA/]
+        JRST    ADD
+        CAMN    AC4,[ SIXBIT /MER/]
+        JRST    REM
+        CAMN    AC4,[ SIXBIT /DOM/]
+        JRST    MOD
+        CAMN    AC4,[ SIXBIT /SIL/]
+        JRST    LIS
+        CAMN    AC4,[ SIXBIT /NPP/]
+        JRST    PPN
+        CAMN    AC4,[ SIXBIT /IUQ/]
+        JRST    QUI
+        CAMN    AC4,[ SIXBIT /IXE/]
+        JRST    QUI
+        CAMN    AC4,[ SIXBIT /ERC/]
+        JRST    CRE
+        CAMN    AC4,[ SIXBIT /TES/]
+        JRST    SET
+        CAMN    AC4,[ SIXBIT /LLA/]
+        SETZM   ALLFLG
+        CAMN    AC4,[ SIXBIT /NIS/]
+        SETOM   ALLFLG
+        JRST    ERRCOM
+        PAGE
+        SUBTTL  COMMANDS NOT IMPLEMENTED
+VER:    MSG     (VERIFYING ALL FILES)
+        OUTSTR CRLF
+        SETZM   P1FLG#          ;PRINT BOTH CHECKSUMS ECT.
+        SETZM   VERFLG
+VER8:   SETOM   SKIPF
+        SETZM   CREFLG
+        CALL    (MASOP)
+        JRST    LOOKE
+        MOVE    AC11,[POINT 36,MASPTR+1]
+        ILDB    AC12,AC11
+VER1:   CALL    (GFN)
+        JRST    ST2
+        USETI   MAS,^D11
+        IN      MAS,
+        JRST    VER4
+        JRST    VER2
+VER4:   MOVE    AC2,IREC
+VER3:   CALL    (RDREC)
+        JRST    VER2
+        SOJG    AC2,VER3
+        MOVEI   AC1,14
+        MOVEM   AC1,PPNSTA
+        SETZM   WORD
+        SKIPE   VERFLG
+        JRST    LIS7
+        CALL    (PPNOPE)
+        JRST    VER5
+        MOVE    AC2,RECORD+1(AC13)
+        SKIPN   AC2
+        JRST    VER6
+        CALL    (CKSUM)
+        MOVE    AC2,RECORD+1(AC13)
+        CAME    AC2,WORD
+        JRST    VER7
+VER9:   HRRZ    AC2,RECORD+1
+        HRRZ    AC3,PPNF+14
+        MOVEM   AC3,WORD
+        CAMN    AC2,AC3
+        JRST    VER11
+VER10:  SKIPE   LICFLG
+        JRST    VER11
+        CALL    (PRREC)
+        CALL    (PLICR)
+        MSG     ( **LICENSE)
+        OUTSTR  CRLF
+VER11:  SKIPE   PROFLG
+        JRST VER12
+        HRRZ    AC2,RECORD+7
+        MOVE    AC3,PPNF+4
+        LSH     AC3,-33
+        MOVEM   AC3,WORD
+        CAMN    AC3,AC2
+        JRST    VER12
+        CALL    (PRREC)
+        CALL    (PPROR)
+        MSG     ( **PROTECTION)
+        OUTSTR  CRLF
+VER12:  SKIPE   CDAFLG
+        JRST    VER6
+        MOVE    AC2,PPNF+4
+        LSH     AC2,30
+        LSH     AC2,-6
+        MOVEM   AC2,WORD
+        HLLZ    AC2,RECORD+6
+        CAMN    AC2,WORD
+        JRST    VER6
+        CALL    (PRREC)
+        OUTSTR  LPARE
+        LSH     AC2,-22
+        CALL    (DATEP)
+        OUTSTR  RPARE
+        HLRZ    AC2,WORD
+        CALL    (DATEP)
+        MSG     ( **CREATION)
+        OUTSTR  CRLF
+        JRST    VER6
+VER7:   SKIPE   CKSFLG
+        JRST    VER7A
+        CALL    (PRREC)
+        CALL    (PCKSR)
+        MSG     ( **CKSUM)
+        OUTSTR CRLF
+VER7A:  JRST    VER9
+VER5:   SKIPN   RECORD+1(AC13)
+        JRST    VER6
+        CALL    (PRREC)
+        MSG     (  FILE NOT FOUND)
+VER2:   OUTSTR CRLF
+VER6:   SOJG    AC12,VER1
+        JRST    ST2
+REM:    MSG     (REMOVE FILE)
+        JRST    START
+        PAGE
+MOD:    MSG     (MODIFY RECORD)
+        SETOM   P1FLG           ;PRINT ONLY ONE CKSUM FOR MOD (ECT)
+        SETOM   SKIPF           ;DO NOT SKIP NULLS IN MASTER ILE
+        SETZM   CREFLG          ;MASTER FILES EXISTS
+        CALL    (MASOP)         ;OPEN MASTER FILE
+        JRST    ST2             ;FAILED
+        SETOM   ALLFLG          ;ONLY ONE FILE AT A TIME
+MOD2:   MOVE    AC11,[POINT 36,MASPTR+1]
+        ILDB    AC12,AC11
+        CALL    (GFN)           ;GET FILE NAME
+        JRST    ST2             ;FAILED
+        CALL    (RXREC)        ;READ RECORD IREC FROM MASTER FILE
+        JRST    ST2             ;FAILED TO READ RECORD
+        MOVEI   AC2,14          ;STATUS OF FILE TO BE OPENED
+        MOVEM   AC2,PPNSTA      ;STORE STATUS
+        CALL    (PPNOPE)        ;OPEN FILE
+        JRST    ST2
+        CALL    (CKSUM)         ;CALCULATE CHECKSUM
+        MOVE    AC2,WORD        ;GET CALC CKSUM
+        SKIPN   CKSFLG
+        MOVEM   AC2,RECORD+1(AC13)      ;STORE CHECKSUM
+        HRRZ    AC2,PPNF+14     ;GET LICENSE
+        SKIPN   LICFLG
+        HRRM    AC2,RECORD+1    ;STORE LIC
+        MOVE    AC2,PPNF+4      ;PROTECTION
+        LSH     AC2,-33
+        SKIPN   PROFLG
+        MOVE    AC2,RECORD+7
+MOD1:   TLO     AC2,200000
+        MOVEM   AC2,RECORD+7
+        MOVE    AC2,PPNF+4
+        LSH     AC2,30
+        LSH     AC2,-6
+        SKIPN   CDAFLG
+        MOVE    AC2,RECORD+6
+        MOVEM   AC2,RECORD+6    ;CREATION DATE.
+        CALL    (WXREC)         ;WRITE RECORD IREC TO MASTER FILE
+        JRST    START           ;FAILED TO WRITE RECORD
+        JRST    MOD2
+        PAGE
+LIS:    MSG     (LISTING RECORDS)
+        OUTSTR CRLF
+        SETOM   VERFLG
+        JRST    VER8
+LIS7:   SETOM   P1FLG
+        CALL    (PRINT)
+        JRST    VER6
+        MOVEI   AC,14
+        MOVEM   AC,PPNSTA
+        CALL    (RFNAM)
+        JRST    ST2
+        CALL    (PPNOPE)
+        JRST    START
+        SETOM   SKIPF
+        PAGE
+CRE:    MSG     (CREATING MASTER FILE)
+        SETOM   CREFLG
+        SETZM   PPNSTA
+        CALL    (MASOP)
+        JRST    ST
+CRE1:   CALL (RFNAM)
+        JRST  ST
+        CALL    (PPNOPE)
+        JRST    START
+        OUT     MAS,
+        MOVEI   AC1,^D10
+        OUT     MAS,
+        SOJG    AC1,.-1
+        MOVE    AC11,[ POINT 36,MASPTR+2]
+        MOVEI   AC12,0
+CRE2:   MOVEI   AC1,6
+        MOVE    AC5,[POINT 36,RECORD+2]
+        SETZM   SKIPF
+        CALL    (GETX)
+        JRST    ST
+        IDPB    AC2,AC5
+        MOVEI   AC1,2
+        CALL    (GETX)
+        JRST    ST
+        MOVEI   AC1,6
+        CALL    (GETX)
+        JRST    ST
+        IDPB    AC2,AC5
+        MOVEI   AC1,2
+        CALL    (GETX)
+        JRST    ST
+        MOVEI   AC1,6
+        CALL    (GETX)
+        JRST    ST
+        IDPB    AC2,AC5
+        MOVEI   AC1,7
+        CALL    (GETX)
+        JRST    ST
+        MOVE    AC5,[POINT 36,RECORD]
+        MOVEI   AC1,6
+        CALL    (GETX)
+        JRST    ST
+        IDPB    AC2,AC5
+        MOVEI   AC1,3
+        SETOM   SKIPF
+CRE3:   CALL    (GETX)
+        JUMP    ST
+        LSH     AC2,^D18
+        SETZM   SCRF+14
+        SETZM   SCRF+4
+        IDPB    AC2,AC5
+        MOVE    AC2,RECORD
+        MOVEM   AC2,SCRF+2
+        MOVE    AC2,RECORD+1
+        MOVEM   AC2,SCRF+3
+        MOVEI   AC2,UNAME
+        MOVEM   AC2,SCRF+1
+        MOVE    AC2,[SIXBIT /SYS/]
+        MOVEM   AC2,UNAME
+        SETZM   UNAME+1
+        OPEN    ISCR,SCRSTA
+        JRST    OPENE
+        LOOKUP  ISCR,SCRF
+        JRST    CRE5
+        CLOSE   ISCR,10
+CRE5:   MOVE    AC2,RECORD+1
+        HRR     AC2,SCRF+14
+        MOVEM   AC2,RECORD+1
+        MOVE    AC2,SCRF+4
+        LSH     AC2,30
+        LSH     AC2,-6
+        MOVEM   AC2,RECORD+6
+        MOVE    AC2,SCRF+4
+        LSH     AC2,-33
+        MOVEM   AC2,RECORD+7
+        MOVE    AC5,[-^D16]
+CRE4:   MOVE    AC3,RECORD+^D16(AC5)
+        CALL    (PUTMAS)
+        AOJL    AC5,CRE4
+        MOVE    AC5,RECORD
+        IDPB    AC5,AC11
+        AOS     AC12
+        HRR     AC2,AC12
+        HLL     AC2,RECORD+1
+        IDPB    AC2,AC11
+        MOVEM   AC12,MASPTR+1
+        CALL    (SUCPPN)
+        JRST    ST
+        JRST    CRE2
+ST:     USETO   MAS,1
+        MOVEI   AC12,^D10*200
+        MOVE    AC11,[POINT 36,MASPTR]
+ST1:    ILDB    AC3,AC11
+        CALL    (PUTMAS)
+        SOJG    AC12,ST1
+ST2:    CALL    (STOP)
+        JRST    START
+SET:    MSG     (SETTING MODE)
+        JRST    START
+        PAGE
+        SUBTTL  PRINT AUTHOR OF FILE AND CRE PDATE
+PPN:    OUTSTR  CRLF
+        CALL (RFNAM)
+        JRST    START
+        OPEN IPPN,PPNSTA
+        JRST    OPENE
+        LOOKUP  IPPN,PPNF
+        JRST    LOOKE
+        CLOSE   IPPN,10
+        HLRZ     AC2,PPNF+26
+        CALL (DECPR)
+        OUTCHR  [","]
+        HRRZ     AC2,PPNF+26
+        CALL    (DECPR)
+        MOVE    AC4,PPNF+4
+        CALL    (PDATE)
+        MOVE    AC1,PPNF+26
+        SKIPN   AC1
+        JRST    PPN
+        MOVE    AC2,[1,,1]
+        MOVEM   AC2,PPNF+1
+        MOVEM   AC1,PPNF+2
+        MOVE    AC1,[SIXBIT /UFD/]
+        MOVEM   AC1,PPNF+3
+        OPEN    IPPN,PPNSTA
+        JRST    OPENE
+        LOOKUP  IPPN,PPNF
+        JRST    PPN
+        MOVE    AC1,PPNF+27
+        CALL    (SIXOUT)
+        JRST    PPN
+ADD:    MSG     (ADD RECORDS)
+        JRST  START
+QUI:    MOVEI   AC,
+        EXIT    AC,
+ERRCOM: MSG     (INVALID COMMAND)
+        JRST    START
+OPENE:  MSG     (OPEN ERROR)
+        JRST    START
+LOOKE:  HRRZ    AC1,PPNF+3
+        SKIPN   AC1
+        JRST    LNTF
+        CAIN    AC1,2
+        JRST    LPT
+        MSG     (LOOKUP ERROR)
+        JRST    LR
+LPT:    MSG     (PROTECTION FAILURE)
+        JRST    LR
+LNTF:   MSG     (FILE NOT FOUND)
+LR:     OUTSTR  CRLF
+        JRST    PPN
+        PAGE
+        SUBTTL  SUBROUTINES
+MASOP:  OPEN    MAS,STATUS
+        JRST    MASOPE
+        MOVEI   X,IBUF
+        EXCH    X,JOBFF
+        INBUF   MAS,1
+        EXCH    X,JOBFF
+        MOVEI   X,OBUF
+        EXCH    X,JOBFF
+        OUTBUF  MAS,1
+        EXCH    X,JOBFF
+        LOOKUP  MAS,MASF
+        CALL    (MASLOE)
+        ENTER   MAS,MASF
+        JRST    ENTERE
+        SKIPE   CREFLG
+        JRST    MASOP2
+        MOVEI   AC12,^D10*200
+        MOVE    AC11,[POINT 36,MASPTR]
+MASOP1: CALL    (GETMAS)
+        JRST    ENTERE
+        IDPB    AC3,AC11
+        SOJG    AC12,MASOP1
+MASOP2: RET1
+STOP:   OUTSTR  CRLF
+        MSG     (ALL DONE)
+        CLOSE   MAS,10
+        RELEASE MAS,
+        RET
+GETC:   INCHWL  AC3
+        CAIE    AC3,15
+        CAIN    AC3,12
+        JRST    .+4
+        SUBI    AC3,40
+        RET1
+        CAIE    AC3,12
+        INCHWL  AC3
+        RET
+SUCK:   CALL    (GETC)
+        RET
+        JRST    .-2
+PDATE:  MOVE    AC1,AC4
+        LSHC    AC1,-14
+        SETZ    AC1,
+        LSHC    AC1,14
+        MOVE    AC4,AC1
+        IDIVI   AC1,^D12*^D31
+        ADDI    AC1,^D1964
+        MOVE    AC4,AC2
+        OUTCHR  [" "]
+        MOVE    AC2,AC1
+        CALL    (DECPR)
+        OUTCHR  ["/"]
+        MOVE    AC1,AC4
+        IDIVI   AC1,^D31
+        ADDI    AC1,1
+        MOVE    AC4,AC2
+        MOVE    AC2,AC1
+        CALL    (DECPR)
+        MOVE    AC1,AC4
+        OUTCHR  ["/"]
+        ADDI    AC1,1
+        MOVE    AC2,AC1
+        CALL    (DECPR)
+        RET
+RFNAM:  OUTSTR  CRLF
+        MSG     (FILE NAME: )
+        SETZM   PPNF+3
+        SETZB   AC4,PPNF+1
+        SETZM   PPNF+2
+        SETZM   UNAME
+        SETZM   UNAME+1
+        CALL    (GETC)
+        RET
+        CAIE    AC3,"@"-40
+        JRST    RF1
+        SETOM   DSKFLG
+        CALL    (GETC)
+        RET
+RF1:    CAIE    AC3,"("-40
+        JRST    FILN
+        MOVEI   AC1,UNAME
+        MOVEM   AC1,PPNF+1
+        SETZB   AC4,UNAME
+        MOVE    AC1,[POINT 6,UNAME]
+        MOVE    AC2,[-13]
+PPN1:   CALL    (GETC)
+        JRST    INVNAM
+        CAIN    AC3,")"-40
+        JRST    FILN
+        IDPB    AC3,AC1
+        AOJLE   AC2,PPN1
+        JRST    INVNAM
+FILN:   MOVE    AC1,[POINT 6,PPNF+2]
+        MOVE    AC2,[-6]
+        CAIE    AC3,")"-40
+        JRST    FILN2
+FILN1:  CALL    (GETC)
+        JRST    FNOK
+FILN2: CAIN    AC3,"."-40
+        JRST    EXT
+        IDPB    AC3,AC1
+        AOJLE   AC2,FILN1
+        JRST    INVNAM
+EXT:    MOVE    AC2,[-3]
+        MOVE    AC1,[POINT 6,PPNF+3]
+EXT1:   CALL    (GETC)
+        JRST    FNOK
+        IDPB    AC3,AC1
+        AOJLE   AC2,EXT1
+        JRST    INVNAM
+FNOK:   RET1
+INVNAM: MSG     (INVALID FILE NAME)
+        OUTSTR  CRLF
+        SKPINL
+        RET
+        CALL    (SUCK)
+        RET
+DECPR:  IDIVI   AC2,^D10
+        HRLM    AC3,(AC17)
+        SKIPE   AC2
+        CALL    (DECPR)
+        HLRZ    AC2,(AC17)
+        ADDI    AC2,"0"
+        OUTCHR  AC2
+        RET
+SIXOUT: OUTSTR  [ ASCIZ /     /]
+SIX0:   OUTSTR  [ ASCIZ / /]
+        MOVE    AC3,[5]
+SIX1:   SETZ    AC,
+        LSHC    AC,6
+        SKIPN   SKIPF
+        SKIPE   AC
+        JRST    .+2
+        RET
+        ADDI    AC,40
+        OUTCHR  AC
+        SOJGE   AC3,SIX1
+        RET
+PUTMAS: SOSGE    OHED+2
+        JRST    PUTBF
+PUTC:   IDPB    AC3,OHED+1
+        RET
+PUTBF:  OUT     MAS,
+        JRST    PUTMAS
+        MOVEM   AC3,SAC3#
+        GETSTS  MAS,AC3
+        TRZ     AC3,74B23
+        SETSTS  MAS,(AC3)
+        MOVE    AC3,SAC3
+        JRST    PUTC
+GETPPN: SOSGE   PPNHED+2
+        JRST    GETBF
+        ILDB    AC3,PPNHED+1
+        SKIPN   SKIPF
+        JUMPE   AC3,GETPPN
+        RET1
+GETBF:  IN      IPPN,
+        JRST    GETPPN
+        RET
+GETX:   SETZB   AC2,WORD
+GETX1:  CALL    (GETPPN)
+        RET
+        CAIN    AC3,"."
+        JRST    GETX3
+        SUBI    AC3,40
+        MOVE    AC2,WORD
+        LSH     AC2,6
+        IOR     AC2,AC3
+        MOVEM   AC2,WORD
+        SOJG    AC1,GETX1
+        RET1
+GETX3:  SKIPE   SKIPF
+        JRST    GETX
+        MOVE    AC2,WORD
+GETX4:  LSH     AC2,6
+        SOJG    AC1,GETX4
+        AOS     AC,0(17)
+        RET
+SUCPPN: CALL    (GETPPN)
+        RET
+        CAIE    AC3,15
+        CAIE    AC3,12
+        JRST    .+2
+        JRST    SUCPPN
+        CAIE    AC3,15
+        JRST    SUCPPN
+        CALL    (GETPPN)
+        RET
+        AOS     AC,0(17)
+        RET
+        PAGE
+        SUBTTL  DATA BLOCKS
+CKSUM:  MOVEI   AC2,0
+CKSUM2: CALL    (GETPPN)
+        JRST    CKSUM1
+        ROT     AC2,7
+        XOR     AC2,AC3
+        AOJ     AC2,
+        JRST    CKSUM2
+CKSUM1: CLOSE   IPPN,10
+        JUMPE   AC2,CKSUM3
+        MOVE    AC4,AC2
+        TLZ     AC4,400000
+        SETZM    WORD
+        OUTCHR     [377]
+        CALL    (TRIGR)
+        CALL    (TRIGR)
+        RET
+CKSUM3: MSG     (FILE EMPTY)
+        RET
+TRIGR:  CALL    (CONS)
+        IDIVI   AC4,5
+        MOVE    AC3,VOWT(AC5)
+        CALL    (CKSOUT)
+CONS:   MOVEI   AC6,25
+        IDIV    AC4,AC6
+        MOVEI   AC3,101(AC5)
+        MOVSI   AC7,-5
+        CAMN    AC3,VOWT(AC7)
+        JRST    .+3
+        AOBJN   AC7,.-2
+        JRST    .+2
+        MOVEI   AC3,126(AC7)
+        CALL    (CKSOUT)
+        RET
+GFN:    SKIPE   ALLFLG
+        JRST    GFN1
+        MOVE    AC1,[SIXBIT /SYS/]
+        MOVEM   AC1,UNAME
+;       CALL    (SIX0)
+        SETZM   UNAME+1
+        MOVEI   AC1,UNAME
+        MOVEM   AC1,PPNF+1
+        ILDB    AC1,AC11
+        MOVEM   AC1,PPNF+2
+;       CALL    (SIX0)
+        ILDB    AC1,AC11
+        HRRZM  AC1,IREC
+        HRRI    AC1,0
+        MOVEM   AC1,PPNF+3
+;       CALL    (SIX0)
+        RET1
+GFN1:   CALL    (RFNAM)
+        RET
+        SETZM   AC12
+        MOVE    AC5,PPNF+2
+        MOVE    AC6,PPNF+3
+GFN2:   ILDB    AC1,AC11
+        CAME    AC1,AC5
+        JRST    GFN3
+        ILDB    AC1,AC11
+        HRRZM   AC1,IREC
+        HRRI    AC1,0
+        CAME    AC1,AC6
+        JRST    GFN2
+        RET1
+GFN3:   ILDB    AC1,AC11
+        HRLI    AC1,0
+        SKIPE   AC1
+        JRST    GFN2
+        OUTSTR  CRLF
+        MSG     (FILE NOT IN MASTER FILE)
+        OUTSTR  CRLF
+        RET
+GETMAS: SOSGE   IHED+2
+        JRST    GETMBF
+        ILDB    AC3,IHED+1
+        SKIPN   SKIPF
+        JUMPE   AC3,GETMAS
+        RET1
+GETMBF:  IN     MAS,
+        JRST    GETMAS
+        RET
+;CKSOUT: OUTCHR  AC3
+CKSOUT: SUBI    AC3,40
+        EXCH    AC3,WORD
+        LSH     AC3,6
+        IOR     AC3,WORD
+        MOVEM   AC3,WORD
+        RET
+RDREC:  MOVE    AC4,[-20]
+        MOVE    AC5,[POINT 36,RECORD]
+RDREC1: CALL    (GETMAS)
+        RET
+        IDPB    AC3,AC5
+        AOJL    AC4,RDREC1
+        RET1
+PRREC: MOVE    AC1,RECORD
+        CALL    (SIX0)
+        MOVE    AC1,RECORD+1
+        HRRI    AC1,0
+        CALL    (SIX0)
+        RET
+PCKSR:  MOVE    AC1,RECORD+1(AC13)      ;PRINT CKSUM RECORD
+        SKIPN   P1FLG
+        OUTSTR  LPARE
+        CALL    (SIX0)
+        SKIPN   P1FLG
+        OUTSTR  RPARE
+        SKIPE   P1FLG
+        RET
+        MOVE    AC1,WORD
+        CALL    (SIX0)
+        RET
+PLICR:  MOVE    AC1,RECORD+1            ;PRINT LICENSE RECORD
+        SETZM   TFLAG
+        SKIPN   P1FLG
+        OUTSTR  LPARE
+PLICR1: LSH     AC1,22
+        SETCA   AC1,
+        LSH     AC1,-22
+        TRON    AC1,400000
+        MSG( WC)
+        TRON    AC1,200000
+        MSG     ( RC)
+        TRON    AC1,100000
+        MSG     ( OP)
+        TRON    AC1,40000
+        MSG     ( SY)
+        TRON    AC1,20000
+        MSG     ( GD)
+        TRON    AC1,10000
+        MSG     ( TD)
+        TRON    AC1,4000
+        MSG     ( ST)
+        TRON    AC1,2000
+        MSG     ( HF)
+        TRON    AC1,1000
+        MSG     ( JL)
+        TRON    AC1,10
+        MSG     ( RF)
+        TRON    AC1,4
+        M  ( RP)
+        TRON    AC1,2
+        MSG     ( WF)
+        TRON    AC1,1
+        MSG     ( WP)
+        SKIPE   TFLAG
+        RET
+        SKIPN   P1FLG
+        OUTSTR  RPARE
+        SKIPE   P1FLG
+        RET
+        MOVE    AC1,WORD
+        SETOM   TFLAG
+        JRST    PLICR1
+PPROR:  SETZM   TFLAG   ;PRINT PROTECTION RECORD AC2 HAS MASTER FILE
+        SKIPN   P1FLG
+        OUTSTR  LPARE   ;WORD HAS CURRENT PROTECTION
+PPROR1: LSH     AC2,33
+        MOVEI   AC3,3
+PPROR2: SETZ    AC1,    ;ACCU ONE IS WHERE BITS WILL BE KEPT
+        LSHC    AC1,3   ;GET THREE BITS
+        CAIN    AC1,0
+        MSG     ( ALL)
+        CAIN    AC1,1
+        MSG     ( CP )
+        CAIN    AC1,2
+        MSG     ( UPD)
+        CAIN    AC1,3
+        MSG     ( AP )
+        CAIN    AC1,4
+        MSG     ( RD )
+        CAIN    AC1,5
+        MSG     ( RUN)
+        CAIN    AC1,6
+        MSG     ( LK )
+        CAIN    AC1,7
+        MSG     ( NO )
+        SOJG    AC3,PPROR2
+        SKIPE   TFLAG
+        RET
+        SKIPN   P1FLG
+        OUTSTR  RPARE
+        SKIPE   P1FLG
+        RET
+        SETOM   TFLAG
+        MOVE    AC2,WORD
+        JRST    PPROR1
+DATEP:  IDIVI   AC2,^D372
+        ADDI    AC2,^D1964
+        MOVEM   AC2,YEAR#
+        MOVE    AC2,AC3
+        IDIVI   AC2,^D31
+        ADDI    AC2,1
+        MOVEM   AC2,MONTH#
+        ADDI    AC3,1
+        MOVEM   AC3,DAY#
+        CAIGE   AC2,12
+        MSG     ( )
+        CALL    (DECPR)
+        OUTCHR  SLASH
+        MOVE    AC2,DAY
+        CAIGE   AC2,12
+        MSG     (0)
+        CALL    (DECPR)
+        OUTCHR  SLASH
+        MOVE    AC2,YEAR
+        CALL    (DECPR)
+        RET
+PPNOPE: OPEN IPPN,PPNSTA
+        RET
+        LOOKUP  IPPN,PPNF
+        RET
+        MOVEI   X,PPNBUF
+        EXCH    X,JOBFF
+        INBUF   IPPN,2
+        EXCH    X,JOBFF
+        RET1
+CREC:   MOVE    AC2,IREC        ;RECORD TO GET
+        IDIVI   AC2,10          ;WHICH RECORD IN BLOCK?
+        ADDI    AC2,13          ;HEADER BLOCKS
+        SKIPE   AC3
+        JRST    CREC1           ;DONE
+        ADDI    AC3,10
+        SUBI    AC2,1
+CREC1:  MOVEM   AC2,BLK#        ;NUMBER OF BLOCK TO READ RECORD
+        MOVEM   AC3,RECNO#      ;RECORD IN BLOCK TO GET
+        RET
+RXREC:  CALL    (CREC)
+        CALL    (SETIN)         ;GET TO BLOCK
+        IN      MAS,
+        JRST    RXREC1
+        RET                     ; TOO BAD
+RXREC1: CAILE   AC3,10
+        RET                     ;RECORD IS GREATER THAN  8
+        SUBI    AC3,1
+        CAIN    AC3,            ;IS IT FIRST RECORD IN BLOCK?
+        JRST    RXREC3          ;YES
+        IMULI   AC3,20          ;WORDS PER RECORD
+        MOVE    AC2,AC3         ;(GETMAS) USES AC3
+RXREC2: CALL    (GETMAS)        ;GET CHARACTER FROM MASTER FILE
+        RET                     ;ERROR
+        SOJG    AC2,RXREC2      ;GOT ALL WORDS NEED BEFORE RECORD?
+RXREC3: CALL    (RDREC)         ;GET THE RECORD THAT WE NEED
+        RET                     ;FAILED
+        RET1                    ;SUCCESSFUL
+WXREC:  CALL    (CREC)          ;GET RECORD NUMBER AND BLOCK NUM
+        CALL    (SETIN)         ;SET BLOCK TO READ FROM
+        IN      MAS,
+        JRST    WXREC1
+        RET                     ;FAILED
+WXREC1: MOVE    AC2,RECNO
+        CAILE   AC2,10          ;GREATER THAN 8?
+        RET                     ;YES
+        SUBI    AC2,1   
+        CAIN    AC2,
+        JRST    WXREC6          ;IS 1ST RECORD
+        IMULI   AC2,20
+WXREC2: CALL    (GETMAS)        ;GET CHAR FROM MASTER (AC3)
+        RET                     ;FAILED
+        CALL    (PUTMAS)        ;PUT AC3 TO MASTER
+        SOJG    AC2,WXREC2      ;GET TO RECORD
+WXREC6: MOVE    AC2,[^D-16]   ;WRITE OUT RECORD
+WXREC3: MOVE    AC3,RECORD+20(AC2)      ;GET WORD IN AC3
+        CALL    (PUTMAS)
+        AOJL    AC2,WXREC3
+        MOVEI   AC2,10
+        CAMN    AC2,RECNO       ;IS IT RECORD 8?
+        JRST    WXREC5          ;YES
+        CALL    (RDREC)         ;GET RID OF RECORD
+        RET
+        MOVEI   AC2,10
+PT1:    SUB     AC2,RECNO       ; HOPE AC2 IS OK.
+        IMULI    AC2,20
+WXREC4: CALL    (GETMAS)
+        RET
+        CALL    (PUTMAS)
+        SOJG    AC2,WXREC4
+WXREC5: HRRZ    AC2,OHED
+        HRLI    AC2,400000      ;THIS IS TO CAUSE USETO NOT TO OUPUT
+        MOVEM   AC2,OHED
+        CALL    (SETOU)         ;SET BLOCK TO WRITE TO
+        HRRZM   AC2,OHED
+        OUT     MAS,
+        JRST    WXREC7
+        RET
+WXREC7: RET1
+SETOU:  MOVE    AC14,BLK        ;ROUTINE TO USETO CONTENTS OF AC2
+        HRLI    AC14,75040
+        XCT     AC,AC14
+        RET
+SETIN:  MOVE    AC14,BLK        ;ROUTINE TO USETI CONTENTS OF AC2
+        HRLI    AC14,74040      ;PUTS IN AC14 AND EXECUTES IT.
+        XCT     AC,AC14
+        RET
+PRINT:  CALL    (PRREC)
+        CALL    (PCKSR)
+        MSG     (   )
+        HRRZ    AC2,RECORD+7
+        CALL    (PPROR)
+        HLLZ    AC2,RECORD+6
+        LSH     AC2,-22
+        SKIPN   P1FLG
+        OUTSTR  LPARE
+        MSG     (   )
+        CALL    (DATEP)
+        SKIPN   P1FLG
+        OUTSTR  RPARE
+        MSG     (   )
+        CALL    (PLICR)
+        OUTSTR  CRLF
+        RET
+        PAGE
+;*      DATA
+SLASH:  OCT     57
+LPARE:  ASCIZ   " ("
+RPARE:  ASCIZ   ") "
+TFLAG:  0
+VERFLG: 0
+SCRSTA: 0
+        SIXBIT  /DSK/
+        XWD     SCRHED
+SCRHED: BLOCK   3
+SCRF:   XWD     0,36
+        BLOCK   35
+SCRBUF: BLOCK   203*2
+LICFLG: 0
+CKSFLG: 0
+QUAFLG: 0
+SOFFLG: 0
+FIEFLG: 0
+CDAFLG: 0
+PROFLG: 0
+SYSFLG: 0
+ALLFLG: 0
+CREFLG: 0
+IREC:   0
+VOWT:   101
+        105
+        111
+        117
+        125
+MASPTR: BLOCK   200*^D10
+RECORD: BLOCK   ^D16
+SKIPF:  BLOCK   1
+WORD:   BLOCK   1
+CRLF:   BYTE    (7)15,12
+STATUS: OCT     14
+        SIXBIT  /DSK/
+        XWD     OHED,IHED
+IHED:   BLOCK   3
+IBUF:   BLOCK   203
+OHED:   BLOCK   3
+OBUF:   BLOCK   203
+MASF:   XWD     0,36
+        0
+        SIXBIT /MASTER/
+        SIXBIT /FIL/
+        BLOCK   36
+MASOPE:  MSG(OPEN ERROR)
+        RET
+MASLOE:  MSG(LOOKUP ERROR)
+        RET
+ENTERE: MSG(ENTER ERROR)
+        RET
+PDL:    BLOCK   20
+PPNSTA: OCT     0
+        SIXBIT /DSK/
+        XWD     PPNHED
+LF:     OCT     12
+CR:     OCT     15
+PROMPT: OCT     72
+PPNHED: BLOCK   3
+PPNF:   XWD     0,36
+        BLOCK   36
+PPNBUF: BLOCK   203*2
+UNAME:  BLOCK   2
+DSKFLG: BLOCK   1
+        LIT
+        END     START0
+  m XË
