@@ -1,0 +1,67 @@
+MODULE VTRIM
+(DOLLAR, ENTRIES=($VTRIM), TIMING, TIMER=EXTERNAL(SIX12), FSAVE) =
+BEGIN
+
+% Version 1974.12.09    / Peter Haas  (HAASP) %
+
+REQUIRE RDEFS.BLI[7,107355];
+
+
+UNDECLARE $VTRIM;
+GLOBAL ROUTINE  $VTRIM (SOURCE, SLEN, TARGET, TLEN) =
+                        % Move source to target less trailing blanks %
+                        % Return character length of data %
+BEGIN
+
+BIND    BLANK5 = '     ',       % Five blank characters %
+        BLANK1 = " ";           % One blank character %
+
+MAP     DFI$  SOURCE:TARGET;
+
+LOCAL   I, K,
+        SPTR;   % Pointer to current character in source %
+
+LABEL   SCANWORD;
+
+
+
+% Find maximum number of words in source string %
+I := ((.SLEN<0,18>)+4)/5;
+
+% Compare each word (zero indexed) to five blanks, from right to left %
+SCANWORD:
+WHILE (I := .I - 1)  GEQ  0
+        DO
+        BEGIN
+        IF .SOURCE[DD$IWO,.I]  NEQ  BLANK5
+                THEN LEAVE SCANWORD;
+        END;
+
+IF .I  LSS  0          % Signifying source string is blank or null %
+        THEN
+                RETURN  0;
+
+% Otherwise .I indicates rightmost non-blank word in source %
+
+% Find last non-blank character in next right word from .I %
+SPTR := SOURCE[DD$IWO,.I]<36,7>;
+INCR J FROM 1 TO 5
+        DO
+                BEGIN
+                IF SCANI(SPTR)  NEQ  BLANK1
+                        THEN
+                                K := .J;
+                END;
+
+% Move source to target for .I+1 words %
+INCR M FROM 0 TO .I
+        DO
+                TARGET[DD$IWO,.M] := .SOURCE[DD$IWO,.M];
+
+% Return character length of .I words and .K characters %
+.I * 5  +  .K
+
+END;    % Of global routine  $VTRIM %
+
+
+END     % Of module VTRIM.BLI %
