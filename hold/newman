@@ -1,0 +1,387 @@
+Beginning 7-70 or so
+
+1. Reserved words.
+
+To streamline exportation of SAIL to systems with only  the  standard
+64 symbol character sets, the following arragements have been made:
+
+The  character  !  (exclamation mark) is equivalent to  (underline).
+This permits typing SYSTEMPDL as  SYSTEM!PDL,  etc.   If  either  of
+these  characters  appears  in an identifer, the RADIX50 that goes to
+DDT is still ".".
+
+The following reserved word equivalences have been established:
+
+	NEQ		not equal
+	LEQ		less than or equal
+	GEQ		greater than or equal
+{	SETO		"set open"
+~	SETC		"set close"
+	UNION		set union
+	INTER		set intersection.
+`	ASSOC		left quote -- for derived sets.
+	SWAP		swap operator.
+
+
+Reserved words may now  be  redefined,  i.e.  the  user  may  declare
+variables  with  the  same names as reserved words. Note however that
+these obey the normal ALGOL block structure (nothing like PL/1),  and
+that fun things like:
+
+	BEGIN INTEGER end; end _ 21;
+
+will never terminate!
+
+
+
+2. New printname features.
+
+The  implementation  of  LEAP  printnames has been altered to include
+"dynamic"  printnames.   These  are  accessible  with   the   runtime
+procedures:
+
+NEWPNAME (item foo; string name);
+	This puts "NAME" down as the printname of foo.
+	As it stands, foo should not previously have had
+	a printname.
+
+DELPNAME (item foo);
+	This erases the printname for foo. No error message
+	is generated if it did not have one.  DELETE automatically
+	eradicates any print names.
+
+These names are accessible  with  the  routines  CVIS  and  CVSI,  as
+explained in the manual.
+
+You  may now say "REQUIRE number PNAMES", where number is the maximum
+number of print names you expect to need.
+
+3. The export version of SAIL does not  include  the  pseudo-teletype
+functions described in the manual.
+
+
+Beginning 9-6-70
+
+1. STARTCODE and QUICKCODE features now work as advertised in
+   the manual.  that is:
+	a.  It is no longer necessary to use a block name
+	    in a STARTCODE block whose first instruction
+	    does not contain a PDP-10 opcode.
+
+	b.  The opcode, index, ac, and address fields may
+	    be expressions, as long as these expressions
+	    may be evaluated at compile time to contsants.
+
+	c.  Warning -- the above feature can fool you --
+	    DEFINE TTYUUO="'51 lsh 27";
+	    STARTCODE
+	 	TTYUUO -4(3);
+	    END;
+	    will have the wrong effect -- that is,
+	    '51 lsh 27 - 4 will be used as the opcode,
+	    since it constitutes a valid expression.
+
+	d.  The first non-index, non-ac expression or
+	    PDP-10 opcode in an instruction will be taken
+	    to represent an op code, and all 36 bits will
+	    find their way into the output word.
+	    The second expression (or first or second
+	    variable) will be truncated to 18 bits before
+	    inclusion.
+
+2.  Also legal in the address parts of STARTCODE and
+    QUICKCODE instructions are subscripted variables
+    if the arrays are built-in (outer level) and the
+    indices are constant expressions.
+
+
+3.  There are some new things you can REQUIRE:
+
+	a. REQUIRE "FORCAL.SAI" SOURCEFILE;
+	  will cause scanning of the file FORCAL.SAI
+	 (for example) by the compiler before turning
+	 to the lines following the REQUIRE for more
+	 input.  In other words, this has the same
+	 effect as if you had copied the text of 
+	 FORCAL.SAI into this spot in the original source
+	 file. Here is an example of the kinds of things
+	 which may be used to specify the source  file:
+	 "DTA3:FORCAL.SAI[1,DCS]" -- more or less meaningless,
+	 off course.  It can be as simple as "FORCAL".
+	 If no extension is given, SAIL will search for
+	 that file, or that file with .SAI extension.
+	 The REQUIRE statement must not have multiple specifications
+	 (separated by commas). There must be nothing else
+	 following the semicolon on the line containing the
+	 REQUIRE.
+
+	b. (global model users only)
+	 REQUIRE "MINE" SEGMENTNAME, "GLBSEG[1.3]" SEGMENTFILE;
+	 will eliminate the need for the start-up ritual
+	 when restarting a saved global segment program.
+	 The complicated LOADER string must still be given when
+	 loading.  If either is omitted, you will be asked for
+	 it on startup.  DSK is assumed as the device if
+	 SEGMENTFILE is REQUIRED.  If you use this feature
+	 in more than one separately compiled .REL file,
+	 be sure that either the names match up, or you
+	 don't care what names get used.
+
+
+4. When push down lists overflow, you now get a much more
+   useful and informative message, hopefully telling you
+   exactly what to do to cure the problem.
+
+
+5. The MAX and MIN operators have been added.  A MAX B (where A
+   and B are numeric expressions) has as value the greater of
+   A and B.  A MIN B yields the smaller of A and B.  A MAX B MIN C
+   is B unless A>B, in which case it's A, or B>C, when it's C.
+
+6. Bits 18-21 of the MODE word in the OPEN specify which I/O errors,
+   in addition to EOF, are to be handled by the user instead of
+   SAIL (fatal error message).  These are the same bits you test
+   for in machine language with a GETSTS or STATZ UUO. Any
+   you're not enabled for will be handled (badly) by SAIL. Now,
+   instead of a random non-zero value, the EOF variable will contain
+   those (enabled, with end of file itself always enabled) bits
+   which caused the exception in the left half.  The right half
+   will be useless, except in ARRYIN, etc., as before.
+   WARNING --- THE EOF VARIABLE NOW GETS CLEARED (OR PERHAPS SET
+   TO ENABLED ERROR BITS) ON OUTPUT OPERATIONS, WHETHER YOU'RE 
+   ENABLED FOR ERRORS OR NOT!!).
+
+7. Bit 23 of the MODE word, if on in OPEN, means that code '10
+   will be returned to the user in the FLAG variable after the
+   ENTER, LOOKUP, or RENAME command discovers invalid punctuation
+   in the file name specification.  No error message is printed.
+   The error code is returned (after a non-fatal message), even
+   if you're not enabled.
+
+8. CVFIL leaves SKIP 0 if no punctuation errors occurred, 0 otherwise.
+
+9. Substrings always return now with something: as much as possible
+   of the specified range. If the entire request is granted, SKIP
+   is made 0.  If the first argument is out of range, the left half
+   of SKIP is made 0.  The right half is used if the second argument
+   (TO or FOR mode) is out of range.  If you don't check these values,
+   only visual inspection will allow you to discover substring errors.
+
+10. A multitude of evils have been cured.
+
+					DCS -- 2/5/71
+Beginning 7-19-71
+
+1. CASE J OF BEGIN [3]S1; [4]S2; [1]S3; [5]S4 END
+
+	is equivalent to
+
+   CASE J OF BEGIN
+	;	COMMENT CASE 0 OMITTED;
+      S3;	COMMENT CASE 1;
+        ;	COMMENT CASE 2 OMITTED;
+      S1;	COMMENT CASE 3;
+      S2;	COMMENT CASE 4;
+      S4	COMMENT CASE 5;
+   END.
+
+   The former is slightly more efficient in space and time if any cases
+    are omitted -- identical otherwise.  The total space used by either
+    method is approximately linear to the largest bracketed value.
+
+2. WARNING about Dump Mode IO (modes '15 through '17).  Any Dump Mode input
+    which does not specify an n*128-word count will have the effect of losing
+    the words up to the next 128-word boundary -- you'll get the first word(s)
+    of the next 128-word record on the next input.  Similarly, any Dump Mode
+    output fills out the file with 0's until a 128-word boundary is reached.
+   Therefore, Dump Mode IO is not practical for sizes other than 128-word
+    transfer multiples, in general.
+
+   For this reason, the fact that WORDIN and WORDOUT no longer operate 
+    correctly in Dump Mode should be no cause for concern.  However, we will
+    soon try to make their illegality explicit.
+
+3. It is also not clear whether ARRYIN or ARRYOUT return the number of words
+    actually read when EOF terminates a transfer early, either in Dump or 
+    Buffered modes. This should be corrected.
+
+4. A long-standing bug which forced users to insert a dummy first argument
+   in IBP calls has been fixed.  Recently, both forms (with and without)
+   were accepted as valid syntax, but only IBP(dummy,BP) generated valid
+   code.  Now everything is beautiful.
+ 
+5. If your program calls any LEAP runtime routines, you will get various
+   tables allocated for LEAP constructs (several K) the first time you
+   call LEAP.  This is true even if no reference will be made to any data
+   in the lower (local) segment.  Allocation of this storage may be inhibited
+   by the REQUIRE -1 NEWITEMS special construct.  Although this works in
+   any SAISEG-type segment system, it should only be used by those who use
+   the (hand-eye) global-model features.
+
+6. CASE n OF BEGIN "name" .... END "name" is now legal.
+
+7. REQUIRE n VERSION (n a non-zero integer) will flag the resultant RELfile
+   as version n.  When a program loaded from several such RELfiles is started,
+   the SAIL allocation code will verify that all specified versions are equal.
+   A non-fatal error message will be displayed if any disagree.  As much as will
+   fit of the version number is also stored in lh(JOBVER), where JOBVER is
+   location 137.
+Beginning 7-19-71, statement counter system  
+
+GENERAL DISCUSSION:
+
+	The new SAIL compiler contains a feature which allows you  to
+determine  conveniently  the frequency of execution of each statement
+in your SAIL program.
+
+	This is accomplished by inserting an array  of  counters  and
+placing  AOS  instructions  at  various  points in the object program
+(such as in loops and conditional statements). A routine is called to
+zero  the  counter  array  before your program is entered and another
+routine is called to write out the array before calling EXIT.
+
+	Since not all programs  exit  in  the  normal  fashion  (i.e.
+falling  out  the  bottom),  it  is  possible to call either the zero
+routine or the output routine as an EXTERNAL PROCEDURE.
+
+	Another program, called PROFIL, is used to merge the  listing
+file produced by the SAIL compiler with the file of counters produced
+by the execution run of your program.    The  output  of  the  PROFIL
+program  is  an  indented listing of your SAIL program with execution
+counts in the right hand margin.  The  output  format  of  PROFIL  is
+reasonably flexible, with several "switches" to control it.
+
+	Since  the  AOS instructions access fixed locations, and they
+are placed only where needed to determine program flow,  they  should
+not  add  much overhead to the execution time.   Although I have made
+no large study, the counters do seem to contribute about  2%  to  the
+execution  time  of  the  profile  program, which has a fairly deeply
+nested structure.
+
+SAIL EXTENSION:
+
+	The mechanism for  inserting  counters  is  controlled  by  a
+compiler switch.    To tell the compiler to insert counters, you give
+it a /K switch. (/C was already used for something else.) It is  also
+necessary  to  produce a listing file, since the PROFIL program needs
+it.    In fact, the /K switch is ignored unless a listing  is  called
+for.    Specifying  /K has several effects on the listing.     First,
+macros are expanded and macro names not listed. This is necessary  so
+that  PROFIL  will know about block structure, etc. Also, the listing
+of PC and line numbers is suppressed.  The current version of  PROFIL
+is  confused by all those numbers and anyway, the lines of the PROFIL
+listing can differ somewhat from the lines of  the  original  source.
+The  final  change in the listing is the inclusion of markers telling
+where counters have been inserted.   Most of these are ignored by the
+present  PROFIL  since it is smart enough to know where they are from
+the program context.  The ones that it does use are the  markers  for
+counters inserted into conditional and case expressions.
+
+	At  the  end of each program (i.e. each separate compilation)
+is the block of counters, preceeded by a small data block used by the
+zero  and  output  routines.  This block contains such information as
+the number of counters, the name of the list  file,  and  a  link  to
+other  such  blocks  of counters. The first counter location is given
+the name .KOUNT,  which  is  accessable  from  RAID,  but  cannot  be
+referenced by the SAIL program itself.
+
+	The  routine  K.ZERO  is  called to zero the counters. If for
+some reason you wish to zero them  yourself,  (like  if  you're  only
+interested  in  steady state execution counts) you can reference this
+routine by including the declaration:
+	EXTERNAL PROCEDURE KZERO;
+
+	The  outputting of the counters is done by the routine K.OUT.
+It uses the SAIL routine GETCHAN to find  a  spare  channel,  does  a
+single dump mode output which writes out all the counters for all the
+programs loaded having counters, and then releases the channel.   The
+file  which  it  writes is xxx.KNT, where xxx is the name of the list
+file of the first program loaded having counters (usually the name of
+the  SAIL  source  file).   If  there  are  no counters, K.OUT simply
+returns.      This routine can also be referenced  by  including  the
+declaration:
+	EXTERNAL PROCEDURE KOUT;
+
+PROFILE PROGRAM:
+
+	The program PROFIL is used to produce  the  program  profile,
+i.e.  the  listing complete with statement counts. It operates in the
+following manner.  First it reads in the file xxx.KNT created by  the
+execution  of  the user program. This file contains the values of the
+counters and the names of the list files of the programs loaded which
+had  counters.  It  then  reads  the  the list files and produces the
+profile.   Currently, the SAIL compiler has a  non-trivial  bug:  the
+last  line  of  the source file is not written into the listing file.
+Since this is not an easy bug to fix, it's still in the new compiler.
+To  get  around this, the scanner of PROFIL returns an "END" whenever
+it gets an end-of-file condition.  This works fine  unless  you  have
+executable  statements on the last line.  This will probably be fixed
+sometime, but for now, ignore the "(supplied by scanner)"  after  the
+last "END".
+
+	The  format  of  the  listing  is  such  that only statements
+executed the same number of times are listed on a  single  line.   In
+the  case  of conditional statements, the statement is continued on a
+new line after the word  THEN.    Conditional  expressions  and  case
+expression, on the other hand, are still listed on a single line.  In
+order that you might know the execution  counts,  they  are  inserted
+into the text surrounded by two "brokets" (e.g. <<15>>).
+
+	PROFIL  expects  a  command  string  of the standard form for
+CUSP's, i.e.
+	<output>_<input>  {switches~ where the <input> is the name of
+the .KNT file created from the program execution.   The extension  of
+.KNT  is  assumed.  If  the output device is the DSK, the output file
+will have a default extension of .PFL.   Although  the  line  spacing
+will probably be different from the source, PROFIL makes an effort to
+keep any page spacing that was in the source.  Thus, if you happen to
+be  using  the "T" editor, you can edit the profile successfully with
+T.     There are several possibilities for switches,  for  which  the
+pertinent ones are:
+	/nB	Indent n spaces for blocks (default 4)
+	/nC	Indent n spaces for continuations (default 2)
+	/F	Fill out every 4th line with ".   .   ." (default ON)
+	/nK	Make counter array of size n (default 200)
+	/nL	Maximum line length of n (default 120)
+	/N	Suppress /F feature
+	/S	Stop after this profile
+	/T	TTY mode = /1C/2B/F/80L
+
+SAMPLE RUN:
+
+	Suppose that you have a SAIL program named FOO.SAI for  which
+you desire a profile.  The following statements will give you one.
+
+.EX /LIST FOO(K)   (or TRY or DEB or what have you)
+. . . any input to FOO  . . .
+
+EXIT
+
+^C
+.R PROFIL
+*FOO_FOO/T/S
+
+EXIT
+
+^C
+.  At this point, the file FOO.PFL contains the profile, suitable for
+     typing on the TTY or editing.
+-- Current System Line -- /H Feature --
+
+You can now generate programs with SAIL which can be shared among several
+users. By using the /H switch when you compile, you will create a file
+which will tell the LOADER to place the code and constant data into the
+high segment, and variables and arrays into the low segment.  This file
+will also request that the HLBSAI library be searched instead of LIBSAI.
+All but one file from this library will be loaded into the high segment.
+That one, SAILOR, contains impure data and code.
+
+When you load files compiled with /H, use the LOADER directly instead of
+going through RPG (bypassing the automatic inclusion of /Y in the load
+string).  Don't use the /Y switch to the LOADER.  Otherwise load as usual.
+Use SSAVE to preserve your two-segment core-image.
+
+The LOADER will leave the upper segment write-enabled.  To write-protect
+before SSAVEing (should be the case for shared programs) see a SAIL-type
+or read DOCS.UPD[S,AIL].
+                                                                                                                                                                                                          
