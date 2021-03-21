@@ -1,0 +1,143 @@
+C           FIND RESONANT FREQUENCY OF TRANSDUCER ELEMENT               FFM00110    
+C                                                                       FFM00120    
+      SUBROUTINE FINDFM                                                 FFM00130    
+C                                                                       FFM00140    
+C     THIS ROUTINE USES THE METHOD OF INTERVAL HALVING TO FIND THE      FFM00150    
+C     FREQUENCY OF MAXIMUM ADMITTANCE.                                  FFM00160    
+                                                                        FFM00170    
+C     THIS METHOD MAY BREAK DOWN FOR VERY HIGH-Q ELEMENTS OR FOR        FFM00180    
+C     THOSE CASES WHERE A LARGE VALUE OF DELTAF IS SPECIFIED.           FFM00190    
+C                                                                       FFM00200    
+      COMMON /DELTA / DELTAF,FMIN,FMAX                                  FFM00210    
+      COMMON /FREQ  / FREQ,TWOPI                                        FFM00220    
+      COMMON /SW    / LSW(20)                                           FFM00230    
+      COMMON /YC    / IC,YC                                             FFM00240    
+      COMMON /COM92 / FM,YM,FN,YN,CUT,NPRINT                            FFM00250    
+      COMMON /COM95 / ZIN,YIN,EIN,IIN                                   FFM00260    
+      COMMON /COM97 / MODE                                              FFM00270    
+C                                                                       FFM00280    
+      LOGICAL LSW,LSAVE(20),SKIPIT                                      FFM00290    
+C                                                                       FFM00300    
+      DIMENSION FF(3),YY(3)                                             FFM00310    
+C                                                                       FFM00320    
+      COMPLEX IC,YC,ZIN,YIN,EIN,IIN                                     FFM00330    
+C                                                                       FFM00340    
+C     TURN OFF OUTPUT CONTROLS                                          FFM00350    
+      SKIPIT=.TRUE.                                                     FFM00360    
+      DO 100 I=1,11                                                     FFM00370    
+        LSAVE(I)=LSW(I)                                                 FFM00380    
+        IF(LSW(I))SKIPIT=.FALSE.                                        FFM00390    
+        LSW(I)=.FALSE.                                                  FFM00400    
+  100 CONTINUE                                                          FFM00410    
+C     SET INITIAL THREE FREQUENCIES                                     FFM00420    
+      FF(1)=FMIN                                                        FFM00430    
+      FF(2)=FF(1)+DELTAF                                                FFM00440    
+      FF(3)=FF(2)+DELTAF                                                FFM00450    
+      DF=DELTAF                                                         FFM00460    
+      I1=1                                                              FFM00470    
+      I2=3                                                              FFM00480    
+      I3=1                                                              FFM00490    
+      IF(NPRINT.GT.0)GOTO110                                            FFM00500    
+      WRITE(6,280)                                                      FFM00510    
+C     CALCULATE ADMITTANCE MAGNITUDE AT THREE FREQUENCIES               FFM00520    
+  110 DO 120 I=I1,I2,I3                                                 FFM00530    
+        FREQ=FF(I)                                                      FFM00540    
+        CALL COMPZA                                                     FFM00550    
+        IF(MODE.EQ.31)CALL COMP31                                       FFM00560    
+        IF(MODE.EQ.33)CALL COMPCC                                       FFM00570    
+        CALL TOTAL                                                      FFM00580    
+        IF(LSW(13))CALL FFZH                                            FFM00590    
+        CALL BEGIN                                                      FFM00600    
+        CALL ADMIT                                                      FFM00610    
+C       RESONANCE IS MAXIMUM INPUT ADMITTANCE MAGNITUDE                 FFM00620    
+        YY(I)=CABS(YIN)                                                 FFM00630    
+C       RESONANCE IS MAXIMUM INPUT CONDUCTANCE                          FFM00640    
+C       YY(I)=REAL(YIN)                                                 FFM00650    
+C       RESONANCE IS MAXIMUM CERAMIC ADMITTANCE MAGNITUDE               FFM00660    
+C       YY(I)=CABS(YC)                                                  FFM00670    
+C       RESONANCE IS MAXIMUM CERAMIC CONDUCTANCE                        FFM00680    
+C       YY(I)=REAL(YC)                                                  FFM00690    
+C       RESONANCE IS MAXIMUM INPUT RESISTANCE                           FFM00700    
+C       YY(I)=REAL(ZIN)                                                 FFM00710    
+  120 CONTINUE                                                          FFM00720    
+C     CHECK SLOPE OF ADMITTANCE VS. FREQUENCY CURVE                     FFM00730    
+      IF(YY(1)-YY(2))130,140,140                                        FFM00740    
+  130 IF(YY(2)-YY(3))150,150,160                                        FFM00750    
+  140 IF(YY(2)-YY(3))190,180,180                                        FFM00760    
+C     ADMITTANCE INCREASING                                             FFM00770    
+  150 FF(1)=FF(2)                                                       FFM00780    
+      YY(1)=YY(2)                                                       FFM00790    
+      FF(2)=FF(3)                                                       FFM00800    
+      YY(2)=YY(3)                                                       FFM00810    
+      FF(3)=FF(3)+DELTAF                                                FFM00820    
+      I1=3                                                              FFM00830    
+      I2=3                                                              FFM00840    
+      I3=1                                                              FFM00850    
+      IF(FF(3)-FMAX)110,110,250                                         FFM00860    
+C     ADMITTANCE PEAKED                                                 FFM00870    
+  160 IF(DF-CUT)200,170,170                                             FFM00880    
+  170 DF=DF/2.0                                                         FFM00890    
+      FF(1)=FF(2)-DF                                                    FFM00900    
+      FF(3)=FF(2)+DF                                                    FFM00910    
+      I1=1                                                              FFM00920    
+      I2=3                                                              FFM00930    
+      I3=2                                                              FFM00940    
+      GOTO110                                                           FFM00950    
+C     ADMITTANCE DECREASING                                             FFM00960    
+  180 FF(3)=FF(2)                                                       FFM00970    
+      YY(3)=YY(2)                                                       FFM00980    
+      FF(2)=FF(1)                                                       FFM00990    
+      YY(2)=YY(1)                                                       FFM01000    
+      FF(1)=FF(1)-DF                                                    FFM01010    
+      I1=1                                                              FFM01020    
+      I2=1                                                              FFM01030    
+      I3=1                                                              FFM01040    
+      IF(FF(1)-FMIN)240,110,110                                         FFM01050    
+C     ADMITTANCE DIPPED                                                 FFM01060    
+  190 GOTO180                                                           FFM01070    
+  200 FM=FF(2)                                                          FFM01080    
+      YM=YY(2)                                                          FFM01090    
+      IF(NPRINT.GT.0)GOTO210                                            FFM01100    
+      WRITE(6,290)FM,YM,DF                                              FFM01110    
+C     RESET OUTPUT CONTROLS                                             FFM01120    
+  210 DO 220 I=1,11                                                     FFM01130    
+        LSW(I)=LSAVE(I)                                                 FFM01140    
+  220 CONTINUE                                                          FFM01150    
+      IF(SKIPIT)GOTO230                                                 FFM01160    
+      FREQ=FM                                                           FFM01170    
+      CALL COMPZA                                                       FFM01180    
+      IF(MODE.EQ.31)CALL COMP31                                         FFM01190    
+      IF(MODE.EQ.33)CALL COMPCC                                         FFM01200    
+      CALL TOTAL                                                        FFM01210    
+      CALL BEGIN                                                        FFM01220    
+      CALL FOCZOC                                                       FFM01230    
+      CALL ADMIT                                                        FFM01240    
+      CALL CCFV                                                         FFM01250    
+      CALL CFV                                                          FFM01260    
+      CALL CST                                                          FFM01270    
+      CALL CCI                                                          FFM01280    
+      CALL CCST                                                         FFM01290    
+  230 RETURN                                                            FFM01300    
+  240 WRITE(6,300)FMIN                                                  FFM01310    
+      FM=1.0                                                            FFM01320    
+      YM=0.0                                                            FFM01330    
+      GOTO260                                                           FFM01340    
+  250 WRITE(6,310)FMAX                                                  FFM01350    
+      FM=1.0                                                            FFM01360    
+      YM=0.0                                                            FFM01370    
+C     RESET OUTPUT CONTROLS                                             FFM01380    
+  260 DO 270 I=1,11                                                     FFM01390    
+        LSW(I)=LSAVE(I)                                                 FFM01400    
+  270 CONTINUE                                                          FFM01410    
+      GOTO230                                                           FFM01420    
+C                                                                       FFM01430    
+  280 FORMAT (1H1///6X51HEVALUATION OF TRANSDUCER ELEMENT RESONANT FREQUFFM01440    
+     1ENCY)                                                             FFM01450    
+  290 FORMAT (//10X21HRESONANT FREQUENCY IS,F8.2,6H HERTZ/10X26HADMITTANFFM01460    
+     1CE AT RESONANCE IS,1PE12.4,6H MHOS./10X24HFREQUENCY IS ACCURATE TOFFM01470    
+     2,0PF7.3,6H HERTZ)                                                 FFM01480    
+  300 FORMAT (//10X33HRESONANCE IS BELOW LOWER LIMIT OF,F8.2,6H HERTZ)  FFM01490    
+  310 FORMAT (//10X33HRESONANCE IS ABOVE UPPER LIMIT OF,F8.2,6H HERTZ)  FFM01500    
+C                                                                       FFM01510    
+      END                                                               FFM01520    
+   
