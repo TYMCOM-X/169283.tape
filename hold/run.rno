@@ -1,0 +1,229 @@
+^^
+.number 1
+.justify
+.fill
+.left margin 0
+.right margin 70
+.spacing 1
+.paper size 45,72
+.title SFORTRAN RUNTIME
+I SFORTRAN module communication
+.paragraph
+An understanding of interprogram communication under the PDP-10
+operating system is needed to understand how the different parts of
+SFORTRAN communicate.
+The operating system provides two instructions for interprogram
+communication.
+They are the RUN and EXIT UUO's.
+The RUN instruction takes two arguments, the file
+to be run and the starting location increment.
+It starts execution of the file at its
+starting location plus the starting location increment.
+The notation RUN(file,increment) will indicate a RUN instruction.
+The EXIT instruction takes one parameter which is either
+zero if files are to be RELEASed and EXIT should be
+displayed on the terminal and one if not.
+It causes the name of the next program to be run to be gotten from
+the terminal.
+Data is passed between programs by way of the file
+system, the terminal buffer and the TMPCOR mechanism.
+.paragraph
+The program whose communication methods concern SFORTRAN will be
+described.
+They all if entered with a starting location increment of zero prompt
+for instructions from the terminal.
+If entered with a starting location increment of
+one, they will get instructions using the TMPCOR mechanism.
+.skip 1
+^&RPG\&
+.paragraph
+RPG reads its commands from either the terminal or the SVC TMPCOR file.
+Only two RPG commands will be described, the SFORTRAN command and the
+COMPILE-class commands.
+.paragraph
+The SFORTRAN command takes an optional file name as an
+argument.
+If no file name is given, RUN(SYS:SFORTRAN,0) is executed.
+Otherwise, the file name is stored in the EDS TMPCOR file and
+RUN(SYS:SFORTRAN,1) is executed.
+.paragraph
+The COMPILE-class commands, COMPILE, LOAD, EXECUTE, etc. convert their
+command string to instructions for the loader and for each compiler
+and stores the instructions in TMPCOR files whose names are the
+first three letters of the program to be run.
+Each TMPCOR file, except possibly the last ends with the name of the
+next program to be run followed by an exclamation point.
+If the command was not a COMPILE and the /ZS switch was in the command string
+than the file which would normally end with LOADER! ends with SFORTRAN!.
+.skip 1
+^&SFORTRAN\&
+.paragraph
+SFORTRAN prompts for the file to be edited or reads the
+file name from the TMPCOR file EDS.
+The commands which terminate SFORTRAN are QUIT,
+CHECK, INITIALIZE and RUN.
+QUIT executes EXIT(1).
+The other three commands generate an RPG command string on TMPCOR
+file SVC.
+The check command adds the /ZS switch to indicate transition back to
+SFORTRN after the files are compiled.
+The other two commands add the %6Y switch to inform
+the loader that SFORTRAN initiated the command and
+a /DEBUG switch if the program is to be loaded with the
+debugger.
+The INITIALIZE command adds the %7Y switch to indicate that the
+program should not start execution after it is loaded.
+.skip 1
+^&Compilers\&
+.paragraph
+The compilers get their instructions from a TMPCOR file
+whose name is the same as the first three letters in the name of the
+compiler.
+If the instruction 'file!' is given, RUN(file,increment) is executed
+where increment is the starting location increment which the
+compiler was RUN with.
+.skip 1
+^&LOADER\&
+.paragraph
+LOADER gets its instructions from TMPCOR file LOA.
+If errors occur during loading and the %6Y switch occurred in a command,
+RUN(SYS:SFORTRAN,1) is executed.
+Otherwise if errors occur, EXIT(0) is executed.
+If no errors occur, the %6Y switch causes SFORTRAN external interface
+to be loaded rather than the TYMEX external interface.
+The /DEBUG switch causes the debug runtime control to be loaded rather
+than the production runtime control.
+The %7Y switch causes the symbol INITI% to be defined.
+Program execution than begins.
+The structure of the SFORTRAN runtime is described in section III.
+.paragraph
+The program terminates with EXIT(1) if the TYMEX external interface
+module is used.
+Otherwise, the QUIT command and statement execute EXIT(1) and
+EDIT command executes RUN(SYS:SFORTRAN,1).
+.skip 2
+II Transition commands
+.paragraph
+The editor either goes to TYMEX with the QUIT command or compiles
+and possible loads programs with the CHECK, INITIALIZE and
+RUN commands.
+These three commands all have the same format for their arguments.
+The CHECK command only compiles its arguments, the INITIALIZE command
+compiles, loads but does not run the loaded program and the RUN command
+compiles, loads and runs the loaded program.
+The argument for these commands will be like the argument in
+CFORTRAN for the same commands.
+The following questions must be answered before the exact format
+of the argument is determined.
+.skip 1
+.left margin 2
+1.#Should the current file being edited be updated by a
+transition command or should a SAVE be required?
+.skip 1
+2.#Should the CLEAR command cause the name of the current file to
+be forgotten?
+If forgotten, should a new text file name be requested?
+If not forgotten, should the file be deleted?
+.skip 1
+3.#CFORTRAN uses a dollar sign in the command to indicate the
+current text file.
+Should we use the same convention?
+.skip 1
+4.#If there is no name for the current text,
+what file name should be used in the SAVE command, for
+automatic update or for the dollar sign?
+.skip 1
+5.#How should whether the program is to be loaded in debug or
+production mode be specified?
+.skip 1
+6.#How should whether a file is to be compiled with or without
+debugger information be specified?
+.skip 1
+7.#Do we want a SWITCH command as in CFORTRAN?
+.left margin 0
+.paragraph
+The runtime terminates on the QUIT command or the EDIT command.
+Both commands close all files.
+The QUIT command goes to TYMEX.
+The EDIT command which takes an optional file name
+goes to the SFORTRAN editor.
+.skip 2
+III Runtime environment
+.paragraph
+The runtime is composed of three levels, an external interface,
+a runtime control and a program.
+The external interface handles all entry to and exit from the runtime.
+It is initially entered from the loader.
+There are two types of external interfaces only one of which is loaded
+with the runtime.
+They are the SFORTRAN external interface and the TYMEX external interface.
+The former is loaded for programs run
+under SFORTRAN and the latter for programs run under TYMEX.
+.paragraph
+The runtime control is called by the external interface and controls
+the flow of the program.
+There are two types of runtime controls only
+one of which is loaded with the runtime.
+They are the debugging runtime comtrol and the production runtime control.
+The debug runtime control is the command processor for the debugger.
+It executes all debugger commands passing control to the program
+on CONTINUE, GO, NEXT and STEP commands.
+It returns to the external interface on QUIT and EDIT commands
+and QUIT statements.
+The production runtime control will only interact with the user
+on the execution of PAUSE statements or on continuable errors.
+It will allow the user to either continue or
+terminate execution.
+.paragraph
+Transition from the loader to the external interface, from the
+external interface to the runtime control
+and from the runtime control to the program only pass control
+and require no decisions to be made.
+Transitions in the other directions can occur due to many conditions.
+What is done for each condition is given below.
+.skip 1
+Program to debug runtime control
+.skip 1
+.left margin 2
+QUIT statement#-#Don't allow continue. Close all files. Return to
+external interface.
+.skip 1
+STOP statement#-#Don't allow continue. Close all files. Print line
+number of STOP.
+.skip 1
+PAUSE statement#-#Print line number of PAUSE.
+.skip 1
+Continuable errors#-#Print line number of error.
+.skip 1
+Noncontinuable errors#-#Don't allow continue. Print line number of error.
+.skip 1
+BREAK, STEP, NEXT#-#Print line number of break.
+.skip 1
+Escape#-#Print line number of escape.
+.skip 1
+.left margin 0
+Program to production runtime control
+.skip 1
+.left margin 2
+QUIT, STOP statements#-# Close all files. Return to external interface.
+.skip 1
+PAUSE statement, continuable errors#-#Request if user wants to
+continue. If so, return to program. Otherwise, close all files and
+return to external interface.
+.skip 1
+Noncontinuable errors, escape#-#Return to external interface.
+.skip 1
+.left margin 0
+Runtime control to SFORTRAN external interface
+.skip 1
+.left margin 2
+QUIT command or statement#-#EXIT(1)
+.skip 1
+EDIT command#-#RUN(SYS:SFORTRAN,1)
+.skip 1
+.left margin 0
+Runtime control to TYMEX external interface
+.skip 1
+.left margin 2
+All transitions#-#EXIT(1)
+.left margin 0
