@@ -1,0 +1,675 @@
+^^
+.number 0
+.justify
+.fill
+.left margin 0
+.right margin 70
+.spacing 1
+.paper size 58,72
+.title SFORTRAN DEBUGGER
+.figure 1
+
+.blank
+.break
+.skip 10
+.center
+SFORTRAN DEBUGGER
+.center
+SPECIFICATION
+.page
+I. COMMAND SPECIFICATION
+.skip 2
+^&The Debugger Context\&
+.paragraph
+There are two contexts in the debugger which allow
+proper interpretation of most debug commands.
+One context is the subroutine to which a variable name
+belongs.
+The other context is the section of the
+program to which a line number belongs.
+Initially, the variable name context is the main program and
+the line number context is the section of the program with
+monotonically increasing
+line numbers containing the main program.
+Two commands exist which refer directly to these contexts.
+One for setting them and the other for listing them.
+Whenever program execution stops by breakpoints, escapes, errors, PAUSE or
+STOP statements, both contexts are set to the contexts containing the
+statement where the stop occurred.
+.skip 1
+.center
+DEBUG [ line-address | qualified-routine-name ]
+.paragraph
+If a line address is given as the parameter of the DEBUG command, only
+the variable name context can be changed since line addresses are
+interpreted as refering to the current line number context.
+For nonoverlay programs, a qualified-routine-name is
+either a subroutine name or a function name.
+For overlay programs, it may be a list of subroutine and  function
+names separated with spaces.
+If a qualified-routine-name is used, both the
+variable name and the line number contexts can be changed since
+the subroutine can be in a section of the
+program which differs from the section defining the line
+number context.
+If no parameter is given, both contexts are reset to their initial
+setting.
+Note that the subroutine which defines the variable name context will
+always be in the section of program defining the line number context.
+.paragraph
+In an overlay program, qualified-routine-name may refer to any
+subroutine or function in any overlay, even if
+that overlay is not currently in core.
+A line address context is always contained within a single overlay
+segment, so line-address may not be used to refer to a
+different overlay.
+It is possible to have a subroutine or function
+appear in more than one overlay segment, and then
+a qualified-routine-name which contains only the subroutine or
+function name will not uniquely identify a particular
+instance of the name.
+In this case, the subroutine or function name may be qualified by
+preceding it with the name of another routine which is in the path
+from the desired routine back to the current debug
+context or to the root.
+As many qualifiers as necessary may be given to name a particular
+instance of a routine.
+For example, in the (rather absurd) overlay structure created by
+.skip 1
+.center
+-LOAD M,[A,[C,S!D,S]!B,[C,S!D,S]]
+.skip 1
+where M contains the main program and the other files contain
+a subroutine whose name is the same as the name of the file.
+The four occurances of S would be named A#C#S, A#D#S, B#C#S and B#D#S.
+If the current debug context were A, then C#S and D#S would be enough
+to specify A#C#S and A#D#S respectively.
+B#C#S and B#D#S would still be needed to refer to the other S's.
+.skip 1
+.center
+LIST DEBUG
+.paragraph
+Lists the current debug contexts.
+The subroutine name which defines the variable name context will be listed.
+.skip 2
+.test page 6
+^&DISPLAY Command\&
+.paragraph
+THe format of the DISPLAY command is
+.skip 1
+.center
+DISPLAY display-list
+.skip 1
+where display-list is a list of scalar variable references, array variable
+references with integer constant or integer scalar subscripts or
+array variable names.
+Elements in the display-list are
+separated by commas.
+Execution of the command causes the values of the elements to be
+displayed in their declared mode (integer, real, logical etc.)
+or in the mode specified by the mode command whose format is
+.skip 1
+.center
+MODE { ASCII | OCTAL | DECLARED } variable-name-list
+.paragraph
+This command sets the display mode for all the variables in
+variable-name-list.
+Variable-name-list is a list of variable names (either scalar or array
+without subscripts).
+If the mode is set to ASCII, the variable  is interpreted as
+containing five seven-bit characters per word.
+If the mode is set to OCTAL, the variable is interpreted as an
+unsigned octal number.
+If the mode is DECLARED, the variable is returned to its declared
+display mode.
+.skip 2
+.test page 6
+^&SET Command\&
+.paragraph
+The SET command has the format
+.skip 1
+.center
+SET set-list
+.skip 1
+where set-list is a list of FORTRAN assignments separated by commas.
+The assignments have the following restrictions.
+.break
+.left margin 4
+.skip 1
+1. The left part must be either a scalar variable reference or
+an array reference with integer scalar or constant subscripts.
+.skip 1
+2. The right part must be either a scalar variable reference, an array
+reference with integer scalar or constant subscripts or a constant.
+.skip 1
+3. If the right part is not a constant, it must agree in type with the
+left part.
+.skip 1
+4. If the right part is a string or logical constant, the left part
+must be of type string or logical respectively.
+.skip 1
+5. For complex left parts, a constant right part must be two numeric
+constants (defined in 6.), separated by commas and enclosed in parentheses.
+.skip 1
+6. For integer, real or double precision left parts, a constant
+right part must be a numeric constant.
+A numeric constant is either an integer, real or double precision constant.
+.left margin 0
+.skip 2
+.test page 6
+^&Execution Commands\&
+.paragraph
+The following four commands, along with the RUN command, initiate program
+execution.
+.skip 1
+.center
+GO [ line-address ]
+.paragraph
+This command causes program execution to begin at line-address.
+If no line-address is given, execution begins at the first executable
+statement in the main program.
+No line-address also insures that all open FORTRAN files other than
+the command file are closed.
+.skip 1
+.center
+CONTINUE
+.paragraph
+This command causes program execution to begin where it last stopped
+due to a breakpoint, a completed NEXT or STEP command, a recoverable
+error or a PAUSE statement.
+The CONTINUE command is used to resume program execution.
+.skip 1
+.center
+NEXT [ integer ]
+.paragraph
+This command causes program execution to resume as in the CONTINUE command.
+But it further limits execution of the program to the next n executed
+statements at which point control returns to the debugger.
+The parameter of the command specifies the value of n and if missing,
+n defaults to the value of one.
+.skip 1
+.center
+STEP [ integer ]
+.paragraph
+This command is similiar to the NEXT command with the additional feature
+of typing the line address of each statement executed.
+.skip 2
+.test page 6
+^&Program Flow Control\&
+.paragraph
+Two commands are available to control and examine the program flow.
+They are the BREAK and TRACE commands.
+They both specify sets of FORTRAN statements whose
+execution should be identified.
+They differ in what is done after identifying the statement to be executed.
+BREAK returns control to the debugger command level and TRACE continues
+with execution.
+The statement identified will be the next statement to be executed.
+The format of the commands are
+.skip 1
+.center
+BREAK line-address-list [ variable-list ] [ @-integer ]
+.center
+TRACE line-address-list [ variable-list ] [ @-integer ]
+.skip 1
+where line-address-list are the statements whose execution should be
+identified.
+If ALL is used for the line-address-list, all the statements
+in all the files which have been compiled and loaded in debug
+mode will have their execution identified.
+A statement whose line-address appears in a BREAK or TRACE command is
+said to have a breakpoint or tracepoint at it.
+.paragraph
+The variable-list is a list of scalar variable references or ^&nondummy\&
+array variable references with integer constant subscripts.
+The values of these variables are displayed whenever the statement
+having the breakpoint or tracepoint is identified as about to be
+executed.
+The variables in variable-list refer to variables in the current variable
+context.
+.paragraph
+The integer after the @ specifies how often the reaching of a
+breakpoint or tracepoint should be reported.
+If not specified, the reaching of a breakpoint
+or tracepoint is always reported.
+Otherwise, reporting is done on every integer number of execution of
+any statement specified in the command.
+.break
+Example:
+.center
+BREAK 10.1,100.2 @5
+.skip 1
+will break if 10.1 has been executed twice and 100.2 is about to be
+executed for the third time.
+.paragraph
+If the statement has a breakpoint or tracepoint at it and
+another is set, the new variable-list and @-integer ^&replace\&
+those set by the previous BREAK or TRACE commands.
+BREAK commands only replace breakpoints and TRACE commands only replace
+tracepoints.
+The breakpoints and tracepoints set with line address ALL can only be
+changed by another BREAK or TRACE command with line address ALL.
+The commands BREAK#ALL#@10 and BREAK#100.3 will cause a break
+always to occur at 100.3 but breaks to occur after every tenth
+execution of all other statements.
+.paragraph
+To remove a breakpoint or tracepoint, the commands used are
+.skip 1
+.center
+NO BREAK [ line-address-list ]
+.center
+NO TRACE [ line-address-list ]
+.skip 1
+These commands removes the breakpoints or tracepoints at the
+statements specified by line-address-list.
+If ALL is used for the line-address-list, only the breakpoints
+or tracepoints set with BREAK#ALL or TRACE#ALL are removed.
+If no line-address-list is given, all breakpoints or tracepoints
+are removed (including one set by ALL).
+If there is no breakpoint or tracepoint at a specified statement,
+no error message is given.
+.paragraph
+To determine what breakpoints or tracepoints are set, the commands
+used are
+.skip 1
+.center
+LIST BREAK [ line-address-list ]
+.center
+LIST TRACE [ line-address-list ]
+.skip 1
+The line-address-list is interpreted as in NO#BREAK with
+ALL referring only to breakpoints set with BREAK#ALL and no line-address-list
+referring to all breakpoints.
+.skip 2
+.test page 6
+^&Reporting Variable Value Change\&
+.paragraph
+Two commands are avaiable to set breakpoints and tracepoints on variable
+value change.
+This allows reporting where and to what a variable value is changed.
+The two commands are
+.skip 1
+.center
+VALUE BREAK variable-list [ line-address-list ]
+.center
+VALUE TRACE variable-list [ line-address-list ]
+.skip 1
+The line-address-list and the variable-list have the same syntax as in
+the BREAK and TRACE commands.
+The variables in the variable-list are only displayed when their
+value is changed.
+The check to determine whether the value has changed is only made
+at the statements specified by line-address-list.
+If ALL is used as the line-address-list, the check is made at all
+statements in routines compiled and loaded in debug mode.
+If no line-address-list is given, the check is made at all
+statements in the current subroutine defining the variable name context.
+.paragraph
+To remove value breakpoints and tracepoints, the commands used are
+.skip 1
+.center
+NO VALUE BREAK [ variable-list ]
+.center
+NO VALUE TRACE [ variable-list ]
+.skip 1
+This command removes the breakpoints or tracepoints for the variables in
+variable-list.
+If variable-list is not given, all value breakpoints or tracepoints are
+removed.
+.paragraph
+To determine which variables have value breakpoints or tracepoints,
+the commands used are
+.skip 1
+.center
+LIST VALUE BREAK [ variable-list ]
+.center
+LIST VALUE TRACE [ variable-list ]
+.skip 2
+.test page 6
+^&CLOSE Command\&
+.paragraph
+The format of the CLOSE command is
+.skip 1
+.center
+CLOSE [ (unit-list) | unit-list ]
+.skip 1
+where unit-list is a list of integer constants separated by commas
+which represent FORTRAN I/O units.
+The command causes the specified units to be closed in the sense of
+the FORTRAN CLOSE statement.
+If no unit-list is given, all open units
+except 0, 1 and the command file are closed.
+.skip 2
+.test page 6
+^&DISCARD Command\&
+.paragraph
+The DISCARD command argument has the same format as the
+CLOSE command argument.
+It differs from the CLOSE command by discarding the new copy
+of any file open for output
+and restoring the file to its state before it was opened.
+.skip 2
+.test page 6
+^&QUIT Command\&
+.paragraph
+The QUIT command exits from SFORTRAN into TYMEX.
+If a file was being edited and changes had been made,
+the latest copy is written to the file.
+Any FORTRAN files which are still open are closed.
+.skip 2
+.test page 6
+^&ABORT Command\&
+.paragraph
+The ABORT command executes the same as the
+QUIT command except that the latest copy of the current
+file being edited is not written.
+.skip 2
+.test page 6
+^&CREATE _& CHANGE Commands\&
+.paragraph
+The CREATE and CHANGE commands exit to the SFORTRAN editor.
+The commands the execute as though they were typed in the editor.
+The CHANGE command can also be typed without a parameter.
+This causes editting to resume on the current file being edited.
+.skip 2
+.test page 6
+^&RUN, INITIALIZE _& COMPILE Commands\&
+.paragraph
+These commands are executed as though they were
+typed in the SFORTRAN editor.
+Both RUN and INITIALIZE cause the files in the load string
+to be reloaded.
+The COMPILE command, after compiling any files that need
+to be compiled, returns to the SFORTRAN editor or to TYMEX if the
+debugger was run from TYMEX.
+.skip 2
+.test page 6
+^&Program Termination\&
+.paragraph
+The following is a list of all the forms of program termination
+with what occurs when the program is run with or without
+the debugger and in SFORTRAN or in TYMEX.
+.skip 1
+.nofill
+.nojustify
+.left margin 4
+.indent -4
+QUIT statement
+.indent -2
+Debug mode
+Does not allow the program to continue
+Closes all open files
+Returns to TYMEX command level
+.indent -2
+Production mode
+Closes all open files
+Returns to TYMEX command level
+.skip 1
+.indent -4
+STOP statement
+.indent -2
+Debug mode
+Does not allow the program to continue
+Closes all open files
+Prints line number of last executed statement compiled
+with debug information
+.indent -2
+Production mode
+Closes all open files
+Returns to TYMEX if run from TYMEX
+Returns to SFORTRAN if run from SFORTRAN
+.skip 1
+.indent -4
+END statement (same as STOP statement)
+.skip 1
+.indent -4
+PAUSE statement
+.indent -2
+Debug mode
+Prints line number of last executed statement compiled
+with debug information
+.indent -2
+Production mode
+Requests if user wants to continue with the message
+"DO YOU WANT TO CONTINUE? TYPE YES OR NO. "
+If yes, continues running program
+If no, ask if open files should be closed or discarded with
+the message "DO YOU WANT TO CLOSE OR DISCARD OPEN FILES?
+TYPE CLOSE OR DISCARD. "
+Returns to TYMEX if run from TYMEX
+Returns to SFORTRAN if run from SFORTRAN
+.skip 1
+.indent -4
+Continuable errors (same as PAUSE statement)
+.skip 1
+.indent -4
+Noncontinuable errors
+.indent -2
+Debug mode
+Does not allow the program to continue
+Prints line number of last executed statement compiled
+with debug information
+.indent -2
+Production mode
+Asks if open files should be closed or discarded with
+the message "DO YOU WANT TO CLOSE OR DISCARD OPEN FILES?
+TYPE CLOSE OR DISCARD. "
+Returns to TYMEX if run from TYMEX
+Returns to SFORTRAN if run from SFORTRAN
+.skip 1
+.indent -4
+Escape
+.indent -2
+Debug mode (same as continuable errors in debug mode)
+.indent -2
+Production mode (same as noncontinuable errros in production mode)
+.page
+^&Debugger Command Summary\&
+.nojustify
+.nofill
+.skip 1
+.spacing 2
+DEBUG [ line-address | qualified-routine-name ]
+LIST DEBUG
+DISPLAY display-list
+SET set-list
+MODE { ASCII | OCTAL | DECLARED } variable-name-list
+{ BREAK | TRACE } line-address-list [ variable-list ] [ @-integer ]
+NO { BREAK | TRACE } [ line-address-list ]
+LIST { BREAK | TRACE } [ line-address-list ]
+VALUE { BREAK | TRACE } variable-list [ line-address-list ]
+NO VALUE { BREAK | TRACE } [ variable-list ]
+LIST VALUE { BREAK | TRACE } [ variable-list ]
+GO [ line-address ]
+NEXT [ integer ]
+STEP [ integer ]
+CONTINUE
+CLOSE [ (unit-list) | unit-list ]
+DISCARD [ (unit-list) | unit-list ]
+QUIT
+ABORT
+CREATE file-name
+CHANGE [ file-name ]
+{ RUN | INITIALIZE | COMPILE } [ load-string]
+DO file-name
+TOUT file-name
+HUSH
+NO HUSH
+LIST VERSION
+.spacing 1
+.justify
+.fill
+.subtitle COMMAND SYNTAX
+.page
+II. COMMAND SYNTAX
+.skip 2
+This section gives complete, detailed syntax for all debugger commands.
+The commands are defined by the nonterminal <commands>.
+The following are nonterminals not defined by syntax rules.
+.skip 1
+<line-number>#-#a decimal between .001 and 99999.999 with only three
+decimal places.
+.skip 1
+<variable-name>#-#a FORTRAN variable name. May be greater than
+six characters in length, but only the first six
+characters are used.
+.skip 1
+<integer>#-#a positive or negative FORTRAN integer
+constant.
+.skip 1
+<routine-name>#-#the name of a FORTRAN subroutine, function
+or .MAIN. to signify the main program.
+.skip 1
+<number>#-#a FORTRAN integer, real or double precision
+constant.
+.skip 1
+<single-quote-constant>#-#any sequence of characters
+except single quote passed to the debugger by IOCS's GETLINE enclosed
+in single quotes.
+.skip 1
+<double-quote-constant>#-#any sequence of characters
+except double quote passed to the debugger by IOCS's GETLINE enclosed
+in double quotes.
+.skip 1
+<load-string>#-#this is defined in the editor specification.
+.skip 1
+<file-name>#-#a file name with optional leading
+user name and device name.
+.skip 2
+The following are the debugger syntax rules.
+.nofill
+.nojustify
+.skip 2
+.test page 9
+<commands> ::= <break-command> | <trace-command> |
+        <value-break-command> | <value-trace-command> |
+        <no-break-command> | <no-trace-command> |
+        <no-value-break-command> | <no-value-trace-command> |
+        <list-break-command> | <list-trace-command> |
+     ist-value-break-command> | <list-value-trace-command> |
+        <debug-command> | <list-debug-command> |
+        <display-command> | <set-command> | <mode-command> |
+        <go-command> | <next-command> | <step-command> |
+        <continue-command> |
+        <close-command> | <discard-command> |
+        <quit-command> | <abort-command> |
+        <change-command> | <create-command> |
+        <run-command> | <initialize-command> | <compile-command> |
+        <do-command> | <tout-command> |
+        <hush-command> | <no-hush-command> |
+        <list-version-command>
+.skip 1
+.test page 14
+<break-command> ::= BREAK <flow-arguments>
+<trace-command> ::= TRACE <flow-arguments>
+<flow-arguments> ::= <line-address-list> <op-variable-list>
+        <op-@-counter>
+<line-address-list> ::= ALL | <line-list>
+<line-list> ::= <line> | <line> <list-sep> <line-list>
+<line> ::= <single> | <single>:<single>
+<single> ::= . | $ | <line-number> | #<integer>
+<list-sep> ::= ,
+<op-variable-list> ::= <variable-list> | <null>
+<variable-list> ::= <variable> | <variable> <list-sep> <variable-list>
+<variable> ::= <variable-name> | <variable-name>(<integer-list>)
+<integer-list> ::= <integer> | <integer>,<integer-list>
+<null> ::=
+<op-@-counter> ::= @ <integer> | <null>
+.skip 1
+.test page 4
+<value-break-command> ::= VALUE BREAK <value-argument>
+<value-trace-command> ::= VALUE TRACE <value-argument>
+<value-argument> ::= <variable-list> <op-line-address-list>
+<op-line-address-list> ::= <line-address-list> | <null>
+.skip 1
+.test page 2
+<no-break-command> ::= NO BREAK <op-line-address-list>
+<no-trace-command> ::= NO TRACE <op-line-address-list>
+.skip 1
+.test page 2
+<no-value-break-command> ::= NO VALUE BREAK <op-variable-list>
+<no-trace-break-command> ::= NO TRACE BREAK <op-variable-list>
+.skip 1
+.test page 2
+<list-break-command> ::= LIST BREAK <op-line-address-list>
+<list-trace-command> ::= LIST TRACE <op-line-address-list>
+.skip 1
+.test page 2
+<list-value-break-command> ::= LIST VALUE BREAK <op-variable-list>
+<list-value-trace-command> ::= LIST VALUE TRACE <op-variable-list>
+.skip 1
+.test page 4
+<debug-command> ::= DEBUG <debug-argument>
+<debug-argument> ::= <single> | <qualified-routine-name> | <null>
+<qualified-routine-name> ::= <routine-name> |
+        <routine-name> <qualified-routine-name>
+.skip 1
+.test page 1
+<list-debug-command> ::= LIST DEBUG
+.skip 1
+.test page 5
+<display-command> ::= DISPLAY <display-list>
+<display-list> ::= <display-item> | <display-item>,<display-list>
+<display-item> ::= <variable-name> | <variable-name>(<subscript-list>)
+<subscript-list> ::= <subscript> | <subscript>,<subscript-list>
+<subscript> ::= <variable-name> | <integer>
+.skip 1
+.test page 6
+<set-command> ::= SET <set-list>
+<set-list> ::= <assignment> | <assignment>,<set-list>
+<assignment> ::= <display-item>=<value>
+<value> ::= <display-item> | <number> | (<number>,<number>) |
+        <single-quote-constant> | <double-quote-constant> |
+        .TRUE. | .FALSE.
+.skip 1
+.test page 4
+<mode-command> ::= MODE <mode-type> <variable-name-list>
+<mode-type> ::= ASCII | OCTAL | DECLARED
+<variable-name-list> ::= <variable-name> |
+        <variable-name> <list-sep> <variable-name-list>
+.skip 1
+.test page 2
+<go-command> ::= GO <go-argument>
+<go-argument> ::= <single> | <null>
+.skip 1
+.test page 3
+<next-command> ::= NEXT <op-integer>
+<step-command> ::= STEP <op-integer>
+<op-integer> ::= <integer> | <null>
+.skip 1
+.test page 1
+<continue-command> ::= CONTINUE
+.skip 1
+.test page 5
+<close-command> ::= CLOSE <close-argument>
+<discard-command> ::= DISCARD <close-argument>
+<close-argument> ::= <unit-list> | (<unit-list>) | <null>
+<unit-list> ::= <unit> | <unit> <list-sep> <unit-list>
+<unit> ::= <integer> | *
+.skip 1
+.test page 2
+<quit-command> ::= QUIT
+<abort-command> ::= ABORT
+.skip 1
+.test page 3
+<create-command> ::= CREATE <file-name>
+<change-command> ::= CHANGE <change-argument>
+<change-argument> ::= <file-name> | <null>
+.skip 1
+.test page 3
+<run-command> ::= RUN <load-string>
+<initialize-command> ::= INITIALIZE <load-string>
+<compile-command> ::= COMPILE <load-string>
+.skip 1
+.test page 2
+<do-command> ::= DO <file-name>
+<tout-command> ::= TOUT <file-name>
+.skip 1
+.test page 2
+<hush-command> ::= HUSH
+<no-hush-command> ::= NO HUSH
+.skip 1
+<list-version-command> ::= LIST VERSION
+.justify
+.fill
+   Y{Kis
