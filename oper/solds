@@ -1,0 +1,185 @@
+      SUBROUTINE SOLDS                                                  OLDS  70
+C     CONTROLS READING CONSISTENCY CHECKING AND STORAGE OF JT.,MBR LOADSOLDS  80
+C     DISPLACEMENT AND DISTORTIONS                                      OLDS  90
+C     STRESS PROGRAMMING SYSTEM FOR IBM 1130                            OLDS 100
+C     DIMENSION AND COMMON STATEMENTS WHICH MUST APPEAR IN ALL ROUTINES OLDS 110
+C     SYSTEM PARAMETERS  -  14 WORDS                                    OLDS 120
+      DIMENSION NSYSF(6)                                                OLDS 130
+      DIMENSION NPRBF(6)                                                OLDS 140
+      DIMENSION NARRF(32)                                               OLDS 150
+      DIMENSION  JMIN(250),JPLS(250),MTYP(250)
+      DIMENSION A(40),BETA(37),LABL(16),IFREE(20),ICHK(2),IBUFF(40)     OLDS 170
+      DIMENSION BUFF(18)                                                OLDS 180
+      COMMON NTMP,KCUR,NAVAL,NOVER,ISOLV,ISUCC,ISCAN,ITRAC,NSYSF        OLDS 190
+C     PROBLEM PARAMETERS  -  32 WORDS                                   OLDS 200
+      COMMON NJ,NB,NDAT,NFJS,NLDS,NLDSI,ID,NCORD,JF,NSQ,IMETH,NMR,NJR,  OLDS 210
+     1IBETA,IYOUN,ISHEA,GSHEA,EYOUN,FILL1,FILL2,IPZER,ISTRS,NPRBF             OLDS 220
+C     PLATE PARAMETERS                                                  $LDS 222
+      COMMON IPLAT,NPLAT,KPLA1,KPLAT,KTHI1,KTHIK                        $LDS 224
+C     ARRAY CODEWORDS  40 PAIRS = 80 WORDS                              OLDS 230
+      COMMON KNAM1,KNAME,KXY1,KXYZ,KJRE1,KJREL,MEGA1,MEGAZ,KMEM1,KMEMB, OLDS 240
+     1KBET1,KBETA,KYON1,KYOUN,KSHE1,KSHEA,KMRE1,KMREL,KMEG1,KMEGA,      OLDS 250
+     2KMKS1,KMKST,KROT1,KROTE,KPPL1,KPPLS,KPMN1,KPMNS,LOAD1,LOADS,      OLDS 260
+     3KLIN1,KLINT,MLOA1,MLOAD,JLOA1,JLOAD,KDIA1,KDIAG,KOFD1,KOFDG,      OLDS 270
+     4KPPR1,KPPRI,KSTA1,KSTAT,KJIN1,KJINT,KJEX1,KJEXT                   OLDS 280
+      COMMON NARRF                                                      OLDS 290
+C  MEMBER INCIDENCE AND TYPE TABLES  250 JOINTS  500 MEMBERS
+      COMMON JMIN,JPLS,MTYP,IAMDU                                       OLDS 310
+C     SCRATCH AREA CAN BE INSERTED AS DESIRED FOR EACH ROUTINE          OLDS 320
+C     SCRATCH AREA FOR INPUT PHASE  -  SPH1A AND SPH1B                  OLDS 330
+      COMMON A,BETA,IFREE,LABL,IB,IL,ILOOK,JTOMB,K1,IPRER,JLD,INDEX,    OLDS 340
+     1JINDL,JDEPL,IPRTA,KK,JJC,JDC,IS,ICHK,JMIC,JMPC,JCODE,JIB          OLDS 350
+     2,MEMRE,CTE,KS1,LEM,IBUFF                                          OLDS 360
+      EQUIVALENCE (IBUFF(2), BUFF(1))                                   OLDS 370
+1710  FORMAT(19H LOADING CONDITION ,I3,28H INCLUDES LOADING CONDITION ,IOLDS 380
+     14/27HWHICH IS NOT YET SPECIFIED.)                                 OLDS 390
+ 9957 FORMAT (36A2)                                                     OLDS 400
+C     BRANCH ON MEMBER OR JOINT LOADS HEADED                            OLDS 410
+C     PROCESS LOADING TITLE                                             OLDS 420
+C     TEST FOR LOADING,COMBINATION,AND MEMBER OR JOINT                  OLDS 430
+      JW=NSYSF(1)                                                       OLDS 440
+      IPRER=-1                                                          OLDS 450
+      IF(NLDS)120,9904,120                                              OLDS 460
+120   IF(K1-5)142,131,142                                               OLDS 470
+C     INTERNAL LOADING NUMBERS                                          OLDS 480
+  131 JLD=JLD+1                                                         OLDS 490
+      IF(JLD-NLDS)138,138,9903                                          OLDS 500
+C     ZERO OUT A(1) STORE LOADING TITLE INTO LOADING TABLE              OLDS 510
+138   CALL SPAK4(1,A(1),0,0,0,IPRTA)                                    OLDS 520
+      DO 133 I=1,36,2                                                   OLDS 530
+      IBB=IBUFF(I)                                                      OLDS 540
+      IBUFF(I)=IBUFF(I+1)                                               OLDS 550
+  133 IBUFF(I+1)=IBB                                                    OLDS 560
+      DO 132 I=1,18                                                     OLDS 570
+  132 A(I+1)=BUFF(I)                                                    OLDS 580
+C     SET UP ARRAYS FOR LOADS-FLOATING POINT NO. FROM AREA TO DISK      OLDS 590
+      CALL SDATA(LOAD1,LOADS,JLD,A,NAREA,-2,0)                          OLDS 600
+      GO TO 500                                                         OLDS 610
+C     SET UP (JOINT OR MEM.)LOADS-FLOATING POINT NO. FROM DISK TO AREA  OLDS 620
+  142 CALL SDATA(LOAD1,LOADS,JLD,A,NAREA,-1,0)                          OLDS 630
+C     UNPACK 32 BITS WORD LWT,NOPRS,JUNK,IPRT                           OLDS 640
+      CALL SPAK4(0,A(1),LNT,NOPRS,JUNK,IPRT)                            OLDS 650
+C     K1=IS TEST FOR COMBINATION LOADING                                OLDS 660
+      IF(K1-15) 200,143,200                                             OLDS 670
+C     PROCESS COMBINATION LOADING DATA                                  OLDS 680
+C     LNT=1  INDEPENDENT LOADING CONDITION                              OLDS 690
+C        =2  DEPENDENT LOADING CONDITION                                OLDS 700
+C        =0  LOADING CONDITION NOT YET SPECIFIED                        OLDS 710
+143   IF(LNT-1)154,9908,154                                             OLDS 720
+154   NOFI=0                                                            OLDS 730
+      NOFL=0                                                            OLDS 740
+      NPAIR=0                                                           OLDS 750
+C     M=0,READ NEXT LOGICAL FIELD-COMBINE READ ALREADY,(1)              OLDS 760
+  155 CALL MATCH (KD,PER,0,1,IBUFF,I)                                   OLDS 770
+      GO TO(185,158,166,9900,9906),I                                    OLDS 780
+C     FIXED POINT NUMBERS FOR LOADING NO.                               OLDS 790
+  158 NOFI=NOFI+1                                                       OLDS 800
+      LD = KD                                                           OLDS 810
+      IF(NOFI-NOFL-1)9901,155,9901                                      OLDS 820
+C     FLOATING POINT NUMBERS FOR RATIO OF LOADING(NO)                   OLDS 830
+  166 NOFL=NOFL+1                                                       OLDS 840
+      IF(NOFL-NOFI)9902,170,9902                                        OLDS 850
+170   IF(LD-JLD)172,171,171                                             OLDS 860
+171   WRITE(5,9957) (IBUFF(I),I=1,36)
+      WRITE(JW,1710) JLD,LD                                             OLDS 880
+      WRITE (1,1710)JLD,LD                                              OLDS 890
+      GO TO 9900                                                        OLDS 900
+172   NPAIR=NPAIR+1                                                     OLDS 910
+      IF(NPAIR+NOPRS-6)175,175,9912                                     OLDS 920
+175   IWH=2*(NOPRS+NPAIR-1)+20                                          OLDS 930
+      A(IWH)=LD                                                         OLDS 940
+      A(IWH+1)=PER                                                      OLDS 950
+      GO TO 155                                                         OLDS 960
+185   IF(LNT-1)186,9908,188                                             OLDS 970
+186   JDEPL=JDEPL+1                                                     OLDS 980
+      L=NLDS+1-JDEPL                                                    OLDS 990
+      CALL SDATA(KLIN1,KLINT,JLD,A,L,2,1)                               OLDS1000
+188   NOPRS=NOPRS+NPAIR                                                 OLDS1010
+      CALL SPAK4(1,A(1),2,NOPRS,0,IPRT)                                 OLDS1020
+      CALL SDATA(LOAD1,LOADS,JLD,A,NAREA,-2,0)                          OLDS1030
+      GO TO 500                                                         OLDS1040
+C     READ KIND OF LOAD - MEMBER OR JOINT LOADS                         OLDS1050
+200   IF(LNT-1)202,207,9908                                             OLDS1060
+  202 JINDL=JINDL+1                                                     OLDS1070
+C     PACK A 1 INTO A(1)                                                OLDS1080
+      CALL SPAK4(1,A(1),1,0,0,IPRT)                                     OLDS1090
+C     FLOATING POINT FROM AREA TO DISK                                  OLDS1100
+      CALL SDATA(LOAD1,LOADS,JLD,A,NAREA,-2,0)                          OLDS1110
+C     SET UP TABLE-FIXED POINT FROM NAREA TO DISK-INTERNAL LDG NOS.     OLDS1120
+208   CALL SDATA(KLIN1,KLINT,JLD,A,JINDL,+2,10)                         OLDS1130
+  207 GO TO (209,250),K1                                                OLDS1140
+C     READ KIND OF MEMBER(LOAD)-(DISTORTION)-(TEMP.)-(LENGTH)           OLDS1150
+  209 IEND=0                                                            OLDS1160
+      IF(MLOAD)210,203,210
+  203 NB1=NB+IPLAT                                                      $LDS1162
+      CALL SBITE(MLOA1,MLOAD,1,2*NB1,0)                                 $LDS1163
+      NUM=(NB1-1)/10+1                                                  $LDS1164
+      DO 205 IJK=1,NUM                                                  $LDS1167
+C     SDATA=STORES FROM NAREA TO DISK,FIXED POINT=2                     $LDS1168
+  205 CALL SDATA(MLOA1,MLOAD,20*IJK,A,IFREE,2,0)                        $LDS1169
+  210 CALL MATCH(K,GARB,0,6,IBUFF,I)                                    OLDS1170
+      GO TO (9905,9901,9902,9900,213),I                                 OLDS1180
+213   GOTO(9909,9909,8000,9909,229,222,222,9909,9909,9909,223,223,219),KOLDS1190
+C     IEND=1, MEMBER END FORCE                                          OLDS1200
+219   IEND=1                                                            OLDS1210
+      GO TO 210                                                         OLDS1220
+C     MEMBER LENGTH AND MEMBER TEMP.-M=4=SKIP ONE LOGICAL FIELD=CHANGE  OLDS1230
+C     OR COEFFICIENT                                                    OLDS1240
+223   CALL MATCH(K,AA,4,5,IBUFF,II)                                     OLDS1250
+      IF(II-1)9906,224,777                                              OLDS1260
+C     KS1=2- LENGTH COEFF                                               OLDS1270
+224   KS1=2                                                             OLDS1280
+      GO TO 229                                                         OLDS1290
+C     KS1=1- TEMP. CHANGE - CTE                                         OLDS1300
+777   CTE=AA                                                            OLDS1310
+      KS1=1                                                             OLDS1320
+      GO TO 229                                                         OLDS1330
+  222 IF(IEND-1)227,225,225                                             OLDS1340
+C     MEMBER END LOADS                                                  OLDS1350
+  225 INDEX=3                                                           OLDS1360
+      GO TO 500                                                         OLDS1370
+C     MEMBER LOADS                                                      OLDS1380
+  227 INDEX=2                                                           OLDS1390
+      GO TO 500                                                         OLDS1400
+C     MEMBER DISTORTIONS                                                OLDS1410
+  229 INDEX=4                                                           OLDS1420
+      GO TO 500                                                         OLDS1430
+C     READ KIND OF JOINT(LOAD)- SEE 207                                 OLDS1440
+  250 CALL MATCH(K,GARB,0,3,IBUFF,I)                                    OLDS1450
+      GO TO (9905,9901,9902,9900,253),I                                 OLDS1460
+253   GO TO (9909,8000,255,257),K                                       OLDS1470
+C     JOINT LOADS=INDEX=1                                               OLDS1480
+  255 INDEX=1                                                           OLDS1490
+      GO TO 500                                                         OLDS1500
+C     JOINT DISPLACEMENT =INDEX=5                                       OLDS1510
+  257 INDEX=5                                                           OLDS1520
+      GO TO 500                                                         OLDS1530
+ 9900 IPRER=0                                                           OLDS1540
+      GO TO 500                                                         OLDS1550
+ 9901 IPRER=1                                                           OLDS1560
+      GO TO 500                                                         OLDS1570
+ 9902 IPRER=2                                                           OLDS1580
+      GO TO 500                                                         OLDS1590
+ 9903 IPRER=3                                                           OLDS1600
+      GO TO 600                                                         OLDS1610
+ 9904 IPRER=4                                                           OLDS1620
+      GO TO 600                                                         OLDS1630
+ 9905 IPRER=5                                                           OLDS1640
+      GO TO 500                                                         OLDS1650
+ 9906 IPRER=6                                                           OLDS1660
+      GO TO 500                                                         OLDS1670
+9908  IPRER=8                                                           OLDS1680
+      GO TO 500                                                         OLDS1690
+ 9909 IPRER=9                                                           OLDS1700
+      GO TO 600                                                         OLDS1710
+ 9912 IPRER=12                                                          OLDS1720
+      GO TO 500                                                         OLDS1730
+600   IF(ISCAN-2)601,500,500                                            OLDS1740
+601   ISCAN=0                                                           OLDS1750
+      RETURN                                                            OLDS1760
+8000  ILOOK=5                                                           OLDS1770
+      RETURN                                                            OLDS1780
+500   ILOOK=4                                                           OLDS1790
+      RETURN                                                            OLDS1800
+      END                                                               OLDS1810
+  
