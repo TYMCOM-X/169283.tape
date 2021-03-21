@@ -1,0 +1,1043 @@
+PROCEDURE DEF.COM.PLAN % EXT: COMPLN.DEF  MAG: JLOY18.M#2 %
+% Tymshare Commission Commission-Plan Update %
+% Original version:  1975.04.15  / Rich Strauss (RSTRAUSS) %
+% Current version:   1976.01.22  / Steve Albanese (SALBANESE) %
+BEGIN
+
+%       THIS IS THE COMMISSION PLAN UPDATE PROCEDURE. IT IS USED TO
+        MAINTAIN THE BASIC COMMISSION PLAN COMPONENTS FOR ALL TYPES
+        OF COMMISSIONS CALCULATED BY THE TYMSHARE COMMISSION PLAN
+        SYSTEM.      %
+
+FIELDS
+   INDENT AS '6C' DEFAULT '      '
+
+SOURCE COM.PLAN.TRANS                     % Source version: 1975.03.24 %
+  FROM '*'
+  INVALIDS TO 'COMPLN.ERR-ANY'
+  FREE FORM
+  INPUT
+    REQUEST, SALESNUM.5N,
+      CONDITIONAL ON REQUEST
+        BEGIN
+        'INS':  COM.PLAN,PLAN.STATUS, BEGIN.MO, BASE.REV.Q,
+                NEW.REV.Q.BAS, NEW.REV.Q.INC,
+          DRAW.PER.BEG, DRAW.PER.END, DRAW.TYPE, DRAW.AMOUNT, PC.N.R.O.Q,
+          CONDITIONAL ON COM.PLAN
+            BEGIN
+            'ATM':  INCENT.BASE.Q
+            'BM':   INCENT.BASE.Q, PC.N.ACC.REV, PC.TASC.DEVEL, PC.PROD.PROF
+            'DM':   INCENT.BASE.Q, PC.N.ACC.REV, PC.TASC.DEVEL, PC.PROD.PROF
+            'AC':   INCENT.BASE.Q
+            'SR':   PC.NEW.REV, PC.N.ACC.REV, PC.TASC.DEVEL
+            END
+        'DEL':  COM.PLAN
+        'CHG':  COM.PLAN,TRANSACTION,
+          CONDITIONAL ON COM.PLAN
+            BEGIN
+            'ATM':  CONDITIONAL ON TRANSACTION
+              BEGIN
+              'PSTAT':  PLAN.STATUS
+              'BEGMO':  BEGIN.MO
+              'BREVQ':  BASE.REV.Q
+              'NRVQB':  NEW.REV.Q.BAS
+              'NRVQI':  NEW.REV.Q.INC
+              'DRBEG':  DRAW.PER.BEG
+              'DREND':  DRAW.PER.END
+              'DRAMT':  DRAW.AMOUNT
+              '%NROQ':  PC.N.R.O.Q
+              'INCBQ':  INCENT.BASE.Q
+              END
+            'DM':   CONDITIONAL ON TRANSACTION
+              BEGIN
+              'PSTAT':  PLAN.STATUS
+              'BEGMO':  BEGIN.MO
+              'BREVQ':  BASE.REV.Q
+              'NRVQB':  NEW.REV.Q.BAS
+              'NRVQI':  NEW.REV.Q.INC
+              'DRBEG':  DRAW.PER.BEG
+              'DREND':  DRAW.PER.END
+              'DRAMT':  DRAW.AMOUNT
+              '%NROQ':  PC.N.R.O.Q
+              'INCBQ':  INCENT.BASE.Q
+              '%NACR':  PC.N.ACC.REV
+              '%TDEV':  PC.TASC.DEVEL
+              '%PPRF':  PC.PROD.PROF
+              END
+            'BM':   CONDITIONAL ON TRANSACTION
+              BEGIN
+              'PSTAT':  PLAN.STATUS
+              'BEGMO':  BEGIN.MO
+              'BREVQ':  BASE.REV.Q
+              'NRVQB':  NEW.REV.Q.BAS
+              'NRVQI':  NEW.REV.Q.INC
+              'DRBEG':  DRAW.PER.BEG
+              'DREND':  DRAW.PER.END
+              'DRAMT':  DRAW.AMOUNT
+              '%NROQ':  PC.N.R.O.Q
+              'INCBQ':  INCENT.BASE.Q
+              '%NACR':  PC.N.ACC.REV
+              '%TDEV':  PC.TASC.DEVEL
+              '%PPRF':  PC.PROD.PROF
+              END
+            'AC':   CONDITIONAL ON TRANSACTION
+              BEGIN
+              'PSTAT':  PLAN.STATUS
+              'BEGMO':  BEGIN.MO
+              'BREVQ':  BASE.REV.Q
+              'NRVQB':  NEW.REV.Q.BAS
+              'NRVQI':  NEW.REV.Q.INC
+              'DRBEG':  DRAW.PER.BEG
+              'DREND':  DRAW.PER.END
+              'DRAMT':  DRAW.AMOUNT
+              '%NROQ':  PC.N.R.O.Q
+              'INCBQ':  INCENT.BASE.Q
+              END
+            'SR':   CONDITIONAL ON TRANSACTION
+              BEGIN
+              'PSTAT':  PLAN.STATUS
+              'BEGMO':  BEGIN.MO
+              'BREVQ':  BASE.REV.Q
+              'NRVQB':  NEW.REV.Q.BAS
+              'NRVQI':  NEW.REV.Q.INC
+              'DRBEG':  DRAW.PER.BEG
+              'DREND':  DRAW.PER.END
+              'DRAMT':  DRAW.AMOUNT
+              '%NROQ':  PC.N.R.O.Q
+              '%NREV':  PC.NEW.REV
+              '%NACR':  PC.N.ACC.REV
+              '%TDEV':  PC.TASC.DEVEL
+              END
+            END % Of 'CHG' transaction-determined input %
+        END % OF REQUEST DETERMINED INPUT %
+
+REPORT TO "TER"
+
+   %  THIS REPORT LISTS ALL COMMISSION PLAN TRANSACTION ACTIVITY
+      PROCESSED BY THIS PROCEDURE     %
+
+   PAGE.SIZE 0
+   REPORT.HEADING   PRINT @TAB 20,'COMMISSION PLAN UPDATE ACTIVITY REPORT',@CR,@CR,@CR
+
+   REPORT.FOOTING   PRINT @CR,@CR,@TAB 20,'END OF UPDATE ACTIVITY REPORT',@CR
+
+
+   MOVE '       ' TO INDENT
+
+   %  PROCESS THE TRANSACTIONS  %
+
+   WRITE REPORT
+   FOR EACH COM.PLAN.TRANS
+
+PROCESS.REQUEST:
+
+      BEGIN
+      PRINT ' ', REQUEST, ',', SALESNUM.5N, ',', COM.PLAN
+
+      SELECT ISP VIA SALESNUM.5N   % VALIDATE SALES NUMBER %
+         THEN IF COM.PLAN OF COM.PLAN.TRANS = COM.PLAN OF ISP
+            THEN NOTHING  %  SALESMAN NUMBER & COM.PLAN TYPE VALID %
+            ELSE % COMMISSION PLAN TYPE IS INVALID %
+               BEGIN
+               PRINT @TAB TO 1,'*',@TAB TO 17,'[REST NOT PROCESSED]',@CR,
+                    INDENT,'COMMISSION PLAN TYPE IS INVALID',@CR
+               FINISH PROCESS.REQUEST
+               END
+         ELSE  %   SALESMAN NUMBER IS INVALID   %
+            BEGIN
+            PRINT @TAB TO 1,'*',@TAB TO 17,'[REST NOT PROCESSED]',@CR,
+                    INDENT,'SALESMAN NUMBER IS INVALID',@CR
+            FINISH PROCESS.REQUEST
+            END
+
+      IF REQUEST = 'INS'
+         THEN
+            BEGIN   %  REQUEST IS AN INSERT  %
+            PRINT ',', PLAN.STATUS, ',', BEGIN.MO, ',',
+                BASE.REV.Q, ',', NEW.REV.Q.BAS, ',', NEW.REV.Q.INC, ',',
+                DRAW.PER.BEG, ',', DRAW.PER.END, ',',
+                DRAW.TYPE, ',', DRAW.AMOUNT, ',',
+                PC.N.R.O.Q
+            IF DRAW.PER.BEG > DRAW.PER.END
+               THEN
+                  BEGIN
+                  PRINT @TAB TO 1,'*',@TAB TO 96,@CR,
+                       INDENT,'DRAW PERIOD IS INVALID',@CR
+                  FINISH PROCESS.REQUEST
+                  END
+
+            IF COM.PLAN = 'ATM'
+               THEN
+                  BEGIN
+                  PRINT ',', INCENT.BASE.Q
+                  SELECT CATM VIA SALESNUM.5N
+                     THEN NOTHING  %  COM.PLAN ALREADY EXISTS  %
+                     ELSE
+                        BEGIN
+                        INSERT INTO CATM
+                        PRINT @CR
+                        FINISH PROCESS.REQUEST
+                        END
+                  END
+            IF COM.PLAN = 'DM'
+               THEN
+                  BEGIN
+                  PRINT ',', INCENT.BASE.Q, ',', PC.N.ACC.REV, ',',
+                      PC.TASC.DEVEL, ',', PC.PROD.PROF
+                  SELECT CDM VIA SALESNUM.5N
+                     THEN NOTHING  %  COM.PLAN ALREADY EXISTS %
+                     ELSE
+                        BEGIN
+                        INSERT INTO CDM
+                        PRINT @CR
+                        FINISH PROCESS.REQUEST
+                        END
+                  END
+
+
+            IF COM.PLAN = 'BM'
+               THEN
+                  BEGIN
+                  PRINT ',', INCENT.BASE.Q, ',', PC.N.ACC.REV, ',',
+                      PC.TASC.DEVEL, ',', PC.PROD.PROF
+                  SELECT CBM VIA SALESNUM.5N
+                     THEN NOTHING  %  COM.PLAN ALREADY EXISTS %
+                     ELSE
+                        BEGIN
+                        INSERT INTO CBM
+                        PRINT @CR
+                        FINISH PROCESS.REQUEST
+                        END
+                  END
+
+            IF COM.PLAN = 'AC'
+               THEN
+                  BEGIN
+                  PRINT ',', INCENT.BASE.Q
+                  SELECT CAC VIA SALESNUM.5N
+                     THEN NOTHING  %  COM.PLAN ALREADY EXISTS %
+                     ELSE
+                        BEGIN
+                        INSERT INTO CAC
+                        PRINT @CR
+                        FINISH PROCESS.REQUEST
+                        END
+                  END
+
+            IF COM.PLAN = 'SR'
+               THEN
+                  BEGIN
+                  PRINT ',', PC.NEW.REV, ',', PC.N.ACC.REV, ',',
+                      PC.TASC.DEVEL
+                  SELECT CSR VIA SALESNUM.5N
+                     THEN NOTHING  %  COM.PLAN ALREADY EXISTS %
+                     ELSE
+                        BEGIN
+                        INSERT INTO CSR
+                        PRINT @CR
+                        FINISH PROCESS.REQUEST
+                        END
+                  END
+
+                            %  DUPLICATE INSTANCE  %
+            PRINT @TAB TO 1,'*',@TAB TO 130,@CR,
+                 INDENT,'DUPLICATE - INSTANCE ALREADY EXISTS',@CR
+            FINISH PROCESS.REQUEST
+            END  %  OF INS PROCESSING  %
+
+      IF REQUEST = 'DEL'
+         THEN
+            BEGIN
+
+            IF COM.PLAN = 'ATM'
+               THEN SELECT CATM VIA SALESNUM.5N
+                  THEN
+                     BEGIN
+                     PRINT @CR,INDENT,'INSTANCE DELETED :',SALESNUM.5N,
+                           PLAN.STATUS, BEGIN.MO, BASE.REV.Q,
+                           NEW.REV.Q.BAS, NEW.REV.Q.INC,
+                           DRAW.PER.BEG, DRAW.PER.END,
+                           DRAW.TYPE, DRAW.AMOUNT,
+                           INCENT.BASE.Q, PC.N.R.O.Q, @CR
+                     DELETE FROM CATM VIA SALESNUM.5N
+                     FINISH PROCESS.REQUEST
+                     END
+
+            IF COM.PLAN = 'DM'
+               THEN SELECT CDM VIA SALESNUM.5N
+                  THEN
+                     BEGIN
+                     PRINT @CR,INDENT,'INSTANCE DELETED:',SALESNUM.5N,
+                           PLAN.STATUS, BEGIN.MO, BASE.REV.Q,
+                           NEW.REV.Q.BAS, NEW.REV.Q.INC,
+                           DRAW.PER.BEG, DRAW.PER.END,
+                           DRAW.TYPE, DRAW.AMOUNT,
+                           INCENT.BASE.Q, PC.N.R.O.Q, PC.N.ACC.REV,
+                           PC.TASC.DEVEL, PC.PROD.PROF, @CR
+                     DELETE FROM CDM VIA SALESNUM.5N
+                     FINISH PROCESS.REQUEST
+                     END
+
+            IF COM.PLAN = 'BM'
+               THEN SELECT CBM VIA SALESNUM.5N
+                  THEN
+                     BEGIN
+                     PRINT @CR,INDENT,'INSTANCE DELETED:',SALESNUM.5N,
+                           PLAN.STATUS, BEGIN.MO, BASE.REV.Q,
+                           NEW.REV.Q.BAS, NEW.REV.Q.INC,
+                           DRAW.PER.BEG, DRAW.PER.END,
+                           DRAW.TYPE, DRAW.AMOUNT,
+                           INCENT.BASE.Q, PC.N.R.O.Q, PC.N.ACC.REV,
+                           PC.TASC.DEVEL, PC.PROD.PROF, @CR
+                     DELETE FROM CBM VIA SALESNUM.5N
+                     FINISH PROCESS.REQUEST
+                     END
+
+            IF COM.PLAN = 'AC'
+               THEN SELECT CAC VIA SALESNUM.5N
+                  THEN
+                     BEGIN
+                     PRINT @CR,INDENT,'INSTANCE DELETED:',SALESNUM.5N,
+                           PLAN.STATUS, BEGIN.MO, BASE.REV.Q,
+                           NEW.REV.Q.BAS, NEW.REV.Q.INC,
+                           DRAW.PER.BEG, DRAW.PER.END,
+                           DRAW.TYPE, DRAW.AMOUNT,
+                           INCENT.BASE.Q, PC.N.R.O.Q, @CR
+                     DELETE FROM CAC VIA SALESNUM.5N
+                     FINISH PROCESS.REQUEST
+                     END
+
+            IF COM.PLAN = 'SR'
+               THEN SELECT CSR VIA SALESNUM.5N
+                  THEN
+                     BEGIN
+                     PRINT @CR,INDENT,'INSTANCE DELETED:',SALESNUM.5N,
+                           PLAN.STATUS, BEGIN.MO, BASE.REV.Q,
+                           NEW.REV.Q.BAS, NEW.REV.Q.INC,
+                           DRAW.PER.BEG, DRAW.PER.END,
+                           DRAW.TYPE, DRAW.AMOUNT,
+                           PC.NEW.REV, PC.N.R.O.Q, PC.N.ACC.REV,
+                           PC.TASC.DEVEL, @CR
+                     DELETE FROM CSR VIA SALESNUM.5N
+                     FINISH PROCESS.REQUEST
+                     END
+
+                           %  INSTANCE TO BE DELETED DOES NOT EXIST  %
+            PRINT @TAB TO 1,'*',@TAB TO 17,@CR,
+                 INDENT,'INSTANCE TO BE DELETED DOES NOT EXIST',@CR
+            FINISH PROCESS.REQUEST
+            END % END OF DEL PROCESSING %
+
+      IF REQUEST = 'CHG'
+         THEN
+            BEGIN
+            PRINT ',', TRANSACTION
+
+            IF COM.PLAN = 'ATM'
+               THEN SELECT CATM VIA SALESNUM.5N
+                  THEN
+                     BEGIN
+                     IF TRANSACTION = 'PSTAT'
+                        THEN
+                           BEGIN
+                        PRINT ',', PLAN.STATUS OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED PLAN.STATUS FROM',
+                                 PLAN.STATUS OF CATM,' TO ',
+                                 PLAN.STATUS OF COM.PLAN.TRANS,@CR
+                           MOVE PLAN.STATUS OF COM.PLAN.TRANS
+                             TO PLAN.STATUS OF CATM
+                           ALTER CATM
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'BEGMO'
+                        THEN
+                           BEGIN
+                        PRINT ',', BEGIN.MO OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED BEGIN.MO FROM',
+                                 BEGIN.MO OF CATM,' TO ',
+                                 BEGIN.MO OF COM.PLAN.TRANS,@CR
+                           MOVE BEGIN.MO OF COM.PLAN.TRANS
+                             TO BEGIN.MO OF CATM
+                           ALTER CATM
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'BREVQ'
+                        THEN
+                           BEGIN
+                        PRINT ',', BASE.REV.Q OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED BASE.REV.Q FROM',
+                                 BASE.REV.Q OF CATM,' TO ',
+                                 BASE.REV.Q OF COM.PLAN.TRANS,@CR
+                           MOVE BASE.REV.Q OF COM.PLAN.TRANS
+                             TO BASE.REV.Q OF CATM
+                           ALTER CATM
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'DRBEG'
+                        THEN
+                           BEGIN
+                        PRINT ',', DRAW.PER.BEG OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED DRAW.PER.BEG FROM',
+                                 DRAW.PER.BEG OF CATM,' TO ',
+                                 DRAW.PER.BEG OF COM.PLAN.TRANS,@CR
+                           MOVE DRAW.PER.BEG OF COM.PLAN.TRANS
+                             TO DRAW.PER.BEG OF CATM
+                           ALTER CATM
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'DREND'
+                        THEN
+                           BEGIN
+                        PRINT ',', DRAW.PER.END OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED DRAW.PER.END FROM',
+                                 DRAW.PER.END OF CATM,' TO ',
+                                 DRAW.PER.END OF COM.PLAN.TRANS,@CR
+                           MOVE DRAW.PER.END OF COM.PLAN.TRANS
+                             TO DRAW.PER.END OF CATM
+                           ALTER CATM
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'DRAMT'
+                        THEN
+                           BEGIN
+                        PRINT ',', DRAW.AMOUNT OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED DRAW.AMOUNT FROM',
+                                 DRAW.AMOUNT OF CATM,' TO ',
+                                 DRAW.AMOUNT OF COM.PLAN.TRANS,@CR
+                           MOVE DRAW.AMOUNT OF COM.PLAN.TRANS
+                             TO DRAW.AMOUNT OF CATM
+                           ALTER CATM
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = '%NROQ'
+                        THEN
+                           BEGIN
+                        PRINT ',', PC.N.R.O.Q OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED PC.N.R.O.Q FROM',
+                                 PC.N.R.O.Q OF CATM,' TO ',
+                                 PC.N.R.O.Q OF COM.PLAN.TRANS,@CR
+                           MOVE PC.N.R.O.Q OF COM.PLAN.TRANS
+                             TO PC.N.R.O.Q OF CATM
+                           ALTER CATM
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'INCBQ'
+                        THEN
+                           BEGIN
+                        PRINT ',', INCENT.BASE.Q OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED INCENT.BASE.Q FROM',
+                                 INCENT.BASE.Q OF CATM,' TO ',
+                                 INCENT.BASE.Q OF COM.PLAN.TRANS,@CR
+                           MOVE INCENT.BASE.Q OF COM.PLAN.TRANS
+                             TO INCENT.BASE.Q OF CATM
+                           ALTER CATM
+                           FINISH PROCESS.REQUEST
+                           END
+                     END % OF 'ATM' CHG PROCESSING %
+
+            IF COM.PLAN = 'BM'
+               THEN SELECT CBM VIA SALESNUM.5N
+                  THEN
+                     BEGIN
+                     IF TRANSACTION = 'PSTAT'
+                        THEN
+                           BEGIN
+                        PRINT ',', PLAN.STATUS OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED PLAN.STATUS FROM',
+                                 PLAN.STATUS OF CBM,' TO ',
+                                 PLAN.STATUS OF COM.PLAN.TRANS,@CR
+                           MOVE PLAN.STATUS OF COM.PLAN.TRANS
+                             TO PLAN.STATUS OF CBM
+                           ALTER CBM
+                       INISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'BEGMO'
+                        THEN
+                           BEGIN
+                        PRINT ',', BEGIN.MO OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED BEGIN.MO FROM',
+                                 BEGIN.MO OF CBM,' TO ',
+                                 BEGIN.MO OF COM.PLAN.TRANS,@CR
+                           MOVE BEGIN.MO OF COM.PLAN.TRANS
+                             TO BEGIN.MO OF CBM
+                           ALTER CBM
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'BREVQ'
+                        THEN
+                           BEGIN
+                        PRINT ',', BASE.REV.Q OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED BASE.REV.Q FROM',
+                                 BASE.REV.Q OF CBM,' TO ',
+                                 BASE.REV.Q OF COM.PLAN.TRANS,@CR
+                           MOVE BASE.REV.Q OF COM.PLAN.TRANS
+                             TO BASE.REV.Q OF CBM
+                           ALTER CBM
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'NRVQB'
+                        THEN
+                           BEGIN
+                        PRINT ',', NEW.REV.Q.BAS OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'changed NEW.REV.Q.BAS from ',
+                                 NEW.REV.Q.BAS OF CBM,' to ',
+                                 NEW.REV.Q.BAS OF COM.PLAN.TRANS, @CR
+                           MOVE NEW.REV.Q.BAS OF COM.PLAN.TRANS
+                             TO NEW.REV.Q.BAS OF CBM
+                           ALTER CBM
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'NRVQI'
+                        THEN
+                           BEGIN
+                        PRINT ',', NEW.REV.Q.INC OF COM.PLAN.TRANS, @CR,
+                                 INDENT, 'changed NEW.REV.Q.INC from ',
+                                 NEW.REV.Q.INC OF CBM,' to ',
+                                 NEW.REV.Q.INC OF COM.PLAN.TRANS, @CR
+                           MOVE NEW.REV.Q.INC OF COM.PLAN.TRANS
+                             TO NEW.REV.Q.INC OF CBM
+                           ALTER CBM
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'DRBEG'
+                        THEN
+                           BEGIN
+                        PRINT ',', DRAW.PER.BEG OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED DRAW.PER.BEG FROM',
+                                 DRAW.PER.BEG OF CBM,' TO ',
+                                 DRAW.PER.BEG OF COM.PLAN.TRANS,@CR
+                           MOVE DRAW.PER.BEG OF COM.PLAN.TRANS
+                             TO DRAW.PER.BEG OF CBM
+                           ALTER CBM
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'DREND'
+                        THEN
+                           BEGIN
+                        PRINT ',', DRAW.PER.END OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED DRAW.PER.END FROM',
+                                 DRAW.PER.END OF CBM,' TO ',
+                                 DRAW.PER.END OF COM.PLAN.TRANS,@CR
+                           MOVE DRAW.PER.END OF COM.PLAN.TRANS
+                             TO DRAW.PER.END OF CBM
+                           ALTER CBM
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'DRAMT'
+                        THEN
+                           BEGIN
+                        PRINT ',', DRAW.AMOUNT OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED DRAW.AMOUNT FROM',
+                                 DRAW.AMOUNT OF CBM,' TO ',
+                                 DRAW.AMOUNT OF COM.PLAN.TRANS,@CR
+                           MOVE DRAW.AMOUNT OF COM.PLAN.TRANS
+                             TO DRAW.AMOUNT OF CBM
+                           ALTER CBM
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = '%NROQ'
+                        THEN
+                           BEGIN
+                        PRINT ',', PC.N.R.O.Q OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED PC.N.R.O.Q FROM',
+                                 PC.N.R.O.Q OF CBM,' TO ',
+                                 PC.N.R.O.Q OF COM.PLAN.TRANS,@CR
+                           MOVE PC.N.R.O.Q OF COM.PLAN.TRANS
+                             TO PC.N.R.O.Q OF CBM
+                           ALTER CBM
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'INCBQ'
+                        THEN
+                           BEGIN
+                        PRINT ',', INCENT.BASE.Q OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED INCENT.BASE.Q FROM',
+                                 INCENT.BASE.Q OF CBM,' TO ',
+                                 INCENT.BASE.Q OF COM.PLAN.TRANS,@CR
+                           MOVE INCENT.BASE.Q OF COM.PLAN.TRANS
+                             TO INCENT.BASE.Q OF CBM
+                           ALTER CBM
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = '%NACR'
+                        THEN
+                           BEGIN
+                        PRINT ',', PC.N.ACC.REV OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED PC.N.ACC.REV FROM',
+                                 PC.N.ACC.REV OF CBM,' TO ',
+                                 PC.N.ACC.REV OF COM.PLAN.TRANS,@CR
+                           MOVE PC.N.ACC.REV OF COM.PLAN.TRANS
+                             TO PC.N.ACC.REV OF CBM
+                           ALTER CBM
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = '%TDEV'
+                        THEN
+                           BEGIN
+                        PRINT ',', PC.TASC.DEVEL OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED PC.TASC.DEVEL FROM',
+                                 PC.TASC.DEVEL OF CBM,' TO ',
+                                 PC.TASC.DEVEL OF COM.PLAN.TRANS,@CR
+                           MOVE PC.TASC.DEVEL OF COM.PLAN.TRANS
+                             TO PC.TASC.DEVEL OF CBM
+                           ALTER CBM
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = '%PPRF'
+                        THEN
+                           BEGIN
+                        PRINT ',', PC.PROD.PROF OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED PC.PROD.PROF FROM',
+                                 PC.PROD.PROF OF CBM,' TO ',
+                                 PC.PROD.PROF OF COM.PLAN.TRANS,@CR
+                           MOVE PC.PROD.PROF OF COM.PLAN.TRANS
+                             TO PC.PROD.PROF OF CBM
+                           ALTER CBM
+                           FINISH PROCESS.REQUEST
+                           END
+                     END % OF 'BM' CHG PROCESSING %
+            IF COM.PLAN = 'DM'
+               THEN SELECT CDM VIA SALESNUM.5N
+                  THEN
+                     BEGIN
+                     IF TRANSACTION = 'PSTAT'
+                        THEN
+                           BEGIN
+                        PRINT ',', PLAN.STATUS OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED PLAN.STATUS FROM',
+                                 PLAN.STATUS OF CDM,' TO ',
+                                 PLAN.STATUS OF COM.PLAN.TRANS,@CR
+                           MOVE PLAN.STATUS OF COM.PLAN.TRANS
+                             TO PLAN.STATUS OF CDM
+                           ALTER CDM
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'BEGMO'
+                        THEN
+                           BEGIN
+                        PRINT ',', BEGIN.MO OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED BEGIN.MO FROM',
+                                 BEGIN.MO OF CDM,' TO ',
+                                 BEGIN.MO OF COM.PLAN.TRANS,@CR
+                           MOVE BEGIN.MO OF COM.PLAN.TRANS
+                             TO BEGIN.MO OF CDM
+                           ALTER CDM
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'BREVQ'
+                        THEN
+                           BEGIN
+                        PRINT ',', BASE.REV.Q OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED BASE.REV.Q FROM',
+                                 BASE.REV.Q OF CDM,' TO ',
+                                 BASE.REV.Q OF COM.PLAN.TRANS,@CR
+                           MOVE BASE.REV.Q OF COM.PLAN.TRANS
+                             TO BASE.REV.Q OF CDM
+                           ALTER CDM
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'NRVQB'
+                        THEN
+                           BEGIN
+                        PRINT ',', NEW.REV.Q.BAS OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'changed NEW.REV.Q.BAS from ',
+                                 NEW.REV.Q.BAS OF CDM,' to ',
+                                 NEW.REV.Q.BAS OF COM.PLAN.TRANS, @CR
+                           MOVE NEW.REV.Q.BAS OF COM.PLAN.TRANS
+                             TO NEW.REV.Q.BAS OF CDM
+                           ALTER CDM
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'NRVQI'
+                        THEN
+                           BEGIN
+                        PRINT ',', NEW.REV.Q.INC OF COM.PLAN.TRANS, @CR,
+                                 INDENT, 'changed NEW.REV.Q.INC from ',
+                                 NEW.REV.Q.INC OF CDM,' to ',
+                                 NEW.REV.Q.INC OF COM.PLAN.TRANS, @CR
+                           MOVE NEW.REV.Q.INC OF COM.PLAN.TRANS
+                             TO NEW.REV.Q.INC OF CDM
+                           ALTER CDM
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'DRBEG'
+                        THEN
+                           BEGIN
+                        PRINT ',', DRAW.PER.BEG OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED DRAW.PER.BEG FROM',
+                                 DRAW.PER.BEG OF CDM,' TO ',
+                                 DRAW.PER.BEG OF COM.PLAN.TRANS,@CR
+                           MOVE DRAW.PER.BEG OF COM.PLAN.TRANS
+                             TO DRAW.PER.BEG OF CDM
+                           ALTER CDM
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'DREND'
+                        THEN
+                           BEGIN
+                        PRINT ',', DRAW.PER.END OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED DRAW.PER.END FROM',
+                                 DRAW.PER.END OF CDM,' TO ',
+                                 DRAW.PER.END OF COM.PLAN.TRANS,@CR
+                           MOVE DRAW.PER.END OF COM.PLAN.TRANS
+                             TO DRAW.PER.END OF CDM
+                           ALTER CDM
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'DRAMT'
+                        THEN
+                           BEGIN
+                        PRINT ',', DRAW.AMOUNT OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED DRAW.AMOUNT FROM',
+                                 DRAW.AMOUNT OF CDM,' TO ',
+                                 DRAW.AMOUNT OF COM.PLAN.TRANS,@CR
+                           MOVE DRAW.AMOUNT OF COM.PLAN.TRANS
+                             TO DRAW.AMOUNT OF CDM
+                           ALTER CDM
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = '%NROQ'
+                        THEN
+                           BEGIN
+                        PRINT ',', PC.N.R.O.Q OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED PC.N.R.O.Q FROM',
+                                 PC.N.R.O.Q OF CDM,' TO ',
+                                 PC.N.R.O.Q OF COM.PLAN.TRANS,@CR
+                           MOVE PC.N.R.O.Q OF COM.PLAN.TRANS
+                             TO PC.N.R.O.Q OF CDM
+                           ALTER CDM
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'INCBQ'
+                        THEN
+                           BEGIN
+                        PRINT ',', INCENT.BASE.Q OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED INCENT.BASE.Q FROM',
+                                 INCENT.BASE.Q OF CDM,' TO ',
+                                 INCENT.BASE.Q OF COM.PLAN.TRANS,@CR
+                           MOVE INCENT.BASE.Q OF COM.PLAN.TRANS
+                             TO INCENT.BASE.Q OF CDM
+                           ALTER CDM
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = '%NACR'
+                        THEN
+                           BEGIN
+                        PRINT ',', PC.N.ACC.REV OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED PC.N.ACC.REV FROM',
+                                 PC.N.ACC.REV OF CDM,' TO ',
+                                 PC.N.ACC.REV OF COM.PLAN.TRANS,@CR
+                           MOVE PC.N.ACC.REV OF COM.PLAN.TRANS
+                             TO PC.N.ACC.REV OF CDM
+                           ALTER CDM
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = '%TDEV'
+                        THEN
+                           BEGIN
+                        PRINT ',', PC.TASC.DEVEL OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED PC.TASC.DEVEL FROM',
+                                 PC.TASC.DEVEL OF CDM,' TO ',
+                                 PC.TASC.DEVEL OF COM.PLAN.TRANS,@CR
+                           MOVE PC.TASC.DEVEL OF COM.PLAN.TRANS
+                             TO PC.TASC.DEVEL OF CDM
+                           ALTER CDM
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = '%PPRF'
+                        THEN
+                           BEGIN
+                        PRINT ',', PC.PROD.PROF OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED PC.PROD.PROF FROM',
+                                 PC.PROD.PROF OF CDM,' TO ',
+                                 PC.PROD.PROF OF COM.PLAN.TRANS,@CR
+                           MOVE PC.PROD.PROF OF COM.PLAN.TRANS
+                             TO PC.PROD.PROF OF CDM
+                           ALTER CDM
+                           FINISH PROCESS.REQUEST
+                           END
+                     END % OF 'DM' CHG PROCESSING %
+
+            IF COM.PLAN = 'AC'
+               THEN SELECT CAC VIA SALESNUM.5N
+                  THEN
+                     BEGIN
+                     IF TRANSACTION = 'PSTAT'
+                        THEN
+                           BEGIN
+                        PRINT ',', PLAN.STATUS OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED PLAN.STATUS FROM',
+                                 PLAN.STATUS OF CAC,' TO ',
+                                 PLAN.STATUS OF COM.PLAN.TRANS,@CR
+                           MOVE PLAN.STATUS OF COM.PLAN.TRANS
+                             TO PLAN.STATUS OF CAC
+                           ALTER CAC
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'BEGMO'
+                        THEN
+                           BEGIN
+                        PRINT ',', BEGIN.MO OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED BEGIN.MO FROM',
+                                 BEGIN.MO OF CAC,' TO ',
+                                 BEGIN.MO OF COM.PLAN.TRANS,@CR
+                           MOVE BEGIN.MO OF COM.PLAN.TRANS
+                             TO BEGIN.MO OF CAC
+                           ALTER CAC
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'BREVQ'
+                        THEN
+                           BEGIN
+                        PRINT ',', BASE.REV.Q OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED BASE.REV.Q FROM',
+                                 BASE.REV.Q OF CAC,' TO ',
+                                 BASE.REV.Q OF COM.PLAN.TRANS,@CR
+                           MOVE BASE.REV.Q OF COM.PLAN.TRANS
+                             TO BASE.REV.Q OF CAC
+                           ALTER CAC
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'NRVQB'
+                        THEN
+                           BEGIN
+                        PRINT ',', NEW.REV.Q.BAS OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'changed NEW.REV.Q.BAS from ',
+                                 NEW.REV.Q.BAS OF CAC,' to ',
+                                 NEW.REV.Q.BAS OF COM.PLAN.TRANS, @CR
+                           MOVE NEW.REV.Q.BAS OF COM.PLAN.TRANS
+                             TO NEW.REV.Q.BAS OF CAC
+                           ALTER CAC
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'NRVQI'
+                        THEN
+                           BEGIN
+                        PRINT ',', NEW.REV.Q.INC OF COM.PLAN.TRANS, @CR,
+                                 INDENT, 'changed NEW.REV.Q.INC from ',
+                                 NEW.REV.Q.INC OF CAC,' to ',
+                                 NEW.REV.Q.INC OF COM.PLAN.TRANS, @CR
+                           MOVE NEW.REV.Q.INC OF COM.PLAN.TRANS
+                             TO NEW.REV.Q.INC OF CAC
+                           ALTER CAC
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'DRBEG'
+                        THEN
+                           BEGIN
+                        PRINT ',', DRAW.PER.BEG OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED DRAW.PER.BEG FROM',
+                                 DRAW.PER.BEG OF CAC,' TO ',
+                                 DRAW.PER.BEG OF COM.PLAN.TRANS,@CR
+                           MOVE DRAW.PER.BEG OF COM.PLAN.TRANS
+                             TO DRAW.PER.BEG OF CAC
+                           ALTER CAC
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'DREND'
+                        THEN
+                           BEGIN
+                        PRINT ',', DRAW.PER.END OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED DRAW.PER.END FROM',
+                                 DRAW.PER.END OF CAC,' TO ',
+                                 DRAW.PER.END OF COM.PLAN.TRANS,@CR
+                           MOVE DRAW.PER.END OF COM.PLAN.TRANS
+                             TO DRAW.PER.END OF CAC
+                           ALTER CAC
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'DRAMT'
+                        THEN
+                           BEGIN
+                        PRINT ',', DRAW.AMOUNT OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED DRAW.AMOUNT FROM',
+                                 DRAW.AMOUNT OF CAC,' TO ',
+                                 DRAW.AMOUNT OF COM.PLAN.TRANS,@CR
+                           MOVE DRAW.AMOUNT OF COM.PLAN.TRANS
+                             TO DRAW.AMOUNT OF CAC
+                           ALTER CAC
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = '%NROQ'
+                        THEN
+                           BEGIN
+                        PRINT ',', PC.N.R.O.Q OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED PC.N.R.O.Q FROM',
+                                 PC.N.R.O.Q OF CAC,' TO ',
+                                 PC.N.R.O.Q OF COM.PLAN.TRANS,@CR
+                           MOVE PC.N.R.O.Q OF COM.PLAN.TRANS
+                             TO PC.N.R.O.Q OF CAC
+                           ALTER CAC
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'INCBQ'
+                        THEN
+                           BEGIN
+                        PRINT ',', INCENT.BASE.Q OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED INCENT.BASE.Q FROM',
+                                 INCENT.BASE.Q OF CAC,' TO ',
+                                 INCENT.BASE.Q OF COM.PLAN.TRANS,@CR
+                           MOVE INCENT.BASE.Q OF COM.PLAN.TRANS
+                             TO INCENT.BASE.Q OF CAC
+                           ALTER CAC
+                           FINISH PROCESS.REQUEST
+                           END
+                     END % OF 'AC' CHG PROCESSING %
+
+            IF COM.PLAN = 'SR'
+               THEN SELECT CSR VIA SALESNUM.5N
+                  THEN
+                     BEGIN
+                     IF TRANSACTION = 'PSTAT'
+                        THEN
+                           BEGIN
+                        PRINT ',', PLAN.STATUS OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED PLAN.STATUS FROM',
+                                 PLAN.STATUS OF CSR,' TO ',
+                                 PLAN.STATUS OF COM.PLAN.TRANS,@CR
+                           MOVE PLAN.STATUS OF COM.PLAN.TRANS
+                             TO PLAN.STATUS OF CSR
+                           ALTER CSR
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'BEGMO'
+                        THEN
+                           BEGIN
+                        PRINT ',', BEGIN.MO OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED BEGIN.MO FROM',
+                                 BEGIN.MO OF CSR,' TO ',
+                                 BEGIN.MO OF COM.PLAN.TRANS,@CR
+                           MOVE BEGIN.MO OF COM.PLAN.TRANS
+                             TO BEGIN.MO OF CSR
+                           ALTER CSR
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'BREVQ'
+                        THEN
+                           BEGIN
+                        PRINT ',', BASE.REV.Q OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED BASE.REV.Q FROM',
+                                 BASE.REV.Q OF CSR,' TO ',
+                                 BASE.REV.Q OF COM.PLAN.TRANS,@CR
+                           MOVE BASE.REV.Q OF COM.PLAN.TRANS
+                             TO BASE.REV.Q OF CSR
+                           ALTER CSR
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'NRVQB'
+                        THEN
+                           BEGIN
+                        PRINT ',', NEW.REV.Q.BAS OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'changed NEW.REV.Q.BAS from ',
+                                 NEW.REV.Q.BAS OF CSR,' to ',
+                                 NEW.REV.Q.BAS OF COM.PLAN.TRANS, @CR
+                           MOVE NEW.REV.Q.BAS OF COM.PLAN.TRANS
+                             TO NEW.REV.Q.BAS OF CSR
+                           ALTER CSR
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'NRVQI'
+                        THEN
+                           BEGIN
+                        PRINT ',', NEW.REV.Q.INC OF COM.PLAN.TRANS, @CR,
+                                 INDENT, 'changed NEW.REV.Q.INC from ',
+                                 NEW.REV.Q.INC OF CSR,' to ',
+                                 NEW.REV.Q.INC OF COM.PLAN.TRANS, @CR
+                           MOVE NEW.REV.Q.INC OF COM.PLAN.TRANS
+                             TO NEW.REV.Q.INC OF CSR
+                           ALTER CSR
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'DRBEG'
+                        THEN
+                           BEGIN
+                        PRINT ',', DRAW.PER.BEG OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED DRAW.PER.BEG FROM',
+                                 DRAW.PER.BEG OF CSR,' TO ',
+                                 DRAW.PER.BEG OF COM.PLAN.TRANS,@CR
+                           MOVE DRAW.PER.BEG OF COM.PLAN.TRANS
+                             TO DRAW.PER.BEG OF CSR
+                           ALTER CSR
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'DREND'
+                        THEN
+                           BEGIN
+                        PRINT ',', DRAW.PER.END OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED DRAW.PER.END FROM',
+                                 DRAW.PER.END OF CSR,' TO ',
+                                 DRAW.PER.END OF COM.PLAN.TRANS,@CR
+                           MOVE DRAW.PER.END OF COM.PLAN.TRANS
+                             TO DRAW.PER.END OF CSR
+                           ALTER CSR
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = 'DRAMT'
+                        THEN
+                           BEGIN
+                        PRINT ',', DRAW.AMOUNT OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED DRAW.AMOUNT FROM',
+                                 DRAW.AMOUNT OF CSR,' TO ',
+                                 DRAW.AMOUNT OF COM.PLAN.TRANS,@CR
+                           MOVE DRAW.AMOUNT OF COM.PLAN.TRANS
+                             TO DRAW.AMOUNT OF CSR
+                           ALTER CSR
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = '%NROQ'
+                        THEN
+                           BEGIN
+                        PRINT ',', PC.N.R.O.Q OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED PC.N.R.O.Q FROM',
+                                 PC.N.R.O.Q OF CSR,' TO ',
+                                 PC.N.R.O.Q OF COM.PLAN.TRANS,@CR
+                           MOVE PC.N.R.O.Q OF COM.PLAN.TRANS
+                             TO PC.N.R.O.Q OF CSR
+                           ALTER CSR
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = '%NREV'
+                        THEN
+                           BEGIN
+                        PRINT ',', PC.NEW.REV OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED PC.NEW.REV FROM',
+                                 PC.NEW.REV OF CSR,' TO ',
+                                 PC.NEW.REV OF COM.PLAN.TRANS,@CR
+                           MOVE PC.NEW.REV OF COM.PLAN.TRANS
+                             TO PC.NEW.REV OF CSR
+                           FINISH PROCESS.REQUEST
+                           ALTER CSR
+                           END
+                     IF TRANSACTION = '%NACR'
+                        THEN
+                           BEGIN
+                        PRINT ',', PC.N.ACC.REV OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED PC.N.ACC.REV FROM',
+                                 PC.N.ACC.REV OF CSR,' TO ',
+                                 PC.N.ACC.REV OF COM.PLAN.TRANS,@CR
+                           MOVE PC.N.ACC.REV OF COM.PLAN.TRANS
+                             TO PC.N.ACC.REV OF CSR
+                           ALTER CSR
+                           FINISH PROCESS.REQUEST
+                           END
+                     IF TRANSACTION = '%TDEV'
+                        THEN
+                           BEGIN
+                        PRINT ',', PC.TASC.DEVEL OF COM.PLAN.TRANS, @CR,
+                                 INDENT,'CHANGED PC.TASC.DEVEL FROM ',
+                                 PC.TASC.DEVEL OF CSR,' TO ',
+                                 PC.TASC.DEVEL OF COM.PLAN.TRANS,@CR
+                           MOVE PC.TASC.DEVEL OF COM.PLAN.TRANS
+                             TO PC.TASC.DEVEL OF CSR
+                           ALTER CSR
+                           FINISH PROCESS.REQUEST
+                           END
+                     END % OF 'SR' CHG PROCESSING %
+
+                          % SELECT FAILED FOR INSTANCE %
+            PRINT @TAB TO 1,'*',@TAB TO 35,@CR,INDENT,'INSTANCE TO BE CHANGED',
+                  ' DOES NOT EXIST',@CR
+            END % OF CHG PROCESSING %
+      END % OF PROCESS.REQUEST FOR EACH %
+END % Of PROCEDURE DEF.COM.PLAN %
+     ž
