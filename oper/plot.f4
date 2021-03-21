@@ -1,0 +1,145 @@
+C
+C     ..................................................................
+C
+C        SUBROUTINE PLOT
+C
+C        PURPOSE
+C           PLOT SEVERAL CROSS-VARIABLES VERSUS A BASE VARIABLE
+C
+C        USAGE
+C           CALL PLOT (NO,A,N,M,NL,NS)
+C
+C        DESCRIPTION OF PARAMETERS
+C           NO - CHART NUMBER (3 DIGITS MAXIMUM)
+C           A  - MATRIX OF DATA TO BE PLOTTED. FIRST COLUMN REPRESENTS
+C                BASE VARIABLE AND SUCCESSIVE COLUMNS ARE THE CROSS-
+C                VARIABLES (MAXIMUM IS 9).
+C           N  - NUMBER OF ROWS IN MATRIX A
+C           M  - NUMBER OF COLUMNS IN MATRIX A (EQUAL TO THE TOTAL
+C                NUMBER OF VARIABLES). MAXIMUM IS 10.
+C           NL - NUMBER OF LINES IN THE PLOT. IF 0 IS SPECIFIED, 50
+C                LINES ARE USED.
+C           NS - CODE FOR SORTING THE BASE VARIABLE DATA IN ASCENDING
+C                ORDER
+C                  0  SORTING IS NOT NECESSARY (ALREADY IN ASCENDING
+C                     ORDER).
+C                  1  SORTING IS NECESSARY.
+C
+C        REMARKS
+C           NONE
+C
+C        SUBROUTINES AND FUNCTION SUBPROGRAMS REQUIRED
+C           NONE
+C
+C     ..................................................................
+C
+      SUBROUTINE PLOT(NO,A,N,M,NL,NS)
+      DIMENSION OUT(101),YPR(11),ANG(9),A(1)
+C
+    1 FORMAT(1H1,60X,7H CHART ,I3,//)
+    2 FORMAT(1H ,F11.4,5X,101A1)
+    3 FORMAT(1H )
+    4 FORMAT(10H 123456789)
+    5 FORMAT(10A1)
+    7 FORMAT(1H ,16X,1H.,10(9X,1H.))
+    8 FORMAT(1H0,9X,11F10.4)
+C
+C     ..................................................................
+C
+      NLL=NL
+C
+      IF(NS) 16, 16, 10
+C
+C        SORT BASE VARIABLE DATA IN ASCENDING ORDER
+C
+   10 DO 15 I=1,N
+      DO 14 J=I,N
+      IF(A(I)-A(J)) 14, 14, 11
+   11 L=I-N
+      LL=J-N
+      DO 12 K=1,M
+      L=L+N
+      LL=LL+N
+      F=A(L)
+      A(L)=A(LL)
+   12 A(LL)=F
+   14 CONTINUE
+   15 CONTINUE
+C
+C        TEST NLL
+C
+   16 IF(NLL) 20, 18, 20
+   18 NLL=50
+C
+C        PRINT TITLE
+C
+   20 WRITE(6,1)NO
+C
+C        DEVELOP BLANK AND DIGITS FOR PRINTING
+C
+      REWIND 13
+      WRITE (13,4)
+      REWIND 13
+      READ (13,5) BLANK,(ANG(I),I=1,9)
+      REWIND 13
+C
+C        FIND SCALE FOR BASE VARIABLE
+C
+      XSCAL=(A(N)-A(1))/(FLOAT(NLL-1))
+C
+C        FIND SCALE FOR CROSS-VARIABLES
+C
+      M1=N+1
+      YMIN=A(M1)
+      YMAX=YMIN
+      M2=M*N
+      DO 40 J=M1,M2
+      IF(A(J)-YMIN) 28,26,26
+   26 IF(A(J)-YMAX) 40,40,30
+   28 YMIN=A(J)
+      GO TO 40
+   30 YMAX=A(J)
+   40 CONTINUE
+      YSCAL=(YMAX-YMIN)/100.0
+C
+C        FIND BASE VARIABLE PRINT POSITION
+C
+      XB=A(1)
+      L=1
+      MY=M-1
+      I=1
+   45 F=I-1
+      XPR=XB+F*XSCAL
+      IF(A(L)-XPR) 50,50,70
+C
+C        FIND CROSS-VARIABLES
+C
+   50 DO 55 IX=1,101
+   55 OUT(IX)=BLANK
+      DO 60 J=1,MY
+      LL=L+J*N
+      JP=((A(LL)-YMIN)/YSCAL)+1.0
+      OUT(JP)=ANG(J)
+   60 CONTINUE
+C
+C        PRINT LINE AND CLEAR, OR SKIP
+C
+      WRITE(6,2)XPR,(OUT(IZ),IZ=1,101)
+      L=L+1
+      GO TO 80
+   70 WRITE(6,3)
+   80 I=I+1
+      IF(I-NLL) 45, 84, 86
+   84 XPR=A(N)
+      GO TO 50
+C
+C        PRINT CROSS-VARIABLES NUMBERS
+C
+   86 WRITE(6,7)
+      YPR(1)=YMIN
+      DO 90 KN=1,9
+   90 YPR(KN+1)=YPR(KN)+YSCAL*10.0
+      YPR(11)=YMAX
+      WRITE(6,8)(YPR(IP),IP=1,11)
+      RETURN
+      END
