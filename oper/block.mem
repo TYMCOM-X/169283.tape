@@ -1,0 +1,276 @@
+In order to provide more flexibility for complex software systems and
+open the way to a general SIMPL library facility the concept of block
+structure and organization of programs has been extended.  This
+memo summarizes these proposals.  Your comments on this proposal are
+solicited.
+
+1.  Each SIMPL program has, as an abstract ideal, a representation
+as a single heirarchical block structure on a single file.  The pro-
+ram can be viewed as imbedded in an always present outer block.
+This block structure has the property that symbols can be referenced
+only within the block where they are declared.  Since blocks can be
+nested, the same symbol may be redeclared in an internal block to
+re-use the symbol name.  This capability enhances the modularity of
+programs as symbol uses of independent modules can be isolated
+through the use of the block structure.  As an aid to visualization
+we often view the block structure as a tree with each node repre-
+senting a block and the arcs representing the relation "is nested
+directly within".  Since block names are not necessarily unique,
+identification of a block uniquely requires the specification of the
+names of the ancestor nodes as an ordered list.  In practice, it is
+easy enough to specify only enough ancestor nodes to make the
+block unique;  it is also fairly simple to diagnose ambiguous cases at
+load time.  We will use the syntax <block list> to specify any such
+unique block name.
+
+2.  Named blocks other than procedures will be allowed to be defined
+as follows:
+:<block name>
+<body of block>
+END <block name>
+
+The body of the block may consist of declarations, table definitions, and
+statements.  Proper nesting of blocks must be observed analogously to
+procedures.  For semantic purposes, a block name serves as a label which
+may be the operand of a GO statement.
+
+3.  In many circumstances it is desirable to separate the physical
+structure of the program from the logical block structure to retain
+the facilities of separate compilation and maintenance.  With the
+current block structure facilities this is not possible.
+
+4.  The concept of a library does not fit very well into the current
+block structure.  Essentially each library procedure must
+be defined at the highest level as the user's procedures, which gets
+into potential scope conflicts with other libraries or the users own
+procedures.
+
+5.  Going back to the model of a program as a single file
+we can think of a library as a conditional placement of new blocks at
+certain desired places in the program heirarchy.  The same goes for
+breaking a program into various segments to go onto separate files (we
+are not counting the trivial form of segmentation by file concat-
+enation).  In carrying out such a process, there are two
+considerations: the logical position where the inserted block appears
+and the logical position where its associated declarations appear.
+
+6.  At this point let us suggest an interpretation for the GLOBAL and
+FIND statements that generalizes.  Let GLOBAL be interpreted as the 
+injection of a LOCAL declaration into the outermost block of a program.
+Correspondingly, FIND causes the compiler to assume that a reference to
+the listed variable can be satisfied by a search at load time up the
+block structure heirarchy from the current program.
+
+7.  We now generalize GLOBAL as follows:
+GLOBAL  [<block list>]<symbol>  means to inject the declaration of
+the symbol into the block name specified.  the <block list> must be
+found in an upward search of the block structure  at load time.
+if <block list> is omitted, the default is dynamic and depends on
+corresponding FINDs as discussed below in paragraph 13.  The
+effect is that the symbol is "logically declared" as LOCAL in the
+given block, even though it is allocated physically at the GLOBAL state-
+ment.  This allows various modules to be substituted at load time
+by the programmer for various effects (e.g. TABLE declarartions or array
+sizes).
+
+8.  We generalize FIND as follows:
+FIND [<block list>]<symbol>   means the declaration for this symbol is
+to be found outward in the block structure from the current block,
+If <block list> is specified, then a GLOBAL declaration is expected in
+the named block.  The GLOBAL declaration is then injected into the
+lowest block containing all FINDs of the symbol.  If neither FIND or its
+corresponding GLOBAL are qualified, the LOCAL declaration defaults to
+the implied outer block.
+
+9.  In order to describe the placement of a block within the 
+block structure, two new declarations are proposed:  TO and FROM.
+
+10.  TO <block list> specifies that the code for this block
+is logically placed interior to the named block (which is perhaps located
+in another file somewhere.)
+
+11.  FROM <block name> specifies that a block located elsewhere is to be
+logically viewed as appearing in the position of the FROM declaration.
+Because the block specified is not a part of the block structure until
+after FROM is executed, it must have a unique name.  Since FROM will be
+used primarily with libraries, this does not appear to be a serious
+restriction.
+
+12.  FROM and TO are obviously mutually exclusive, as both specify a
+block position.  If a block is not the operand of a FROM or TO,
+its position defaults to the assumed outer block.
+
+13.  FROM (or TO), GLOBAL, and FIND interact in the following ways:
+when FIND appears in a block which is located by a FROM or TO, a corres-
+ponding GLOBAL is not necessary, as the appropriate LOCAL declarations
+in outer blocks will be found at load time;  if GLOBAL is
+specified for a symbol, its declaration is logically promoted to the
+level in the block structure that satisfies all FINDs of it, though
+obeying the maximum level restrictions imposed if <block list> is
+specified in GLOBAL declarations.  The purpose of <block list> is to
+limit scopes when the same symbol is redefined at various levels in
+the structure.  See the examples at the end for some uses of this.
+
+14.  To understand the meaning of the various constructs involving
+these declarations, we give the following algorithm for working back
+towards the canonical single file block structure:
+  a. Condense multiple files into one by concatenating blocks or
+     properly placing blocks that are operands of FROM or TO.
+  b. Properly locate qualified GLOBAL declarations by making them LOCAL
+     declarations in their specified block.
+  c. Locate the unqualified GLOBALs associated with qualified FINDs
+     promote them to the common ancestor block, change GLOBAL to
+     LOCAL and delete the FINDs.
+  d. Promote remaining GLOBALs to the outermost block and make them
+      LOCALs.
+  e. Match unqualified FINDs yto LOCALs by searching
+     up the block structure tree, and delete the FINDs.
+
+15.  As a convenience for coding programs, SIMPL will allow the presence
+of an undeclared block name (at the highest level in a file) to
+be an implicit declarartion of the block identifier (as with labels).
+Unless such blocks contain TO declarations or are the operands of
+FROM declarations they will be loaded at the highest level of the
+block structure.  Thus, concatenated blocks in a file can truly be
+compiled separately and each block name need not be declared in a
+LOCAL statement at the beginning of the file as is now the case.
+
+16.  It is understood that this extended block structure facility
+implies some major LOADER changes on the PDP-10 and probably a whole
+new loader on the 940.  TO and FROM imply the ability to open another
+local symbol table and extend it during loading, and resolution of
+the general case of FIND and GLOBAL requires the building of a tree
+structure for searches that are not currently made.
+
+EXAMPLES
+-------
+
+1.  This example illustrates the current use of GLOBAL and FIND.
+
+           file 1.                      file 2.
+%A                              %B
+GLOBAL X                        FIND X
+...                             ...
+END A                           END B
+
+                canonical equivalent
+LOCAL X
+%A
+...
+END A
+%B
+...
+END B
+In this case, X is effectively made local to the assumed outer
+block and is thus accessible in both procedures A and B.  All current
+uses of GLOBAL and FIND reduce to this case.
+
+2.  This example illustrates simple block insertion of an independent
+piece of code, that references a variable declared in an outer block:
+                file 1.                 file 2.
+%A                              :Q
+LOCAL B                         FIND B
+FROM Q                          TTY_B
+END A                           END Q
+
+                canonical equivalent
+%A
+LOCAL B
+:Q
+TTY_B
+END Q
+END A
+Note here that the block Q is fallen into from above.  If it were
+the operand of a GO, it would also have to be declared as in the
+following example.  Note also that :Q must branch back to the statement
+following the FROM in actual implementation.
+
+3.  This is a more complicated example with Q as a procedure:
+                file 1.                 file 2.
+%A                              GLOBAL %Q
+FIND [Q]%Q                      %Q
+LOCAL B                         TTY_B
+...                             END Q
+FROM Q
+END A
+
+                canonical equivalent
+%A
+LOCAL B,%Q
+...
+%Q
+TTY_B
+END Q
+END A
+Note that procedures generally require three declarations: a GLOBAL in
+its own file, a FIND to declare the scope of the name in the host code
+and the FROM to describe the actual position of the block.  Note also
+that if the FIND %Q were not qualified the LOCAL %Q would be in the
+outer block.
+
+4.  A library package with some common data variables X and Y:
+                file 1.                 file 2.
+FIND %X1,%X2                    GLOBAL %X1
+...                             %X1
+...                             TO Z
+...                             FIND [Z]X
+...                             ...
+...                             END X1
+...                             GLOBAL %X2
+...                             %X2
+...                             TO Z
+...                             FIND [Z]Y
+...                             ...
+...                             END X2
+...                             GLOBAL %X3
+...                             %X3
+...                             TO Z
+...                             FIND [Z]X,Y
+...                             ...
+...                             END X3
+...                             :Z
+...                             LOCAL X,Y
+...                             END Z
+
+                canonical equivalent
+LOCAL %X1,%X2
+...
+...
+...
+...
+:Z
+LOCAL X,Y
+%X1
+...
+END X1
+%X2
+...
+END X2
+END Z
+
+In this example, X3 was not referenced and hence not loaded if file 2
+was loaded in library search mode.  Note also that X and Y where
+found in block Z, avoiding any potential
+conflict with some other use of X and Y in the calling programs.
+
+5.  An example illustrating limitation of symbol scope:
+                file 1.                 file 2.
+FIND X                          %B
+%A                              TO A
+FIND X                          GLOBAL [A]X
+END A                           END B
+                                %C
+                                GLOBAL X
+                                END C
+
+                canonical equivalent
+LOCAL X
+%A
+LOCAL X
+%B
+END B
+END A
+%C
+END C
+
+ 
