@@ -1,0 +1,330 @@
+MODULE KSEXE(DOLLAR,ENTRIES=($KSEXE),FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+
+BEGIN
+
+REQUIRE STDEFS.BLI[7,107355];
+REQUIRE DBDEFS.BLI[7,107355];
+REQUIRE UDEFS.BLI[7,107355];
+REQUIRE CDEFS.BLI[7,107355];
+REQUIRE KDEFS.BLI[7,107355];
+REQUIRE RDEFS.BLI[7,107355];
+REQUIRE BTDEFS.BLI[7,107355];
+REQUIRE SBDEFS.BLI[7,107355];
+UNDECLARE $KSEXE;
+
+MACRO MAX(A,B)= (IF A GEQ B THEN A ELSE B)&;
+
+MACRO MIN(A,B)= (IF A LEQ B THEN A ELSE B)&;
+
+MACRO INC(NAME)= (NAME_.NAME+1)&;
+
+MACRO DEC(NAME)= (NAME_.NAME-1)&;
+
+ROUTINE INTLOG(N,X)=
+
+   BEGIN
+
+   %   THIS ROUTINE COMPUTES [LOG(BASE N) X]   %
+
+   LOCAL I,P;
+
+   I_1;
+
+   P_.N;
+   WHILE .P LSS .X
+      DO (INC(I); P_.N*.P);
+
+   RETURN .I
+
+   END;
+
+GLOBAL ROUTINE $KSEXE=
+
+   BEGIN
+   MAP KFCB$ KFC$:KFCB2$;
+   MAP ST$ KST$;
+   LOCAL KFCB$ FCB1;
+   LOCAL KSOB$ SOB;
+   LOCAL KDB$ DBO:TB;
+   LOCAL KFIDT$ FIDT1:FIDT2;
+   LOCAL KBT$ BT:NBT;
+   LOCAL PGRUNLEN,PG[32],OFF[32],PGOFF,MAXOFF,ISIZ,RUNS,SMALL,SRN;
+   LOCAL NOP1,T,NOP,DB[32],PGO,QUEUE[32],DONE,J,WINNER,NUMACTIVE,N;
+   LOCAL PGLEN[32],OFFO,LIMIT,LASTFULL,RESIDUE,NUM,P;
+   LOCAL OLD,HEADER,NB;
+   LABEL LOOP3;
+
+FUNCTION NEXTRUN=
+   BEGIN
+   LOCAL DONE,J;
+   LABEL LOOP,LOOP2;
+
+   NUMACTIVE_.P;
+LOOP:
+
+   INCR I FROM 0 TO .P-1
+      DO
+         BEGIN
+         PG[.I]_.PGO+.I*.PGRUNLEN;
+         IF .PG[.I] GTR .NOP1
+            THEN
+               BEGIN
+               NUMACTIVE_.I;
+               LEAVE LOOP
+               END;
+         PGLEN[.I]_MAX(1,.PG[.I]-.NOP1+.PGRUNLEN);
+         TB_DB[.I]_$KVIRD(.FCB1,.PG[.I]);
+         $KPRON(.FCB1,.DB[.I],.PG[.I]);
+         OFF[.I]_.TB[DB$OFF];
+         END;
+
+   DBO_$KGBUF(.KFCB2$,.PGO);
+   OFFO_DBO[DB$OFF]_.PGOFF;
+
+   QUEUE[0]_0;
+
+   INCR I FROM 1 TO .NUMACTIVE-1
+      DO
+         BEGIN
+         J_.I-1;
+         DONE_0;
+LOOP2:
+         WHILE 1 GTR 0
+            DO
+               BEGIN
+               IF (.KCOMR$)(.KPAR$,.DB[.QUEUE[.J]]+.OFF[.QUEUE[.J]],
+                      .DB[.I]+.OFF[.I]) GTR 0
+                  THEN J_.J-1
+                  ELSE DONE _1;
+
+               IF .DONE OR .J LSS 0
+                  THEN
+                     BEGIN
+                     DECR K FROM .I-1 TO .J+1
+                        DO QUEUE[.K+1]_.QUEUE[.K];
+                     QUEUE[.J+1]_.I;
+                     LEAVE LOOP2
+                     END;
+               END;
+         END;
+   RESIDUE_.KST$[ST$NOI]-(.LASTFULL+1)*.SOB[K$SDBMENT];
+   END;
+
+FUNCTION GETEMPBUF(SIZE)=
+
+   BEGIN LOCAL I;
+
+   NBT_$CGTZM(.SIZE+BTV$BTHSZ);
+   NB_$CGTZM(.SIZE*KV$PAGS-1)-1;
+   HEADER_.(.NB)<0,36>;
+   KBTIX$[BT$NBUFS]_.KBTIX$[BT$NBUFS]+.SIZE;
+   NBT_$CGTZM(.SIZE+2);
+   KBTIX$[BT$NBTS]_(OLD_.KBTIX$[BT$NBTS])+1;
+   INCR I FROM 1 TO .OLD
+      DO IF .KBTIX$[BT$LAST,.I] GTR .NB
+         THEN     % NEW BUFFER(S) FIT IN MIDDLE OF BTI ( WHICH
+                    IS ORDERED ON BUFFER ADDRESSES)  %
+            BEGIN
+
+            % MOVE REMAINING ENTRIES DOWN ONE %
+
+            $UMOVO(.OLD-.I+1,(.KBTIX$+BTV$BTIHSZ+.I-1)<0,0>,
+             (.KBTIX$+BTV$BTIHSZ+.I)<0,0>);
+            KBTIX$[BT$LAST,.I]_.NB+(.SIZE-1)*KV$PAGS;
+            KBTIX$[BT$TABLE,.I]_.NBT;
+            NBT[BT$SIZE]_.SIZE;
+            NBT[BT$NEXT]_.KBTIX$[BT$TABLE,.I+1];
+            NBT[BT$FIRST]_.NB;
+            NBT[BT$NUMBER]_.OLD+1;
+            NBT[BT$NOP,1]_.SIZE;
+            BT_.KBTIX$[BT$TABLE,IF .I EQL 1 THEN .OLD+1 ELSE .I-1];
+            BT[BT$NEXT]_.NBT;
+            NBT_0;
+            RETURN
+            END;
+
+   %   ADD A NEW BT AT THE END OF BTI   %
+
+   BT_.KBTIX$[BT$TABLE,.OLD];   %  CURRENT LAST BTI ENTRY %
+
+   %     FIX UP BTI & NEW BT ENTRY & RING POINTER FOR OLD BT ENTRY %
+
+   I_.OLD+1;
+   KBTIX$[BT$LAST,.I]_.NB+(.SIZE-1)*KV$PAGS;
+   KBTIX$[BT$TABLE,.I]_.NBT;
+   NBT[BT$SIZE]_.SIZE;
+   NBT[BT$NEXT]_.BT[BT$NEXT];
+   NBT[BT$FIRST]_.NB;
+   NBT[BT$NOP,1]_.SIZE;
+   BT[BT$NEXT]_.NBT;
+   RETURN
+   END;
+
+FUNCTION FREETEMPBUF(SIZE)=
+
+   BEGIN
+
+   INCR I FROM 1 TO .SIZE
+      DO IF .NBT[BT$DIRTY,.I]
+         THEN $KPHYW(.KFCB2$,.NBT[BT$FIRST]+(.I-1)*KV$PAGS,.NBT[BT$PAGE,.I]);
+
+   KBTIX$[BT$NBTS]_.OLD;
+   KBTIX$[BT$NBUFS]_.KBTIX$[BT$NBUFS]-.SIZE;
+
+   BT_.KBTIX$[BT$TABLE,.OLD];
+   BT[BT$NEXT]_.NBT[BT$NEXT];
+
+   $CFREE(.NBT);
+   (.NB)<0,36>_.HEADER;
+
+   $CFREE(.NB+1);
+   $CSHRINK();
+   END;
+
+
+% START OF EXTERNAL SORT (P-WAY PRIORITY QUEUE MERGE) %
+
+
+   SOB_.KFC$[K$SOBP];
+   ISIZ_.SOB[K$SISIZ];
+
+   MAXOFF_KV$PAGS*.KFC$[K$BLKSIZ];
+   PGOFF_.MAXOFF-.ISIZ*.SOB[K$SDBMENT];
+   FCB1_.KST$[ST$FCB1];
+
+   KFCB2$[K$CLOSER]_$KNFLS<0,0>;
+   KFCB2$[K$EXCEPT]_$KIOAB<0,0>;
+   FCB1[K$EXCEPT]_$KIOAB<0,0>;
+   FCB1[K$CLOSER]_$KNFLS<0,0>;
+
+   KCOMR$_ CASE .KCOMR$ OF
+      SET
+      $YCOMP<0,0>;
+      $KEYCM<0,0>;
+      TES;
+
+   NOP1_.KST$[ST$NOP]-1;
+   NOP_.NOP1+1;
+
+   PGRUNLEN_.KST$[ST$NINBUF];
+
+   LASTFULL_.NOP1-((.NOP1 MOD .KST$[ST$NINBUF])+1);
+   PGO_0;
+
+   P_$KNFRE(.KFC$[K$BLKSIZ])-1;
+   RUNS_(.NOP+.KST$[ST$NINBUF]-1)/.KST$[ST$NINBUF];
+   SMALL_INTLOG(.P,.RUNS);
+   SRN_0;
+   INCR I FROM 1 TO 16
+      DO
+         IF (N_INTLOG(.P+.I,.RUNS)) LSS .SMALL
+            THEN (SMALL_.N; SRN_.I);
+   IF .SRN GTR 0
+      THEN GETEMPBUF(.KFC$[K$BLKSIZ]*.SRN);
+
+   P_$KNFRE(.KFC$[K$BLKSIZ])-1;
+   P_MIN(.P,32);
+
+   NEXTRUN();
+
+   WHILE 1 GTR 0
+      DO
+LOOP3:
+         BEGIN
+
+         WINNER_.QUEUE[0];
+         $UMOVE(.ISIZ,.DB[.WINNER]+.OFF[.WINNER],.DBO+.OFFO);
+         OFFO_.OFFO+.ISIZ;
+         IF .OFFO GEQ .MAXOFF
+            THEN
+               BEGIN
+               DBO[DB$NUMBER]_(.MAXOFF-.DBO[DB$OFF])/.ISIZ;
+               DBO[DB$VERNO]_0;
+               $KVIWR(.KFCB2$,.DBO,.PGO);
+               IF INC(PGO) MOD (.PGRUNLEN*.P) NEQ 0 AND .PGO LEQ .NOP1
+                  THEN
+                     BEGIN
+                     DBO_$KGBUF(.KFCB2$,.PGO);
+                     IF .PGO GTR .LASTFULL
+                        THEN
+                           BEGIN
+                           NUM_.RESIDUE/(.NOP-.PGO);
+                           RESIDUE_.RESIDUE-.NUM;
+                           OFFO_.MAXOFF-.NUM*.ISIZ;
+                           END
+                        ELSE OFFO_.PGOFF;
+                     DBO[DB$OFF]_.OFFO;
+                     END;
+               END;
+
+         OFF[.WINNER]_.OFF[.WINNER]+.ISIZ;
+         IF .OFF[.WINNER] GEQ .MAXOFF
+            THEN
+               BEGIN
+               $KRBUF(.FCB1,.DB[.WINNER],.PG[.WINNER]);
+               IF INC(PGLEN[.WINNER]) GTR .PGRUNLEN
+                  THEN IF DEC(NUMACTIVE) EQL 0
+                     THEN
+                        BEGIN   %  THIS RUN FINISHED  %
+                        IF .PGO +.PGRUNLEN GEQ .NOP
+                           THEN
+                              BEGIN
+                              WHILE .PGO LEQ .NOP1
+                                 DO
+                                    BEGIN
+                                    TB_$KVIRD(.FCB1,.PGO);
+                                    $KVIWR(.KFCB2$,.TB,.PGO);
+                                    INC(PGO);
+                                    END;
+                              PGRUNLEN_.PGRUNLEN*.P;
+                              IF .PGRUNLEN GEQ .NOP
+                                 THEN
+                                    BEGIN
+                                    $KLOSE(.FCB1);
+                                    KST$[ST$FCB1]_.KFCB2$;
+                                    KST$[ST$OFF]_.PGOFF;
+                                    DEC(KBTIX$[BT$OFILS]);
+                                    IF .SRN GTR 0 AND .NBT NEQ 0
+                                       THEN FREETEMPBUF(.SRN*.KFC$[K$BLKSIZ]);
+                                    KST$[ST$BUFA]_$KVIRD(.KFCB2$,0);
+                                    $KPRON(.KFCB2$,.KST$[ST$BUFA],0);
+                                    RETURN
+                                    END;
+                              T_.FCB1;
+                              FCB1_.KFCB2$;
+                              KFCB2$_.T;
+                              PGO_0
+                              END;
+                        NEXTRUN();
+                        LEAVE LOOP3
+                        END
+                     ELSE
+                        BEGIN
+                        INCR I FROM 0 TO .NUMACTIVE-1
+                           DO QUEUE[.I]_.QUEUE[.I+1];
+                        LEAVE LOOP3
+                        END
+                  ELSE  % GET NEXT PAGE IN RUN %
+                     BEGIN
+                     TB_DB[.WINNER]_$KVIRD(.FCB1,INC(PG[.WINNER]));
+                     $KPRON(.FCB1,.DB[.WINNER],.PG[.WINNER]);
+                     OFF[.WINNER]_.TB[DB$OFF]
+                     END;
+               END;
+
+   % RUN NOT DEPLETED. INSERT NEXT ITEM FROM RUN INTO PRIORITY QUEUE %
+
+         J_1;
+         DONE_0;
+         WHILE NOT .DONE AND .J LEQ .NUMACTIVE-1
+            DO IF (.KCOMR$)(.KPAR$,.DB[.WINNER]+.OFF[.WINNER],
+                        .DB[.QUEUE[.J]]+.OFF[.QUEUE[.J]]) GTR 0
+               THEN J_.J+1
+               ELSE DONE_1;
+         INCR I FROM 0 TO .J-2
+            DO QUEUE[.I]_.QUEUE[.I+1];
+         QUEUE[.J-1]_.WINNER
+         END;
+   END;
+END ELUDOM
+    
