@@ -1,0 +1,326 @@
+ALIST.F4	F40	V26(10)	15-MAY-73	15:19	PAGE 1
+
+
+  		      C****************************************************************
+ALIST.F4	F40	V26(10)	15-MAY-73	15:19	PAGE 2
+
+
+  		      C*     COPYRIGHT        TEKTRONIX, INC    1973
+  		      C*                       BEAVERTON, OREGON
+  		      C*     PLOT-10/DECISION MAKER RELEASE 1.0 - VERSION 1
+  		      C*               MODIFICATION LEVEL 0
+  		      C****************************************************************
+  		             SUBROUTINE ALIST(CHS,KEY,WORD,IBEG,IEND)
+  		      C     ACCEPT ROUTINE TO CONVERT CHARACTER STRING TO LIST
+  		             LOGICAL EWORD,AOFLOW,STRING
+  		            INTEGER CHS,DECI,COMA,A,Z,ZERO,BLANK,WORDT
+  		            INTEGER SLASH,GLOW,GHI,GSYM,E
+  		            DIMENSION KEY(40),IWORD(40),WORD(40),CHS(80)
+  		            DATA DECI,COMA,A,Z,ZERO,NINE,BLANK
+  		           &    /'.',',','A','Z','0','9',' '/
+  		            DATA MINUS,SLASH,E/'-','/','E'/
+  		            DATA GLOW,GHI,GSYM/' ','?','!'/
+  		      C       NCWOR IS THE NUMBER OF CHARACTERS PER WORD
+  		      C      AND IS DEFINED BY THE COMPPUTER WORD SIZE
+  		             DATA NCWOR/5/
+  		      C      MAXCHA IS THE MAXIMUM NUMBER OF CHARATERS PER WORD
+  		             DATA MAXCHA/4/
+  		             DATA IQUOTE/'"'/
+  		             STRING=.FALSE.
+  		             AOFLOW=.FALSE.
+  		      C      STRIP=2**29
+  		              STRIP=1./536870910
+  		            KEY(4)=9
+  		            IC=IBEG-1
+  		            IJ=0
+  		      C     INIT NEW WORD
+  		      100     IJ=IJ+1
+  		            IF(IJ.LT. 39)GOTO 105
+  		            KEY(IJ)=6
+  		            KEY(IJ+1)=9
+  		            CALL ERMES(17)
+  		            PPERM=.FALSE.
+  		            RETURN
+  		      105    IL=NCWOR
+  		            WORDT=BLANK
+  		            WORD(IJ)=0.
+  		            DIGIT=0.
+  		            SIG=1.
+  		            SHIFTR=1.
+  		            SHIFTL=10.
+  		             EWORD=.FALSE.
+  		            KEYT=6
+  		             IF(AOFLOW)KEYT=14
+  		             AOFLOW=.FALSE.
+  		      C     NEW COL
+  		      110    IC=IC+1
+  		            IF(IC .GT. IEND)GOTO 180
+  		      C     MAIN LOGIC
+  		            ICHAR=CHS(IC)
+  		             IF(STRING)GOTO 300
+ALIST.F4	F40	V26(10)	15-MAY-73	15:19	PAGE 3
+
+
+  		             IF(ICHAR .NE. BLANK)GOTO 115
+  		             EWORD=KEYT .NE. 6
+  		             GOTO 110
+  		      C      CHECK FOR DELIMITOR
+  		      115    IF(EWORD .AND. ICHAR .NE. COMA)IC=IC-1
+  		             IF(EWORD .OR. ICHAR .EQ. COMA)GOTO 150
+  		      C      BRANCH ON CHARACTER
+  		            IF(ICHAR .GE. A .AND. ICHAR .LE. Z)GOTO 170
+  		      C      BRANCH NOT DIGIT
+  		             IF(ICHAR .LT. ZERO .OR. ICHAR .GT. NINE)GOTO 120
+  		      C     CHAR IS NUMB
+  		            IF(KEYT .EQ. 4 .OR. KEYT .EQ. 10 .OR. KEYT .EQ. 14)GOTO 175
+  		              IF(KEYT .EQ. 6)KEYT=2
+  		      C     ALPHA TO DIGIT
+  		             IT=(ICHAR-ZERO)*STRIP
+  		             IT=MIN0(MAX0(IT,0),9)
+  		            DIGIT=DIGIT*SHIFTL+IT*SHIFTR
+  		             IF(SHIFTR .LT. 1.)SHIFTR=SHIFTR*.1
+  		             GOTO 110
+  		      C       PUNCTUATION
+  		      120    IF(ICHAR .EQ. MINUS)GOTO 190
+  		            IF(ICHAR .EQ. SLASH)GOTO 200
+  		            IF(ICHAR .EQ. GSYM)GOTO 220
+  		      C     THE ABOVE STATEMENTT IS NEACESARY FOR !AABB TYPES
+  		             IF(ICHAR .EQ. IQUOTE)GOTO 310
+  		            IF(ICHAR .NE. DECI)GOTO 125
+  		            IF(SHIFTL .EQ. 1.)GOTO 130
+  		            SHIFTL=1.
+  		            SHIFTR=.1
+  		            GOTO 110
+  		      C      NOT ACCEPTED PUNCTUATION
+  		      C     ERROR
+  		      C      PUNTUATION CHARATER STORE
+  		      125    IF(KEYT .NE. 6)GOTO 290
+  		             KEYT=5
+  		             WORDT=ICHAR
+  		             GOTO 155
+  		      130    CALL ERMES(1)
+  		            PPERM=.FALSE.
+  		      C      MOVE TO NEXT ','
+  		      140    IC=IC+1
+  		            IF(IC .GT. IEND)GOTO 150
+  		            IF(CHS(IC) .NE. COMA)GOTO 140
+  		      C     WRAPUP CURRENT WORD
+  		      150    IF(KEYT .NE. 12)GOTO 155
+  		      C       E FORMAT NUMBER
+  		            IX=DIGIT*SIG
+  		            SIG=1.
+  		            DIGIT=ROOT*10.**IX
+  		            KEYT=2
+  		      155    KEY(IJ)=KEYT
+  		            IF(KEYT.EQ.4.OR.KEYT.EQ.5.OR.KEYT.EQ.10.OR.KEYT.EQ.14)GOTO 160
+  		            WORD(IJ)=DIGIT*SIG
+ALIST.F4	F40	V26(10)	15-MAY-73	15:19	PAGE 4
+
+
+  		            GOTO 100
+  		      C
+  		      C      WRAPUP ALPHA STRINGS
+  		      160    CALL ILOAD(WORD(IJ),WORDT)
+  		            GOTO 100
+  		      C       END OF WORD WRAPUP
+  		      C
+  		      C     ALPHABETIC SYMBOL
+  		      170    IF(KEYT.EQ.4.OR.KEYT.EQ.10.OR.KEYT.EQ.14)GOTO 175
+  		            IF(KEYT .NE. 6)GOTO 270
+  		            KEYT=4
+  		      C
+  		      C       ADD CHARACTER TO TEMP WORD
+  		      175    IF(IL .LT. NCWOR+1-MAXCHA)GOTO 280
+  		              IF(IL .EQ. NCWOR)GOTO 178
+  		             IS=2**((IL-1)*7)
+  		      C      SUBTRACTION BELOW IS RIGHT JUST. BLANK
+  		             IT=ICHAR*STRIP-32
+  		      C      THE FOLLOWING STATEMENT COMPENSATES FOR 2'S COMPLIMENTING
+  		              IF(IT .LT. 0)IT=IT+127
+  		      C       FINAL 2 IS BECAUSE ONLY LEFT 35 BITS ARE USED
+  		            WORDT=WORDT+IT*IS*2
+  		             NCHAR=NCHAR+1
+  		            IL=IL-1
+  		            GOTO 110
+  		        178  WORDT=ICHAR
+  		             NCHAR=NCHAR+1
+  		              IL=IL-1
+  		              GOTO 110
+  		      C     RETURN (END OF INPUT LINE)
+  		      180    IF(STRING)GOTO 310
+  		               IF(KEYT .NE. 6)GOTO 150
+  		            KEY(IJ)=9
+  		            RETURN
+  		      190    SIG=-1.
+  		            GOTO 110
+  		      C     COMMAND WORD
+  		      C
+  		      C       COMMAND NEED NOT BE PRECEDED BY A DELIMITER
+  		      200     IF(KEYT .NE. 6)GOTO 290
+  		             KEYT=10
+  		            GOTO 110
+  		        220 IC=IC+1
+  		      C      CHECK FOR NON-GRAFIC INPUT
+  		        230  IC2=IC+3
+  		             DO 240 I=IC,IC2
+  		            IT=CHS(I)
+  		            IF(IT .LT. GLOW .OR. IT .GT. GHI)GOTO 140
+  		      240    CONTINUE
+  		      C      LEGITAMENT GRAPHIC INPUT
+  		            KEY(IJ)=11
+  		            WORD(IJ)=CHS(IC-1)
+  		      C     GIN IN NEXT FOUR CHARACTERS
+ALIST.F4	F40	V26(10)	15-MAY-73	15:19	PAGE 5
+
+
+  		      250    I1=(CHS(IC)-GLOW)*STRIP
+  		            IC=IC+1
+  		            I2=(CHS(IC)-GLOW)*STRIP
+  		              X=I1*32+I2
+  		            IC=IC+1
+  		            I1=(CHS(IC)-GLOW)*STRIP
+  		            IC=IC+1
+  		            I2=(CHS(IC)-GLOW)*STRIP
+  		            Y=I1*32+I2
+  		            IJ=IJ+1
+  		            KEY(IJ)=11
+  		            WORD(IJ)=X
+  		            IJ=IJ+1
+  		            KEY(IJ)=11
+  		            WORD(IJ)=Y
+  		      C       DELIMITER IS NOT REQUIRED AFTER A GRAPHIC INPUT
+  		      C
+  		            GOTO 100
+  		      C     E FORMAT NUMBERS.
+  		      C
+  		      C      NUMBERS MAY BE FOLLOWED BY NAMES WITH NO DELIMITER
+  		      270    IF(ICHAR .NE. E)GOTO 130
+  		            KEYT=12
+  		            ROOT=DIGIT*SIG
+  		            DIGIT=0.
+  		            SIG=1.
+  		            SHIFTR=1.
+  		            SHIFTL=10.
+  		            GOTO 110
+  		      280   AOFLOW=.TRUE.
+  		      C
+  		      C      SET COL COUNTER BACK ONE AND WRAPUP WORD
+  		      290    IC=IC-1
+  		             GOTO 150
+  		      C      STRING HANDLING SECTION
+  		      300   IF(ICHAR .NE. IQUOTE)GOTO 175
+  		      C
+  		      C      CHANGE STRING SETTING
+  		      310   IF(.NOT.STRING .AND. KEYT .NE. 6)GOTO 290
+  		             STRING=.NOT.STRING
+  		            IF(.NOT.STRING)GOTO 320
+  		      C      START PROCESSING LITERAL STRING
+  		             KEYT=3
+  		             IHEAD=IJ
+  		             NCHAR=0
+  		             AOFLOW=.TRUE.
+  		             GOTO 150
+  		      C      WRAPUP STRING
+  		      320    WORD(IHEAD)=NCHAR
+  		             GOTO 155
+  		            END
+
+CONSTANTS
+ALIST.F4	F40	V26(10)	15-MAY-73	15:19	PAGE 6
+
+
+
+0	144400000001	1	000000000021	2	000000000000	3	000000000011	4	175631463146
+5	000000000001	6	201400000000	
+
+GLOBAL DUMMIES
+
+CHS   	776		KEY   	777		WORD  	1000		IBEG  	1001		IEND  	1002	
+
+SUBPROGRAMS
+
+ERMES 	FLOAT 	INT   	MIN0  	MAX0  	EXP2.2	ILOAD 	EXP1.4	
+
+SCALARS
+
+ALIST 	1004		DECI  	1005		COMA  	1006		A     	1007		Z     	1010	
+ZERO  	1011		NINE  	1012		BLANK 	1013		MINUS 	1014		SLASH 	1015	
+E     	1016		GLOW  	1017		GHI   	1020		GSYM  	1021		NCWOR 	1022	
+MAXCHA	1023		IQUOTE	1024		STRING	1025		AOFLOW	1026		STRIP 	1027	
+IC    	1030		IBEG  	1001		IJ    	1031		PPERM 	1032		IL    	1033	
+WORDT 	1034		DIGIT 	1035		SIG   	1036		SHIFTR	1037		SHIFTL	1040	
+EWORD 	1041		KEYT  	1042		IEND  	1002		ICHAR 	1043		IT    	1044	
+IX    	1045		ROOT  	1046		IS    	1047		NCHAR 	1050		IC2   	1051	
+I     	1052		I1    	1053		I2    	1054		X     	1055		Y     	1056	
+IHEAD 	1057		
+
+ARRAYS
+
+KEY   	777		IWORD 	1060		WORD  	1000		CHS   	776		
+
+ ALIST
+ALIST.F4	F40	V26(10)	15-MAY-73	15:19	PAGE 7
+
+
+  		      C
+ALIST.F4	F40	V26(10)	15-MAY-73	15:19	PAGE 8
+
+
+  		      C****************************************************************
+  		      C*     COPYRIGHT        TEKTRONIX, INC    1973
+  		      C*                       BEAVERTON, OREGON
+  		      C*     PLOT-10/DECISION MAKER RELEASE 1.0 - VERSION 1
+  		      C*               MODIFICATION LEVEL 0
+  		      C****************************************************************
+  		             SUBROUTINE ILOAD(IW1,IW2)
+  		             IW1=IW2
+  		             RETURN
+  		             END
+
+GLOBAL DUMMIES
+
+IW1   	23		IW2   	24		
+
+SCALARS
+
+ILOAD 	25		IW1   	23		IW2   	24		
+
+ ILOAD
+ALIST.F4	F40	V26(10)	15-MAY-73	15:19	PAGE 9
+
+
+  		      C
+ALIST.F4	F40	V26(10)	15-MAY-73	15:19	PAGE 10
+
+
+  		      C****************************************************************
+  		      C*     COPYRIGHT        TEKTRONIX, INC    1973
+  		      C*                       BEAVERTON, OREGON
+  		      C*     PLOT-10/DECISION MAKER RELEASE 1.0 - VERSION 1
+  		      C*               MODIFICATION LEVEL 0
+  		      C****************************************************************
+  		             SUBROUTINE ERMES(I)
+  		             WRITE(5,100)I
+  		        100 FORMAT(1X'ER',I2)
+  		             RETURN
+  		             END
+
+GLOBAL DUMMIES
+
+I     	25		
+
+SUBPROGRAMS
+
+INTO. 	INTI. 	
+
+SCALARS
+
+ERMES 	26		I     	25		
+
+ ERMES
+ALIST.F4	F40	V26(10)	15-MAY-73	15:19	PAGE 11
+
+
+  		      C
+
+   
