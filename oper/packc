@@ -1,0 +1,279 @@
+      SUBROUTINE PACKAGE                                                       1
+      COMMON IPK(20),IPG(720),IB(30,2),IPL(4000),JPK(14),IPA(20),JPL(20)       6
+     1,ITA(6,7),NAME(6),KVAL(10),VAL(10),LDATE(3),LYEAR,LBASE                 11
+      COMMON IBO(20,5),IUNIV(7)                                               16
+      DIMENSION KK(7)                                                         21
+      DATA IADD,IREV,IDEL,IEND,IBLK,IYES,ISET,ICST,IDAT,IDES,IAPP/3HADD,      26
+     13HREV,3HDEL,3HEND,3H   ,3HYES,3HSET,3HCST,3HDAT,3HDES,3HAPP/            31
+      DATA IFIX,NNQ,NDQ/3HFIX,3HN  ,3HD  /                                    36
+      IF(LBASE.GT.0)GO TO 20
+         CALL MSG( 'USE "SET" OPTION TO ESTABLISH YEAR BEFORE
+     1 ADDING PACKAGES /')
+20      TYPE 800
+         CALL MSG( ' OPTION : ')
+        ACCEPT 850,IOPT,ID,JPK(1),JPK(2),ND,(JPK(J),J=3,14)
+      IF(IOPT.EQ.IEND)RETURN                                                  61
+      IF(IOPT.EQ.IBLK)RETURN                                                  66
+      IF(IOPT.EQ.IFIX)GO TO 190                                               71
+      IF(ID.LE.0)GO TO 18                                                     76
+      IF(ID.GT.79)GO TO 18                                                    81
+      IF(IOPT.EQ.ISET)GO TO 150                                               86
+      IF(IOPT.EQ.IADD)GO TO 201                                               91
+      IF(IOPT.EQ.IREV)GO TO 202                                               96
+      IF(IOPT.EQ.IDEL)GO TO 203                                              101
+      IF (IOPT.EQ.IAPP) GO TO 201                                            106
+19       CALL MSG( 'WHAT ? /')
+      GO TO 20                                                               111
+18       CALL MSG( 'ID. RANGE IS 01-79 /')
+      GO TO 20                                                               116
+  190 IF(ID.GT.0)GO TO 195                                                   121
+      IADR=0                                                                 126
+        CALL NREAD(IADR)
+      WRITE(3#IADR)IPK                                                     131
+         CALL MSG( 'DONE   /')
+      GO TO 20                                                               136
+195     TYPE 965,IPK(ID)
+        ACCEPT 870,K
+      IF(K.LE.0)GO TO 20                                                     146
+      IPK(ID)=K                                                              151
+      GO TO 20                                                               156
+  150 LYEAR=ID                                                               161
+      L=0                                                                    166
+      LDATE(1)=9                                                             171
+      LDATE(2)=1                                                             176
+      LDATE(3)=LYEAR                                                         181
+      L=0                                                                    186
+      CALL CVDATE(LDATE,L)                                                   191
+      IPL(3998)=0                                                            196
+      IPL(3999)=LYEAR                                                        201
+        IPL(4000)=L
+        LBASE=L
+      KADR=0                                                                 211
+        CALL NREAD(KADR)
+      WRITE(4#KADR)IPL                                                     216
+        TYPE 880,LYEAR,LBASE
+      GO TO 20                                                               221
+  201 IF(ND.EQ.NNQ)GO TO 101                                                 226
+      IF(ND.EQ.NDQ)GO TO 101                                                 231
+        TYPE 860,ND
+      GO TO 20                                                               241
+  101 CALL FINDPK(ID,LD,MD,IPK)                                              246
+      IF(LD.EQ.0)GO TO 204                                                   251
+         CALL MSG( 'DUPLICATE PACKAGE ID. /')
+      IF (IOPT.EQ.IAPP) GO TO 206                                            256
+      GO TO 20                                                               261
+  204 IF(MD.GT.0)GO TO 205                                                   266
+         CALL MSG( 'PACKAGE FILE FULL/')
+      GO TO 20                                                               271
+  205 IPK(MD)=ID                                                             276
+      KADR=KPKADR(MD)                                                        281
+        CALL NREAD(KADR)
+      WRITE(3#KADR)JPK                                                     286
+206     TYPE 800
+         CALL MSG( '  PROGRAM : ')
+        ACCEPT 871,JPG,NET,LEN,JTIM,NAME
+      IF(JPG.LE.0)GO TO 220                                                  296
+      IF(JPG.LE.99)GO TO 207                                                 301
+         CALL MSG( 'ID. RANGE IS 01-99 /')
+      GO TO 206                                                              306
+207      CALL MSG( 'EST. VALUES : ')
+        ACCEPT 872,VAL
+      KPG=100*JPG+ID                                                         316
+      CALL FINDPG(KPG,LE,ME,IPG)                                             321
+      IF(LE.EQ.0)GO TO 208                                                   326
+         CALL MSG( 'DUPLICATE PROGRAM-PACKAGE /')
+      IF (IOPT.EQ.IAPP) GO TO 2300                                           331
+      GO TO 206                                                              336
+  208 IF(ME.GT.0)GO TO 209                                                   341
+         CALL MSG( 'PROGRAM FILE FULL /')
+      GO TO 220                                                              346
+209     IADR=KPGADR(ME)
+        CALL NREAD(IADR)
+        JADR=IADR
+      IPG(ME)=KPG                                                            356
+        DO 903 I=1,6
+903      IPA(I)=NAME(I)
+      IPA(7)=NET                                                             366
+      IPA(8)=JTIM                                                            371
+      IPA(9)=LEN                                                             376
+      IPA(10)=ND                                                             381
+      T=VAL(1)                                                               386
+      S=VAL(2)                                                               391
+      R=VAL(3)                                                               396
+   11 CALL CHKTSR(T,S,R,LERR)                                                401
+      RST=R+S+T                                                              406
+        DO 980 II=1,3
+         IF (VAL(II).EQ.RST) GO TO 12
+980     CONTINUE
+      IF(LERR.LE.0)GO TO 10                                                  416
+12       CALL MSG( 'RE-ENTER EST. VALUES FOR T,S,R : ')
+        ACCEPT 873,T,S,R
+      GO TO 11                                                               426
+   10 VAL(1)=T*10.                                                           431
+      VAL(2)=S*10.                                                           436
+      VAL(3)=R*10.                                                           441
+        DO 901 I=1,10
+901     IPA(I+10)=VAL(I)
+      WRITE(3#IADR)IPA                                                     451
+2300     CALL MSG( 'ENTER PLAYDATES  /')
+  230 K1=1                                                                   456
+      LSW=0                                                                  461
+      L=100*ID+JPG                                                           466
+      L=1000*L                                                               471
+131     CALL MSG( '60 S : ')
+        ACCEPT 874,KVAL
+      K3=K1                                                                  481
+  236 DO 231 I=1,10                                                          486
+      IF(KVAL(I).LE.0)GO TO 2320                                             491
+      DO 233 K=K1,3997                                                       496
+      IF(IPL(K).NE.0)GO TO 233                                               501
+      K2=K                                                                   506
+      GO TO 234                                                              511
+  233 CONTINUE                                                               516
+         CALL MSG( 'PLAYDATE FILE FULL /')
+      GO TO 239                                                              521
+  234 K1=K2+1                                                                526
+      LMON=KVAL(I)/100                                                       531
+      LDAY=MOD(KVAL(I),100)                                                  536
+      LSIG=IPL(3998)                                                         541
+      CALL DAYCALC(LMON,LDAY,KDAY,LBASE,LYEAR,LSIG)                          546
+      IF(LSIG.LE.0)GO TO 280                                                 551
+      IPL(3998)=IPL(3998)+1                                                  556
+  280 IPL(K2)=L+KDAY                                                         561
+      IF(LSW.LE.0)GO TO 231                                                  566
+      IPL(K2)=0-IPL(K2)                                                      571
+  231 CONTINUE                                                               576
+      IF(LSW.LE.0)GO TO 131                                                  581
+      GO TO 235                                                              586
+2320    CALL MSG(' END?    ')
+        ACCEPT 875,NY
+      IF (NY.EQ.IBLK) GO TO 232                                              601
+        CALL MSG( ' RE-ENTER PREVIOUS LINE /')
+      K1=K3                                                                  611
+      GO TO (131,235),LSW+1                                                  616
+  232 IF(LSW.GT.0)GO TO 239                                                  621
+      LSW=1                                                                  626
+235      CALL MSG( '30 S : ')
+        ACCEPT 874,KVAL
+      GO TO 236                                                              636
+  239 IADR=0                                                                 641
+        CALL NREAD(IADR)
+         CALL MSG( 'WRITING PLAYDATE FILE -')
+      WRITE(4#IADR)IPL                                                     646
+         CALL MSG( ' DONE   /')
+      LCNT=IBO(20,5)                                                         651
+      IZ=0                                                                   656
+      LAD=1800+3*(LCNT-1)                                                    661
+        CALL NREAD(LAD)
+      DO 50 K=1,20                                                           666
+      IF(IB(K,1).LE.0)GO TO 50                                               671
+      KSW=0                                                                  676
+      DO 51 L=1,5                                                            681
+      IF(IBO(K,L).LE.0)GO TO 51                                              686
+      IF(KSW.GT.0)GO TO 52                                                   691
+      KSW=1                                                                  696
+        TYPE 881,IB(K,1)
+      JID=1000*IB(K,1)                                                       701
+52      TYPE 887,L
+        ACCEPT 876,R
+      LR=10.*R                                                               711
+      LID=JID+100*L+JPG                                                      716
+      LCNT=LCNT+1                                                            721
+      WRITE(2#LAD)LID,LR,IZ                                                726
+   51 CONTINUE                                                               731
+   50 CONTINUE                                                               736
+      IBO(20,5)=LCNT                                                         741
+      IADR=60                                                                746
+        CALL NREAD(IADR)
+      WRITE(2#IADR)IBO                                                     751
+      GO TO 206                                                              761
+  220 IADR=0                                                                 766
+        CALL NREAD(IADR)
+      WRITE(3#IADR)IPK,IPG                                                 771
+         CALL MSG( ' DONE   /')
+      GO TO 20                                                               776
+  203 KSW=0                                                                  781
+  215 CALL FINDPK(ID,LD,MD,IPK)                                              786
+      IF(LD.GT.0)GO TO 210                                                   791
+         CALL MSG( 'NO MATCH/')
+      GO TO 20                                                               796
+210     KADR=KPKADR(LD)
+        CALL NREAD(KADR)
+        LADR=KADR
+      READ(3#KADR)JPK                                                      806
+        TYPE 861,JPK
+      IF(KSW.GT.0)GO TO 240                                                  816
+         CALL MSG( 'OK TO DELETE ALL PACKAGE INFORMATION ? ')
+        ACCEPT 875,K
+      IF(K.EQ.IYES)GO TO 211                                                 826
+      IF(K.EQ.IBLK)GO TO 211                                                 831
+      GO TO 20                                                               836
+  211 IPK(LD)=0                                                              841
+      DO 212 I=1,720                                                         846
+      IF(MOD(IPG(I),100).NE.ID)GO TO 212                                     851
+      IPG(I)=0                                                               856
+  212 CONTINUE                                                               861
+      KADR=0                                                                 866
+        CALL NREAD(KADR)
+      WRITE(3#KADR)IPK,IPG                                                 871
+      DO 213 I=1,3997                                                        876
+      N=IABS(IPL(I))/100000                                                  881
+      IF(N.NE.ID)GO TO 213                                                   886
+      IPL(I)=0                                                               891
+  213 CONTINUE                                                               896
+      KADR=0
+        CALL NREAD(KADR)
+      WRITE(4#KADR)IPL                                                     906
+         CALL MSG( ' DONE   /')
+      GO TO 20                                                               911
+  202 KSW=1                                                                  916
+      GO TO 215                                                              921
+  240 LSW=0                                                                  926
+245      CALL MSG( 'REVISE : ')
+        ACCEPT 877,K,(JPL(I),I=1,12)
+      IF(K.EQ.IEND)GO TO 250                                                 936
+      IF(K.EQ.IBLK)GO TO 250                                                 941
+      IF(K.EQ.ICST)GO TO 260                                                 946
+      IF(K.EQ.IDAT)GO TO 270                                                 951
+      IF(K.EQ.IDES)GO TO 290                                                 956
+         CALL MSG( 'WHAT ? /')
+      GO TO 245                                                              961
+260      CALL MSG( 'ENTER COST : ')
+        ACCEPT 878,JPK(1)
+  265 LSW=1                                                                  971
+      GO TO 245                                                              976
+270      CALL MSG( 'ENTER DATE : ')
+        ACCEPT 879,JPK(2)
+      GO TO 265                                                              986
+290     DO 900 I=1,12
+        JPK(I+2)=JPL(I)
+900     CONTINUE
+      GO TO 265
+  250 IF(LSW.LE.0)GO TO 20                                                  1001
+      WRITE(3#LADR)JPK                                                    1006
+      GO TO 20                                                              1011
+850     FORMAT(A3,1X,3I,A1,1X,12A3)
+851     FORMAT(I6)
+852     FORMAT(10F)
+854     FORMAT(3F)
+855     FORMAT(10I)
+856     FORMAT(A3)
+860     FORMAT(' BAD DAY-PART ? ',A1)
+861     FORMAT(1H ,I9,I6,3X,12A3)
+870     FORMAT(I)
+871     FORMAT(I,A3,1X,2I,6A3)
+872     FORMAT(10F)
+873     FORMAT(3F)
+874    FORMAT(10I)
+875    FORMAT(A3)
+876    FORMAT(F)
+877    FORMAT(A3,1X,10A3)
+878    FORMAT(I)
+879    FORMAT(I)
+965     FORMAT( I8,' OK ? ',$)
+887     FORMAT(' T.A.   ',I8,' : ',$)
+800     FORMAT(' ')
+880     FORMAT(' DONE  ',2I10)
+881    FORMAT(' ENTER OVER-RIDE RATINGS FOR BRAND',I10)
+      END
+    
