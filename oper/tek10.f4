@@ -1,0 +1,1813 @@
+C* **********************************************************
+C* *                                                        *
+C* *      PROCUCT 062-1464-02                               *
+C* *              TERMINAL CONTROL SYSTEM                   *
+C* *                                                        *
+C* *                                                        *
+C* *                                                        *
+C* *                                                        *
+C* *                SOFTWARE DEVELOPMENT                    *
+C* *            INFORMATION DISPLAY PRODUCTS                *
+C* *                  TEKTRONIX, INC.                       *
+C* *                                                        *
+C* *                                                        *
+C* *            COPYRIGHT 1971  TEKTRONIX, INC.             *
+C* *                 ALL RIGHTS RESERVED                    *
+C* *                                                        *
+C* *                                                        *
+C* **********************************************************
+C* *
+C* *
+C* *
+C* *
+C*      START OF TERMINAL CONTROL SYSTEM GENERAL MODULES
+C*
+C*
+C*      PLEASE NOTE!!!!!!
+C*      IN THE FOLLOWING LISTING COMMENTS FOLLOWED
+C*      BY AN  *  ARE INSTALLATION COMMENTS.
+C*      THEY INDICATE CONTROL CHARACTERS AND TERMINAL
+C*      DEPENDENT OPERATIONS OR VARIABLES,
+C*      FOR WHICH MODIFICATIONS MAY BE NEEDED ACCORDING TO
+C*      THE SYSTEM USED.
+C*
+C*
+C **********************************************************
+C *              BASIC ROUTINES
+C **********************************************************
+C **********************************************************
+C * NAME:     FINITT                                       *
+C * PURPOSE:  EXITS AND HALTS PROGRAM                      *
+C * USAGE:    CALL FINITT(IX,IY)                           *
+C *           IX  SCREEN X COORDINATE                      *
+C *           IY  SCREEN Y COORDINATE                      *
+C *           TEKTRONIX V1 4-7-71                          *
+C **********************************************************
+C ROUTINE---DA-0010.05-01   FINITT
+      SUBROUTINE FINITT(IX,IY)
+C * MOVE TO GIVEN POINT
+      CALL MOVABS(IX,IY)
+      CALL ANMODE
+      STOP
+      END
+C **********************************************************
+C * NAME:     BELL                                         *
+C * PURPOSE:  OUPUT CONTROL (BEL) TO TERMINAL              *
+C * USAGE:    CALL BELL                                    *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C **********************************************************
+C ROUTINE---DA-0020.05-01   BELL
+      SUBROUTINE BELL
+C*  OUTPUT (BEL)
+      CALL TOUTPT(7)
+      RETURN
+      END
+C ROUTINE---BG-0460.05-01   SUBWIN
+C       ROUTINE TO ALTER WINDOW SIZE BUT RETAIN SCALE
+C 
+       SUBROUTINE SUBWIN(XV,XL,YV,YL)
+	COMMON /TKTRNX/ KBAUDR,KERROR,KGRAFL,KHOMEY,KKMODE,
+     1 KHORSZ,KVERSZ,KITALC,KSIZEF,KLMRGN,KRMRGN,
+     2 KTBLSZ,KHORZT(10),KVERTT(10),
+     3 KBEAMX,KBEAMY,KMOVEF,KPCHAR(4),KDASHT,
+     4 KMINSX,KMINSY,KMAXSX,KMAXSY,TMINVX,TMINVY,TMAXVX,TMAXVY,
+     5 TREALX,TREALY,TIMAGX,TIMAGY,TRCOSF,TRSINF,TRSCAL
+C 
+      SCALE=(KMAXSX-KMINSX)/(TMAXVX-TMINVX)
+      OFF=XV-TMINVX
+      IX=KMINSX+OFF*SCALE
+      LX=XL*SCALE
+      SCALE=(KMAXSY-KMINSY)/(TMAXVY-TMINVY)
+      OFF=YV-TMINVY
+      IY=KMINSY+OFF*SCALE
+      LY=YL*SCALE
+      CALL VWINDO(XV,XL,YV,YL)
+      CALL SWINDO(IX,LX,IY,LY)
+      RETURN
+      END
+C **********************************************************
+C *             HIGH LEVEL GRAPHIC ROUTINES
+C **********************************************************
+C **********************************************************
+C * NAME:     SWINDO                                       *
+C * PURPOSE:  SET SCREEN WINDOW                            *
+C * USAGE:    CALL SWINDO(IX,LX,IY,LY)                     *
+C *           IX  SCREEN WINDOW X MINIMUM                  *
+C *           LX  SCREEN WINDOW X LENGTH                   *
+C *           IY  SCREEN WINDOW Y MINIMUM                  *
+C *           LY  SCREEN WINDOW Y LENGTH                   *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C **********************************************************
+C ROUTINE---BG-0030.05-01   SWINDO
+      SUBROUTINE SWINDO(IX,LX,IY,LY)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+C *  SET WINDOW VARIABLES
+      KMINSX=IX
+      KMINSY=IY
+      KMAXSX=IX+LX
+      KMAXSY=IY+LY
+C * INDICATE DIRECT LEVEL
+      KGRAFL=0
+      RETURN
+      END
+C **********************************************************
+C * NAME:     VWINDO                                       *
+C * PURPOSE:  SET VIRTUAL WINDOW                           *
+C * USAGE:    CALL VWINDO(X,XL,Y,YL)                       *
+C *           X   VIRTUAL WINDOW X MINIMUM                 *
+C *           XL  VIRTUAL WINDOW X LENGTH                  *
+C *           Y   VIRTUAL WINDOW Y MINIMUM                 *
+C *           YL  VIRTUAL WINDOW Y LENGTH                  *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C **********************************************************
+C ROUTINE---BG-0040.05-01   VWINDO
+      SUBROUTINE VWINDO(X,XL,Y,YL)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREAXL, TREAYL, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+C *  SET WINDOW VARIABLES
+      TMINVX=X
+      TMINVY=Y
+      TMAXVX=X+XL
+      TMAXVY=Y+YL
+C * INDICATE DIRECT LEVEL
+      KGRAFL=0
+      RETURN
+      END
+C **********************************************************
+C * NAME:     POINTR                                       *
+C * PURPOSE:  OUTPUT RELATIVE POINT PLOT VECTOR            *
+C * USAGE:    CALL POINTR(X,Y)                             *
+C *           X  X RELATIVE DISPLACEMENT                   *
+C *           Y  Y RELATIVE DISPLACEMENT                   *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C **********************************************************
+C ROUTINE---BG-0050.05-01   POINTR
+      SUBROUTINE POINTR(X,Y)
+C * CONSTRUCT ABS VECTOR
+      CALL REL2AB(X,Y,RX,RY)
+C * OUTPUT
+      CALL POINTA(RX,RY)
+      RETURN
+      END
+C **********************************************************
+C * NAME:     DASHR                                        *
+C * PURPOSE:  OUTPUT DASHED RELATIVE VECTOR                *
+C * USAGE:    CALL DASHR(X,Y,L)                            *
+C *           X  X RELATIVE DISPLACEMENT                   *
+C *           Y  Y RELATIVE DISPLACEMENT                   *
+C *            L  DASHED LINE SPECIFICATION                *
+C *           TEKTRONIX V1 4-7-71                          *
+C **********************************************************
+C ROUTINE---BG-0060.05-01   DASHR
+      SUBROUTINE DASHR(X,Y,L)
+C * CONSTRUCT ABS VECTOR
+      CALL REL2AB(X,Y,XL,YL)
+C * DRAW THERE
+      CALL DASHA(XL,YL,L)
+      RETURN
+      END
+C **********************************************************
+C * NAME:      DASHA                                       *
+C * PURPOSE:   DRAW ABSOLUTE DASHED VECTOR                 *
+C * USAGE:     CALL DASHA(X,Y,L)                           *
+C *            X ABSOLUTE X (VIRTUAL COORDINATE)           *
+C *            Y ABSOLUTE Y (VIRTUAL COORDINATE)           *
+C *            L DASHED LINE SPECIFICATION                 *
+C *            TEKTRONIX 2-2-72      RW                    *
+C **********************************************************
+C ROUTINE---BG-0070.05-01   DASHA
+      SUBROUTINE DASHA(X,Y,L)
+      CALL LVLCHT
+      CALL DSHMOD(L)
+      CALL V2ST(1,X,Y)
+      RETURN
+      END
+C **********************************************************
+C * NAME:      DSHREL                                      *
+C * PURPOSE:   DRAW RELATIVE DASHED VECTOR                 *
+C * USAGE:     CALL DSHREL(IX,IY,L)                        *
+C *            IX  X RELATIVE DISPLACEMENT                 *
+C *            IY  Y RELATIVE DISPLACEMENT                 *
+C *            L   DASHED LINE SPECIFICATION               *
+C *             TEKTRONIX V1 2-2-72      RW                *
+C **********************************************************
+C ROUTINE---DA-0080.05-01   DSHREL
+      SUBROUTINE DSHREL(IX,IY,L)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+C * CALCULATE THE ABSOLUTE POINT
+      JX=IX+KBEAMX
+      JY=IY+KBEAMY
+C * DRAW TO IT
+      CALL DSHABS(JX,JY,L)
+      RETURN
+      END
+C **********************************************************
+C * NAME:      DSHABS                                      *
+C * PURPOSE:   DRAW ABSOLUTE DASHED VECTOR                 *
+C * USAGE:     CALL DSHABS(IX,IY,L)                        *
+C *            IX  ABSOLUTE X (SCREEN COORDINATE)          *
+C *            IY  ABSOLUTE Y (SCREEN COORDINATE)          *
+C *            L   DASHED LINE SPECIFICATION               *
+C *            TEKTRONIX V1 2-2-72  RW                     *
+C **********************************************************
+C ROUTINE---DA-0090.05-01   DSHABS
+      SUBROUTINE DSHABS(IX,IY,L)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+C * SET THE DASH TYPE
+1      CALL DSHMOD(L)
+C * DRAW THE DASHES
+2      CALL TKDASH(IX,IY)
+      RETURN
+      END
+C **********************************************************
+C * NAME:     DRAWR                                        *
+C * PURPOSE:  DRAW RELATIVE VECTOR                         *
+C * USAGE:    CALL DRAWR(X,Y)                              *
+C *           X  X RELATIVE DISPLACEMENT                   *
+C *           Y  Y RELATIVE DISPLACEMENT                   *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C **********************************************************
+C ROUTINE---BG-0100.05-01   DRAWR
+      SUBROUTINE DRAWR(X,Y)
+C * CONSTRUCT ABS VECTOR
+      CALL REL2AB(X,Y,RX,RY)
+C * OUTPUT
+      CALL DRAWA(RX,RY)
+      RETURN
+      END
+C **********************************************************
+C * NAME:     POINTA                                       *
+C * PURPOSE:  OUTPUT ABSOLUTE POINT PLOT VECTOR            *
+C * USAGE:    CALL POINTA(X,Y)                             *
+C *           X  ABSOLUTE X (VIRTUAL COORDINATE)           *
+C *           Y  ABSOLUTE Y (VIRTUAL COORDINATE)           *
+C *           TEKTRONIX V1 4-7-71                          *
+C **********************************************************
+C ROUTINE---BG-0110.05-01   POINTA
+      SUBROUTINE POINTA(X,Y)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+      CALL LVLCHT
+C * CHECK IF IN POINT PLOT MODE
+      IF(KKMODE.EQ.2)GO TO 10
+      CALL PNTMOD
+C * OUTPUT POINT
+10    CALL V2ST(0,X,Y)
+      RETURN
+      END
+C **********************************************************
+C * NAME:     DRAWA                                        *
+C * PURPOSE:  DRAW ABSOLUTE VECTOR                         *
+C * USAGE:    CALL DRAWA(X,Y)                              *
+C *           X  ABSOLUTE X (VIRTUAL COORDINATE)           *
+C *           Y  ABSOLUTE Y (VIRTUAL COORDINATE)           *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C **********************************************************
+C ROUTINE---BG-0120.05-01   DRAWA
+      SUBROUTINE DRAWA(X,Y)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+      CALL LVLCHT
+C * CHECK IF IN VECTOR MODE
+      IF(KKMODE.NE.1)GO TO 20
+      IF(KMOVEF.EQ.1)GO TO 30
+      GO TO 10
+C * DRAW DUMMY DARK VECTOR TO CURRENT POSITION
+20    CALL VECMOD
+30    CALL MODCHK(KBEAMX,KBEAMY)
+C * OUTPUT VECTOR
+10    CALL V2ST(1,X,Y)
+      RETURN
+      END
+C **********************************************************
+C * NAME:     MOVER                                        *
+C * PURPOSE:  OUTPUT BLANK RELATIVE VECTOR                 *
+C * USAGE:    CALL MOVER(X,Y)                              *
+C *           X  X RELATIVE DISPLACEMENT                   *
+C *           Y  Y RELATIVE DISPLACEMENT                   *
+C *           TEKTRONIX V1 4-7-71                          *
+C **********************************************************
+C ROUTINE---BG-0130.05-01   MOVER
+      SUBROUTINE MOVER(X,Y)
+C * CONVERT TO ABS VECTOR
+      CALL REL2AB(X,Y,RX,RY)
+C * OUTPUT
+      CALL MOVEA(RX,RY)
+      RETURN
+      END
+C **********************************************************
+C * NAME:     REL2AB                                       *
+C * PURPOSE:  SCALE AND ROTATE RELATIVE VECTORS AND        *
+C *           CONSTRUCT ABSOLUTE VECTORS                   *
+C * USAGE:    CALL REL2AB(XIN,YIN,XOUT,YOUT)               *
+C *           XIN   X RELATIVE END POINT                   *
+C *           YIN   Y RELATIVE END POINT                   *
+C *           XOUT  X ABSOLUTE END POINT                   *
+C *           YOUT  Y ABSOLUTE END POINT                   *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C **********************************************************
+C ROUTINE---BG-0140.05-01   REL2AB
+      SUBROUTINE REL2AB(XIN,YIN,XOUT,YOUT)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+C * CHECK GRAPHICS LEVEL
+      CALL LVLCHT
+C * SCALE AND ROTATE X AND Y
+      XOUT=(((XIN*TRCOSF)-(YIN*TRSINF))*TRSCAL)+TIMAGX
+      YOUT=(((XIN*TRSINF)+(YIN*TRCOSF))*TRSCAL)+TIMAGY
+      RETURN
+      END
+C **********************************************************
+C * NAME:     MOVEA                                        *
+C * PURPOSE:  DRAW BLANK VECTOR                            *
+C * USAGE:    CALL MOVEA(X,Y)                              *
+C *           X  ABSOLUTE X (VIRTUAL COORDINATE)           *
+C *           Y  ABSOLUTE Y (VIRTUAL COORDINATE)           *
+C *           TEKTRONIX V1 4-7-71                          *
+C **********************************************************
+C ROUTINE---BG-0150.05-01   MOVEA
+      SUBROUTINE MOVEA(X,Y)
+      CALL LVLCHT
+C * ENTER VECTOR MODE
+      CALL VECMOD
+C * OUTPUT BLANK VECTOR
+      CALL V2ST(0,X,Y)
+      RETURN
+      END
+C **********************************************************
+C * NAME:     VCURSR                                       *
+C * PURPOSE:  INPUTS CURSOR POSITION AND CONVERTS TO       *
+C *           VIRTUAL COORDINATES                          *
+C * USAGE:    CALL VCURSR(ICHAR,X,Y)                       *
+C *           ICHAR  HEADER CHARACTER                      *
+C *           X     CURSOR VIRTUAL X-COORDINATE            *
+C *           Y     CURSOR VIRTUAL Y-COORDINATE            *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C **********************************************************
+C ROUTINE---BG-0160.05-01   VCURSR
+      SUBROUTINE VCURSR(ICHAR,X,Y)
+C * INPUT DISPLAY SPACE POSITION
+      CALL DCURSR(ICHAR,IXA,IYA)
+C * CONVERT TO VIRTUAL SPACE
+      CALL REVCOT(IXA,IYA,X,Y)
+      RETURN
+      END
+C **********************************************************
+C *            GRAPHIC TRANSFORM ROUTINES
+C **********************************************************
+C **********************************************************
+C * NAME:     V2ST                                         *
+C * PURPOSE:  TRANSFORMS VIRTUAL DISPLAY VECTORS FOR       *
+C *           OUTPUT TO THE SCREEN                         *
+C * USAGE:    CALL V2ST(I,X,Y)                             *
+C *           I =0  POINT OR MOVE                          *
+C *             =1  BRIGHT VECTOR                          *
+C *           X    VIRTUAL X-COORDINATE                    *
+C *           Y    VIRTUAL Y-COORDINATE                    *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C **********************************************************
+C ROUTINE---BG-0170.05-01   V2ST
+      SUBROUTINE V2ST(I,X,Y)
+      DIMENSION BUFIN(4),BFOUT(4)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+      EQUIVALENCE (BUFIN(1),XS),(BUFIN(),(BUFIN(3),XE),
+     1(BUFIN(4),YE)
+      EQUIVALENCE (BFOUT(1),CXS),(BFOUT(2),CYS),(BFOUT(3),CXE),
+     1            (BFOUT(4),CYE)
+      XE=X
+      YE=Y
+C * POINT OR MOVE
+      IF(I.EQ.0)GO TO 10
+C * BRIGHT VECTOR
+      XS=TIMAGX
+      YS=TIMAGY
+C * CLIP VECTOR
+      CALL CLIPT(BUFIN,BFOUT)
+C * ON SCREEN?
+      IF(KERROR.EQ.1)GO TO 110
+C * ARE WE AT START POINT?
+      IF(CXS.EQ.TREALX.AND.CYS.EQ.TREALY)GO TO 120
+C * MOVE BEAM TO START POINT
+      MODE=KKMODE
+      CALL VECMOD
+      CALL WINCOT(CXS,CYS)
+      KKMODE=MODE
+      GO TO 120
+C * POINT OR MOVE
+10    CALL PCLIPT(XE,YE)
+C * OFF SCREEN?
+      IF(KERROR.EQ.1)GO TO 110
+      CXE=XE
+      CYE=YE
+C * CONVERT TO SCREEN COORDINATES AND PLOT
+120   CALL WINCOT(CXE,CYE)
+C * SAVE POSITION  ABS AND IMAGINARY
+      TREALX=CXE
+      TREALY=CYE
+110   TIMAGX=X
+      TIMAGY=Y
+      RETURN
+      END
+C **********************************************************
+C * NAME:     CLIPT                                        *
+C * PURPOSE:  CLIP LINES FOR WINDOWING                     *
+C * USAGE:    CALL CLIPT(BUFIN,OUTBF)                      *
+C *           BUFIN(1)   START POINT X                     *
+C *                (2)   START POINT Y                     *
+C *                (3)   END POINT X                       *
+C *                (4)   END POINT Y                       *
+C *           OUTBF(1) DISPLAYABLE  START POINT X          *
+C *                (2) DISPLAYABLE  START POINT Y          *
+C *                (3) DISPLAYABLE  END POINT X            *
+C *                (4) DISPLAYABLE  END POINT Y            *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C **********************************************************
+C ROUTINE---BG-0180.05-01   CLIPT
+      SUBROUTINE CLIPT(BUFIN,OUTBF)
+      DIMENSION  BUFIN(1),OUTBF(1)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+      GSTAX=BUFIN(1)
+      GSTAY=BUFIN(2)
+      GENDX=BUFIN(3)
+      GENDY=BUFIN(4)
+C *
+C * DETERMINE POSITION OF LINE
+      IF(GSTAX.GE.TMINVX)GO TO 10
+      IF(GENDX.GE.TMINVX)GO TO 20
+C * LINE LEFT OF WINDOW
+      GO TO 110
+C *
+10    IF(GSTAX.LE.TMAXVX)GO TO 20
+      IF(GENDX.LE.TMAXVX)GO TO 20
+C * LINE RIGHT OF WINDOW
+      GO TO 110
+C *
+20    IF(GSTAY.GE.TMINVY)GO TO 21
+      IF(GENDY.GE.TMINVY)GO TO 30
+C * LINE BELOW WINDOW
+      GO TO 110
+C *
+21    IF(GSTAY.LE.TMAXVY)GO TO 30
+      IF(GENDY.LE.TMAXVY)GO TO 30
+C * LINE ABOVE WINDOW
+      GO TO 110
+C *
+30    IF(GSTAX.NE.GENDX)GO TO 31
+C * VERTICAL LINE
+      DSTAX=GSTAX
+      DENDX=GSTAX
+      CALL PARCLT(GSTAY,GENDY,TMINVY,TMAXVY,DSTAY,DENDY)
+      GO TO 120
+C *
+31    IF(GSTAY.NE.GENDY)GO TO 40
+C * HORIZONTAL LINE
+      DSTAY=GSTAY
+      DENDY=GSTAY
+      CALL PARCLT(GSTAX,GENDX,TMINVX,TMAXVX,DSTAX,DENDX)
+      GO TO 120
+C *
+C * CALCULATE START POINT
+40    A=GENDX-GSTAX
+      B=GENDY-GSTAY
+      IF(GSTAX.LT.TMINVX)GO TO 41
+      IF(GSTAX.LE.TMAXVX)GO TO 43
+C * START X RIGHT OF WINDOW
+      Q=TMAXVX
+      GO TO 42
+C * START X IN WINDOW
+43    IF(GSTAY.GT.TMAXVY)GO TO 140
+      IF(GSTAY.LT.TMINVY)GO TO 44
+C * START POINT IN WINDOW
+      DSTAX=GSTAX
+      DSTAY=GSTAY
+      GO TO 150
+C * START X LEFT OF WINDOW
+41    Q=TMINVX
+42    DSTAY=GSTAY+((Q-GSTAX)*B/A)
+      IF(DSTAY.GT.TMAXVY)GO TO 140
+      IF(DSTAY.LT.TMINVY)GO TO 44
+C * INTERSECTION IN WINDOW
+      DSTAX=Q
+      GO TO 150
+C * START Y BELOW WINDOW
+44    R=TMINVY
+      GO TO 45
+C * START Y ABOVE WINDOW
+140   R=TMAXVY
+C *
+C * CALCULATE X VALUE OF INTERSECTION
+45    DSTAX=GSTAX+((R-GSTAY)*A/B)
+      IF(DSTAX.GT.TMAXVX)GO TO 110
+      IF(DSTAX.LT.TMINVX)GO TO 110
+C * X INTERSECTION IN WINDOW
+      DSTAY=R
+C *
+C * CALCULATE END POINT
+150   IF(GENDX.LT.TMINVX)GO TO 50
+      IF(GENDX.GT.TMAXVX)GO TO 51
+C * END X IN WINDOW
+      IF(GENDY.GT.TMAXVY)GO TO 160
+      IF(GENDY.LT.TMINVY)GO TO 52
+C * END POINT IN WINDOW
+      DENDX=GENDX
+      DENDY=GENDY
+      GO TO 120
+C * X END POINT RIGHT OF WINDOW
+51    Q=TMAXVX
+      GO TO 53
+C * X END POINT LEFT OF WINDOW
+50    Q=TMINVX
+C *
+C * CALCULATE Y VALUE OF INTERSECTION
+53    DENDY=GSTAY+((Q-GSTAX)*B/A)
+      IF(DENDY.GT.TMAXVY)GO TO 160
+      IF(DENDY.LT.TMINVY)GO TO 52
+C * Y INTERSECTION IN WINDOW
+      DENDX=Q
+      GO TO 120
+C * END POINT Y BELOW WINDOW
+52    R=TMINVY
+      GO TO 60
+C * END POINT Y ABOVE WINDOW
+160   R=TMAXVY
+C *
+C * CALCULATE X INTERSECTION
+60    DENDX=GSTAX+((R-GSTAY)*A/B)
+C * X INTERSECTION MUST BE IN WINDOW
+      DENDY=R
+C *
+C * RETURN DISPLAYABLE VALUES
+120   OUTBF(1)=DSTAX
+      OUTBF(2)=DSTAY
+      OUTBF(3)=DENDX
+      OUTBF(4)=DENDY
+      KERROR=0
+      GO TO 70
+C *
+C * LINE OUTSIDE WINDOW
+110   KERROR=1
+70    RETURN
+      END
+C **********************************************************
+C * NAME:     PARCLT(RL1,RL2,RM1,RM2,RN1,RN2)              *
+C * PURPOSE:  CLIP PARALLEL LINE FOR WINDOWING             *
+C * USAGE:    CALL PARCLT(RL1,RL2,RM1,RM2,RN1,RN2)         *
+C *           RL1   COORDINATE OF START POINT              *
+C *           RL2   COORDINATE OF END POINT                *
+C *           RM1   MINIMUM WINDOW COORDINATE              *
+C *           RM2   MAXIMUM WINDOW COORDINATE              *
+C *           RN1   COORDINATE OF CLIPPED START POINT      *
+C *           RN2   COORDINATE OF CLIPPED END POINT        *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C **********************************************************
+C ROUTINE---BG-0190.05-01   PARCLT
+      SUBROUTINE PARCLT(RL1,RL2,RM1,RM2,RN1,RN2)
+      IF(RL1.LT.RM1)GO TO 10
+      IF(RL1.GT.RM2)GO TO 20
+      RN1=RL1
+      IF(RL2-RM1)30,40,40
+10    RN1=RM1
+40    IF(RL2.LE.RM2)GO TO 50
+      RN2=RM2
+      GO TO 60
+50    RN2=RL2
+      GO TO 60
+20    RN1=RM2
+      IF(RL2.GE.RM1)GO TO 50
+30    RN2=RM1
+60    RETURN
+      END
+C **********************************************************
+C * NAME:     WINCOT                                       *
+C * PURPOSE:  CONVERT VIRTUAL COORDINATES TO SCREEN        *
+C *           COORDINATES AND PLOT                         *
+C * USAGE:    CALL WINCOT(X,Y)                             *
+C *           X  VIRTUAL X                                 *
+C *           Y  VIRTUAL Y                                 *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C **********************************************************
+C ROUTINE---BG-0200.05-01   WINCOT
+      SUBROUTINE WINCOT(X,Y)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+C * CALCULATE WINDOW SIZES
+      WXD=TMAXVX-TMINVX
+      WYD=TMAXVY-TMINVY
+      DISX=KMAXSX-KMINSX
+      DISY=KMAXSY-KMINSY
+C * CONVERT TO SCREEN COORDINATES
+      KDISX=((X-TMINVX)*DISX/WXD)+FLOAT(KMINSX)
+      KDISY=((Y-TMINVY)*DISY/WYD)+FLOAT(KMINSY)
+C * PLOT
+      CALL MODCHK(KDISX,KDISY)
+      RETURN
+      END
+C **********************************************************
+C * NAME:     LVLCHT                                       *
+C * PURPOSE:  CHECK GRAPHIC LEVEL AND SET STATUS           *
+C * USAGE:    CALL LVLCHT                                  *
+C *           TEKTRONIX V1 4-7-71                          *
+C **********************************************************
+C ROUTINE---BG-0210.05-01   LVLCHT
+      SUBROUTINE LVLCHT
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+C * CHECK GRAPHIC FLAG
+      IF(KGRAFL.NE.0)GO TO 10
+C * CONVERT CURRENT SCREEN POSITION TO VIRTUAL COORD
+      CALL REVCOT(KBEAMX,KBEAMY,TREALX,TREALY)
+C *RESET HIGH LEVEL GRAPHICS
+      TIMAGX=TREALX
+      TIMAGY=TREALY
+C * SET HIGH LEVEL FLAG
+      KGRAFL=1
+10    RETURN
+      END
+C **********************************************************
+C * NAME:     REVCOT                                       *
+C * PURPOSE:  TRANSFORM SCREEN COORDINATES TO VIRTUAL      *
+C * USAGE:    CALL REVCOT(IX,IY,X,Y)                       *
+C *           IX  SCREEN X COORDINATE                      *
+C *           IY  SCREEN Y COORDINATE                      *
+C *           X   VIRTUAL X COORDINATE                     *
+C *           Y   VIRTUAL Y COORDINATE                     *
+C *           TEKTRONIX V1 4-7-71                          *
+C **********************************************************
+C ROUTINE---BG-0220.05-01   REVCOT
+      SUBROUTINE REVCOT(IX,IY,X,Y)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+C * CALCULATE VIRTUAL X-COORD
+      SXL=KMAXSX-KMINSX
+      VXL=TMAXVX-TMINVX
+      X=(FLOAT(IX-KMINSX)*VXL/SXL)+TMINVX
+C * CALCULATE VIRTUAL Y COORD
+      SYL=KMAXSY-KMINSY
+      VYL=TMAXVY-TMINVY
+      Y=(FLOAT(IY-KMINSY)*VYL/SYL)+TMINVY
+C * CHECK IF IN WINDOW
+      CALL PCLIPT(X,Y)
+      RETURN
+      END
+C **********************************************************
+C * NAME:     PCLIPT                                       *
+C * PURPOSE:  CLIP INDIVIDUAL POINT                        *
+C * USAGE:    CALL PCLIPT(X,Y)                             *
+C *           X  VIRTUAL X COORDINATE                      *
+C *           Y  VIRTUAL Y COORDINATE                      *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C **********************************************************
+C ROUTINE---BG-0230.05-01   PCLIPT
+      SUBROUTINE PCLIPT(X,Y)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+      KERROR=0
+C * LEFT OF WINDOW?
+      IF(X.LT.TMINVX)GO TO 10
+C * RIGHT OF WINDOW
+      IF(X.GT.TMAXVX)GO TO 10
+C * BELOW WINDOW
+      IF(Y.LT.TMINVY)GO TO 10
+C * ABOVE WINDOW
+      IF(Y.LE.TMAXVY)GO TO 20
+10    KERROR=1
+20    RETURN
+      END
+C **********************************************************
+C *            DIRECT GRAPHIC ROUTINES
+C **********************************************************
+C **********************************************************
+C * NAME:     PNTREL                                       *
+C * PURPOSE:  OUTPUT RELATIVE POINT PLOT VECTOR            *
+C * USAGE:    CALL PNTREL(IX,IY)                           *
+C *           IX  X RELATIVE DISPLACEMENT                  *
+C *           IY  Y RELATIVE DISPLACEMENT                  *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C **********************************************************
+C ROUTINE---DA-0240.05-01   PNTREL
+      SUBROUTINE PNTREL(IX,IY)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+C * CONSTRUCT ABS VECTOR
+      JX=KBEAMX+IX
+      JY=KBEAMY+IY
+C * OUTPUT
+      CALL PNTABS(JX,JY)
+      RETURN
+      END
+C **********************************************************
+C * NAME:     PNTABS                                       *
+C * PURPOSE:  OUTPUT ABSOLUTE POINT PLOT VECTOR            *
+C * USAGE:    CALL PNTABS(IX,IY)                           *
+C *           IX  ABSOLUTE X (SCREEN COORDINATE)           *
+C *           IY  ABSOLUTE Y (SCREEN COORDINATE)           *
+C *           TEKTRONIX V1 4-7-71                          *
+C **********************************************************
+C ROUTINE---DA-0250.05-01   PNTABS
+      SUBROUTINE PNTABS(IX,IY)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+C * CHECK IF IN POINT PLOT MODE
+      IF(KKMODE.EQ.2)GO TO 10
+      CALL PNTMOD
+C * OUTPUT POINT
+10    CALL XYCNVT(IX,IY)
+      KGRAFL=0
+      RETURN
+      END
+C **********************************************************
+C * NAME:     DRWREL                                       *
+C * PURPOSE:  DRAW RELATIVE VECTOR                         *
+C * USAGE:    CALL DRWREL(IX,IY)                           *
+C *           IX  X RELATIVE DISPLACEMENT                  *
+C *           IY  Y RELATIVE DISPLACEMENT                  *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C **********************************************************
+C ROUTINE---DA-0260.05-01   DRWREL
+      SUBROUTINE DRWREL(IX,IY)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+C * CONSTRUCT ABS VECTOR
+      JX=KBEAMX+IX
+      JY=KBEAMY+IY
+C * OUTPUT
+      CALL DRWABS(JX,JY)
+      RETURN
+      END
+C **********************************************************
+C * NAME:     DRWABS                                       *
+C * PURPOSE:  DRAW ABSOLUTE VECTOR                         *
+C * USAGE:    CALL DRWABS(IX,IY)                           *
+C *           IX  ABSOLUTE X (SCREEN COORDINATE)           *
+C *           IY  ABSOLUTE Y (SCREEN COORDINATE)           *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C **********************************************************
+C ROUTINE---DA-0270.05-01   DRWABS
+      SUBROUTINE DRWABS(IX,IY)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+C * CHECK IF IN VECTOR MODE
+      IF(KKMODE.NE.1)GO TO 20
+      IF(KMOVEF.EQ.1)GO TO 30
+      GO TO 10
+C * DRAW DUMMY DARK VECTOR TO CURRENT POSITION
+20    CALL VECMOD
+30    CALL XYCNVT(KBEAMX,KBEAMY)
+C * OUTPUT VECTOR
+10    CALL XYCNVT(IX,IY)
+      KGRAFL=0
+      RETURN
+      END
+C **********************************************************
+C * NAME:     MOVREL                                       *
+C * PURPOSE:  OUTPUT BLANK RELATIVE VECTOR                 *
+C * USAGE:    CALL MOVREL(IX,IY)                           *
+C *           IX  X RELATIVE DISPLACEMENT                  *
+C *           IY  Y RELATIVE DISPLACEMENT                  *
+C *           TEKTRONIX V1 4-7-71                          *
+C **********************************************************
+C ROUTINE---DA-0280.05-01   MOVREL
+      SUBROUTINE MOVREL(IX,IY)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+C * CONVERT TO ABS VECTOR
+      JX=KBEAMX+IX
+      JY=KBEAMY+IY
+C * OUTPUT
+      CALL MOVABS(JX,JY)
+      RETURN
+      END
+C **********************************************************
+C *            TAB AND MARGIN ROUTINES
+C **********************************************************
+C **********************************************************
+C * NAME:     SETTAB                                       *
+C * PURPOSE:  ENTERS TAB POSITION INTO TAB TABLE           *
+C * USAGE:    CALL SETTAB(ITAB,ITBTBL)                     *
+C *           ITAB   INPUT TAB POSITION                    *
+C *           ITBTBL NAME OF TAB TABLE                     *
+C *                  KHORZT   HORIZONTAL TAB TABLE         *
+C *                  KVERTT   VERTICAL TAB TABLE           *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C **********************************************************
+C ROUTINE---BG-0290.05-01   SETTAB
+      SUBROUTINE SETTAB(ITAB,ITBTBL)
+      DIMENSION ITBTBL(1)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+      KERROR=0
+C * CHECK TAB POSITION
+      IF(ITAB.LE.0)GO TO 10
+      I=1
+C * CHECK FOR DUPLICATE TAB POSITION
+20    IF(ITBTBL(I).EQ.ITAB)GO TO 10
+      IF(ITAB.LT.ITBTBL(I))GO TO 60
+C * CHECK FOR EMPTY TABLE
+      IF(ITBTBL(I).EQ.0)GO TO 60
+C * INCREMENT TABLE
+      I=I+1
+C * TABLE EXCEEDED?
+      IF(I.LE.KTBLSZ)GO TO 20
+30    KERROR=1
+10    RETURN
+60    ITEMP=ITBTBL(I)
+C * INSERT TAB INTO TABLE
+      ITBTBL(I)=ITAB
+C * INSERTION COMPLETE?
+70    IF(ITEMP.EQ.0)GO TO 10
+      I=I+1
+C * TABLE EXCEEDED?
+      IF(I.GT.KTBLSZ)GO TO 30
+C * UPDATE TABLE
+      ITEMPA=ITBTBL(I)
+      ITBTBL(I)=ITEMP
+      ITEMP=ITEMPA
+      GO TO 70
+      END
+C **********************************************************
+C * NAMES:    RSTTAB                                       *
+C * PURPOSE:  REMOVE TAB POSITION FROM TABLE OR RESET TABLE*
+C * USAGE:    CALL RSTTAB(ITAB,ITBTBL)                     *
+C *           ITAB   INPUT TAB POSITION IF .GT. 0          *
+C *                  IGNORED IF .LT. 0                     *
+C *                  CLEARS TABLE IF .EQ. 0                *
+C *           ITBTBL NAME OF TAB TABLE                     *
+C *                  KHORZT   HORIZONTAL TAB TABLE         *
+C *                  KVERTT   VERTICAL TAB TABLE           *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C **********************************************************
+C ROUTINE---BG-0300.05-01   RSTTAB
+      SUBROUTINE RSTTAB(ITAB,ITBTBL)
+      DIMENSION ITBTBL(1)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+C * DETERMINE ACTION REQUIRED
+      IF(ITAB)10,20,30
+C * REMOVE TAB
+30    DO 40 I=1,KTBLSZ
+      IF(ITAB.EQ.ITBTBL(I))GO TO 50
+40    CONTINUE
+      GO TO 10
+C * SETTING FOUND - REMOVE
+50    J=KTBLSZ-1
+      DO 60 K=I,J
+60    ITBTBL(K)=ITBTBL(K+1)
+      ITBTBL(KTBLSZ)=0
+      GO TO 10
+C * CLEAR ALL TABS
+20    DO 21 II=1,KTBLSZ
+21    ITBTBL(II)=0
+10    RETURN
+      END
+C **********************************************************
+C * NAME:     TABHOR                                       *
+C * PURPOS:   SIMULATE HORIZONTAL TAB                      *
+C * USAGE:    CALL TABHOR                                  *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C **********************************************************
+C ROUTINE---BG-0310.05-01   TABHOR
+      SUBROUTINE TABHOR
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+      KFLG=0
+C * FIND NEXT TAB POSITION
+      DO 10 K=1,KTBLSZ
+C * IF TABLE NOT EMPTY SET FLAG
+      IF(KHORZT(K).NE.0)KFLG=1
+      IF(KHORZT(K).GT.KBEAMX)GO TO 20
+10    CONTINUE
+C * IF NO TABS EXIT
+      IF(KFLG.EQ.0)GO TO 30
+15    CALL NEWLIN
+      GO TO 30
+C * CHECK IF RIGHT MARGIN EXCEEDED BY TAB; IF SO, OUTPUT CR/LF
+20    IF (KHORZT(K).GE.KRMRGN) GO TO 15
+C * SIMULATE TAB
+      CALL MOVABS(KHORZT(K),KBEAMY)
+      CALL ANMODE
+30    RETURN
+      END
+C **********************************************************
+C * NAME:     TABVER                                       *
+C * PURPOSE:  SIMULATES VERTICAL TAB                       *
+C * USAGE:    CALL TABVER                                  *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C **********************************************************
+C ROUTINE---BG-0320.05-01   TABVER
+      SUBROUTINE TABVER
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+C * SEARCH FOR NEXT TAB POSITION
+      DO 10 K=1,KTBLSZ
+      I=KTBLSZ-K+1
+      IF(KVERTT(I)) 10,10,11
+11    IF(KVERTT(I).LT.KBEAMY)GO TO 30
+10    CONTINUE
+      GO TO 20
+C * SIMULATE VERTICAL TAB
+30    CALL MOVABS(KBEAMX,KVERTT(I))
+      CALL ANMODE
+20    RETURN
+      END
+C **********************************************************
+C * NAME:      DSHMOD                                      *
+C * PURPOSE:   SET DASH MODE AND SAVE DASH TYPE            *
+C * USAGE:     CALL DSHMOD(L)                              *
+C *            L - DASH MODE SPEIFICATION                  *
+C *            L IS A CONCATINATION OF INTEGERS BETWEEN    *
+C *                  ONE AND EIGHT. A DASH SEGMENT         *
+C *                  IS DRAWN ACCORDING TO THE LENGTH      *
+C *                  INDICATED BY THE INTEGER    .         *
+C *            -1 =  INVISIBLE MOVE                        *
+C *            0  =  VISIBLE LINE                          *
+C *            1  =  5 RASTER UNITS, VISIBLE               *
+C *            2  =  5 RASTER UNITS, INVISIBLE             *
+C *            3  = 10 RASTER UNITS, VISIBLE               *
+C *            4  = 10 RASTER UNITS, INVISIBLE             *
+C *            5  = 25 RASTER UNITS, VISIBLE               *
+C *            6  = 25 RASTER UNITS, INVISIBLE             *
+C *            7  = 50 RASTER UNITS, VISIBLE               *
+C *            8  = 50 RASTER UNITS, INVISIBLE             *
+C *            9  = ALTERNATE VISIBLE AND INVISIBLE ON     *
+C *                 EACH POINT                             *
+C **********************************************************
+C ROUTINE---DA-0350.05-01   DSHMOD
+      SUBROUTINE DSHMOD(L)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+      KKMODE=4
+      KDASHT=L
+      RETURN
+      END
+C **********************************************************
+C *          MODE CONTROL ROUTINES
+C **********************************************************
+C **********************************************************
+C * NAME:      MODCHK                                     *
+C * PURPOSE:   SELECTS MODE SIMULATION ROUTINES            *
+C * USAGE:     CALL MODCHK(IX,IY)                          *
+C *            IX ABSOLUTE X  (SCREEN COORDINATE)          *
+C *            IY ABSOLUTE Y  (SCREEN COORDINATE)          *
+C *            TEKTRONIX V1 2-2-72 RW                      *
+C **********************************************************
+C ROUTINE---BG-0360.05-01   MODCHK
+      SUBROUTINE MODCHK(IX,IY)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+C * DO WE NEED TO SIMULATE A MODE?
+      IF(KKMODE-4)1,2,1
+C * MAKE IT A DASHED LINE
+2      CALL TKDASH(IX,IY)
+      GO TO 10
+C * NO MODE SIMULATION
+1      CALL XYCNVT(IX,IY)
+10      RETURN
+      END
+C **********************************************************
+C * NAME:      TKDASH                                      *
+C * PURPOSE:   CALCULATE DASHES AND DRAW DASHED LINE       *
+C * USAGE:     CALL TKDASH(IX,IY)                          *
+C *            IX  X ABSOLUTE SCREEN COORDINATE            *
+C *            IY  Y ABSOLUTE SCREEN COORDINATE            *
+C **********************************************************
+C ROUTINE---DA-0370.05-01   TKDASH
+      SUBROUTINE TKDASH(IX,IY)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+      DIMENSION DTABL(10), U(9), WORK(10)
+C * SHORTEN THE BRIGHT ONES A BIT
+      DATA IDTYPE, U/-1,3.,-5.,8.,-10.,23.,-25.,48.,-50.,0./
+C * REAL DASHES HAVE POSITIVE DASH TYPES
+      IF(KDASHT)26,25,27
+C * HAS THE DASH TYPE CHANGED?
+27      IF (IDTYPE-KDASHT)1,2,1
+C * YES REFORM DASH TABLE
+1      ICHAR=KDASHT
+C * SEPARATE THE INTEGERS
+      DO 3 NO=1,10
+6      IF(ICHAR)4,5,4
+4      I=ICHAR-((ICHAR/10)*10)
+      ICHAR=ICHAR/10
+      IF(I)3,6,3
+C * THE INTEGERS COME OUT IN REVERSE ORDER
+C * PUT THE CORESPONDING LENGTH IN WORK
+3      WORK(NO)=U(I)
+      NO=11
+5      NO=NO-1
+C * INVERT WORK INTO DTABL
+      DO 7 I=1,NO
+7      DTABL(I)=WORK(NO+1-I)
+      IDTYPE=KDASHT
+      I=0
+      SEGLEN=0
+C * DRAW THE DASHED LINE
+C * IF ITS THE ALTERNATE TYPE SKIP ON!
+2     IF(NO-1)11,11,10
+C * IF IT HAS BEEN MOVED THEN RESTART THE PATTERN
+10    IF(LASTX-KBEAMX)14,13,14
+13    IF(LASTY-KBEAMY)14,12,14
+14    SEGLEN=0
+      I=0
+C * USE FLOATING POINT FOR SMOOTH LINES
+12    X=FLOAT(KBEAMX)
+      Y=FLOAT(KBEAMY)
+C * FIND HOW FAR WE GOT TO GO
+      DX=FLOAT(IX-KBEAMX)
+      DY=FLOAT(IY-KBEAMY)
+C * THE  TOTAL DISTANCE IS
+      DIAG=SQRT(DX*DX+DY*DY)
+C * THE DISTANCE LEFT TO GO IS
+      DIST=DIAG
+C * ANY THING LEFT OF THE LAST SEGMENT
+      IF (SEGLEN-1.5)15,15,17
+C * NO. THEN GET A NEW ONE
+15      I=MOD(I,NO)+1
+      SEGLEN=ABS(DTABL(I))
+C * IS THE SEGMENT SHORT ENOUGH TO FIT
+17      IF(SEGLEN-DIST)20,18,18
+C * YES  SO LAY IT ON THE DIAGONAL
+20      F=SEGLEN/DIAG
+      X=X+DX*F
+      Y=Y+DY*F
+C * BRIGHT OR DARK?
+      IF (DTABL(I))21,21,22
+C*   OUTPUT A GS FOR A DARK VECTOR
+21      CALL TOUTPT(29)
+22      CALL XYCNVT(IFIX(X),IFIX(Y))
+C * UPDATE DIST LEFT TO GO
+      DIST=DIST-SEGLEN
+      SEGLEN=0
+      GO TO 15
+C * THAT WAS QUITE LONG ENOUGH, STOP AT THE POINT
+C * BRIGHT OR DARK?
+18      IF(DTABL(I))29,29,24
+29      CALL TOUTPT(29)
+C*   THAT WAS A GS FOR AN INVISIBLE LINE
+24      CALL XYCNVT(IX,IY)
+      LASTX=IX
+      LASTY=IY
+C * NOTE THERES SOME LEFT
+      SEGLEN=SEGLEN-DIST
+19      RETURN
+C * ALTERNATE MOVES & DRAWS
+11      IF(NO)26,26,25
+26      CALL TOUTPT(29)
+25      CALL XYCNVT(IX,IY)
+       IF(KDASHT.LE.0)IDTYPE=-1
+      NO=1-NO
+      GO TO 19
+      END
+C **********************************************************
+C * NAME:     INITT                                        *
+C * PURPOSE:  TO INITIALIZE TERMINAL AND SET COMMON        *
+C *           VARIABLES                                    *
+C * USAGE:    CALL INITT(IBAUD)                            *
+C *           IBAUD  BAUD RATE IN CHARACTERS/SEC.          *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C **********************************************************
+C ROUTINE---DA-1010.05-01 4010 INITT
+      SUBROUTINE INITT(IBAUD)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+      KBAUDR=IBAUD
+      KMINSX=0
+      KMAXSX=1023
+      KMINSY=0
+      KMAXSY=780
+C * 4010 HOME POSITION
+      KHOMEY=767
+C * CHARACTER HORIZONTAL SIZE
+      KHORSZ=14
+      DO 100 I=1,10
+      KHORZT(I)=0
+100   KVERTT(I)=0
+      KITALC=0
+      KLMRGN=0
+      KRMRGN=1010
+      KSIZEF=0
+      KTBLSZ=10
+C * CHARACTER VERTICAL SIZE
+      KVERSZ=22
+      TMINVX=0.
+      TMAXVX=1023.
+      TMINVY=0.
+      TMAXVY=780.
+      TRCOSF=1.
+      TRSINF=0.
+      TRSCAL=1.
+      CALL ANMODE
+      CALL NEWPAG
+      RETURN
+      END
+C **********************************************************
+C * NAME:     ERASE                                        *
+C * PURPOSE:  TO ERASE SCREEN                              *
+C * USAGE:    CALL ERASE                                   *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C **********************************************************
+C ROUTINE---DA-1020.05-01 4010 ERASE
+      SUBROUTINE ERASE
+      DIMENSION SAVE(60)
+      CALL SVSTAT(SAVE)
+      CALL NEWPAG
+      CALL RESTAT(SAVE)
+      RETURN
+      END
+C **********************************************************
+C * NAME:     HDCOPY                                       *
+C * PURPOSE:  OUTPUT CONTROL (ESC) (ETB) FOR HARD COPY     *
+C * USAGE:    CALL HDCOPY                                  *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C **********************************************************
+C ROUTINE---DA-1030.05-01 4010 HDCOPY
+      SUBROUTINE HDCOPY
+C*  OUTPUT (ESC) (ETB) TO START HARD COPY
+      CALL TOUTPT(27)
+      CALL TOUTPT(23)
+      CALL IOWAIT(180)
+      RETURN
+      END
+C **********************************************************
+C *               DIRECT GRAPHIC ROUTINES
+C **********************************************************
+C **********************************************************
+C * NAME:     KIN                                          *
+C * PURPOSE:  CONVERT REAL INCHES TO RASTERS               *
+C * USAGE:    NRASTERS=KIN(RI)                             *
+C *           RI  REAL LENGTH IN INCHES                    *
+C *           TEKTRONIX V1 4-7-71                          *
+C **********************************************************
+C ROUTINE---DA-1040.05-01 4010 KIN
+      FUNCTION KIN(RI)
+C * 4010 SCREEN TO INCH CONVERSION
+      KIN=RI*136.5
+      RETURN
+      END
+C **********************************************************
+C * NAME:     KCM                                          *
+C * PURPOSE:  CONVERT REAL CENTIMITERS TO RASTERS          *
+C * USAGE:    NRASTERS=KCM(RC)                             *
+C *           RC  REAL LENGTH IN CENTIMETERS               *
+C *           TEKTRONIX V1 4-7-71                          *
+C **********************************************************
+C ROUTINE---DA-1050.05-01 4010 KCM
+      FUNCTION KCM(RC)
+C * 4010 SCREEN TO CENTIMETER CONVERSION
+      KCM=RC*53.8
+      RETURN
+      END
+C **********************************************************
+C * NAME:     DCURSR                                       *
+C * PURPOSE:  INPUT GRAPHIC DATA AND PACK INTO SCREEN      *
+C *           COORDINATES                                  *
+C * USAGE:    CALL DCURSR(ICHAR,IX,IY)                     *
+C *           ICHAR  HEADER CHARACTER                      *
+C *           IX     CURSOR SCREEN X-COORDINATE            *
+C *           IY     CURSOR SCREEN Y-COORDINATE            *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C **********************************************************
+C ROUTINE---DA-1060.05-01 4010 DCURSR
+      SUBROUTINE DCURSR(ICHAR,IX,IY)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+      DIMENSION SAV(60)
+C * TURN ON CURSOR
+C * SAVE MODE
+      CALL SVSTAT(SAV)
+C*  OUTPUT (ESC) (SUB) TO TURN ON CURSOR
+      CALL TOUTPT(27)
+      CALL TOUTPT(26)
+C * INPUT HEADER
+      CALL TINPUT(ICHAR)
+      K=0
+C*  ORDER OF CHARACTER INPUT MUST REFLECT HARDWARE STRAPPING
+C * INPUT HIGH ORDER
+10    CALL TINPUT(KOOR)
+C * SHIFT LEFT FIVE BITS
+      KOOR=MOD(KOOR,32)*32
+C * INPUT LOW ORDER
+      CALL TINPUT(KOOR2)
+      KOOR=KOOR+MOD(KOOR2,32)
+      K=K+1
+      IF(K.EQ.2)GO TO 20
+      IX=KOOR
+      GO TO 10
+20    IY=KOOR
+C*  INPUT OF CR OR EOT SHOULD BE ACCEPTED AT THIS POINT
+C*  IF NEEDED
+C * RESTORE MODE
+      CALL RESTAT(SAV)
+      RETURN
+      END
+C **********************************************************
+C *               A/N OUTPUT ROUTINES
+C **********************************************************
+C **********************************************************
+C * NAME:     ANCHO                                        *
+C * PURPOSE:  OUTPUT NON-CONTROL ALPHNUMERIC CHARACTERS    *
+C * USAGE:    CALL ANCHO(ICHAR)                            *
+C *           ICHAR   RIGHT ADJUSTED CHARACTER TO BE OUTPUT*
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C **********************************************************
+C ROUTINE---DA-1070.05-01 4010 ANCHO
+      SUBROUTINE ANCHO(ICHAR)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+C * CHECK MODE AND RESET IF NOT IN ALPHA
+      IF(KKMODE.EQ.0)GO TO 10
+      CALL ANMODE
+C * OUTPUT THE CHAR
+10    CALL TOUTPT(ICHAR)
+C * SET KBEAMX
+      KBEAMX=KBEAMX+KHORSZ
+C * IF DISPLAY LIMITS REACHED DECREMENT KBEAMX
+      IF(KBEAMX.LT.KRMRGN)GO TO 20
+      CALL NEWLIN
+20    RETURN
+      END
+C **********************************************************
+C *            A/N OUTPUT ROUTINES
+C **********************************************************
+C **********************************************************
+C * NAME:     NEWLIN                                       *
+C * PURPOSE:  OUTPUT (CR) (LF)                             *
+C * USAGE:    CALL NEWLIN                                  *
+C *           TEKTRONIX V1 4-7-71                          *
+C **********************************************************
+C ROUTINE---DA-0330.05-01   NEWLIN
+      SUBROUTINE NEWLIN
+      CALL CARTN
+      CALL LINEF
+      RETURN
+      END
+C **********************************************************
+C * NAME:     CARTN                                        *
+C * PURPOSE   OUTPUT CARRIAGE RETURN                       *
+C * USAGE:    CALL CARTN                                   *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C **********************************************************
+C ROUTINE---DA-0340.05-01   CARTN
+      SUBROUTINE CARTN
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+C * IF NOT IN ALPHA MODE, ENTER
+      IF(KKMODE.EQ.0)GO TO 20
+      CALL ANMODE
+C * IF LEFT MARGIN SET  ADJUST TO LEFT MARGIN
+20    IF(KLMRGN.EQ.0)GO TO 10
+C * MOVE TO LEFT MARGIN   VECTOR MODE
+      CALL MOVABS(KLMRGN,KBEAMY)
+C * RETURN TO ALPHA MODE
+      CALL ANMODE
+      GO TO 30
+10    KBEAMX=0
+C*  OUTPUT (CR)
+      CALL TOUTPT(13)
+30    RETURN
+      END
+C*
+C*
+C **********************************************************
+C **********************************************************
+C * NAME:     LINEF                                        *
+C * PURPOSE:  OUTPUT LINE FEED                             *
+C * USAGE:    CALL LINEF                                   *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C **********************************************************
+C ROUTINE---DA-1080.05-01 4010 LINEF
+      SUBROUTINE LINEF
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+C * IF NOT IN ALPHA MODE, ENTER
+      IF(KKMODE.EQ.0)GO TO 10
+      CALL ANMODE
+C*  OUTPUT (LF)
+10    CALL TOUTPT(10)
+C *   UPDATE KBEAMY
+      KBEAMY=KBEAMY-KVERSZ
+      RETURN
+      END
+C **********************************************************
+C * NAME:     BAKSP                                        *
+C * PURPOSE:  OUTPUT BACKSPACE CHARACTER                   *
+C * USAGE:    CALL BAKSP                                   *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C **********************************************************
+C ROUTINE---DA-1090.05-01 4010 BAKSP
+      SUBROUTINE BAKSP
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+C * IF NOT IN ALPHA MODE, ENTER
+      IF(KKMODE.EQ.0)GO TO 10
+      CALL ANMODE
+C* OUTPUT (BS)
+10    CALL TOUTPT(8)
+C * UPDATE BEAM X POSITION
+      KBEAMX=KBEAMX-KHORSZ
+C * CHECK DISPLAY LIMIT
+      IF(KBEAMX.GE.0)GO TO 20
+      KBEAMX=KBEAMX+1023
+20    RETURN
+      END
+C **********************************************************
+C * NAME:     HOME                                         *
+C * PURPOSE:  POSITION BEAM TO HOME                        *
+C * USAGE:    CALL HOME                                    *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C **********************************************************
+C ROUTINE---DA-1100.05-01 4010 HOME
+      SUBROUTINE HOME
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+C * MOVE TO LEFT MARGIN  VECTOR MODE
+      CALL MOVABS(KLMRGN,KHOMEY)
+C * RETURN TO ALPHA MODE
+      CALL ANMODE
+      RETURN
+      END
+C **********************************************************
+C * NAME:     NEWPAG                                       *
+C * PURPOSE   OUTPUT (ESC) (FF)                            *
+C * USAGE:    CALL NEWPAG                                  *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C **********************************************************
+C ROUTINE---DA-1110.05-01 4010 NEWPAG
+      SUBROUTINE NEWPAG
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+C * ENTER A/N MODE IF NECESSARY
+      IF(KKMODE) 5,6,5
+5     CALL ANMODE
+C*  OUTPUT (ESC) (FF) FOR NEW PAGE
+6     CALL TOUTPT(27)
+      CALL TOUTPT(12)
+      CALL IOWAIT(10)
+C * IF LEFT MARGIN IS SET ADJUST KBEAMX AND MOVE TO LEFT MARGIN
+      IF(KLMRGN.EQ.0)GO TO 10
+C * MOVE TO LEFT MARGIN VECTOR MODE
+      CALL MOVABS(KLMRGN,KHOMEY)
+C * RETURN TO ALPHA MODE
+      CALL ANMODE
+      GO TO 20
+C * NO MARGIN, SET BEAM LOCATION PARAMETERS
+10    KBEAMX=0
+      KBEAMY=KHOMEY
+20    RETURN
+      END
+C **********************************************************
+C *             GENERAL USE ROUTINES
+C **********************************************************
+C **********************************************************
+C * NAME:        RESTAT                                    *
+C * PURPOSE:     RESTORE STATUS                            *
+C * USAGE:       CALL RESTAT(ARRAY)                        *
+C *              ARRAY - 54 WORD REAL ARRAY                *
+C *                   IN WHICH PREVIOUS TERMINAL STATUS    *
+C *                   HAS BEEN STORED                      *
+C **********************************************************
+C *
+C *
+C ROUTINE---DA-1120.05-01 4010 RESTAT
+      SUBROUTINE RESTAT(RARRAY)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+      DIMENSION RARRAY(55),IB(44),RB(11)
+      EQUIVALENCE (IB(1),KBAUDR),(RB(1),TMINVX)
+C *
+C *  COPY GIVEN STATUS INTO TUS COMMON **
+      DO 100 I=1,44
+100   IB(I)=RARRAY(I)
+      DO 101 I=1,11
+101   RB(I)=RARRAY(I+44)
+C *  SAVE GIVEN MOVE FLAG & MODE **
+      MOVE=KMOVEF
+      MODE=KKMODE+1
+      KGL=KGRAFL
+C *  MOVE TO GIVEN BEAM LOCATION; FORCE ENTRY TO A/N TO RESET FOR MOVE
+      IY=KBEAMY
+      CALL ANMODE
+      KBEAMY=IY
+      CALL MOVABS(KBEAMX,KBEAMY)
+C *  ENTER GIVEN MODE  **
+      GO TO (200,300,400,500,300),MODE
+200   CALL ANMODE
+      GO TO 600
+300   IF(MOVE) 350,600,350
+C *   PRIME FOR MOVE  **
+350   CALL VECMOD
+      GO TO 600
+400   CALL PNTMOD
+600   KGRAFL=KGL
+500   RETURN
+      END
+C **********************************************************
+C *             MODE CONTROL ROUTINES
+C **********************************************************
+C **********************************************************
+C * NAME:     ANMODE                                       *
+C * PURPOSE:  ENTER AND SET ALPHANUMERIC MODE              *
+C * USAGE:    CALL ANMODE                                  *
+C *           TEKTRONIX V1 4-8-71 DP                       *
+C **********************************************************
+C ROUTINE---DA-1400.05-01 4010 ANMODE
+      SUBROUTINE ANMODE
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+C*  SET ALPHA MODE OUTPUT (US)
+      CALL TOUTPT(31)
+      KKMODE=0
+      IF(KBEAMY.GT.KHOMEY) KBEAMY=KHOMEY
+10    RETURN
+      END
+C **********************************************************
+C * NAME:     MOVABS                                       *
+C * PURPOSE:  DRAW BLANK VECTOR                            *
+C * USAGE:    CALL MOVABS(IX,IY)                           *
+C *           IX  ABSOLUTE X (SCREEN COORDINATE)           *
+C *           IY  ABSOLUTE Y (SCREEN COORDINATE)           *
+C *           TEKTRONIX V1 4-7-71                          *
+C **********************************************************
+C ROUTINE---DA-0380.05-01   MOVABS
+      SUBROUTINE MOVABS(IX,IY)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+C * ENTER VECTOR MODE
+      CALL VECMOD
+C * OUTPUT BLANK VECTOR
+      CALL XYCNVT(IX,IY)
+      KGRAFL=0
+      RETURN
+      END
+C **********************************************************
+C * NAME:     IOWAIT                                       *
+C * PURPOSE:  TO SEND (SYN) TO TERMINAL FOR REQUIRED TIME  *
+C * USAGE:    CALL IOWAIT(ITIME)                           *
+C *           ITIME  TIME IN TENTHS OF SECONDS             *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C **********************************************************
+C ROUTINE---DA-0390.05-01   IOWAIT
+      SUBROUTINE IOWAIT(ITIME)
+C*  THIS ROUTINE IS USED TO GENERATE DELAYS FOR REMOTE TERMINALS
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+C * IF KBAUD .LE. 0  NO WAIT
+      IF(KBAUDR.LE.0)GO TO 20
+      KOUNT=ITIME*KBAUDR/10
+      DO 10 J=1,KOUNT
+C*  OUTPUT (SYN) TO INSURE AGAINST LOSS OF OUTPUT WHILE
+C*  TERMINAL IS BUSY. (SYN) DOES NOT AFFECT THE TERMINAL.
+10    CALL TOUTPT(22)
+20    RETURN
+      END
+C **********************************************************
+C * NAME:     VECMOD                                       *
+C * PURPOSE:  TO ENTER LINEAR INTERPOLATE MODE             *
+C * USAGE:    CALL VECMOD                                  *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C **********************************************************
+C ROUTINE---DA-0410.05-01   VECMOD
+      SUBROUTINE VECMOD
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+C * IF WE ARE IN VECTOR MODE DO NOT RESET PLOT CHARACTERS
+      IF(KKMODE.EQ.1)GO TO 10
+C*  OUTPUT (US) TO ENTER A/N MODE AND RESET FOR VECTOR MODE
+      CALL TOUTPT(31)
+C * RESET  PLOT CHARACTERS
+      DO 112 II=1,4
+112   KPCHAR(II)=-1
+      KKMODE=1
+C*  OUTPUT (GS) TO ENTER VECTOR MODE
+10    CALL TOUTPT(29)
+      KMOVEF=1
+      RETURN
+      END
+C **********************************************************
+C *            GENERAL USE ROUTINES
+C **********************************************************
+C **********************************************************
+C * NAME:        SVSTAT                                    *
+C * PURPOSE:     SAVE STATUS                               *
+C * USAGE:       CALL SVSTAT(ARRAY)                        *
+C *              ARRAY - 60 WORD REAL ARRAY                *
+C *                IN WHICH TERMINAL STATUS IS STORED      *
+C **********************************************************
+C *
+C *
+C ROUTINE---DA-0420.05-01   SVSTAT
+      SUBROUTINE SVSTAT(RARRAY)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+      DIMENSION RARRAY(55),IB(44),RB(11)
+      EQUIVALENCE (IB(1),KBAUDR),(RB(1),TMINVX)
+C *
+C *   COPY TERMINAL STATUS AREA INTO GIVEN SAVE ARRAY    **
+C *
+      DO 100 I=1,44
+100   RARRAY(I)=IB(I)
+      DO 101 I=1,11
+101   RARRAY(I+44)=RB(I)
+      RETURN
+      END
+C **********************************************************
+C * NAME:      CSIZE                                 *
+C * PURPOSE:      RETURNS THE CHARACTER SIZE OF THE TERMINAL *
+C * USAGE:      CALL CSIZE(IHORZ,IVERT)                     *
+C *            IHORZ  WIDTH OF THE CHARACTERS               *
+C *            IVERT  HEIGHT OF THE CHARACTERS               *
+C **********************************************************
+C ROUTINE---DA-0430.05-01   CSIZE
+      SUBROUTINE CSIZE(IHORZ,IVERT)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+      IHORZ=KHORSZ
+      IVERT=KVERSZ
+      RETURN
+      END
+C ROUTINE---BG-0440.05-01   RSCALE
+      SUBROUTINE RSCALE(SCALE)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+       TRSCAL=SCALE
+       RETURN
+       END
+C ROUTINE---BG-0450.05-01   RROTAT
+      SUBROUTINE RROTAT(ANGLE)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+       A=0.0174*ANGLE
+       TRCOSF=COS(A)
+       TRSINF=SIN(A)
+       RETURN
+       END
+C*
+C **********************************************************
+C * NAME:     PNTMOD                                       *
+C * PURPOSE:  SET POINT PLOT MODE                          *
+C * USAGE:    CALL PNTMOD                                  *
+C *           TEKTRONIX VI 4-7-71                          *
+C **********************************************************
+C ROUTINE---DA-1130.05-01 4010 PNTMOD
+      SUBROUTINE PNTMOD
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+C*  CANCEL PREVIOUS MODES - OUTPUT (US)
+      CALL TOUTPT(31)
+C * RESET PLOT CHARACTERS AND SET MODE
+      DO 111 II=1,4
+111   KPCHAR(II)=-1
+      KKMODE=2
+      RETURN
+      END
+C **********************************************************
+C *           BASIC I/O ROUTINES
+C **********************************************************
+C **********************************************************
+C * NAME:     XYCNVT                                       *
+C * PURPOSE:  CONVERT X, Y COORDINATES TO PLOT CHARACTERS  *
+C *           AND OUTPUT TO TERMINAL                       *
+C * USAGE:    CALL XYCNVT(IX,IY)                           *
+C *           IX  ABSOLUTE SCREEN X COORDINATE             *
+C *           IY  ABSOLUTE SCREEN Y COORDINATE             *
+C *           TEKTRONIX V1 4-7-71 DP                       *
+C **********************************************************
+C ROUTINE---DA-1140.05-01 4010 XYCNVT
+      SUBROUTINE XYCNVT(IX,IY)
+      COMMON /TKTRNX/ KBAUDR, KERROR, KGRAFL, KHOMEY, KKMODE,
+     1 KHORSZ, KVERSZ, KITALC, KSIZEF, KLMRGN, KRMRGN,
+     2 KTBLSZ, KHORZT(10), KVERTT(10),
+     3 KBEAMX, KBEAMY, KMOVEF, KPCHAR(4),KDASHT,
+     4 KMINSX, KMINSY, KMAXSX, KMAXSY, TMINVX, TMINVY, TMAXVX, TMAXVY,
+     5 TREALX, TREALY, TIMAGX, TIMAGY, TRCOSF, TRSINF, TRSCAL
+C * SAVE NEW X,Y POSITION
+      KBEAMY=IY
+      KBEAMX=IX
+C * CALC. LOW ORDER X
+      LOX=MOD(IX,32)+64
+C * CALC. HIGH ORDER X
+      IHOX=MOD(IX/32,32)+32
+C * CALC. LOW ORDER Y
+      LOY=MOD(IY,32)+96
+C * CALC. HIGH ORDER Y
+      IHOY=MOD(IY/32,32)+32
+      IF(KKMODE.NE.2)GO TO 5
+C*  OUTPUT (GS) TO ENTER VECTOR MODE
+      CALL TOUTPT(29)
+C*  ORDER OF OUTPUT MUST REFLECT HARDWARE STRAPPING
+C * IF HIGH Y HAS CHANGED OUTPUT AND SAVE
+5     IF(IHOY.NE.KPCHAR(1))GO TO 10
+C * IF LOW Y HAS CHANGED OUTPUT AND SAVE
+      IF(LOY.NE.KPCHAR(2))GO TO 20
+C * IF HIGH X CHANGED OUTPUT LOW Y
+      IF(IHOX.EQ.KPCHAR(3))GO TO 41
+      GO TO 30
+C * OUTPUT HIGH Y
+10    KPCHAR(1)=IHOY
+      CALL TOUTPT(IHOY)
+C * OUTPUT LOW Y
+20    KPCHAR(2)=LOY
+30    CALL TOUTPT(LOY)
+C * IF HIGH X HAS CHANGED OUTPUT AND SAVE
+      IF(IHOX.EQ.KPCHAR(3))GO TO 40
+C * OUTPUT HIGH X
+      KPCHAR(3)=IHOX
+      CALL TOUTPT(IHOX)
+      GO TO 40
+41    IF(LOX.NE.KPCHAR(4))GO TO 40
+      IF(KKMODE.EQ.2)GO TO 44
+      IF(KMOVEF.EQ.1)GO TO 42
+      IF(IFLAG.EQ.0)GO TO 42
+      GO TO 100
+40    KPCHAR(4)=LOX
+C * OUPUT LOW X
+42    CALL TOUTPT(LOX)
+      IF(KKMODE.NE.2)GO TO 43
+C * OUTPUT LOW ORDER X TWICE TO SIMULATE POINT PLOT
+44    CALL TOUTPT(LOX)
+      GO TO 100
+43    IF(KMOVEF.EQ.1)GO TO 50
+      IFLAG=1
+      GO TO 100
+50    IFLAG=0
+      KMOVEF=0
+100   RETURN
+      END
+C*
+  F@eº
