@@ -1,0 +1,525 @@
+MODULE DEFY(DOLLAR,ENTRIES=($DADD,$DSUB,$DMUL,$DDIV),
+        FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+BEGIN
+
+REQUIRE DDEFS.BLI[7,107355];
+REQUIRE DVDEFS.BLI[7,107355];
+REQUIRE GDEFS.BLI[7,107355];
+REQUIRE RDEFS.BLI[7,107355];
+REQUIRE UDEFS.BLI[7,107355];
+
+
+MAP U$DYNARY DBASE$;
+MAP G$ DGAM$;
+MAP DL$ DLIST$;
+MAP DR$ DREGS$;
+MAP DF$I DFLAG$;
+MAP U$DYNARY DPOOL$;
+MAP U$DYNARY DEFER$;
+MAP U$DYNARY DRACK$;
+
+UNDECLARE $DADD;
+
+GLOBAL ROUTINE $DADD =
+   BEGIN
+   %AT LAST ... THE BIG BAD ADD ROUTINE FOR PROCESSING
+   GV$ADD..
+
+   THE PLOT IS AS FOLLOWS..
+        (1)FIRST, CHECK TO SEE IF BOTH OPERANDS ARE LITERALS..
+        IF SO, GO TO THE NON-EXISTENT CONSTTANT COLLAPSE
+        ROUTINE AND DO THE RIGHT THING
+
+        (2)IF NOT , DECIDE WHAT PRECISION IS REQUIRED
+        AND DO A SELECT ON THE DDV$<TYPE> INDICATED FOR THE PRECISION.
+
+        (3) FOR SINGLE PRECISION (DTPV$SADD), CHECK FOR SLITS
+        AND COLLAPSE IF POSSIBLE, SINCE THE CONSTANT COLLAPSE
+        ROUTINE ISN'T AROUND YET..OTHERWISE, DO A $DGOPD ON
+        BOTH OPERANDS AND A CALL TO $DPCP TO WED THEM FOREVER..
+
+        (4)FOR DOUBLE PRECISION, GET BOTH OPERANDS TO THEIR $DREGS$
+        AND CALL $DPCP TO DO THE HARD WORK(DTPV$DADD).
+
+        (5)FOR TRIPLE PRECISION, EVEN HARDER WORK REMAINS
+
+
+    /JS.........................8/17/74
+    %
+
+    LOCAL P,T;
+
+    MAP G$OPND P;
+
+    P_.DGAM$+1;
+
+%********************************
+THIS IS THE TEST FOR CONSTANT COLLAPSE, WHICH WILL BE FOR REAL LATER
+
+    IF (.P[1,G$OPTYP] EQL GV$LIT) AND (.P[2,G$OPTYP] EQL GV$LIT) THEN
+        $DKONS(BLAH,BLAH,BLAH);
+
+********************************%
+    SELECT $DSIZE(.DGAM$[G$ICNT],.DGAM$[G$DCNT]) OF 
+        NSET
+
+DDV$1WD: BEGIN
+        %AHA...SINGLE PRECISION%
+        $DGOPD(1,1);
+        $DGOPD(2,2);
+        $DFRCA();
+
+        %SLIT TIME%
+        IF (.DREGS$[DR$DDTYPE,1] EQL DDV$SLIT) AND
+           (.DREGS$[DR$DDTYPE,2] EQL DDV$SLIT) THEN
+           BEGIN
+           %A COLLAPSIBLE SHORT LITERAL%
+           T_.DREGS$[DR$OFFSET,1]+.DREGS$[DR$OFFSET,2];
+           IF .T LSS 262144  THEN
+                BEGIN
+                %RESULT WAS A SHORT LITERAL TOO%
+                $DSETLIT(1,.T);
+                DFLAG$_0;
+                $DPCP(DTPV$LOD1);
+                END
+            ELSE
+                BEGIN
+                %RESULT WAS NOT SO SHORT%
+                $DGSYL(.T,1);
+                DFLAG$_0;
+                DFLAG$[0,DFV$OPND1]_1;
+                $DPCP(DTPV$LOD1);
+                END
+            END
+        ELSE
+            $DPCP(DTPV$SADD);
+        END;
+
+DDV$2WD:  BEGIN
+        %DOUBLE PRECISION%
+        $DGOPD(1,1);
+        $DGOPD(2,2);
+        $DFRCA();
+
+        $DPCP(DTPV$DADD);
+
+        END;
+
+DDV$3WD:  0;
+
+        TESN;
+
+    $DMARKAC;
+
+        END;
+
+
+UNDECLARE $DSUB;
+
+GLOBAL ROUTINE $DSUB =
+   BEGIN
+   %AT LAST, THE SUBTRACTT ROUTINE
+
+    REGISTER ASSIGNMENT IS THE SAME AS $DADD
+    BUT DIFFERENT THINGS HAPPEN
+    I'LL TRY TO EXPLAIN AS WE GO ALONG
+
+    /JS************************************8/20/74
+    %
+
+    LOCAL P,T;
+    MAP G$OPND P;
+  
+
+    P_.DGAM$+1;
+
+    %YES...THIS IS THE PLACE TO PUT IN THE GENERAL CONSTANT
+    COLLAPSE CALL%
+
+    SELECT $DSIZE(.DGAM$[G$ICNT],.DGAM$[G$DCNT]) OF
+        NSET
+
+DDV$1WD:        BEGIN
+                $DGOPD(1,1);
+                $DGOPD(2,2);
+                $DFRCA();
+
+        %SLIT TIME%
+                IF (.DREGS$[DR$DDTYPE,1] EQL DDV$SLIT)
+                   AND (.DREGS$[DR$DDTYPE,2] EQL DDV$SLIT) THEN
+                        BEGIN
+                        T_.DREGS$[DR$OFFSET,1]-.DREGS$[DR$OFFSET,2];
+                        DFLAG$[0,#17]_0;
+                        IF .T LSS 0 THEN
+                           BEGIN
+                           $DSETLIT(1,-.T);
+                           DFLAG$[0,#17]_1;
+                           END
+                        ELSE
+                           $DSETLIT(1,.T);
+                        END;
+
+                $DPCP(DTPV$SUBB);
+                END;
+
+DDV$2WD:   BEGIN
+        IF .P[2,G$OPTYP] EQL GV$NP THEN
+           BEGIN
+            %FORCE AC SO THAT WE DO NOT HAVE OPND1-AC SITUATION%
+           $DFRCA();
+           $DGOPD(1,1);
+           $DGOPD(2,2);
+           END
+        ELSE
+           BEGIN
+           %NORMAL...%
+           $DGOPD(1,1);
+           $DGOPD(2,2);
+           $DFRCA();
+           END;
+
+        $DPCP(DTPV$DSUB);
+
+           
+           END;
+
+DDV$3WD:   BEGIN
+
+           END;
+
+        TESN;
+
+        $DMARKAC;
+
+     END;
+
+
+   ROUTINE SDSETUP(OPCODE)=
+        BEGIN
+        %SDSETUP SETS UP FOR A DOUBLE * SINGLE = DOUBLE
+        MULTIPLICATION
+        OR A DIVIDE DOUBLE BY SINGLE BASE ON THE VALUE OF
+        OPCODE
+
+        KEEP IN MIND THAT THE CALLING SEQUENCE FOR THIS IS:
+
+
+                $XMPSD(DOUBLE,.SINGLE,DOUBLEDEST)
+                OR $XDVDS(DOUBLE,.SINGLE,DEST)
+
+        /JS.....................9/16/74
+        %
+
+        LOCAL T, X , QP;
+        LOCAL TICKLE;
+        T_.DGAM$[G$ID];
+        TICKLE _ 0;
+        IF .DREGS$[DR$DDTYPE,1] EQL DDV$AC THEN
+           BEGIN
+           TICKLE _ 1; %YES WE ALLOCATED A .T+1 TEMP%
+           $DRTMP(0,DDV$2WD,.T+1,0,1); 
+           %N.B...THIS TEMP WILL BE IN USE ONLY FOR THIS ROUTINE%
+           $DPCP(DTPV$SAVE2); %SAVE AC%
+           $DGSAD(.DREGS$[DR$BASE,0],.DREGS$[DR$OFFSET,0],3);
+           SELECT .DREGS$[DR$DDTYPE,2] OF NSET
+
+DDV$SLIT:       $DGSYL(.DREGS$[DR$OFFSET,2],4);
+DDV$1WD:        $DEXCH(2,4);
+              TESN;
+            END
+
+        ELSE IF .DREGS$[DR$DDTYPE,1] EQL DDV$2WD THEN
+           BEGIN
+           $DGSAD(.DREGS$[DR$BASE,1],.DREGS$[DR$OFFSET,1],3);
+           SELECT .DREGS$[DR$DDTYPE,2] OF NSET
+
+DDV$AC:         BEGIN
+                $DRTMP(0,DDV$1WD,.T+1,0,1);
+                $DPCP(DTPV$SAVE1);
+                $DEXCH(0,4);
+                END;
+
+DDV$1WD:        $DEXCH(2,4);
+
+DDV$SLIT:       $DGSYL(.DREGS$[DR$OFFSET,2],4);
+             TESN;
+            END
+        ELSE %ERROR GOES HERE% 0;
+
+        QP_.DGAM$[G$ICNT]^9+.DGAM$[G$DCNT];
+        $DRTMP(5,DDV$2WD,.T,.QP,.DGAM$[G$UCNT]);
+        $DGSAD(.DREGS$[DR$BASE,5],.DREGS$[DR$OFFSET,5],5);
+        $DRNCL(.OPCODE,3);
+
+        %NOW FREE THAT DUMMY TEMP%
+        IF .TICKLE EQL 1 THEN
+        $DGTMP(.T+1,1);
+        END;
+UNDECLARE $DMUL;
+
+GLOBAL ROUTINE $DMUL =
+   BEGIN
+   %PROCESS ONE EACH GV$MUL TOKEN
+   REGISTERS ARE AS ABOVE
+
+   /JS...........................8/22/74
+   %
+
+   LOCAL P,T;
+   LOCAL T1,T2;
+   MAP G$OPND P;
+
+
+   P_.DGAM$+1;
+
+  %CONSTANT COLLAPSE GOES HERE...%
+
+   SELECT $DSIZE(.DGAM$[G$ICNT],.DGAM$[G$DCNT]) OF NSET
+
+DDV$1WD: BEGIN
+        $DGOPD(1,1);
+        $DGOPD(2,2);
+        $DFRCA();
+
+        IF (.DREGS$[DR$DDTYPE,1] EQL DDV$SLIT) AND
+           (.DREGS$[DR$DDTYPE,2] EQL DDV$SLIT) THEN
+           BEGIN
+           %SLIT COLLAPSE%
+           T_.DREGS$[DR$OFFSET,1]*.DREGS$[DR$OFFSET,2];
+           DFLAG$_0;
+
+           IF .T LSS 262144 THEN
+                $DSETLIT(1,.T)
+           ELSE
+                BEGIN
+                $DGSYL(.T,1);
+                DFLAG$[0,DFV$OPND1]_1
+                END;
+           $DPCP(DTPV$LOD1)
+           END
+
+        ELSE
+           $DPCP(DTPV$MPSSS);
+        $DMARKAC;
+        END;
+
+DDV$2WD: BEGIN
+
+        $DGOPD(1,1);
+        $DGOPD(2,2);
+        $DFRCA();
+
+        T1_$DSIZEQP(.DREGS$[DR$QP,1]);
+        T2_$DSIZEQP(.DREGS$[DR$QP,2]);
+
+        IF (.T1 EQL DDV$1WD) AND (.T2 EQL DDV$1WD) THEN
+           BEGIN
+           %SINGLE*SINGLE -> DOUBLE  .. IN LINE%
+           IF (.DREGS$[DR$DDTYPE,1] EQL DDV$SLIT) AND 
+                (.DREGS$[DR$DDTYPE,2] EQL DDV$SLIT) THEN
+                BEGIN
+                %SLIT CONSTANT COLLAPSE%
+                T_.DREGS$[DR$OFFSET,1]*.DREGS$[DR$OFFSET,2];
+                IF .T LSS 262144  THEN
+                   $DSETLIT(1,.T)
+                ELSE
+                   BEGIN
+                   $DGSYL(.T,1);
+                   DFLAG$[0,#17]_1;
+                   END;
+                END;
+             $DPCP(DTPV$MPSSD);
+             $DMARKAC;
+           END
+
+        ELSE IF (.T1 EQL DDV$2WD) AND (.T2 EQL DDV$1WD) THEN
+           BEGIN
+           SDSETUP(RTRV$XMPDS); %MUL DP BY SP%
+           END
+         ELSE IF (.T1 EQL DDV$1WD) AND (.T2 EQL DDV$2WD) THEN
+           BEGIN
+           $DEXCH(1,2);
+           SDSETUP(RTRV$XMPDS); %MUL DP BY SP%
+           END
+        ELSE IF (.T1 EQL DDV$2WD) AND (.T2 EQL DDV$2WD) THEN
+           BEGIN
+                %APPARENTLY, THIS CAN NOT OCCUR%
+           END;
+
+        END;
+
+DDV$3WD: BEGIN
+
+        END;
+
+    TESN;
+
+
+   END;
+
+
+UNDECLARE $DDIV;
+
+GLOBAL ROUTINE $DDIV =
+   BEGIN
+   %DIVIDE PROCESSING DONE HERE..CHEEP
+
+   REGISTERS ARE AS ABOVE..
+
+   /JS.........................8/23/74
+   %
+
+   LOCAL P,T;
+   MAP G$OPND P;
+   LOCAL T1,T2;
+
+   P_.DGAM$+1;
+   IF .P[2,G$OPTYP] EQL GV$NP THEN $DFRCA(); %FORCE AC %
+%MAJOR CONSTANT COLLAPSE SHOULLD BE DONE HERE%
+
+   SELECT $DSIZE(.DGAM$[G$ICNT],.DGAM$[G$DCNT]) OF NSET
+
+DDV$1WD: BEGIN
+        %EASY..SINGLE PRECISION%
+        $DGOPD(1,1);
+        $DGOPD(2,2);
+        $DFRCA();
+        T1_$DSIZEQP(.DREGS$[DR$QP,1]);
+        T2_$DSIZEQP(.DREGS$[DR$QP,2]);
+
+        IF (.T2 EQL DDV$1WD) THEN
+           BEGIN
+%**********************************************
+OLD,IMPROPERLY INDENTED SINGLE/SINGLE CODE
+*****************************************%
+
+        IF (.DREGS$[DR$DDTYPE,1] EQL DDV$SLIT) AND
+           (.DREGS$[DR$DDTYPE,2] EQL DDV$SLIT) THEN
+           BEGIN
+
+           %SLIT COLLAPSE%
+           IF .DREGS$[DR$OFFSET,2] EQL 0 THEN
+                BEGIN
+                %ZERO DIVISOR%
+                $DSETLIT(1,0); %DEFAULT%
+                DFLAG$_0;
+                %EMIT A HOSTILE ERROR MESSAGE%
+                END
+           ELSE
+                BEGIN
+                %NON ZERO DIVISOR%
+                DFLAG$_0;
+                $DSETLIT(1,(.DREGS$[DR$OFFSET,1]/.DREGS$[DR$OFFSET,2]));
+                END;
+           $DPCP(DTPV$LOD1);
+            END
+
+        ELSE
+           $DPCP(DTPV$SDIV);
+%**************************************************
+END OF OLD CODE
+**********************************************%
+           $DMARKAC;
+           END
+
+        ELSE IF (.T2 EQL DDV$2WD) THEN
+           BEGIN
+           SELECT .DREGS$[DR$DDTYPE,1] OF NSET
+
+DDV$SLIT:       $DGSYL(.DREGS$[DR$OFFSET,1],3);
+
+DDV$AC:         $DSETAC(3,#17);
+
+DDV$1WD:        $DEXCH(1,3);
+
+            TESN;
+
+           $DGSAD(.DREGS$[DR$BASE,2],.DREGS$[DR$OFFSET,2],4);
+           $DRNCL(RTRV$XDVSD,2);
+
+        %NOW COPY RESULT TO AC 17%
+           $DSETAC(1,3);
+           DFLAG$[0,DFV$OPND1]_1;
+           DFLAG$[0,DFV$SLIT1]_0;
+           DFLAG$[0,DFV$AC1]_0;
+           $DPCP(DTPV$LOD1);
+
+          %AND TO FINISH IT%
+           $DMARKAC;
+
+
+
+           END
+
+        ELSE IF (.T2 EQL DDV$3WD) THEN
+           BEGIN
+
+%DIVIDE SNGL/TRIPLE%
+
+           END;
+        END;
+
+DDV$2WD: BEGIN
+        
+        $DGOPD(1,1);
+        $DGOPD(2,2);
+        $DFRCA();
+
+        IF (.DREGS$[DR$DDTYPE,2] EQL DDV$1WD) OR
+           (.DREGS$[DR$DDTYPE,2] EQL DDV$SLIT) THEN
+           BEGIN %DIVIDE DOUBLE BY SINGLE..IN LINE%
+           SDSETUP(RTRV$XDVDS); %UNFORTUNATELY..CAL A RTR%
+           END
+
+        ELSE IF (.DREGS$[DR$DDTYPE,2] EQL DDV$2WD) THEN
+           BEGIN
+           %DOUBLE/DOUBLE -> DOUBLE%
+           T1_.DGAM$[G$ID];
+        %FIRST GET A TEMPORARY FOR THE RESULT%
+           $DRTMP(5,DDV$2WD,.T1,.DGAM$[G$ICNT]^9+.DGAM$[G$DCNT],
+                .DGAM$[G$UCNT]);
+           $DGSAD(.DREGS$[DR$BASE,5],.DREGS$[DR$OFFSET,5],5);
+
+        %NOW THE ADDRESS OF THE DIVISOR%
+           $DGSAD(.DREGS$[DR$BASE,2],.DREGS$[DR$OFFSET,2],4);
+
+        %NOW..IS THE DIVIDEND IN THE AC?%
+           IF (.DREGS$[DR$DDTYPE,1] EQL DDV$AC) THEN
+                BEGIN
+                %YEP..SO GEN A TEMP FOR SAFEKEEPING%
+                $DRTMP(0,DDV$2WD,.T1+1,.DREGS$[DR$QP,1],1);
+                %AND SAVE THE BLOODY THING%
+                $DPCP(DTPV$SAVE2);
+                $DGSAD(.DREGS$[DR$BASE,0],.DREGS$[DR$OFFSET,0],3);
+                END
+           ELSE
+                %AN OPERAND!!%
+                $DGSAD(.DREGS$[DR$BASE,1],.DREGS$[DR$OFFSET,1],3);
+
+          %NOW EMIT THE DIVIDE RTN CALL//%
+           $DRNCL(RTRV$XDVDD,3);
+
+           %CLEAR DUMMY TEMP IF NEED BE%
+           IF (.DREGS$[DR$DDTYPE,1] EQL DDV$AC) THEN
+                $DGTMP(.T1+1,1);
+           END
+
+ELSE
+           BEGIN
+           %DOUBLE/TRIPLE -> DOUBLE%
+           END;
+
+        END;
+
+DDV$3WD: BEGIN
+
+        END;
+
+    TESN;
+
+
+    END;
+
+%*******************%
+END ELUDOM
+ 
