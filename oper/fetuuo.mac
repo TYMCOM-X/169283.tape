@@ -1,0 +1,729 @@
+        TITLE   UUO
+;
+;
+; THIS PACKAGE CONTAINS A UUO DISPATCHER AND SOME TELETYPE
+; UUOS.
+;
+; IT IS ASSUMED THAT REGISTER 17 IS SET UP FOR A PUSH STACK.
+; IT IS USED EXTENSIVELY BY THIS CODE BUT IS NOT SET UP.
+;
+; IT IS ASSUMED THAT LOCATION 41 OCTAL CONTAINS THE INSTRUCTION
+; 'PUSHJ 17,UUO'.
+;
+; TO ADD NEW UUOS, PUT THE UUO NAME AND ROUTINE ADDRESS INTO
+; THE TABLE 'UUOTAB'. THE FORMAT OF AN ENTRY IS:
+; NAME,ROUTINE. THE LOCATIION OF THE UUO IN THE TABLE
+; DEFINES IT'S OPCODE FIELD. IN OTHER WORDS, THE FIRST ENTRY
+; IN THE TABLE HAS OPCODE 1, THE SECOND ENTRY HAS OPCODE 2.
+; IN GENERAL, THE NTH ENTRY IN THE TABLE HAS OPCODE N.
+; UNUSED ENTRIES SHOULD BE ZERO.
+;
+; WHEN THE UUO DISPATCHER BRANCHES TO THE UUO ROUTINE,
+; THE RETURN ADDRESS AND THE ORIGINAL CONTENTS OF REGISTER ZERO
+; WILL HAVE BEEN PUSHED ONTO THE STACK. CELL ZERO IS ON THE
+; TOP OF THE STACK. THE RETURN ADDRESS IS NEXT. CELL ZERO
+; WILL HAVE BEEN CLOBBERED.
+EXTERNAL        DIS,ESCR,ESCFLG,SEM,PER,SAVESC,CLSE,PERW
+EXTERNAL        CIN,COUT,CLIN,CLOUT,BYI,BYO
+SAVR1:  BLOCK   20
+SAVR2:  BLOCK   20
+SPTR:   BLOCK   3
+LBUFF:  BLOCK   64
+SAVE1:  0
+SAVE2:  0
+SAVE3:  0
+CTEST2: 0
+SCHAR2: 0
+CTEST:  0
+TTYSTA: 0
+TTYFLG: 0
+CNT:    0
+SCHAR:  0
+ENTRY   UUO
+UUO:    PUSH    17,0
+        LDB     0,[POINT 9,40,8]
+        ADDI    0,UUOTAB-1
+        JRST    @0
+DEFINE  OPD     (A,B)
+<X=.-UUOTAB+1
+OPDEF A [X*1000000000]
+ JRST B>
+UUOTAB: OPD     TCI,TCIUUO;    001
+        OPD     TCL,TCLUUO;    002
+        OPD     RDLINE,RDUUO;  003
+        OPD     GCI,GCIUUO;    004
+        OPD     GCD,GCDUUO;    005
+        OPD     WCI,WCIUUO;    006
+        OPD     WCD,WCDUUO;    007
+        OPD     TCO,TCOUUO;    010
+        OPD     DEC,DECUUO;    011
+        OPD     TYPE,TYPUUO;   012
+        OPD     CLRIN,CLRUUO;  013
+        OPD     SETTTY,TTYUUO; 014
+        OPD     ERROR,ERRUUO;   015
+        OPD     FLOAT,FLTUUO;   016
+        OPD     NORM,NRMUUO;    017
+        OPD     FIX,FIXUUO;     020
+        OPD     STCI,STIUUO;    021
+        OPD     STCL,STLUUO;    022
+        OPD     ENABLE,ENUUO;   023
+        OPD     DISABL,DISUUO;  024
+        OPD     FERR,FERUUO;    025
+        OPD     TRUN,TRUUUO;    026
+        OPD     EXTEND,EXTUUO;  027
+        BLOCK   UUOTAB+37-.
+; THE TCI UUO READS ONE CHARACTER FROM THE TERMINAL. THE CHARACTER
+; IS RETURNED IN THE CORE ADDRESS SPECIFIED AND IN THE AC
+; SPECIFIED (UNLESS THE AS IS ZERO). CARRIAGE RETURN/LINEFEED
+; PAIRS ARE REDUCED TO A SINGLE CARRIAGE RETURN.
+; LINEFEEDS ARE ECHOED AS LINEFEED, CARRIAGE RETURN, RUBOUT.
+; EDITTING AND BREAK CHARACTERS ARE DEFINED BY THE SETTTY UUO.
+TCIUUO: PUSH    17,40
+        SKIPL   CTEST
+        JRST    TCI3
+        AOS     CTEST
+TCI1:   MOVE    0,SCHAR
+TCI4:   POP     17,40
+        MOVEM   0,SCHAR
+        PUSH    17,SCHAR
+        LDB     0,[POINT 4,40,12]
+        POP     17,@0
+        MOVE    0,SCHAR
+        EXCH    0,0(17)
+        POP     17,@40
+        POPJ    17,
+TCI2:   MOVE    0,[POINT 7,LBUFF-1,34]
+        MOVEM   0,SPTR
+        MOVEM   0,SPTR+1
+        MOVEI   0,^D260
+        MOVEM   0,SPTR+2
+        RDLINE  SPTR
+        JRST    .+1
+TCI3:   GCI     0,SPTR
+        JRST    TCI2
+        JRST    TCI4
+; THE TCL UUO IS IDENTICAL TO THE TCI UUO EXCEPT THAT THE
+; CHARACTER IS NOT REMOVED FROM THE INPUT STRING.
+TCLUUO: PUSH    17,40
+        SKIPGE  CTEST
+        JRST    TCI1
+        SOS     CTEST
+        JRST    TCI3
+; THE GCI UUO READS ONE CHARACTER FROM THE FRONT OF A STRING
+; AND INCREMENTS THE FIRST CHARACTER POINTER.
+; IT SKIPS IF THE STRING IS NOT EMPTY.
+; THE CHARACTER IS RETURNED IN THE SPECIFIED AC.
+; THE ADDRESS PORTION OF THE INSTRUCTION POINTS TO A 3 WORD
+; STRING POINTER. THE FORMAT OF THE STRING POINTER IS:
+;
+; PTR:   BYTE POINTER. POINTS TO THE CHARACTER POSITION PRECEEDING
+;        THE FIRST CHARACTER IN THE STRING.
+; PTR+1: BYTE POINTER. POINTS TO THE LAST CHARACTER IN THE STRING.
+; PTR+2: LPTR,,RPTR
+;
+; LPTR IS THE NUMBER OF CHARACTER POSITIONS TO THE LEFT
+; OF THE 1ST CHARACTER IN THE STRING. RPTR IS THE NUMBER
+; OF CHARACTER POSITIONS TO THE RIGHT OF THE LAST
+; CHARACTER IN THE STRING.
+GCIUUO: PUSH    17,1
+        MOVE    1,40
+        MOVE    0,0(1)
+        CAMN    0,1(1)
+        JRST    GCIF
+        HRLZI   0,1
+        ADDM    0,2(1)
+        ILDB    0,0(1)
+GCI2:   LDB     1,[POINT 4,1,12]
+        MOVEM   1,40
+        POP     17,1
+        EXCH    0,0(17)
+        POP     17,@40
+        AOS     0(17)
+        POPJ    17,
+GCIF:   POP     17,1
+        POP     17,0
+        POPJ    17,
+; THE GCD UUO READS ONE CHARACTER FROM THE END OF A STRING AND
+; DECREMENTS THE LAST CHARACTER POINTER. THE CHARACTER IS
+; RETURNED IN THE SPECIFIED AC. SEE 'GCI' UUO FOR A
+; DESCRIPTION OF STRING POINTER WHICH IS ADDRESSED BY GCL UUO.
+; GCL SKIPS IF THE STRING WAS NOT EMPTY.
+GCDUUO: PUSH    17,1
+        MOVE    1,40
+        MOVE    0,0(1)
+        CAMN    0,1(1)
+        JRST    GCIF
+        AOS     2(1)
+        LDB     0,1(1)
+        DEC     1(1)
+        JRST    GCI2
+; THE WCI UUO WRITES ONE CHARACTER TO THE END OF A STRING.
+; IT SKIPS IF THE STRING DOES NOT OVERFLOW.
+; THE LAST CHARACTER POINTER IS INCREMENTED.
+; THE CHARACTER IS TAKEN FROM THE SPECIFIED AC. THE ADDRESS FIELD
+; IS USED TO ADDRESS A SET OF STRING POINTERS.
+WCIUUO: PUSH    17,1
+        MOVE    1,40
+        MOVE    0,2(1)
+        TRNN    0,-1
+        JRST    WCI2
+        SOS     2(1)
+        AOS     40
+        POP     17,1
+        LDB     0,[POINT 4,40,12]
+        MOVEM   0,1(17)
+        MOVE    0,0(17)
+        MOVE    0,@1(17)
+        IDPB    0,@40
+        POP     17,0
+        AOS     0(17)
+        POPJ    17,
+WCI2:   POP     17,1
+        POP     17,0
+        POPJ    17,
+; THE WCD UUO WRITES ONE CHARACTER TO THE FRONT OF A STRING.
+; THE FIRST CHARACTER POINTER IS DECREMENTED. THE CHARACTER
+; IS TAKEN FROM THE SPECIFIED AC. THE ADDRESS FIELD
+; IS USED TO ADDRESS A SET OF STRING POINTERS.
+; THE WCD UUO SKIPS IF THE STRING DOES NOT UNDERFLOW.
+WCDUUO: PUSH    17,1
+        MOVE    1,40
+        TLNN    0,-1
+        JRST    WCI2
+        HRLZI   0,1
+        SUBM    2(1)
+        POP     17,1
+        LDB     0,[POINT 4,40,12]
+        MOVEM   0,1(17)
+        MOVE    0,0(17)
+        MOVE    0,@1(17)
+        DPB     0,@40
+        DEC     @40
+        POP     17,0
+        AOS     0(17)
+        POP     17,
+TRAP:   0
+; THE RDLINE UUO READS ONE LINE FROM THE TELETYPE INTO A STRING
+; DEFINED BY STRING POINTERS ADDRESSED BY THE UUO.
+; EDITTING AND BREAK CHARACTERS ARE DEFINED BY THE SETTTY UUO.
+; IF THE STRING OVERFLOWS, IT IS TREATED AS A BREAK CHARACTER.
+RDUUO:  PUSH    17,1
+        PUSH    17,2
+        HRRZ    2,40
+        MOVE    0,0(2)
+        MOVEM   0,SAVE1
+        MOVE    0,1(2)
+        MOVEM   0,SAVE2
+        MOVE    0,2(2)
+        MOVEM   0,SAVE3
+        SETZM   CNT
+        SKIPL   TTYFLG  ;HAS TTY STATUS BEEN SET?
+        SETTTY  [0]     ;INITIALIZE TTY STATUS TO DEFAULT
+RDL1:   PUSHJ   17,GETCHR
+        CAIN    0,15
+        JRST    CR
+        CAIN    0,12
+        JRST    LF
+        MOVE    1,TTYSTA
+        TRNN    1,2000
+        JRST    RDX1
+        CAIN    0,3
+        JRST    RDX2
+        JRST    RDX
+RDX1:   HRLZI   1,-3
+        CAMN    0,ESCTAB(1)
+        JRST    .+3
+        AOBJN   1,.-2
+        JRST    RDX
+RDX2:   SKIPL   ESCFLG
+        JRST    ESCR
+        SETOM   SAVESC
+RDX:    SKIPGE  CIN
+        JRST    RDC
+        MOVE    1,TTYSTA
+        TLNN    1,40000
+        TLNN    1,600000
+        JRST    RDC
+        MOVE    1,TTYSTA
+        TRNN    1,2000
+        JRST    RDX3
+        CAIN    0,25
+        JRST    CQ
+        CAIN    0,177
+        JRST    CA
+        JRST    RDC
+RDX3:   HRLZI   1,-4
+        CAMN    0,CTAB1(1)
+        JRST    @CTAB2(1)
+        AOBJN   1,.-2
+RDC:    CAIG    0,172
+        CAIGE   0,141
+        JRST    NCV
+        MOVE    1,TTYSTA
+        TRNE    1,400
+        SUBI    0,40
+NCV:    WCI     0,@2
+        PUSHJ   17,TRAP
+        HRRZ    1,2(2)
+        JUMPE   1,RDONE+1
+        AOS     CNT
+        MOVE    1,TTYSTA
+        TLNN    1,440000
+        JRST    RDC2
+        CAIE    0,15
+        CAIN    0,12
+        JRST    RDONE
+        JRST    RDL1
+RDC2:   HRLZI   1,-8
+        CAML    0,BITTAB(1)
+        JRST    .+2
+        AOBJN   1,.-2
+        HLRE    1,1
+        ADDI    1,10
+        CAIE    1,7
+        JRST    RDC3
+        MOVE    1,TTYSTA
+        TLNN    1,200000
+        JRST    RDC3-1
+        HRLZI   1,-4
+        CAMN    0,CTAB1(1)
+        JRST    RDL1
+        AOBJN   1,.-2
+        MOVEI   1,7
+RDC3:   MOVEI   0,1
+        LSH     0(1)
+        TDNN    0,TTYSTA
+        JRST    RDL1
+RDONE:  AOS     -3(17)
+        POP     17,2
+        POP     17,1
+        POP     17,0
+        POPJ    17,
+CQ:     OUTCHR  ["^"]
+        OUTCHR  [15]
+        OUTCHR  [12]
+        SKIPL   TTYSTA
+        JRST    RDC
+        MOVE    0,SAVE1
+        MOVEM   0,0(2)
+        MOVE    0,SAVE2
+        MOVEM   0,1(2)
+        MOVE    0,SAVE3
+        MOVEM   0,2(2)
+        JRST    RDL1
+CA:     SKIPL   TTYSTA
+        JRST    CA2
+        GCD     0,@2
+        JRST    BELL
+        OUTCHR  ["_"]
+        JRST    RDL1
+CA2:    OUTCHR  ["_"]
+        JRST    RDC
+CW:     SKIPL   TTYSTA
+        JRST    CW2
+        GCD     0,@2
+        JRST    BELL
+        OUTCHR  ["\"]
+        JRST    .+3
+        GCD     0,@2
+        JRST    RDL1
+        CAIN    0," "
+        JRST    .-3
+        GCD     0,@2
+        JRST    RDL1
+        CAIE    0," "
+        CAIN    0,","
+        JRST    RDC
+        JRST    .-5
+CW2:    OUTCHR  ["\"]
+        JRST    RDC
+CI:     MOVE    0,CNT
+        HRLZI   1,-12
+        CAMGE   0,TAB(1)
+        JRST    CI2
+        AOBJN   1,.-2
+        ADDI    1,10
+        CAML    0,1
+        JRST    .-2
+        JRST    .+2
+CI2:    MOVE    1,TAB(1)
+        SUB     1,CNT
+        MOVEI   0,40
+        HLL     0,TTYSTA
+        TLZ     0,10000
+        TLNE    0,400000
+        JRST    .+2
+        TLNE    0,100000
+        TLO     0,10000
+        TLNN    0,10000
+        JRST    .+3
+        WCI     @2
+        JRST    RDONE
+        AOS     CNT
+        SUBI    1,1
+        JUMPG   1,.-6
+        TLNE    0,10000
+        JRST    RDL1
+        MOVEI   0,21
+        JRST    RDC
+TAB:    EXP     10,20,30,40,50,60,70,100,110,120
+BELL:   OUTCHR  [7]
+        JRST    RDL1
+LF:     MOVEI   0,15
+        PUSHJ   17,GIVCHR
+        MOVEI   0,12
+        MOVE    1,TTYSTA
+        TRNE    1,1000
+        MOVEI   0,15
+        SKIPL   COUT
+        OUTCHR  [377]
+        JRST    RDC
+CR:     PUSHJ   17,GETCHR
+        MOVEI   0,15
+        JRST    RDC
+ESCTAB: EXP     175,33,37
+BITTAB: EXP     173,141,133,101,72,60,40,0
+CTAB1:  EXP     1,27,21,11
+CTAB2:  EXP     CA,CW,CQ,CI
+GETCHR: SKIPL   CIN
+        JRST    RDTTY
+        MOVE    0,[XWD 1,SAVR1]
+        BLT     0,SAVR1+15
+        HRRZ    15,CIN
+        PUSHJ   17,BYI
+        JRST    EOF
+        JUMPE   10,.-3
+        PUSH    17,10
+        MOVE    0,[XWD SAVR1,1]
+        BLT     0,16
+        POP     17,0
+        JRST    TTYDON
+EOF:    DISABL
+        PUSHJ   17,CLIN
+        ENABLE
+        MOVE    0,[XWD SAVR1,1]
+        BLT     0,16
+RDTTY:  MOVE    0,TTYSTA
+        TLNN    0,40000
+        JRST    RDTTY2
+        INCHWL  0
+        JRST    TTYDON
+RDTTY2: INCHRW  0
+TTYDON: SKIPL   CIN
+        SKIPGE  COUT
+        PUSHJ   17,GIVCHR
+        POPJ    17,
+; THE TCO UUO OUTPUTS ONE CHARACTER TO THE TERMINAL. CARRIAGE
+; RETURN AND LINEFEED ARE TREATED SPECIALLY.
+; FOR CARRIAGE RETURN, A CARRIAGE RETURN AND LINEFEED ARE SENT.
+; FOR LINEFEED, A LINEFEED, CARRIAGE RETURN, AND RUBOUT ARE SENT.
+; IF COUT IS NEGATIVE, THE RUBOUT IS NOT SENT.
+TCOUUO: MOVE    0,0(17)
+        MOVE    0,@40
+        ANDI    0,177
+        CAIN    0,15
+        JRST    WRCR
+        CAIN    0,12
+        JRST    WRLF
+        PUSHJ   17,GIVCHR
+TCORET: POP     17,0
+        POPJ    17,
+WRCR:   PUSHJ   17,GIVCHR
+        MOVEI   0,12
+        PUSHJ   17,GIV2
+        JRST    TCORET
+WRLF:   PUSHJ   17,GIVCHR
+        MOVEI   0,15
+        PUSHJ   17,GIV2
+        SKIPL   COUT
+        OUTCHR  [377]
+        JRST    TCORET
+GIV2:   SKIPL   COUT
+        JRST    WRTTY
+        PUSH    17,0
+        JRST    WRFILE
+GIVCHR: SKIPL   COUT
+        JRST    WRTTY
+        PUSH    17,0
+        MOVE    0,[XWD 1,SAVR2]
+        BLT     0,SAVR2+15
+WRFILE: MOVE    10,0(17)
+        HRRZ    15,COUT
+        PUSHJ   17,BYO
+        FERR    [ASCIZ "WRITE ERROR"]
+        MOVE    0,[XWD SAVR2,1]
+        BLT     0,16
+        POP     17,0
+        POPJ    17,
+WRTTY:  OUTCHR  0
+        POPJ    17,
+; THE DEC UUO DECREMENTS A BYTE POINTER. THE ADDRESS FIELD
+; SHOULD ADDRESS A PDP10 BYTE POINTER.
+DECUUO: PUSH    17,1
+        LDB     1,[POINT 6,@40,5]
+        LDB     0,[POINT 6,@40,11]
+        ADD     1,0
+        CAIGE   1,^D36
+        JRST    DEC2
+        MOVE    1,0
+        MOVEI   0,^D36
+        IDIV    0,1
+        SOS     @40
+DEC2:   DPB     1,[POINT 6,@40,5]
+        POP     17,1
+        POP     17,0
+        POPJ    17,
+; THE TYPE UUO OUTPUTS A STRING TO THE TERMINAL.
+; THE ADDRESS SHOULD POINT TO THE DESIRED MESSAGE.
+; IF AC EQUAL ZERO, THE STRING IS ASSUMED TO BE 7 BIT.
+; IF AC NOT EQUAL TO ZERO, THE STRING IS ASSUMED TO BE 6 BIT.
+; DOLLAR SIGNS ARE INTERPRETED AS CARRIAGE RETURNS AND
+; SLASHES ARE INTERPRETED AS END-OF-MESSAGE.
+TYPUUO: PUSH    17,1
+        PUSH    17,2
+        HRRZ    1,40
+        HRLI    1,10700
+        LDB     2,[POINT 4,40,12]
+        CAIE    2,0
+        HRLI    1,600
+        SUBI    1,1
+TYP1:   ILDB    0,1
+        JUMPE   2,.+3
+        SUBI    0,40
+        ANDI    0,77
+        CAIN    0,"$"
+        MOVEI   0,15
+        CAIE    0,0
+        CAIN    0,"/"
+        JRST    .+3
+        TCO     0
+        JRST    TYP1
+        POP     17,2
+        POP     17,1
+        POP     17,0
+        POPJ    17,
+CLRUUO: CLRBFI  0
+        MOVE    0,[POINT 7,LBUFF-1,34]
+        MOVEM   0,SPTR
+        MOVEM   0,SPTR+1
+        MOVEI   0,^D260
+        MOVEM   0,SPTR+2
+        SETZM   CTEST
+        SETZM   CTEST2
+        PUSHJ   17,CLIN
+        PUSHJ   17,CLOUT
+        POP     17,0
+        POPJ    17,
+; THE TTY UUO IS USED TO DEFINE EDITTING AND BREAK CHARACTERS
+; FOR TCI, TCL, AND RDLINE. THE ADRESS PORTION SHOULD POINT
+; TO THE NEW TTY STATUS WORD. THE OLD ONE IS RETURNED IN THE
+; SPECIFIED AC (UNLESS THE AC IS ZERO). IF THE NEW STATUS WORD
+; IS ILLEGAL, IT DOES NOT REPLACE THE OLD ONE, BUT THE OLD ONE
+; IS STILL RETURNED IN THE SPECIFIED AC. THIS ALLOWS
+; READING OF THE STATUS WORD WITHOUT CHANGING IT BY SPECIFYING
+; AN ILLEGAL STATUS WORD.
+; A STATUS WORD MUST EITHER HAVE BIT 0, BIT 3 OR ANY ONE OF BITS
+; 28-35 TURNED ON TO BE LEGAL.
+; THE BIT DEFINITIONS ARE:
+;  0 - COMMAND EDIT MODE. CONTROL A, W, Q, AND I EDITTING ARE
+;      DONE. BREAKS ONLY ON CARRIAGE RETURN OR LINEFEED.
+;      CONTROL A ECHOES "_". CONTROL W ECHOES "\". CONTROL Q
+;      ECHOES "^", CARRIAGE RETURN, LINEFEED.
+;      CONTROL I (TAB) ECHOES THE PROPER NUMBER OF BLANKS WHICH
+;      ARE ALSO SENT TO THE PROGRAM.
+;  1 - SPECIAL ECHO MODE. THE CONTROL CHARACTERS A, W, AND Q
+;      ARE ECHOED AS IN COMMAND EDIT MODE. HOWEVER, NO EDITTING
+;      IS DONE. THE EDITTING CHRACTERS ARE PASSED TO THE
+;      PROGRAM. BREAKS ACCORDING TO BREAK BITS BUT WILL NOT
+;      BREAK ON CONTROL A, W, Q, OR I.
+;      CONTROL I STILL SENDS THE PROPER NUMBER OF BLANKS TO THE
+;      PROGRAM AND THE CONTROL I IS NOT SENT.
+;  2 - SUPPRESS TABS. THIS BIT CAUSED "SPECIAL ECHO" MODE
+;      TO SUPPRESS TABS. CONTROL I WILL STILL ECHO BLANKS
+;      BUT THE BLANKS WILL NOT BE SENT TO THE PROGRAM. THE
+;      CONTROL I WILL BE SENT INSTEAD.
+;  3 - SYSTEM EDITTING. EDITTING IS DONE BY THE MONITOR. BREAK
+;      CHARACTERS ARE CARRIAGE RETURN AND LINEFEED.
+; 25 - PDP10/TYMEX FLAG. NOT SETTABLE BY USER. 1 = PDP10.
+;      0 = TYMEX.
+; 26 - CONVERT LINEFEEDS TO CARRIAGE RETURNS.
+; 27 - CONVERT LOWER CASE ALPHA TO UPPER CASE ALPHA.
+; 28 - BREAK ON CONTROL CHARACTERS (001-037).
+; 29 - BREAK ON PUNCTUATION GROUP 1 (40-57).
+; 30 - BREAK ON NUMBERS (60-71).
+; 31 - BREAK ON PUNCTUATION GROUP 2 (72-100).
+; 32 - BREAK ON UPPER CASE ALPHA (101-132).
+; 33 - BREAK ON PUNCTUATION GROUP 3 (133-140).
+; 34 - BREAK ON LOWER CASE ALPHA (141-172).
+; 35 - BREAK ON PUNCTUATION GROUP 4 (173-176).
+;
+; TTY STATUS IS EFFECTIVEY INITIALIZED AS "40000,,400".
+TTYUUO: SKIPGE  TTYFLG
+        JRST    TTY2
+        PUSH    17,40
+        DISABL
+        SOS     TTYFLG
+        SETTTY  [XWD 40000,400]
+        ENABLE
+        POP     17,40
+TTY2:   PUSH    17,1
+        MOVE    1,[XWD -1,6]
+        GETTAB  1,
+        HALT
+        MOVE    0,@40
+        ANDCMI  0,2000
+        TRNN    1,200
+        IORI    0,2000
+        POP     17,1
+        TLNN    0,440000
+        TRNE    0,377
+        JRST    .+2
+        MOVE    0,TTYSTA
+        EXCH    0,TTYSTA
+        PUSH    17,0
+        LDB     0,[POINT 4,40,12]
+        POP     17,@0
+        POP     17,0
+        POPJ    17,
+ERRUUO: MOVE    0,40
+ERR1:   TCO     [" "]
+        TYPE    @0
+        TYPE    [ASCIZ "    "]
+        MOVE    0,COUT
+        CLRIN
+        JUMPE   DIS
+        JRST    ERR1
+        JRST    DIS
+FLTUUO: ERROR   [ASCIZ "FLOATING POINT NOT IMPLEMENTED"]
+NRMUUO: JRST    FLTUUO
+FIXUUO: JRST    FLTUUO
+STIUUO: PUSH    17,40
+        SKIPL   CTEST2
+        JRST    STI3
+        AOS     CTEST2
+STI1:   MOVE    0,SCHAR2
+STI4:   POP     17,40
+        MOVEM   0,SCHAR2
+        PUSH    17,SCHAR2
+        LDB     0,[POINT 4,40,12]
+        POP     17,@0
+        MOVE    0,SCHAR2
+        EXCH    0,0(17)
+        POP     17,@40
+        POPJ    17,
+STI3:   TCI     0
+        CAIN    0,177
+        ERROR   [ASCIZ "?"]
+        CAIN    0,"?"
+        ERROR   [0]
+        CAIG    0,32
+        CAIGE   0,1
+        JRST    STI7
+        CAIN    0,15
+        JRST    STI4
+        CAIN    0,12
+        JRST    STI4
+        ADDI    0,100
+        CAIN    0,107
+        JRST    .+3
+        TCO     [";"]
+        TCO     0
+        ADD     [SEM]
+        JRSTTI4
+STI7:   CAIE    0,175
+        CAIN    0,33
+        JRST    .+3
+        CAIE    0,37
+        JRST    STI8
+        JRST    STI5
+STI8:   CAIN    0,";"
+        JRST    STI5
+        CAIN    0,"%"
+        JRST    STI6
+        CAIE    0,","
+        JRST    STI4
+        TCL     0
+        CAIE    0,","
+        JRST    .+4
+        TCI     0
+        MOVEI   0,",,"
+        JRST    STI4
+        MOVEI   0,","
+        JRST    STI4
+STI5:   TCI     0
+        CAIN    0,177
+        ERROR   [ASCIZ "?"]
+        CAIN    0,"?"
+        ERROR   [0]
+        ADD     [SEM]
+        JRST    STI4
+STI6:   TCI     0
+        CAIN    0,177
+        ERROR   [ASCIZ "?"]
+        CAIN    0,"?"
+        ERROR   [0]
+        ADD     [PER]
+        JRST    STI4
+STLUUO: PUSH    17,40
+        SKIPGE  CTEST2
+        JRST    STI1
+        SOS     CTEST2
+        JRST    STI3
+ENUUO:  POP     17,0
+        AOS     ESCFLG
+        SKIPL   ESCFLG
+        SKIPL   SAVESC
+        POPJ    17,
+        JRST    ESCR
+DISUUO: POP     17,0
+        SOS     ESCFLG
+        POPJ    17,
+FERUUO: MOVE    0,40
+FER1:   TCO     [" "]
+        TYPE    @0
+        TCO     [15]
+        SETZM   CLSE
+        MOVE    0,COUT
+        CLRIN
+        JUMPE   DIS
+        JRST    FER1
+TRUUUO: PUSH    17,2
+        MOVEI   2,^D36
+        SUB     2,@PERW
+        JUMPE   2,TRUN2
+        MOVE    0,@40
+        LSH     0,0(2)
+        MOVN    2,2
+        LSH     0,0(2)
+        POP     17,2
+        EXCH    0,0(17)
+        POP     17,@40
+        POPJ    17,
+TRUN2:  POP     17,2
+        POP     17,0
+        POPJ    17,
+EXTUUO: PUSH    17,1
+        PUSH    17,2
+        MOVEI   2,^D36
+        SUB     2,@PERW
+        JUMPE   2,EXTEN2
+        SETZM   0
+        MOVE    1,@40
+        LSHC    0,0(2)
+        MOVN    2,2
+        JUMPE   0,.+3
+        LSHC    0,0(2)
+        JRST    .+2
+        ASH     1,0(2)
+        MOVEM   1,0
+        POP     17,2
+        POP     17,1
+        EXCH    0,0(17)
+        POP     17,@40
+        POPJ    17,
+EXTEN2: POP     17,2
+        POP     17,1
+        POP     17,0
+        POPJ    17,
+        END
+  @<
