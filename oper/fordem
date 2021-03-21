@@ -1,0 +1,1028 @@
+//DMND   JOB (1638,540,09,20,0,,1),'DEMAND REV'                         2000.   
+/*RES  C=240K                                                           2001.   
+//S1   EXEC  PGM=IEFBR14                                                2002.   
+//DD   DD   DSN=CN1638.PHASE2,DISP=(OLD,DELETE)                         2003.   
+//STEP1  EXEC FORTGPRO,REGION=100K                                      2004.   
+//FORT.SYSIN  DD  *                                                     2005.   
+C                                                                       2006.   
+C  MAIN LOOP OF PHASE II ---- DEMAND MODEL                              2007.   
+C                                                                       2008.   
+      COMMON /TIT/ TITLE(15),TOTENR(10),M,NYRA(10),NYRB(10),LNCT,       2009.   
+     1             ITGL,ITGH                                            2010.   
+      COMMON /OPT/OPTION                                                2011.   
+      COMMON /SWS/SWINV                                                 2012.   
+      LOGICAL SWINV,OPTION(6),FESW,FIRST                                2013.   
+      COMMON /ESC/ CNSESC,FECESC,SITEA,TR                               2014.   
+      COMMON /SW/ FESW                                                  2015.   
+      COMMON /ESPC/RMINDX(500),NESP                                     2016.   
+      REAL*8 RMINDX,BLANK,RECORD,ADATA,SPCNM                            2017.   
+      DIMENSION RECORD(40,8),ADATA(8)                                   2018.   
+      DATA BLANK /8H        /,AST/1H*/                                  2019.   
+C                                                                       2020.   
+C------------------------------------------------------------------     2021.   
+C                                                                       2022.   
+C     FILE 1 IS SPACE RECOMMENDATIONS MODIFIED                          2023.   
+C     FILE 2 IS SPACE DATA                                              2024.   
+C     FILE 3 IS SITE SPECS                                              2025.   
+C     FILE 4 IS ED SPEC DATA                                            2026.   
+C     FILE 9 IS INVENTORY                                               2027.   
+C     FILE 10 IS INPUT PARAMETERS                                       2028.   
+C                                                                       2029.   
+C-------------------------------------------------------------------    2030.   
+C                                                                       2031.   
+C                                                                       2032.   
+C  READ IN BASE PARAMETERS FROM FILE SET-UP BY PHASE I                  2033.   
+C                                                                       2034.   
+  100 READ(10,92,END=4000)(TITLE(I),I=1,15)                             2035.   
+   92 FORMAT(15A4)                                                      2036.   
+      READ(10,93)NUMDEP,NYENRL,(OPTION(I),I=1,6),ITGL,ITGH              2037.   
+   93 FORMAT(2I2,6L1,2I2)                                               2038.   
+      READ(10,94)(NYRA(I),NYRB(I),I=1,NYENRL)                           2039.   
+   94 FORMAT(20I2)                                                      2040.   
+      READ(10,95)(TOTENR(I),I=1,NYENRL)                                 2041.   
+   95 FORMAT(10F6.0)                                                    2042.   
+      IF(OPTION(1))READ(10,96)CNSESC,FECESC,SITEA,FESW                  2043.   
+   96 FORMAT(3F4.0,L1)                                                  2044.   
+C                                                                       2045.   
+C  OTHER HOUSEKEEPING                                                   2046.   
+      IF(.NOT.OPTION(5)) GO TO 190                                      2047.   
+      DEFINE FILE 11(500,641,U,KOUNT)                                   2048.   
+C  MAX 500 ROOM TYPES                                                   2049.   
+C  MAX 640 WORDS (2560 BYTES) PER DESCRIPTION                           2050.   
+C                (40 LINES OF 64 BYTES)                                 2051.   
+C                                                                       2052.   
+      ILINE = 1                                                         2053.   
+      FIRST = .TRUE.                                                    2054.   
+      KOUNT = 1                                                         2055.   
+      DO 110 I = 1, 500                                                 2056.   
+  110 RMINDX(I) = BLANK                                                 2057.   
+  112 READ(8,90,END=150)FAST,SPCNM,(ADATA(K),K=1,8)                     2058.   
+   90 FORMAT(A1,9A8)                                                    2059.   
+      IF(FAST.NE.AST) GO TO 130                                         2060.   
+      IF(FIRST) GO TO 115                                               2061.   
+      WRITE(11'KOUNT)(((RECORD(IK,IJ),IJ=1,8),IK=1,40),ILINE)           2062.   
+  115 DO 120 I = 1,8                                                    2063.   
+      DO 120 J = 1, 40                                                  2064.   
+  120 RECORD(J,I) = BLANK                                               2065.   
+      FIRST = .FALSE.                                                   2066.   
+  125 RMINDX(KOUNT) = SPCNM                                             2067.   
+      ILINE = 1                                                         2068.   
+  130 DO 135 J = 1, 8                                                   2069.   
+  135 RECORD(ILINE,J) = ADATA(J)                                        2070.   
+      ILINE = ILINE + 1                                                 2071.   
+      IF(ILINE.GT.41) GO TO 160                                         2072.   
+      GO TO 112                                                         2073.   
+  160 WRITE(6,89)SPCNM                                                  2074.   
+   89 FORMAT('1 TOO MANY LINES IN ED SPEC FOR ',A8)                     2075.   
+      STOP                                                              2076.   
+  150 END FILE 11                                                       2077.   
+      NESP = KOUNT - 1                                                  2078.   
+  190 CONTINUE                                                          2079.   
+C                                                                       2080.   
+C                                                                       2081.   
+      SWINV = .FALSE.                                                   2082.   
+      CALL TITLPG(0)                                                    2083.   
+      DO 600 M = 1, NYENRL                                              2084.   
+      IF(OPTION(1)) CALL SPACE                                          2085.   
+C                                                                       2086.   
+C  SET UP N-COUNTS FOR SITE                                             2087.   
+C                                                                       2088.   
+      IF(.NOT.OPTION(4)) GO TO 300                                      2089.   
+      IF(ITGL.EQ.0) GO TO 200                                           2090.   
+      KN = TOTENR(M)                                                    2091.   
+      KJ = 0                                                            2092.   
+      JN = 0                                                            2093.   
+      CALL SITE(KN,JN)                                                  2094.   
+      GO TO 250                                                         2095.   
+  200 JN = TOTENR(M) / (FLOAT(ITGH) + 1.) + .5                          2096.   
+      KN = TOTENR(M) - JN                                               2097.   
+      CALL SITE(KN,JN)                                                  2098.   
+C                                                                       2099.   
+  250 IF(.NOT.OPTION(1)) GO TO 300                                      2100.   
+      CALL CNSTSM                                                       2101.   
+C                                                                       2102.   
+CHECK ON INVENTORY                                                      2103.   
+C                                                                       2104.   
+  300 IF(.NOT.OPTION(3)) GO TO 400                                      2105.   
+      CALL INVENT                                                       2106.   
+C                                                                       2107.   
+CHECK ON EDSPEC                                                         2108.   
+C                                                                       2109.   
+  400 IF(.NOT.OPTION(5)) GO TO 500                                      2110.   
+      CALL EDSPEC                                                       2111.   
+C                                                                       2112.   
+  500 CONTINUE                                                          2113.   
+  600 CONTINUE                                                          2114.   
+      GO TO 100                                                         2115.   
+ 4000 STOP                                                              2116.   
+      END                                                               2117.   
+      SUBROUTINE INVENT                                                 2118.   
+      COMMON /SPINV/ RMTYP(200),ILOAD(200),IREC(200),ISPFT(200),        2119.   
+     1                    NOSPAC,KLOAD(200)                             2120.   
+      COMMON /INVFE/ ISPCST(200),ISPFE$(200)                            2121.   
+      COMMON /TIT/ TITLE(15),TOTENR(10),M,NYRA(10),NYRB(10),LNCT,       2122.   
+     1             ITGL,ITGH                                            2123.   
+      COMMON/INV/ISQFT(200),$FT(200),FE$(200)                           2124.   
+      REAL*8 RTYPE,SPCRM,RMTYP                                          2125.   
+      DIMENSION SPCRM(200),NO(200),R$FT(200),RFE$(200)                  2126.   
+      COMMON /SPCE/ISTC$,ISTF$                                          2127.   
+C                                                                       2128.   
+C  THIS SUBROUTINE PREPARES AN INVENTORY OF SPACES                      2129.   
+C                                                                       2130.   
+      LOGICAL SWINV                                                     2131.   
+      COMMON /SWS/SWINV                                                 2132.   
+      DIMENSION RTYPE(200),ICAP(200),NINV(200),LOAD(200),ITOTFT(200)    2133.   
+      CALL TITLES(3)                                                    2134.   
+   90 JTSQ = 0                                                          2135.   
+      JTC$ = 0                                                          2136.   
+      JTFE$ = 0                                                         2137.   
+C                                                                       2138.   
+C  READ IN INVENTORY FILE IF NECESSARY                                  2139.   
+C                                                                       2140.   
+      IF(SWINV) GO TO 121                                               2141.   
+      I = 1                                                             2142.   
+  100 READ(9,10)RTYPE(I),ICAP(I),NINV(I)                                2143.   
+   10 FORMAT(A8,2I5)                                                    2144.   
+      IF(ICAP(I).EQ.99999) GO TO 120                                    2145.   
+      I = I + 1                                                         2146.   
+      GO TO 100                                                         2147.   
+  120 KQ = I - 1                                                        2148.   
+      I = NOSPAC                                                        2149.   
+C                                                                       2150.   
+C   JL IS INDEX OF LONG MATRIX                                          2151.   
+C   JS IS INDEX OF SHORT MATRIX                                         2152.   
+C                                                                       2153.   
+  121 JL = 1                                                            2154.   
+      JS = 1                                                            2155.   
+ 1005 SPCRM(JS) = RMTYP(JL)                                             2156.   
+      NO(JS) = IREC(JL)                                                 2157.   
+      LOAD(JS) = KLOAD(JL)                                              2158.   
+      IF(ISQFT(JL).EQ.0) GO TO 1220                                     2159.   
+      ITOTFT(JS) = ISQFT(JL) * IREC(JL)                                 2160.   
+      R$FT(JS) = $FT(JL)                                                2161.   
+      RFE$(JS) = FE$(JL)                                                2162.   
+ 1006 KL = JL + 1                                                       2163.   
+      IF(KL.GT.I) GO TO 1300                                            2164.   
+      DO 1100 K = KL, I                                                 2165.   
+      IF(KLOAD(K).EQ.-1) GO TO 1100                                     2166.   
+      IF(SPCRM(JS).EQ.RMTYP(K).AND.KLOAD(K).EQ.LOAD(JS)) GO TO 1200     2167.   
+ 1100 CONTINUE                                                          2168.   
+      JS = JS + 1                                                       2169.   
+ 1110 JL = JL + 1                                                       2170.   
+      IF(JL.GT.I) GO TO 1300                                            2171.   
+      IF(KLOAD(JL).EQ.-1) GO TO 1110                                    2172.   
+      GO TO 1005                                                        2173.   
+C  MATCH - ADD NO. AND SIZE, THEN SET FLAG                              2174.   
+ 1200 NO(JS) = NO(JS) + IREC(K)                                         2175.   
+      IF(ISQFT(K).EQ.0) GO TO 1210                                      2176.   
+      ITOTFT(JS) = ITOTFT(JS) + ISQFT(K) * IREC(K)                      2177.   
+      KLOAD(K) = -1                                                     2178.   
+      GO TO 1100                                                        2179.   
+ 1210 ITOTFT(JS) = ITOTFT(JS) + ISPFT(K)                                2180.   
+      KLOAD(K) = -1                                                     2181.   
+      GO TO 1100                                                        2182.   
+ 1220 ITOTFT(JS) = ISPFT(JL)                                            2183.   
+      IF(ISPFT(JL).EQ.0) GO TO 1221                                     2184.   
+      R$FT(JS) = FLOAT(ISPCST(JL))/FLOAT(ISPFT(JL))                     2185.   
+      RFE$(JS) = FLOAT(ISPFE$(JL))/FLOAT(ISPFT(JL))                     2186.   
+      GO TO 1006                                                        2187.   
+C  ALL CONDENSED                                                        2188.   
+ 1221 R$FT(JS) = 0                                                      2189.   
+      RFE$(JS) = 0                                                      2190.   
+      GO TO 1006                                                        2191.   
+ 1300 NSPCT = JS - 1                                                    2192.   
+C                                                                       2193.   
+C  SEARCH COMPLETE REQUIREMENTS FILE FOR EACH INVENTORY ROOM            2194.   
+C                                                                       2195.   
+  130 SWINV = .TRUE.                                                    2196.   
+      KQREV = KQ                                                        2197.   
+      DO 136 I = 1, NSPCT                                               2198.   
+      DO 135 J = 1, KQ                                                  2199.   
+      IF(RTYPE(J).EQ.SPCRM(I).AND.ICAP(J).EQ.LOAD(I)) GO TO 136         2200.   
+  135 CONTINUE                                                          2201.   
+      GO TO 137                                                         2202.   
+  136 CONTINUE                                                          2203.   
+      GO TO 138                                                         2204.   
+C  IF HERE NOT IN INVENTORY, MAKE UP ONE.                               2205.   
+  137 KQREV = KQREV + 1                                                 2206.   
+      RTYPE(KQREV) = SPCRM(I)                                           2207.   
+      ICAP(KQREV) = LOAD(I)                                             2208.   
+      NINV(KQREV) = 0                                                   2209.   
+      GO TO 136                                                         2210.   
+  138 CONTINUE                                                          2211.   
+      DO 160 I = 1, KQREV                                               2212.   
+      DO 140 J = 1, NSPCT                                               2213.   
+      IF(RTYPE(I).EQ.SPCRM(J).AND.ICAP(I).EQ.LOAD(J)) GO TO 200         2214.   
+  140 CONTINUE                                                          2215.   
+C  IF YOU GET HERE, THE INVENTORY SPACE IS NOT CALLED FOR IN PROGRAM    2216.   
+      GO TO 180                                                         2217.   
+C  END OF INV LOOP                                                      2218.   
+  160 CONTINUE                                                          2219.   
+      GO TO 350                                                         2220.   
+C                                                                       2221.   
+C  ZERO REQ                                                             2222.   
+C                                                                       2223.   
+  BAL = NINV(I)                                                    2224.   
+      NRQ = 0                                                           2225.   
+      GO TO 220                                                         2226.   
+C                                                                       2227.   
+C  MATCH - DETERMINE + OR -                                             2228.   
+C                                                                       2229.   
+  200 NRQ = NO(J)                                                       2230.   
+      NBAL = NINV(I) - NRQ                                              2231.   
+      IF(NBAL.LT.0) GO TO 250                                           2232.   
+      IF(NBAL.EQ.0) GO TO 280                                           2233.   
+C                                                                       2234.   
+C  SURPLUS                                                              2235.   
+C                                                                       2236.   
+  220 JSQFT = 0                                                         2237.   
+      JC$ = 0                                                           2238.   
+      JFE$ = 0                                                          2239.   
+      IF(NBAL.GT.9) GO TO 240                                           2240.   
+      WRITE(6,1)RTYPE(I),ICAP(I),NRQ,NINV(I),NBAL,JSQFT,JC$,JFE$        2241.   
+      GO TO 300                                                         2242.   
+  240 WRITE(6,2)RTYPE(I),ICAP(I),NRQ,NINV(I),NBAL,JSQFT,JC$,JFE$        2243.   
+    1 FORMAT(1X,A8,I6,I4,I7,5X,'*',I1,'*',7X,'.',I11,I10,I9)            2244.   
+    2 FORMAT(1X,A8,I6,I4,I7,4X,'*',I2,'*',7X,'.',I11,I10,I9)            2245.   
+      GO TO 300                                                         2246.   
+C                                                                       2247.   
+C  MORE NEEDED                                                          2248.   
+C                                                                       2249.   
+  250 NBAL = -(NBAL)                                                    2250.   
+      JSQFT = NBAL * IFIX(FLOAT(ITOTFT(J))/FLOAT(NO(J))+.5)             2251.   
+      JC$ = FLOAT(JSQFT) * R$FT(J)                                      2252.   
+      JFE$ = FLOAT(JSQFT) * RFE$(J)                                     2253.   
+      IF(NBAL.GT.99) GO TO 261                                          2254.   
+      IF(NBAL.GT.9) GO TO 260                                           2255.   
+      WRITE(6,3)RTYPE(I),ICAP(I),NRQ,NINV(I),NBAL,JSQFT,JC$,JFE$        2256.   
+      GO TO 300                                                         2257.   
+  260 WRITE(6,4)RTYPE(I),ICAP(I),NRQ,NINV(I),NBAL,JSQFT,JC$,JFE$        2258.   
+    3 FORMAT(1X,A8,I6,I4,I7,6X,'.',7X,'*',I1,'*',2I10,I9)               2259.   
+    4 FORMAT(1X,A8,I6,I4,I7,6X,'.',6X,'*',I2,'*',2I10,I9)               2260.   
+      GO TO 300                                                         2261.   
+  261 WRITE(6,8)RTYPE(I),ICAP(I),NRQ,NINV(I),NBAL,JSQFT,JC$,JFE$        2262.   
+    8 FORMAT(1X,A8,I6,I4,I7,6X,'.',5X,'*',I3,'*',2I10,I9)               2263.   
+      GO TO 300                                                         2264.   
+C                                                                       2265.   
+C  EVEN-STEVEN                                                          2266.   
+C                                                                       2267.   
+  280 JSQFT = 0                                                         2268.   
+      JC$ = 0                                                           2269.   
+      JFE$ = 0                                                          2270.   
+      WRITE(6,5)RTYPE(I),ICAP(I),NRQ,NINV(I),JSQFT,JC$,JFE$             2271.   
+    5 FORMAT(1X,A8,I6,I4,I7,6X,'.',8X,'.',I11,I10,I9)                   2272.   
+C                                                                       2273.   
+C  TOTLAS UPDATE                                                        2274.   
+C                                                                       2275.   
+  300 JTSQ = JTSQ + JSQFT                                               2276.   
+      JTC$ = JTC$ + JC$                                                 2277.   
+      JTFE$ = JTFE$ + JFE$                                              2278.   
+      LNCT = LNCT + 1                                                   2279.   
+      IF(LNCT.GT.45) CALL TITLES(3)                                     2280.   
+      GO TO 160                                                         2281.   
+C                                                                       2282.   
+C  TOTALS OUTPUT                                                        2283.   
+C                                                                       2284.   
+  350 WRITE(6,6)JTSQ,JTC$,JTFE$                                         2285.   
+    6 FORMAT(49X,'-----',4X,'------',3X,'------',/,                     2286.   
+     1          48X,I6,I10,I9)                                          2287.   
+      RETURN                                                            2288.   
+      END                                                               2289.   
+      SUBROUTINE SPACE                                                  2290.   
+C                                                                       2291.   
+C   THIS SUBROUTINE PRINTS OUT SPACE REQUIREMENTS AND                   2292.   
+C                              F + E REQUIREMENTS                       2293.   
+C                                                                       2294.   
+C                                                                       2295.   
+      COMMON/INV/ISQFT(200),$FT(200),FE$(200)                           2296.   
+      REAL*8 SSK1,SSK2,SPCRM                                            2297.   
+      COMMON /SPCDAT/SPCRM(200),NO(200),ITOTFT(200),NSPCT               2298.   
+      COMMON /ESC/ CNSESC,FECESC,SITEA,TR                               2299.   
+      LOGICAL FIRST,FESW                                                2300.   
+      COMMON /OPT/OPTION                                                2301.   
+      LOGICAL OPTION(6)                                                 2302.   
+      DIMENSION DEPT(2,200)                                             2303.   
+      DATA SSK1 /8HSUPPORT /                                            2304.   
+      DATA SSK2 /8HSPACE   /                                            2305.   
+      COMMON /INVFE/ ISPCST(200),ISPFE$(200)                            2306.   
+      COMMON /TIT/ TITLE(15),TOTENR(10),M,NYRA(10),NYRB(10),LNCT,       2307.   
+     1             ITGL,ITGH                                            2308.   
+      COMMON /SPCE/ISTC$,ISTF$                                          2309.   
+      REAL*8 RMTYP,DEPT,BLANK,SVD1,SVD2                                 2310.   
+      COMMON /SW/ FESW                                                  2311.   
+      COMMON /SPINV/ RMTYP(200),ILOAD(200),IREC(200),ISPFT(200),        2312.   
+     1                    NOSPAC,KLOAD(200)                             2313.   
+      DATA BLANK/8H        /                                            2314.   
+ 4000 FIRST = .TRUE.                                                    2315.   
+      CALL TITLES(1)                                                    2316.   
+C                                                                       2317.   
+C  THE FOLLOWING ARE SUPER TOTAL CONST FT, $, F&E $                     2318.   
+C                                                                       2319.   
+      ISTCF = 0                                                         2320.   
+      ISTC$ = 0                                                         2321.   
+      ISTF$ = 0                                                         2322.   
+C                                                                       2323.   
+C                                                                       2324.   
+  100 IF(LNCT.GT.45) CALL TITLES(1)                                     2325.   
+      I = 1                                                             2326.   
+  120 READ(1,1)IREC(I),REQ,RMTYP(I),(DEPT(J,I),J=1,2),ISPFT(I),         2327.   
+     1          ISPCST(I),ISPFE$(I)                                     2328.   
+    1 FORMAT(I3,F6.2,1X,A8,5X,2A8,3I7)                                  2329.   
+      IF(IREC(I).EQ.999) GO TO 130                                      2330.   
+      READ(2,2)TYPE,ILOAD(I),JREC,ISQFT(I),$FT(I),FE$(I)                2331.   
+    2 FORMAT(A8,I4,I3,I7,2F6.2)                                         2332.   
+      KLOAD(I) = ILOAD(I)                                               2333.   
+      I = I + 1                                                         2334.   
+      GO TO 120                                                         2335.   
+C                                                                       2336.   
+C  END OF GROUP -- DO SPACE FIRST                                       2337.   
+C                                                                       2338.   
+  130 I = I - 1                                                         2339.   
+      NOSPAC = I                                                        2340.   
+      DO 200 K = 1, I                                                   2341.   
+      IF(DEPT(1,K).EQ.BLANK) GO TO 160                                  2342.   
+      IF(DEPT(1,K).EQ.SSK1.AND.DEPT(2,K).EQ.SSK2) GO TO 160             2343.   
+      IF(FIRST) GO TO 140                                               2344.   
+C                                                                       2345.   
+C  DO PREVIOUS TOTALS                                                   2346.   
+C                                                                       2347.   
+      ISTCF = ISTCF + ITOTSQ                                            2348.   
+      ISTC$ = ISTC$ + ITOT$                                             2349.   
+      IF(ITOTSQ.EQ.0) GO TO 700                                         2350.   
+      AVG = FLOAT(ITOT$) / FLOAT(ITOTSQ)                                2351.   
+  135 WRITE(6,10)AVG,ITOTSQ,ITOT$                                       2352.   
+   10 FORMAT(41X,'-----',10X,2(3X,'-------'),/,                         2353.   
+     1       39X,F7.2,10X,2I10)                                         2354.   
+  140 ITOT$ = 0                                                         2355.   
+      LNCT = LNCT + 3                                                   2356.   
+      FIRST = .FALSE.                                                   2357.   
+      ITOTSQ = 0                                                        2358.   
+      IF(LNCT.GT.40) CALL TITLES(1)                                     2359.   
+C                                                                       2360.   
+C  WRITE NEW DEPT HEADING                                               2361.   
+C                                                                       2362.   
+      WRITE(6,21)(DEPT(J,K),J=1,2)                                      2363.   
+   21 FORMAT(1X,2A8)                                                    2364.   
+      SVD1 = DEPT(1,K)                                                  2365.   
+      SVD2 = DEPT(2,K)                                                  2366.   
+C                                                                       2367.   
+      LNCT = LNCT + 1                                                   2368.   
+C  DO COMPUTATIONS                                                      2369.   
+C                                                                       2370.   
+  160 IR = IREC(K)                                                      2371.   
+C                                                                       2372.   
+C  IN THE RECOMMENDATIONS STEP                                          2373.   
+C                                                                       2374.   
+      IF(ISPFT(K).NE.0.OR.ISPCST(K).NE.0) GO TO 210                     2375.   
+      ISQFT(K) = ISQFT(K) * ILOAD(K)                                    2376.   
+      ITSQF = IR * ISQFT(K)                                             2377.   
+      I$U = FLOAT(ISQFT(K)) * $FT(K) + .5                               2378.   
+      I$T = FLOAT(I$U) * FLOAT(IR) + .5                                 2379.   
+      IF(ILOAD(K).EQ.0) GO TO 220                                       2380.   
+      WRITE(6,11)RMTYP(K),ILOAD(K),IR,ISQFT(K),$FT(K),I$U,ITSQF,I$T     2381.   
+   11 FORMAT(2X,A8,I15,I6,I7,F8.2,3I10)                                 2382.   
+      LNCT = LNCT + 1                                                   2383.   
+      IF(LNCT.GT.40) GO TO 3200                                         2384.   
+  180 ITOT$ = ITOT$ + I$T                                               2385.   
+      ITOTSQ = ITOTSQ + ITSQF                                           2386.   
+  200 CONTINUE                                                          2387.   
+C                                                                       2388.   
+C  WRITE LAST GROUP TOTALS                                              2389.   
+C                                                                       2390.   
+      ISTCF = ISTCF + ITOTSQ                                            2391.   
+      ISTC$ = ISTC$ + ITOT$                                             2392.   
+      IF(ITOTSQ.EQ.0) GO TO 800                                         2393.   
+      AVG = FLOAT(ITOT$) / FLOAT(ITOTSQ)                                2394.   
+  205 WRITE(6,10)AVG,ITOTSQ,ITOT$                                       2395.   
+      AVG = FLOAT(ISTC$) / FLOAT(ISTCF)                                 2396.   
+      WRITE(6,25)AVG,ISTCF,ISTC$                                        2397.   
+   25 FORMAT(//,11X,'TOTAL FACILITY (BASE YEAR)',2X,F7.2,10X,2I10)      2398.   
+      MN = NYRA(M) - NYRA(1) + 1                                        2399.   
+      IF(MN.EQ.1.OR.CNSESC.EQ.0.) GO TO 500                             2400.   
+      X = ISTC$                                                         2401.   
+      DO 400 K = 2, MN                                                  2402.   
+  400 X = X * (1.0 + (CNSESC * .01 ))                                   2403.   
+      AVG = X / FLOAT(ISTCF)                                            2404.   
+      IX = X + .5                                                       2405.   
+      WRITE(6,26)AVG,ISTCF,IX                                           2406.   
+   26 FORMAT(26X,'(ESCALATED)',2X,F7.2,10X,2I10)                        2407.   
+      GO TO 500                                                         2408.   
+C                                                                       2409.   
+C  DEPARTMENTAL SUPPORT SPACE                                           2410.   
+C                                                                       2411.   
+  210 CONTINUE                                                          2412.   
+      IF(ISPFT(K).EQ.0) GO TO 211                                       2413.   
+      AVG = FLOAT(ISPCST(K)) / FLOAT(ISPFT(K))                          2414.   
+  211 IF(IR.EQ.0) GO TO 218                                             2415.   
+      IF(ILOAD(K).EQ.0) GO TO 214                                       2416.   
+      IF(ISQFT(K).EQ.0) GO TO 212                                       2417.   
+C                                                                       2418.   
+C   HERE IS SUPPORT WITH UNITS, LOAD, AND UNIT SPACE                    2419.   
+C                                                                       2420.   
+      WRITE(6,11)RMTYP(K),ILOAD(K),IR,ISQFT(K),$FT(K),I$U,ISPFT(K),     2421.   
+     1           ISPCST(K)                                              2422.   
+      GO TO 219                                                         2423.   
+C                                                                       2424.   
+C   ...WITH UNITS, LOAD, BUT W/O UNIT SPACE                             2425.   
+C                                                                       2426.   
+  212 WRITE(6,16)RMTYP(K),ILOAD(K),IR,ISPFT(K),ISPCST(K)                2427.   
+      GO TO 219                                                         2428.   
+C                                                                       2429.   
+  214 IF(ISQFT(K).EQ.0) GO TO 216                                       2430.   
+C                                                                       2431.   
+C   ..WITH UNITS, W/O LOAD, W/ UNITSPACE                                2432.   
+C                                                                       2433.   
+      WRITE(6,17)RMTYP(K),IR,ISQFT(K),$FT(K),I$U,ISPFT(K),ISPCST(K)     2434.   
+      GO TO 219                                                         2435.   
+C                                                                       2436.   
+C   ...WITH UNITS, W/O LOAD, W/O UNIT SPACE                             2437.   
+C                                                                       2438.   
+  216 WRITE(6,18)RMTYP(K),IR,ISPFT(K),ISPCST(K)                         2439.   
+      GO TO 219                                                         2440.   
+C                                                                       2441.   
+C  ...NO UNITS (ASSUME NOTHING ELSE)                                    2442.   
+C                                                                       2443.   
+  218 WRITE(6,19)RMTYP(K),ISPFT(K),ISPCST(K)                            2444.   
+  219 LNCT = LNCT + 1                                                   2445.   
+      ITOT$ = ITOT$ + ISPCST(K)                                         2446.   
+      ITOTSQ = ITOTSQ + ISPFT(K)                                        2447.   
+      GO TO 200                                                         2448.   
+   16 FORMAT(2X,A8,I15,I6,6X,'-',7X,'-',9X,'-',2I10)                    2449.   
+   17 FORMAT(2X,A8,14X,'-',I6,I7,F8.2,3I10)                             2450.   
+   18 FORMAT(2X,A8,14X,'-',I6,6X,'-',7X,'-',9X,'-',2I10)                2451.   
+   19 FORMAT(2X,A8,14X,'-',5X,'-',6X,'-',7X,'-',9X,'-',2I10)            2452.   
+C                                                                       2453.   
+C  SAME AS ABOVE ONLY WITH NO LOAD                                      2454.   
+C                                                                       2455.   
+  220 WRITE(6,12)RMTYP(K),IR,ISQFT(K),$FT(K),I$U,ITSQF,I$T              2456.   
+   12 FORMAT(2X,A8,14X,'-',I6,I7,F8.2,3I10)                             2457.   
+      GO TO 180                                                         2458.   
+C                                                                       2459.   
+C   NOW CHECK TO SEE IF WE REPEAT FOR F &E                              2460.   
+C                                                                       2461.   
+  500 IF(.NOT.FESW) GO TO 900                                           2462.   
+      CALL TITLES(2)                                                    2463.   
+      FIRST = .TRUE.                                                    2464.   
+      DO 600 K = 1, I                                                   2465.   
+      IF(DEPT(1,K).EQ.BLANK) GO TO 560                                  2466.   
+      IF(DEPT(1,K).EQ.SSK1.AND.DEPT(2,K).EQ.SSK2) GO TO 560             2467.   
+      IF(FIRST) GO TO 540                                               2468.   
+C                                                                       2469.   
+C  PREVIOUS TOTALS AGAIN                                                2470.   
+C                                                                       2471.   
+      ISTF$ = ITOT$ + ISTF$                                             2472.   
+      AVG = FLOAT(ITOT$) / FLOAT(ITOTSQ)                                2473.   
+      LNCT = LNCT + 3                                                   2474.   
+      WRITE(6,10)AVG,ITOTSQ,ITOT$                                       2475.   
+  540 ITOT$ = 0                                                         2476.   
+      ITOTSQ = 0                                                        2477.   
+      FIRST = .FALSE.                                                   2478.   
+      IF(LNCT.GT.36) CALL TITLES(2)                                     2479.   
+C                                                                       2480.   
+C  WRITE NEW DEPT HEADING                                               2481.   
+C                                                                       2482.   
+      WRITE(6,21)(DEPT(J,K),J=1,2)                                      2483.   
+      LNCT = LNCT + 1                                                   2484.   
+      SVD1 = DEPT(1,K)                                                  2485.   
+      SVD2 = DEPT(2,K)                                                  2486.   
+C                                                                       2487.   
+COMPUTE A BIT                                                           2488.   
+C                                                                       2489.   
+  560 IR = IREC(K)                                                      2490.   
+C                                                                       2491.   
+      IF(ISPFT(K).NE.0.OR.ISPCST(K).NE.0) GO TO 810                     2492.   
+      ITSQF = IR * ISQFT(K)                                             2493.   
+      I$U = FLOAT(ISQFT(K)) * FE$(K) + .5                               2494.   
+      I$T = FLOAT(I$U) * FLOAT(IR) + .5                                 2495.   
+      IF(ILOAD(K).EQ.0) GO TO 620                                       2496.   
+      WRITE(6,11)RMTYP(K),ILOAD(K),IR,ISQFT(K),FE$(K),I$U,ITSQF,I$T     2497.   
+      LNCT = LNCT + 1                                                   2498.   
+      IF(LNCT.GT.36) GO TO 3300                                         2499.   
+  580 ITOT$ = ITOT$ + I$T                                               2500.   
+      ITOTSQ = ITOTSQ + ITSQF                                           2501.   
+  600 CONTINUE                                                          2502.   
+      ISTF$ = ITOT$ + ISTF$                                             2503.   
+      IF(ITOTSQ.EQ.0) GO TO 3100                                        2504.   
+      AVG = FLOAT(ITOT$) / FLOAT(ITOTSQ)                                2505.   
+  610 LNCT = LNCT + 1                                                   2506.   
+      WRITE(6,10)AVG,ITOTSQ,ITOT$                                       2507.   
+      GO TO 1000                                                        2508.   
+  810 CONTINUE                                                          2509.   
+      IF(ISPFT(K).EQ.0) GO TO 811                                       2510.   
+      AVG = FLOAT(ISPFE$(K)) / FLOAT(ISPFT(K))                          2511.   
+  811 IF(IR.EQ.0) GO TO 818                                             2512.   
+      IF(ILOAD(K).EQ.0) GO TO 814                                       2513.   
+      IF(ISQFT(K).EQ.0) GO TO 812                                       2514.   
+C                                                                       2515.   
+C   HERE IS SUPPORT WITH UNITS, LOAD, AND UNIT SPACE                    2516.   
+C                                                                       2517.   
+      WRITE(6,11)RMTYP(K),ILOAD(K),IR,ISQFT(K),FE$(K),I$U,ISPFT(K),     2518.   
+     1           ISPFE$(K)                                              2519.   
+      GO TO 819                                                         2520.   
+C                                                                       2521.   
+C   ...WITH UNITS, LOAD, BUT W/O UNIT SPACE                             2522.   
+C                                                                       2523.   
+  812 WRITE(6,16)RMTYP(K),ILOAD(K),IR,ISPFT(K),ISPFE$(K)                2524.   
+      GO TO 819                                                         2525.   
+C                                                                       2526.   
+  814 IF(ISQFT(K).EQ.0) GO TO 816                                       2527.   
+C                                                                       2528.   
+C   ..WITH UNITS, W/O LOAD, W/ UNITSPACE                                2529.   
+C                                                                       2530.   
+      WRITE(6,17)RMTYP(K),IR,ISQFT(K),FE$(K),I$U,ISPFT(K),ISPFE$(K)     2531.   
+      GO TO 819                                                         2532.   
+C                                                                       2533.   
+C   ...WITH UNITS, W/O LOAD, W/O UNIT SPACE                             2534.   
+C                                                                       2535.   
+  816 WRITE(6,18)RMTYP(K),IR,ISPFT(K),ISPFE$(K)                         2536.   
+      GO TO 819                                                         2537.   
+C                                                                       2538.   
+C  ...NO UNITS (ASSUME NOTHING ELSE)                                    2539.   
+C                                                                       2540.   
+  818 WRITE(6,19)RMTYP(K),ISPFT(K),ISPFE$(K)                            2541.   
+  819 LNCT = LNCT + 1                                                   2542.   
+      ITOT$ = ITOT$ + ISPFE$(K)                                         2543.   
+      ITOTSQ = ITOTSQ + ISPFT(K)                                        2544.   
+      GO TO 600                                                         2545.   
+C                                                                       2546.   
+C  SAME AS ABOVE ONLY WITH NO LOAD                                      2547.   
+C                                                                       2548.   
+  820 WRITE(6,12)RMTYP(K),IR,ISQFT(K),FE$(K),I$U,ITSQF,I$T              2549.   
+      GO TO 180                                                         2550.   
+C                                                                       2551.   
+  620 WRITE(6,12)RMTYP(K),IR,ISQFT(K),FE$(K),I$U,ITSQF,I$T              2552.   
+      LNCT = LNCT + 1                                                   2553.   
+      GO TO 580                                                         2554.   
+C                                                                       2555.   
+C  AVOID DIVIDE CHECK IF SQ FT AND COSTS ARE NOT USED                   2556.   
+C                                                                       2557.   
+  700 AVG = 0                                                           2558.   
+      GO TO 135                                                         2559.   
+  800 AVG = 0                                                           2560.   
+      GO TO 205                                                         2561.   
+C                                                                       2562.   
+C  NO FE --- SET SUMMARY TO ZERO                                        2563.   
+C                                                                       2564.   
+C                                                                       2565.   
+CHECK OUT AFTER DOING GRAND TOTALS                                      2566.   
+C                                                                       2567.   
+ 1000 AVG = FLOAT(ISTF$) / FLOAT(ISTCF)                                 2568.   
+      WRITE(6,25)AVG,ISTCF,ISTF$                                        2569.   
+      MN = NYRA(M) - NYRA(1) + 1                                        2570.   
+      IF(MN.EQ.1.OR.FECESC.EQ.0.) GO TO 1001                            2571.   
+      X = ISTF$                                                         2572.   
+      DO 1400 K = 2, MN                                                 2573.   
+ 1400 X = X * (1.0 + (FECESC * .01))                                    2574.   
+      AVG = X / FLOAT(ISTCF)                                            2575.   
+      IX = X + .5                                                       2576.   
+      WRITE(6,26)AVG,ISTCF,IX                                           2577.   
+      GO TO 1001                                                        2578.   
+  900 FECESC = 0.                                                       2579.   
+      ISTF$ = 0                                                         2580.   
+ 1001 IF(.NOT.OPTION(5)) RETURN                                         2581.   
+C                                                                       2582.   
+C   JL IS INDEX OF LONG MATRIX                                          2583.   
+C   JS IS INDEX OF SHORT MATRIX                                         2584.   
+C                                                                       2585.   
+      JL = 1                                                            2586.   
+      JS = 1                                                            2587.   
+ 1005 SPCRM(JS) = RMTYP(JL)                                             2588.   
+      NO(JS) = IREC(JL)                                                 2589.   
+      IF(ISQFT(JL).EQ.0) GO TO 1220                                     2590.   
+      ITOTFT(JS) = ISQFT(JL) * IREC(JL)                                 2591.   
+ 1006 KL = JL + 1                                                       2592.   
+      IF(KL.GT.I) GO TO 1300                                            2593.   
+      DO 1100 K = KL, I                                                 2594.   
+      IF(ILOAD(K).EQ.-1) GO TO 1100                                     2595.   
+      IF(SPCRM(JS).EQ.RMTYP(K)) GO TO 1200                              2596.   
+ 1100 CONTINUE                                                          2597.   
+      JS = JS + 1                                                       2598.   
+ 1110 JL = JL + 1                                                       2599.   
+      IF(JL.GT.I) GO TO 1300                                            2600.   
+      IF(ILOAD(JL).EQ.-1) GO TO 1110                                    2601.   
+      GO TO 1005                                                        2602.   
+C  MATCH - ADD NO. AND SIZE, THEN SET FLAG                              2603.   
+ 1200 NO(JS) = NO(JS) + IREC(K)                                         2604.   
+      IF(ISQFT(K).EQ.0) GO TO 1210                                      2605.   
+      ITOTFT(JS) = ITOTFT(JS) + ISQFT(K) * IREC(K)                      2606.   
+      ILOAD(K) = -1                                                     2607.   
+      GO TO 1100                                                        2608.   
+ 1210 ITOTFT(JS) = ITOTFT(JS) + ISPFT(K)                                2609.   
+      ILOAD(K) = -1                                                     2610.   
+      GO TO 1100                                                        2611.   
+ 1220 ITOTFT(JS) = ISPFT(JL)                                            2612.   
+      GO TO 1006                                                        2613.   
+C  ALL CONDENSED                                                        2614.   
+ 1300 NSPCT = JS - 1                                                    2615.   
+      RETURN                                                            2616.   
+C                                                                       2617.   
+C                                                                       2618.   
+C   ERROR--------FILE MISMATCH                                          2619.   
+C                                                                       2620.   
+ 3000 WRITE(6,15)RMTYP(I),TYPE                                          2621.   
+   15 FORMAT('1ROOM TYPE ',A8,' FROM RECOMMENDATIONS FILE DOES NOT ',   2622.   
+     1       'MATCH ',A8,' ON INTERNAL FILE.',/,                        2623.   
+     2       ' YOU MUST HAVE DELETED AN ENTRY INSTEAD OF SETTING IT ',  2624.   
+     3       'TO ZERO.')                                                2625.   
+      STOP                                                              2626.   
+ 3200 CALL TITLES(1)                                                    2627.   
+      WRITE(6,22)SVD1,SVD2                                              2628.   
+   22 FORMAT(1X,2A8,2X,'(CONTINUED)')                                   2629.   
+      GO TO 180                                                         2630.   
+ 3100 AVG = 0.                                                          2631.   
+      GO TO 610                                                         2632.   
+ 3300 CALL TITLES(2)                                                    2633.   
+      WRITE(6,22)SVD1,SVD2                                              2634.   
+      GO TO 580                                                         2635.   
+      END                                                               2636.   
+      SUBROUTINE TITLES(I)                                              2637.   
+C                                                                       2638.   
+C  THIS SUBROUTINE DOES TITLES FOR SPACE AND F & E REQ TABLES           2639.   
+C                                                                       2640.   
+C    I = 1 FOR SPACE                                                    2641.   
+C      = 2 FOR F & E                                                    2642.   
+C                                                                       2643.   
+C                                                                       2644.   
+C                                                                       2645.   
+      CALL TITLPG(1)                                                    2646.   
+      IF(I.EQ.1) GO TO 100                                              2647.   
+      IF(I.EQ.3) GO TO 200                                              2648.   
+      WRITE(6,1)                                                        2649.   
+    1 FORMAT(//,21X,'FURNITURE & EQUIPMENT REQUIREMENTS',/,             2650.   
+     1       21X,8('----'),'--',///,                                    2651.   
+     2       1X,18('----'),'---',/,                                     2652.   
+     3       1X,'DEPT/AREA',17X,'QTY.  UNIT   F&E $',3X,'UNIT F&E',     2653.   
+     4       4X,'TOTAL',5X,'TOTAL',/,                                   2654.   
+     5       4X,'ROOM TYPE',8X,'LOAD  REQ.  SQ.FT. SQ.FT.',4X,'COST',   2655.   
+     6       5X,'SQ.FT.   F&E COST',/,                                  2656.   
+     7       1X,18('----'),'---',/)                                     2657.   
+      RETURN                                                            2658.   
+  100 WRITE(6,2)                                                        2659.   
+    2 FORMAT(//,30X,'SPACE REQUIREMENTS',/,                             2660.   
+     1       30X,6('---'),///,                                          2661.   
+     A       1X,18('----'),'---',/,                                     2662.   
+     2       1X,'DEPT/AREA',17X,'QTY.  UNIT   COST',6X,'UNIT',6X,       2663.   
+     3       'TOTAL',5X,'TOTAL',/,                                      2664.   
+     4       4X,'ROOM TYPE',8X,'LOAD  REQ.  SQ.FT. SQ.FT.',4X,          2665.   
+     5       'COST',6X,'SQ.FT.',4X,'COST',/,                            2666.   
+     6       1X,18('----'),'---',/)                                     2667.   
+      RETURN                                                            2668.   
+  200 WRITE(6,3)                                                        2669.   
+    3 FORMAT(//,30X,'INVENTORY BALANCE',/,                              2670.   
+     1          30X,4('----'),'-',///,                                  2671.   
+     2          1X,18('----'),'---',/,                                  2672.   
+     3          1X,'ROOM',12X,'REQ',2X,'INVEN-',6X,                     2673.   
+     4          'BALANCE',8X,'ADDITIONAL REQUIREMENTS',/,               2674.   
+     5          1X,'TYPE',6X,'LOAD',2X,'NO.',3X,'TORY',3X,              2675.   
+     6          'SURPLUS',2X,'DEFICIT',2X,'SQ.FT.',2X,'BLDG $',         2676.   
+     7          4X,'F&E $',/,                                           2677.   
+     8          1X,18('----'),'---',/)                                  2678.   
+      RETURN                                                            2679.   
+      END                                                               2680.   
+      SUBROUTINE SITE(N,K)                                              2681.   
+C                                                                       2682.   
+C  THIS SUBROUTINE PRINTS OUT THE SITE CONSIDERATIONS PAGE              2683.   
+C                                                                       2684.   
+C                                                                       2685.   
+C    N = NCOUNT FOR 1 - X                                               2686.   
+C    K = NCOUNT FOR KINDERGARTEN                                        2687.   
+C                                                                       2688.   
+      DATA IN /1/                                                       2689.   
+      COMMON /ESC/ CNSESC,FECESC,SITEA,TR                               2690.   
+      COMMON /SINFO/IST$A,GSDC,OFSTP,UTPC,XCONT                         2691.   
+      DIMENSION LNNO(30),KKLN(4),ISQFT(30),AREAT(30,3),USE(30,9),       2692.   
+     1          LEN(30),IWID(30)                                        2693.   
+      COMMON /TIT/ TITLE(15),TOTENR(10),M,NYRA(10),NYRB(10),LNCT,       2694.   
+     1             ITGL,ITGH                                            2695.   
+      IF(IN.NE.1) REWIND 3                                              2696.   
+      IN = 2                                                            2697.   
+      READ(3,1)IST$A,GSDC,OFSTP,UTPC,XCONT                              2698.   
+    1 FORMAT(I4,4F4.1)                                                  2699.   
+  100 READ(3,2)IGL,IGH,ILN,IHN,(LNNO(I),I=1,30),CONT,BG,PR              2700.   
+    2 FORMAT(I2,1X,I2,I4,1X,I4,30I1,F2.0,2F4.0)                         2701.   
+      IF(IGL.EQ.99)  GO TO 800                                          2702.   
+C  99 IS END OF GROUP FLAG, SO GOING TO 800 WILL BE BOMBING             2703.   
+      IF(IGL.EQ.ITGL.AND.IGH.EQ.ITGH) GO TO 110                         2704.   
+      GO TO 100                                                         2705.   
+  110 IF(N.GE.ILN.AND.N.LE.IHN) GO TO 120                               2706.   
+      GO TO 100                                                         2707.   
+C                                                                       2708.   
+C    MATCH FOUND                                                        2709.   
+C                                                                       2710.   
+  120 READ(3,3)IGL                                                      2711.   
+      IF(IGL.NE.99) GO TO 120                                           2712.   
+    3 FORMAT(I2)                                                        2713.   
+      IF(ITGL.NE.0) GO TO 900                                           2714.   
+C   THAT WAS READING BY REST ON THAT FILE GROUP                         2715.   
+  140 READ(3,4)KLN,KHN,(KKLN(I),I=1,4),BGK,PRK                          2716.   
+      IF(KLN.EQ.99) GO TO 820                                           2717.   
+C  THAT WAS ANOTHER BOMB                                                2718.   
+      IF(K.GE.KLN.AND.K.LE.KHN) GO TO 160                               2719.   
+      GO TO 140                                                         2720.   
+  160 READ(3,7)N                                                        2721.   
+    7 FORMAT(I3)                                                        2722.   
+      IF(N.NE.99) GO TO 160                                             2723.   
+  170 READ(3,3)N                                                        2724.   
+      DO 180 I = 1, N                                                   2725.   
+  180 READ(3,5)ISQFT(I),(AREAT(I,J),J=1,3),(USE(I,J),J=1,9),LEN(I),     2726.   
+     1         IWID(I)                                                  2727.   
+    5 FORMAT(I6,12A4,I3,1X,I3)                                          2728.   
+    4 FORMAT(I3,1X,I3,4(1X,I2),2F5.1)                                   2729.   
+C                                                                       2730.   
+C  INPUT IS SET, DO COMPUTATIONS                                        2731.   
+C                                                                       2732.   
+C                                                                       2733.   
+      CALL TITLPG(1)                                                    2734.   
+      WRITE(6,6)                                                        2735.   
+    6 FORMAT(/////,24X,'SITE SIZE CONSIDERATIONS',/,                    2736.   
+     1       24X,6('----'),////,                                        2737.   
+     2       1X,18('----'),/                                            2738.   
+     3       52X,'UNIT  UNIT QTY. TOTAL',/,                             2739.   
+     4       1X,'TYPE OF AREA',15X,'USE',21X,'SIZE',5X,'REQ.    SIZE',/,2740.   
+     5       1X,18('----'),/)                                           2741.   
+      IF(K.EQ.0) GO TO 191                                              2742.   
+      DO 190 I = 1, 4                                                   2743.   
+      IF(KKLN(I).EQ.0) GO TO 190                                        2744.   
+      J = KKLN(I)                                                       2745.   
+      LNNO(J) = LNNO(J) + 1                                             2746.   
+  190 CONTINUE                                                          2747.   
+C                                                                       2748.   
+C  LIST THE BUGGERS OUT                                                 2749.   
+C                                                                       2750.   
+  191 ITOT = 0                                                          2751.   
+      DO 220 I = 1, 30                                                  2752.   
+      IF(LNNO(I).EQ.0) GO TO 220                                        2753.   
+  210 IF(ISQFT(I).EQ.0) GO TO 230                                       2754.   
+      ISTOT = LNNO(I) * ISQFT(I)                                        2755.   
+      WRITE(6,10)(AREAT(I,J),J=1,3),(USE(I,J),J=1,9),ISQFT(I),LNNO(I),  2756.   
+     1            ISTOT                                                 2757.   
+   10 FORMAT(1X,3A4,9A4,I7,' SQ. FT.',I3,I9)                            2758.   
+      ITOT = ITOT + ISTOT                                               2759.   
+  220 CONTINUE                                                          2760.   
+      GO TO 300                                                         2761.   
+C                                                                       2762.   
+C  SQ FT MUST BE COMPUTED                                               2763.   
+  230 IT = LEN(I) * IWID(I) * LNNO(I)                                   2764.   
+      WRITE(6,11)(AREAT(I,J),J=1,3),(USE(I,J),J=1,9),LEN(I),IWID(I),    2765.   
+     1            LNNO(I),IT                                            2766.   
+   11 FORMAT(1X,3A4,9A4,I3,' X ',I3,I5,I10)                             2767.   
+      ITOT = ITOT + IT                                                  2768.   
+      GO TO 220                                                         2769.   
+C                                                                       2770.   
+C  SUBTOTAL                                                             2771.   
+C                                                                       2772.   
+  300 WRITE(6,12)ITOT                                                   2773.   
+   12 FORMAT(67X,'------',/,                                            2774.   
+     1       46X,'SUBTOTAL',I19,/)                                      2775.   
+      J = .01 * CONT * FLOAT(ITOT) + .5                                 2776.   
+      KJ = J + ITOT                                                     2777.   
+      WRITE(6,13)J,KJ                                                   2778.   
+   13 FORMAT(46X,'LAYOUT CONTINGENCY',I9,/,                             2779.   
+     1       67X,'------',/                                             2780.   
+     2       46X,'TOTAL SQ. FT.',I14,///)                               2781.   
+C                                                                       2782.   
+C  SUMMARY ACRES                                                        2783.   
+C                                                                       2784.   
+      X = FLOAT(KJ) / 43560.                                            2785.   
+      Y = BG + BGK                                                      2786.   
+      Z = PR + PRK                                                      2787.   
+      T = X + Y + Z                                                     2788.   
+      TR = T - SITEA                                                    2789.   
+      WRITE(6,14)X,Y,Z,T,SITEA,TR                                       2790.   
+   14 FORMAT(27X,'APPARATUS, HARDCOURTS, AND FIELDS',F7.1,' ACRES',/,   2791.   
+     1       27X,'BUILDINGS AND GROUNDS',F19.1,' ACRES',/,              2792.   
+     2       27X,'PARKING AND ROADS',F23.1,' ACRES',/,                  2793.   
+     3       63X,'----',/,                                              2794.   
+     4       27X,'TOTAL USABLE ACRES',F22.1,' ACRES',/,                 2795.   
+     5       27X,'EXISTING SITE',F27.1,' ACRES',/,                      2796.   
+     6       63X,'----',/,                                              2797.   
+     7       27X,'TOTAL SITE REQUIRED',F21.1,' ACRES')                  2798.   
+      RETURN                                                            2799.   
+  800 WRITE(6,15) N                                                     2800.   
+   15 FORMAT('1CANNOT MATCH N-COUNT OF',I4,' TO SITE FILE.')            2801.   
+      RETURN                                                            2802.   
+  820 WRITE(6,16)K                                                      2803.   
+   16 FORMAT('1CANNOT MATCH KINDERGARTEN N-COUNT OF',I4,' TO SITE FILE')2804.   
+      RETURN                                                            2805.   
+  900 READ(3,7)N                                                        2806.   
+      IF(N.NE.99) GO TO 900                                             2807.   
+      BGK = 0.                                                          2808.   
+      PRK = 0.                                                          2809.   
+      GO TO 170                                                         2810.   
+      END                                                               2811.   
+      SUBROUTINE TITLPG(I)                                              2812.   
+      DATA DCD/4HGRGR/                                                  2813.   
+      COMMON /TIT/ TITLE(15),TOTENR(10),M,NYRA(10),NYRB(10),LNCT,       2814.   
+     1             ITGL,ITGH                                            2815.   
+      REAL*8 DATE                                                       2816.   
+      IF(I.EQ.0) GO TO 100                                              2817.   
+      IP = IP + 1                                                       2818.   
+      IF(IP.GE.10) GO TO 101                                            2819.   
+      WRITE(6,21) IP                                                    2820.   
+   10 CONTINUE                                                          2821.   
+      LNCT = 0                                                          2822.   
+      J = TOTENR(M)                                                     2823.   
+      IF(M.EQ.1) GO TO 103                                              2824.   
+      WRITE(6,20)(TITLE(K),K=1,15),ITGL,ITGH,J,NYRA(M),NYRB(M)          2825.   
+   20 FORMAT(' ','DISTRICT ',9A4,'SCHOOL ',6A4,/,                       2826.   
+     1       9X,9('----'),'-      ',5('----'),'-',/,                    2827.   
+     2       ' GRADE ',I3,' - ',I2,10X,'ENROLLMENT   ',I4,12X,          2828.   
+     3       'SCHOOL YEAR  ',I2,'-',I2,/,                               2829.   
+     4       6X,4('----'),'---',10X,4('----'),'---',12X,'-------',//)   2830.   
+      RETURN                                                            2831.   
+   21 FORMAT('1',69X,'(B',I1,')'/)                                      2832.   
+   22 FORMAT('1',69X,'(B',I2,')',/)                                     2833.   
+   23 FORMAT('1',69X,'(B',I3,')',/)                                     2834.   
+  101 IF(IP.GE.100) GO TO 102                                           2835.   
+      WRITE(6,22)IP                                                     2836.   
+      GO TO 10                                                          2837.   
+  102 WRITE(6,23)IP                                                     2838.   
+      GO TO 10                                                          2839.   
+  103 WRITE(6,220)(TITLE(K),K=1,15),ITGL,ITGH,J,NYRA(M),NYRB(M)         2840.   
+      RETURN                                                            2841.   
+  220 FORMAT(' ','DISTRICT ',9A4,'SCHOOL ',6A4,/,                       2842.   
+     1       9X,9('----'),'-      ',5('----'),'-',/,                    2843.   
+     2       ' GRADE ',I3,' - ',I2,10X,'ENROLLMENT   ',I4,1X,           2844.   
+     2          '(BASE YR)',2X,                                         2845.   
+     3       'SCHOOL YEAR  ',I2,'-',I2,/,                               2846.   
+     4       6X,4('----'),'---',10X,4('----'),'---',12X,'-------',//)   2847.   
+C                                                                       2848.   
+C  FIRST CALL ZEROES PAGE NO. AND GETS DATE                             2849.   
+C                                                                       2850.   
+  100 IP = 0                                                            2851.   
+      CALL OSICLK(DCD,DATE,IP)                                          2852.   
+      IP = 0                                                            2853.   
+      RETURN                                                            2854.   
+      END                                                               2855.   
+      SUBROUTINE CNSTSM                                                 2856.   
+C                                                                       2857.   
+C  SUBROUTINE FOR "CONSTRUCTION SUMMARY" PAGE                           2858.   
+C                                                                       2859.   
+C-----------------------------------------------                        2860.   
+C  VARIABLES                                                            2861.   
+C  ICNST        TOTAL CONSTRUCTION COST                                 2862.   
+C  CNSESC       CONST ESC FACTOR                                        2863.   
+C  IST$A        SITE DEV COST/ACRE                                      2864.   
+C  SITEA        SITE SIZE IN ACRES                                      2865.   
+C  GSDC         GENERAL SITE DEV COST PERCENTAGE                        2866.   
+C  OFSTP        OFF SITE DEV COST PC                                    2867.   
+C  UTPC         UTILITY SERVICE COST PC                                 2868.   
+C  FECESC       F & E COST ESC. FACTOR                                  2869.   
+C  IFE$         F & E COST                                              2870.   
+C  CONT         CONTINGENCY PC                                          2871.   
+C                                                                       2872.   
+C------------------------------------------------                       2873.   
+      LOGICAL FESW                                                      2874.   
+      COMMON /ESC/ CNSESC,FECESC,TR,SITEA                               2875.   
+      COMMON /SPCE/ICNST,IFE$                                           2876.   
+      COMMON /SW/FESW                                                   2877.   
+      COMMON /TIT/ TITLE(15),TOTENR(10),M,NYRA(10),NYRB(10),LNCT,       2878.   
+     1             ITGL,ITGH                                            2879.   
+      COMMON /SINFO/IST$A,GSDC,OFSTP,UTPC,CONT                          2880.   
+      CALL TITLPG(1)                                                    2881.   
+      WRITE(6,1)                                                        2882.   
+    1 FORMAT(19X,'ESTIMATED CONSTRUCTION COST SUMMARY',/,               2883.   
+     1          19X,8('----'),'---',///,                                2884.   
+     2          1X,18('----'),//)                                       2885.   
+      MN = NYRA(M) - NYRA(1) + 1                                        2886.   
+      XTOTF = ICNST                                                     2887.   
+      IF(MN.EQ.1.OR.CNSESC.EQ.0.) GO TO 440                             2888.   
+      DO 120 I = 2, MN                                                  2889.   
+  120 XTOTF = XTOTF * ( 1. + ( .01 * CNSESC))                           2890.   
+      ITOTF = XTOTF + .5                                                2891.   
+      ITOT = ITOTF                                                      2892.   
+      Y = XTOTF / FLOAT(ICNST)                                          2893.   
+      J = MN - 1                                                        2894.   
+      WRITE(6,2)ICNST,Y,CNSESC,J,ITOTF                                  2895.   
+    2 FORMAT(10X,'A. FACILITY COST',/,                                  2896.   
+     1          17X,'TOTAL BASE YEAR COST',T51,I13,/,                   2897.   
+     2          17X,'X ESCALATION FACTOR',T58,'X',F5.1,/,               2898.   
+     3          17X,'(',F4.1,'% FOR',I3,' YEARS)',T51,3('----'),'-',/,  2899.   
+     4          T48,'=',I15,/)                                          2900.   
+  110 ITEMP = FLOAT(IST$A) * SITEA + .5                                 2901.   
+      IF(ITEMP.GT.50000) ITEMP = 50000                                  2902.   
+      ITOT = ITOT + ITEMP                                               2903.   
+      WRITE(6,3)IST$A,IST$A,SITEA,ITEMP                                 2904.   
+    3 FORMAT(10X,'B. SERVICE SITE DEV. COST',/,                         2905.   
+     1          17X,'$',I5,T51,I13,/,                                   2906.   
+     2          17X,'X ACRES/SITE',T58,'X',F5.1,/,                      2907.   
+     3          17X,'$ 50000 (MAX)',T51,3('----'),'-',/,                2908.   
+     4          T48,'=',I15,/)                                          2909.   
+C                                                                       2910.   
+      RGSDC = GSDC * .01                                                2911.   
+      ITEMP = XTOTF * RGSDC + .5                                        2912.   
+      ITOT = ITOT + ITEMP                                               2913.   
+      WRITE(6,4)ICNST,GSDC,RGSDC,ITEMP                                  2914.   
+    4 FORMAT(10X,'C. GENERAL SITE DEV. COST',/,                         2915.   
+     1          17X,'FACILITY COST',T51,I13,/,                          2916.   
+     2          17X,'X',F4.1,'% (MAX.)',T57,'X ',F5.3,/,                2917.   
+     3          T51,3('----'),'-',/,                                    2918.   
+     4          T48,'=',I15,/)                                          2919.   
+C                                                                       2920.   
+      ROFSTP = OFSTP * .01                                              2921.   
+      ITEMP = XTOTF * ROFSTP + .5                                       2922.   
+      ITOT = ITOT + ITEMP                                               2923.   
+      WRITE(6,5)ICNST,OFSTP,ROFSTP,ITEMP                                2924.   
+    5 FORMAT(10X,'D. OFF-SITE DEV. COST',/,                             2925.   
+     1          17X,'FACILITY COST',T51,I13,/,                          2926.   
+     2          17X,'X',F4.1,'% (MAX.)',T57,'X ',F5.3,/,                2927.   
+     2          T51,3('----'),'-',/,                                    2928.   
+     3          T48,'=',I15,/)                                          2929.   
+C                                                                       2930.   
+      RUTPC = UTPC * .01                                                2931.   
+      ITEMP = RUTPC * XTOTF + .5                                        2932.   
+      ITOT = ITOT + ITEMP                                               2933.   
+      WRITE(6,6)ICNST,UTPC,RUTPC,ITEMP                                  2934.   
+    6 FORMAT(10X,'E. UTILITY SERVICE COST',/,                           2935.   
+     1          17X,'FACILITY COST',T51,I13,/,                          2936.   
+     2          17X,'X',F4.1,'% (MAX.)',T57,'X ',F5.3,/,                2937.   
+     3          T51,3('----'),'-',/,                                    2938.   
+     4          T48,'=',I15,/)                                          2939.   
+C                                                                       2940.   
+C   F & E COSTS                                                         2941.   
+C                                                                       2942.   
+      IF(.NOT.FESW) GO TO 260                                           2943.   
+      MN = NYRA(M) - NYRA(1) + 1                                        2944.   
+      IF(MN.EQ.1.OR.FECESC.EQ.0.) GO TO 240                             2945.   
+      X = IFE$                                                          2946.   
+      DO 220 I = 2, MN                                                  2947.   
+  220 X = X * ( 1. + ( .01 * FECESC))                                   2948.   
+      ITEMP = X + .5                                                    2949.   
+      ITOT = ITOT + ITEMP                                               2950.   
+      Y = X / FLOAT(IFE$)                                               2951.   
+      J = MN - 1                                                        2952.   
+      WRITE(6,7)IFE$,Y,FECESC,J,ITEMP                                   2953.   
+    7 FORMAT(10X,'F. FURNITURE & EQUIP. COST',/,                        2954.   
+     1          17X,'TOTAL ALLOWABLE COST',T51,I13,/,                   2955.   
+     2          17X,'X ESCALATION FACTOR      ',T57,' X',F5.1,/,        2956.   
+     3          17X,'(',F4.1,'% FOR ',I2,' YEARS)',T51,3('----'),'-',/, 2957.   
+     4          T48,'=',I15,/)                                          2958.   
+      GO TO 400                                                         2959.   
+  240 ITOT = ITOT + IFE$                                                2960.   
+      WRITE(6,8)IFE$                                                    2961.   
+    8 FORMAT(10X,'F. FURNITURE & EQUIP. COST',T51,I13,/)                2962.   
+      GO TO 400                                                         2963.   
+  260 WRITE(6,9)                                                        2964.   
+    9 FORMAT(10X,'F. FURNITURE & EQIP. COST',T50,'NO DATA AVAIL',/)     2965.   
+  400 RCONT = CONT * .01                                                2966.   
+      ICNT = RCONT * FLOAT(ITOT) + .5                                   2967.   
+      WRITE(6,10)ITOT,CONT,RCONT,ICNT                                   2968.   
+   10 FORMAT(10X,'G. CONTINGENCY',/,                                    2969.   
+     1          17X,'TOTAL (ITEMS A - F)',T51,I13,/,                    2970.   
+     2          17X,'X',F4.1,'%',T57,'X ',F5.3,/,                       2971.   
+     3          T51,3('----'),'-',/,                                    2972.   
+     4          T48,'=',I15,//)                                         2973.   
+C                                                                       2974.   
+C                                                                       2975.   
+      ITOT = ITOT + ICNT                                                2976.   
+      WRITE(6,11)ITOT                                                   2977.   
+   11 FORMAT(10X,'TOTAL ESTIMATED',/,                                   2978.   
+     1          10X,'CONSTRUCTION COST',T51,I13,/,                      2979.   
+     2          T51,3('----'),'-')                                      2980.   
+      RETURN                                                            2981.   
+  440 WRITE(6,12)ICNST                                                  2982.   
+   12 FORMAT(10X,'A. FACILITY COST',T51,I13,/)                          2983.   
+      ITOT = ICNST                                                      2984.   
+      GO TO 110                                                         2985.   
+      END                                                               2986.   
+      SUBROUTINE EDSPEC                                                 2987.   
+      REAL*8 ADATA(7),SPCNM,SPCRM                                       2988.   
+      COMMON /ESPC/RMINDX(500),NESP                                     2989.   
+      REAL*8 RMINDX,A,RECORD                                            2990.   
+      DIMENSION RECORD(40,8)                                            2991.   
+      COMMON /SPCDAT/SPCRM(200),NO(200),ITOTFT(200),NSPCT               2992.   
+      DATA AST/1H*/,BLANK/1H /                                          2993.   
+      FAST = BLANK                                                      2994.   
+      DO 400 I = 1, NSPCT                                               2995.   
+      CALL TITLPG(1)                                                    2996.   
+      WRITE(6,3)                                                        2997.   
+      WRITE(6,4)SPCRM(I),NO(I),ITOTFT(I)                                2998.   
+      A = SPCRM(I)                                                      2999.   
+      DO 300 J = 1, NESP                                                3000.   
+      IF(A.EQ.RMINDX(J)) GO TO 320                                      3001.   
+  300 CONTINUE                                                          3002.   
+C                                                                       3003.   
+C  IF YOU ARE HERE - NO FIND                                            3004.   
+C                                                                       3005.   
+      WRITE(6,2)A,NESP                                                  3006.   
+    2 FORMAT(1X,A8,' WAS NOT FOUND.',I5)                                3007.   
+      GO TO 400                                                         3008.   
+  320 READ(11'J)(((RECORD(IK,IJ),IJ=1,8),IK=1,40),ILINE)                3009.   
+      DO 340 IK = 1, ILINE                                              3010.   
+  340 WRITE(6,33)(RECORD(IK,IJ),IJ=1,8)                                 3011.   
+   33 FORMAT(10X,8A8)                                                   3012.   
+  400 CONTINUE                                                          3013.   
+      RETURN                                                            3014.   
+    3 FORMAT(/,23X,'EDUCATIONAL SPECIFICATIONS',/,                      3015.   
+     1          23X,6('----'),'--',//)                                  3016.   
+    4 FORMAT(27X,'SPACE TYPE',4X,'NUMBER REQUIRED',4X,'TOTAL SQ. FT.',/,3017.   
+     1          1X,18('----'),//,28X,A8,5X,I8,11X,I8,/)                 3018.   
+C                                                                       3019.   
+      END                                                               3020.   
+/*                                                                      3021.   
+//LKED.SYSLMOD DD DSN=CN1638.PHASE2(PHASE2),UNIT=2314,DISP=(,CATLG),    3022.   
+//  DCB=(RECFM=U,BLKSIZE=7294),SPACE=(TRK,(100,20,2),RLSE),             3023.   
+//  VOL=SER=STR014                                                      3024.   
+                                                                                
+                                                                                
+ ~ ­
