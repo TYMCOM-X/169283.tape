@@ -1,0 +1,593 @@
+;       620KTP.MAC
+;
+;DEFINE VERSION NUMBER
+
+        TYMSPC==1               ;TYMSHARE SPECIFICATION
+        TYMREL==0               ;TYMSHARE RELEASE NUMBER
+        DECSPC==0               ;DEC SPECIFICATION
+        DECREL==0               ;DEC RELEASE
+
+DEFINE TITL(TS,TR,DS,DR)<
+TITLE 620KTP -- VERSION TS'.'TR'-'DS'.'DR
+SUBTTL  TRANSCRIBE 620I FILE TO MAG TAPE  -JOK- 18-SEPT-73
+V620KTP==BYTE(9)DS,TS,DR,TR>
+
+DEFINE HEADER(X)<XLIST
+                 SUBTTL X
+                 PAGE
+                 LIST>
+
+        TITL(\TYMSPC,\TYMREL,\DECSPC,\DECREL)
+
+        TWOSEGMENTS
+
+        LOC     137
+        V620KTP
+        RELOC   400000          ;GOING TO HSEG
+        MLON
+        SALL
+
+;ACCUMULATORS
+A=1
+B=2
+X=3
+SOR=4
+DES=5
+SCR==7
+WD=11
+CH=12
+X1=14
+X2=15
+X3=16
+P=17
+
+;I/O ASSIGNMENTS
+INFIL==1
+DSK==2                  ;CHANNEL FOR FAKE DISC AS TELETYPE I/O
+MT==3                           ;CHANNEL FOR MAG TAPE
+
+EXTERN JOBFF
+
+;************************************
+KBOOT=17550     ; THE CONSTANT AT 17571 IN THE 620 KENNEDY TAPE BOOT
+;                 THIS CONSTANT DEFINES THE SIZE OF A STANDARD LOAD
+;************************************
+HEADER  MACRO'S AND SUCH
+
+DEFINE SUBR(X)<X: OPDEF X [PUSHJ P,.]>
+DEFINE MSG(MESSAGE)<OUTSTR [ASCIZ /MESSAGE/]>
+
+OPDEF   PJ [PUSHJ P,]
+OPDEF   RET [POPJ P,]
+OPDEF   PSH [PUSH P,]
+OPDEF   PUL [POP P,]
+OPDEF   TCI [INCHWL]
+OPDEF   TCO [OUTCHR]
+OPDEF   PJRST [JRST]
+
+DEFINE  BITCH(X)< JRST [MSG <? >
+                        JRST X]>
+HEADER  MAIN PROGRAM
+;RUNNING CODE
+
+BEGIN:  RESET                   ;INITIALIZE ALL
+        SETZM   DSKCHN          ;NOT COMING FROM DISC
+        MOVE    P,[IOWD 20,PDL] ;INITIALIZE PUSH DOWN LIST
+BEGIN1: MSG     <MAG TAPE UNIT: >  ;REQUEST TAPE UNIT
+        GNC                     ;GET THE CHARACTER INPUT (IN CH)
+        CAIL    CH,"0"          ;VERIFY "0", "1", OR "2"
+        CAIL    CH,"3"
+        JRST    [MSG <? >       ;BITCH IF NOT, TRY AGAIN
+                EOL
+                JRST BEGIN1]
+        SUBI    CH,40           ;SUCCESS...MAKE SIXBIT
+        DPB     CH,[POINT 6,TAPE+1,23]  ;PLUG UNIT NUMBER INTO NAME
+        EOL                     ;SKIP TO CR/LF ON INPUT
+        OPEN    MT,TAPE         ;OPEN THE TAPE CHANNEL
+        JRST    BDTAPE          ;ABORT IF CAN'T OPEN IT
+        SETZM   COMPRS          ;CLEAR COMPRESSION FLAG
+
+        MSG     <REWIND? : >    ;DETERMINE IF TAPE IS TO BE REWOUND FIRST
+        YESNO                   ;TEST INPUT
+        BITCH   .-2
+        MTAPE   MT,1            ;"YES"...REWIND THE TAPE
+        MSG     <COMPRESSED?: > ;DETERMINE IF COMPRESSED TAPE
+        YESNO                   ;DETERMINE INPUT
+        BITCH   .-2             ;BITCH IF NOT, TRY AGAIN
+        SETOM   COMPRS          ;SET COMPRESSED FLAG
+START:  MOVE    P,[IOWD 20,PDL] ;INIT PDL
+
+LP:     SKIPE   DSKCHN          ;IF DISC FILE DON'T PRINT PRMPT
+        JRST    .+5             ;DONT TYPE
+        MOVE    CH,DELIM        ;CHECK DELIMETER
+        CAIE    CH,12           ;L.F.
+        CAIN    CH,15           ;OR C.R. TYPE MESSAGE
+        JRST    [MSG <INPUT: >
+                SETZM %TYPO
+                JRST .+1]
+        SETZM   CMDFIL          ;RESET COMMAND FILE FLAG
+        FNAME
+        SKIPE   CMDFIL          ;DID USER WANT COMMAND FILE?
+        JRST    PCMD            ;YES--OPEN COMMAND FILE
+        OPEN    INFIL,SPEC
+        JRST    BDEV
+        LOOKUP  INFIL,FILNAM
+        JRST    RERR            ;CANT OPEN FILE
+
+;       GOT FILE, DETERMINE AND ALLOCATE SPACE
+        UGETF   INFIL,A         ;GET THE FILE SIZE
+        HRRZ    A,A             ;CLEAN UP
+        IMULI   A,200           ;#BLOCKS*200 INTO A
+        JUMPE   A,EMT           ;SKIP IF FILE EMPTY
+        MOVN    B,A             ;GET NEGATIVE SIZE
+        HRLM    B,DIB           ;BUILD READ BLOCK
+        MOVE    B,JOBFF         ;PLUG IN START
+        HRRM    B,DIB
+        MOVEM   B,DREAD         ;SAVE CURRENT END POINTER
+        ADD     A,A             ;COMPUTE 2*SIZE
+        CAIGE   A,20000         ;SET MINIMUM BUFFER SIZE
+        MOVEI   A,20000         ;SET MINIMUM BUFFER SIZE
+        ADD     A,JOBFF         ;COMPUTE END ADDRESS
+        ALLOC                   ;ALLOCATE THE MEMORY NECESSARY
+        SETZM   0,1(B)          ;CLEAR THE BUFFER
+        HRLM    B,B
+        ADD     B,[1,,2]
+        BLT     B,@JOBFF
+        IN      INFIL,DIB       ;READ THE DATA IN
+        JRST    BOUND           ;SKIP IF SUCCESSFUL
+        STATZ   INFIL,740000    ;HERE IF ERROR IN READ
+        JRST    RDERR           ;GO PROCESS READ ERROR
+
+;       HAVE READ THE FILE, FIND THE BOUNDARIES OF THE DATA
+BOUND:  CLDSK                   ;LET GO OF THE CHANNEL
+        MOVEI   A,^B1100        ;SET A MASK
+        MOVE    DES,DREAD       ;SET THE BEGINNING OF THE BUFFER
+        ADDI    DES,1
+        TDNE    A,0(DES)        ;SEARCH FOR FIRST WORD WITH BITS NOT SET
+        AOJA    DES,.-1
+        MOVEM   DES,BOTTOM      ;SAVE POINTER TO BOTTOM OF STORAGE
+        MOVEM   DES,TOB         ;SET BUFFER POINTER TO BASE-1
+        SOS     0,TOB
+        MOVE    SOR,JOBFF       ;FIND END OF DATA
+        SKIPL   0(SOR)          ;FIRST FIND A NEGATIVE WORD
+        SOJA    SOR,.-1
+        TDNE    A,0(SOR)        ;NOW SEARCH FOR NON FLAG WORD
+        SOJA    SOR,.-1
+
+;       NOW (DES) = FIRST WORD, (SOR) = LAST WORD
+        MOVE    B,SOR           ;LAST WORD ADDRESS
+        SUB     B,DES           ;NUMBER OF WORDS THERE (N-1)
+        ADDI    B,1(B)          ;2*N-1
+        MOVE    A,B             ;COPY IT
+        SKIPN   0,COMPRS        ;COMPRESSED MODE?
+        MOVEI   A,KBOOT-1       ;NO...SET DEFAULT SIZE
+        ADD     A,DES           ;COMPUTE NEW TOP ADDRESS
+        MOVEM   A,TOP
+        ADD     DES,B           ;DESTINATION ADDRESS
+UNPACK: MOVE    B,0(SOR)        ;GET THE WORD
+        MOVSI   X,-4            ;SET UP TO MOVE 4 BYTES
+        SETZI   A,0             ;CLEAR SPACE TO MOVE INTO
+        LSHC    A,4             ;MOVE 4 BITS
+        LSH     A,2             ;SET 2 ZERO BITS
+        AOBJN   X,.-2           ;DO 4 TIMES
+        TRZE    B,400000        ;TEST IF MODIFIED
+        OR      A,[400000,,0]   ;SET SIGN BIT IF SO
+        MOVEM   A,-1(DES)       ;PUT IT AWAY
+        MOVSI   X,-4            ;SET UP TO MOVE 4 BYTES
+        SETZI   A,0             ;CLEAR SPACE TO MOVE INTO
+        LSHC    A,4             ;MOVE 4 BITS
+        LSH     A,2             ;SET 2 ZERO BITS
+        AOBJN   X,.-2           ;DO 4 TIMES
+        TLZE    B,040000        ;TEST IF MODIFIED
+        OR      A,[400000,,0]   ;SET SIGN BIT IF SO
+        MOVEM   A,0(DES)        ;PUT IT AWAY TOO
+        SUBI    DES,2           ;BACK OFF ON DESTINATION
+        CAME    SOR,BOTTOM      ;TEST IF DONE
+        SOJA    SOR,UNPACK      ;CONTINUE IF NOT
+
+;       ALL THE INPUT IS UNPACKED...FREE EXCESS STORAGE
+        MOVE    A,TOP
+        ALLOC                   ;FREE EXCESS STORAGE
+
+;       NOW SET IN THE SPECIAL BITS
+        MOVE    SOR,BOTTOM      ;SET START INDEX
+        MOVE    A,[01010103]    ;GET BITS
+        OR      A,0(SOR)        ;PUT IN WORD
+        MOVEM   A,0(SOR)        ;AND RESTORE
+        CAME    SOR,TOP         ;TEST IF DONE
+        AOJA    SOR,.-4         ;CONTINE FOR ALL
+
+;       DETERMINE IF TO SHORTEN LOAD
+        SKIPN   CH,COMPRS       ;COMPRESS FLAG SET?
+        JRST    CHECK           ;NO...SKIP
+        MOVE    SOR,TOP         ;SET TOP ADDRESS
+        SKIPN   0(SOR)          ;FIND WORD WITH FLAG SET
+        AOJA    SOR,.-1         ;TEST ALL DATA
+        MOVEM   SOR,TOP         ;SUCCESS...SAVE POINTER
+        JRST    PACK            ;SKIP TO PACK THE DATA
+
+;       NON-COMPRESSED MODE..PERFORM CHECKSUM
+CHECK:  MOVE    SOR,BOTTOM      ;SET START ADDRESS
+CHECK1: MOVE    A,0(SOR)        ;GET A VALUE
+        MOVSI   X,-4            ;SET COUNTER
+        ADD     CH,A            ;CHECKSUM
+        LSH     A,-6            ;MOVE NEXT BYTE
+        AOBJN   X,.-2           ;DO FOR 4 BYTES
+        CAME    SOR,TOP         ;TEST IF DONE
+        AOJA    SOR,CHECK1      ;CONTINUE IF NOT
+        MOVN    CH,CH           ;CH CONTAINS CHECKSUM...MAKE NEGATIVE
+        AND     CH,[^B111100]   ;MASK OUT BITS
+        MOVE    SOR,BOTTOM      ;SCAN FOR UNINITIALIZED WORD
+        SKIPGE  0,0(SOR)        ;LOOK FOR PLUS WORD
+        AOJA    SOR,.-1
+        OR      CH,0(SOR)       ;ADD CHECKSUM TO IT
+        MOVEM   CH,0(SOR)       ;PUT IT BACK
+
+;       NOW PACK THE DATA FOR TAPE
+PACK:   MOVE    DES,[POINT 6,0,35]  ;BUILD POINTER FOR PUTTING
+        ADD     DES,TOB         ;ADD BASE - 1
+        MOVE    SOR,BOTTOM      ;GET SOURCE ADDRESS
+        SETZI   CH,0            ;CLEAR CHECKSUM
+PACK1:  MOVE    B,0(SOR)        ;GET A WORD
+        CAIL    B,0             ;DETERMINE IF WORD IS INITIALIZED
+        JRST    [SKIPN COMPRS   ;NO...COMPRESS MODE?
+                 JRST .+1       ;NOT COMPRESS...CONTINUE
+                 MOVEI A,^B111100  ;COMPRESS...SET IGNORE CODE
+                 JRST PACK2]    ;GO SEND SINGLE BYTE
+        LSHC    A,^D18          ;OUTPUT BYTE 1
+        CKSUM
+        LSHC    A,6             ;OUTPUT BYTE 2
+        CKSUM
+        LSHC    A,6             ;OUTPUT BYTE 3
+        CKSUM
+        LSHC    A,6             ;OUTPUT BYTE 4
+PACK2:  CKSUM
+        CAME    SOR,TOP         ;TEST IF DONE
+        AOJA    SOR,PACK1       ;ELSE CONTINUE
+        SKIPN   COMPRS          ;DONE...CLEAN UP
+        JRST    PACK3           ;NOT COMPRESS MODE...SKIP
+        MOVN    A,CH            ;NOW DO CHECKSUM
+        TRO     A,^B000011      ;SET BITS
+        TRZ     A,^B000001      ;MAKE EOI IF SO
+        CKSUM                   ;OUTPUT LAST BYTE
+PACK3:  MOVE    A,BOTTOM        ;COMPUTE NUMBER OF WORDS
+        SUBI    A,1(DES)
+        HRLM    A,TOB           ;SET UP OUTPUT LIST
+WRITE:  OUT     MT,TOB          ;OUTPUT BUFFER
+        JRST    DONE            ;NO ERROR...SKIP
+        MTAPE   MT,7            ;ERROR OCCURED...BACKSPACE RECORD
+        MTAPE   MT,0            ;WAIT
+        MTAPE   MT,13           ;ERASE 3 INCHES
+        MTAPE   MT,0
+        JRST    WRITE           ;AND TRY AGAIN
+
+
+DONE:   FREE                    ;FREE THE BUFFER
+
+
+;HERE TO TYPE SPACE, FILE NAME, CR, LF AND JRST START
+FOUT:   SKIPN   DSKCHN          ;DISC ACTIVE FLAG ?
+        SKIPE   %TYPO           ;TYPE OUT FLAG SET?
+        JRST    .+2             ;YES SET
+        JRST    FOUT3           ;NO - NO FILE NAME
+FOUT1:  SKIPN   CH,USRNAM       ;TYPE OUT FILE NAME..IS THERE A USER NAME?
+        JRST    FOUT2           ;NO..SKIP
+        TCO     ["("]           ;YES..OUTPUT "(NAME)"
+        SIXOUT
+        SKIPE   CH,USRNAM+1     ;SECOND WORD?
+        SIXOUT
+        TCO     [")"]
+FOUT2:  SKIPE   CH,FILNAM       ;OUTPUT FILE NAME
+        SIXOUT
+        SKIPN   CH,FILNAM+1     ;ANY EXTENSION?
+        JRST    .+4             ;NO..SKIP
+        AND     CH,[777777,,000000]     ;YES..OUTPUT EXTENSION
+        TCO     ["."]
+        SIXOUT
+FOUT3:  OUTSTR  [ASCIZ /
+/]                              ;OUTPUT CR/LF
+        SKIPE   COMPRS          ;TEST IF COMPRESS MODE
+        JRST    START           ;YES..DO ANOTHER FILE
+
+;       JOB FINISHED...CLEAN UP
+EXIT1:  CLOSE   MT,0            ;CLOSE IT
+        MSG     <DONE...UNLOAD? : >  ;CLEAN UP
+        YESNO
+        BITCH   .-2             ;UNKNOWN
+        JRST    [MTAPE MT,11    ;YES
+                 JRST DROP]
+        MSG     <REWIND? : >    ;NO..REWIND INSTEAD
+        YESNO
+        BITCH   .-2
+        JRST    [MTAPE MT,1     ;YES
+                 JRST DROP]
+DROP:   RELEASE MT,0            ;ALL DONE..LET GO THE TAPE
+EXIT2:  EXIT    1,0             ;EXIT
+        JRST    EXIT2           ;QUIT
+HEADER  SPECIAL CONDITION PROCESSING
+
+
+BDTAPE: MSG     <CAN'T OPEN TAPE: >  ;HERE IF TAPE REQUESTED NOT THERE
+        MOVE    CH,TAPE+1       ;GET TAPE UNIT ID
+        SIXOUT                  ;OUTPUT IT
+TCR:    OUTSTR  [ASCIZ /
+/]                              ;OUTPUT C/R
+        JRST    EXIT2           ;FOR CONTINUE TRY
+
+
+;OPEN AS COMMAND FILE
+PCMD:   INIT    DSK,0           ;INIT DISK
+        SIXBIT  /DSK/
+        EXP     HBUF            ;INPUT ONLY
+        JRST    BDEV            ;BAD DEVICE
+        MOVE    A,JOBFF         ;SAVE CURRENT END OF MEMORY
+        MOVEM   A,CBUF
+        INBUF   DSK,1           ;ONE DISC BUFFER
+        LOOKUP  DSK,FILNAM      ;TRY AND READ FROM IT
+        JRST    PCMD1           ;CANNOT OPEN FILE
+        SETOM   DSKCHN          ;SET DISC CHANNEL ACTIVE FLAG
+        JRST    LP              ;AND GO TO IT
+
+PCMD1:  SKIPE   FILNAM+1        ;NO EXT SPECIFIED?
+        JRST    RERR            ;YES EXT THERE--BAD FILE
+        MOVSI   X1,(SIXBIT /CMD/)
+        MOVEM   X1,FILNAM+1     ;SET .CMD STUFF
+        JRST    PCMD            ;AND TRY AGAIN
+
+
+;       HERE IF INPUT INIT IS N.G.
+BDEV:   MSG     <CAN'T INIT DEVICE: >
+        MOVE    CH,SPEC+1
+        SIXOUT
+        JRST    FOUT3
+
+
+;       HERE ON READ ERROR
+RDERR:  MSG     <READ ERROR ON FILE: >
+        CLDSK                   ;CLOSE THE DISK
+        FREE                    ;FREE THE STORAGE
+        JRST    FOUT1
+
+
+;       HERE IF FILE IS BAD
+RERR:   HRRZ    CH,FILNAM+1
+        OUTSTR  @[MSSG1
+                MSSG2
+                MSSG3
+                MSSG4
+                MSSGNL
+                MSSG7
+                REPEAT 6,<MSSGNL>
+                MSSG8
+                MSSG9
+                MSSG10
+                MSSG11
+                MSSG12](CH)
+        JRST    FOUT1
+
+
+;       HERE IF FILE EMPTY
+EMT:    MSG     <EMPTY FILE: >
+        CLDSK                   ;CLOSE THE DISK FILE
+        JRST    FOUT
+HEADER  SUBROUTINES
+
+;       DETERMINE INPUT TEXT, STRIP, AND RETURN
+;       UNRECOGNIZED    NORMAL RETURN
+;       "Y"ES           SKIP RETURN
+;       "N"O            SKIP 2 RETURN
+SUBR    YESNO
+        GNC                     ;GET THE CHARACTER
+        CAIN    CH,"Y"          ;YES?
+        JRST    [AOS 0,0(P)     ;SET SKIP RETURN
+                 JRST EOL]
+        CAIE    CH,"N"          ;NO?
+        JRST    EOL
+        AOS     0,0(P)          ;SET SKIP 2
+        AOS     0,0(P)          ;FALL THROUGH TO SKIP LINE
+
+;ROUTINE TO SKIP TO LF ON INPUT
+SUBR EOL
+        GNC                     ;GET NEXT CHARACTER
+        CAIN    CH,12           ;LF
+        RET                     ;RETURN IF FOUND
+        JRST    EOL             ;ELSE SCAN MORE
+
+;       FREE BUFFER AREA
+SUBR    FREE
+        MOVE    A,DREAD         ;SET OLD ADDRESS
+
+;       ALLOCATE STORAGE TO VALUE IN (A)
+SUBR    ALLOC
+        MOVEM   A,JOBFF         ;SAVE THE JOBASE ADDRESS
+        CORE    A,0             ;DO IT
+        JRST    [MSG ABORTING...INSUFFICIENT MEMORY>  ;ERROR RETURN
+                 JRST TCR]      ;BITCH AND ABORT
+        RET                     ;AND RETURN
+
+;       CLOSE INPUT FILE
+SUBR    CLDSK
+        CLOSE   INFIL,0         ;DO IT
+        RET                     ;AND RETURN
+
+SUBR GNC
+        SKIPE   DSKCHN          ;SKIP=TTY INPUT, ELSE DISC
+        JRST    GNCD            ;GET FROM DISC
+        TCI     CH              ;GET CHARACTER FROM TTY
+        RET
+
+GNCD:   SOSL    HBUF+2
+        JRST    GNCD1           ;SOMETHING THERE
+        IN      DSK,            ;MUST RELOAD BUFFERS
+        JRST    GNC             ;GET CHARACTER
+        SETZM   DSKCHN          ;END OF FILE...RESET COMMAND FILE
+        MOVE    A,CBUF          ;FREE COMMAND BUFFER
+        CORE    A,0
+        JRST    START           ;GO START UP AGAIN
+
+GNCD1:  ILDB    CH,HBUF+1
+        JUMPE   CH,GNC          ;IGNORE NULLS
+        HRRZ    SCR,HBUF+1
+        MOVE    SCR,0(SCR)
+        TRNE    SCR,1           ;BIT 1 SAYS IGNORE WORD
+        JRST    GNC             ;IGNORE IT
+        CAIN    CH,11           ;CONTROL-I
+        JRST    GNC             ;IGNORE IT
+        RET
+
+;PRINT "CH" AS SIXBIT
+SUBR SIXOUT
+        MOVEI   WD,0
+        LSHC    WD,6
+        JUMPE   WD,[RET]
+        ADDI    WD,40
+        TCO     WD
+        JRST    SIXOUT
+
+;       DEPOSIT BYTE AND COMPUTE CHECKSUM
+SUBR    CKSUM
+        ADD     CH,A            ;COMPUTE CHECKSUM
+        IDPB    A,DES           ;PUT BYTE DOWN
+        RET                     ;AND RETURN
+
+SUBR FNAME
+        MOVSI   X1,(SIXBIT .DSK.)
+        MOVEM   X1,SPEC+1
+        SETZM   FILNAM
+        MOVE    X1,[FILNAM,,FILNAM+1]
+        BLT     X1,USRNAM+1
+
+FNAME1: ATOMX
+        CAIE    CH,"("
+        JRST    FNAME2
+        SKIPE   USRNAM
+        JRST    FILERR
+        JUMPN   X1,FILERR
+        ATOMX
+        CAIE    CH,")"
+        JRST    FILERR
+        MOVEM   X1,USRNAM
+        MOVEM   X2,USRNAM+1
+        MOVEI   CH,USRNAM
+        MOVEM   CH,FILNAM+3
+        JRST    FNAME1
+
+FNAME2: CAIE    CH,"."
+        JRST    FNAME3
+        SKIPE   FILNAM
+        JRST    FILERR
+        MOVEM   X1,FILNAM
+        JRST    FNAME1
+
+FNAME3: CAIE    CH,":"
+        JRST    FNAME4
+        MOVEM   X1,SPEC+1
+        JRST    FNAME1
+
+FNAME4: CAIE    CH," "          ;IF A SPACE OR A
+        CAIN    CH,","          ;COMMA THEN DELIMIT FILE NAME
+        JRST    FNAME8          ;OK DELIMETER
+        CAIE    CH,15
+        CAIN    CH,12
+        JRST    .+2
+        JRST    FILERR
+        CAIE    CH,15
+        TCO     [15]
+        CAIE    CH,12           ;IF C.R.
+        GNC                     ;REMOVE L.F.
+FNAME8: MOVEM   CH,DELIM        ;SAVE DELIMETER FOR FNAME
+        CAIE    CH," "
+        CAIN    CH,","
+        SETOM   %TYPO           ;SET FLAG TO TYPE FILE NAME
+        JUMPE   X1,FNAME6
+        SKIPE   FILNAM
+        JRST    FNAME5
+        MOVEM   X1,FILNAM
+        JRST    FNAME6
+FNAME5: MOVEM   X1,FILNAM+1
+
+FNAME6: SKIPE   FILNAM          ;TEST IF ANY FILE NAME WAS ENTERED
+        RET                     ;YES...PROCESS IT
+        JRST    EXIT1           ;QUIT...NO FILE NAME ENTERED
+
+SUBR ATOMX
+        MOVE    WD,[POINT 6,X1]
+        MOVEI   X3,12
+        SETZB   X1,X2
+
+ATOMX1: GNC
+        CAIN    CH,"@"          ;INDIRECT FLAG?
+        JRST    [SKIPGE CMDFIL          ;ALREADY COMMAND?
+                 JRST FILERR              ;ERROR IF SO
+                 SKIPN COMPRS           ;COMPRESS MODE?
+               T COMERR              ;ERROR IF NOT
+                 SETOM 0,CMDFIL           ;OK...SET FLAG
+                 JRST ATOMX1]
+        MOVE    A,[POINT 7, [BYTE(7)15, 12, " ", ",", ".", "(", ")", ":", 0]]
+        ILDB    B,A
+        CAMN    CH,B
+        RET
+        JUMPN   B,.-3
+        SUBI    CH,40
+        SOJLE   X3,ATOMX1
+        IDPB    CH,WD
+        JRST    ATOMX1
+
+FILERR: MSG     <FILE NAME SYNTAX ERROR>
+        EXIT
+HEADER  MESSAGES
+MSSG1:  ASCIZ   /FILE NOT FOUND:/
+MSSG2:  ASCIZ   /INVALID USER NAME USED ON FILE:/
+MSSG3:  ASCIZ   /PROTECTION FAILURE ON FILE:/
+MSSG4:  ASCIZ   /FILE BUSY:/
+MSSG7:  ASCIZ   /ILLEGAL LOOKUP-ENTER PROCEEDURE ON FILE:/
+
+
+;       HERE IF COMMAND FILE INPUT WHEN NOT IN COMPRESSED MODE
+COMERR: EOL                     ;SCAN OVER INPUT LINE
+        MSG     <@FILE LEGAL ONLY IN COMPRESS MODE>
+        JRST    TCR             ;BITCH AND EXIT
+MSSG8:  ASCIZ   /FCFS QUOTA EXCEEDED ON THIS FILE:/
+MSSG9:  ASCIZ   /FILE STRUCTURE WRITE-LOCKED ON DEVICE:/
+MSSG10: ASCIZ   /TABLE SPACE FULL IN MONITOR FOR FILE:/
+MSSG11: ASCIZ   /PARTIAL ALLOCATION ONLY ON FILE:/
+MSSG12: ASCIZ   /BLOCK NOT FREE ON FILE:/
+MSSGNL: ASCIZ   /SYSTEM ERROR ON FILE:/
+HEADER  CONSTANTS
+
+        RELOC   0               ;GOING INTO LOW SEG
+
+PDL:    BLOCK   20              ; PUSH-DOWN LIST
+
+TAPE:   OCT     216             ;BLOCK USED TO WRITE TAPE, 200BPI
+        SIXBIT  /MTA /
+        Z
+
+SPEC:   OCT     16              ;BLOCK USED TO INPUT FILE
+        0
+        XWD     0,0
+
+FILNAM: BLOCK   4               ;USED TO LOOKUP FILE
+USRNAM: BLOCK   2
+
+DIB:    0                       ;INPUT BUFFER LIST
+        0
+TOB:    0                       ;OUTPUT BUFFER LIST
+        0
+
+
+HBUF:   BLOCK   3               ;COMMAND FILE DISC READ BUFFER HEADER
+CBUF:   BLOCK   1               ;POINTER TO BASE OF COMMAND FILE
+DREAD:  BLOCK   1               ;POINTER TO BASE OF STORAGE
+DSKCHN: BLOCK   1               ;#0 IF COMMAND FILE
+CMDFIL: BLOCK   1               ;FLAG, SET -1 IF COMMAND FILE
+%TYPO:  BLOCK   1               ;FLAG, SET -1 IF TO TYPE OUT FILE NAME
+COMPRS: BLOCK   1               ;FLAG, SET -1 IF COMPRESSED MODE
+BOTTOM: BLOCK   1               ;APPROPRIATE POINTER TO DATA BOTTOM
+TOP:    BLOCK   1               ;APPROPRIATE POINTER TO DATA TOP
+DELIM:  OCT     15              ;LAST CHAR TYPED ON FNAME
+
+
+        RELOC                   ;BACK INTO HI-SEG FOR LITS
+        END     BEGIN
+  9@F‰
