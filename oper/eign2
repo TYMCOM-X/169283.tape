@@ -1,0 +1,172 @@
+      SUBROUTINE EIGN2(A,VECT,VALU,NN,NEIG,NVEC)
+      DIMENSION A(1),VECT(1),VALU(1)
+     1,VALL(125),UPERD(125),DIAG(125),V(125),T(125,3),INTER(125)
+      NZ=0
+      N=NN
+      IF(N-2)39,39,100
+  100 NP1=N+1
+      NM1=N-1
+      NM2=N-2
+      NT2P1=N*2+1
+      IX=0
+      DO 10 I=1,NM2
+      SIG2=0.
+      IP1=I+1
+      DO 1 J=IP1,N
+      IJ=IX+J
+    1 SIG2=SIG2+A(IJ)*A(IJ)
+      SIG1=SQRT(SIG2)
+      II=IX+I
+      DIAG(I)=A(II)
+      IIP1=IX+I+1
+      UPERD(I)=-SIGN(SIG1,A(IIP1))
+      T(I,2)=SIG2
+      IF(ABS(SIG1)-ABS(A(IIP1)))110,110,2
+  110 UPERD(I)=A(IIP1)
+      A(IIP1)=0.
+      GO TO 10
+    2 A(IIP1)=SQRT(1.+ABS(A(IIP1))/SIG1)
+      SQTGM=-SIGN(SIG1*A(IIP1),UPERD(I))
+      IP2=I+2
+      DO 3 J=IP2,N
+      IJ=IX+J
+    3 A(IJ)=A(IJ)/SQTGM
+      JK1=I*(2*N-I-1)/2
+      JX=JK1
+      IIX=JK1
+      DO 5 J=IP1,N
+      VALL(J)=0.
+      JK=JK1+J
+      DO 4 K=IP1,J
+      IK=IX+K
+      VALL(J)=VALL(J)+A(JK)*A(IK)
+    4 JK=JK+N-K
+      IF(J-N)120,6,120
+  120 CALL LOOP1(J+2,NP1,VALL(J),A(JX),A(IX))
+    5 JX=JX+N-J
+    6 DELGM=0.
+      DO 7 J=IP1,N
+      IJ=IX+J
+    7 DELGM=DELGM+A(IJ)*VALL(J)
+      DGO2=.5*DELGM
+      DO 8 J=IP1,N
+      IJ=IX+J
+    8 T(J,1)=VALL(J)-DGO2*A(IJ)
+      DO 9 II=IP1,N
+      III=IX+II
+      CALL LOOP2(A(IIX),A(IX),T(NZ,1),T(II,1),A(III),II+1,NP1)
+    9 IIX=IIX+N-II
+   10 IX=IX+N-I
+      M=N*(N+1)/2
+      UPERD(NM1)=A(M-1)
+      T(NM1,2)=UPERD(NM1)**2
+      DIAG(NM1)=A(M-2)
+      DIAG(N)=A(M)
+      ENORM=AMAX1(ABS(DIAG(1))+ABS(UPERD(1)),ABS(DIAG(N))+ABS(UPERD(NM1)
+     1))
+      DO 11 I=2,NM1
+      ERTMP=ABS(DIAG(I))+ABS(UPERD(I))+ABS(UPERD(I-1))
+      IF(ERTMP-ENORM)11,11,130
+  130 ENORM=ERTMP
+   11 CONTINUE
+      DO 12 I=1,NEIG
+      VALU(I)=ENORM
+   12 VALL(I)=-ENORM
+      DO 24 I=1,NEIG
+   13 ROOT=.5*(VALU(I)+VALL(I))
+      IF(ROOT-VALL(I))150,24,150
+  150 IF(ROOT-VALU(I))160,24,160
+  160 NAGRE=0
+      PM2=0.
+      PM1=1.
+      DO 21 J=1,N
+      IF(PM2)15,14,15
+   14 PM1=SIGN(1.,PM1)
+      GO TO 17
+   15 IF(PM1)17,16,17
+   16 P=-SIGN(1.,PM2)
+      PM2=0.
+      IF(T(J-1,2))18,14,18
+   17 P=DIAG(J)-ROOT-T(J-1,2)*PM2/PM1
+      PM2=1.
+   18 IF(P)21,19,20
+   19 PM2=PM1
+      IF(PM2)21,20,20
+   20 NAGRE=NAGRE+1
+   21 PM1=P
+      DO 23 J=I,NEIG
+      IF(J-NAGRE)22,22,170
+  170 IF(VALU(J)-ROOT)13,13,180
+  180 VALU(J)=ROOT
+      GO TO 23
+   22 VALL(J)=ROOT
+   23 CONTINUE
+      GO TO 13
+   24 CONTINUE
+      IF(NVEC)190,39,190
+  190 EPSLN=ENORM*1.E-8
+      CMPL1=COMPL(1)
+      DO 38 I=1,NVEC
+      DO 25 J=1,N
+      V(J)=1.
+      T(J,2)=DIAG(J)-VALU(I)
+      IF(J-N)200,26,200
+  200 T(J,3)=UPERD(J)
+   25 T(J+1,1)=UPERD(J)
+   26 T(N,3)=0.
+      DO 29 J=1,N
+      IF(ABS(T(J,2))-1.E-17)210,220,220
+  210 T(J,2)=EPSLN
+  220 T(J,1)=T(J,2)
+      T(J,2)=T(J,3)
+      T(J,3)=0.
+      IF(J-N)230,30,230
+  230 INTER(J)=0
+      JP1=J+1
+      IF(ABS(T(JP1,1))-ABS(T(J,1)))28,28,235
+  235 INTER(J)=1
+      DO 27 K=1,3
+      TEMP=T(J,K)
+      T(J,K)=T(JP1,K)
+   27 T(JP1,K)=TEMP
+   28 TMULT=T(JP1,1)/T(J,1)
+      VALL(J)=OR(INTER(J),AND(TMULT,CMPL1))
+      T(JP1,2)=T(JP1,2)-TMULT*T(J,2)
+   29 T(JP1,3)=T(JP1,3)-TMULT*T(J,3)
+   30 ITER=1
+   31 DO 32 J=1,N
+      L=N+1-J
+   32 V(L)=(V(L)-T(L,2)*V(L+1)-T(L,3)*V(L+2))/T(L,1)
+      VNORM=0.
+      DO 33 L=1,N
+   33 VNORM=VNORM+V(L)**2
+      VNORM=SQRT(VNORM)
+      DO 34 J=1,N
+   34 V(J)=V(J)/VNORM
+      IF(ITER-2)240,36,240
+  240 ITER=2
+      DO 35 L=2,N
+      LM1=L-1
+      IF(AND(VALL(LM1),1))250,35,250
+  250 VTEMP=V(LM1)
+      V(LM1)=V(L)
+      V(L)=VTEMP
+   35 V(L)=V(L)-VALL(LM1)*V(LM1)
+      GO TO 31
+   36 IF(VNORM)270,260,270
+  260 V(I)=1.
+  270 IIX=(N*N-N-6)/2
+      DO 37 KK=1,NM2
+      IIP1=N-KK
+      UTV=0.
+      CALL LOOP3(UTV,A(IIX),V(NZ),IIP1+1,NP1)
+      CALL LOOP4(A(IIX),V(NZ),NP1,IIP1+1,UTV)
+   37 IIX=IIX+IIP1-N-2
+      NV=0
+      JST=NN*(I-1)+1
+      JND=JST+NN-1
+      DO 38 J=JST,JND
+      NV=NV+1
+   38 VECT(J)=V(NV)
+   39 RETURN
+      END
