@@ -1,0 +1,445 @@
+
+CHAPTER l - INTRODUCTION
+
+l.l  GENERAL
+
+The PDP-l0 Timesharing System allows many independent user
+programs to share the facilities of a single PDP-l0 computer.
+Many users can access the computer at the same time from
+consoles at the computer site, at nearby offices or laboratories,
+or at remote points connected by telephone lines.  Operating
+concurrently under monitor control, users may access available
+I/O devices and system software to compile, assemble, and execute
+their programs, or may have this sequence performed automatically
+for many programs by using the batch control processor (Batch).
+Real-time programs can operate either as independent user
+programs or as fully integrated monitor subroutines.
+
+System facilities start with a minimum configuration of 32K
+of core and can accommodate DEC tapes, magnetic tapes, disks,
+drums, disk packs, communication line controllers, card
+readers and punches, paper-tape readers and punches, line
+printers, displays, incremental plotters and user consoles.
+Other special devices, including real-time digitizers and
+analog converters, easily interface with the system.
+Various peripheral devices and methods of programming are
+described in Chapters 5 and 6.
+
+
+l.2  MONITOR FUNCTIONS
+
+The timesharing operating system interfaces between the user and
+the computer so that all users are protected from one another
+and appear to have most system resources to themselves.  The
+operating system schedules multiple-user timesharing of the
+system, relocates and protects user programs in core memory,
+directs data flow between I/O devices and user programs, and
+overlaps I/O operations concurrently with computation for
+high system efficiency.
+
+The timesharing system is a multiprogramming system; that is, 
+it allows several user programs to reside in core simultaneously
+and to operate sequentially.  The timesharing operating system
+(TOPS) schedules each user program to run for a certain length
+of time (quantum time), using a scheduling algorithm that 
+makes efficient use of system capabilities (refer to Paragraph
+7.l).  The switching between programs is initiated by a clock,
+which interrupts the central processor to signal that the quantum
+time for the program has elapsed.  The interrupt function is
+provided by the priority interrupt system (refer to the PDP-l0
+Reference Manual).
+
+To increase the number of users serviced, a secondary memory is
+employed.  This memory, usually magnetic disk or drum, is
+slower than main memory but provides greatly increased 
+capability.  User programs can be located in secondary memory
+and moved into main memory or core for execution.  Programs
+moved into main memory exchange places with programs that have
+just been serviced by the central processor.  This process is
+called swapping (refer to Paragraph 7.2).
+
+The asynchronous swapping algorithm is called in at every clock
+tick and has the task of bringing a user program from secondary
+memory into core, or vice versa.  The central processor may be
+operating on one user program in one part of memory while
+another user program is being swapped to or from core.  This
+independent overlapped operation greatly improves efficiency
+and increases the number of users that can be accommodated 
+simultaneously.
+
+The timesharing operating system is involved in keeping the
+actions of a user within his assigned memory space.  A hard-
+ware device, a memory protection register (refer to Chapter 3)
+set by the monitor, limits the core area that a particular 
+user can access.  Any attempt to read or change information
+outside this area automatically stops the program and
+notifies the operating system.
+
+
+l.2.l  Reentrant User Programming
+
+Users of large timesharing systems have varying requirements;
+therefore, a good system provides a variety of software.
+Thus, many users may have compilers and other common system
+programs in core at the same time.  To prevent excessive core
+usage, which results when a program is duplicated for several
+users, a reentrant user programming capability is employed.  
+This means that a sequence of instructions may be entered
+by more than one user program at a time.
+
+A reentrant program is written in two parts or segments.  One
+segment contains pure code that is not modified during
+execution and can be used to simultaneously service any
+number of users (e.g., the FORTRAN compiler).  The second
+segment belongs to each user and consists of code and data
+(impure code) that is developed during the compiling process.
+All versions of the timesharing operating system normally include
+this reentrant capability, but it may be deleted on systems
+lacking the dual relocation KTl0A hardware option.
+
+In a non-reentrant system, the one-relocation register hardware
+requires that a user area be a single continuous segment of
+logical and physical core.  Each user has a separate copy of
+a program although a large part of it is the same as for
+other users.  In a reentrant system, the two-relocation
+register hardware allows a user area to be divided into two
+logical segments, which may occupy non-contiguous areas in
+physical core.  The operating system allows one of the seg-
+ments of each user area to be the same as one or more other
+users; therefore, only one physical copy of a shared segment
+need exist no matter how many users are using it.  The
+operating system normally invokes hardware write-protection
+for shared segments to guarantee that they are not accidentally
+modified.  User programs may also be written to make use
+of this protection (refer to Appendix C).
+
+In the PDP-l0 system, the reentrant capability causes the 
+following system resources to be used more efficiently:
+
+   a.  Core memory.  Only one copy of a shared segment
+       exists for the entire system.  More programs can fit
+       into a given amount of core.   (Figure l-l illustrates
+       this efficient use of core memory.)
+
+   b.  Swapping storage.  Many users share the single
+       copy of the shared segment kept in swapping storage.
+
+   c.  Swapping I/O channel.  A shared segment is read into
+       core only once and is not written back onto swapping
+       storage unless modified.
+
+   d.  File storage I/O channel.  A shared segment exists on 
+       the faster swapping storage after it has been read into
+       core the first time from the storage device, instead of
+       being retrieved from file storage on each usage as
+       necessary in a non-reentrant system.
+
+
+          Non-Reentrant System            Reentrant System
+
+           Monitor                         Monitor
+
+           Fortran User l                  Fortran User l
+
+           COBOL User l                    Fortran Compiler
+          
+           Fortran User 2                  COBOL User l
+
+           Fortran User 3                  Free Core
+
+           COBOL User 2                    Fortran User 2
+
+           Fortran User 4                  COBOL Compiler
+
+                                           Fortran User 3
+
+                                           Fortran User 4
+
+                                           COBOL User 2
+
+                                           Free Core
+
+
+               FIGURE l-l  CORE MANAGEMENT
+
+
+l.3  USER FACILITIES
+
+The basic function of the timesharing system is to allow a
+number of users simultaneous access to the central computer.  
+To be fully useful, however, the system should also allow the
+users access to other system resources, such as storage
+devices attached to the system, run-time selection of I/O
+devices, job-to-job transition, and job save and restore
+features.
+
+Users gain access to the PDP-l0 timesharing system from a
+terminal located either at the computer facility or at a
+remote site connected by telephone.  Three levels of commun-
+ication available at the console are:
+
+   a.  Monitor command level
+
+   b.  CUSP command level
+
+   c.  CUSP I/O level.
+
+At monitor command level, the console communicates with the
+Monitor Command Interpreter.  The Monitor Command Interpreter
+
+   a.  Provides the system with access protection
+
+   b.  Allocates and protects memory and peripherals requested
+       by the user
+
+   c.  Provides communication with the operator for the 
+       mounting of special tapes and disk packs
+
+   d.  Provides run control for the user over programs stored
+       in the system
+
+   e.  Allows the user to initiate background jobs
+
+   f.  Provides the user with job monitoring and debugging
+       facilities
+
+   g.  Returns facilities to the system when the job is
+       finished using them
+
+Various monitor commands providing each of these capabilities are
+described in Chapter 2.
+
+Using monitor commands, the user at his console can call in
+programs from the file system.  The file system contains programs
+for creating and editing program source files (TECO, LINED), for
+assembling or compiling program source files (MACRO, AID, FORTRAN,
+BASIC, COBOL), and for loading re-locatable binary files (LOADER).
+The use of these and many other CUSPs are described in the
+PDP-l0 Reference Handbook and the PDP-l0 Timesharing Handbook.
+
+The user's console provides both a control and data path to
+any CUSP or other user program that the user initiates via
+monitor commands.  When a particular CUSP is called in, the
+user's console is at CUSP command level and the user can issue
+a command to the CUSP.  In processing that command, the CUSP
+may access the user's console directly as an input or output
+device.  This is illustrated by the following example.
+
+   .R PIP                       Monitor command level.  User
+   -                            calls CUSP named Peripheral
+                                Interchange Program (PIP).
+
+   *DSK:TEXT TTY:               CUSP command level.  User 
+   -                            instructs PIP to create a file
+                                on the disk named TEXT using
+                                Teletype console as input medium.
+
+   THIS IS FILE TEXT  Z         CUSP I/O level.  User types 
+                                input to PIP.   Z causes teletype
+                                end of file.  Return to CUSP
+                                command level.
+
+   *  C                          C is a special character that
+   -                            causes return to monitor command
+                                level.
+
+   .                            The period (.) signifies return
+   -                            to monitor command level.
+
+The console is switched back to the Monitor Command Interpreter
+by either the program or the user.  The user can exercise another
+dimension of control over his program by loading it with the
+powerful Dynamic Debugging Technique (DDT) available in the
+system file.  Entry to DDT is through the Monitor Command
+Interpreter or by breakpoints in the program.  While DDT
+is in control of the program, the user can examine intermediate
+results on his console and then modify his program accordingly.
+
+The user's program communicates with the monitor by the PDP-l0
+operation codes 040 through 077.  These op-codes, called UUOs, are
+described in detail in Chapter 4.  With these operation codes, the
+monitor provides the program with complete device-independent
+I/O services.  The programmer is relieved of I/O programming
+and is freed from the dependence on the availability of partic-
+ular devices at run time.  In addition, the user's program may
+exercise control over central processor trapping, modify its
+memory allocation and monitor its own running time.  Provisions
+exist for inter-job communication and control, reentrant user
+programs, and, in selected cases, direct user I/O control.
+
+
+l.4  SEGMENTS
+
+A segment is a continuous region of the user's core area that
+the monitor maintains as a continuous unit in physical core/
+possibly fragmented unit on the swapping device.  A program
+or user job is composed of one or two segments.  A segment may
+contain instructions/data.  The monitor detmines the
+allocation and movement of segments in core and on the
+swapping device.
+
+A sharable segment is the same segment for many users.  The
+monitor keeps only one copy in core on the swapping device,
+no matter how many users are using it.  A non-sharable segment
+is different for each user in core on the swapping device.
+
+The two PDP-l0 relocation and protection registers, which divide
+a user's core area into two parts, permit a user program to
+be composed of one or two segments at any time.  The required 
+low segment starts at user location 0.  The optional high seg-
+ment starts at user location 400000 or at the end of the low
+segment, whichever address is greater.  The low segment contains
+the user's accumulators, job data area, instructions/data,
+I/O buffers, and DDT symbols.  A user's core image is composed
+of a low segment, which may have from lK to 256K words, in
+multiples of lK (lK=l024  words), and a high segment, which
+                        l0
+may have from 0K to l28K words, also in multiples of lK.
+A high segment may be sharable or nonsharable, whereas a
+low segment is always nonsharable.  The high segment is usually
+write-protected, although the program can turn off write-
+protection and modify itself (refer to Paragraph 4.5.4).
+
+A reentrant program is always composed of two statements:
+a low segment, which usually contains data, and a high
+(sharable) segment, which usually contains instructions 
+and constants.  The low segment is sometimes referred
+to as the impure segment.  The sharable high segment, if 
+write-protected, is referred to as the pure segment.
+
+A one-segment non-reentrant program is composed of a single
+low-segment containing instructions and data.  User programs
+written for machines with only a single relocation and protec-
+tion register are always one-segment non-reentrant programs.
+
+A two-segment non-reentrant program is composed of a low segment
+and a nonsharable high segment.  This program is useful when
+there is a requirement for two fixed-origin data areas to 
+increase and decrease independently during execution.
+
+
+l.5  FILE STRUCTURES
+
+A file structure is the logical arrangement of l28-word blocks
+on one or more units of the same type to form a two-level
+hierarchy of named files.  File structures allow a user to
+specify which unit he wishes to use for his files.  System
+reliability is increased because a file structure may be
+removed from the system without affecting other units.
+
+A complete disk system is composed of one or more units of the
+same/different types of disks and, therefore, consists of one
+or more file structures.  All information in the system
+(programs and data) is stored as named files in a uniform
+and consistent fashion.  A file structure can exist on exactly
+one unit but is usually distributed over a number of physical
+units of the same type; however, two file structures cannot
+exist on the same unit.  Each file structure is logically
+complete and is the smallest removable unit of file memory.
+All pointers to blocks within a file structure are by way
+of logical block numbers rather than physical disk addresses.
+There are no pointers to blocks in other file structures.
+This property allows a file structure to be removed from a
+disk system without disturbing any of the units in other file
+structures.
+
+
+l.5.l  File Directories
+
+Each file structure has two levels of directories:  a Master
+File Directory (MFD) and User File Directories (UFD).  The
+entries in the MFD are the names of the User File Directories.
+The entries within the UFDs are the names of files existing in
+a given project-programmer number area within the file struc-
+ture (refer to Paragraph 6.2.2.3).  Figure l-2 shows the
+relationship of the directories.
+
+
+
+
+
+
+
+
+
+
+
+
+
+l.5.2  Quotas
+
+Each project-programmer number in each file structure is   
+associated with two quotas that limit the number of blocks
+that can be stored in the UFD in the particular file structure.
+The two quotas are:  logged-in quota and logged-out quota.
+The logged-in quota is not a guaranteed amount of space,
+and the user competes with other users for space.  The 
+logged-out quota is the amount of space that the user must be
+within in order to log off the system.  Quotas are used by
+system administrators to ration resources in a predetermined
+manner.
+
+
+l.5.3  Files
+
+A file is a collection of 36-bit words comprising computer
+instructions/data.  A file can be of arbitrary length, 
+limited only by the available space on the device and
+the user's maximum space allotment on that device.  A disk
+file is limited by the smallest available space on a file
+structure and by the user's quota on that file structure.
+
+A named file is uniquely identified in the system by its 
+filename (up to six characters in length) and extension (up
+to three characters in length) and by its directory name
+(owner's project-programmer number) and file structure name
+for disk or physical device name for DEC tape, in which the
+filename and extension appear.  The filename, being arbitrary,
+is specified by the owner, whereas the extension, usually one
+of a small number of standard names that identify the type
+of information in the file, is usually specified by the 
+program (refer to Appendix G).  A named file may be written
+by a user program in buffered or unbuffered mode, or in both.
+It may be read/modified sequentially or randomly with 
+buffered or unbuffered mode I/O independently of how it was
+written.  Named files are uniformly stored.  Each named
+file has a certain access protection associated with it.
+These protections designate which users can read or write the
+file or change its access protections.  For a given file,
+users are divided into three groups:  the owner of the
+file, the users in his project, and the rest of the users
+(refer to Paragraph 6.2.3).
+
+A file is created if no file by the same name existed in the
+file structure when the file was opened for writing.  A file
+is superseded if another file by the same name exists.  A 
+is updated when one or more blocks of the file are rewritten
+in place.  Other users may read a disk file while a certain
+user is superseding it.  The older version of the file is
+deleted only when all the readers have finished with it.
+Only one user may open a file for updating at a time; all
+other users attempting to open that file receive an error
+message.
+
+l.5.3.l  Comparison of Files and Segments - Files and segments
+have certain similarities and differences.  Both are named,
+one-dimensional arrays of 36-bit words.  A named file can be
+as long as the size of DEC tape or the sum of the available
+space on a file structure.  A segment can only be as
+big as physical core.  Both may be shared for reading, but
+only one user may supersede or update a file at a time,
+whereas many users may share a segment for writing.  When
+many users share the same file, each user is given his
+own copy of the portion of the file that he is reading.
+It is read into his low segment by the INPUT UUO.  When many
+users share the same segment, each user does not have his
+own copy of the segment.  A file exists on the file structure
+and portions of it may exist in different parts of the low
+segment of one or more users.  A segment never exists on
+the storage device; a segment exists as a continuous unit
+only in core or on the swapping device.
+
+
+
+
+-C 
