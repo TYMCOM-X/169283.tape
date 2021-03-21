@@ -1,0 +1,125 @@
+      SUBROUTINE SPTIF                                                  PTIF0050
+C     SUBROUTINE OF SLNK7 TO PRINT STIFFNESS MATRIX                     PTIF0060
+C     STRESS PROGRAMMING SYSTEM FOR IBM 1130                            PTIF0070
+C     PUNCH AND ALTER JOINT STIFFNESS MATRIX                            PTIF0080
+      DIMENSION NSYSF(6)                                                PTIF0090
+      DIMENSION NPRBF(6)                                                PTIF0100
+      DIMENSION NARRF(32)                                               PTIF0110
+C     MEMBER INCIDENCE AND TYPE TABLES, MAX. 250 MEMBERS, 127 JOINTS    PTIF0120
+      DIMENSION  JMIN(250),JPLS(250),MTYP(250)                                  
+C     SCRATCH AREA CAN BE INSERTED AS DESIRED FOR EACH ROUTINE          PTIF0140
+C     MAP IS A DIGIT PICTURE OF THE OFF-DIAGONAL SUB-MATRICIES          PTIF0150
+C     A 1 INDICATES THE PRESENCE OF A SUB-MATRIX                        PTIF0160
+C     A 0 INDICATES THE ABSENCE OF A SUB-MATRIX (NULL MATRIX)           PTIF0170
+C     PACK AND UNPACK MAP WITH SPAK1                                    PTIF0180
+C     MAP WILL BE IN COMMON FROM SLNK6 THRU SLNK9                       PTIF0190
+C     THESE ROUTINES WILL SET UP THE JOINT STIFFNESS MATRIX,            PTIF0200
+C     MODIFY IT FOR JOINT RELEASES, AND SOLVE THE EQUATIONS.            PTIF0210
+C  FOR 250 JOINT, MAP=2446 WORDS, 39,125 BITS                                   
+C  SPACE FOR THIRTEEN DATA BLOCKS, 20 INTEGER WORDS EACH MEGA2,KJRE2            
+      DIMENSION  MAP(2446),MEGA2(260),KJRE2(260)                                
+C     SCRATCH AREA                                                      PTIF0280
+C     MATRIX OPERATION AREAS  -  EACH TO CONTAIN NSQ VALUES,            PTIF0290
+C     OR A MAX. OF 36.  36*2=72, THUS 4 FILE RECORDS ARE NEEDED.        PTIF0300
+      DIMENSION A(40),R1(40),R(6,6)                                     PTIF0310
+C     SYSTEM PARAMETERS  -  14 WORDS                                    PTIF0320
+      COMMON NTMP,KCUR,NAVAL,NOVER,ISOLV,ISUCC,ISCAN,ITRAC,NSYSF        PTIF0330
+C     PROBLEM PARAMETERS  -  32 WORDS                                   PTIF0340
+      COMMON NJ,NB,NDAT,NFJS,NLDS,NLDSI,ID,NCORD,JF,NSQ,IMETH,NMR,NJR,  PTIF0350
+     1IBETA,IYOUN,ISHEA,GSHEA,EYOUN,FILL1,FILL2,IPZER,ISTRS,NPRBF             PTIF0360
+C     PLATE PARAMETERS                                                  $TIF0364
+      COMMON IPLAT,NPLAT,KPLA1,KPLAT,KTHI1,KTHIK                        $TIF0368
+C     ARRAY CODEWORDS  40 PAIRS = 80 WORDS                              PTIF0370
+      COMMON KNAM1,KNAME,KXY1,KXYZ,KJRE1,KJREL,MEGA1,MEGAZ,KMEM1,KMEMB, PTIF0380
+     1KBET1,KBETA,KYON1,KYOUN,KSHE1,KSHEA,KMRE1,KMREL,KMEG1,KMEGA,      PTIF0390
+     2KMKS1,KMKST,KROT1,KROTE,KPPL1,KPPLS,KPMN1,KPMNS,LOAD1,LOADS,      PTIF0400
+     3KLIN1,KLINT,MLOA1,MLOAD,JLOA1,JLOAD,KDIA1,KDIAG,KOFD1,KOFDG,      PTIF0410
+     4KPPR1,KPPRI,KSTA1,KSTAT,KJIN1,KJINT,KJEX1,KJEXT                   PTIF0420
+      COMMON NARRF                                                      PTIF0430
+      COMMON JMIN,JPLS,MTYP                                             PTIF0440
+      COMMON/MAPX/MAP,MEGA2,KJRE2,IHYPD,JUNK,A,R1
+      EQUIVALENCE (R(1,1),R1(1))                                        PTIF0490
+  140 FORMAT (// 25H DIAGONAL SUBMATRICES    )                          PTIF0510
+  141 FORMAT (25H ========================)                             PTIF0520
+  142 FORMAT (50H  READ CORRECTED SUB-MATRICIES ON CARD, PUSH START    )PTIF0530
+  143 FORMAT (/6E 13.5)                                                 PTIF0540
+  144 FORMAT (//26H  OFF DIAGONAL SUBMATRICES )                         PTIF0550
+  147 FORMAT(/13H  INT. JT NO.,I4,   I4,12H  EXT JT NO.,I4,    I4 )     PTIF0560
+  148 FORMAT (I5)                                                       PTIF0570
+  149 FORMAT (28H NO OUTPUT FOR NULL MATRICES)                          PTIF0580
+      N=NSYSF(1)                                                        PTIF0590
+      NN=NSYSF(4)                                                       PTIF0600
+      GO TO (7,21,8,21),NN                                              PTIF0610
+   21  CONTINUE
+      WRITE (N,140)                                                     PTIF0630
+      WRITE (N,141)                                                     PTIF0640
+C     LOOPING ON INTERNAL JOINT NUMBERS                                 PTIF0650
+      DO 2  I=1,NJ                                                      PTIF0660
+C     CORELATE INTERNAL AND EXTERNAL JOINT NUMBERS                      PTIF0670
+      CALL SDATA (KJEX1,KJEXT,I,A,INE,1,1)                              PTIF0680
+      WRITE (N,147) I,I,INE,INE                                         PTIF0690
+C     MOVE DIAG MATRIX TO R                                             PTIF0700
+      CALL SDATA (KDIA1,KDIAG,I,A,JKL,-1,0)                             PTIF0710
+      JK=0                                                              PTIF0720
+      DO 1 J=1,JF                                                       PTIF0730
+      DO 1 K=1,JF                                                       PTIF0740
+      JK=JK+1                                                           PTIF0750
+    1 R(K,J)=A(JK)                                                      PTIF0760
+      DO 2  J=1,JF                                                      PTIF0770
+    2 WRITE(N,143) (R(J,K),K=1,JF)                                      PTIF0780
+C     DIAG. MATRICES PUNCHED  OR PRINTED                                PTIF0790
+      WRITE(N,144)                                                      PTIF0800
+      WRITE(N,141)                                                      PTIF0810
+      WRITE (N,149)                                                     PTIF0820
+      JK=0                                                              PTIF0830
+      DO 3 J=1,NJ                                                       PTIF0840
+C     CORELATE INTERNAL AND EXTERNAL COL. NUMBER OF OFF DIAG MATRICES   PTIF0850
+      CALL SDATA(KJEX1,KJEXT,J,A,JNE,1,1)                               PTIF0860
+      J1=J+1                                                            PTIF0870
+      DO 3 I=J1,NJ                                                      PTIF0880
+      JK=JK+1                                                           PTIF0890
+C     IF OFF DIAG. MATRIX IS NULL SKIP                                  PTIF0900
+      CALL SPAK1 (JK,MAP,IF)                                            PTIF0910
+      IF (IF)4,3,4                                                      PTIF0920
+C     CORELATE INT. AND EXT. ROW NUMBER                                 PTIF0930
+    4 CALL SDATA(KJEX1,KJEXT,I,A,INE,1,1)                               PTIF0940
+      WRITE(N,147) I,J,INE,JNE                                          PTIF0950
+C     MOVE OFF DIAG. MATRIX TO R                                        PTIF0960
+      CALL SDATA(KOFD1,KOFDG,IOFDG(I,J),A,JKL,-1,0)                     PTIF0970
+      LM=0                                                              PTIF0980
+      DO 5 M=1,JF                                                       PTIF0990
+      DO 5 L=1,JF                                                       PTIF1000
+      LM=LM+1                                                           PTIF1010
+    5 R(L,M)=A(LM)                                                      PTIF1020
+      DO 6  L=1,JF                                                      PTIF1030
+    6 WRITE(N,143) (R(L,M),M=1,JF)                                      PTIF1040
+C     OFF DIAG. MATRICES PUNCHED  OR PRINTED                            PTIF1050
+    3 CONTINUE                                                          PTIF1060
+      IF (NN-4) 7,8,8                                                   PTIF1070
+C     IF NSYSF(4) =3, ALTER STIFFNESS MATRIX                            PTIF1080
+    8 WRITE(1,142)                                                      PTIF1090
+      PAUSE                                                             PTIF1100
+C     I=1, ALT. NDIAG DIAG. MATRICES                                    PTIF1110
+C     I=2, ALT. NDIAG OFF DIAG. MATRICES                                PTIF1120
+      DO 9 I=1,2                                                        PTIF1130
+      READ(2,148) NDIAG                                                 PTIF1140
+      IF(NDIAG)11,9,11                                                  PTIF1150
+   11 DO 9 J=1,NDIAG                                                    PTIF1160
+C     READ IN THE CORRECTED MATRICES WITH SAME FORMAT AS PUNCHED OUT    PTIF1170
+      READ (2,147) II,JJ,IIE,JJE                                        PTIF1180
+      DO 10 K=1,JF                                                      PTIF1190
+   10 READ (2,143) (R(K,L), L=1,JF)                                     PTIF1200
+      KL=0                                                              PTIF1210
+      DO 12 K=1,JF                                                      PTIF1220
+      DO 12 L=1,JF                                                      PTIF1230
+      KL=KL+1                                                           PTIF1240
+   12 A(KL)=R(L,K)                                                      PTIF1250
+      IF(I-1)13,13,14                                                   PTIF1260
+   13 CALL SDATA(KDIA1,KDIAG,II,A,JKL,-2,0)                             PTIF1270
+      GO TO 9                                                           PTIF1280
+   14 ITH=NELEG(II,JJ,NJ)                                               $TIF1290
+      CALL SDATA(KOFD1,KOFDG,IOFDG(II,JJ),A,JKL,-2,0)                   PTIF1300
+    9 CONTINUE                                                          PTIF1310
+    7 RETURN                                                            PTIF1320
+      END                                                               PTIF1330
+  
