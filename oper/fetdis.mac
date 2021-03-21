@@ -1,0 +1,1771 @@
+TITLE FETDIS
+SALL
+EXTERNAL JOBAPR,JOBCNI,JOBTPC,UUO,PRINT,OPCODR,JOBREN
+EXTERNAL OPENR,CLOSER,SCP,SBS,BYI,BYO,RFSIZ,FLUSH,HUSH
+INTERNAL ESCR,ESCFLG,SEM,PER,SAVESC,SEMIR,SEMIQ,CMODE,DIS
+INTERNAL CLSE,LMODE,SEMIT,PERW,CIN,COUT,CLIN,CLOUT
+OPDEF TCI   [01000000000]
+OPDEF TCL   [02000000000]
+OPDEF RDLINE [03000000000]
+OPDEF GCI    [04000000000]
+OPDEF GCD    [05000000000]
+OPDEF WCI    [06000000000]
+OPDEF WCD    [07000000000]
+OPDEF TCO    [10000000000]
+OPDEF DEC    [11000000000]
+OPDEF TYPE   [12000000000]
+OPDEF CLRIN  [13000000000]
+OPDEF SETTTY [14000000000]
+OPDEF ERROR [15000000000]
+OPDEF FLOAT [16000000000]
+OPDEF NORM  [17000000000]
+OPDEF FIX   [20000000000]
+OPDEF STCI  [21000000000]
+OPDEF STCL  [22000000000]
+OPDEF ENABLE [23000000000]
+OPDEF DISABL [24000000000]
+OPDEF   FERR    [25000000000]
+OPDEF   TRUN    [26000000000]
+DEFINE STACK (A,B)
+<A'PDP: 0
+A'STK: XWD -B,.
+BLOCK B>
+CIN:    0
+COUT:   0
+CLSAV:  BLOCK   20
+SAVR1:  BLOCK   20
+SAVR2:  BLOCK   20
+COMM1:  0
+COMM2:  0
+NBUFF:  BLOCK   20
+ESCFLG: 0
+SCANF: 0
+ARGF2:  0
+ARGFT:  0
+ARGF:   0
+SAVESC: 0
+DTEST:  0
+CLSE:   0
+LMODE:  0
+CMODE:  0
+EOFTAB: BLOCK   12
+FILES:  BLOCK   12
+NPTR:   BLOCK   3
+FCELL:  0
+COMCNT: 0
+STEST1: 0
+STEST2: 0
+DOTS:   0
+MASK:   0
+FFILE:  0
+TFILE:  0
+FADDR:  0
+TADDR:  0
+MCNT:   0
+EOFLG:  0
+QFLAG:  0
+EFLAG:  0
+PDP10F: 0
+SECNT:  0
+OPRND:  0
+OPRTR:  0
+PDP:    XWD     -200,.
+        BLOCK   200
+STACK SAV,50
+STACK AE,50
+STACK COM,50
+DEFINE BUILD (A,B)
+<ARG'A=COMSTK+B>
+X=0
+        REPEAT  7,
+<X=X+1
+BUILD \X,X>
+STACK OP,100
+CELLS:  BLOCK 30
+X=CELLS
+CELTYP=.
+REPEAT 30,
+<XWD 100000,X
+X=X+1>
+INST:   PUSHJ   17,UUO
+TTYM1:  EXP     777
+TTYM2:  XWD     40000,400
+
+;
+;
+;       INITIALIZE EVERYTHING.
+;
+;
+START:  MOVE    17,PDP
+        MOVE    1,INST
+        MOVEM   1,41
+        MOVEI   1,2
+        MOVEM   1,LMODE
+        MOVEM   1,CMODE
+        MOVE    1,[XWD -1,6]
+        GETTAB  1,
+        HALT
+        SETZM   PDP10F
+        TRNN    1,200
+        SETOM   PDP10F
+        SETOM   EFLAG
+        SETZM   QFLAG
+        HRLZI   2,-12
+        SETOM   FILES(2)
+        AOBJN   2,.-1
+        SETOM   @SEMIM
+        SETZM   @SEMIX
+        HRRZI   1,-1
+        MOVEM   1,@SEMIA
+        PUSHJ   17,HUSH
+        SETTTY  TTYM1
+        MOVEI   1,10
+        MOVEM   1,@SEMIR
+        MOVEI   1,7
+        MOVEM   1,@SEMIT
+        MOVEI   1,^D36
+        MOVEM   1,@PERW
+        MOVE    1,PERE
+        HLLI    1,200000
+        MOVEM   1,PERE
+        SETZM   ESCFLG
+        SETZM   SAVESC
+        SETZM   CIN
+        SETZM   COUT
+        MOVEI   1,TRAPS
+        MOVEM   1,JOBAPR
+        MOVEI   1,402000
+        APRENB  1,
+        MOVEI   1,RESTRT
+        MOVEM   1,JOBREN
+        TYPE    [ASCIZ "VERSION 1.03$$"]
+        JRST    DIS
+;       "REENTER" POINT.
+RESTRT: TYPE    [ASCIZ "FET$$"]
+        MOVEI   1,402000
+        APRENB  1,
+
+ENTRY   DIS
+;
+;
+;       THIS IS THE DISPATCHER.
+;
+;       IT CALLS "SCAN" TO GET BACK SEVERAL THINGIES:
+;       1.)COMM1. A WORD THAT INDICATES SEVERAL STANDARD
+;          FUNCTIONS TO PERFORM FOR THIS COMMAND. ALSO IN THE
+;          WORD ARE INTERNAL CELL NUMBER AND PRINT MODE (IF
+;          APPLICABLE).
+;       2.)COMM2. ADDRESS OF A ROUTINE TO HANDLE NON-
+;          STANDARD FUNCTIONS FOR THE COMMAND.
+;       3.)OPRND. DEFINES THE VALUE OF ANY ARGUMENT TYPED IN.
+;       4.)ARGF. FLAG WHICH IS NEGATIVE IF THERE WERE ANY ARGUMENTS.
+;       5.)SAVSTK. STACK OF "TOKENS" TO BE USED IF A RESCAN MUST
+;          BE DONE TO TREAT COMMAS AS ARGUMENT DELIMETERS.
+;
+;       THE DISPATCHER THEN CALLS THE STANDARD AND NON-STANDARD
+;       ROUTINES AS INDICATED AND THEN GOES BACK TO WAIT FOR
+;       THE NEXT COMMAND.
+DIS: MOVE    17,PDP
+        SETZM   ARGF
+        SETZM   ESCFLG
+        ENABLE
+        SETZM   ESCFLG
+        SETZM   SAVESC
+        SKIPGE  EOFLG
+        PUSHJ   17,FIXEOF
+        SETTTY  TTYM1
+        STCL    1
+        SETOM   EFLAG
+        PUSHJ   17,SCAN
+        MOVE    1,ARGF
+        MOVEM   1,ARGFT
+        SKIPL   ARGF
+        JRST    DON2
+        TRUN    @OPRND
+        MOVE    1,@OPRND
+        MOVEM   1,@SEMIQ
+        HLRZ    1,OPRND
+        DPB     1,[POINT 18,SEMIQ,17]
+DON2:   MOVE    16,BTLEN
+        MOVE    15,COMM1
+        LSH     15,-12
+        TRNE    15,1
+        PUSHJ   17,@BTTAB(16)
+        LSH     15,-1
+        AOBJN   16,.-3
+        JRST    DIS
+
+;       BIT DEFINITIONS FOR "STANDARD FUNCTIONS".
+;
+DEFINE SET (A,B,C)
+<X=A
+IRP C
+<C=X
+IFN B <JRST C'RTN>
+BCNT=BCNT-1
+X=X*2>>
+BCNT=0
+; NI    NOT IMPLEMENTED
+; FI    REQUIRES AN OPENED FILE
+; NA    NO ARGUMENTS ALLOWED
+; RS    RESCAN LINE USING COMMAS AS ARGUMENT DELIMETERS
+; A2    SET UP MULTI-CELL PRINT OUTS EG., "1,500/".
+; SC    STORE ARGUMENT INTO INTERNAL CELL
+; ST    IF ARGUMENT - STORE ARGUMENT INTO OPEN CELL.
+; CL    CLOSE CELL
+; SA    FAKE AN ARGUMENT
+; OP    FETCH CELL POINTED TO BY SEMIQ. IF ARGUMENTS - CLOSE
+;       PREVIOUS CELL, OPEN FETCHED CELL, SET DOT TO SEMIQ.
+; SB    FETCH AND OPEN DOT MINUS ONE.
+; AD    FETCH AND OPEN DOT PLUS ONE.
+; CR    TYPE A CARRIAGE RETURN
+; PA    PRINT ADDRESS (EG., "3777/  ")
+; SP    PRINT FOUR SPACES
+; PQ    PRINT SEMIQ ACCORDING TO GIVEN MODE.
+; PC    PRINT FETCHED CELL ACCORDING TO GIVEN MODE.
+; LM    PRINT FETCHED CELL ACCORDING TO LAST MODE.
+; SCM   SET CURRENT MODE TO GIVEN MODE.
+; SLM   IF ARGUMENTS - SET LAST MODE TO GIVEN MODE.
+; EX    PUSHJ 17,@COMM2. THERE IS MORE TO BE DONE.
+; RP    REPEAT THIS COMMAND TILL ARG1 .GT. ARG2.
+BTTAB: SET 2000,1,<NI,FI,NA,RS,A2,SC,ST,CL,SA,OP,SB,AD>
+SET X,1,<CR,PA,SP,PQ,PC,LM,SCM,SLM,EX,RP>
+BTLEN: XWD      BCNT,0
+SET X,0,<CEL,FL1,FL2>
+
+;       MACROS AND OTHER THINGIES FOR SETTING UP COMMAND TABLE.
+;
+DEFINE MAC (B,C,D,E,F)
+<X=0
+IRP C <X=X+C>
+Z1=0
+IRP D <Z1=Z1+1>
+Z2=0
+IRP F <Z2=Z2+1>
+Z3=0
+IRP E <Z3=Z3+1>
+IFE Z3 <X3=0>
+IFN Z3 <X3=E>
+X2=0
+IFN Z1 <X=X+CEL+CL
+D=CNUM+CELTYP
+X2=CNUM
+CNUM=CNUM+1
+IFE Z2 <X=X+SC+CR>>
+IFE Z2 <XWD [X3*100+X+X2],B>
+IFN Z2 <XWD [EXP X3*100+X+X2+EX,F],B>>
+SEM=400
+PER=200
+CNUM=0
+COMS=.
+
+;       AND HERE IS THE COMMAND TABLE.
+;
+MAC ".",,DOT,,;                         .
+MAC SEM+"1",,SEMI1,,;                   ;1
+MAC SEM+"2",,SEMI2,,;                   ;2
+MAC SEM+"3",,SEMI3,,;                   ;3
+MAC SEM+"4",,SEMI4,,;                   ;4
+MAC SEM+"5",,SEMI5,,;                   ;5
+MAC SEM+"6",,SEMI6,,;                   ;6
+MAC SEM+"7",,SEMI7,,;                   ;7
+MAC SEM+"8",,SEMI8,,;                   ;8
+MAC SEM+"9",,SEMI9,,;                   ;9
+MAC SEM+"M",,SEMIM,,;                   ;M
+MAC SEM+"Q",FL1,SEMIQ,,;                ;Q
+MAC SEM+"A",,SEMIA,,;                   ;A
+MAC SEM+"X",,SEMIX,,XSEMI;              ;X
+MAC SEM+"T",,SEMIT,,TSEMI;              ;T
+MAC SEM+"E",NI,SEMIE,,;                 ;E
+MAC PER+"E",<NI,FL2>,PERE,,;            %E
+MAC PER+"W",,PERW,,WPER;                %W
+MAC SEM+"R",,SEMIR,,RSEMI;              ;R
+MAC "'",<SP,PQ>,,6,;                    '
+MAC "=",<SP,PQ>,,2,;                    =
+MAC "#",<SP,PQ>,,5,;                    #
+MAC "_",<SP,PQ>,,1,;                    _
+MAC PER+"D",<SP,PQ>,,7,;                %D
+MAC PER+"B",<SP,PQ>,,10,;               %B
+MAC PER+"F",<SP,PQ>,,4,;                %F
+MAC 15,<ST,CL>,,,;                      CARRIAGE RETURN
+MAC "]",<FI,OP,SP,PC,SLM,RS,A2,RP>,,1,;         ]
+MAC "\",<FI,OP,SP,SLM,RS,A2,RP>,,,;     \
+MAC 76,<CR,FI,SA,OP,PA,SP,LM,RS,A2,RP>,,,;      >
+MAC "[",<FI,OP,SP,PC,SLM,RS,A2,RP>,,2,;         [
+MAC "^",<CR,FI,SB,PA,SP,LM,ST>,,,;      ^
+MAC 12,<FI,AD,PA,SP,LM,ST>,,,;          LF
+MAC "/",<FI,OP,SP,PC,SLM,RS,A2,RP>,,3,;         /
+MAC ":",<NI,FI,OP,SP,PC,SLM,RS,A2,RP>,,4,;      :
+MAC "$",<FI,OP,SP,PC,SLM,RS,A2,RP>,,5,;         $
+MAC 42,<FI,OP,SP,PC,SLM,RS,A2,RP>,,6,;          "
+MAC PER+"I",<CL,NA,SP>,,,IPER;          %I
+MAC PER+"O",<CL,NA,SP>,,,OPERR;         %O
+MAC SEM+"I",<CL,SP>,,,ISEMI;            ;I
+MAC SEM+"U",<CL,SP>,,,USEMI;            ;U
+MAC SEM+"C",<CL,SP>,,,CSEMI;            ;C
+MAC PER+"C",CL,,,CPER;                  %C
+MAC SEM+"F",CL,,,FSEMI;                 ;F
+MAC SEM+"$",<NA,CL,CR,SCM>,,5,;         ;$
+MAC SEM+"[",<NA,CL,CR,SCM>,,2,;         ;[
+MAC SEM+"]",<NA,CL,CR,SCM>,,1,;         ;]
+MAC SEM+":",<NI,NA,CL,CR,SCM>,,4,;      ;:
+MAC SEM+42,<NA,CL,CR,SCM>,,6,;          ;"
+MAC SEM+"O",<CL,NA>,,,OSEMI;            ;O
+MAC SEM+"D",<CL,NA>,,,DSEMI;            ;D
+MAC PER+"Q",<CL,NA>,,,QPER;             %Q
+MAC SEM+"G",<CL,NA>,,,QPER;             ;G
+MAC SEM+"L",<RS,CL>,,,LSEMI;            ;L
+MAC SEM+"Z",<FI,RS,CL>,,,ZSEMI;         ;Z
+MAC SEM+"S",<FI,RS,CL>,,,SSEMI;         ;S
+MAC SEM+"W",<FI,CL>,,,WSEMI;            ;W
+MAC SEM+"#",<FI,CL>,,,PDSEMI;           ;#
+MAC PER+"M",<RS,CL>,,,MPER;             %M
+COML: XWD COMS-.,0
+
+;       FOLLOWING ARE THE "STANDARD FUNCTIONS"
+;
+NIRTN:  ERROR   [ASCIZ "COMMAND NOT IMPLEMENTED"]
+FIRTN:  MOVE    1,@SEMIX
+        SKIPGE  FILES(1)
+        ERROR   [ASCIZ "FILE NOT OPENED"]
+        POPJ    17,
+NARTN:  SKIPL   ARGF
+        POPJ    17,
+        ERROR   [ASCIZ "NO ARGUMENTS ALLOWED"]
+RSRTN:  SETZM   COMCNT
+        SKIPL   ARGF
+        POPJ    17,
+        PUSH    17,16
+        PUSH    17,15
+        PUSHJ   17,RESCAN
+        POP     17,15
+        POP     17,16
+        POPJ    17,
+SCRTN:  MOVE    1,COMM1
+        HLRZ    2,OPRND
+        CAIE    2,100000
+        TDNE    1,[FL1]
+        JRST    SC2
+        FIX     @OPRND
+        MOVE    3,OPRND
+        HRLI    3,100000
+        MOVEM   3,OPRND
+        JRST    SC3
+SC2:    CAIN    2,100000
+        TDNN    1,[FL2]
+        JRST    SC3
+        FLOAT@  OPRND
+        MOVE    3,OPRND
+        HRLI    3,100000
+        MOVEM   3,OPRND
+SC3:    ANDI    1,77
+        HLLZ    2,OPRND
+        HRR     2,CELTYP(1)
+        MOVE    3,@OPRND
+        DISABL
+        MOVEM   2,CELTYP(1)
+        MOVEM   3,@CELTYP(1)
+        ENABLE
+        POPJ    17,
+CLRTN:  SETZM   CLSE
+        POPJ    17,
+SARTN:  SETOM   ARGF
+        POPJ    17,
+OPRTN:  SKIPE   ARGF
+        SETZM   CLSE
+        MOVE    1,COMCNT
+        CAIE    1,2
+        JRST    .+3
+        MOVE    14,@ARG1
+        JRST    OPRTN2
+        MOVE    14,@SEMIQ
+        HLRZ    1,SEMIQ
+        CAIE    1,100000
+        FIX     14
+        SKIPL   ARGFT
+        PUSHJ   17,FIXADD
+        SKIPE   ARGF
+OPRTN2: MOVEM   14,@DOT
+        MOVE    12,@SEMIX
+        PUSHJ   17,FETCH
+        MOVEM   13,FCELL
+        SKIPE   ARGF
+        SETOM   CLSE
+        POPJ    17,
+FIXADD: MOVE    1,@SEMIA
+        CAIN    1,0
+        POPJ    17,
+        TRNE    1,1
+        JRST    FXADD2
+        LSH     1,-1
+        LSH     14,-1
+        JRST    .-4
+FXADD2: AND     14,1
+        POPJ    17,
+SBRTN:  MOVE    14,@DOT
+        SUBI    14,1
+SB2:    SKIPGE  14
+        ERROR   [ASCIZ "NEGATIVE ADDRESS"]
+        MOVEM   14,@DOT
+        MOVE    12,@SEMIX
+        PUSHJ   17,FETCH
+        MOVEM   13,FCELL
+        SETOM   17,CLSE
+        POPJ    17,
+ADRTN:  MOVE    14,@DOT
+        ADDI    14,1
+        JRST    SB2
+STRTN:  SKIPE   ARGF
+        SKIPL   CLSE
+        POPJ    17,
+        MOVE    12,@SEMIX
+        MOVE    13,@SEMIQ
+        MOVE    14,@DOT
+        PUSHJ   17,STORE
+        POPJ    17,
+CRRTN:  TCO     [15]
+        POPJ    17,
+PARTN:  MOVE    1,@DOT
+        MOVEI   2,11
+        PUSHJ   17,PRINT
+        POPJ    17,
+PCRTN:  MOVE    1,FCELL
+        JRST    .+2
+PQRTN:  MOVE    1,@SEMIQ
+        MOVE    2,COMM1
+        LSH     2,-6
+        ANDI    2,17
+PQ2:    PUSHJ   17,PRINT
+        TYPE    [ASCIZ "    "]
+        POPJ    17,
+LMRTN:  MOVE    2,LMODE
+        MOVE    1,FCELL
+        JRST    PQ2
+SCMRTN: MOVE    2,COMM1
+        LSH     2,-6
+        ANDI    2,17
+        MOVEM   2,CMODE
+        POPJ    17,
+SLMRTN: SKIPL   ARGF
+        POPJ    17,
+        MOVE    2,COMM1
+        LSH     2,-6
+        ANDI    2,17
+        MOVEM   2,LMODE
+        POPJ    17,
+EXRTN:  PUSHJ   17,@COMM2
+        TCO     [15]
+        POPJ    17,
+SPRTN:  TYPE    [ASCIZ "    "]
+        POPJ    17,
+A2RTN:  MOVE    1,COMCNT
+        CAIG    1,1
+        POPJ    17,
+        CAIE    1,2
+        ERROR   [ASCIZ "TOO MANY ARGUMENTS"]
+        MOVE    1,[CR+PA]
+        IORM    1,COMM1
+        MOVE    1,[RS+A2+FI+SLM]
+        ANDCAM  1,COMM1
+        MOVE    1,COMM1
+        LSH     1,-6
+        ANDI    1,17
+        JUMPE   1,.+2
+        MOVEM   1,LMODE
+        HLRZ    1,ARG1
+        CAIN    1,100000
+        JRST    .+4
+        FIX     @ARG1
+        MOVEI   1,100000
+        DPB     1,[POINT 18,ARG1,17]
+        HLRZ    1,ARG2
+        CAIN    1,100000
+        JRST    .+4
+        FIX     @ARG2
+        MOVEI   1,100000
+        DPB     1,[POINT 18,ARG2,17]
+        MOVE    1,@ARG2
+        CAMGE   1,@ARG1
+        ERROR   [ASCIZ "NEGATIVE RANGE"]
+        POP     17,0
+        JRST    DON2
+RPRTN:  MOVE    1,COMCNT
+        CAIG    1,1
+        POPJ    17,
+        AOS     @ARG1
+        MOVE    1,@ARG1
+        CAMG    1,@ARG2
+        JRST    RP2
+        SETZM   CLSE
+        TCO     [15]
+        TCO     [15]
+        POPJ    17,
+RP2:    POP     17,0
+        JRST    DON2
+
+;       THIS IS THE SCANNER. THE SCAN ENTRY POINT READS FROM THE
+;       TELETYPE. THE RESCAN ENTRY POINT READS FROM A STACK OF
+;       TOKENS LEFT BEHIND BY THE SCAN ENTRY POINT.
+;       RESCAN TREATS COMMAS AS ARGUMENT DELIMETERS. SCAN TREATS
+;       COMMAS AS AC FIELDS INDICATORS.
+;
+;       WARNING, THIS CODE IS SOMEWHAT "CONNECTED". BE CAREFUL IF
+;       YOU MAKE ANY CHANGES.....
+;
+RESCAN:  SETOM   SCANF
+        SETZM   COMCNT
+        MOVEI   13,SAVSTK+1
+        JRST    SCANC
+SCAN:   SETZM   SCANF
+        MOVE    13,SAVSTK
+SCANC:  MOVE    16,AESTK
+        MOVE    15,OPSTK
+        MOVE    14,COMSTK
+        PUSH    16,[XWD 400000,20]
+        SETZM   ARGF2
+SCAN1:  PUSHJ   17,GSECT
+        JRST    .+4
+        SETOM   ARGF2
+        SETOM   ARGF
+        JRST    SCAN2
+        HRRZ    2,OPRTR
+        CAIN    2,1
+        JRST    SCAN2
+        TRNN    1,400000
+        ERROR   [ASCIZ "OPERATOR CANNOT BE UNARY"]
+        ADDI    1,1
+        MOVEM   1,OPRTR
+SCAN2:  SKIPL   0(16)
+        ERROR   [ASCIZ "NO OPERATOR ON STACK"]
+        MOVE    1,0(16)
+        ANDI    1,77
+        SUBI    1,1
+        IMULI   1,^D18
+        MOVE    2,OPRTR
+        ANDI    2,77
+        ADD     2,1
+        SUBI    2,1
+        IDIVI   2,6
+        MOVE    2,MATRIX(2)
+        IMULI   3,6
+        LSHC    1,6(3)
+        ANDI    1,77
+        POP     16,2
+        PUSHJ   17,@MATTAB(1)
+        JRST    SCAN2
+
+;       OPERATOR TABLES FOR SCANNER
+;
+OPRS: PLUS:   XWD     "+",2
+MINUS:  XWD     "-",400003
+        XWD     -1,4    ;UNARY MINUS
+        XWD     "*",5
+        XWD     "*"+SEM,5
+        XWD     "&",6
+        XWD     "&"+SEM,6
+BLNK:   XWD     " ",7
+        XWD     ",",10
+        XWD     ",,",11
+        XWD     "@",400012
+        XWD     -1,13   ;UNARY @
+        XWD     "(",400014
+UPARAN: XWD     -1,15   ;UNARY (
+        XWD     ")",16
+SLASH:  XWD     SEM+"/",17
+OPLEN:  XWD     OPRS-.,0
+;
+;       BIT GENERATOR FOR MATRIX
+;
+DEFINE BITS (A,B,C)
+<X=A
+IRP C
+<C=X
+X=X+B>>
+;
+;       MATRIX GENERATOR MACRO
+;
+DEFINE MAT (A)
+<BYTE (6) A>
+;
+;       BITS FOR MATRIX
+;
+BITS 0,1,<E1,E2,S1,S2,S3,S4,S5,S6>
+BITS X,1,<C1,C2,C3,C4,C5,C6,C7,F1,P1,P2,M1,M2,M3,K1,K2,K3,DN>
+
+;       PRECEDENCE MATRIX
+;
+;               IN-HAND
+MATRIX=.
+;  COM +  -  U- *  & BLK ,  ,, @  U@ (  U( )  /
+MAT<E1,E1,E1,E1,E1,E1,E1,E1,E1,E1,E1,E1,E1,E1,E1>;  COM
+MAT<C1,C1,C1,S4,S1,C1,C1,C1,C1,C1,S3,C1,S4,C1,S1>;   +
+MAT<C2,C2,C2,S4,S1,C2,C2,C2,C2,C2,S3,C2,S4,C2,S1>;   -
+MAT<C3,C3,C3,S4,C3,C3,C3,C3,C3,C3,S3,C3,S4,C3,C3>;  '-'
+MAT<C4,C4,C4,S4,C4,C4,C4,C4,C4,C4,S3,C4,S4,C4,C4>;   *
+MAT<C5,S1,S1,S4,S1,S1,C5,C5,C5,S2,S3,C5,S4,C5,S1>;   &
+MAT<C6,S1,S1,S4,S1,S1,C6,M3,C6,C6,S5,C6,S6,C6,S1>;  BLK
+MAT<E1,E1,E1,E1,E1,E1,E1,E1,E1,E1,E1,E1,E1,E1,E1>;   ,
+MAT<K2,S1,S1,S4,S1,S1,S1,M1,S1,S2,S3,S1,S4,K2,S1>;   ,,
+MAT<K1,K1,K1,S4,S1,K1,K1,K3,K1,K1,S3,K1,S4,K1,S1>;   @
+MAT<E1,E1,E1,E1,E1,E1,E1,E1,E1,E1,E1,E1,E1,E1,E1>;  '@'
+MAT<E2,S1,S1,S4,S1,S1,S1,M2,S1,S2,S3,S1,S4,P1,S1>;   (
+MAT<E2,S1,S1,S4,S1,S1,S1,M2,S1,S2,S3,S1,S4,P2,S1>;  '('
+MAT<E1,E1,E1,E1,E1,E1,E1,E1,E1,E1,E1,E1,E1,E1,E1>;   )
+MAT<C7,C7,C7,S4,C7,C7,C7,C7,C7,C7,S3,C7,S4,C7,C7>;   /
+MAT<DN,S1,S1,S4,S1,S1,S1,F1,S1,S2,S3,S1,S4,E2,S1>;  BOL
+MATTAB: EXP     ERR1,ERR2
+        EXP     STK1,STK2,STK3,STK4,STK5,STK6
+        EXP     COM1,COM2,COM3,COM4,COM5,COM6,COM7
+        EXP     FAK1
+        EXP     PAR1,PAR2
+        EXP     MOD1,MOD2,MOD3
+        EXP     KLD1,KLD2,KLD3
+        EXP     DONE
+ERR1:   ERROR   [ASCIZ "SYSTEM ERROR"]
+ERR2:   ERROR   [ASCIZ "UNMATCHED PARAN"]
+STK1:   PUSH    16,2
+        PUSH    16,OPRND
+        PUSH    16,OPRTR
+STK1E:  POP     17,1
+        JRST    SCAN1
+STK2:   PUSH    16,2
+        PUSH    16,OPRND
+        PUSH    17,OPRTR
+        PUSHJ   17,GSECT
+        JRST    STK2C
+        POP     17,1
+        PUSH    16,1
+        POP     17,2
+        JRST    SCAN1+2
+STK2C:  HRRZ    1,OPRTR
+        HRRZ    2,MINUS
+        CAME    1,2
+        JRST    STK2D
+        POP     17,1
+        PUSH    16,1
+        AOS     OPRTR
+        POPJ    17,
+STK2D:  POP     17,1
+        POP     16,1
+        HRLZI   2,20
+        ADD     2,0(1)
+        MOVEM   2,0(1)
+        MOVEM   1,OPRND
+        AOS     SECNT
+        POPJ    17,
+STK3:   PUSH    16,2
+        MOVE    1,[20,,0]
+        PUSH    15,1
+        HRLZI   1,100000
+        HRR     1,15
+        PUSH    17,1
+        PUSHJ   17,GSECT
+        JRST    STK3C
+        POP     17,1
+        PUSH    16,1
+        HRR     1,PLUS
+        HRLI    1,400000
+        PUSH    16,1
+        POP     17,2
+        JRST    SCAN1+2
+STK3C:  HRRZ    1,OPRTR
+        HRRZ    2,MINUS
+        CAME    1,2
+        JRST    STK3D
+        POP     17,1
+        PUSH    16,1
+        HRR     1,BLNK
+        HRLI    1,400000
+        PUSH    16,1
+        SETZM   SECNT
+        AOS     OPRTR
+        POPJ    17,
+STK3D:  POP     17,OPRND
+        SETZM   SECNT
+        AOS     SECNT
+        POP     17,2
+        JRST    SCAN1+2
+STK4:   PUSH    16,2
+      H    16,OPRTR
+        JRST    STK1E
+STK5:   POP     16,OPRND
+        SOS     OPRTR
+        AOS     SECNT
+        POPJ    17,
+STK6:   PUSH    16,OPRTR
+        JRST    STK1E
+COM1:   PUSHJ   17,FIX
+        XCT     .+3(2)
+DOR:    MOVEM   1,@OPRND
+        POPJ    17,
+ADDS:   ADD     1,@OPRND
+        FAD     1,@OPRND
+COM2:   PUSHJ   17,FIX
+        XCT     .+2(2)
+        JRST    DOR
+        SUB     1,@OPRND
+        FSB     1,@OPRND
+COM3:   SKIPG   SECNT
+        ERROR   [ASCIZ "MISSING OPERAND"]
+        MOVN    1,@OPRND
+        MOVEM   1,@OPRND
+        POPJ    17,
+COM4:   PUSHJ   17,FIX
+        XCT     .+2(2)
+        JRST    DOR
+        IMUL    1,@OPRND
+        FMP     1,@OPRND
+COM5:   MOVE    1,@0(16)
+        AND     1,@OPRND
+        MOVEM   1,@OPRND
+        POP     16,2
+        HLRZ    1,OPRND
+        CAIN    1,200000
+        POPJ    17,
+        HLRZ    1,2
+        CAIE    1,200000
+        POPJ    17,
+        MOVE    1,OPRND
+        HRLZI   1,200000
+        MOVEM   1,OPRND
+        POPJ    17,
+COM6:   SKIPE   SECNT
+        JRST    BLNK2
+        POP     16,1
+        MOVEM   1,OPRND
+        POPJ    17,
+BLNK2:  PUSHJ   17,FIX
+        CAIE    2,0
+        JRST    COM1+1
+        MOVE    2,1
+        ADD     2,@OPRND
+        HRR     1,2
+        JRST    DOR
+COM7:   PUSHJ   17,FIX
+        XCT     .+2(2)
+        JRST    DOR
+        IDIV    1,@OPRND
+        FDV     1,@OPRND
+FAK1:   SKIPL   SCANF
+        JRST    MOD1
+        PUSH    16,2
+        POP     17,1
+        SKIPL   ARGF2
+        JRST    SCAN1
+        PUSH    15,@OPRND
+        HLL     1,OPRND
+        HRR     1,15
+        PUSH    14,1
+        AOS     COMCNT
+        JRST    SCAN1
+PAR1:   MOVE    1,PLUS
+        HRLI    1,400000
+        PUSH    16,1
+PAR2:   MOVS    1,@OPRND
+        MOVEM   1,@OPRND
+        PUSHJ   17,GET2
+        ERROR   [ASCIZ "R-PARAN NOT FOLLOWED BY OPERATOR"]
+        MOVEM   1,OPRTR
+        SETZM   SECNT
+        AOS     SECNT
+        POPJ    17,
+MOD1:   SKIPE   SCANF
+        JRST    KLD2
+        PUSH    16,2
+MOD1GO: HRR     1,BLNK
+        HRLI    1,400000
+        MOVEM   1,OPRTR
+        MOVE    1,@OPRND
+        SKIPG   -1(16)
+        JRST    MOD1C
+        HLRZ    2,@-1(16)
+        ANDI    2,700000
+        CAIE    2,700000
+        JRST    MOD1C
+        LSH     1,36
+        JRST    MOD1C+1
+MOD1C:  LSH     1,27
+        MOVEM   1,@OPRND
+        POPJ    17,
+MOD2:   SKIPE   SCANF
+        ERROR   [ASCIZ "ILLEGAL COMMA"]
+        JRST    MOD1
+MOD3:   SKIPE   SCANF
+        JRST    COM6
+        HRR     2,PLUS
+        HRLI    2,400000
+        JRST    MOD1
+KLD1:   PUSHJ   17,COM6
+        HRLZI   1,20
+        ADDM    1,@OPRND
+        POPJ    17,
+KLD2:   POP     16,1
+        HRLZ    1,0(1)
+        HRRZ    2,@OPRND
+        SKIPE   SECNT
+        ADD     1,2
+        MOVEM   1,@OPRND
+        POPJ    17,
+KLD3:   SKIPE   SCANF
+        JRST    KLD1
+        PUSHJ   17,COM6
+        PUSHJ   17,MOD1GO
+        HRLZI   1,20
+        ADDM    1,@OPRND
+        POPJ    17,
+DONE:   POP     17,1
+        SKIPE   SCANF
+        SKIPL   ARGF2
+        POPJ    17,
+        PUSH    14,OPRND
+        AOS     COMCNT
+        POPJ    17,
+FIX:    SKIPE   SECNT
+        SKIPG   0(16)
+        ERROR   [ASCIZ "MISSING OPERAND"]
+        HLRZ    1,0(16)
+        CAIE    1,200000
+        JRST    FIX2
+        NORM    @0(16)
+        HLRZ    1,OPRND
+        CAIE    1,200000
+        FLOAT   @OPRND
+        NORM    @OPRND
+        MOVE    1,OPRND
+        HRLI    1,200000
+        MOVEM   1,OPRND
+        JRST    FIX3
+FIX2:   HLRZ    1,OPRND
+        CAIE    1,200000
+        JRST    FIX4
+        NORM    @OPRND
+        FLOAT   @0(16)
+FIX3:   MOVEI   2,1
+        JRST    FIX4+1
+FIX4:   SETZ    2,
+        POP     16,1
+        MOVE    1,0(1)
+        POPJ    17,
+
+;       THIS ROUTINE RETURNS ONE SECTION FOR THE
+;       SCANNERS. A SECTION IS AN OPERATOR OR OPERAND/OPERATOR
+;       PAIR.
+;
+GSECT:  SETZM   SECNT
+        PUSHJ   17,GET1
+        JRST    .+3
+        MOVEM   1,OPRTR
+        POPJ    17,
+        MOVEM   1,OPRND
+        PUSHJ   17,GET2
+        ERROR   [ASCIZ "OPERAND OPERAND"]
+        AOS     SECNT
+        MOVEM   1,OPRTR
+        AOS     0(17)
+        POPJ    17,
+GET1:   SETO    2,      ;CELL=CELL (OPERAND)
+        JRST    .+2
+GET2:   SETZ    2,      ;CELL=COMMAND (OPERATOR)
+        SKIPL   SCANF
+        JRST    GETS
+        MOVE    1,0(13)
+        AOS     13
+        HLRZ    2,1
+        CAIN    2,400000
+        AOS     0(17)
+        POPJ    17,
+GETS:   SKIPN   2
+        JRST    GETS2
+        STCL    3
+        CAIE    3," "
+        JRST    GETS2+1
+        STCI    3
+        JRST    .-4
+GETS2:  STCL    3
+        CAIG    3,"9"
+        CAIGE   3,"0"
+        JRST    .+2
+        JRST    DIGIT2
+        CAIN    3,"."
+        JRST    DIGIT1
+        CAIN    3,42
+        JRST    STRNG1
+        CAIG    3,"Z"
+        CAIGE   3,"A"
+        JRST    .+2
+        JRST    OPCODE
+        MOVE    4,OPLEN
+GET3:   HLRZ    1,OPRS(4)
+        CAME    1,3
+        JRST    GET4
+        STCI    3
+        HRRZ    1,OPRS(4)
+TRF:    HRLI    1,400000
+        PUSH    13,1
+        AOS     0(17)
+        POPJ    17,
+GET4:   AOBJN   4,GET3
+        STCI    3
+GET5:   MOVE    4,COML
+        HRRZ    1,COMS(4)
+        CAMN    1,3
+        JRST    GET6
+        AOBJN   4,.-3
+        ERROR   [ASCIZ "NOT VALID CHAR"]
+GET6:   HLRZ    4,COMS(4)
+        MOVE    3,0(4)
+        SKIPL   2
+        JRST    GET7
+        TDNN    3,[CEL]
+        JRST    GET7
+        ANDI    3,77
+        MOVE    1,@CELTYP(3)
+        HLRZ    2,CELTYP(3)
+        CAIN    2,200000
+        NORM    1
+        HLLZ    7,CELTYP(3)
+        JRST    VALF
+GET7:   MOVEM   3,COMM1
+        MOVE    1,1(4)
+        MOVEM   1,COMM2
+        MOVEI   1,1
+        JRST    TRF
+DIGIT1: STCI    3
+        STCL    3
+        CAIG    3,"9"
+        CAIGE   3,"0"
+        JRST    .+3
+        MOVEI   3,"."
+        JRST    DIGIT3
+        MOVEI   3,"."
+        JRST    GET5
+DIGIT2: STCI    3
+DIGIT3: MOVE    4,[POINT 7,NBUFF-1,35]
+        PUSHJ   17,DIGIT
+VALF:   PUSH    15,1
+        HRR     7,15
+        PUSH    13,7
+        PUSH    15,1
+        HRR     7,15
+        MOVE    1,7
+        POPJ    17,
+DIGIT:  SETZ    5,
+        PUSH    17,4
+        JRST    .+2
+DIG1:   STCI    3
+        IDPB    3,4
+        CAIE    3,"."
+        JRST    DIG2
+        CAIE    5,0
+        ERROR   [ASCIZ "ONLY ONE DECIMAL POINT PLEASE"]
+        AOS     5
+DIG2:   STCL    3
+        CAIG    3,"9"
+        CAIGE   3,"0"
+        JRST    .+2
+        JRST    DIG1
+        CAIN    3,"."
+        JRST    DIG1
+        SETZ    2,
+        IDPB    2,4
+        CAIE    3,"D"
+        CAIN    3,"O"
+        JRST    DIG4
+        CAIN    "B"
+        JRST    DIG4
+        CAIE    3,"R"
+        JRST    DIG3
+        SKIPE   5
+        ERROR   [ASCIZ "RADIX ALWAYS TEN FOR FLOATING POINT"]
+        STCI    3
+        STCI    3
+        CAIG    3,"9"
+        CAIGE   3,"0"
+        ERROR   [ASCIZ "RADIX NOT FOLLOWED BY NUMBER"]
+        PUSHJ   17,DIGIT
+        JRST    DIG5
+DIG3:   MOVE    1,@SEMIR
+        HRLZI   7,100000
+        JRST    DIG5
+DIG4:   STCI    3
+        SKIPE   5
+        ERROR   [ASCIZ "RADIX ALWAYS TEN FOR FLOATING POINT"]
+        CAIN    3,"D"
+        MOVEI   1,12
+        CAIE    3,"B"
+        CAIN    3,"O"
+        MOVEI   1,10
+        HRLZI   7,100000
+DIG5:   HLRZ    7,7
+        CAIE    7,100000
+        ERROR   [ASCIZ "ERROR: I NEVER HEARD OF A FLOATING POINT RADIX"]
+        CAIG    1,12
+        CAIGE   1,2
+        ERROR   [ASCIZ "RADIX MUST BE 2 TO 10 INCLUSIVE"]
+        MOVE    6,1
+        SKIPE   5
+        JRST    DIGF
+        HRLZI   7,100000
+        POP     17,4
+        SETZ    1,
+        ILDB    3,4
+        CAIN    3,0
+        POPJ    17,
+        SUBI    3,60
+        IMUL    1,6
+        ADD     1,3
+        JRST    .-6
+DIGF:   ERROR   [ASCIZ "FLOATING POINT NOT IMPLEMENTED"]
+STRNG1: STCI    3
+        SKIPN   2
+        JRST    GET5
+        MOVE    1,@PERW
+        CAMGE   1,@SEMIT
+        ERROR   [ASCIZ "CHAR SIZE LARGER THAN WORD SIZE"]
+        PUSH    17,[0]
+        HRRZ    2,17
+        MOVE    1,@SEMIT
+        DPB     1,[POINT 6,2,11]
+        MOVE    1,@PERW
+        DPB     1,[POINT 6,2,5]
+        PUSH    17,2
+        PUSHJ   17,RTEXT
+        SKIPL   2
+        JRST    STRNG2
+        POP     17,2
+        POP     17,1
+        HRLZI   7,100000
+        JRST    VALF
+STRNG2: SKIPE   ARGF
+        ERROR   [ASCIZ "STRING TOO LONG"]
+        MOVEI   1,100000
+        DPB     1,[POINT 18,SEMIQ,17]
+        MOVEM   2,DTEST
+STRNG3: MOVE    1,-1(17)
+        MOVEM   1,@SEMIQ
+        SKIPL   CLSE
+        JRST    STRNG5
+        MOVE    12,@SEMIX
+        MOVE    13,@SEMIQ
+        MOVE    14,@DOT
+        PUSHJ   17,STORE
+        SKIPL   DTEST
+        AOS     @DOT
+STRNG5: SKIPE   DTEST
+        JRST    STRNG4
+        MOVE    2,0(17)
+        SETZM   -1(17)
+        PUSHJ   17,RTEXT
+        MOVEM   2,DTEST
+        JRST    STRNG3
+STRNG4: TCO     [15]
+        JRST    DIS
+RTEXT:  MOVE    3,@PERW
+        IDIV    3,@SEMIT
+        MOVE    4,@SEMIT
+RT1:    TCL     1
+        CAIN    1,26
+        JRST    RT3
+        CAIN    1,4
+        JRST    RT4
+        SOSGE   3
+        JRST    RT6
+RT2:    TCI     1
+        TRNN    4,1
+        SUBI    1,40
+        IDPB    1,2
+        JRST    RT1
+RT6:    SETZ    2,
+        JRST    RT5
+RT3:    TCI     1
+        JRST    RT2
+RT4:    SETO    2,
+        TCI     1
+        TCO     [42]
+RT5:    POPJ    17,
+OPCODE: PUSHJ   17,OPCODR
+        HRLZI   7,100000
+        JRST    VALF
+
+;       FOLLOWING ARE THE "NON-STANDARD" FUNCTIONS.
+;
+;
+XSEMI:  MOVE    2,@OPRND
+        HLRZ    1,OPRND
+        CAIE    1,100000
+        FIX     2
+        CAIG    2,11
+        CAIGE   2,0
+        FERR    [ASCIZ "FILE MUST BE 0-9"]
+        SKIPGE  FILES(2)
+        FERR    [ASCIZ "FILE NOT OPENED"]
+        MOVEM   2,@SEMIX
+        PUSHJ   17,FIXEOF
+        POPJ    17,
+LSEMI:  SKIPG   1,COMCNT
+        FERR    [ASCIZ "NEEDS ARGUMENTS"]
+        CAILE   1,2
+        FERR    [ASCIZ "ONLY 2 ARGUMENTS PLEASE"]
+        MOVE    2,@ARG1
+        HLRZ    3,ARG1
+        CAIE    3,100000
+        FIX     2
+        MOVE    3,2
+        CAIE    1,2
+        JRST    LSEM2
+        MOVE    3,@ARG2
+        HLRZ    4,ARG2
+        CAIE    4,100000
+        FIX     3
+LSEM2:  MOVEM   2,@SEMI1
+        MOVEM   3,@SEMI2
+        POPJ    17,
+WSEMI:  SETO    1,
+        JRST    SRCH1
+PDSEMI: MOVEI   1,1
+        JRST    SRCH1
+SSEMI:  SKIPG   1,COMCNT
+        FERR    [ASCIZ "NEEDS ARGUMENTS"]
+        CAIE    1,2
+        FERR    [ASCIZ "NEEDS 2 ARGUMENTS"]
+        MOVE    1,ARG2
+        MOVEM   1,OPRND
+        SETZ    1,
+        JRST    SRCH2
+SRCH1:  SKIPL   ARGF
+        FERR    [ASCIZ "NEEDS AN ARGUMENT"]
+SRCH2:  MOVEM   1,STEST1
+        SETZM   1,STEST2
+        HLRZ    1,OPRND
+        CAIE    1,100000
+        SETOM   1,STEST2
+        MOVE    10,@SEMIM
+        TRUN    10
+        MOVEM   10,MASK
+        SKIPE   STEST2
+        FERR    [ASCIZ "FLOATING POINT SEARCHES NOT IMPLEMENTED"]
+        MOVE    1,@SEMI2
+        CAMGE   1,@SEMI1
+        FERR    [ASCIZ "NEGATIVE RANGE"]
+        MOVE    1,@SEMI1
+        MOVEM   1,DOTS
+        TCO     [15]
+        TCO     [15]
+        MOVE    1,CMODE
+        MOVEM   1,LMODE
+        JRST    .+2
+SRCH3:  AOS     DOTS
+        MOVE    12,@SEMIX
+        MOVE    14,DOTS
+        PUSHJ   17,FETCH
+        SKIPE   STEST2
+        FERR    [ASCIZ "FLOATING???"]
+        MOVE    2,@OPRND
+        MOVE    1,13
+        AND     1,MASK
+        AND     2,MASK
+        CAME    1,2
+        JRST    NO
+        SKIPG   STEST1
+        JRST    YES
+SRCHE:  MOVE    1,DOTS
+        CAME    1,@SEMI2
+        JRST    SRCH3
+        TYPE    [ASCIZ "$$<DONE>$"]
+        POPJ    17,
+NO:     SKIPG   STEST1
+        JRST    SRCHE
+YES:    MOVE    1,DOTS
+        MOVEM   1,@DOT
+        SKIPN   STEST1
+        JRST    SUBS
+        MOVE    1,@DOT
+        MOVEI   2,11
+        PUSHJ   17,PRINT
+        MOVE    1,13
+        MOVEI   2,3
+        TYPE    [ASCIZ "    "]
+        PUSHJ   17,PRINT
+        TCO     [15]
+        JRST    SRCHE
+SUBS:   MOVE    13,@ARG1
+        MOVE    12,@SEMIX
+        MOVE    14,DOTS
+        PUSHJ   17,STORE
+        JRST    SRCHE
+MPER:   MOVE    1,COMCNT
+        CAIE    1,5
+        CAIN    1,3
+        JRST    .+2
+        ERROR   [ASCIZ "REQUIRES 3 OR 5 QRGUMENTS"]
+        CAIE    1,5
+        JRST    MPER2
+        MOVE    1,@ARG1
+        HLRZ    2,ARG1
+        CAIE    2,100000
+        FIX     1
+        MOVEM   1,FFILE
+        MOVE    1,@ARG3
+        HLRZ    2,ARG3
+        CAIE    2,100000
+        FIX     1
+        MOVEM   1,TFILE
+        MOVE    1,ARG2
+        MOVEM   1,ARG1
+        MOVE    1,ARG4
+        MOVEM   1,ARG2
+        MOVE    1,ARG5
+        MOVEM   1,ARG3
+        JRST    MPER3
+MPER2:  MOVE    1,@SEMIX
+        MOVEM   1,FFILE
+        MOVEM   1,TFILE
+MPER3:  MOVE    1,@ARG1
+        HLRZ    2,ARG1
+        CAIE    2,100000
+        FIX     1
+        MOVEM   1,FADDR
+        MOVE    1,@ARG2
+        HLRZ    2,ARG2
+        CAIE    2,100000
+        FIX     1
+        MOVEM   1,TADDR
+        MOVE    1,@ARG3
+        HLRZ    2,ARG3
+        CAIE    2,100000
+        FIX     1
+        MOVEM   1,MCNT
+        MOVE    1,TFILE
+        CAIG    1,11
+        CAIGE   1,0
+        FERR    [ASCIZ "FILE MUST BE 0-9"]
+        MOVE    2,FFILE
+        CAIG    2,11
+        CAIGE   2,0
+        FERR    [ASCIZ "FILE MUST BE 0-9"]
+        SKIPL   FILES(1)
+        SKIPGE  FILES(2)
+        FERR    [ASCIZ "FILE NOT OPEN"]
+        SKIPL   TADDR
+        SKIPGE  FADDR
+        FERR    [ASCIZ "NEGATIVE ADDRESS"]
+        SKIPG   MCNT
+        FERR    [ASCIZ "COUNT NOT GREATER THAN ZERO"]
+        MOVE    2,TADDR
+        MOVE    1,FADDR
+        MOVE    3,1
+        ADD     3,MCNT
+        TCO     [15]
+        SUBI    3,1
+        CAMLE   2,1
+        CAMLE   2,3
+        JRST    MOVF
+        MOVEM   3,FADDR
+        ADD     2,MCNT
+        SUBI    2,1
+        MOVEM   2,TADDR
+MOVB:   MOVE    14,FADDR
+        MOVE    12,FFILE
+        PUSHJ   17,FETCH
+        MOVE    14,TADDR
+        MOVE    12,TFILE
+        PUSHJ   17,STORE
+        SOS     FADDR
+        SOS     TADDR
+        SOSLE   MCNT
+        JRST    MOVB
+        TYPE    [ASCIZ "$$<DONE>$"]
+        POPJ    17,
+MOVF:   MOVE    14,FADDR
+        MOVE    12,FFILE
+        PUSHJ   17,FETCH
+        MOVE    14,TADDR
+        MOVE    12,TFILE
+        PUSHJ   17,STORE
+        AOS     FADDR
+        AOS     TADDR
+        SOSLE   MCNT
+        JRST    MOVF
+        TYPE    [ASCIZ "$$<DONE>$"]
+        POPJ    17,
+ZSEMI:  SKIPE   1,COMCNT
+        JRST    ZRO1
+        TYPE    [ASCIZ " OK? "]
+        TCI     1
+        CAIE    1,"Y"
+        CAIN    1,15
+        JRST    .+2
+        FERR    [ASCIZ "?"]
+        SETZ    2,
+        MOVE    3,@SEMIE
+        JRST    ZRO2
+ZRO1:   CAILE   1,2
+        FERR    [ASCIZ "NO MORE THAN 2 ARGUMENTS PLEASE"]
+        MOVE    2,@ARG1
+        HLRZ    3,ARG1
+        CAIE    3,100000
+        FIX     2
+        MOVE    3,2
+        CAIE    1,2
+        JRST    ZRO2
+        MOVE    3,@ARG2
+        HLRZ    4,ARG2
+        CAIE    4,100000
+        FIX     3
+ZRO2:   CAMGE   3,2
+        FERR    [ASCIZ "NEGATIVE RANGE"]
+        MOVEM   2,STEST1
+        MOVEM   3,STEST2
+        TCO     [15]
+ZRO3:   MOVE    12,@SEMIX
+        MOVE    14,STEST1
+        SETZ    13,
+        PUSHJ   17,STORE
+        AOS     STEST1
+        MOVE    1,STEST1
+        CAMG    1,STEST2
+        JRST    ZRO3
+        TYPE    [ASCIZ "$$<DONE>$"]
+        POPJ    17,
+FSEMI:  SETZ    1,
+        MOVEI   2,11
+        SKIPL   ARGF
+        JRST    KSEM2
+        MOVE    1,@OPRND
+        HLRZ    2,OPRND
+        CAIE    2,100000
+        FIX     1
+        MOVE    2,1
+        CAIG    1,11
+        CAIGE   1,0
+        FERR    [ASCIZ "FILE MUST BE 0-9"]
+KSEM2:  MOVEM   1,STEST1
+        MOVEM   2,STEST2
+        TCO     [15]
+KSEM3:  MOVE    1,STEST1
+        SKIPGE  15,FILES(1)
+        JRST    KSEM4
+        ANDI    15,77
+        PUSHJ   17,FLUSH
+KSEM4:  AOS     STEST1
+        MOVE    1,STEST1
+        CAMG    1,STEST2
+        JRST    KSEM3
+        POPJ    17,
+TSEMI:  MOVE    2,@OPRND
+        HLRZ    1,OPRND
+        CAIE    1,100000
+        FIX     2
+        CAIG    2,10
+        CAIGE   2,6
+        FERR    [ASCIZ "CHAR SIZE MUST BE 6, 7, OR 8"]
+        MOVEM   2,@SEMIT
+        POPJ    17,
+WPER:   MOVE    2,@OPRND
+        HLRZ    1,OPRND
+        CAIE    1,100000
+        FIX     2
+        CAIG    2,^D36
+        CAIGE   2,1
+        FERR    [ASCIZ "WORD SIZE MUST BE 1 THROUGH 36D"]
+        DISABL
+        MOVEM   2,@PERW
+        PUSHJ   17,FIXEOF
+        ENABLE
+        POPJ    17,
+FIXEOF: MOVE    1,@SEMIX
+        SKIPGE  FILES(1)
+        POPJ    17,
+        MOVE    15,FILES(1)
+        ANDI    15,77
+        PUSH    17,1
+        PUSHJ   17,RFSIZ
+        POP     17,2
+        MOVEM   1,EOFTAB(2)
+        MULI    1,^D36
+        DIV     1,@PERW
+        CAIE    2,0
+        ADDI    1,1
+        MOVEM   1,@SEMIE
+        SETZM   EOFLG
+        POPJ    17,
+OSEMI:  MOVEI   1,10
+        MOVEM   1,@SEMIR
+        POPJ    17,
+DSEMI:  MOVEI   1,12
+        MOVEM   1,@SEMIR
+        POPJ    17,
+RSEMI:  HLRZ    1,OPRND
+        MOVE    2,@OPRND
+        CAIE    1,100000
+        FIX     2
+        CAMG    2,12
+        CAMGE   2,2
+        ERROR   [ASCIZ "RADIX MUST BE TWO THROUGH TEN"]
+        MOVEM   2,@SEMIR
+        POPJ    17,
+QPER:   PUSHJ   17,CPER
+        EXIT    1,
+        JRST    RESTRT
+IPER:   PUSH    17,[XWD 12004,CIN]
+        PUSHJ   17,RFNAME
+        DISABL
+        PUSHJ   17,CLIN
+        JRST    OPNCFL
+OPERR:  PUSH    17,[XWD 13003,COUT]
+        PUSHJ   17,RFNAME
+        DISABL
+        PUSHJ   17,CLOUT
+OPNCFL: SETZ    3,
+        CAIE    2,0
+        JRST    OPNFIL
+        CAME    1,[SIXBIT "TEL"]
+        CAIN    1,[SIXBIT "TE"]
+        JRST    FAKEIT
+        CAIN    1,[SIXBIT "T"]
+        JRST    FAKEIT
+OPNFIL: MOVE    6,1
+        MOVE    7,2
+        LDB     15,[POINT 9,0(17),8]
+        LDB     13,[POINT 3,0(17),17]
+        PUSHJ   17,OPENR
+        FERR    [ASCIZ "BAD FILE NAME"]
+        LDB     3,[POINT 9,0(17),8]
+        HRLI    3,-1
+FAKEIT: POP     17,4
+        MOVEM   3,0(4)
+        ENABLE
+        TCO     [15]
+        POPJ    17,
+CLIN:   SKIPL   CIN
+        POPJ    17,
+        PUSH    17,0
+        MOVE    0,[XWD 1,CLSAV]
+        BLT     0,CLSAV+15
+        HRRZ    15,CIN
+        DISABL
+        PUSHJ   17,CLOSER
+        FERR    [ASCIZ "ERROR CLOSING FILE"]
+        SETZM   CIN
+        ENABLE
+        MOVE    0,[XWD CLSAV,1]
+        BLT     0,16
+        POP     17,0
+        POPJ    17,
+CLOUT:  SKIPL   COUT
+        POPJ    17,
+        PUSH    17,0
+        MOVE    0,[XWD 1,CLSAV]
+        BLT     0,CLSAV+15
+        HRRZ    15,COUT
+        DISABL
+        PUSHJ   17,CLOSER
+        FERR    [ASCIZ "ERROR CLOSING FILE"]
+        SETZM   COUT
+        ENABLE
+        MOVE    0,[XWD CLSAV,1]
+        BLT     0,16
+        POP     17,0
+        POPJ    17,
+ISEMI:  MOVE    1,[1000014]
+        JRST    DOFIL
+USEMI:  MOVEI   1,16
+        JRST    DOFIL
+CSEMI:  MOVEI   1,13
+DOFIL:  PUSH    17,16
+        PUSH    17,15
+        PUSH    17,1
+        SETZ    1,
+        SKIPL   ARGF
+        JRST    .+5
+        MOVE    1,@OPRND
+        HLRZ    2,OPRND
+        CAIE    2,100000
+        FIX     1
+        CAIG    1,11
+        CAIGE   1,0
+        FERR    [ASCIZ "FILE MUST BE 0-9"]
+        PUSH    17,1
+        PUSHJ   17,CLSER
+        PUSHJ   17,RFNAME
+        MOVE    15,0(17)
+        HRRZ    13,-1(17)
+        ANDI    13,77
+        MOVE    6,1
+        MOVE    7,2
+        DISABL
+        PUSHJ   17,OPENR
+        FERR    [ASCIZ "BAD FILE NAME"]
+        MOVE    15,0(17)
+        POP     17,1
+        HLL     15,0(17)
+        MOVEM   15,FILES(1)
+        MOVEM   1,@SEMIX
+        POP     17,1
+        MOVEI   1,^D36
+        ANDI    15,77
+        PUSHJ   17,SBS
+        FERR    [ASCIZ "ERROR: CANNOT SET BYTE SIZE ON OPEN"]
+        PUSHJ   17,FIXEOF
+        SUBI    1,1
+        MOVEM   1,@SEMI2
+        SETZM   @SEMI1
+        ENABLE
+        POP     17,15
+        POP     17,16
+        POPJ    17,
+CPER:   PUSH    17,16
+        PUSH    17,15
+        SETZ    1,
+        MOVEI   2,11
+        SKIPL   ARGF
+        JRST    CP2
+        MOVE    1,@OPRND
+        HLRZ    2,OPRND
+        CAIE    2,100000
+        FIX     1
+        CAIG    1,11
+        CAIGE   1,0
+        FERR    [ASCIZ "FILE MUST BE 0-9"]
+        MOVE    2,1
+CP2:    TCO     [15]
+        MOVE    3,1
+        SUB     3,2
+        SUBI    3,1
+        HRL     1,3
+        PUSH    17,1
+        HRRZ    1,1
+        PUSHJ   17,CLSER
+        POP     17,1
+        AOBJN   1,.-4
+        POP     17,15
+        POP     17,16
+        POPJ    17,
+CLSER:  SKIPGE  FILES(1)
+        POPJ    17,
+        MOVE    15,FILES(1)
+        ANDI    15,77
+        DISABL
+        SETOM   FILES(1)
+        PUSHJ   17,CLOSER
+        FERR    [ASCIZ "ERROR CLOSING FILE"]
+        ENABLE
+        POPJ    17,
+
+;       FOLLOWING ARE A FEW MISC ROUTINES LIKE ESCAPE ROUTINES,
+;       FILE IO INTERFACE ROUTINES, FILE NAME READER.
+;
+;
+TRAPS:  HLR     1,JOBCNI
+        ANDI    1,1
+        CAIN    1,1
+        JRST    ESCR
+        ERROR   [ASCIZ "TRAP>>"]
+ESCR:   MOVEI   1,402000
+        APRENB  1,
+        SKIPL   ESCFLG
+        JRST    ESCR2
+        SETOM   SAVESC
+        JRSTF@  JOBTPC
+ESCR2:  SETZM   CLSE
+        CLRIN
+        SKIPL   PDP10F
+        CLRBFO  0
+        PUSHJ   17,CLIN
+        PUSHJ   17,CLOUT
+        TCO     [15]
+        AOS     EFLAG
+        SKIPLE  EFLAG
+        SKIPE   QFLAG
+        JRST    .+4
+        TYPE    [ASCIZ "USE %Q TO EXIT"]
+        TCO     [15]
+        SETOM   QFLAG
+        SKIPL   PDP10F
+        TCO     [15]
+        JRST    DIS
+FETCH:  PUSH    17,0
+        MOVE    0,@PERW
+        CAIE    0,^D36
+        JRST    FETCH2
+        PUSHJ   17,READ1
+        POP     17,0
+        POPJ    17,
+FETCH2: MOVE    0,[XWD 5,SAVR1]
+        BLT     0,SAVR1+7
+        MOVE    5,14
+        MUL     5,@PERW
+        DIVI    5,^D36
+        MOVE    14,5
+        PUSHJ   17,READ1
+        MOVE    10,13
+        MOVN    7,6
+        ADDI    7,^D36
+        CAML    7,@PERW
+        JRST    FETCH3
+        ADDI    14,1
+        PUSHJ   17,READ1
+        MOVE    11,13
+FETCH3: ADD     6,@PERW
+        SUBI    6,^D36
+        LSHC    10,0(6)
+        TRUN    10
+        MOVEM   10,SAVR1+6
+        MOVE    0,[XWD SAVR1,5]
+        BLT     0,14
+        POP     17,0
+        POPJ    17,
+READ1:  PUSH    17,0
+        MOVE    0,[XWD 1,SAVR2]
+        BLT     0,SAVR2+15
+        MOVE    15,FILES(12)
+        ANDI    15,77
+        PUSH    17,15
+        PUSHJ   17,SCP
+        POP     17,15
+        PUSHJ   17,BYI
+        PUSHJ   17,ERRCHK
+        MOVEM   10,SAVR2+12
+        MOVE    0,[XWD SAVR2,1]
+        BLT     0,16
+        POP     17,0
+        POPJ    17,
+STORE:  PUSH    17,0
+        MOVE    0,FILES(12)
+        TLNE    0,1
+        ERROR   [ASCIZ "FILE READ ONLY"]
+        MOVE    0,@PERW
+        CAIE    0,^D36
+        JRST    STORE2
+        PUSHJ   17,WRITE1
+        POP     17,0
+        POPJ    17,
+STORE2: MOVE    0,[XWD 2,SAVR1]
+        BLT     0,SAVR1+12
+        MOVE    5,14
+        MUL     5,@PERW
+        DIVI    5,^D36
+        MOVE    14,5
+        PUSHJ   17,READ1
+        MOVE    10,13
+        MOVN    4,6
+        ADDI    4,^D36
+        CAML    4,@PERW
+        JRST    STORE3
+        ADDI    14,1
+        PUSHJ   17,READ1
+        MOVE    11,13
+        SUBI    14,1
+STORE3: ROTC    10,0(6)
+        MOVE    5,@PERW
+        LSHC    10,0(5)
+        MOVE    3,10
+        MOVE    2,SAVR1+11
+        MOVN    5,5
+        LSHC    2,0(5)
+        LSHC    10,0(5)
+        MOVE    10,3
+        MOVN    6,6
+        ROTC    10,0(6)
+        MOVE    13,10
+        PUSHJ   17,WRITE1
+        CAML    4,@PERW
+        JRST    STORE4
+        MOVE    13,11
+        ADDI    14,1
+        PUSHJ   17,WRITE1
+STORE4: MOVE    0,[XWD SAVR1,2]
+        BLT     0,14
+        POP     17,0
+        POPJ    17,
+WRITE1: PUSH    17,0
+        MOVE    0,[XWD 1,SAVR2]
+        BLT     0,SAVR2+15
+        MOVE    15,FILES(12)
+        ANDI    15,77
+        PUSH    17,15
+        DISABL
+        CAMGE   14,EOFTAB(12)
+        JRST    WRITE2
+        MOVE    1,14
+        ADDI    1,1
+        MOVEM   1,EOFTAB(12)
+WRITE2: PUSHJ   17,SCP
+        POP     17,15
+        MOVE    10,SAVR2+12
+        PUSHJ   17,BYO
+        PUSHJ   17,ERRCHK
+        MOVE    0,[XWD SAVR2,1]
+        BLT     0,16
+        POP     17,0
+        ENABLE
+        POPJ    17,
+RFNAME: SETZ    5,
+        SETTTY  TTYM2
+        TCI     1
+        CAIN    1,40
+        JRST    .-2
+        CAIE    1,"("
+        JRST    REND
+        SETZM   NBUFF+2
+        SETZM   NBUFF+3
+        MOVE    2,[POINT 6,NBUFF+1,35]
+        MOVEM   2,NPTR
+        MOVEM   2,NPTR+1
+        MOVEI   2,14
+        MOVEM   2,NPTR+2
+RUSE1:  TCI     1
+        CAIE    1,15
+        CAIN    1,12
+        FERR    [ASCIZ "ILLEGAL USER NAME"]
+        CAIN    1,")"
+        JRST    RUSE2
+        SUBI    1,40
+        WCI     1,NPTR
+        FERR    [ASCIZ "ILLEGAL USER NAME"]
+        JRST    RUSE1
+RUSE2:  SKIPN   NBUFF+2
+        FERR    [ASCIZ "ILLEGAL USER NAME"]
+        MOVEI   5,NBUFF+2
+        TCI     1
+        CAIN    1,40
+        JRST    .-2
+REND:   MOVE    2,[POINT 6,NBUFF-1,35]
+        MOVEM   2,NPTR
+        MOVEM   2,NPTR+1
+        MOVEI   2,6
+        MOVEM   2,NPTR+2
+        SETZM   NBUFF
+        SETZM   NBUFF+1
+RFN1:   CAIN    1,"."
+        JRST    RFN2
+        CAIE    1,12
+        CAIN    1,15
+        JRST    RFN4
+        SUBI    1,40
+        WCI     1,NPTR
+FER:    FERR    [ASCIZ "BAD FILE NAME"]
+        TCI     1
+        JRST    RFN1
+RFN2:   MOVE    1,[POINT 6,NBUFF,35]
+        MOVEM   1,NPTR
+        MOVEM   1,NPTR+1
+        MOVEI   1,3
+        MOVEM   1,NPTR+2
+RFN3:   TCI     1
+        CAIE    1,12
+        CAIN    1,15
+        JRST    RFN4
+        SUBI    1,40
+        WCI     1,NPTR
+        JRST    FER
+        JRST    RFN3
+RFN4:   SKIPN   NBUFF
+        JRST    FER
+        SETTTY  TTYM1
+        MOVE    1,NBUFF
+        MOVE    2,NBUFF+1
+        POPJ    17,
+ERRCHK: FERR    [ASCIZ "SOME SORT OF READ ERROR"]
+        END    START
+    LH$4ø
