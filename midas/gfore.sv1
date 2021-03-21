@@ -1,0 +1,473 @@
+MODULE GFORE(DOLLAR,ENTRIES=($GBFE,$GEACH,$GEFE,$GBSEL,$GSEL,$GESEL),FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+  BEGIN
+
+  REQUIRE ADEFS.BLI[7,107355];
+  REQUIRE GDEFS.BLI[7,107355];
+  REQUIRE SDEFS.BLI[7,107355];
+  REQUIRE ZDEFS.BLI[7,107355];
+
+  MAP Z$ ZBSTK$;
+  MAP G$ GGBFP$;
+  MAP G$OPND GGBOP$;
+
+  UNDECLARE $GBFE, $GEACH, $GEFE, $GBSEL, $GSEL, $GESEL;
+
+%****
+  PROCESS TV$8BGFORE
+****%
+  GLOBAL ROUTINE $GBFE =
+    BEGIN
+
+    IF .ZBSTK$[Z$SBID,.ZSTKP$] EQL ZV$LBL       % IS THE TOP ENTRY A LABEL? %
+      THEN
+        $GRLAB(.ZSTKP$);                        % YES! FLAG IT AS A VALID REFERENCE FOR A
+                                                  FINISH OR REPEAT
+                                                %
+    $GPUSH(.GBTKN$,7);                          % PUSH THE TV$8BGFPORE TOKEN ALONG VARIOUS GLOBALS %
+    ZBSTK$[Z$ELSELAB,.ZSTKP$]  := .GELSL$;
+    ZBSTK$[Z$ELSEFLG,.ZSTKP$]  := .GELSF$;
+    ZBSTK$[Z$ELSEP,  .ZSTKP$]  := .GELSP$;
+    ZBSTK$[Z$BUF4P,  .ZSTKP$]  := .GRB4I$;
+    ZBSTK$[Z$BUF5P,  .ZSTKP$]  := .GRB5I$;
+    ZBSTK$[Z$PREDP,  .ZSTKP$]  := .GFEAP$;
+    ZBSTK$[Z$INSLP,  .ZSTKP$] := .GINSL$;
+    ZBSTK$[Z$ISUBLP, .ZSTKP$]  := ZV$NULL;
+
+    GELSF$ := GNOQF$ := GEIPF$ := ZV$RESET;
+    GELSP$ := GINSL$ := GFEAP$ := .ZSTKP$;
+    GFEAF$ := GNOKF$ := ZV$SET;
+    GBSLP$ := GBILP$ := GSRCP$ := GRPTP$ := ZV$NULL;
+    GRB4I$ := $GNBUF(256);                       % GET NEW REPORT BUFFERS 4 AND 5 %
+    GRB5I$ := $GNBUF(256);
+
+    END;
+
+
+%****
+  PROCESS TV$8NDFORE
+****%
+  GLOBAL ROUTINE $GEFE =
+    BEGIN
+
+    LOCAL S$ DEFSTE;
+    LOCAL FRECP;
+
+    IF .GELSF$ EQL ZV$SET                     % IS AN ELSE LABEL NEEDED? %
+      THEN
+        BEGIN                                   % YES %
+        $GIREC(GV$LABEL,3);                     % GENERATE AN ELSE LABEL %
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .GELSL$;
+        $GWBUF(.GGBFP$,.GOB1I$);
+        GELSF$ := ZV$RESET;
+        END;
+    IF .ZBSTK$[Z$SBID,.ZSTKP$] EQL ZV$SRC       % PROCESS A SOURCE OR RELATION? %
+      THEN
+        BEGIN                                   % SOURCE %
+        $GIREC(GV$BRANCH,3);                    % GENERATE A BRANCH TO READ THE NEXT RECORD %
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .ZBSTK$[Z$NEXTLAB,.ZSTKP$];
+        $GWBUF(.GGBFP$,.GOB1I$);
+        END
+      ELSE                                      % RELATION %
+        IF .ZBSTK$[Z$ACCESS,.ZSTKP$] NEQ ZV$VIAACCESS
+          THEN
+            BEGIN
+            $GIREC(GV$BRNEOF,4);                % GENERATE A BRANCH ON NO EOF TO READ THE NEXT
+                                                  RELATION INSTANCE
+                                                %
+            GGBOP$[0,G$OPTYP] := GV$STP;
+            GGBOP$[0,G$OPVAL] := .ZBSTK$[Z$INCSTP,.ZSTKP$];
+            GGBOP$[1,G$OPTYP] := GV$STP;
+            GGBOP$[1,G$OPVAL] := .ZBSTK$[Z$NEXTLAB,.ZSTKP$];
+            $GWBUF(.GGBFP$,.GOB1I$);
+            END;
+
+    %****
+        COLLECT THE CONTENTS OF TEH FOURTH AND FIFTH REPORT BUFFERS TO THE
+        PRIMARY OUTPUT BUFFER.
+    ****%
+    FRECP := $GFREC(.GRB4I$);
+    IF .FRECP NEQ 0
+      THEN
+        $GMBUF(.GRB4I$,GOB1I$,.FRECP,$GLREC(.GRB4I$));
+    FRECP := $GFREC(.GRB5I$);
+    IF .FRECP NEQ 0 
+      THEN
+        $GMBUF(.GRB5I$,.GOB1I$,.FRECP,$GLREC(.GRB5I$));
+    $GRBUF(.GRB4I$);                            % RELEASE BOTH BUFFERS %
+    $GRBUF(.GRB5I$);
+
+    IF .ZBSTK$[Z$ACCESS,.ZSTKP$] NEQ ZV$VIAACCESS
+      THEN
+        BEGIN
+        $GIREC(GV$LABEL,3);                     % GENERATE THE EOF/END FOR EACH LABEL %
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .ZBSTK$[Z$NEXTLAB,.GFEAP$];
+        $GWBUF(.GGBFP$,.GOB1I$);
+        END;
+
+    $GIREC(GV$CLOSE,3);                         % CLOSE THE RELATION %
+    GGBOP$[0,G$OPTYP] := GV$STP;
+    GGBOP$[0,G$OPVAL] := .ZBSTK$[Z$INCSTP,.ZSTKP$];
+    $GWBUF(.GGBFP$,.GOB1I$);
+    IF .ZBSTK$[Z$ERFL,.ZSTKP$] EQL AV$FALSE
+      THEN
+        $GDSCOPE(.ZSTKP$);                      % DELETE THE SCOPE FOR THE RELATION/SOURCE %
+
+    %********
+        *
+        *
+        PROCESS FIELDS REFERENCED IN AN IN-CLAUSE.
+        *
+        *
+    ********%
+
+    $GPOP();                                    % POP THE RELATION OR SOURCE  %
+    GELSL$ := .ZBSTK$[Z$ELSELAB,.ZSTKP$];
+    GELSF$ := .ZBSTK$[Z$ELSEFLG,.ZSTKP$];
+    GELSP$ := .ZBSTK$[Z$ELSEP  ,.ZSTKP$];
+    GRB4I$ := .ZBSTK$[Z$BUF4P  ,.ZSTKP$];
+    GRB5I$ := .ZBSTK$[Z$BUF5P  ,.ZSTKP$];
+    GFEAP$ := .ZBSTK$[Z$PREDP  ,.ZSTKP$];
+    GINSL$ := .ZBSTK$[Z$INSLP  ,.ZSTKP$];
+
+    $GINSLST(.GINSL$,ZV$TRUE);
+
+    $GPOP();                                    % POP TV$8BGFORE  %
+    IF .ZBSTK$[Z$SBID,.ZSTKP$] EQL ZV$LBL
+      THEN
+        $GFLAB(.ZSTKP$);
+
+    END;
+
+
+%*****
+  PROCESS TV$EACH
+****%
+  GLOBAL ROUTINE $GEACH =
+    BEGIN
+
+    LOCAL S$ NAMESTE:SINCSTE:RINCSTE:RDEFSTE:GPINCSTE;
+    LOCAL FIRSTIME, LABSAV, RINCSTP, RGPSTP, FRECP;
+
+
+    ROUTINE GENCALL(ENTRYSTP)=
+      BEGIN
+
+      $GIREC(GV$CALL,4);
+      GGBOP$[0,G$OPVAL] := GV$NORSLT;
+      GGBOP$[1,G$OPTYP] := GV$STP;
+      GGBOP$[1,G$OPVAL] := .ENTRYSTP;
+
+      END;
+
+
+    GFEAF$ := ZV$RESET;
+    GSRCP$ := ZV$NULL;
+    WHILE .ZBSTK$[Z$SBID,.ZSTKP$] EQL ZV$RP
+      DO
+        $GPOP();
+
+    %****
+        COLLECT THE CONTWENTS OF THESECONDARY OUTPUT BUFFER TO THE PRIMARY OUTPUT BUFFER 
+    ****%
+    FRECP := $GFREC(.GOB2I$);
+    IF .FRECP NEQ 0
+      THEN
+        BEGIN
+        $GMBUF(.GOB2I$,.GOB1I$,.FRECP,$GLREC(.GOB2I$));
+        $GCBUF(.GOB2I$);
+        END;
+
+    IF .ZBSTK$[Z$SBID,.ZSTKP$] EQL ZV$SRC       % DOES THE FOR EACH RELATE TO SOURCE FILE? %
+      THEN
+        BEGIN                                   % YES %
+        $GIREC(GV$ESIN,4);                      % GENERATE END OF SEQUENTIAL INPUT N-TUPLE %
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .ZBSTK$[Z$INCSTP,.ZSTKP$];
+        GGBOP$[1,G$OPTYP] := GV$STP;
+        GGBOP$[1,G$OPVAL] := .ZBSTK$[Z$NEXTLAB,.ZSTKP$];
+        $GWBUF(.GGBFP$,.GOB1I$);
+
+        IF .GEIPF$ EQL ZV$SET                   % IS THE END INPUT FLAG SET ? %
+          THEN
+            BEGIN                               % YES %
+            $GIREC(GV$LABEL,3);                 % GENERATE THE END OF SEQUENTIAL INPUT SEQUENCE LABEL %
+            GGBOP$[0,G$OPTYP] := GV$STP;
+            GGBOP$[0,G$OPVAL] := .GEIPL$;
+            $GWBUF(.GGBFP$,.GOB1I$);
+            GEIPF$ := ZV$RESET;
+            END;
+        END;
+
+    FRECP := $GFREC(.GOB3I$);
+    IF .FRECP NEQ 0
+      THEN
+        BEGIN
+        $GMBUF(.GOB3I$,.GOB1I$,.FRECP,$GLREC(.GOB3I$));
+        $GCBUF(.GOB3I$);
+        END;
+
+    IF .GRCNF$ EQL ZV$SET                       % IS THE REPORT CONDITION FLAG SET? %
+      THEN
+        BEGIN                                   % YES %
+        $GIREC(GV$LABEL,3);                     % GENERATE THE END OF REPORT CONDITION CODE LABEL %
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .GERCL$;
+        $GWBUF(.GGBFP$,.GOB1I$);
+        GRCNF$ := ZV$RESET;
+        END;
+
+
+    IF .ZBSTK$[Z$ERFL,.ZSTKP$] EQL AV$TRUE
+      THEN
+        RETURN -1;
+
+    SINCSTE := $SGSTE(.ZBSTK$[Z$INCSTP,.ZSTKP$]); % GET THE RELATION/SOURCE INCARNATION ENTRY %
+    IF .SINCSTE[S$RICSTP] NEQ SV$NULL           % IS THERE A REPORT ATTACHED TO THE RELATION/SOURCE? %
+      THEN
+        BEGIN                                   % YES %
+        IF .SINCSTE[S$TYPE] EQL SV$RELINC
+          THEN
+            BEGIN
+            SINCSTE[S$CHGREF] := SV$FALSE;
+            $SFGCH(.SINCSTE);
+            END;
+        NAMESTE := $GWVAR(ZV$NUMERIC,1,0);      % CREATE THE FIRST TIME VARIABLE %
+        FIRSTIME := .NAMESTE[S$CISTP];
+        $SFRNCH(.NAMESTE);
+        $GIREC(GV$INIT,4);                      % INIT. THEFIRST TIME VAR. TO 1 %
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .FIRSTIME;
+        GGBFP$[G$OPND2]   := 1;
+        $GWBUF(.GGBFP$,.GRB1I$);
+        $GIREC(GV$EQ,4);                        % GENERATE A COMPARE OF FIRST TIME VAR. TO 1 %
+        GGBFP$[G$UCNT] := 1;
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .FIRSTIME;
+        GGBOP$[1,G$OPTYP] := GV$LIT;
+        GGBOP$[1,G$OPVAL] := .GONE$;
+        $GWBUF(.GGBFP$,.GRB1I$);
+        $GIREC(GV$BRCHF,4);                     % GENERATE CONDITIONAL BRANCH TO BYPASS FIRST TIME
+                                                  CODE IF THE COMPARE IS FALSE
+                                                %
+        GGBOP$[0,G$OPTYP] := GV$NP;
+        GGBOP$[0,G$NPTYPE] := GV$LOGICAL;
+        GGBOP$[0,G$OPVAL] := .GGFID$ - 2;
+        GGBOP$[1,G$OPTYP] := GV$STP;
+        GGBOP$[1,G$OPVAL] := LABSAV := $GNLAB();
+        $GWBUF(.GGBFP$,.GRB1I$);
+        $GIREC(GV$STORE,4);                     % SET THE FIRST TIME FLAG EQUAL TO 0 %
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .FIRSTIME;
+        GGBOP$[1,G$OPTYP] := GV$LIT;
+        GGBOP$[1,G$OPVAL] := .SZERO$;
+        $GWBUF(.GGBFP$,.GRB1I$);
+        $GIREC(GV$LABEL,3);                     % GENERATE THE LABEL THAT MARKS THE END OF FIRST TIME CODE %
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .LABSAV;
+        $GWBUF(.GGBFP$,.GRB2I$);
+        IF .SINCSTE[S$TYPE] EQL SV$RELINC       % DOES THIS FOR EACH RELATE TO A RELATION? %
+          THEN
+            BEGIN                               % YES %
+            $GIREC(GV$RESET,4);                 % GENERATE THE RESET FOR CHANGED FLAGS %
+            GGBOP$[0,G$OPVAL] := GV$CHGFLS;
+            GGBOP$[1,G$OPTYP] := GV$STP;
+            GGBOP$[1,G$OPVAL] := .SINCSTE[S$STPX];
+            $GWBUF(.GGBFP$,.GRB3I$);
+            $GIREC(GV$CHGD,3);                  % GENERATE THE TEST AND SET CHANGED FLAGS FOR THE RELATION %
+            GGBOP$[0,G$OPTYP] := GV$STP;
+            GGBOP$[0,G$OPVAL] := .SINCSTE[S$STPX];
+            $GWBUF(.GGBFP$,.GRB3I$);
+            END;
+        $GIREC(GV$STORE,4);                     % GENERATE A STORE OF A  1  INTO THE FIRST TIME VAR.
+                                                  TO GO TO AT THE END OF THE FOR EACH 
+                                                %
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .FIRSTIME;
+        GGBOP$[1,G$OPTYP] := GV$LIT;
+        GGBOP$[1,G$OPVAL] := .GONE$;
+        $GWBUF(.GGBFP$,.GRB5I$);
+        RINCSTP := .SINCSTE[S$RICSTP];           % GET THE FIRST REPORT INCARNATION'S STP %
+        WHILE .RINCSTP NEQ SV$NULL
+          DO
+            BEGIN
+            RINCSTE := $SGSTE(.RINCSTP);         % GET THE NEXT REPORT'S INCARNATION ENTRY %
+            RDEFSTE := $SGSTE(.RINCSTE[S$RPDSTP]); % GET THE REPORT'S DEFINITION ENTRY %
+            IF .RDEFSTE[S$USECNT] EQL 1
+              THEN
+                BEGIN
+                $GIREC(GV$OPEN,3);              % OPEN THE REPORT %
+                GGBOP$[0,G$OPTYP] := GV$STP;
+                GGBOP$[0,G$OPVAL] := .RINCSTE[S$STPX];
+                $GWBUF(.GGBFP$,.GRB1I$);
+                END;
+            IF .RINCSTE[S$RHL] NEQ SV$NULL      % REPORT HEADING %
+              THEN
+                BEGIN
+                GENCALL(.RINCSTE[S$RHL]);
+                $GWBUF(.GGBFP$,.GRB1I$);
+                END;
+            IF .RINCSTE[S$RFINIL] NEQ SV$NULL   % REPORT FOOTING INITIALIZATION %
+              THEN
+                BEGIN
+                GENCALL(.RINCSTE[S$RFINIL]);
+                $GWBUF(.GGBFP$,.GRB1I$);
+                END;
+            IF .RINCSTE[S$RCGPI] NEQ SV$NULL    % REPORT CONTROL GROUP %
+              THEN
+                BEGIN
+                RGPSTP := .RINCSTE[S$RCGPI];
+                WHILE .RGPSTP NEQ SV$NULL
+                  DO
+                    BEGIN
+                    GPINCSTE := $SGSTE(.RGPSTP);
+                    IF .GPINCSTE[S$PFTGINIT] NEQ SV$NULL  % GROUP FOOTING INITIALIZATION %
+                      THEN
+                        BEGIN
+                        GENCALL(.GPINCSTE[S$PFTGINIT]);
+                        $GWBUF(.GGBFP$,.GRB1I$);
+                        END;
+                    IF .GPINCSTE[S$PHDG] NEQ SV$NULL      % GROUP HEADING %
+                      THEN
+                        BEGIN
+                        GENCALL(.GPINCSTE[S$PHDG]);
+                        $GWBUF(.GGBFP$,.GRB2I$);
+                        END;
+                    IF .GPINCSTE[S$PFTGINC] NEQ SV$NULL   % GROUP FOOTING INCREMENTATION %
+                      THEN
+                        BEGIN
+                        GENCALL(.GPINCSTE[S$PFTGINC]);
+                        $GWBUF(.GGBFP$,.GRB4I$);
+                        END;
+                    RGPSTP := .GPINCSTE[S$CGC];
+                    $SFRNCH(.GPINCSTE);
+                    END;
+                END;
+            IF .RINCSTE[S$RFINCL] NEQ SV$NULL   % REPORT FOOTING INCREMENTATION  %
+              THEN
+                BEGIN
+                GENCALL(.RINCSTE[S$RFINCL]);
+                $GWBUF(.GGBFP$,.GRB4I$);
+                END;
+            IF .RINCSTE[S$RFDTLL] NEQ SV$NULL   % REPORT FOOTING DETAIL %
+              THEN
+                BEGIN
+                GENCALL(.RINCSTE[S$RFDTLL]);
+                $GWBUF(.GGBFP$,.GRB5I$);
+                END;
+            IF .RDEFSTE[S$USECNT] EQL 1         % IS THE NUMBER OF INCARNATIONS OF THIS REPORT EQUAL TO 1? %
+              THEN
+                BEGIN                           % YES %
+                RDEFSTE[S$USECNT] := .RDEFSTE[S$USECNT] - 1;
+                $GIREC(GV$CLOSE,3);             % CLOSE THE REORT %
+                GGBOP$[0,G$OPTYP] := GV$STP;
+                GGBOP$[0,G$OPVAL] := .RINCSTE[S$STPX];
+                $GWBUF(.GGBFP$,.GRB5I$);
+                END;
+            RINCSTP := .RINCSTE[S$RICSTP];
+            $SFRNCH(.RDEFSTE);
+            $SFRNCH(.RINCSTE);
+            END;
+        FRECP := $GFREC(.GRB2I$);
+        IF .FRECP NEQ 0
+          THEN
+            BEGIN
+            $GMBUF(.GRB2I$,.GOB1I$,.FRECP,$GLREC(.GRB2I$));
+            $GCBUF(.GRB2I$);
+            END;
+        FRECP := $GFREC(.GRB3I$);
+        IF .FRECP NEQ 0
+          THEN
+            BEGIN
+            $GMBUF(.GRB3I$,.GOB1I$,.FRECP,$GLREC(.GRB3I$));
+            $GCBUF(.GRB3I$);
+            END;
+        END;
+    $SFRNCH(.SINCSTE);
+    END;
+
+
+%*****
+  PROCESS THE TV$8BGSEL TOKEN.
+*****%
+  GLOBAL ROUTINE $GBSEL =
+    BEGIN
+
+    IF .ZBSTK$[Z$SBID,.ZSTKP$] EQL ZV$LBL
+      THEN
+        $GRLAB(.ZSTKP$);
+
+    $GPUSH(.GBTKN$,7);
+    ZBSTK$[Z$ELSELAB,.ZSTKP$] := .GELSL$;
+    ZBSTK$[Z$ELSEFLG,.ZSTKP$] := .GELSF$;
+    ZBSTK$[Z$ELSEP,.ZSTKP$]   := .GELSP$;
+    ZBSTK$[Z$SELPTR,.ZSTKP$]  := .GSELP$;
+    ZBSTK$[Z$SELFLG,.ZSTKP$]  := .GSELF$;
+    ZBSTK$[Z$INSLP,.ZSTKP$]   := .GINSL$;
+    ZBSTK$[Z$ISUBLP,.ZSTKP$]  := ZV$NULL;
+
+    GELSF$ := GNOKF$ := ZV$RESET;
+    GELSP$ := GSELP$ := GINSL$ := .ZSTKP$;
+    GSELF$ := ZV$SET;
+
+    END;
+
+
+%*****
+  PROCESS THE TV$SELECT TOKEN.
+*****%
+  GLOBAL ROUTINE $GSEL =
+    BEGIN
+
+    LOCAL S$ INCSTE;
+
+    IF .ZBSTK$[Z$ERFL,.ZSTKP$] EQL AV$FALSE
+      THEN
+        BEGIN
+        INCSTE := $SGSTE(.ZBSTK$[Z$INCSTP,.ZSTKP$]);
+        IF .INCSTE[S$REALIZED] EQL SV$FALSE
+          THEN
+            $GFCHALL(.ZSTKP$);
+        $SFRNCH(.INCSTE);
+        END;
+
+    END;
+
+
+%*****
+  PROCESS THE TV$8NDSEL TOKEN
+*****%
+  GLOBAL ROUTINE $GESEL =
+    BEGIN
+
+    MAP G$ GGBFP$;
+
+    $GIREC(GV$CLOSE,3);
+    GGBFP$[G$OPND1] := $GOPND(.ZSTKP$);
+    $GWBUF(.GGBFP$,.GOB1I$);
+
+    $GPOP();
+
+    GELSL$ := .ZBSTK$[Z$ELSELAB,.ZSTKP$];
+    GELSF$ := .ZBSTK$[Z$ELSEFLG,.ZSTKP$];
+    GELSP$ := .ZBSTK$[Z$ELSEP,.ZSTKP$];
+    GSELF$ := .ZBSTK$[Z$SELFLG,.ZSTKP$];
+    GSELP$ := .ZBSTK$[Z$SELPTR,.ZSTKP$];
+    GINSL$ := .ZBSTK$[Z$INSLP,.ZSTKP$];
+
+    $GINSLST(.GINSL$,ZV$TRUE);
+
+    $GPOP();
+
+    IF .ZBSTK$[Z$SBID,.ZSTKP$] EQL ZV$LBL
+      THEN
+        $GFLAB(.ZSTKP$);
+
+    END;
+
+
+  END
+ELUDOM
+ 
