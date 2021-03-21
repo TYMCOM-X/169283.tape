@@ -1,0 +1,156 @@
+      SUBROUTINE SLNK6
+C     LINK (SLNK6 )                                                     LNK60060
+C     ROTATE MEMBER STIFFNESS MATRICIES, STORE ROTATION MATRIX,         LNK60070
+C     SET UP JOINT STIFFNESS MATRIX FOR STRUCTURE IN KDIAG,KOFDG.       LNK60080
+C     STRESS PROGRAMMING SYSTEM FOR IBM 1130                            LNK60090
+C     DIMENSION AND COMMON STATEMENTS WHICH MUST APPEAR IN ALL ROUTINES LNK60100
+      DIMENSION NSYSF(6)                                                LNK60110
+      DIMENSION NPRBF(6)                                                LNK60120
+      DIMENSION NARRF(36)                                               LNK60130
+C     MEMBER INCIDENCE AND TYPE TABLES, MAX. 250 MEMBERS,127 JOINTS     LNK60140
+      DIMENSION  JMIN(250),JPLS(250),MTYP(250)                                  
+C     SCRATCH AREA CAN BE INSERTED AS DESIRED FOR EACH ROUTINE          LNK60160
+C     MAP IS A DIGIT PICTURE OF THE OFF-DIAGONAL SUB-MATRICIES          LNK60170
+C     A 1 INDICATES THE PRESENCE OF A SUB-MATRIX                        LNK60180
+C     A 0 INDICATES THE ABSENCE OF A SUB-MATRIX (NULL MATRIX)           LNK60190
+C     PACK AND UNPACK MAP WITH SPAK1                                    LNK60200
+C     MAP WILL BE IN COMMON FROM SLNK6 THRU SLNK9                       LNK60210
+C     THESE ROUTINES WILL SET UP THE JOINT STIFFNESS MATRIX,            LNK60220
+C     MODIFY IT FOR JOINT RELEASES, AND SOLVE THE EQUATIONS.            LNK60230
+C  FOR 250 JOINT, MAP=2446 WORDS, 39,125 BITS                                   
+C  SPACE FOR THIRTEEN DATA BLOCKS, 20 INTEGER WORDS EACH MEGA2,KJRE2            
+      DIMENSION  MAP(2446),MEGA2(260),KJRE2(260)                                
+      DIMENSION A(40),B(40),C(40),D(40),R(40)                           LNK60300
+C     SYSTEM PARAMETERS  -  14 WORDS                                    LNK60310
+      COMMON NTMP,KCUR,NAVAL,NOVER,ISOLV,ISUCC,ISCAN,ITRAC,NSYSF        LNK60320
+C     PROBLEM PARAMETERS  -  32 WORDS                                   LNK60330
+      COMMON NJ,NB,NDAT,NFJS,NLDS,NLDSI,ID,NCORD,JF,NSQ,IMETH,NMR,NJR,  LNK60340
+     1IBETA,IYOUN,ISHEA,GSHEA,EYOUN,FILL1,FILL2,FILL3,FILL4,NPRBF             LNK60350
+C     PLATE PARAMETERS                                                  $NK60354
+      COMMON IPLAT,NPLAT,KPLA1,KPLAT,KTHI1,KTHIK                        $NK60356
+C     ARRAY CODEWORDS  40 PAIRS = 80 WORDS                              LNK60360
+      COMMON KNAM1,KNAME,KXY1,KXYZ,KJRE1,KJREL,MEGA1,MEGAZ,KMEM1,KMEMB, LNK60370
+     1KBET1,KBETA,KYON1,KYOUN,KSHE1,KSHEA,KMRE1,KMREL,KMEG1,KMEGA,      LNK60380
+     2KMKS1,KMKST,KROT1,KROTE,KPPL1,KPPLS,KPMN1,KPMNS,LOAD1,LOADS,      LNK60390
+     3KLIN1,KLINT,MLOA1,MLOAD,JLOA1,JLOAD,KDIA1,KDIAG,KOFD1,KOFDG,      LNK60400
+     4KPPR1,KPPRI,KSTA1,KSTAT                                           LNK60410
+      COMMON NARRF                                                      LNK60420
+      COMMON JMIN,JPLS,MTYP                                             LNK60430
+C     SCRATCH AREA                                                      LNK60440
+      COMMON /MAPX/MAP,MEGA2,KJRE2,A,B,C,D,R,IDUM(20)
+C     MATRIX OPERATION AREAS  -  EACH TO CONTAIN NSQ VALUES,            LNK60470
+C     OR A MAX. OF 36.  36*2=72, THUS 4 FILE RECORDS ARE NEEDED.        LNK60480
+C     MEMBER IS RELEASED, GET RELEASE CODE                              LSTR0430
+210   FORMAT(6HISOLV=,I4)                                               LNK60510
+C  NUMOF IS THE DIMENSION OF MAP                                        $NK60516
+      NUMOF=501                                                         $NK60518
+      ISOLV=6                                                           LNK60520
+      IF(ITRAC)20,20,21                                                 LNK60530
+21    WRITE(5,210)ISOLV                                                 LNK60540
+C     GET KJRE2 IN CORE                                                 LNK60550
+20    NSECT=(NJ-1)/20+1                                                 LNK60560
+      NSAVE=NSECT                                                       LNK60561
+      IA=NJ                                                             LNK60562
+  600 IA=IA-20                                                          LNK60563
+      IF(IA)604,602,600                                                 LNK60564
+  602 NSECT=NSECT+1                                                     LNK60565
+  604 CONTINUE                                                          LNK60566
+      DO 1 I=1,NSECT                                                    LNK60570
+      CALL SDATA(KJRE1,KJREL,20*(I-1)+1,A,KJRE2(20*I-19),+1,0)          LNK60580
+      CALL SDATA(MEGA1,MEGAZ,20*(I-1)+1,A,MEGA2(20*I-19),+1,0)          LNK60590
+1     CONTINUE                                                          LNK60600
+      NSECT=NSAVE                                                       LNK60601
+C     INITIALIZE KDIAG, KOFDG                                           LNK60610
+      DO 12 I=1,NSQ                                                     LNK60620
+12    C(I)=0.0                                                          LNK60630
+      DO 13 I=1,NJ                                                      LNK60640
+13    CALL SDATA(KDIA1,KDIAG,I,C,JKL,-2,0)                              LNK60650
+      DO 14 I=1,NUMOF                                                   LNK60670
+14    MAP(I)=0                                                          LNK60680
+C     LOOP ON ALL MEMBERS                                               LNK60690
+      IF(NB)17,17,22                                                    $NK60692
+   22 CONTINUE                                                          $NK60694
+      DO 999 JM=1,NB                                                    LNK60700
+C     GET GLOBAL TO LOCAL ROTATION MATRIX, COMPACTED IN A(1-NSQ) AND    LNK60710
+C     TRANSLATION MATRIX, MINUS TO PLUS, GLOBAL, COMPACTED IN B(1-NSQ)  LNK60720
+      CALL STRAM(JM)                                                    LNK60730
+      CALL SDATA(KROT1,KROTE,JM,A,JKL,-1,0)                             LNK60740
+      WRITE(5,400)JM
+  400 FORMAT(//' ROTATION MATRIX FOR MEMBER ',I6/)
+      WRITE(5,410)(A(KT22),KT22=1,9)
+  410 FORMAT(3(2X,3E12.4/))
+      WRITE(5,430)
+  430 FORMAT(/' TRANSLATION MATRIX '/)
+      WRITE(5,410)(B(KT22),KT22=1,9)
+C     BRING IN LOCAL STIFFNESS MATRIX FOR MEMBER JM IN C(1-NSQ)         LNK60750
+      CALL SDATA(KMKS1,KMKST,JM,C,JKL,-1,0)                             LNK60760
+      WRITE(5,401)
+  401 FORMAT(/' LOCAL STIFFNESS MATRIX '/)
+      WRITE(5,410)(C(KT22),KT22=1,9)
+C     ROTATE INTO GLOBAL COORDINATES - STORE IN R(1-NSQ)                LNK60770
+      CALL SMATB(A,C,D,JF,JF,JF)                                        LNK60780
+      CALL STMAB(D,A,R,JF,JF,JF)                                        LNK60790
+C     GET PLUS AND MINUS NODES, NP AND NM                               LNK60800
+      CALL SPAK2(JM,JMIN,NM)                                            $NK60810
+      CALL SPAK2(JM,JPLS,NP)                                            $NK60820
+C     ADD R*K STAR TO KDIAG(NM) IN C(1-NSQ)                             LNK60830
+      CALL SDATA(KDIA1,KDIAG,NM,C,JKL,-1,0)                             LNK60840
+      WRITE(5,402)NM
+  402 FORMAT(/' DIAGONAL MATRIX AS READ, JOINT ',I6/)
+      WRITE(5,410)(C(KT22),KT22=1,9)
+      DO 3 I=1,NSQ                                                      LNK60850
+3     C(I)=C(I)+R(I)                                                    LNK60860
+      CALL SDATA(KDIA1,KDIAG,NM,C,JKL,-2,0)                             LNK60870
+      WRITE(5,410)(C(KT22),KT22=1,9)
+C     FORM AND STORE KAA                                                LNK60880
+C     POST MULTIPLY K BY TRANSLATION TRANSPOSED                         LNK60890
+      CALL SMABT(R,B,C,JF,JF,JF)                                        LNK60900
+      CALL STMAB(B,C,A,JF,JF,JF)                                        LNK60910
+C     GET KDIAG(NP) IN B(1-NSQ)                                         LNK60920
+      CALL SDATA(KDIA1,KDIAG,NP,B,JKL,-1,0)                             LNK60930
+      WRITE(5,405)NP
+  405 FORMAT(/' DIAGONAL MATRICIES FOR PLUS NODE, NP=',I6/)
+      WRITE(5,410)(B(KT22),KT22=1,9)
+C     ADD TO PREVIOUS MATRIX IN B                                       LNK60940
+      DO 4 I=1,NSQ                                                      LNK60950
+4     B(I)=B(I)+A(I)                                                    LNK60960
+      CALL SDATA(KDIA1,KDIAG,NP,B,JKL,-2,0)                             LNK60970
+      WRITE(5,410)(B(KT22),KT22=1,9)
+C     NOW DIAGONAL MATRICIES ARE STORED                                 LNK60980
+C     STORE OFF-DIAGONAL MATRICIES                                      LNK60990
+      IF(NM-NP)5,999,6                                                  LNK61000
+C     NM GREATER THAN NP.  BY ARBITRARY CONVENTION, ROWS OF JOINT       LNK61010
+C     STIFFNESS MATRIX CORRESPOND TO MINUS JOINT.  THEREFORE, STORE     LNK61020
+C     KBA=-KBB*TBA TRANSPOSE                                            LNK61030
+    6 LTH=NELEG(NM,NP,NJ)                                               $NK61040
+      DO 7 I=1,NSQ                                                      LNK61050
+7     C(I)=-C(I)                                                        LNK61060
+      CALL SDATA(KOFD1,KOFDG,IOFDG(NM,NP),C,JKL,-2,0)                   LNK61070
+      WRITE(5,422)
+  422 FORMAT(/' OFF DIAGONAL OF TYPE 1'/)
+      WRITE(5,410)(C(KT22),KT22=1,9)
+      CALL SPAK1(-LTH,MAP,1)                                            LNK61080
+      GO TO 999                                                         LNK61090
+C     NP GREATER THAN NM.  STORE KAB=-TAB*KBB.  THIS IS JUST            LNK61100
+C     THE MINUS TRANSPOSE OF THE C(1-NSQ) MATRIX.                       LNK61110
+    5 LTH=NELEG(NP,NM,NJ)                                               $NK61120
+      N=0                                                               LNK61130
+      DO 8 I=1,JF                                                       LNK61140
+      DO 8 J=1,JF                                                       LNK61150
+      N=N+1                                                             LNK61160
+      NTSP=(J-1)*JF+I                                                   LNK61170
+    8 R(NTSP)=-C(N)                                                     LNK61180
+      N=0                                                               LNK61190
+      DO 9 J=1,JF                                                       LNK61200
+      DO 9 I=1,JF                                                       LNK61210
+      N=N+1                                                             LNK61220
+      NTSP=(J-1)*JF+I                                                   LNK61230
+    9 C(N)=R(NTSP)                                                      LNK61240
+      CALL SDATA(KOFD1,KOFDG,IOFDG(NP,NM),C,JKL,-2,0)                   LNK61250
+      WRITE(5,420)
+  420 FORMAT(/' OFF DIAGONAL TYPE 2 '/)
+      WRITE(5,410)(C(KT22),KT22=1,9)
+      CALL SPAK1(-LTH,MAP,1)                                            LNK61260
+999   CONTINUE                                                          LNK61270
+   17 RETURN
+      END                                                               LNK61290
