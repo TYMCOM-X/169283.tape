@@ -1,0 +1,391 @@
+TITLE   RECPPR - VERSION A2.00
+SUBTTL  LAST UPDATE 3-31-74 G.B. BLOOD
+
+VERS=2
+JOBVER=137
+LOC JOBVER                      ;PUT VERSION NUMBER IN JOB DATA AREA
+XWD 0,VERS
+RELOC
+
+        AC=0
+        A=1
+        B=2
+        C=3
+        D=4
+        E=5
+        F=6
+        G=7
+        WD=10
+        CH=11
+        TEMP=12
+        BP=13
+        BPNT=14
+        INDEX=15
+        FLAG=16
+        P=17
+
+        DCH1==1
+        DCH2==2
+        DCH3==3
+
+ARRAY   PDL[50],MONTH[1]
+
+START:  RESET
+        MOVE    P,[IOWD 50,PDL]
+        SETZB   A,MONTH
+        TTCALL  3,[ASCIZ/
+RECONSTRUCT BATCH REQUEST - VERSION A2.00
+/]
+QUES:   TTCALL  3,[ASCIZ/
+ENTER REQUEST NUMBER: /]
+        SETZB   CH,WD
+        SETZ    TEMP,
+        MOVE    BP,[POINT 7,WD]
+        MOVE    BPNT,[POINT 7,TEMP]
+        MOVEI   INDEX,2
+NXTCHR: TTCALL  4,CH
+        CAIN    CH,12
+        JRST    GETMON
+        CAIN    CH,15
+        JRST    INVAL
+        IDPB    CH,BP
+        SOJG    INDEX,NXTCHR
+        MOVEI   INDEX,3
+        TTCALL  4,CH
+        CAIN    CH,15
+        JRST    INVAL
+        IDPB    CH,BP
+        IDPB    CH,BPNT
+        SOJG    INDEX,.-5
+        TTCALL  11,
+        CAML    TEMP,[ASCIZ/000/]
+        CAMLE   TEMP,[ASCIZ/999/]
+        JRST    INVAL
+        INIT    DCH1,16
+        SIXBIT  /DSK/
+        0
+        JRST    DCHERR
+        MOVE    E,PPRHLD+1                      ;SAVE FILE EXTENSION
+        MOVE    F,PPRHLD+3                      ;SAVE PPN
+        LOOKUP  DCH1,PPRHLD
+        JRST    LKPPR
+        HLRE    G,PPRHLD+3
+        JUMPG   G,SKIP
+        MOVNS   G
+        ADDI    G,177
+        LSH     G,-7
+SKIP:   MOVEM   E,PPRHLD+1
+        MOVEM   F,PPRHLD+3
+        INIT    DCH2,16
+        SIXBIT  /DSK/
+        0
+        JRST    DCHERR
+        MOVE    E,BATEMP+1
+        MOVE    F,BATEMP+3
+        ENTER   DCH2,BATEMP
+        JRST    NEWTMP
+        PUSHJ   P,COPY
+        CLOSE   DCH1,
+        RELEASE DCH1,
+        CLOSE   DCH2,
+        RELEASE DCH2,
+        INIT    DCH3,0
+        SIXBIT  /DSK/
+        XWD     0,IBUF
+        JRST    DCHERR
+        MOVEM   E,BATEMP+1
+        MOVEM   F,BATEMP+3
+        LOOKUP  DCH3,BATEMP
+        JRST    LKTMP
+        MOVEM   E,BATEMP+1
+        MOVEM   F,BATEMP+3
+        INBUF   DCH3,1
+        INPUT   DCH3,
+        STATZ   DCH3,340000
+        JRST    INTMP
+FIND:   SETZB   CH,TEMP
+        MOVE    BPNT,[POINT 7,TEMP]
+        ILDB    CH,IBUF+1
+        CAIN    CH,32
+        JRST    CKACTG
+        IDPB    CH,BPNT
+        SOS     IBUF+2
+        PUSHJ   P,GETCHR
+        CAMN    WD,TEMP
+        JRST    FOUND
+        PUSHJ   P,NXTREC
+        JRST    FIND
+NOTFND: SETZ    AC,
+        RENAME  DCH3,AC
+        JRST    DELTMP
+        RELEASE DCH3,
+        TTCALL  3,[ASCIZ/
+REQUEST NOT FOUND
+/]
+        EXIT
+CKACTG: JUMPN   A,NOTFND
+        MOVEI   A,1
+        SETZ    AC,
+        RENAME  DCH3,AC
+        JRST    DELTMP
+        RELEASE DCH3,
+        TTCALL  3,[ASCIZ/
+REQUEST NOT FOUND IN BAHOLD FILE
+/]
+        TTCALL  3,[ASCIZ/
+WILL CHECK REQUESTS THAT HAVE BEEN ENTERED INTO THE ACCOUNTING
+/]
+        INIT    DCH1,16
+        SIXBIT  /DSK/
+        0
+        JRST    DCHERR
+        MOVE    E,BAHOLD+1
+        MOVE    F,BAHOLD+3
+        LOOKUP  DCH1,BAHOLD
+        JRST    LKBA
+        HLRE    G,BAHOLD+3
+        JUMPG   G,SKIP1
+        MOVNS   G
+        ADDI    G,177
+        LSH     G,-7
+SKIP1:  MOVEM   E,BAHOLD+1
+        MOVEM   F,BAHOLD+3
+        JRST    SKIP+2
+FOUND:  MOVEI   INDEX,5
+        TTCALL  15,[12]
+        SOJG    INDEX,.-1
+        TTCALL  3,[ASCIZ/
+                    D U P L I C A T E  R E Q U E S T
+/]
+        TTCALL  15,[12]
+        TTCALL  15,[12]
+        TTCALL  15,[12]
+        SETZ    CH,
+        IDPB    CH,BPNT
+        TTCALL  3,[ASCIZ/
+REQUEST NUMBER          /]
+        SETZB   FLAG,C
+        TTCALL  3,TEMP
+        TTCALL  15,[15]
+        PUSHJ   P,OUTCHR
+        TTCALL  3,[ASCIZ/
+SYSTEM NUMBER           /]
+        PUSHJ   P,OUTCHR
+        TTCALL  3,[ASCIZ/
+DATE AND TIME           /]
+        PUSHJ   P,OUTCHR
+        TTCALL  3,[ASCIZ/
+ENTERED FROM            /]
+        PUSHJ   P,OUTCHR
+        SOSGE   IBUF+2
+        PUSHJ   P,NXTBLK
+        ILDB    C,IBUF+1
+        SUBI    C,60
+        MOVE    FLAG,C
+        JUMPE   FLAG,HERE
+        TTCALL  3,[ASCIZ/
+COMPANY NAME            /]
+        PUSHJ   P,OUTCHR
+        TTCALL  3,[ASCIZ/
+USER NAME               /]
+        PUSHJ   P,OUTCHR
+HERE:   TTCALL  3,[ASCIZ/
+PROJECT CODE            /]
+        PUSHJ   P,OUTCHR
+        TTCALL  3,[ASCIZ/
+TELEPHONE NO. (EXT.)    /]
+        PUSHJ   P,OUTCHR
+        TTCALL  3,[ASCIZ/
+REQUESTED BY            /]
+        PUSHJ   P,OUTCHR
+        CAIE    FLAG,2
+        JRST    HERE1
+        TTCALL  3,[ASCIZ/
+RECEIVED BY             /]
+        PUSHJ   P,OUTCHR
+HERE1:  TTCALL  3,[ASCIZ/
+GLOBAL ACCT. NO.        /]
+        PUSHJ   P,OUTCHR
+        TTCALL  3,[ASCIZ/
+DISTRICT NO.            /]
+        PUSHJ   P,OUTCHR
+        TTCALL  15,[12]
+        TTCALL  3,[ASCIZ/
+DESCRIPTION OF WORK
+/]
+        TTCALL  15,[12]
+        PUSHJ   P,OUTCHR
+        TTCALL  15,[12]
+        TTCALL  3,[ASCIZ/
+DELIVERY INSTRUCTIONS
+/]
+        TTCALL  14,[12]
+        PUSHJ           P,OUTCHR
+        PUSHJ   P,PUTSTR
+        MOVEI   INDEX,5
+        TTCALL  15,[12]
+        SOJG    INDEX,.-1
+        SETZ    AC,
+        RENAME  DCH3,AC
+        JRST    DELTMP
+        RELEASE DCH3,
+        EXIT
+COPY:   INPUT   DCH1,OUTLST
+        STATZ   DCH1,340000
+        JRST    INCOP
+        OUTPUT  DCH2,OUTLST
+        STATZ   DCH2,340000
+        JRST    OUTCOP
+        SUBI    G,1
+        JUMPN   G,COPY
+        POPJ    P,
+GETCHR: SOSGE   IBUF+2
+        PUSHJ   P,NXTBLK
+        ILDB    CH,IBUF+1
+        CAIN    CH,15
+        POPJ    P,
+        IDPB    CH,BPNT
+        JRST    GETCHR
+NXTBLK: INPUT   DCH3,
+        STATZ   DCH3,340000
+        JRST    INTMP
+        SOS     IBUF+2
+        POPJ    P,
+NXTREC: SOSGE   IBUF+2
+        PUSHJ   P,NXTBLK
+        ILDB    CH,IBUF+1
+        CAIN    CH,32
+        JRST    NOTFND
+        CAIN    CH,20
+        POPJ    P,
+        JRST    NXTREC
+OUTCHR: SOSGE   IBUF+2
+        PUSHJ   P,NXTBLK
+        ILDB    CH,IBUF+1
+        CAIN    CH,30
+        POPJ    P,
+        TTCALL  1,CH
+        JRST    OUTCHR
+INVAL:  TTCALL  11,
+        MOVE    BP,[POINT 7,WD]
+        SETZB   CH,WD
+        SETZB   TEMP,A
+        MOVEI   INDEX,2
+        TTCALL  3,[ASCIZ/
+INVALID REQUEST NUMBER - PLEASE RE-ENTER: /]
+        JRST    NXTCHR
+DCHERR: PUSHJ   P,CLOSE
+        TTCALL  3,[ASCIZ/
+UNABLE TO INITIALIZE DATA CHANNEL
+/]
+        EXIT
+LKPPR:  PUSHJ   P,CLOSE
+        JUMPE   A,.+6
+        TTCALL  3,[ASCIZ/
+UNABLE TO DO A LOOKUP ON PPRHLD./]
+        TTCALL  3,MONTH
+        TTCALL  15,[15]
+        TTCALL  15,[12]
+        EXIT
+        TTCALL  3,[ASCIZ/
+UNABLE TO DO A LOOKUP ON PPRHLD.DAT
+/]
+        EXIT
+NEWTMP: PUSHJ   P,CLOSE
+        TTCALL  3,[ASCIZ/
+UNAABLE TO CREATE NEW FILE - BATEMP.DAT
+/]
+        EXIT
+LKTMP:  PUSHJ   P,CLOSE
+        TTCALL  C,[ASCIZ/
+UNABLE TO DO A LOOKUP ON BATEMP.DAT
+/]
+        EXIT
+INTMP:  PUSHJ   P,CLOSE
+        TTCALL  3,[ASCIZ/
+ERROR ON INPUT - BATEMP.DAT
+/]
+        EXIT
+DELTMP: PUSHJ   P,CLOSE
+        TTCALL  3,[ASCIZ/
+UNABLE TO DELETE BATEMP.DAT
+/]
+        EXIT
+LKBA:   PUSHJ   P,CLOSE
+        TTCALL  3,[ASCIZ/
+UNABLE TO DO A LOOKUP ON BAHOLD.ACT
+/]
+        EXIT
+INCOP:  PUSHJ   P,CLOSE
+        TTCALL  3,[ASCIZ/
+ERROR ON INPUT - COPY ROUTINE
+/]
+        EXIT
+OUTCOP: PUSHJ   P,CLOSE
+        TTCALL  3,[ASCIZ/
+ERROR ON OUTPUT - COPY ROUTINE
+/]
+        EXIT
+CLOSE:  CLOSE   DCH3,
+        RELEASE DCH3,
+        CLOSE   DCH2,
+        RELEASE DCH2,
+        CLOSE   DCH1
+        RELEASE DCH1,
+        TTCALL  11,
+        POPJ    P,
+GETMON: TTCALL  15,[15]
+        TTCALL  3,[ASCIZ/
+ENTER MONTH YOU WISH TO SCAN AS MMM: /]
+        SETZB   CH,WD
+        MOVE    BP,[POINT 6,WD]
+        MOVE    BPNT,[POINT 7,MONTH]
+        MOVEI   INDEX,3
+        TTCALL  4,CH
+        CAIN    CH,15
+        JRST    GETMON+1
+        IDPB    CH,BPNT
+        SUBI    CH,40
+        IDPB    CH,BP
+        SOJG    INDEX,.-6
+        MOVEM   WD,PPRHLD+1
+        TTCALL  11,
+        MOVEI   A,1
+        JRST    QUES
+PUTSTR: TTCALL  15,[12]
+        TTCALL  3,MSG
+        POPJ    P,
+MSG:    ASCIZ/
+1.-----------PAGES-----PARTS TO LISTING-----LISTINGS DECOLLATED
+
+2.___________CARDS TO DISC    3.------------DISC TO CARDS
+
+4.-----------FILES TAPE TO DISC
+
+5.-----------FILES DISC TO TAPE ------------TAPE CHARGE
+
+6.-----------OTHER CHARGE     7.------------TAPE CONVERSION
+
+-------------COMPLETED BY     --------------DATE
+
+-------------POSTAGE          --------------ENTERED INTO ACCT.
+/
+PPRHLD: SIXBIT  /PPRHLD/
+        SIXBIT  /DAT/
+        0
+PHLDPP: XWD     1,2                     ;CHANGE TO 1,2 IN FINAL VERSION
+BATEMP: SIXBIT  /BATEMP/
+        SIXBIT  /DAT/
+        0
+TEMPPP: XWD     1,2                     ;CHANGE TO 1,2 IN FINAL VERSION
+BAHOLD: SIXBIT  /BAHOLD/
+        SIXBIT  /ACT/
+        0
+HOLDPP: XWD     1,2                     ;CHANGE TO 1,2 IN FINAL VERSION
+OUTLST: IOWD 200,IOBUFF
+        0
+IOBUFF: BLOCK 200
+IBUF:   BLOCK 3
+        VAR
+        END START
+   
