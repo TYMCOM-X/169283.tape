@@ -1,0 +1,4602 @@
+
+
+CHAPTER 2 - MONITOR COMMANDS
+
+
+2.l  CONSOLE AND JOB CONTROL
+
+The PDP-l0 timesharing system is a multiprogramming system.     
+This means that control is transferred rapidly among a 
+number of programs or processes in such a way that all the
+processes appear to be running simultaneously.  Each process
+is called a job.  The term job refers to the entire sequence
+of operations the user initiates from his console.  In config-
+uring and loading a timesharing monitor, the system administrator
+sets the maximum number of jobs that his system can handle
+simultaneously.  This number may be up to l27 jobs if the
+system has enough core, disk storage, processor capacity, and
+timesharing consoles to handle this load.
+
+Jobs are initiated by users typing on a tymesharing console.  A
+console is typically any of several models of teletype machines
+but may also be a cathode ray tube (CRT) with a keyboard or 
+any of the other interactive terminals available.  The console
+may be directly connected to the computer, or may be remotely
+connected via a private wire or the public telephone system.
+
+There is not necessarily a one-to-one relationship between 
+jobs and consoles.  A console must initiate a job, but the
+DETACH and ATTACH commands (refer to Paragraph 2.8) permit a
+job to float in a state where it is not associated with a 
+particular console; therefore, a user may control several jobs
+from the same console.  Each job is either in the ATTACHed or
+DETACHed mode depending on whether a console is currently
+associated with that job.  At any time, each console is 
+attached to at most one job.  The console is often referred to
+as being in a detached mode, but this results from a semantic
+confusion.  It is really meant that the job initiated from that
+console is in a detached mode.  By typing an appropriate command,
+the job may be attached by the same console or by any other
+console in the system.
+
+2.l.l  Monitor and User Mode
+
+From the user's point of view, his console is either in monitor
+or user mode.  In monitor mode, each line the user types in is
+sent to the Monitor Command Interpreter.  The execution of
+certain commands (as noted in the examples below) places the
+console in user mode.  When the program is in user mode, the
+console becomes simply an I/O device for that user.  In addition,
+user programs use the the console for two purposes.  The user
+program will accept command strings from the console or will
+use the console as a direct I/O device.
+
+Example:
+
+     Monitor mode      .R PIP #             Monitor command
+                       -
+
+     User mode         *DSK:FILEl!TTY: #    User program com-
+                       -                         mand string
+
+     User mode         THIS IS FILE l %Z         User program using
+                                                 console as an
+                                                 input device
+
+                       *%C
+                       -
+
+     Monitor mode      .R MACRO #           Monitor command
+                       -
+
+     User mode         *,TTY:!DSK:PROGl #   User program com-
+                       -                         mand string
+
+     User mode                 ..                User program    
+                               ..                using console as
+                       assembly listing          an output device
+                               ..
+
+
+The special character %C (produced by typing C with the CONTROL
+key depressed) is used to stop a user program and return the
+console to monitor mode.  If the user program is in a teletype
+input wait state, one %C must be issued from the user's console;
+otherwise, two %C's must be issued.  Because of this procedure,
+the user knows if his program is waiting for input if there is
+no response from the monitor after one %C.  Certain commands
+cause the user program to start or continue running (as noted
+in the tables below) but leave the console in monitor mode.
+
+When the system is started, each console is in monitor mode
+ready for users to begin typing in commands.  However, if
+the system becomes fully loaded (i.e., the maximum number
+of jobs that the system has been set to handle has been initiated),
+then any unused consoles enter a special state where any 
+command typed in will receive either the message JOB CAPACITY
+EXCEEDED or X.
+
+
+2.2  COMMAND INTERPRETER AND COMMAND FORMAT
+
+Each command is a line of ASCII characters in upper/lower case.
+Spaces and nonprinting characters preceding the command name
+are ignored.  The Monitor Command Interpreter will not interpret
+or execute a line of comments preceded by a semicolon.  Every
+command to the Monitor Command Interpreter must be terminated by
+pressing the RETURN key on the console.  If the command is not
+understood, the command up to the error is typed out by the
+monitor preceded and followed by a ?, and the mode is unchanged.
+
+
+2.2.l  Command Names
+
+Command names are strings from one to six letters.  Characters
+after the sixth are ignored.  Only enough characters to 
+uniquely identify the command need be typed.  In the commands
+which follow, the commonly used abbreviation of the command
+name is shown in parentheses.  Installations choosing to
+implement additional commands should take care to preserve the
+uniqueness of the first three letters of existing commands.
+
+
+2.2.2  Arguments
+
+Arguments follow the command name, separated from it by a space
+or any printing character that is not a letter or a numeral.
+Argument formats are described under the associated commands.
+
+If the Monitor Command Interpreter recognizes the command name,
+but a necessary argument is missing, the monitor responds with
+
+     TOO FEW ARGUMENTS
+
+Extra arguments are ignored.
+
+
+2.2.3  Log-In Check (Disk Monitor Systems)
+
+If a user who has not logged in (refer to Paragraph 2.3) types
+a command requiring him to be logged in, the disk monitor
+systems will respond with
+
+     ?LOGIN PLEASE
+
+and the user's command will not be executed.  Log-in is not
+required by a nondisk monitor system.
+
+
+2.2.4  Job Number Check (Nondisk Monitor Systems)
+
+If the nondisk monitor system recognizes a command name, which
+requires a job number, and no job number has been assigned,
+the monitor assigns a job number, n, and responds with
+
+     JOB n
+
+and a line identifying the monitor version.  The monitor then
+proceeds to execute the command.
+
+
+2.2.5  Core Storage Check
+
+If the Monitor Interpreter recognizes a command name, which 
+requires core storage to be allocated to the job, and
+the job has no core, the monitor responds with
+
+     ?NO CORE ASSIGNED
+
+The user's command is not executed.
+
+
+2.2.6  Delayed Command Execution
+
+If the Monitor Command Interpreter recognizes a command that
+requires all devices to be inactive, and the job has devices
+actively transmitting data to or from its core area, the
+execution of the command is delayed until the devices are 
+inactive.  A command is also delayed if a job is swapped out to
+the disk and the command requires core residence.  It will be
+executed when the job is swapped into core.
+
+
+2.2.7  Completion-of-Command Signal
+
+Most commands are processed without delay.  The completion of
+each command is signaled by the output of a carriage return,
+line feed.  If the console is left in monitor mode, a
+period follows the carriage return, line feed.  If the console
+is left in user mode, any response other than the carriage
+return, line feed comes from the user's program.  For example,
+all standard DEC CUSPs (except DDT) immediately send an 
+asterisk (*) to the user's console to indicate their readiness
+to accept user-mode command strings.  (DDT sends another
+carriage return, line feed).
+
+
+2.3  JOB INITIALIZATION COMMANDS
+
+Access to the system is limited to authorized personnel.  The
+system administrator provides each authorized user with a
+project number, a programmer number, and a password.  The
+project numbers range from l to 377777 octal and the programmer
+numbers range from l to 377777 octal.
+
+The project-programmer numbers identify the user and his file
+storage area on a file structure.  The password is from one to
+six SIXBIT characters.  To log-in successfully, the project-
+programmer numbers and the password typed in by
+the user must match the project-programmer numbers and password
+stored in the system accounting file (SYS:ACCT.SYS).
+
+   LOGIN (LOG)
+
+Function
+--------
+
+The LOGIN command is used to gain access to the system.  This
+command loads a Monitor Support CUSP which accepts the user's
+LOGIN data.  The user types in his project and programmer
+numbers followed by his password.
+
+Command Format
+--------------
+
+LOGIN
+
+Characteristics
+---------------
+
+The LOGIN command:
+
+     Leaves the console in monitor mode,
+     Runs the LOGIN CUSP,
+     Is used with disk monitors only.
+
+Associated Messages
+-------------------
+
+?INVALID ENTRY - TRY AGAIN
+
+An illegal project-programmer number was entered, or the password
+did not match.
+
+?l+l/nk CORE
+VIR. CORE LEFT=0
+
+The swapping space or core allocated to timesharing is all
+in use (i.e., there is no available virtual core).
+
+?JOB CAPACITY EXCEEDED
+
+This message is received by the first user who attempts to
+LOGIN after the maximum number of jobs that the system has been
+set to handle have been initiated.
+
+X
+
+If the system is fully loaded, any user (after the first)
+who attempts to LOGIN receives this character in response to
+any character typed.
+
+filename FOUND BAD BY FAILSAFE READING MTA
+
+filename SOFTWARE CHECKSUM OR REDUNDANCY ERROR
+
+filename HARDWARE DATA READ ERROR DETECTED
+
+filename HARDWARE DATA WRITE ERROR DETECTED
+
+The above messages occur if any of the files in a file-structure
+has an error status as flagged in the UFD of that file-structure.
+
+?SYSTEM NOT AVAILABLE
+
+The operator has used the SCHEDULE command to prevent LOGINs
+from either remote consoles or all consoles.
+
+Example:
+
+The following is the procedure used to gain access to the system.    
+
+.LOGIN #                      LOGIN types the job number assigned
+-                                  to the user.
+
+JOB 7 PDP-l0 5S.0l TTY23           (job number 7) followed by a monitor
+------------------------           name, version number and console
+                                   line number.
+
+#                                  LOGIN types out a number sign to
+-                                  indicate user should type his
+                                   project-programmer number.
+
+34,570 #                      User types his project-programmer
+                                   number. User may separate the project-
+                                   programmer numbers with a slash
+                                   causing LOGIN not to type the
+                                   message of the day. Normally, 
+                                   this should not be done since the
+                                   message frequently contains important
+                                   operational information.
+
+PASSWORD:                          System requests user to type his
+--------                           password. User types password
+                                   followed by carriage return.  To
+                                   maintain password security, the
+                            j     monitor does not echo the pass-
+                                   word.  O half-duplex circuits
+                                   (refer to Para. 5.9), a mask is
+    a   n                          typed to make the password
+                                   unreadable.
+
+ll35 8-AUG-70                      If user entries are correct,
+-------------                      responds with time, date, a
+TYPE SYS:SCHED FOR NEXT            message of the day (if any),
+-----------------------            and a period, indicating readiness
+WEEKS SCHEDULE                     to accept a command.
+--------------
+.
+-
+
+
+
+   INITIAL (INI)
+
+Function
+--------
+
+The INITIAL command performs standard system initialization for th e 
+terminal issuing the command.  This command is issued automatically
+at system startup and l43 re-start at certain designated terminals,
+but may be re-issued at any time by the user.  This command is
+used to initiate specific CUSPs, such as the line printer spooler
+CUSP, PRINTR, on a particular console.
+
+The INITIAL command runs SYS:INITIA.SAV which, depending upon
+the system configuration and the TTY number from which it is
+typed, may cause any of a number of events to occur.
+
+Command Format
+--------------
+
+INITIA
+
+Characteristics
+---------------
+
+The INITIAL command:
+
+   Leaves the console in monitor mode,
+    Runs a CUSP.
+
+Examples
+--------
+
+.INITIAL #
+-
+5SOlllA SYS #2 22:l2:l7 TTY24
+-----------------------------
+.
+-
+EXIT
+----
+.
+-
+
+
+
+2.4  FACILITY ALLOCATION COMMANDS
+
+The monitor allocates peripheral devices, file structure storage,
+and core memory to users on request and protects these
+allocated facilities from interference by other users.  The
+monitor maintains a pool of available facilities from
+which a user can draw.
+
+A user should never abandon a timesharing console without
+returning his allocated facilities to the monitor pool.  Until
+a user returns his allocated facilities to the pool no other users
+may utilize them except through operator intervention.
+
+All devices controllable by the system are listed in Tables 5-l
+and 6-l.  Associated with each device is a physical device name,
+consisting of three letters and zero to three numerals to specify
+unit number.  A logical device name may also be assigned to
+a physical device by the user.  The logical name of one to six
+alphanumeric characters of the user's choice is used synonymously
+with a physical device name in all references to the device.  In
+writing a program, the user may use arbitrarily selected device
+names which he assigns to the most convenient physical devices
+at runtime.  All references to devices in the monitor pool are
+made either by physical names or by assigned logical names.
+However, the preferred method for user programs to obtain device
+names is through a command string.
+
+When a nonsharable device is assigned to a job, it is removed
+from the pool of available facilities of the monitor.  Any
+attempt by another job to reference the device fails.  The
+device is returned to the pool when the user reassigns it or
+kills his job.
+
+
+   ASSIGN (AS)
+
+Function
+--------
+
+The ASSIGN command assigns an I/O device to the user's job for
+the duration of the job or until a DEASSIGN command is given.
+This command, applied to DECtapes, clears the copy of the
+directory currently in core, forcing any directory references
+to read a new copy from the tape.  (Refer to Paragraph 6.l.7 for
+further details.)
+
+Although DECtape is the only device that must be ASSIGNed before
+use, the ensure that the monitor has a copy of the proper 
+DECtape directory in core, it is wise to ASSIGN all devices,
+such as magnetic tape, before use.
+
+Command Format
+--------------
+
+ASSIGN phys-dev log-dev
+
+Phys-dev = any device listed in Tables 5-l and t-l, or any file
+structure.  This argument is required.
+
+Log-dev = a logical name assigned by the user.  This argument
+is optional.  Except for disk devices, only one logical name
+can be assigned to a physical device.  Subsequent ASSIGN 
+commands to all devices except disk devices replace the old
+logical name with the new one.  Logical names are dis-associated
+from disk devices by the DEASSIGN command.
+
+Note:  If DTA, MTA or LPT is used with no numeric argument,
+       the monitor searches for an available unit and then 
+       types DTAn, MTAn, or LPT, ASSIGNED.
+
+Characteristics
+---------------
+
+The ASSIGN command:
+
+   Leaves the console in monitor mode.
+
+Restrictions
+------------
+
+A comma may not be used to separate the logical and physical
+device names.  If a comma is used, the monitor terminates its
+scan at the comma; therefore, the logical name is not assigned.
+
+Associated Messages
+-------------------
+
+Dev:  ASSIGNED - The device has been successfully assigned to 
+                 the job.
+
+?NO SUCH DEVICE - The device name does not exist, or all devices
+                  with this name are in use.
+
+?ALREADY ASSIGNED TO JOB n - The device has already been assigned
+                            to another user's job.
+
+?LOGICAL NAME ALREADY IN USE, dev: ASSIGNED - The user attempted to
+                                              assign a previously-
+                                              used logical name to
+                                             this device.
+
+Examples of Logical and Physical Device Names
+---------------------------------------------
+
+.ASSIGN DTA ABC #                    User requests a DECtape
+-                                         drive.
+
+DEVICE DTA6 ASSIGNED                      Monitor has given the user
+--------------------                      drive DTA6. User mounts a
+                                          DECtape on drive DTA6.
+
+.ASSIGN PTP ABC #                    User requests the paper
+-                                         tape punch.
+
+LOGICAL NAME ALREADY IN USE, PTP          Paper tape punch is reserved,
+ASSIGNED                                  but ABC still refers to 
+--------------------------------          DTA6 only.
+
+.R PIP #                             User requests system program PIP.
+-
+
+*PTP:!ARC:FILEX #                         User issues command string to
+-                                         PIP asking that FILEX be trans-
+                                          ferred from device ABC (DTA6)
+                                          to device PTP (assigned to
+                                          the user.
+
+*%C                                       User returns to monitor mode.
+-
+
+.ASSIGN DTA _DEF #                    User requests another 
+-                                         DECtape drive.
+
+NO SUCH UNIT                         All drives are in use. No
+------------                              DECtape drive is assigned, and
+                                          no logical assignment is made.
+
+.ASSIGN DTA6 DEF #                   User requests drive DTA6
+-                                         (which he already has). The
+                                          logical device name ABC is no
+                                          longer associated with DTA6.
+                                          The copy of the directory
+                                          currently in core is cleared.
+
+DEVICE DTA6 ASSIGNED                      User mounts new DECtape on
+--------------------                      previously assigned drive.
+                                          New DECtape dir. is read
+                                          into core.
+
+.R PIP #                             User requests PIP.
+-
+
+*PTP:!ABC: FILEY #                   User requests FILEY be trans-
+-                                         ferred from device ABC to
+                                          device PIP.
+
+?DEVICE ABC DOES NOT EXIST                The logical device name ABC is
+--------------------------                no longer assigned.
+
+*PTP:!DEF:FILEY #                    User reissues command string to
+-                                         PIP asking that FILEy be trans-
+                                          ferred from device DEF to
+                                          to device PIP.
+
+*%C                                       User returns to monitor mode.
+-
+
+.ASSIGN DTA6 DEF #                   User requests drive DTA6 again.
+-                                         Old directory cleared from core.
+
+DEVICE DTA6 ASSIGNED                      User mounts a new DECtape. New
+---------------------                     directory is read into core.
+                                         Same logical name is acceptable
+                                          because the ASSIGN applies to
+                                          the same unit (DTA6).
+
+
+Examples of ASSIGN command
+__________________________
+
+.ASSIGN DTA #                        User assigns any available
+-                                         DECtape drive.
+
+.ASSIGN MTA2 #                       User assigns specific magnetic
+-                                         drive (drive 2).
+
+.ASSIGN DTA3 INP #                   User assigns DECtape drive 3 and
+-                                         gives it logical name INP.
+
+.ASSIGN MTA FAILSA #                 User assigns any available
+-                                         mag. tape drive and gives it
+                                          logical name FAILSA.
+
+.ASSIGN DSK PTR (c.r.0                    User assigns generic name DSK
+-                                         and gives it logical name PTR.
+
+
+   DEASSIGN (DEA)
+
+Functi/n
+--------
+
+The DEASSIGN command returns one or more devices currently
+assigned to the user's job back to the monitor pool of avail-
+able devices.  The command, applied to DECtapes, clears the copy
+of the directory currently in core, forcing any directory refer-
+ences to read a new copy from the tape.  (Refer to Paragraph 6.l.7
+for further details.)
+
+Command Format
+--------------
+
+DEASSIGN dev
+
+dev = Either the logical or physical device name.  This argument
+is optional.  If it is not specified, all devices assigned to the
+user's job, except the controlling TTY, are deassigned.  To
+clear a logical name associated with the controlling TTY, it
+is necessary to type the additional command ASSIGN TTY.
+
+Characteristics
+---------------
+
+The DEASSIGN command:
+
+   Leaves the console in monitor mode.
+
+Associated Messages
+-------------------
+
+?NO SUCH DEVICE
+
+   The device name does not exist in this monitor configuration.
+
+?dev WASN'T ASSIGNED
+
+   The device is not currently assigned to this job.
+
+Examples
+--------
+
+.DEASSIGN LPT #      The line printer is returned to the
+-                         monitor's pool of available resources.
+
+.DEASSIGN #          All devices assigned to the job are
+-                         returned.
+
+
+
+   REASSIGN (REA)
+
+Function
+--------
+
+The REASSIGN command allows one job to pass a device to a 
+second job without having the device go through the monitor
+device pool.  This command clears the copy of the directory 
+currently in core.
+
+Command Format
+--------------
+
+REASSIGN dev job
+
+dev = The physical or logical name of the device to be reassigned.
+This argument is required.
+
+job = The number of he job to which the device is to be reassigned.
+This argument is required.
+
+Characteristics
+---------------
+
+The REASSIGN command:
+
+   Leaves the console in monitor mode,
+   Requires core,
+   Does not allow an active device.
+
+Restrictions
+------------
+
+User consoles cannot be reassigned.
+
+Associated Messages
+-------------------
+
+?dev WASN'T ASSIGNED - The device is not currently assigned to
+                       the user's job.
+
+?NOT A JOB - The job number specified has not been initialized.
+
+?NO SUCH DEVICE - The device does not exist in this monitor
+                  configuration.
+
+?dev CAN'T BE REASSIGNED - A user's console teletype cannot be
+                           reassigned.
+
+Examples
+--------
+
+.REASSIGN LPT l7 #    Reassign the line printer to job l7.
+-
+
+.REASSIGN CDP 4 #     Reassign the card punch to job 4.
+-
+
+
+   MOUNT (MOU)
+
+
+Function
+--------
+
+The MOUNT command allows the user to gain access to a file structure.
+This command notifies the operator to mount packs (if necessary),
+allows the user to specify specific drives, places the file
+structure name at the end of the jobs search list, and waits
+for completion of operator action (if desired).
+
+The MOUNT command runs the UMOUNT CUSP in the user's core area.
+UMOUNT scans the command string and does as much as it can with-
+out operator intervention.  UMOUNT can always complete the action
+requested by the MOUNT command if the file structure is already
+mounted and ready.  If operator intervention is required,
+UMOUNT queues a request to the OMOUNT CUSP by writing a command
+file on 3,3 disk area.  OMOUNT reads these command files and
+interacts with the operator.  When the command file is deleted,
+the operator action has been completed.
+
+Command Format
+--------------
+
+MOUNT dev: switches (drives)
+
+dev: = The file structure name as recorded in STRLST.SYS.  This
+argument is required.
+
+switches = /HELP      (types this lsit)
+           /WENABL    (write enable, default condition, comple-
+                       ment of /WLOCK)
+           /WLOCK     (write locked)
+           /RONLY     (read only, same as WLOCK)
+           /MULTI     (multi-access, default condition, comple-
+                       ment of /SINGLE)
+           /SINGLE    (single access)
+           /CHECK     (check and list pending requests)
+           /LIST      (list physical drive names and file 
+                       structure status)
+
+The switches are optional and only enough characters to make the
+switch unique are required.
+
+(drives) = The physical drives on which the units are to be
+mounted.  The drives must be in the logical unit order within
+the file structure.  Drive names are separated by commas. 
+Leading and embedded drives that are not specified must be
+represented by null names (,,DPA3).  Unspecified trailing
+drives may be omitted.  Drive names are as follows:
+
+Blank, null - unspecified.  UMOUNT finds one of the proper type.
+
+Two letters - controller class.  This may not be useful since
+              file structure units are bound to one controller
+              class.
+
+Three letters - specific controller.  UMOUNT finds a drive.
+
+Three letters and one or two digits - specific drive.
+
+The user, by specifying a drive list, may force the packs to be
+mounted on specific drives or controllers.  If no drive 
+(or incomplete) specification is given, an available drive of
+the proper type is found, even if a dormant file structure
+must be removed.
+
+Characteristics
+---------------
+
+The MOUNT command:
+
+   Places the console in user mode,
+   Runs the UMOUNT CUSP,
+   Is used with disk monitors only. 
+
+Associated Messages
+-------------------
+
+If a special condition is encountered, a descriptive comment
+is typed to the user, and the command is continued.  If the
+condition cannot allow the command to be continued, an error
+message preceded by a question mark is typed, and the command
+is aborted.  (See Appendix F for these messages.)
+
+WAITING ..
+
+A request has been queued to the operator, and the command is
+waiting for completion of the request.  If the user does not want
+to wait for the completion of the operator's action, he may 
+type control C without aborting the command.
+
+STRUCTURE ALREADY MOUNTED
+
+The specified file structure is already mounted.  However, it
+may not be in a readied condition.
+
+OTHER USERS - CANNOT SINGLE ACCESS
+
+The /S switch has been typed, and there are currently other users
+of the file structure.  The switch is ignored.
+
+UNIT id ALREADY MOUNTED ON DRIVE DPAn
+
+The file structure is already mounted on a different drive than
+specified by the user.
+
+DPAn NOT READY
+
+The specified drive is off-line or write-locked when
+write-enable is requested.  The operator is notified.
+
+NEW UFD CREATED ON STRUCTURE
+RESERVED (n) F.C.F.S(n) LOGGED-OUT (n)
+
+An initial UFD has been created for the user.  The numbers n are
+the block quotas on this file structure as established by
+QUOTA.SYS.
+
+UFD QUOTAS CHANGED
+RESERVED (n) F.C.F.S(n) LOGGED-OUT (n)
+
+The block quotas established by QUOTA.SYS on this file structure
+have changed since the user last used this file structure.
+The user's UFD are changed to specify the indicated quotas.
+
+OPERATOR REQUESTED TO READY DRIVES
+
+A request is queued to the operator to mount and ready the packs
+on the proper drives.
+
+DPAn NOT AVAILABLE
+
+The drive specified by the user is not currently available.
+
+NOT ENOUGH DRIVES
+
+There are not enough drives of the right type to mount the file
+structure.
+
+MOUNT COMPLETE
+
+The file structure is mounted and ready for use.  The MOUNT
+command has completed.
+
+
+Examples
+--------
+
+.MOUNT MONITR: #            Asks the operator to mount the
+-                                file structure named MONITR.
+
+.MOUNT PAYROL: DPA,DPB /S #  Requests that the first unit of
+-                                 file structure PAYROL be mounted
+                                  in Controller A, the second unit
+                                  on Controller B and any remaining
+                                  units on any drives. All units are
+                                  single access, (i.e., available only
+                                  to this job.)
+
+
+
+     EDIT (ED)l
+
+Function
+
+     The EDI command runs LINED (Line Editor for disk) and opens an
+     already existing requence-numbered file on disk for editing.
+
+Command Format
+
+     EDIT file.ext
+
+          file.ext = a filename and filename extension of an existing
+          file.
+
+Characteristics
+
+     The EDIT command:
+
+          places the console in user mode,
+          runs the LINED CUSP,
+          is used with disk monitors only,
+          requires a job number and LOGIN.
+
+Associated Messages
+
+     Refer to Table 2-l
+
+Example
+
+          .EDIT TEST.F4#
+          -
+          *
+          -
+
+     MAKE (MA)l
+
+Function
+
+     The MAKE command runs TECO (Text Editor and Corrector) and opens
+     a new file on the disk for creation.
+
+Command Format
+
+     MAKE file.ext
+
+          file.ext = any legal filename and filename extension.  The file-
+          name is required; the filename extension is optional.
+
+Characteristics
+
+     The MAKE command:
+
+          places the console in user mode,
+          runs the TECO CUSP,
+          is used with disk monitors only,
+          requires a job number and LOGIN.
+
+Associated Messages
+
+     Refer to Table 2-l
+
+Example
+
+          .MAKE TEST3.MAC#
+          -
+          *
+          -
+
+     TECO (TE)l
+
+Function
+
+     The TECO command runs TECO and opens an already existing nonsequence-
+     numbered file on disk for editing.
+
+Command Format
+
+     TECO file.ext
+
+          file.ext = a filename and filename extension of an existing file.
+
+Characteristics
+
+     The TECO command:
+
+          places the console in user mode,
+          runs the TECO CUSP,
+          is used with disk monitors only,
+          requires a job number and LOGIN.
+c
+Associated Messages
+
+     Refer to Table 2-l
+
+     REATING NEW FILEl
+
+          The specified file does not exist; therefore, a MAKE command
+          is assumed by the COMPIL CUSP.
+
+Example
+
+          .TECO TESTl.MAC#
+          -
+
+          *
+          -
+
+                                 Table 2-l
+                      Monitor Command Diagnostic Messages
+                             (For File Manipulation)
+
+          Message                                      Meaning
+---------------------------------------------------------------------------
+
+COMMAND ERROR                      The COMPIL CUSP cannot decipher the com-
+                                   mand.
+
+DEVICE NOT AVAILABLE               Specified device could not be
+                                   initialized.
+
+EXECUTION DELETED (typed           Errors detected during assembly, com-
+by LOADER)                         pilation, or loading prevent a pro-
+                                   gram from being executed.  Loading
+                                   will be performed, but LOADER will EXIT
+                                   to the monitor without starting execution.
+
+FILE IN USE OR PROTECTED           A temporary command file cannot be entered
+                                   in the user's UFD.
+
+?FILENAME ALREADY IN USE           The specified file already exists.
+
+INPUT ERROR                        I/O err occurred while reading a tem-
+                                   porary command file from the disk.
+
+?INPUT FILE NOT FOUND              The specified file does not exist.
+
+LINKAGE ERROR                      I/O error occurred while reading a CUSP
+                                   from device SYS:.
+
+NESTING TOO DEEP                   The   construction exceeds a depth of
+                                   nine (may be due to a loop of  command
+                                   files).
+
+NO SUCH FILE - file.ext            Specified file cannot be found (may be
+                                   a source file or a file required for
+                                   operation of COMPIL CUSP).
+
+NOT ENOUGH CORE                    System cannot supply enough core for use
+                                   as buffers or to read in a CUSP.
+
+OUTPUT ERROR                       I/O error occurred while writing a temporary
+                                   command file on disk.
+
+PROCESSOR CONFLICT                 Use of + construction resulted in a mix-
+                                   ture of source languages.
+
+TOO MANY NAMES or                  Command string complexity exceeds table
+TOO MANY SWITCHES                  space in COMPIL CUSP.
+
+UNRECOGNIZABLE SWITCH              An ambiguous or undefined work followed
+                                   a slash (/).
+
+2.6  FILE MANIPULATION COMMANDS
+
+Some of the following commands perform complex functions requiring a num-
+ber of commands on a less sophisticated system.  The commands below list
+the user's files and file directories, rename and delete files, provide
+remote control of DECtapes, allocate disk space, and manipulate job search
+lists.
+
+     TYPE (TY)
+
+Function
+
+     The TYPE command directs PIP (Peripheral Interchange Program) to type
+     the contents of the named source file(s) on the user's Teletype.
+
+     To stop the typing, type %C twice.
+
+Command Format
+
+     TYPE list 
+
+          list = a signle file specification or a string of file specifi-
+          cations separated by commas.  This argument is required.
+
+          A file specification may consist of a filename (with or without
+          an extension), a device name if the source file is not on disk,
+          a project-programmer number, if the source file is not in the
+          user's disk area, and a protection.
+
+          Examples of file specifications:
+                PROG, PROGl.MAC,
+                DTA3:PROG2,PROG4  l0,l6l
+
+          In addition, the *construction may be used as follows:
+
+                filename.*     All files with this filename and any extension.
+                *.ext          All files with this extension and any filename.
+                *.*            All files
+
+Characteristics
+
+     The TYPE command:
+
+          leaves the console in monitor mode,
+          runs the COMPIL CUSP,
+          is used with disk monitors only,
+          requires LOGIN.
+
+Associated Messages
+
+     Refer to Table 2-l
+
+Examples
+
+          .TYPE FILEA,DTA0:FILEB.MAC#
+          -
+          .TYPE *.TMP,DTA4:C  l5,l07l#
+          -
+
+     LIST (LI)
+
+Function   
+
+     The LIST command directs PIP to list contents of named source
+     file(s) on the line printer (LPT).
+
+Command Format
+
+     LIST list
+ 
+          list = a single file specification or a string of file speci-
+          fications separated by commas.  This argument is required.
+
+Characteristics
+
+     The LIST command:
+
+          leaves the console in monitor mode,
+          runs the COMPIL CUSP,
+          is used with disk monitors only,
+          requires LOGIN.
+
+Associated Messages
+
+     Refer to Table 2-l
+
+Examples
+
+          .LIST TFST.*#
+          -
+          .LIST *.MAC#
+          -
+          .LIST DTA4:A,R,C#
+          -
+
+     R PRINT
+
+Function
+
+     The R PRINT command queues files upon the disk to be printed when the
+     line printer is available.
+
+Command Format
+
+     R PRINT
+
+          The user types in the names of the files to be printed, separated
+          by commas.
+          Only disk devices may be specified.  If no device is specified,
+          DSK is assumed.  A particular ifle structure may be specified 
+          when there is more than one file with the same name if different
+          file structures.  Filenames may be continued on the next line by
+          typing a hyphen followed by a carriage return.  To delete a file
+          after it is printed, insert the /D switch after the filename.  To
+          preserve a file that PRINTR would normally delete, in sert the /P
+          switch after the filename.  To make more than one copy of the file,
+          type a number from 2 to 9 as a switch.
+
+Characteristics
+
+     The R PRINT command:
+
+          places the console in user mode,
+          runs the PRINTR CUSP,
+          requires a job number and LOGIN.
+
+Associated Messages
+
+     ?CAN'T FIND FILE file.ext
+
+          The specified file could not be found.
+
+
+Example
+
+          .R PRINT#
+          -
+          *TESTl.LST#
+          -
+          *TEST2.LST, TEST3.LST, TESTl.MAC/2#
+          -
+          *%C
+          -
+          .
+          -
+
+     DIRECT (DIR)
+
+Function
+
+     The DIRECT command lists the directory entries (filename, filename
+     extension, size in blocks written, protection if file is on disk,
+     and date created) specified by list.
+
+Command Format
+
+     DIRECT list
+
+            list=a single file specification or a string of file
+            specifications separated by commas.  This argument is
+            optional.
+
+            If list is omitted, DSK:*.* is assumed, and the 
+            directories in all file structures as defined by the job
+            search list are listed, starting with the file structure
+            name as a header.
+
+            Two switches may be used with the DIRECT command:
+
+               /F    Lists short form of directory (i.e., filename
+                     and filename extension only).
+
+               /L    Lists on the line printer (LPT) instead of
+                     Teletype.
+
+Characteristics
+
+     The DIRECT command:
+
+         leaves the job in monitor mode,
+         runs the COMPIL CUSP,
+         is used with disk monitors only,
+         requires LOGIN.
+
+Associated Messages
+
+     Refer to Table 2-l
+
+     MONITOR
+
+     Examples
+
+             .DIR DTA3:#             Lists all files on DTA3
+             -
+             .DIR *.MAC#             Lists all files with MAC filename
+             -                       extension in all file structures 
+                                     in the job search list.
+
+             .DIR TEST.F4[27,60]#    Lists the directory entry for file
+             -                       TEST,F4 in user area 27,60.
+             .DIRECT#
+             -
+             DIRECTORY           l0,63    22:20    ll-SEP-70
+             _______________________________________________
+
+             DSKB:
+             _____
+             TEST       F4          0l     l55     ll-SEP-70
+             _______________________________________________
+             TESTl      MAC         0l     055     ll-SEP-70
+             _______________________________________________
+
+             TOTAL BLOCKS           02
+             _________________________
+
+             .
+             -
+
+     R LOOKFL
+
+Function
+
+     The R LOOKFL command types all the characteristics of a single
+     disk file on the user's console.
+
+
+Command Format
+
+     R LOOKFL
+
+        The CUSP responds with the work FILE, and the user types the
+        filename and filename extension of the file in which he is
+        interested.
+
+             FILE: dev:file,ext proj,prog
+
+        The output is written on file TTY:LOOKFL.TXT.
+
+Characteristics
+
+     The R LOOKFL command:
+
+        returns console to monitor mode via EXIT,
+        runs the LOOKFL CUSP,
+        is used with disk monitors only,
+        requires LOGIN.
+
+     .R LOOKFL#
+
+     FILE: PIP.HGH#
+
+     DPA0:PIP.HIGH l0,63
+     ACCESS DATE: l2-SEP-70
+     CREATION TIME, DATE: l800  l2-SEP-70
+     ACCESS PRIVILEGS: 055
+     MODE: l6
+     WORDS WRITTEN: 3057.
+     VERSION NUMBER: 0,0
+     ESTIMATED LENGTH: 0.
+     BLOCKS ALLOCATED: 30.
+     POSITION OF LAST ALLOCATION: 0
+     NONPRIVILEGED CUSTOMER ARG: 000000000000
+     TAPE LABEL:
+     STATUS BITS: 4000000000000
+     ERROR LOGICAL BLOCK: 0
+     ERROR LOGICAL UNIT: 0
+     NUMBER OF BAD BLOCKS: 0.
+     AUTHOR: l0,63
+     NEXT STR:
+     PREVIOUS STR:
+     PRIVILEGED CUSTOMER ARG: 000000000000
+     DATA BLOCK IN UFD: 567
+
+     EXIT
+
+     .
+     -
+
+     R DMFIL
+
+Function
+
+     The R DMFIL command prepares an octal dump or all of a user file.
+
+Command Format
+
+     .R DMFIL
+     *dev:ofile.ext!dev:ifile.ext/switch
+      dev:ofile.ext=the output file.
+
+          If dev: is omitted, LPT is assumed.
+          If .ext is omitted, .LST is assumed.
+          If ofile is omitted, ifile is assumed.
+          If entire output specification (including!) is omitted,
+          LPT: ifile .LST is assumed.
+
+      dev:ifile.ext/switch = the input file.
+
+          If dev: is omitted, DSK is assumed.
+
+          /switch =
+                  /nnnnnnD    Dump DECtape beginning at block nnnnnn
+                              octal, includes listing of directory.
+
+                  /nnnnnnK    Assume file is save file, dump as core dump
+                              beginning at location nnnnnn.
+
+                  /nnnnnnH    Assume file is high segment file, dump as
+                              core dump.
+
+                  /nnnnnnS    Dump disk, beginning at logical block nnnnnn
+                              with respect to file structure or unit dep-
+                              ending on input device name.  User must be
+                              priviledged since this operation uses a
+                              super USETI UUO, or the use4 must have mounted
+                              the file structure or pack as single access.
+
+                  /nnnnnnT    Stop dump at nnnnnn octal. This switch may be
+                              combined with any of the above.
+
+     To terminate the dump in the middle of the operation, type %C and
+     REENTER.  This action closes the files properly.
+
+Characteristics
+
+     The R DMPFIL command:
+
+          places the console in user mode,
+          runs the DMPFIL CUSP.
+
+Associated Messages
+
+     ?SYNTAX ERROR
+
+          There is a syntax error in the command string.
+
+Example
+
+.ASSIGN TTY LPT#
+TTY24 ASSIGNED
+
+.R DMPFIL#
+
+*PIP.HGH/4000l0H/400020T#
+DUMP OF FILE PIP.HGH/4000l0H TO 09-l2-70  l8:32
+
+   4000l0 00l0734000l0 474300000000 402000000l57 205000637l63 047000
+000055 200000404540 202000000257 200000405527
+   400020 04700000004l
+
+*
+-
+
+     FILE (FIL)
+
+Function
+
+     The FILE command provides remote control of DECtape-to-disk and
+     disk-to-DEC-tape transfers on operator-handles DECtapes.
+
+Command Format
+
+     FILE option
+
+          option = F  Files information onto a DECtape.  Requires
+                      Tape ID and list of filenames as arguments.  The
+                      ID is a decimal number (user's tape), P (project tape),
+                      or A (general tape).  Upon completion, an automatic
+                      FILE L is performed.
+
+          option = Z  Zeros the directory of the DECtape before the files
+                      are copied and then performs the same operations
+                      as the F option.  After the files are copied, an
+                      automatic FILE L is performed.
+
+                      DECtape to the disk.  After the files are transferred,
+                      an automatic FILE L is performed.
+
+          option = L  Reads the directory of a DECtape and places it in
+                      the user's disk area as an ASCII file with filename
+                      tapen.DIR.  Tapen is the number of the user's
+                      DECtape and is the only argument.  The user may
+                      then read the directory with a monitor command string.
+                      (See Examples).
+
+          option = C  Checks the queue of FILE commands to be read to 
+                      determine if any of the user's requests are still
+                      pending.  No argument is required.  Pending request
+                      will be listed.
+
+          option = D  Deletes the specified ifles from DECtape.  Requires
+                      Tape ID and list of filenames as arguments.
+
+          The C option is the only request that is performed
+          immediately.  The other requests are placed in a queue to be
+          performed when possible.  The user's console and jnob are free
+          to proceed before the request is completed.  The option argument
+          is optional.  If an argument is not specified, a brief dialogue
+          is performed.
+
+Characteristics
+
+     The FILE command:
+
+          leaves the console in monitor mode,
+          runs the UMOUNT CUSP,
+          is used with disk monitors only,
+          requires a job number and LOGIN.
+
+Associated Messages
+
+     NONE PENDING
+
+          none of the user's requests is pending.
+
+Examples
+
+     option = F
+
+           .FILE F,2, MAIN.F4,NAME.MAC#
+
+     option = Z
+
+           .FILE Z,l, TEST.MAC,JOBS.CBL#
+
+     option = R
+
+           .FILE R,2, *.MAC#
+
+     option = L
+
+           .FILE L,l#
+
+     The user may then read this directory with the monitor
+     command string
+
+           .TYPE l.DIR#
+
+     option = C
+
+           .FILE C#
+
+     option = D
+
+           .FILE D,2, FILEl,FILE2.*#
+
+
+   R FILEX
+
+Function
+--------
+
+The R FILEX command runs the FILEX program.  This program is a
+general file transfer program intended to convert between various
+core image formats, and to read and write various directory
+formats.  Files are transferred as 36-bit data.  The only pro-
+cessing on the data is that necessary to convert between various
+core image representations.
+
+
+Command Format
+--------------
+
+R FILEX #
+*dev:ofile.ext(proj,prog)/switches ! dev:ifile.ext(proj,prog)/switches
+
+If the project-programmer and/or the switches appear after the
+device name, they apply to all the following files.  If they
+appear after the filename, the specifiers apply only to the pre-
+ceding file.  The input filename or extension may be * in which
+case the usual processing of the * construction occurs (refer to
+the TYPE command).  The output filename and extension may be
+* in which case the filename and extension of the input file is
+copied.  If the output filename or extension is missing, the
+same procedure occurs as with the * construction, except that
+all core image files are written with the default exten-
+sion and format appropriate to the output device (unless
+overriden by switches).
+
+Meaning of Switches:
+
+DECtape Format Specifiers
+
+   /M - MIT project MAC PDP-6/l0 DECtape format.
+   /O - Old DEC PDP-6 DECtape format.
+   /T - Normal PDP-l0 directory format.
+
+File Format Specifiers
+
+   /B - Binary processing; overrides default extension.
+   /C - Compressed; save file format.  This format is assumed
+       for files with extensions .SAV, .LOW, .SVE.  The default
+        output extension is .SAV.
+   /D - Dump format.  This format is assumed for files with
+        extension .DMP.
+   /E - Expanded core image files (used by FILDDT).  This format
+        is assumed for files with extension .XPN.  The default
+        output extension is .XPN.
+
+   /S - Simple block (SBLK) format, project MAC's equivalent of
+        .SAV format.  The default output extension is .BIN.
+
+DECtape Processing Specifiers:
+
+   /G - (go on), ignores read errors on input device.  FILEX
+        checks the always-bad-checksum bit in the 5-series
+        monitor, so this switch is not needed for files with
+        .RPABC on (e.g., CRASH.SAV).
+
+   /L - (list), causs a directory on an input DECtape file to
+        be typed on the teletype.
+
+   /P - (preserved), causes quick processing (/Q) and preserves
+        the scratch file after processing for use by another
+        command.
+
+   /Q - (quick), causes an input DECtape to be processed quickly
+        via a scratch file.
+
+   /R - (reuse), reuses a scratch file preserved by a /P in
+        a previous command.
+
+   /Z - (zero), causes the appropriate format of a zeroed
+        directory to be written on a DECtape output file.  If
+        TAPEID appears in the output specifier, then TAPEID
+        is written as the tape identifier in the directory.
+        TAPEID may be 6 characters on a PDP-l0 tape, 3 characters
+        on a project MAC tape and is not present on a PDP-6 tape.
+
+
+Characteristics
+---     -----------
+
+The R FILEX command:
+
+    runs the FILEX CUSP,
+    is used with disk monitors only.
+
+
+Examples
+--------
+
+.R FILEX#
+*DSK:!DTAl;TEST.DMP/C           The dump format file is compressed
+                                and written as TEST.SAV
+.R FILEX#
+*DSK:SERl05.SAV(l0,l0)/E!DSKC:CRASH.SAV(l,4)  Copy CRASH.SAV To
+                                              expanded format file
+                                              for FILDDT?to examine.
+
+
+   R SETSRC
+
+Function
+--------
+
+The R SETSRC command runs the SETSRC CUSP to manipulate the job's
+file structure search list (refer to Paragraph 6.2.7).  The file
+structure search list defines the order of search whenever
+device DSK is explicitly or implicitly specified by the user.
+
+
+Command Format
+--------------
+
+R SETSRC
+
+The user should respond with
+
+   C#  to create a new search list.
+   T#  to type the current search list.
+   H#  to get information about commands to be typed.
+
+The current search list is typed in the form
+
+   fsl/s/s,fs2/s/s,...FENCE,...,fs9/s/s
+
+fsl is the name of the first file structure.
+
+/s is one or more of the following switches:
+
+   /C for create
+   /N for no create
+   /R for read only
+   /W for writeable
+
+If no switches are specified, /C and /W are assumed.
+
+/N indicates that the monitor is not to create files on this
+file structure when device DSK is specified.  The user must
+specify the file structure name explicitly.  This switch is
+useful when users have a small space on a fast file structure
+and a large space on a slow file structure.  If /N is associated
+with the smaller file structure, all files are created on the
+larger file structure unless the smaller file structure is
+specified.
+
+To create a new search list, type in the new search list ( up
+to the FENCP) in the same form as it is typed out.  The monitor
+moves the file structures that were in the old search list but
+that were not specified in the new search list to after the 
+FENCE, thereby never decreasing the number of file structures
+that the user intends to use.
+
+Note:  Since the MOUNT command creates a UFG, it should be used
+       to attach a new file structure to the search list.
+
+
+Characteristics
+---------------
+
+The R SETSRC command:
+
+   places the console in the user mode,
+    runs the SETSRC CUSP,
+   requires LOGIN and a job number.
+
+Associated Messages
+-------------------
+
+None
+
+Example
+-------
+
+.R SETSRC#
+
+*T#
+
+DSKB, FENCE
+-----------
+
+*C DSKA,DSKB#
+
+*T#
+
+DSKA,DSKB,FENCE
+---------------
+
+*C DSKB#
+
+*T#
+
+DSKB,FENCE,DSKA
+---------------
+
+*
+
+
+   R ALCFIL
+
+Function
+--------
+
+The R ALCFIL command runs the ALCFIL CUSP to accoate space for
+a new file or reallocate space for an existing file on the disk
+in one contiguous region.  The size of the region is restricted
+by the size of the cluster count field (usually 5l2) times the
+cluster size of the file structure.
+
+Command Format
+--------------
+
+R ALCFIL
+
+   The CUSP responds with
+
+       /H for HELP
+       FILE?
+
+   The user may respond with
+
+       dev:file.ext(proj.prog.)
+       or  /H (for help)
+      or   /X (for exit)
+
+    where dev: is a file structure or physical unit name.  If
+   dev: is omitted DSK is assumed.  If one of the other arguments
+   is omitted, 0 is assumed.  If a filename is specified, the number
+   of blocks presently allocated, if non-zero, is typed.  ALCFIL
+   responds
+
+       ALLOCATE?
+
+   User may type N or N,M (decimal numbers)
+
+       N = total number of blocks to be allocated for the file.
+       M = logical block within the file structure or unit 
+           depending on dev:, where the allocation is to begin.
+
+   If the new blocks cannot be allocated, an error message is
+   given and ALCFIL begins again.  If the new blocks can be
+   allocated, the message
+
+       ALLOCATED
+
+   is typed.
+
+   Since an extended ENTER (refer to Paragraph 6.2.8.2) is
+   executed to allocate the new blocks, the file need not
+   exist before allocating the blocks.
+
+Characteristics
+---------------
+
+The R ALCFIL command:
+
+   places the console in user mode,
+   runs the ALCFIL CUSP,
+   requires LOGIN and a job number.
+
+Associated Messages
+-------------------
+
+BLOCK NOT FREE
+
+   M specifies a unit or file structure logical block that is not
+   free.
+
+nBLOCKS ALREADY ALLOCATED
+
+   The file already exists.  The new specification replaces the
+   old specification, rather than updating the old.
+
+Example
+-------
+
+.R ALCFIL#
+/H FOR HELP
+FILE?  TEST4.TST#
+ALLOCATE?  2000#
+ALLOCATED
+FILE?  TEST5.TST#
+ALLOCATE?  l000#
+ALLOCATED
+FILE?  TEST5.TST#
+l000 BLOCKS ALREADY ALLOCATED
+ALLOCATE?  500#
+ALLOCATED
+FILE?  %C
+.
+
+
+   DELETE (DEL)
+
+
+Function
+--------
+
+The DELETE command deletes one or more files from disk or DECtape.
+
+Command Format
+--------------
+
+DELETE list
+
+   list = a single file specification or a string of file speci-
+          cations separated by commas.
+
+   If a device name is specified, it remains in effect until
+   changed or until the end of command string is reached.
+
+Characteristics
+---------------
+
+The DELETE command:
+
+   leaves the console in monitor mode,
+   runs the COMPIL CUSP
+   is used with disk monitors only,
+   requires LOGIN.
+
+Associated Messages
+-------------------
+
+Refer to Table 2-l.
+
+Examples
+--------
+
+.DEL *MAC#
+FILES DELETED:
+Tl.MAC
+T2.MAC
+T3.MAC
+
+.DEL TESTl.MAC#
+FILES DELETED:
+TESTl,MAC
+.
+
+
+   RENAME (REN)
+
+Function
+--------
+
+The RENAME command changes the name of one or more files
+on disk or DECtape.
+
+
+Command Format
+--------------
+
+RENAME arg
+
+   arg = a pair of file specifications separated by an = sign,
+         or a string of such pairs separated by commas:
+
+             RENAME newl = oldl,new2 = old2,...
+
+   Device names can be specified only with the new filename
+   and remain in effect until changed or end of command string
+   is reached.
+
+
+Characteristics
+---------------
+
+The RENAME command:
+
+   leaves the console in monitor mode,
+   runs the COMPIL CUSP,
+   is used with disk monitors only,
+   requires LOGIN.
+
+Associated Messages
+-------------------
+
+Refer to Table 2-l.
+
+Example
+-------
+
+.RENAME Tll.MAC=Tl.MAC#
+FILES RENAMED:
+Tl.MAC
+
+.RENAME *.BAK=*.MAC#
+FILES RENAMED:
+Tll.MAC
+T2.MAC
+T3.MAC
+.
+
+
+
+   CREF (CREF)
+
+Function
+--------
+
+The CREF command runs CREF and lists on the line printer any
+CREF listings files generated by previsous COMPILE, LOAD,
+EXECUTE and DEBUG command using the /CREF switch since
+the last LOGIN.  The file containing the names of these
+CREF-listing files is then deleted so that subsequent CREF
+commands will not list them again.  If the logical device name
+LPT is assigned to DSK, the CREF files are converted to LST
+files with the same filenames.
+
+Command Format
+--------------
+
+CREF
+
+Characteristics
+---------------
+
+The CREF command:
+
+   leaves the console in monitor mode,
+   runs the COMPIL CUSP,
+   is used with disk monitors only,
+   requires LOGIN.
+
+
+Associated Messages
+-------------------
+
+Refer to Table 2-l.
+
+Example
+-------
+
+.CREF#
+.
+
+
+2.7  COMPILATION COMMANDS
+
+Each time a COMPILE, LOAD, EXECUTE or DEBUG command is executed,
+the command with its arguments is remembered as a file on
+the disk or in core if hte monitor has the TMPCOR feature imple-
+mented; therefore, the filename used last may be recalled for the
+next command without specifying the arguments again.  (refer to
+last paragraph in Section 2.5).
+
+
+   COMPILE (COM)
+
+Function
+--------
+
+The COMPILE command produces relocatable binary files for the
+specified programs.  The use of the MACRO assembler, COBOL
+compiler, and/or the FORTRAN IV compiler is determined as follows:
+
+         Condition                      Action
+         ---------                      -------
+
+   If no .REL (binary file         Translate source file
+
+   If source-file (date,time)      Translate source file
+   is later than or equal to
+   binary-file (date,time)
+
+   If other than above             Do not translate source file;
+                                   use current .REL (binary) file.
+
+   Source File Extension              Translater Used
+   ---------------------              ---------------
+
+   .MAC                            MACRO assembler
+   .F4                             FORTRAN IV compiler (F40)
+   .CBL                            COBOL compiler
+   Other than above, or null       "STandard processor" is used.
+
+
+Command Format
+--------------
+
+COMPILE list
+
+   list = a single file specification, or a string of file
+          specifications separated by commas.
+
+Characteristics
+---------------
+
+The COMPILE command:
+
+   leaves the console in monitor mode,
+   runs the COMPIL CUSP,
+   is used with disk monitors only,
+   requires LOGIN.
+
+Restrictions
+------------
+
+The * construction may not be used.
+
+Associated Messages
+-------------------
+
+Refer to Table 2-l.
+
+Example
+-------
+
+.COMPILE PROGA#
+
+
+   LOAD (LOA)
+
+Function
+--------
+
+The LOAD command performs the COMPILE function for the specified
+program(s), then runs LOADER and loads the .REL files.
+
+Command Format
+--------------
+
+Load list
+
+   list = a single file specification, or a string of file
+   specifications separated by commas.
+
+Characteristics
+---------------
+
+The LOAD command:
+
+   leaves the console in monitor mode,
+   runs the COMPIL CUSP,
+   is used with disk monitors only,
+   requires LOGIN.
+
+Associated Messages
+-------------------
+
+Refer to Table 2-l.
+
+Example
+-------
+
+.LOAD FILEA,FILEB, 6000FILEC#   Pass origin switch to Loader;
+                                refer to Paragraph 2.7.4.
+.LOAD TEST#
+MACRO: TEST
+LOADING
+LOADER lK CORE
+EXIT
+.
+
+
+   EXECUTE (EX)
+
+Function
+--------
+
+The EXECUTE command performs the COMPILE and LOAD functions for
+the specified programs and begins execution of the loaded program.
+
+Command Format
+--------------
+
+EXECUTE list
+
+   list = a single file specification or a string of file speci-
+          fications separated by commas.
+
+Characteristics
+---------------
+
+The EXECUTE command:
+
+   places the console in user mode,
+   runs the COMPIL CUSP,
+   is used with disk monitors only,
+   requires LOGIN.
+
+Associated Messages
+-------------------
+
+Refer to Table 2-l.
+
+Example
+-------
+
+.EX TEST#
+MACRO: TEST
+LOADING
+LOADER lKCORE
+EXECUTION
+.
+
+
+   DEBUG (DEB)
+
+
+Function
+--------
+
+The DEBUG command performs the COMPILE and LOAD functions and,
+in addition, prepares for debugging.  DDT (The Dynamic Debugging
+Technique program) is loaded first, followed by the user's programs
+with local symbols.  DDT is entered on completion of loading.
+
+Command Format
+--------------
+
+DEBUG list
+
+   list = a single file specification or a string of file speci-
+          fications separated by commas.
+
+Characteristics
+---------------
+
+The DEBUG command:
+
+   places the console in user mode,
+   runs the COMPIL CUSP,
+   is used with disk monitors only,
+   requires LOGIN.
+
+Associated Messages
+-------------------
+
+Refer to Table 2-l.
+
+Examples
+--------
+
+.DEBUG/L FILEA,FILEB,FILEC/N,FILED    Generate listings for FILEA,
+                                   FILEB, AND FILED; refer to
+                                      Paragraph 2.7.2.
+.DEBUG TEST#
+MACRO: TEST
+LOADING
+LOADER 2K CORE
+EXECUTION
+   BLT l5,0(l6)
+
+
+2.7.l  Extended Command Forms
+
+The commands previously explained are adequate for the compilation
+and execution of a single program or a small group of programs at
+one time.  However, the assmebly of large groups of programs,
+such as the FORTRAN library or the Timesharing Monitor, is more
+easily accomplished by one or more of the extended command forms.
+
+2.7.l.l  Indirect Commands (  Construction) - When there are
+many program names and switches, they can be put into a file;
+therefore, they do not have to be typed in for each compilation.
+This is accomplished by the use of the  file construction, which
+may be combined with any COMPIL-class commands.
+
+The   file may appear at any point after the first word in the
+command.  In this construction, the word file must be a file-
+name, which may have an extension and project-programmer number.
+If the extension is omitted, a search is made for the command
+file with a null extension and then for a command file with the
+extension .CMD.  The information in the command file specified
+is then put into the command string to replace the characters
+   file.
+
+For example, if the file FLIST contains the string
+
+   FILEB,FILEC/LIST,FILED
+
+then the command
+
+   .COMPILE FILEA,FILEB,FILEC/LIST,FILED,FILEZ
+
+could be replaced by
+
+   .COMPILE FILEA,  FLIST,FILEZ
+
+Command files may contain the   file construction to a depth
+of nine levels.  If this indirecting process results in files
+pointing in a loop, the maximum depth is rapidly exceeded and
+an error message is produced.
+
+The following rules apply in the handling of format characters
+in a command file.
+
+a.  Spaces are used to delimit words but are otherwise ignored.
+    Similarly, the characters TAB, VTAB, and FORM are treated
+    like spaces.
+
+b.  To allow long command strings, command terminators 
+    (CARRIAGE RETURN, LINE FEED, ALTMODE) are ignored if the
+    first nonblank character after a sequence of command terminators
+    is a comma.  Otherwise, they are treated either as commas by
+    the COMPILE, LOAD, EXECUTE and DEBUG commands or as command
+    terminators by all other COMPIL-class commands.
+
+c.  Blank lines are completely ignored because strings of
+    returns and line-feeds are considered together.
+
+d.  Comments may be included in command files by preceding the
+    comment with a semicolon.  All test from the semicolon
+    to the line-feed is ignored.
+
+e.  If command files are sequenced, the sequence numbers are
+    ignored.
+
+
+2.7.l.2  The + Construction* - A single relocatable binary file
+may be produced from a dollection of input source files by the
+"+" construction.  For example:  a user may wish to compile
+the parameter file, S.MAC, the switch file, FT50S.MAC, and
+the file that is the body of the program, COMCON.MAC.  This
+is specified by the following command:  
+
+   COMPILE S+FT50S+COMCON
+
+* Used in COMPILE, LOAD, EXECUTE, and DEBUG commands only.
+
+The name of the last input file in the string is given to
+any output (.REL, .CRF, and/or .LST) files, e.g., COMCON.
+in the preceding example.  The source files in the "+" construc-
+tion may each contain device and extension information and
+project-programmer numbers.
+
+
+
+2.7.l.3  The = Construction* - Usually the filename of the
+relocatable binary file is the same as that of the source file,
+with the extension specifying the difference.  This can be 
+changed by the "=" construction, which allows a filename other
+than the source filename to be given to the associated output
+files.  For example:  if a binary file is desired with the name
+BINARY.REL from a source program with the name SOURCE.MAC, the
+following command is used.
+
+   .COMPILE BINARY=SOURCE
+
+* Used in COMPILE, LOAD, EXECUTE AND DEBUG commands only.
+
+This technique may be used to specify an output name to a file
+produced by use of the "+" construction.  To give the name
+WHOLE.REL to the binary file produced by PARTl.MAC and
+PART2.MAC, the following is typed.
+
+   .COMPILE WHOLE=PARTl+PART2
+
+Although the most common use of the "=" construction is to
+change the filename of the output files, this technique may 
+be used to change any of the other default conditions.  The
+default condition for processor output is DSK:source.REL
+(self).   For example:  if the output is desired on DTA3 with
+the filename FILEX, the following command may be used:
+
+    EXECUTE DTA3:FILEX=FILEl.F4
+
+
+2.7.l.4  The ( ) Construction* - The ( ) construction causes the
+programs within the angle brackets to be assembled with the same
+parameter file.  If a + is used, it must appear before the ( )
+construction.  For example:  to assemble the files LPTSER.MAC,
+PTPSER.MAC, and PTRSER.MAC, each with the parameter file
+S.MAC, the user may type
+
+   .COMPILE S+LPTSER, S+PTPSER, S+PTRSER
+
+With the angle brackets, however, the command becomes
+
+   .COMPILE S+(LPTSER,PTPSER,PTRSER)
+
+The user cannot type
+
+   .COMPILE (LPTSER,PEPSER,PTRSER)+S
+
+
+2.7.2  Compile Switches (Used in COMPILE, LOAD, EXECUTE and
+                         DEBUG commands only)
+
+The COMPILE, LOAD, EXECUTE and DEBUG commands may be modified
+by a variety of switches.  Each switch is preceded by a 
+slash and is terminated by any non-alphanumeric character,
+usually a space or a comma.  An abbreviation may be used if it
+uniquely identifies a particular switch.
+
+These switches may be either temporary or permanent.  A temporary
+switch is appended to the end of the filename, without an inter-
+vening space, and applies only to that file.
+
+Example:
+
+   .COMPILE A,B/MACRO,C   (The MACRO assembler applies only
+                           to file B.)
+
+A permanent switch is set off from filenames by spaces, commas
+or any combination of the two.  It applies to all the following
+files unless modified by a subsequent switch.
+
+Example
+
+   .COMPILE /MACRO A,B,C
+   .COMPILE A /MACRO B,C
+   .COMPILE A,/MACRO,B,C
+   .COMPILE A,/MACRO B,C
+
+
+2.7.2.l  Compilation Listings (Used in COMPILE, LOAD, EXECUTE
+and DEBUG commands only) - Listing files may be generated by
+switches.  The listings may be of the ordinary or the cross-
+reference type.  The operation of the switch produces a disk file
+with the extension .LST.
+
+The compile-switches LIST and NOLIST cause listing and nonlisting
+of programs and may be used as temporary or permanent switches.
+
+Listings of all three programs are generated by
+
+   .COMPILE /LIST A,B,C
+
+A listing only of program A is generated by
+
+   .COMPILE A/LIST,B,C
+
+Listings of programs A and C are generated by
+
+   .COMPILE /LIST A,B/NOLIST,C
+
+The compile-switch CREF is like LIST, except that a cross-
+reference listing is generated, to be processed later by
+the CREF CUSP.
+
+Unless the /LIST or /CREF is specified, no listing file is
+generated.  When listing files are generated, the LIST and
+CREF commands can then be used to obtain printer output of the
+listing files.
+
+Since the LIST, NO LIST and CREF switches are commonly used,
+the switches L, N, and C are defined with the corresponding
+meansings, although there are (for instance) other switches
+beginning with the letter L.  Thus, the command
+
+   .COMPILE /L A
+
+produces a listing file A.LST (and A.REL).
+
+
+2.7.2.2  Standard Processor - The standard processor is used
+to compile or assemble programs that do not have the extensions
+.MAC, .CBL, .F4, or .REL.  A variety of switches set the
+standard processor.  If all source files are kept with the
+appropriate extensions, this subject can be disregarded.
+
+If the command
+
+   .COMPILE A
+
+is executed and there is a file named A. (that is, with a
+blank extension), then A. will be translated to A.REL
+by the standard processor.  Similarly, if the command
+
+   .COMPILE FILE.NEW
+
+is executed, the extension .NEW, although meaningful to the user,
+does not specify a language; therefore, the standard
+processor is used.  The user must be able to control the
+setting of the standard processor which is FORTRAN IV at
+the beginning of each command string.
+
+The standard processor may be changed by the following compile-
+switches.
+
+COBOL      change standard to COBOL
+C          same as COBOL
+MACRO      change standard to MACRO
+M          same as MACRO
+FORTRAN    change standard to FORTRAN IV
+F          same as FORTRAN
+REL        change standard to use relocatable binary; i.e.,
+           use existing .REL files, although a newer source
+           file may be present (useful primarily in LOAD, EXECUTE,
+           DEBUG commands).
+
+These switches may be temporary or permanent.  For example,
+assume that programs A, B and C exist on the disk with the 
+blank extensions.  Then
+
+   .COMPILE A,B/M,C
+
+will cause A and C to be translated by FORTRAN, B by MACRO.  Also,
+
+   .COMPILE A,/M B,C
+
+will cause A to be translated by FORTRAN, B and C by MACRO.
+
+Note:  Programs with .MAC, .CBL and .F4 extensions are always
+       translated by the extension implied, regarless of the
+       standard processor unless forced by a temporary switch.
+
+
+2.7.2.3  Forced Compilation - Compilation (or assembly) occurs if 
+the source file is at least as recent as the relocatable binary
+file.  The creation time for files is kept to the nearest minute.
+Therefore, it is possible for an unnecessary compilation to
+occur.  If the binary is newer than the source, the translation
+does not usually have to be performed.
+
+There are cases, however, where such extra translation may be
+desirable (e.g., when a listing of the assembly is desired).
+To force such an assembly, the switch COMPILE is provided, in
+temporary and permanent form.  For example
+
+   .COMPILE /CREF/COMPILE A,B,C
+
+will create cross-reference listing files A.CRF, B.CRF, and
+C.CRF, although current .REL files may exist.  The binary files
+will also be recreated.
+
+The corresponding switch NOCOMPILE is also provided, to turn
+off the forced-compile mode.  Note that this differs from the
+/REL switch, which turns off even the normal compilation caused
+by a source file that is newer than the .REL file.
+
+
+2.7.2.4  Library Searches - The LOADER normally performs a library
+search of the FORTRAN library.  If it is necessary to search
+other files as libraries, the compile-switches LIBRARY and
+NOSEARCH (ts complement) are provided.  The switch /LIBRARY
+(equivalent to /LIB) signifies that all files to which it
+applies are searched in library search mode.  The switch 
+/NOSEARCH (equivalent to /N) signifies that all routines of the
+file to which it applies are loaded regardless of whether the
+routines are referenced or not.  This is the normal loading
+mode, and the/NOSEARCH is used only to turn off the library
+search mode.  Note that /NOSEARCH is not equivalent to /P
+of the Loader.
+
+For example:  if a special library file named SPCLIB.REL were
+kept on device SYS at a particular installation, to compile and
+load a use rprogram, library search the special library, and
+search the normal FORTRAN library, the following command could
+be used.
+
+   .LOAD MAIN,SYS:SPCLIB/LIB
+
+At this point, it should be noted that the program SPCLIB is not
+assembled simply because its source file is presumably not on
+device SYS.  The COMPILE process will compile any program named
+in the command string, if its source is present and not older than
+the .REL file, unless prevented by the/REL switch.
+
+
+2.7.2.5  Loader Maps - Loader maps are produced during the loadin
+process by the compile-switch MAP.  When the MAP switch is 
+encountered, a loader map is requested from the loader.  The map
+will be written with filename MAP.MAP, in the user's disk area.
+
+The MAP compile-switch is the one exception to the permanent
+compile-switch rule, in that it causes only one map to be
+output, although it may appear as a permanent switch.
+
+
+2.7.3  Processor Switches  (Used in COMPILE, LOAD, EXECUTE 
+                            and DEBUG commands only.)
+
+Occasionally it is necessary to pass switches to the assembler
+or compiler.  For each translation (assembly or compilation),
+a command string is sent to the translator containing three
+parts:  the source files, a binary output file, and a listing
+file.  To add switches to those files, the user must:
+
+a.  If the + construction is used, group the switches according
+    to each related source filename.
+
+b.  Group the switches according to the three types of files
+    (source, binary, and listing) for each source filename.
+
+c.  For each source filename, separate the groups of switches 
+    by commas.
+
+d.  Enclose all the switches for each source filename within one
+    set of parentheses.
+
+       (SSSS)               Only source switches are present
+
+       (SSSS,BBBB)          Source and binary switches are present
+
+       (SSSS,BBBB,LLLL)     Source, binary and listing switches
+                            are present.
+
+e.  Place each parenthesized string immediately after the source
+    filename to which it refers.
+
+Examples:
+
+.DEBUG TEST(N)                     Suppress typeout of errors 
+                                   during assembly.
+
+COMPILE OUTPUT=MTAO:(W,S,M)/L      Rewind the magtape (W), compile
+                                   first file, produce binary output
+                                    for PDP-6(S), and eliminate the
+                                   MACRO coding from output listing (M).
+                                   Output files are given the names
+                                   OUTPUT.REL and OUTPUT.LST.
+
+.COMPILE/MACRO A=MTAO:(W,,Q)/L     Rewind magtape (W), compile first
+                                   file and suppress Q (questionable)
+                                   error indications on listing. Note
+                                   that when a binary switch is not
+                                   present, the delimiting comma must
+                                   appear.
+
+.COMPILE /MACRO A=MTAO:(,,Q)/L     Compile file at current position
+                                   of tape and suppress Q error
+                                   indications on listing.  Note
+                                   that when source and binary switches
+                                   are not present, the delimiting
+                                   comma must appear.
+
+
+2.7.4  Loader Switches
+
+In usually complex loading processes, it may be necessary to
+pass loader-switches to the LOADER to direct its operation.  
+This is accomplished by the   character.  The   has the same
+meaning as that of the / in the loader's command string.  Also,
+like the /, the   takes one letter (or a sequence of digits and
+one letter) following it.  Therefore, to set a program origin of
+6000 for program C, the user types
+
+   .LOAD A,B,  600000OC,D
+
+The most commonly used switches are:
+
+a.   S Load with symbols
+b.   nO Set program origin to n
+c.   F Cause early search of FORTRAN library
+d.   P Prevent FORTRAN library search.
+
+
+2.7.5  Temporary Files
+
+The COMPIL CUSP deciphers the commands found in Tables 2-3 and
+2-5 and constructs new commands for the referenced CUSPs.
+These new commands are written as temporary files in core, or
+if the TMPCOR area if sull, on the disk, as are all of the 
+monitor-level commands.  COMPIL and the other CUSPs transfer
+control directly to one another without requiring additional
+typed-in commands from the user.
+
+Temporary filenames have the following form:
+
+   nnnxxx.TMP
+
+where nnn is the user's job number in decimal, with leading
+zeroes to make three digits and xxx specifies the use of the
+file.  In the filenames listed below, job number l will be
+assumed.
+
+
+2.7.5.l  00lSVC.TMP - This file contains the most recent COMPILE,
+LOAD, EXECUTE or DEBUG command that includes arguments.  It
+is used to remember those arguments.  (refer to Paragraph 2.7).
+
+
+2.7.5.2  00lEDS.TMP - This file contains the most recent EDIT,
+CREATE, TECO, or MAKE command that included an argument.  It is
+used to remember that argument.  (Refer to Paragraph 2.5).
+
+
+2.7.5.3  00lMAC.TMP - This file contains commands to MACRO.  It
+is written by COMPIL, and read by MACRO.  It contains one line
+for each program to be assembled, and (if required) the command
+
+     NAME
+ 
+to cause MACRO to transfer control to the named CUSP ("name" may
+be F40,LOADER).
+
+
+2.7.5.4  00lFOR.TMP - This file corresponds to the one described
+in the preceding section, except that it is read by the FORTRAN IV
+compiler, F40.
+
+
+2.7.5.5  00lCOB.TMP - This file corresponds to the one described
+in Paragraph 2.7.5.3, except that it is read by the COBOL
+compiler.
+
+
+2.7.5.6  00lPIP.TMP - This file is written by COMPIL and read by
+PIP.  It contains ordinary PIP commands to implement the DIRECTORY,
+LIST, TYPE, RENAME nand DELETE commands.
+
+
+2.7.5.7  00lCRE.TMP - This file is written by COMPIL and read by
+CREF.  It contains commands to CREF corresponding to each file
+which has produced a CREF listing on the disk.
+
+COMPIL also reads this file, if it exists, each time a new CREF
+listing is generated, to prevent multiple requests for the same file,
+and to prevent discarding other requests that may not yet have 
+been listed.
+
+
+2.7.5.8  00lEDT.TMP - This file is written by COMPIL for
+each EDIT, CREATE, TECO or MAKE command, and is read by
+either the LINED or TECO CUSP.
+
+For the commands MAKE or CREATE, it contains the command
+
+     EW file.ext  $   $  or Sfile.ext $
+
+For the commands TECO or EDIT, it contains the command
+
+     EB file.ext  $  $ or Sfile.ext#
+
+2.7.5.9  oolLOA.TMP - This file is written by COMPIL and coantains
+commands to LOADER that are necessary for loading programs.
+
+
+
+2.8  RUN CONTROL COMMANDS
+
+By using a run control command, the user can load core image files
+from retrievable storage devices (i.e., disk, DECtape, magnetic
+tape).  These files can be retrieved and controlled from the user's
+console.  Files stored on disk and DECtape are addressable by
+name.  Files on magnetic tape require the user to preposition
+the tape to the beginning of the file.  (Refer to Table 3-l for
+the description of the job data area locations referenced by
+commands below).
+
+
+   RUN (RU)
+
+Function
+--------
+
+The RUN command loads a core image from a retrievable storage
+device and starts it at the location specified within the file
+(JOBSA).
+
+If the program has two segments, both the low and high segments
+are set up.  If the high file has extension .SHR (as aopposed
+to .HGH), the high segment will be shared.  A two-segment
+program may have a low file extension (.LOW).
+
+Command Format
+--------------
+
+RUN dev:file.ext(proj.prog) core
+
+dev = the logical or physical name of the device containing
+the core image.  This argument is required.
+
+file.ext = the name of the file containing the core image;
+.ext applies to the low file, not the high file.  An extension
+of .SHR, then .HGH, is assumed for the high file.  If the user
+types an extension of .SHR or .HGH, the extension is treated as a 
+null extension since .SHR and .HGH are confusing as low file
+extensions.  The filename argument is required.
+
+(prog.proj) = The project-programmer number; required only if core
+cimage file is located in a disk area other than the users.
+
+core = the amount of core to be assigned to the sum of the low
+and high segments if different from minimum core needed to load
+the program or from the core argument of the SAVE command which
+saved the file.
+
+if core   the minimum low segment size, then an error message
+occurs.
+
+If core   the minimum low segment size and    the sum of the 
+high segment and the minimum low segment size, then the core
+assignment is low segment size.
+
+If core   the sum of the minimum low segment and the high segment
+size, then the core assignment is the size of both the low and
+high segments to be used.
+
+Since previous core is returned, MTA must have the core
+argument because there is no directory telling how much core
+is for the low segment.  (Refer to Paragraph 2.8.l).
+
+Characteristics
+---------------
+
+The RUN command:
+
+   places the console in user mode,
+   requires a job number and login.
+
+Restrictions
+------------
+
+On systems with a large amount of core memory, the user should
+not specify a core argument that forces the high segment to
+start higher than 400000 unless the program high segment is self-
+relocating.  If this is done, the ILLEGAL UUO error message is
+likely to occur.
+
+Associated Messages
+-------------------
+
+?dev: NOT AVAILABLE
+
+   The device has been assigned to another job.
+
+?NO SUCH DEVICE
+
+   The device does not exist in this monitor configuration.
+
+?nK OF CORE NEEDED
+   There is insufficient free core to load the file.
+
+?NOT A SAVE FILE
+
+-  The file is not a core image file.
+
+?TRANSMISSION ERROR
+
+   A parity or device error occurred during loading.
+
+?file.ext NOT FOUND
+   The program file requested cannot be found on specified device.
+
+?NO START ADR
+
+   Starting address was 0 because the user filed to specify a
+   starting address in the END statement of the source program.
+
+?ADDRESS CHECK FOR DEVICE dev
+
+   The save file is too large for the core assigned.
+
+Examples
+--------
+
+.RUN DSK:TEST#
+
+.RUN DSK:HISTST (l0,63)#
+
+
+
+   R (R)
+
+Function
+--------
+
+The R command is the same as RUN SYS;file.ext core.  This command
+is the usual way to run a CUSP that does not have a direct
+monitor command to run it.
+
+
+Command Format
+--------------
+
+R file.ext core
+
+Arguments are the same as in the RUN command except that no
+device may be specified.
+
+The extension applies to the low file, not the high file.  An
+extension of .SHR then .HGH, is assumed for the high file.  If
+the user types an extension of .SHR or .HGH, the extension is
+treated as a null extension since .SHR and .HGH are confusing
+as low file extensions.  The filename argument is required.
+
+Characteristics
+---------------
+
+The R command:
+
+   places the console in user mode,
+   runs a CUSP,
+   requires a job number and LOGIN.
+
+Associated Messages
+-------------------
+
+?dev: NOT AVAILABLE
+
+   The device has been assigned to another job.
+
+?NO SUCH DEVICE
+
+   The device does not exist in this monitor configuration.
+
+?nK OF CORE NEEDED
+
+   There is insufficient free core to load the file.
+
+?NOT A SAVE FILE
+
+   The file is not a core image file.
+
+?TRANSMISSION ERROR
+
+   A parity or device error occurred during loading.
+
+?file.ext NOR FOUND
+
+   The program file requested cannot be found on specified device.
+
+?NO START ADR
+
+   Starting address was 0 because the user failed to specify a
+   starting address in the end statement of the source program.
+
+?ADDRESS CHECK FOR DEVICE dev
+
+   The save file is too large for the core assigned.
+
+Examples
+--------
+
+.R PIP#
+
+*
+
+.R PIP 5#
+
+*
+
+
+   GET (G)
+
+Function
+--------
+
+The GET command is the same as the RUN command except that the
+monitor types out
+
+   JOB SETUP
+
+and does not start execution.
+
+Command Format
+--------------
+
+GET dev:file.ext(proj.prog) core
+
+The arguments are the same as in the RUN command.
+
+The extension applies to the low file, not the high file.  An
+extension of .SHR, then .HGH, is assumed for the high file.  If
+the user types an extension of .SHR or .HGH, the extension is
+treated as a null extension since .SHR and .HGH are confusing
+as low file extensions.  The filename argument is required.
+
+Characteristics
+---------------
+
+The GET command:
+
+   leaves the console in monitor mode,
+   does not allow an active device,
+   requires a job number and LOGIN.
+
+Associated Messages
+-------------------
+
+?dev:  NOT AVAILABLE
+
+   The device has been assigned to another job.
+
+?NO SUCH DEVICE
+
+   The device does not exist in this monitor configuration.
+
+?nK OF CORE NEEDED
+
+   There is insufficient free core to load the file.
+
+?NOT A SAVE FILE
+
+   The file is not a core image file.
+
+?TRANSMISSION ERROR
+
+   A parity or device error occurred during loading.
+
+?file.ext NOT FOUND
+
+   The program file requested cannot be found on specified device.
+
+?ADDRESS CHECK FOR DEVICE dev
+
+   The save file is too large for the core assigned.
+
+Example
+-------
+
+.GET SYS:PIP#
+
+JOB SETUP
+
+.
+
+
+   START (ST)
+
+Function
+--------
+
+The START command begins execution of a program previously
+loaded with the GET command.  The old program counter is copied
+from JOBPC to JOBOPC.
+
+Command Format
+--------------
+
+START adr
+
+   adr = the address at which execution is to begin if other
+         than the location specified within the file (JOBSA).  
+         This argument is optional.  If adr is not specified,
+         the starting address comes from JOBSA.
+
+Characteristics
+---------------
+
+The START command:
+   places the console in user mode,
+   does not allow an active device,
+   requires core,
+   requires a job number and LOGIN.
+
+Associated Messages
+-------------------
+
+?NO CORE ASSIGNED
+
+   No core was allocated to the user when the GET command was
+   given, and no core argument was specified in the GET.
+
+?NO START ADR
+
+   Starting address was 0 because the user failed to specify
+   a starting address in the END statement of the source program.
+
+Example
+-------
+
+.START#
+
+
+
+   HALT (%C)
+
+Function
+--------
+
+The HALT (%C) command transmits a HALT command to the monitor
+command interpreter.  It stops the job and stores the program
+counter in the job data area (JOBPC).  Refer to Paragraph
+2.l.l).
+
+Command Format
+--------------
+
+HALT (%C)
+
+Characteristics
+---------------
+
+The HALT (%C) command:
+
+   places the console in monitor mode.
+
+Associated Messages
+-------------------
+
+None
+
+Example
+-------
+
+%C
+
+.
+
+
+   CONT (CON)
+
+Function
+--------
+
+The CONT command starts the program at the saved program
+counter address stored in JOBPC by a HALT command (%C) or
+a HALT instruction.
+
+Command Format
+--------------
+
+CONT
+
+Characteristics
+---------------
+
+The CONT command:
+
+   places the console in user mode,
+   requires core,
+   requires a job number and LOGIN.
+
+Associated Messages
+-------------------
+
+?CAN'T CONTINUE
+
+   The job was halted due to a monitor-detected error and cannot
+   be continued.
+
+Example
+-------
+
+.CONT#
+
+
+   DDT (DD)
+
+Function
+--------
+
+The DDT command copies the saved program counter value from JOBPC
+into JOBOPC and starts the program at an alternate entry point
+specified in JOBDDT (beginning address of DDT as set by
+Linking Loader).  DDT contains commands to allow the user to
+start or resume at any desired address.
+
+Command Format
+--------------
+
+DDT
+
+Characteristics
+---------------
+
+The DDT command:
+
+   places the console in user mode,
+   requires core,
+   requires a job number and LOGIN.
+
+Associated Messages
+-------------------
+
+?NO START ADR
+
+   DDT starting address was 0 (JOBDDT).
+
+Example
+-------
+
+.DDT#
+
+
+   REENTER (REE)
+
+Function
+--------
+
+The REENTER command is similar to the DDT command.  It copies the
+saved program counter value from JOBPC into JOBOPC and starts
+the program at an alternate entry point specified in JOBREN
+(must be set by the user or his program.)
+
+Command Format
+--------------
+
+REENTER
+
+Characteristics
+---------------
+
+The REENTER command:
+
+   places the console in user mode,
+   requires core,
+   requires a job number and LOGIN.
+
+Associated Messages
+-------------------
+
+?NO START ADR
+
+   REENTER starting address was 0 (JOBREN).
+
+Example
+-------
+
+.REE#
+
+
+   E (E)
+
+Function
+--------
+
+The E command examines a core location in the user's area 
+(high or low segment).
+
+Command Format
+--------------
+
+E adr
+
+   Adr is required the first time the E or D command is used.
+   If adr is specified, the contents of the location are typed
+   out in half-word octal mode.
+
+   If adr is not specified, the contents of the location following
+   the previously specified E adr or the location of the previous
+   D adr (whichever was last) are typed out.
+
+Characteristics
+---------------
+
+The E command:
+
+   leaves the console in monitor mode,
+   requires core,
+   requires a job number and LOGIN.
+
+Associated Messages
+-------------------
+
+?OUT OF BOUNDS
+
+   The specified adr is not in the user's core area.
+
+Example
+-------
+
+.E l40#
+000l40/ 264000 0026l6  .E
+000l4l/ 000000 000000  .E
+000l42/ 000000 000000  .
+.
+
+
+   D (D)
+
+Function
+--------
+
+The D command deposits information in the user's core area
+(high or low segment).
+
+Command Format
+--------------
+
+D lh rh adr
+
+   lh = the octal value to be deposited in the left half of
+   the location.  This argument is required.
+
+   rh = the octal value to be deposited in the right half of
+   the location.  This argument is required.
+
+   adr = the address of the location into which the information
+   is to be deposited.  This argument is optional.
+
+   If adr is omitted, the data is deposited in the location
+   following the last D adr or in the location of the last E
+   adr (whichever was last).
+
+Characteristics
+---------------
+
+The D command:
+
+   leaves the console in monitor mode,
+   requires core,
+   requires a job number and LOGIN.
+
+Associated Messages
+-------------------
+
+?OUT OF BOUNDS
+
+   The specified adr is not in the user's core area, or the
+   high segment is write protected and the user does not have
+   write privileges to the file that initialized the high segment.
+
+Example
+-------
+
+.D 266000 26l6 l40
+
+.
+
+.E l40
+000l42/ 047000 000000  .D 47000 l
+
+.E
+000l40/ 047000 00000l  .
+
+
+   SAVE (SA)
+
+Function
+--------
+
+The SAVE command writes out a core image of the user's core
+area on the specified device.  It saves any user program
+(reentrant, one segment non-reentrant, or two segment non-
+reentrant) as one or two files.  Later, when the program is
+loaded by a GET, R, or RUN command, it will be non-reentrant.
+If DDT was loaded with the program, the entire core area is
+written, if not, the area starting from zero up through the
+program break (as specified by JOBFF) is written.
+
+Command Format
+--------------
+
+SAVE dev:file.ext core
+
+   dev: = the device on which the core image file is to be
+   written.  This argument is required.
+
+   file.ext = the name to be assigned to the core image 
+   file.  The filename is required; the filename extension is
+   optional.  Ext applies to the low file, not the high file.
+   An extension of .SHR, then .HGH, is assumed for the high
+   file.  If the user types an extension of .SHR or .HGH, the
+   extension is treated as a null extension since .SHR and .HGH
+   are confusing as low file extension.s  If ext is omitted and
+   the program has only one segment, the ext is assumed to be
+   .SAV.  If ext is omitted and the program has two segments,
+   the high segment will have extension .HGH, and the low
+   segment will have extension .LOW.
+
+   core = the amount of core in which the program is to be
+   run.  This value is stored in JOBDAT as the job's core area
+   (JOBCOR) and is used by the RUN and GET commands.  Specified
+   as number of lK blocks.  This argument is optional.
+
+   If core is omitted, only the number of blocks required by
+   the core image area (as explained previously) is assumed.
+
+Characteristics
+--------------
+
+The SAVE command:
+
+   leaves the console in monitor mode,
+   requires core,
+   does not allow an active device,
+   requires a job number and LOGIN.
+
+Associated Messages
+-------------------
+
+?nK CORE NEEDED
+
+   The user's current core allocation is less than the contents
+   of JOBFF.
+
+?DEVICE dev NOT AVAILABLE
+
+   Device dev: is assigned to another user.
+
+?TRANSMISSION ERROR
+
+   An error was detected while reading or writing the core image
+   file.
+
+?ENTER FAILURE
+
+   The ENTER to write the file failed.  The error code may be
+   seen by examining location l.
+
+JOB SAVED
+
+   The output is completed.
+
+?NO SUCH DEVICE
+
+   The device does not exist in this configuration.
+
+Example
+-------
+
+.SAVE DSK:TEST#
+JOB SAVED
+.
+
+
+   SSAVE (SSA)
+
+Function
+--------
+
+The SSAVE command is the same as the SAVE command except that 
+the high segment, if present, will be sharable when it is loaded
+with the GET command.  To indicate this sharability, the high segment
+is written with extension .SHR instead of .HGH.  A subsequent
+GET will cause the high segment to be sharable.  Because an
+error message is not given if the program does not have a high
+segment, a user can use this command to save CUSPs without having
+to know which are sharable.
+
+Command Format
+--------------
+
+SSAVE dev:file.ext core
+
+   Arguments are the same as in the SAVE command.
+
+Characteristics
+---------------
+
+The SSAVE command:
+
+   leaves the console in monitor mode,
+   requires core,
+   does not allow an active device,
+   requires a job number and LOGIN.
+
+Associated Messages
+-------------------
+
+?nK CORE NEEDED
+
+   The user's current core allocation is less than the
+   contents of JOBFF.
+
+?DEVICE dev NOT AVAILABLE
+
+   Device dev: is assigned to another user.
+
+?TRANSMISSION ERROR
+
+   An error was detected while reading or writing the core
+   image file.
+
+?ENTER FAILURE
+
+   The ENTER to write the file failed.  The error code may be
+   seen by examining location l.
+
+JOB SAVED
+
+   The output is completed.
+
+?NO SUCH DEVICE
+
+   The device does not exist in this configuration.
+
+Example
+-------
+
+.SSAVE DSK:TEST#
+JOB SAVED
+.
+
+
+2.8.l  Additional Information on SAVE and SSAVE
+
+Before writing SAVed or LOW files in response to SAVE and SSAVE
+commands, the monitor compresses the user's core image by
+eliminating consecutive blocks of zeroes.  This technique is
+known as zero-compression and is used to save space on file
+media.  Low segment files are zero-compressed on devices DTA,
+MTA and DSK, but high segment files are not because the high
+segment may be shared at the time of the command.
+
+Saved files are ordinary binary files and can be copied using
+the /B switch in PIP.  Files with the LOW or SAV extension may
+be read in dump mode, but must be reexpanded before being run.
+The monitor expands the file after input on a RUN, R, or GET
+command.
+
+The data format of a zero-compressed saved file consists of
+a series of IOWDs and data block pairs and is terminated by a
+JRST A where A is the contents of JOBSA.  The format is as
+follows:
+
+
+
+
+
+
+
+
+
+Each IOWD describes the length of the following data block and
+the original location of the data in core.
+
+Saved files are read into the user's core area starting at 
+location JOBSAV and then are expanded to occupy the 
+original relative locations.  If the first word read is not
+an IOWD and is positive, an old-format, non-compressed
+saved file is assumed and no expansion is performed.
+
+A SAVE command issued to a magnetic tape writes:
+
+a.  A high segment (possibly null).
+b.  An EOF
+c.  A low segment.
+d.  An EOF.
+
+
+
+
+
+
+
+
+The monitor does not determine the file size of a low segment
+on a GET from magnetic tape; therefore, a user must always
+specify a core argument or have enough core assigned to his
+job for the file.
+
+To save file space, only the high segment up through the highest 
+location (relative to high segment origin) loaded, as
+specified in the LH of JOBHRL, will be written by the SAVE 
+command.  If LH is zero (high segment created by CORE or REMAP
+UUO) or DDT is present, the entire high segment will be written.
+
+Most programs are written so that only the high segment contains
+non-zero data.  This also saves file space and I/O time with
+the GET command.  SAVE writes the high segment (.HGH) only.  
+The LOADER indicates to the SAVE command that no data was loaded
+above the job data area in the low segment by setting the LH of
+JOBCOR to the highest location loaded in the low segment 
+with non-zero data.
+
+A number of locations in the job data area need to be initialized
+on a GET, although there is no other data in the low segment.
+The SAVE command copies these locations into the first l0
+                                                         8
+locations of the high segment, provided it is not sharable. 
+The l0 locations are referred to as the vestigial job data
+area (refer to Paragraph 3.2.2.3).  Therefore, the LOADER will
+load high segment programs starting at location 4000l0.
+
+To prevent user confusion, SAVE and SSAVE delete a previous
+file with the extension .SHR or .HGH; therefore, SAVE deletes
+a file with the extension .SHR and SSAVE deletes a file with the
+extension .HGH.  SAVE and SSAVE commands also delete files with
+the extension .LOW, if the high segment was the only segment
+written.
+
+The regular access rights of the saved file indicate whether a
+user can perform a GET, R, or RUN command.  These commands assume
+that the user wants to execute (but not modify) the high
+segment, independent of the access rights of the file used
+to initialize the segment.  The monitor always enables the
+hardware user-mode write protect to prevent the user program
+from storing into the segment inadvertently.
+
+To debug a reentrant CUSP in the system directory, the user 
+should make a private, nonsharable copy, rather than modify
+the shared version and possibly cause harm to other users.
+To make a private, nonsharable copy, the following commands are
+used:
+
+a.  GET SYS:cusp
+
+b.  SAVE dev:cusp      Writes a file in the user directory as
+                       nonsharable.  The high segment in the user's
+                       addressing space remains sharable.
+
+c.  GET dev:cusp       Overlays the sharable program with the
+                       nonsharable one from the user's directory.
+                       Now the user can make patches while other
+                       users share the version in the system directory.
+
+
+A SAVE of a one-segment program and a SSAVE of a two-
+segment program of the same name can coexist in the same
+directory, and the monitor keeps the two versions separate.
+This allows for a common library of reentrant and non-reentrant
+versions of the same CUSPs to service both the PDP-6 and PDP-l0.
+A sharable program may be superseded into the directory by the
+SSAVE command.  The monitor clears the high segment in its
+table of storable segments in use but does not remove the
+segment from the addressing space of users currently using it.
+Only the users doing a GET, R, or RUN command or a RUN or
+GETSEG UUO have the new sharable version.
+
+When the SAVE or SSAVE command is used to save a sharable
+program with only a high file, the monitor does not modify the
+vestigial job data area unless the user has write privileges
+to the file that initailized the shared segment.  This prohibits
+unauthorized users from modifying the first l0 locations of a
+shared segment.  This restriction does not exist if a low file
+is also written, because the GET command reads the low file
+after the high file.  The real job data area locations are
+set from the low file.
+
+
+2.9  DETACHED JOB CONTROL COMMANDS
+
+A job is detached if it is not under control of a user console.
+Any console can initiate any number of detached jobs.  Output
+to the console from a job running in a detached mode causes
+the job to stop.  When the console is attached to the job,
+the job is continued and the output is done.
+
+
+   PJOB (PJ)
+
+Function
+--------
+
+The PJOB command causes the monitor to respond with the job
+number to which the user's console is attached.
+
+Command Format
+--------------
+
+PJOB
+
+Characteristics
+---------------
+
+The PJOB command
+
+   leaves the console in monitor mode,
+   requires a job number and LOGIN.
+
+Associated Messages
+-------------------
+
+None
+
+Example
+-------
+
+.PJOB#
+l
+.
+
+
+   CSTART (CS)
+   CCONT (CC)
+
+Function
+--------
+
+The CSTART and CCONT commands are identical to the START and
+CONT commands, respectively, except that the console is left
+in the monitor mode.
+
+Command Format
+--------------
+
+CSTART
+CCONT
+
+To use:
+
+l.  Begin the program with the console in user mode.
+
+2.  Type control information to the program, then type %C to
+    halt the job with console in monitor mode.
+
+3.  Type CCONT to allow job to continue running and leave
+    console in monitor mode.
+
+4.  Additional monitor commands can now be entered from the
+    console.
+
+Characteristics
+---------------
+
+The CSTART and CCONT commands:
+
+   leave the console in monitor mode,
+   require core,
+   require a job number and LOGIN.
+
+Restrictions
+------------
+
+These commands should not be used when the user program (which
+is continuing to run) is also requesting input from the console.
+
+Associated Messages
+-------------------
+
+?NO CORE ASSIGNED
+
+   No core was allocated to the user when the GET command was
+   given, and no core argument was specified in the GET.
+
+?NO START ADR
+
+   Starting address was 0 because user failed to specify
+   a starting address in the END statement of the source program.
+
+?CAN'T CONTINUE
+
+   The job was halted due to a monitor-detected error and cannot
+   be continued.
+
+?PLEASE TYPE %C FIRST
+
+   A command which would start a job is issued after a CSTART
+   or CCONT.
+
+Example
+-------
+
+.CSTART#
+
+
+
+   DETACH (DET)
+
+Function
+--------
+
+The DETACH command disconnects the console from the user's job
+without affecting the status of the job.  The user console is
+now free to control another job, either by initiating a new job
+or attaching to a currently running detached job.
+
+Command Format
+--------------
+
+DETACH
+
+Characteristics
+---------------
+
+The DETACH command:
+
+   detaches the console,
+   requires LOGIN.
+
+Associated Messages
+-------------------
+
+FROM JOB n
+
+   This is an informative message the user the job number to
+   which the console was attached.
+
+Example
+-------
+
+.DETACH#
+FROM JOB l
+.
+
+
+
+   ATTACH (AT)
+
+Function
+--------
+
+The ATTACH command detaches the current job, if any, and connects
+the console to a detached job.
+
+Command Format
+--------------
+
+ATTACH job (proj,prog)
+
+   job = the job number of the job to which the console is
+   to be attached.  This argument is required.
+
+   (proj,prog) = the project-programmer number of the originator
+   of the desired job.  This argument may be omitted if it is
+   the same as the job to which the console is currently
+   attached.  The operator (device OPR) may always attach to
+   a job although another console is attached, provided he
+   specifies the proper (proj,prog).
+
+Characteristics
+---------------
+
+The ATTACH command:
+
+   leaves the console in monitor mode.
+
+Associated Messages
+-------------------
+
+If an error message occurs, the console remains attached to
+its current job.
+
+?TTYn ALREADY ATTACHED
+
+   The job number typed is erroneous and is attached to another
+   console, or another user is attached to the job.
+
+?ILLEGAL JOB NUMBER
+
+   The specified job number is impossible.
+
+?NOT A JOB
+
+   The job number is not assigned to any currently running job.
+
+?CAN'T ATT TO JOB
+
+   The project-programmer number entered is not that of the
+   originator of the desired job.
+
+FROM JOB n
+
+   An informative message telling the user the job number, if 
+   any, from which the console is detaching.
+
+Example
+-------
+
+.ATT l(l0,63)#
+FROM JOB 5
+.
+
+
+
+2.l0  JOB TERMINATION COMMANDS
+
+When a user leaves the system, all facilities allocated to his
+jobs must be returned to the monitor facility pool so that
+they are available to others.
+
+
+   KJOB (K)
+
+Function
+--------
+
+In multiprogramming systems, the KJOB command:
+
+   Stops all assigned I/O devices and returns them to the
+   monitor pool.
+
+   Returns all allocated core to the monitor pool.
+
+   Returns the job number to the pool.
+
+   Leaves the console in the monitor mode,
+
+   Performs an automatic TIME command.
+
+In swapping systems, the KJOB command performs all the above
+procedures.  In addition, if the user has accessed any files,
+the command responds with
+
+   CONFIRM:
+
+The user may type %C to abort logout, or type an optional file
+structure name (or list of file structure names) preceded by
+one of the following:
+
+F#  to logout immediately saving all files (including temporary
+    files) as they are.
+
+D#  to delete all files on the specified file structures.
+    Responds with ARE YOU SURE? TYPE Y OR CR.
+
+K#  to delete all unpreserved (unprotected) files on the
+    specified file structures.
+
+P#  to save and preserve all but temporary files (TMP, CRF, LST)
+    on the specified file structures.
+
+S#  to save without preserving all but temporary files on the
+    specified file structures.
+
+L#  to list the directories of the specified file structures.
+
+I#  to individually determine what to do with all files on
+    the specified file structure as follows:
+
+After each filename is listed, type:
+
+P#  to preserve the file.
+
+S#  to save the file.
+
+K#  to delete the file.
+
+Q#  to leam if over logged-out quota on this file structure.
+
+E#  to skip to next file structure and save this file if
+    below logged-out quota for this file structure.
+
+H#  to get help.
+
+U#  to individually determine what to do with all but preserved
+    files.  Preserved files are always preserved.
+
+Q#  to leam if over logged-out quota on the specified file structures.
+
+H#  to type a message explaining how to get help.
+
+If no file structure names are specified, the responses are for
+all file structure names in the job search list.  If file
+structure names are specified, the responses apply only to
+those file structures, and CONFIRM is retyped.
+
+Command Format
+--------------
+
+KJOB
+
+Characteristics
+---------------
+
+The KJOB command:
+
+   detaches the console,
+   does not allow an active device.
+
+Associated Messages
+-------------------
+
+None
+
+Example
+-------
+
+.K#
+CONFIRM  I#
+DSKB:
+TEST4 .TST  055  2000.  BLKS   :K#
+TEST5 .TST  055  505. BLKS   :K#
+Tll     .BAK  055  5. BLKS   :K#
+T2      .BAK  055  5. BLKS   :K#
+T3      .BAK  055  5. BLKS   :K#
+TEST    .BAK  055  5. BLKS   :K#
+TEST    .REL  055  5. BLKS   :S#
+TEST    .MAC  055  5. BLKS   :P#
+TEST    .SHR  055  30. BLKS   :S#
+JOB 5, USER (l0,63) LOGGED OFF TTY24  2309  ll-SEPT-70
+DELETED 5 FILES 92020. DISK BLOCKS)
+SAVED 4 FILES (545. DISK BLOCKS)
+RUNTIME 0 MIN, 00.60 SEC
+
+
+
+2.ll  SYSTEM TIMING AND USAGE COMMANDS
+
+All system times are kept in increments of one-sixieth or one-
+fiftieth of a second, depending on the line frequency of the
+power connected to the PDP-l0.
+
+
+   DAYTIME (DA)
+
+Function
+--------
+
+The DAYTIME command types the date followed by the time of
+day.  The date and time are typed in the following format:
+
+   dd-mmm-yy  hh:mm:ss.hh
+
+where
+
+   dd = day
+   mmm = month
+   yy = year
+   hh = hours
+   mm = minutes
+   ss.hh = seconds to nearest hundredth.
+
+Command Format
+--------------
+
+DAYTIME
+
+Characteristics
+---------------
+
+The DAYTIME command:
+
+   leaves the console in monitor mode.
+
+Associated Messages
+-------------------
+
+None
+
+Example
+-------
+
+.DAY#
+ll-SEP-70 22:36:34
+.
+
+
+   TIME (TI)
+
+Function
+--------
+
+The TIME command causes typeout of the total running time since
+the last TIME command, followed by the total running time
+used by the job since it was initialized (logged in),
+followed by the integrated product of running time and core
+size (KILO-CORE-SEC=).  Time is typed in the following format:
+
+   hh:mm:ss.hh
+
+where
+
+   hh = hours
+   mm = minutes
+   ss.hh = seconds to nearest hundredth.
+
+INterrupt level and job scheduling times are charged to the
+user who was running when the interrupt or rescheduling 
+occurred.
+
+NOTE:  If automatic runtime is enabled using the WATCH command,
+       the incremental runtime is usually 0.
+
+Command Format
+--------------
+
+TIME job
+
+   job = the job number of the job whose timing is desired.
+   If job is omitted, the job to which the console is attached
+   is assumed.  In this case, monitor types out the incremental
+   running time (running time since last TIME command) as
+   well as the total running time since the job was initialized.
+
+Characteristics
+---------------
+
+The TIME command:
+
+   leaves the console in monitor mode.
+
+Associated Messages
+-------------------
+
+?ILLEGAL JOB NUMBER
+
+   The job number specified is impossible.
+
+Example
+-------
+
+.TIME#
+6.32
+6.32
+KILO-CORE-SEC=26
+.
+
+
+   R QUOLST
+
+Function
+--------
+
+The R QUOLST command runs the QUOLST CUSP and types the 
+reserved, logged-in and logged-out quotas followed by the
+number of free blocks left for each file structure in the job
+search list (refer to Paragraph 6.2.7).  In addition, the
+names of all the file structures in the system are typed
+followed by the number of free blocks in each file structure
+that are available to all users.
+
+Command Format
+--------------
+
+R QUOLST
+
+Characteristics
+---------------
+
+The R QUOLST command:
+
+   leaves the console in monitor mode,
+   runs the QUOLST CUSP,
+   requires a job number and LOGIN.
+
+Associated Messages
+-------------------
+
+None
+
+Example
+-------
+
+.R QUOLST#
+
+YOUR STRUCTURES:
+
+DSKB: RSRVD = 0 FCFS = 2000 QUOTA OUT = 5000 FREE = l7500
+
+SYSTEM STRUCTURES:
+
+DSKA:  FREE = 83l
+
+DSKB:  FREE = l6525
+
+EXIT
+.
+
+
+   WATCH (WAT)
+
+Function
+--------
+
+The WATCH command sets the system to print incremental job
+statistics automatically.
+
+Command Format
+--------------
+
+WATCH arg
+
+The following argument enables printing whenever a monitor
+command switches the console from monitor mode to user mode.
+
+   arg = DAY prints the time of day, as (HH:MM.SS)
+
+The following arguments enable printing whenever the console is
+returned to monitor mode via %C, EXIT, HALT, ERROR IN JOB n,
+DEVICE xxx OK?
+
+   arg = RUN prints the incremental run time.
+
+   arg = WAIT prints the wait time (time since the user started
+   or continued the program.)
+
+   arg = READ prints the incremental number of disk blocks read
+   modulo 4096.
+
+   arg = WRITE prints the incremental number of disk blocks
+   written modulo 4096.
+
+Any combination of the arguments may be specified in any order.
+If no argument is specified, the printing of all incremental job
+statistics is eliminated.  Each occurrence of the WATCH command
+clears the status of previous WATCH commands.  Statistics are
+not printed for commands that do not run programs, such as
+ASSIGN or PJOB.  When a user logs in, his job is set to WATCH
+no incremental statistics (installation option).
+
+The order of the error message is the same as the order of
+output.  Therefore, a user who forgets either the arguments or
+the significance of the statistics can find these out.  A
+single space is always typed between each statistic, whether
+the statistic appears or not; therefore, it is possible to tell
+which statistics are being typed.
+
+NOTE:  Enabling WATCH output interacts with the incremental
+       data typed by the TIME and DSK commands.
+
+Characteristics
+---------------
+
+The WATCH command:
+
+   leaves the console in monitor mode.
+
+Associated Messages
+-------------------
+
+?ARGS ARE:  DAY, RUN, WAIT, READ, WRITE
+
+   The user typed an illegal argument.
+
+Example
+-------
+
+.WATCH DAY RUN WAIT READ WRITE
+.
+.%C
+
+.R PIP#
+(22:38:l9)
+*%C
+(0.l0 2.95 457 243)
+
+.R PIP#
+(22:38:37)
+*LPT:!SYS:PARIO.SCP
+*%C
+(0.l7 22.43 6 0)
+
+.WATCH H#
+ARGS ARE: DAY,RUN,WAIT,READ,WRITE
+?
+.WATCH#
+.
+
+
+
+   SYSTAT (SYS)
+
+Function
+--------
+
+The SYSTAT command runs a CUSP which prints status information
+about the system.  This information sllows a user to determine
+the load on the system before logging-in.
+
+To divert the SYSTAT output to the line printer, assign the LPT
+with logical name SYSTAT.  To write the output on the disk as
+a file with name SYSTAT.TXT, assign device DSK with logical
+name SYSTAT.
+
+The SYSTAT command types the status of the system: system name,
+time of day, date, uptime, percent null time (idle plus lost
+time).
+
+It types status of each job logged-in:  job number (  after
+job number indicates the high segment has been superseded;
+    after the job number indicates the high segment is from
+a directory or device other than the CUSP directory on 
+device SYS); project-programmer number (**,** if detached);
+teletype number (CTY = console teletype, DET = detached);
+program name being run; program size; job and swapped state
+(refer to Paragraph 4.9.3.3); and run time since logged in.
+
+It types the status of high segments being used:  name (PRIV =
+nonsharable, OBS = superseded); device or file structure name
+from which the segment came; directory name (**,** if detached);
+size (SW = swapped out, SWF = swapped out and fragmented, F =
+in core and fragmented on disk, SPY = user is executing the 
+SPY UUO); number of users in core or on the disk.
+
+It types the status of dormant segments:  name, device
+name, directory name, size (SW = swapped out, SWF = swapped
+out and fragmented, F = in core and fragmented on disk).
+
+The command types swapping space used, virtual core used, 
+swapping ratio, virtual core saved by sharing.
+
+It types status of busy devices:  device name, job number,
+how device is assigned (AS = ASSIGN command, INIT = INIT
+or OPEN UUO, AS+INIT = both ways).
+
+It types system file structures:  name of file structures.
+
+Command Format
+--------------
+
+SYSTAT arg
+
+   arg = one or more single letters (in any order) used to type
+   any subset of the SYSTAT output.  This argument is optional.
+   The letters are as follows:
+
+   B = busy devices
+   D = dormant segments
+   F = file structures
+   H = options available
+   J = job information
+   N = all but job information
+   S = job information without state and run time.
+
+Characteristics
+---------------
+
+The SYSTAT command:
+
+   leaves the console in monitor mode,
+   runs the SYSTAT CUSP,
+   does not require LOGIN.
+
+Associated Messages
+-------------------
+
+None
+
+Example
+-------
+
+.SYSTAT#
+
+STATUS OF 5S.00l6 LEVEL D AT ll:59:ll ON 08-MAY-70
+
+UPTIME 0l:l9:07, 7  NULL TIME = IDLE+LOST = l   +  6
+
+JOB   WHO      WHERE    WHAT      SIZE   STATE      RUNTIME
+
+l     l0,6l2   TTY2     SYSTAT    2K     RN         00:00:0l
+2     20,574   TTY6     PIP       lK     Tl         00:02:l8
+3     **,**    TTYl5    SYSTAT    0K     %C         00:00:00
+4     **,**    DET      F40       lK     %C SW      20:00:0l
+5     **,**    DET      LOGOUT    lK     %C SW      00:03:42
+6     20,574   TTYl2    SYSTAT    2K     %C SW      00:00:0l
+7     ll,554   TTY4     F402lB    9K     Tl SWF     00:l3:43
+8     **,**    DET      PRINTR    4K     RN         00:00:ll
+9     l,2      TTYl3    OMOUNT    5K     SL SWF     00:00:03
+l0    2,l72    TTYl     FDS0l6    l8K    RN         00:35:5l
+ll    30,ll0   CTY      PIP       lK     Tl SW      00:00:05
+l2    l,l7l    TTY3     SYSTAT    2K     %C SW      00:00:0l
+l3    ll,l3l   TTY5     TECO      2K     RN         00:00:06
+l4    **,**    TTY0     LOGOUT    lK     Tl         00:00:0l
+
+HIGH SEGMENTS:
+PROGRAM DEVICE    OWNER     HIGH K     USERS
+
+(PRIV)            JOB 5     2K SW      l
+LOGOUT  DSK       SYS       2K         l
+PIP     DSK       SYS       3K SW      l
+TECO    DSK       SYS       2K         l
+F40     DSK       SYS       9K SW      l
+PIP     DSK       20,574    3K         l
+
+DORMANT SEGMENTS:
+PROGRAM DEVICE    OWNER     HIGH K
+
+COMPIL  DSK       SYS       3K SW
+MACRO   DSK       20,574    5K SW
+MACRO   DSK       SYS       5K SW
+CREF    DSK       SYS       lK SW
+LOGIN   DSK       SYS       lK SW
+RUNOFF  DSK       20,574    2K SW
+COMPIL  DSK       20,574    3K SW
+TECO    DSK       20,574    2K SW
+LOADER  DSK       20,574    3K SW
+
+   SWAPPING SPACE USED = 67/475 = l4
+   VIRT. CORE USED = 70/475 = l5
+SWAPPING RATIO = 70/39 = l.8
+
+BUSY DEVICES:
+DEVICE  JOB   WHY
+
+LPT     8     INIT
+DTA0    2     AS
+DTAl    l3    AS+INIT
+DTA2    l0    AS
+DTA3    9     AS
+DTA4    2     AS
+DTA5    l2    AS
+DTA7    7     AS
+
+SYSTEM FILESTRUCTURES:
+DSKA,DSKB,DSKC,
+
+
+
+   DSK (DS)
+
+Function
+--------
+
+The DSK command types disk usage for the combined structures
+of the job, since the last DSK command followed by the total
+disk usage since the job was initialized (logged in).
+Disk usage is typed in the following format:
+
+   RD,WT=I,J
+   RD,WT=M,N
+
+where I and J are the incremental number of l28-word blocks read
+and written since the last DSK command, and M and N are the
+total number of l28-word blocks read and written since
+LOGIN.
+
+NOTE:  I and J are kept modulo 4096.  If automatic READ or WRITE
+       print outs have been enabled using the WATCH command,
+       I and J are usually zero, since the WATCH output also
+       resets these values.
+
+Command Format
+--------------
+
+DSK job
+
+   job = the job number of hte job for which the disk usage
+   is desired.  This argument is optional.
+
+   If job is omitted, the job to which the console is attached
+   is assumed.
+
+   If job is supplied (whether the job of this user or another
+   user) the incremental quantities are not reset to zero.
+
+Characteristics
+---------------
+
+The DSK command:
+
+   leaves the console in monitor mode,
+   requires a job number and LOGIN.
+
+Associated Messages
+-------------------
+
+?NOT A JOB NUMBER
+
+   The job number specified is not assigned to any currently
+   running job.
+
+Example
+-------
+
+.DSK#
+RD,WT=l2,0
+RD,WT=475,243
+.
+
+
+2.l2  TELETYPE CHARACTERISTICS COMMAND
+
+The TTY command accepts text arguments and modifies the monitor
+table of characteristics for a teletype line.  This command
+also allows a teletype to be assigned by a job which is not
+controlling it.
+
+
+   TTY (TT)
+
+Function
+--------
+
+The TTY command declares special properties of the teletype
+line to the scanner service.
+
+Command Format
+--------------
+
+TTY dev:  NO WORD
+
+   dev: = the device argument that is used to control a line other
+   than the one where the command is typed.  This argument is
+   optional and is legal only from the operator's console.  It
+   may be used to modify the characteristics of any teletype
+   lines in the system.
+
+   NO = the argument that determines whether a bit is to be set
+   or cleared.  This argument is optional.
+
+   WORD = the various words representing bits that may be
+   modified by this command.  The words are as follows:
+
+TTY TAB           This terminal has hardware TAB stops set
+                  every eight columns.
+
+TTY NO TAB        The monitor simulates TAB output from programs
+                  by sending the necessary number of SPACE characters.
+
+TTY FORM          This terminal has hardware FORM (PAGE) and
+                  VT (vertical tab) characters.
+
+TTY NO FORM       The monitor sends eight linefeeds for a FORM
+                  and four linefeeds for a VT.
+
+TTY LC            The translation of lower-case characters input
+                  to upper case is suppressed.
+
+TTY NO LC         The monitor translates lower-case characters to
+                  upper case as they are received.  In either case,
+                  the echo sent back matches the case of the 
+                  characters being sent.
+
+TTY WIDTH n       The carriage width (point at which a free carriage
+                  return is inserted) is set to n.  The range of n
+                  is l7 (two TAB stops) to 200 decimal.
+
+TTY NO CRLF       The carriage return normally outputted at the
+                  end of a line exceeding the carriage width is
+                  suppressed.
+
+TTY CRLF          Restores the carriage return.
+
+TTY SLAVE         The teletype becomes slaved, i.e., no commands
+                  may be typed on the console, and the console may
+                  be ASSIGNed by another user.
+
+TTY NO ECHO       The teletype line has local copy and the computer
+                  should not echo characters typed in.
+
+TTY ECHO          Restores the normal echoing of each character.
+
+TTY FILL n        The filler class n is assigned to this terminal.
+                  The filler character is always DEL (RUBOUT, 377
+                  octal).  No fillers are supplied for image
+                  mode output.
+
+TTY NO FILL       Equivalent to TTY FILL 0.  Fillers for output
+                  and echoing are determined from the following:
+
+
+   Character                   Number of fillers for filler class
+     Name        Octal          0    l           2        3
+   ---------     -----         ----------------------------------
+
+   BS            0l0            0    2           6        6
+   HT            0ll            0    l or 2      l or 2   l or 2*
+   LF            0l2            0    l           6        6
+   VT            0l3            0    2           6        6
+   FF            0l4            0    l2          2l       2l
+   XON           02l            0    l           l        l
+   * l if 0-3 spaces to TAB stop, 2 if 4-7 spaces to TAB stop.
+
+   TAPE          022            0    l           l        l
+   XOFF          023            0    l           l        l
+   NTAP          024            0    l           l        l
+
+
+Characteristics
+---------------
+
+The TTY command:
+
+   leaves the console in monitor mode.
+
+Associated Messages
+-------------------
+
+None
+
+
+
+2.l3  SYSTEM ADMINISTRATION COMMANDS
+
+The commands in this section are restricted to system administrators
+only.
+ 
+
+   DAYTIME (DA)
+
+Function
+--------
+
+The DAYTIME command when used with an argument changes the
+time of day.
+
+Command Format
+--------------
+
+DAYTIME hh.mm
+
+   hh = hours
+   mm = minutes
+
+Characteristics
+---------------
+
+The DAYTIME command:
+
+   leaves the console in monitor mode.
+
+Restrictions
+------------
+
+The user must be logged in under project l.
+
+Associated Messages
+-------------------
+
+None
+
+
+
+   SCHEDULE (SCH)
+
+Function
+--------
+
+The SCHEDULE command changes the scheduled use of the system,
+depending on n.
+
+Command Format
+--------------
+
+SCHEDULE n
+
+   n is stored in RH or STATES word in COMMON
+
+      n = o regular timesharing.
+      n = l no further LOGINS allowed except from CTY.
+      n = 2 no further LOGINS from remote TTY's, and do not
+      answer data sets.
+
+   If n is omitted, the current value of n is printed.
+
+Characteristics
+---------------
+
+The SCHEDULE command:
+
+   leaves the console in monitor mode.
+
+
+Restrictions
+------------
+
+This command is legal only from the operator's console.
+
+Associated Messages
+-------------------
+
+None
+
+
+   ASSIGN SYS:
+
+Function
+--------
+
+The ASSIGN SYS command changes the systems device to device dev.
+
+Command Format
+--------------
+
+ASSIGN SYS:dev
+
+   dev = the device to which the system device is changed.
+
+Characteristics
+---------------
+
+The ASSIGN SYS command:
+
+   leaves the console in monitor mode,
+   requires a job number and LOGIN.
+
+Restrictions
+------------
+
+The user must be logged in under project l.
+
+Associated Messages
+-------------------
+
+None
+
+
+   DETACH (DET)
+
+Function
+--------
+
+The DETACH command assigns the device dev to JOB 0, thus making
+it unavailable.
+
+Command Format
+--------------
+
+DETACH dev
+
+   dev = the name of the device to be detached.
+
+Characteristics
+---------------
+
+The DETACH command:
+
+   leaves the console in monitor mode,
+   requires a job number and LOGIN.
+
+Restrictions
+------------
+
+The user must be logged in under (l,4).
+
+Associated Messages
+-------------------
+
+?ALREADY ASSIGNED TO JOB n
+
+   The device specified is already in use.
+
+?CAN'T DET DEV
+
+   The user is not logged-in under (l,4).
+
+?NO SUCH DEVICE
+
+   The specified device does not exist in this monitor configuration.
+
+
+   ATTACH (AT)
+
+Function
+--------
+
+The ATTACH command returns a detached device to the user issuing 
+the command, and then the user must DEASSIGN the device to return
+it to the monitor's pool of available resources.
+
+Command Format
+--------------
+
+ATTACH dev
+
+   dev = the device to which the user is attaching.
+
+Characteristics
+---------------
+
+The ATTACH command:
+
+   leaves the console in monitor mode,
+   requires a job number and LOGIN.
+
+Restrictions
+------------
+
+The user must be logged in under (l,4).
+
+Associated Messages
+-------------------
+
+?CAN'T ATT DEV
+
+   The user is not logged in under (l,4).
+
+?NO SUCH DEVICE
+
+   The specified device does not exist in this monitor configuration.
+
+?WASN'T DET
+
+   The specified device is not detached.
+
+
+   CTEST
+
+Function
+--------
+
+The CTEST command is used by system programmers to pass arguments
+to test extensions made to the COMPIL CUSP.
+
+Command Format
+--------------
+
+CTEST
+
+Characteristics
+---------------
+
+The CTEST command:
+
+   runs the COMPIL CUSP,
+   requires LOGIN.
+
+Associated Messages
+-------------------
+
+None
+  Sa 
