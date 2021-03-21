@@ -1,0 +1,315 @@
+MODULE GRPET(DOLLAR,ENTRIES=($GFIN,$GRPET,$GFINLST,$GFINAPND),FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+  BEGIN
+  REQUIRE CDEFS.BLI[7,107355];
+  REQUIRE GDEFS.BLI[7,107355];
+  REQUIRE SDEFS.BLI[7,107355];
+  REQUIRE TDEFS.BLI[7,107355];
+  REQUIRE ZDEFS.BLI[7,107355];
+  REQUIRE UDEFS.BLI[7,107355];
+
+  UNDECLARE $GFIN, $GRPET, $GFINLST, $GFINAPND, $GCOPEN;
+
+  MAP Z$ ZBSTK$,
+      G$ GGBFP$,
+      G$OPND GGBOP$,
+      GDBG$ GDBGF$;
+
+  GLOBAL ROUTINE $GFINLST(ENDLSTPTR,SHRINK) =
+    BEGIN
+
+    LOCAL LABSAV;
+    LOCAL GF$ PREDPTR : CURPTR;
+    MAP GF$ GFINH$;
+
+    IF .GFINH$ EQL ZV$NULL
+      THEN
+        RETURN;
+
+    CURPTR := .GFINH$;
+    WHILE .CURPTR[GF$BGSTMP] GEQ .ENDLSTPTR   AND   .CURPTR GTR 0
+      DO
+        BEGIN
+        IF .CURPTR[GF$WVISTP] NEQ ZV$NULL
+          THEN
+            BEGIN
+            $GIREC(GV$EQ,4);
+            GGBFP$[G$UCNT]  := 1;
+            GGBOP$[0,G$OPTYP] := GV$STP;
+            GGBOP$[0,G$OPVAL] := .CURPTR[GF$WVISTP];
+            GGBOP$[1,G$OPTYP] := GV$LIT;
+            GGBOP$[1,G$OPVAL] := .GONE$;
+            $GWBUF(.GGBFP$,.GOB1I$);
+    
+            $GIREC(GV$BRCHT,4);
+            GGBOP$[0,G$OPTYP] := GV$NP;
+            GGBOP$[0,G$OPVAL] := .GGFID$ - 2;
+            GGBOP$[0,G$NPTYPE] := GV$LOGICAL;
+            GGBOP$[1,G$OPTYP] := GV$STP;
+            GGBOP$[1,G$OPVAL] := LABSAV := $GNLAB();
+            $GWBUF(.GGBFP$,.GOB1I$);
+            END;
+
+        $GIREC(GV$CLOSE,3);
+        GGBOP$[0,G$OPTYP] := GV$STP;
+        GGBOP$[0,G$OPVAL] := .CURPTR[GF$RISTP];
+        $GWBUF(.GGBFP$,.GOB1I$);
+
+        IF .CURPTR[GF$WVISTP] NEQ ZV$NULL
+          THEN
+            BEGIN
+            $GIREC(GV$STORE,5);
+            GGBOP$[0,G$OPTYP] := GV$STP;
+            GGBOP$[0,G$OPVAL] := .CURPTR[GF$WVISTP];
+            GGBOP$[1,G$OPTYP] := GV$LIT;
+            GGBOP$[1,G$OPVAL] := .GONE$;
+            GGBOP$[2,G$OPVAL] := GV$ROUND;
+            $GWBUF(.GGBFP$,.GOB1I$);
+    
+            $GIREC(GV$LABEL,3);
+            GGBOP$[0,G$OPTYP] := GV$STP;
+            GGBOP$[0,G$OPVAL] := .LABSAV;
+            $GWBUF(.GGBFP$,.GOB1I$);
+            END;
+
+        CURPTR := PREDPTR := .CURPTR[GF$PREDP];
+        IF .SHRINK EQL ZV$TRUE
+          THEN
+            BEGIN
+            $CFREEM(.GFINH$);
+            GFINH$ := .PREDPTR;
+            IF .GFINH$ EQL ZV$NULL
+              THEN
+                RETURN;
+            GFINH$[GF$SUCP] := ZV$NULL;
+            END;
+        END;
+
+    END;
+
+
+
+  GLOBAL ROUTINE $GFINAPND(STKPTR,FATYPE) =
+    BEGIN
+
+    LOCAL GF$ FINLEP;
+    LOCAL TEMP;
+    MAP GF$ GFINH$;
+
+    FINLEP := $CGTZM(GFV$SIZE);                 % ALLOCATE THE FINISH LIST ENTRY %
+    IF .ZBSTK$[Z$FSUBLP,.GFINL$] EQL ZV$NULL
+      THEN
+        ZBSTK$[Z$FSUBLP,.GFINL$] := .FINLEP;
+    FINLEP[GF$PREDP]  := .GFINH$;               % INIT. THE FINISH LIST ENTRY %
+    FINLEP[GF$SUCP]   := ZV$NULL;
+    FINLEP[GF$RISTP]  := .ZBSTK$[Z$INCSTP,.STKPTR];
+    FINLEP[GF$RNSTP]  := .ZBSTK$[Z$STP,.STKPTR];
+    FINLEP[GF$WVISTP] := ZV$NULL;
+    FINLEP[GF$BGSTMP] := .GFINL$;
+    FINLEP[GF$FATYPE] := .FATYPE;
+    FINLEP[GF$IOMODE] := ZV$NULL;
+    TEMP  := (SELECT .ZBSTK$[Z$SBID,.STKPTR] OF
+                        NSET
+                    ZV$REL:  BEGIN
+                             TEMP  :=   (SELECT .FATYPE OF
+                                                NSET
+                                              GFV$SEQ   : GFV$INPUT;
+                                              GFV$VIA   : GFV$INPUT;
+                                              GFV$INS   : GFV$OUTPUT;
+                                              GFV$SEL   : GFV$INPUT;
+                                              GFV$SQDEL : GFV$UPDATE;
+                                                    TESN        );
+                             FINLEP[GF$IOMODE] := .TEMP;
+                             GFV$REL
+                             END;
+                    ZV$SRC: GFV$SRC;
+                    ZV$RP : GFV$REPT;
+                        TESN            );
+    FINLEP[GF$FTYPE]  := .TEMP;
+    IF .GFINH$ NEQ ZV$NULL
+      THEN
+        GFINH$[GF$SUCP] := .FINLEP;
+    ZBSTK$[Z$FINLSTP,.STKPTR] := .FINLEP;
+    GFINH$ := .FINLEP;
+
+    .FINLEP
+
+    END;
+
+
+%******
+  GENERATE CONDITIONAL OPENS.
+*****%
+  GLOBAL ROUTINE $GCOPEN(FINLSTP)=
+    BEGIN
+
+    LOCAL LABSAV;
+    MAP GF$ FINLSTP;
+    LOCAL S$ NAMESTE;
+
+    IF .FINLSTP[GF$WVISTP] EQL ZV$NULL
+      THEN
+        BEGIN
+        NAMESTE := $GWVAR(ZV$NUMERIC,1,0);      % CREATE COND. VARIABLE %
+        FINLSTP[GF$WVISTP] := .NAMESTE[S$CISTP];
+        $SFNME(.NAMESTE,3);
+        END;
+    $GIREC(GV$INIT,4);
+    GGBOP$[0,G$OPTYP] := GV$STP;
+    GGBOP$[0,G$OPVAL] := .FINLSTP[GF$WVISTP];
+    GGBFP$[G$OPND2] := 1;
+    $GWBUF(.GGBFP$,.GOB1I$);
+
+    $GIREC(GV$EQ,4);
+    GGBFP$[G$UCNT] := 1;
+    GGBOP$[0,G$OPTYP] := GV$STP;
+    GGBOP$[0,G$OPVAL] := .FINLSTP[GF$WVISTP];
+    GGBOP$[1,G$OPTYP] := GV$LIT;
+    GGBOP$[1,G$OPVAL] := .GONE$;
+    $GWBUF(.GGBFP$,.GOB1I$);
+
+    $GIREC(GV$BRCHF,4);
+    GGBOP$[0,G$OPTYP] := GV$NP;
+    GGBOP$[0,G$OPVAL] := .GGFID$ - 2;
+    GGBOP$[0,G$NPTYPE] := GV$LOGICAL;
+    GGBOP$[1,G$OPTYP] := GV$STP;
+    GGBOP$[1,G$OPVAL] := LABSAV := $GNLAB();
+    $GWBUF(.GGBFP$,.GOB1I$);
+
+    $GIREC(GV$OPEN,3);
+    GGBOP$[0,G$OPTYP] := GV$STP;
+    GGBOP$[0,G$OPVAL] := .FINLSTP[GF$RISTP];
+    $GWBUF(.GGBFP$,.GOB1I$);
+
+    $GIREC(GV$STORE,5);
+    GGBOP$[0,G$OPTYP] := GV$STP;
+    GGBOP$[0,G$OPVAL] := .FINLSTP[GF$WVISTP];
+    GGBOP$[1,G$OPTYP] := GV$LIT;
+    GGBOP$[1,G$OPVAL] := .SZERO$;
+    GGBOP$[2,G$OPVAL] := GV$ROUND;
+    $GWBUF(.GGBFP$,.GOB1I$);
+
+    $GIREC(GV$LABEL,3);
+    GGBOP$[0,G$OPTYP] := GV$STP;
+    GGBOP$[0,G$OPVAL] := .LABSAV;
+    $GWBUF(.GGBFP$,.GOB1I$);
+
+    END;
+
+
+%******
+  GENERATE CALLS TO THE SUBROUTINES THAT CLOSE THE FILES THAT WERE OPENED
+  WITHIN THE SCOPE OF THE LABEL REFERENCED IN THE FINISH/REPEAT.
+******%
+  ROUTINE CLOSES(STENTRY)=
+    BEGIN
+
+    MAP S$ STENTRY;
+    LOCAL GF$ LISTP;
+    LOCAL BGSTMTP, STKPTR;
+
+    BGSTMTP := ZV$NULL;
+    LISTP := .GFINH$;
+    WHILE .LISTP GTR 0   AND   .LISTP[GF$BGSTMP] GTR .STENTRY[S$SEMP]
+      DO
+        BEGIN
+        STKPTR := .LISTP[GF$BGSTMP];
+        IF .BGSTMTP NEQ .STKPTR
+          THEN
+            IF .ZBSTK$[Z$ID,.STKPTR] EQL TV$PROCDR    OR
+               .ZBSTK$[Z$ID,.STKPTR] EQL TV$8BGFORE   OR
+               .ZBSTK$[Z$ID,.STKPTR] EQL TV$8BGWRPT
+              THEN
+                BEGIN
+                IF .ZBSTK$[Z$CLOSELAB,.STKPTR] EQL ZV$NULL
+                  THEN
+                    ZBSTK$[Z$CLOSELAB,.STKPTR] := $GNLAB();
+                $GIREC(GV$CALL,4);
+                GGBOP$[0,G$OPVAL] := GV$NORSLT;
+                GGBOP$[1,G$OPTYP] := GV$STP;
+                GGBOP$[1,G$OPVAL] := .ZBSTK$[Z$CLOSELAB,.STKPTR];
+                $GWBUF(.GGBFP$,.GOB1I$);
+                BGSTMTP := .STKPTR;
+                END;
+        LISTP := .LISTP[GF$PREDP];
+        END;
+    END;
+
+
+%****
+   PROCESS  REPEAT  STATEMENT. THIS ROUTINE IS CALLED BY $GEXEC EXCLUSIVELY.
+****%
+  GLOBAL ROUTINE $GRPET=
+    BEGIN
+
+    LOCAL S$ STENTRY;
+
+    IF .ZBSTK$[Z$SBID,.ZSTKP$] EQL ZV$LBL       % IS THE TOP ENTRY A LABEL? %
+      THEN
+        BEGIN                                   % YES!  %
+        STENTRY _ $SGSTE(.ZBSTK$[Z$DEFSTP,.ZSTKP$]);
+        IF .STENTRY[S$BRCHF] EQL SV$TRUE        % IS THE LABEL A VALID OBJECT FOR A REPEAT REFERENCE? %
+          THEN
+            BEGIN                               % YES AGAIN.  %
+            CLOSES(.STENTRY);
+            $GIREC(GV$BRANCH,3);                % GENERATE THE BRANCH TO THE LABEL %
+            GGBOP$[0,G$OPTYP] _ GV$STP;
+            GGBOP$[0,G$OPVAL] _ .STENTRY[S$STPX];
+            $GWBUF(.GGBFP$,.GOB1I$);
+            END
+          ELSE                                  % NOT A VALID OBJECT FOR A REPEAT REFERENCE %
+            $GERR(501,.ZSTKP$);
+        $SFRNCH(.STENTRY);
+        END
+      ELSE
+        $GERR(504,.ZSTKP$);
+
+    $GPOP();
+    $GPOP();
+    IF .ZBSTK$[Z$SBID,.ZSTKP$] EQL ZV$LBL
+      THEN
+        $GPOP();
+    END;
+
+
+%****
+   PROCESS  FINISH  STATEMENT. THIS ROUTINE IS CALLED BY $GEXEC EXCLUSIVELY.
+****%
+  GLOBAL ROUTINE $GFIN=
+    BEGIN
+
+    LOCAL S$ STENTRY;
+
+    IF .ZBSTK$[Z$SBID,.ZSTKP$] EQL ZV$LBL       % IS THE TOP ENTRY A LABEL? %
+      THEN
+        BEGIN                                   % YES!  %
+        STENTRY _ $SGSTE(.ZBSTK$[Z$DEFSTP,.ZSTKP$]);
+        IF .STENTRY[S$BRCHF] EQL SV$TRUE        % IS THE LABEL A VALID OBJECT FOR A FINISH REFERENCE?  %
+          THEN
+            BEGIN                               % YES! %
+            CLOSES(.STENTRY);
+            IF .STENTRY[S$ENDSTP] EQL SV$NULL   % CREATE A LABEL FOR INSERTION AT THE END OF THE
+                                                  STATEMENT TO WHICH THE FINISH CONTROL MUST PASS.
+                                                %
+              THEN
+                STENTRY[S$ENDSTP] _ $GNLAB();
+            $GIREC(GV$BRANCH,3);                % GENERATE THE BRANCH FOR THE FINISH  %
+            GGBOP$[0,G$OPTYP]_ GV$STP;
+            GGBOP$[0,G$OPVAL] _ .STENTRY[S$ENDSTP];
+            $GWBUF(.GGBFP$,.GOB1I$);
+            $SFRCH(.STENTRY);
+            END
+          ELSE
+            $GERR(500,.ZSTKP$);
+        END
+      ELSE
+        $GERR(504,.ZSTKP$);
+    $GPOP();
+    $GPOP();
+    IF .ZBSTK$[Z$SBID,.ZSTKP$] EQL ZV$LBL
+      THEN
+        $GPOP();
+    END;
+
+  END
+ELUDOM
+  
