@@ -1,0 +1,492 @@
+MODULE MEMORY(DOLLAR,ENTRIES=($CGETM,$CGTZM,$CFREEM,$CGZAM,$CGTAM,$CGTAREA),
+        FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+BEGIN
+
+BIND DEBUGLVL=9;
+
+REQUIRE CDEFS.BLI[7,107355];
+REQUIRE UDEFS.BLI[7,107355];
+REQUIRE FDEFS.BLI[7,107355];
+
+UNDECLARE $CGTZM,$CGETM,$CFREEM,$CGTAM,$CGTAREA,$CFRAREA,$CGZAM;
+
+%
+        DYNAMIC MEMORY ALLOCATION ROUTINES
+
+   THIS MODULE IMPLEMENTS THE BUDDY SYSTEM OF DYNAMIC MEMORY
+   MANAGEMENT FOR BLOCKS UP TO 1K WORDS (PAGSIZE) AND FIRST FIT FOR
+   MULTIPLES OF PAGES.  THE INITIAL SIZE OF MEMORY
+   IS REST OF PAGE AT JOBFF OR 1K IF NOT AT LEAST 2 WORDS.  WHEN SPACE IS
+   EXHAUSTED, THE PACKAGE WILL ATTEMPT TO EXPAND CORE BY 1 PAGE.
+   IF NOT POSSIBLE, THEN AN ABORT WILL OCCUR.  FREE PAGES ARE NOT HANDLED
+   BY THE BUDDY SYSTEM BUT ARE KEPT ON A LIST SORTED BY CORE ADDRESS AND
+   ARE COMBINED WHEN POSSIBLE.  MEMORY WILL NOT
+   BE RELEASED UNTIL ANOTHER INITIALIZATION OCCURS, AT WHICH TIME
+    ALL EXTANT BLOCKS ARE RECLAIMED, REGARDLESS.
+%
+
+EXTERNAL JOBREL;
+
+MACRO ASSERT(LVL,TEST,ACTION)=
+   IF LVL LEQ DEBUGLVL
+      THEN IF NOT (TEST)
+         THEN ACTION&;
+
+MACHOP
+  CALLI=#047,
+  TTCALL=#051;
+
+BIND
+   PAGSIZE=512,         % NUMBER OF WORDS IN A PAGE %
+   LOG2PAGSIZE=35-FIRSTONE(PAGSIZE),
+   MATSIZE=2+16+2*LOG2PAGSIZE+2;  % SIZE OF MEMORY AREA TABLES %
+
+%  THIS IS THE STRUCTURE THAT IS USED TO MAP THE VARIOUS SPACE LISTS, AND
+    THE HEADER OF FREE BLOCKS.
+%
+STRUCTURE ITEM[I,J,P,S]=
+   CASE .I OF SET
+           (@.ITEM+.J)<.P,.S>;
+           ((.(..ITEM+1)<0,18>)+.J)<.P,.S>;
+           ((.(..ITEM+1)<18,18>)+.J)<.P,.S>
+   TES;
+
+MACRO $CSPAC(MAT,LIST) = (MAT + 17 + 2*LIST)<0,0>&;
+
+MACRO $CPGUSE(MAT,PGADR) = (MAT + 2 +(PGADR DIV PAGSIZE)DIV 32)
+                          <35 - (PGADR DIV PAGSIZE) MOD 32, 1>&;
+
+MAP ITEM CFRPG$;
+
+%  REFERENCE MACROS FOR THE FIELDS OF THE ITEM STRUCTURE 
+%
+MACRO
+   RLINK=0,1,0,18&,
+   ITEMSIZE=0,0,18,17&,
+   AREA=0,0,0,18&,
+   FREE=0,0,35,1&,
+   LLINK=0,1,18,18&,
+   BLEND=0,0,0,18&,
+   NXTLLINK=1,1,18,18&,
+   PRVRLINK=2,1,0,18&;
+
+
+%  THIS SIZE ARRAY SPECIFIES THE NUMBER OF WORDS IN A BLOCK OF SIZE N
+%
+BIND SIZE=PLIT(1^0,1^1,1^2,1^3,1^4,1^5,1^6,1^7,1^(LOG2PAGSIZE-1));
+
+MACRO
+   MIN(Z1,Z2)=(IF Z1 LEQ Z2 THEN Z1 ELSE Z2)&;
+
+MACRO
+   ERRMSG(S)=
+      BEGIN
+      $UMESS(FTLMS$<36,7>,0);
+      $UMESS($USPTR( S ));
+      $FATAL(0)
+      END&;
+
+
+%  EMPTY TESTS FOR AN EMPTY SPACE LIST
+%
+MACRO EMPTY(ME)=
+   BEGIN
+   REGISTER  ITEM WHERE;
+   WHERE_ME;
+   .WHERE  EQL  .WHERE[RLINK]
+   END&;
+
+
+%  DELINK REMOVES ITS ARGUMENT NODE FROM THE LIST IN WHICH IT IS
+   ATTACHED.  NOTE THAT AB MUST BE A SYMBOL MAPPED WITH ITEM STRUCTURE.  TO
+   BE AN EXPRESSION WOULD REQUIRE TREATMENT AS IN LINK MACRO AS BLISS
+   DOES NOT ALLOW AN EXPRESSION TO BE MAPPED DIRECTLY.
+%
+MACRO DELINK(AB)=
+   BEGIN
+   AB[PRVRLINK]_.AB[RLINK];
+   AB[NXTLLINK]_.AB[LLINK]
+   END&;
+
+
+%  LINK INSERTS ITEM AB INTO A LIST AFTER THE ITEM SPECIFIED BY HERE
+   NOTE THAT AB MUST BE A SYMBOL MAPPED WITH ITEM STRUCTURE, WHILE HERE
+   MAY BE ANY EXPRESSION THAT EVALUATES TO AN ADDRESS
+%
+MACRO LINK(AB,HERE)=
+   BEGIN
+   REGISTER
+      ITEM TOO;
+   TOO_HERE;
+   TOO[NXTLLINK] _ .AB;
+   AB[LLINK]_.TOO;
+   AB[RLINK]_.TOO[RLINK];
+   TOO[RLINK]_.AB
+   END&;
+
+
+ROUTINE COLLAPSE(A,N,MAT)=
+
+%   CALLED TO INSERT A BLOCK OF MEMORY INTO THE SPACE STRUCTURE
+    IF THERE IS ANY CHANCE OF RECOMBINING BUDDIES.  IF THERE IS NOT,
+    IT IS BETTER TO USE THE LINK FUNCTION DIRECTLY.
+%
+   BEGIN
+   MAP ITEM A; REGISTER ITEM L:K;
+   IF .N GEQ LOG2PAGSIZE
+      THEN         %RETURN PAGES TO PAGE LIST%
+         BEGIN
+         LOCAL I;
+         K _ CFRPG$<0,0>;
+         L_.CFRPG$[RLINK];
+         I_.N-LOG2PAGSIZE+1;   % SET UP I AS NO OF PAGES %
+         A[BLEND]_.A+.I*PAGSIZE;
+         UNTIL .L EQL .K OR .A[BLEND] LSS .L
+         DO
+            IF .A[BLEND] EQL .L OR .A EQL .L[BLEND]
+               THEN
+                  BEGIN
+                  DELINK(L);
+                  RETURN COLLAPSE(MIN(.A,.L),.L[ITEMSIZE]+.I,.MAT)
+                  END
+            ELSE L_.L[RLINK];
+        % NO LUCK ON COMBINING PAGES SO PUT ITEM BEFORE ONE
+          IN L
+        %
+         A[ITEMSIZE]_.N;
+         LINK(A,.L[LLINK]);
+         INCR J FROM .A TO .A+(.I-1)*PAGSIZE BY PAGSIZE
+            DO  $CPGUSE(.MAT,.J) _ 0; % NO LONGER USED IN THIS AREA %
+         END
+      ELSE   %DO A BUDDY TYPE COLLAPSE%
+         BEGIN
+         L_.A XOR .SIZE[.N];  % L IS NOW THE BUDDY OF A %
+         IF (IF .L LSS .CJBFF$
+                THEN 0
+             ELSE IF .L[FREE]
+                THEN .L[ITEMSIZE] EQL .N
+             ELSE 0)
+            THEN
+               BEGIN
+               DELINK(L);
+               COLLAPSE(MIN(.A,.L),.N+1,.MAT)
+               END
+            ELSE
+               BEGIN
+               LINK(A,$CSPAC(.MAT,.N));
+               A[ITEMSIZE]_.N;
+               A[FREE]_1
+               END
+         END
+   END;
+
+
+ROUTINE EXPANDM(N)=
+   BEGIN   % EXPAND CORE BY N PAGES (IF NECESSARY) %
+   REGISTER X; LOCAL Y;
+   Y_.CMEM$ + .CCSIZ$ * PAGSIZE;
+   X_.Y + .N * PAGSIZE - 1;
+   IF .X GTR .JOBREL
+      THEN IFSKIP CALLI(X,#11)
+          THEN 0
+          ELSE ERRMSG('CANNOT EXPAND CORE FURTHER');
+   CCSIZ$_.CCSIZ$+.N;
+   .Y
+   END;
+
+
+ROUTINE GET(N,MAT)=
+   BEGIN
+%       GETS A BLOCK OF MEMORY OF SIZE 2**N
+%
+   MAP ITEM MAT;
+   REGISTER ITEM R:K;
+   IF .N GEQ LOG2PAGSIZE
+      THEN
+         BEGIN   %GET SOME WHOLE PAGES OFF PAGE LIST%
+         LOCAL I;
+         I_.N-LOG2PAGSIZE+1;    % I IS NUMBER OF PAGES %
+         K _ CFRPG$<0,0>;
+         R_.CFRPG$[RLINK];
+         UNTIL .R EQL .K
+         DO
+            IF .R[ITEMSIZE] EQL .N
+               THEN
+                  BEGIN
+                  DELINK(R);
+                  INCR J FROM .R TO .R+(.I-1)*PAGSIZE BY PAGSIZE
+                        DO $CPGUSE(.MAT,.J) _ 1; %NOW IN AREA %
+                  RETURN .R
+                  END
+            ELSE IF .R[ITEMSIZE] GTR .N
+               THEN
+                  BEGIN   % TAKE FIRST I PAGES OF BIGGER BLOCK %
+                  K _ .R + .I * PAGSIZE;
+                  K[BLEND] _ .R[BLEND];
+                  K[ITEMSIZE] _ .R[ITEMSIZE] - .I;
+                  K[FREE] _ 1;
+                  R[BLEND] _ .K;
+                  R[ITEMSIZE] _ .N;
+                  R[FREE] _ 0;
+                  LINK(K,.R[LLINK]);
+                  DELINK(R);
+                  INCR J FROM .R TO .R+(.I-1)*PAGSIZE BY PAGSIZE
+                        DO $CPGUSE(.MAT,.J) _ 1; % NOW IN AREA %
+                  RETURN .R
+                  END
+            ELSE R_.R[RLINK];
+         %DIDNT FIND ANYTHING BIG ENOUGH ON THE SPACE LIST SO EXPAND CORE%
+         R_.R[LLINK];
+         IF (NOT EMPTY(.R)) AND
+            (.R[BLEND] EQL (.CMEM$ + .CCSIZ$ * PAGSIZE))
+            THEN
+               BEGIN       % TACK ONTO LAST BLOCK OF ALLOCATED CORE %
+               DELINK(R);
+               EXPANDM(.N-.R[ITEMSIZE])
+               END
+            ELSE R_EXPANDM(.I);
+         INCR J FROM .R TO .R+(.I-1)*PAGSIZE BY PAGSIZE
+                DO $CPGUSE(.MAT,.J) _ 1; % NOW IN USE BY AREA %
+         R[ITEMSIZE] _ .N;
+         R[FREE] _ 0;
+         RETURN .R
+         END
+      ELSE
+         BEGIN   %GET A SMALLER PIECE%
+         IF NOT EMPTY($CSPAC(.MAT,.N))
+            THEN
+               BEGIN   % USE A SIZE N PIECE %
+               R _ $CSPAC(.MAT,.N);
+               R _ .R[RLINK];
+               DELINK(R)
+               END
+            ELSE
+               BEGIN   % SPLIT A PIECE OF SIZE N+1 %
+               R_GET(.N+1,.MAT);
+               K_.R+.SIZE[.N];
+               K[FREE]_1;
+               K[ITEMSIZE]_.N;
+               K[AREA] _ .MAT[AREA];
+               LINK(K,$CSPAC(.MAT,.N))
+               END
+      END;
+   R[ITEMSIZE]_.N;
+   R[FREE]_0;
+   R[AREA] _ .MAT[AREA];
+   .R
+   END;
+
+
+GLOBAL ROUTINE $CGTAM(WORDS,AREAN)=
+   BEGIN
+   LOCAL N, ITEM MATADR:L;
+   WORDS_.WORDS+1;
+   ASSERT(3,.WORDS GTR 1 AND .WORDS LSS 1^17,
+      ERRMSG('INVALID MEMORY SIZE REQUEST'));
+   IF .WORDS GEQ PAGSIZE
+      THEN
+         N_LOG2PAGSIZE-1+(.WORDS+PAGSIZE-1)/PAGSIZE
+      ELSE
+         BEGIN
+         N_35-FIRSTONE(.WORDS);
+         IF 1^.N LSS .WORDS
+            THEN N_.N+1
+         END;
+
+   %FIND MAT ADDRESS CORRSEPONDING TO AREAN %
+
+   MATADR _ (.CCMAT$)<0,0>;
+
+   IF .AREAN NEQ .CAREA$ THEN  %SEARCH%
+        BEGIN
+        L _ .MATADR[LLINK];
+        UNTIL .L EQL (.MATADR)<0,0> DO
+           IF .AREAN EQL .L[AREA] THEN
+                MATADR _ .L
+           ELSE L _ .L[LLINK];
+        ASSERT(5, .L[AREA] EQL .AREAN,
+                        ERRMSG('Specified Memory Area Not Found'))
+        END;
+
+   ASSERT(5,$CSPCOK(.MATADR),ERRMSG('Integrity Check of Free Memory List Failed'));
+
+   GET(.N,.MATADR)+1
+   END;
+
+GLOBAL ROUTINE $CGETM(WORDS)=
+
+%   RETURNS A POINTER TO A BLOCK OF MEMORY OF SIZE 2**CEILING(LOG2(W))
+%
+   BEGIN
+   $CGTAM(.WORDS,.CAREA$)
+   END;
+
+%
+$CGZAM OBTAINS MEMORY VIA $CGTAM BUT ALSO MOVES ALL
+ZEROS TO THE WORDS REQUESTED.
+%
+
+GLOBAL ROUTINE $CGZAM(WORDZ,AREAN)=
+   BEGIN
+   LOCAL X;
+   MACHOP BLT=#251;
+   REGISTER Q;
+   X_$CGTAM(.WORDZ,.AREAN);
+   (.X)<0,36>_0;
+   IF .WORDZ GTR 1
+      THEN
+         BEGIN
+         Q<18,18>_.X;
+         Q< 0,18>_.X+1;
+         BLT(Q,.X+.WORDZ-1)
+         END;
+   .X
+   END;
+
+%
+$CGTZM OBTAINS MEMORY VIA $CGZAM FROM THE
+CURRENTLY ACTIVE MEMORY AREA TABLE
+%
+
+GLOBAL ROUTINE $CGTZM(WORDZ)=
+   BEGIN
+   $CGZAM(.WORDZ,.CAREA$)
+   END;
+
+
+GLOBAL ROUTINE $CFREEM(A)=
+   BEGIN           !CALLED TO FREE ITEM POINTED TO BY A
+   MAP ITEM A;
+   LOCAL ITEM MATADR:L;
+   MATADR _ (.CCMAT$)<0,0>;
+   A_.A-1;
+        % FIND CORRECT AREA TABLE %
+   IF .A[ITEMSIZE] LSS LOG2PAGSIZE THEN
+        IF .A[AREA] NEQ .CAREA$ THEN
+           BEGIN
+           L _ .MATADR[LLINK];
+           UNTIL .L EQL .MATADR DO
+                IF .A[AREA] EQL .L[AREA] THEN
+                   MATADR _ .L
+                ELSE L _ .L[LLINK];
+           ASSERT(5, .L[AREA] EQL .A[AREA],
+                    ERRMSG('Area Corresponding to Item Not Found'))
+           END
+        ELSE MATADR _ .CCMAT$
+   ELSE % FIND THE AREA FOR THE PAGE BLOCK BEING RETURNED %
+        IF NOT .$CPGUSE(.CCMAT$,.A) THEN %SEARCH%
+           BEGIN
+           L _ .MATADR[LLINK];
+           UNTIL .L EQL .MATADR DO
+                IF .$CPGUSE(.L,.A) THEN
+                   MATADR _ .L
+                ELSE L _ .L[LLINK];
+           ASSERT(5, .$CPGUSE(.MATADR,.A),
+                ERRMSG('Area Utilizing Returned Page Not Found'))
+           END
+        ELSE MATADR _ .CCMAT$;
+
+   ASSERT(3, .A LSS .JOBREL,
+             ERRMSG('$CFREEM ARGUMENT OUTSIDE CORE'));
+   ASSERT(3,
+      .A[ITEMSIZE] LEQ 128+LOG2PAGSIZE-1  AND %ROUGH CHECK THAT A PROPER%
+      (.A[ITEMSIZE] GEQ LOG2PAGSIZE OR NOT .A[FREE]) AND  % FREE BIT UNUSED FOR BIG PAGES %
+      (IF .A[ITEMSIZE] GEQ LOG2PAGSIZE
+          THEN .A MOD PAGSIZE
+          ELSE .A MOD .SIZE[.A[ITEMSIZE]]) EQL 0,
+      ERRMSG('IMPROPER CALL TO $CFREEM'));
+   ASSERT(7,$CSPCOK(.MATADR),ERRMSG('INTEGRITY CHECK OF FREE MEMORY LIST FAILED'));
+   COLLAPSE(.A,.A[ITEMSIZE],.MATADR)
+   END;
+
+
+GLOBAL ROUTINE $CGTAREA(AREAN)=
+   BEGIN
+   LOCAL ITEM MATADR:L;
+
+   IF .CAREA$ EQL .AREAN THEN % ALREADY THERE %
+        RETURN 0
+   ELSE BEGIN  % SEARCH FOR IT, CREATING IT IF NECESSARY %
+        MATADR _ (.CCMAT$)<0,0>;
+        L _ .MATADR[LLINK];
+        UNTIL .L EQL .MATADR DO
+           IF .AREAN EQL .L[AREA] THEN
+                BEGIN
+                CCMAT$ _ .L;
+                CAREA$ _ .AREAN;
+                RETURN 0
+                END
+           ELSE L _ .L[LLINK];
+        % NOT FOUND, SO CREATE ONE %
+        MATADR _ $CGTZM(MATSIZE)-1;
+        LINK(MATADR,.CCMAT$);
+        MATADR[ITEMSIZE] _ .MATADR[AREA]; % PRESERVE FOR LATER RELEASE OF TABLE %
+        MATADR[AREA] _ .AREAN;
+        DECR I FROM LOG2PAGSIZE TO 1 DO
+           BEGIN
+           L _ $CSPAC(.MATADR,.I);
+           L[LLINK] _ L[RLINK] _ .L
+           END;
+        CCMAT$ _ .MATADR;
+        CAREA$ _ .AREAN;
+        RETURN 1
+        END
+
+   END;
+
+
+GLOBAL ROUTINE $CFRAREA(OLDAREAN,NEWAREAN)=
+   BEGIN
+   LOCAL ITEM MATADR:K:L;
+
+   MATADR _ (.CCMAT$)<0,0>;
+   ASSERT(5, .OLDAREAN NEQ .NEWAREAN,
+           ERRMSG('Attempt to Get Same Memory Area as Being Released'));
+
+   IF .OLDAREAN NEQ .CAREA$ THEN % SEARCH FOR IT %
+        BEGIN
+        L _ .MATADR[RLINK];
+        UNTIL .L EQL .MATADR DO
+           IF .OLDAREAN EQL .L[AREA] THEN
+                MATADR _ .L
+           ELSE L _ .L[RLINK];
+        ASSERT(5, .MATADR[AREA] EQL .OLDAREAN,
+                ERRMSG('Area to be Freed Not Found'))
+        END
+   ELSE BEGIN  % SET ZERO LEVEL AREA FOR CREATION OF NEW AREA %
+        CCMAT$ _ CZMAT$;
+        CAREA$ _ 0
+        END;
+
+   % FREE UP OLD AREAS PAGES %
+   % LOOP CONTROL AND BIT TESTING COULD BE BETTER %
+
+   INCR I FROM 0 TO 512*PAGSIZE BY PAGSIZE DO
+        IF .$CPGUSE(.MATADR,.I) THEN % PAGE IS USED BY THIS AREA %
+           BEGIN
+           K _ .I;
+           K[FREE] _ 0;
+           K[ITEMSIZE] _ LOG2PAGSIZE;
+           COLLAPSE(.K,LOG2PAGSIZE,.MATADR)
+           END;
+
+   DELINK(MATADR);
+
+   MATADR[AREA] _ .MATADR[ITEMSIZE]; % RECALL ORIGINAL AREA %
+   MATADR[ITEMSIZE] _ BEGIN
+                      K _ 35 - FIRSTONE(MATSIZE);
+                      IF 1^.K LSS MATSIZE THEN K _ .K + 1
+                      ELSE .K
+                      END;
+
+   $CFREEM(.MATADR+1);
+
+   % NOW GET NEW AREA %
+
+   RETURN $CGTAREA(.NEWAREAN)
+
+   END;
+
+END ELUDOM
+
+ 
