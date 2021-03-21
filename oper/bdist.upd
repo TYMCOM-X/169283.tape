@@ -1,0 +1,1732 @@
+PROCEDURE BM.DM.SR.COM.UPD % EXT: BDIST.UPD  MAG: QMCTY3.M#2 %
+% Tymshare Commission Year-to-date Posting         %
+% for District Managers and Sales Representatives. %
+% Original version:  1975.04.15   / Richard Strauss (RSTRAUSS) %
+% Current version:   1976.04.12   / Steve Albanese (SALBANESE) %
+% Changes:
+    1976.04.12 - Added calculations for reserve payments in DM and BM code.
+    1976.04.02 - Re-calculated TASC percentage from a ytd figure to the 
+                 district totals D.TASC.DEVEL.
+                 TURNED-OFF original code for computing reserve payments.
+                 Modified calculation for line 18.
+    1976.03.29 -  Added LEASCO Transaction field (broke out of total revenue).
+    1976.04.22 -  NAR perct for SR under BM
+                  COMM THIS MONTH out of reserve if under MON IB 
+%
+
+%  THIS PROCEDURE IS USED TO COMPUTE COMMISSIONS FOR SALES REPRESENTATIVES AND
+   DMS (AND BMS), UPDATE THEIR RESPECTIVE COMMISSION MASTER RELATIONS AND
+   ACCUMULATE REVENUE SUMMARIES BY AREA.  %
+
+BEGIN
+
+FIELDS
+   SR.CNT AS '5Z',
+   MO AS 'ZN' VERIFY MO GE 1 AND LE 12,
+   YR AS 'ZN',
+   PREV.MO AS 'ZN',
+   PREV.YR AS 'ZN',
+   A.BASE.REV.Q SAME AS BASE.REV.Q,
+   A.NEW.REV.Q SAME AS NEW.REV.Q.BAS,
+   D.PRODUCT.COM SAME AS M.PRODUCT.COM,
+   A.PRODUCT.COM SAME AS M.PRODUCT.COM,
+   D.PRD.COM.REV SAME AS M.PRD.COM.REV,
+   A.PRD.COM.REV SAME AS M.PRD.COM.REV,
+   D.REV.BEF.ADJ SAME AS M.REV.BEF.ADJ,
+   A.REV.BEF.ADJ SAME AS M.REV.BEF.ADJ,
+   D.NEW.ACC.REV SAME AS M.NEW.ACC.REV,
+   A.NEW.ACC.REV SAME AS M.NEW.ACC.REV,
+   D.REV.ADJ SAME AS M.REV.ADJ,
+   A.REV.ADJ SAME AS M.REV.ADJ,
+   D.TYMCOM.9 SAME AS M.TYMCOM.9,
+   A.TYMCOM.9 SAME AS M.TYMCOM.9,
+   D.TYMCOM.10 SAME AS M.TYMCOM.10,
+   A.TYMCOM.10 SAME AS M.TYMCOM.10,
+   D.TYMCOM.370 SAME AS M.TYMCOM.370,
+   A.TYMCOM.370 SAME AS M.TYMCOM.370,
+   D.W.SYSTEMS SAME AS M.W.SYSTEMS,
+   A.W.SYSTEMS SAME AS M.W.SYSTEMS,
+   D.LEASCO    SAME AS M.LEASCO,
+   A.LEASCO    SAME AS M.LEASCO,
+   D.TASC.DEVEL SAME AS M.TASC.DEVEL,
+   A.TASC.DEVEL SAME AS M.TASC.DEVEL,
+   D.TASC.INSTL SAME AS M.TASC.INSTL,
+   A.TASC.INSTL SAME AS M.TASC.INSTL,
+   D.TASC.PRDTN SAME AS M.TASC.PRDTN,
+   A.TASC.PRDTN SAME AS M.TASC.PRDTN,
+   D.INF.SYS.DIV SAME AS M.INF.SYS.DIV,
+   A.INF.SYS.DIV SAME AS M.INF.SYS.DIV,
+   D.PRD.BEF.TAX SAME AS M.PRD.BEF.TAX,
+   A.PRD.BEF.TAX SAME AS M.PRD.BEF.TAX,
+   D.RESERVE.PMT SAME AS M.RESERVE.PMT,
+   D.COM.ADJ SAME AS M.COM.ADJ,
+   D.CHARGEBACKS SAME AS M.CHARGEBACKS,
+   D.DRAW.RECVRY SAME AS M.DRAW.RECVRY,
+   C.EMPLOYE.NUM SAME AS EMPLOYE.NUM,
+   C.M.BASE.REV.Q SAME AS M.BASE.REV.Q,
+   C.Y.BASE.REV.Q SAME AS Y.BASE.REV.Q,
+   C.M.NEW.REV.Q SAME AS M.NEW.REV.Q,
+   C.Y.NEW.REV.Q SAME AS Y.NEW.REV.Q,
+   C.M.REV.BEF.ADJ SAME AS M.REV.BEF.ADJ,
+   C.Y.REV.BEF.ADJ SAME AS Y.REV.BEF.ADJ,
+   C.M.REV.ADJ SAME AS M.REV.ADJ,
+   C.Y.REV.ADJ SAME AS Y.REV.ADJ,
+   C.M.NEW.ACC.REV SAME AS M.NEW.ACC.REV,
+   C.Y.NEW.ACC.REV SAME AS Y.NEW.ACC.REV,
+   C.M.PRD.COM.REV SAME AS M.PRD.COM.REV,
+   C.Y.PRD.COM.REV SAME AS Y.PRD.COM.REV,
+   C.M.NEW.REV.COM SAME AS M.NEW.REV.COM,
+  C.Y.NEW.REV.COM SAME AS Y.NEW.REV.COM,
+   C.M.NROQ.COM SAME AS M.NROQ.COM,
+   C.Y.NROQ.COM SAME AS Y.NROQ.COM,
+   C.M.TAS.DEV.COM SAME AS M.TAS.DEV.COM,
+   C.Y.TAS.DEV.COM SAME AS Y.TAS.DEV.COM,
+   C.COM.EARNED SAME AS COM.EARNED,
+   C.PREV.COM.EARNED SAME AS PREV.COM.EARNED,
+   PAST.PREV.COM.EARNED SAME AS PREV.COM.EARNED,
+   C.M.NAR.COM SAME AS M.NAR.COM,
+   C.Y.NAR.COM SAME AS Y.NAR.COM,
+   C.M.PRODUCT.COM SAME AS M.PRODUCT.COM,
+   C.Y.PRODUCT.COM SAME AS Y.PRODUCT.COM,
+   C.M.CHARGEBACKS SAME AS M.CHARGEBACKS,
+   C.Y.CHARGEBACKS SAME AS Y.CHARGEBACKS,
+   C.M.COM.ADJ SAME AS M.COM.ADJ,
+   C.Y.COM.ADJ SAME AS Y.COM.ADJ,
+   C.DRAW.AMOUNT SAME AS DRAW.AMOUNT,
+   C.M.DRAW.AMT.USED SAME AS M.RECV.DRAW.USED,
+   C.Y.RECV.DRAW.USED SAME AS Y.RECV.DRAW.USED,
+   C.Y.NONR.DRAW.USED SAME AS Y.NONR.DRAW.USED,
+   C.M.RECV.DRAW.USED SAME AS M.RECV.DRAW.USED,
+   C.M.NONR.DRAW.USED SAME AS M.NONR.DRAW.USED,
+   C.M.DRAW.RECVRY SAME AS M.DRAW.RECVRY,
+   C.Y.DRAW.RECVRY SAME AS Y.DRAW.RECVRY,
+   C.M.COM.PAYABLE SAME AS M.COM.PAYABLE,
+   C.Y.COM.PAYABLE SAME AS Y.COM.PAYABLE,
+   C.M.TYMCOM.9 SAME AS M.TYMCOM.9,
+   C.Y.TYMCOM.9 SAME AS Y.TYMCOM.9,
+   C.M.TYMCOM.10 SAME AS M.TYMCOM.10,
+   C.Y.TYMCOM.10 SAME AS Y.TYMCOM.10,
+   C.M.TYMCOM.370 SAME AS M.TYMCOM.370,
+   C.Y.TYMCOM.370 SAME AS Y.TYMCOM.370,
+   C.M.W.SYSTEMS SAME AS M.W.SYSTEMS,
+   C.Y.W.SYSTEMS SAME AS Y.W.SYSTEMS,
+   C.M.LEASCO SAME AS M.LEASCO,
+   C.Y.LEASCO SAME AS Y.LEASCO,
+   C.M.TASC.DEVEL SAME AS M.TASC.DEVEL,
+   C.Y.TASC.DEVEL SAME AS Y.TASC.DEVEL,
+   C.M.TASC.INSTL SAME AS M.TASC.INSTL,
+   C.Y.TASC.INSTL SAME AS Y.TASC.INSTL,
+   C.M.TASC.PRDTN SAME AS M.TASC.PRDTN,
+   C.Y.TASC.PRDTN SAME AS Y.TASC.PRDTN,
+   C.M.INF.SYS.DIV SAME AS M.INF.SYS.DIV,
+   C.Y.INF.SYS.DIV SAME AS Y.INF.SYS.DIV,
+   C.M.PRD.BEF.TAX SAME AS M.PRD.BEF.TAX,
+   C.Y.PRD.BEF.TAX SAME AS Y.PRD.BEF.TAX,
+   C.M.RESERVE.PMT SAME AS M.RESERVE.PMT,
+   C.M.INCENT.BASE SAME AS M.INCENT.BASE,
+   C.Y.INCENT.BASE SAME AS Y.INCENT.BASE,
+   C.Y.PROD.PROF SAME AS Y.PROD.PROF,
+   C.M.PROD.PROF SAME AS M.PROD.PROF,
+   A.PROD.PROF SAME AS M.PROD.PROF,
+   C.Y.PROD.PROF.COM SAME AS Y.PROD.PROF.COM,
+   C.M.PROD.PROF.COM SAME AS M.PROD.PROF.COM,
+   C.TOT.INCENT.ERND SAME AS TOT.INCENT.ERND,
+   C.M.INCENT.ERND.Y SAME AS M.INCENT.ERND.Y,
+   C.TOT.NROQ.BONUS SAME AS TOT.NROQ.BONUS,
+   C.M.NROQ.BONUS.Y SAME AS M.NROQ.BONUS.Y,
+   C.RESERVE SAME AS RESERVE,
+   C.Y.RESERVE.PMT SAME AS Y.RESERVE.PMT,
+   C.COM.THIS.MO SAME AS COM.THIS.MO,
+   P.COM.THIS.MO SAME AS COM.THIS.MO,
+   P.RESERVE.PMT SAME AS Y.RESERVE.PMT,
+   PAST.COM.THIS.MO SAME AS COM.THIS.MO,
+   J AS 'NN',
+   I AS 'NN',
+   SD AS 'NN',
+   TQ SAME AS M.BASE.REV.Q,
+   TSR SAME AS TQ,
+   NR SAME AS TQ,
+   NROQ SAME AS TQ,
+   TCE SAME AS TQ,
+   PC.QUOTA AS 'NNNN.NNN',
+   PC.NROQ SAME AS PC.QUOTA,
+   PC.RESERVE          SAME AS PC.QUOTA,  % Percent of reserve of pmt %
+   P.C.1ST.Q           SAME AS PC.QUOTA,  % Percent for 1st quarter   %
+   P.C.2ED.Q           SAME AS PC.QUOTA,  % Percent for 2ed quarter   %
+   P.C.3RD.Q           SAME AS PC.QUOTA,  % Percent for 3rd quarter   %
+   P.C.4TH.Q           SAME AS PC.QUOTA,  % Percent for 4th quarter   %
+   PLAN.TYPE AS 'CC',
+   ERROR AS 'N'
+
+REPORT TO 'TER'
+  PAGE.SIZE 0
+   %  THIS REPORT LISTS ALL EXCEPTIONS DETECTED BY THE COMMISSION
+      COMPUTATION PROCEDURE  %
+
+   REPORT.HEADING   PRINT @TAB 20,
+        'District Manager and Sales Representative Commissions', @CR,
+        @TAB 20,  'Exception Report for ', YR, '/', MO, @SKIP 2
+
+   REPORT.FOOTING    PRINT @CR,@CR,@TAB 20,'END OF COMMISSION COMPUTATION',
+                           ' EXCEPTION REPORT',@CR
+
+   LET A.BASE.REV.Q = DEFAULT
+   LET A.NEW.REV.Q = DEFAULT
+   LET A.PROD.PROF = DEFAULT
+   LET D.PRODUCT.COM = DEFAULT
+   LET A.PRODUCT.COM = DEFAULT
+   LET D.PRD.COM.REV = DEFAULT
+   LET A.PRD.COM.REV = DEFAULT
+   LET D.REV.BEF.ADJ = DEFAULT
+   LET A.REV.BEF.ADJ = DEFAULT
+   LET D.NEW.ACC.REV = DEFAULT
+   LET A.NEW.ACC.REV = DEFAULT
+   LET D.REV.ADJ = DEFAULT
+   LET A.REV.ADJ = DEFAULT
+   LET D.TYMCOM.9 = DEFAULT
+   LET A.TYMCOM.9 = DEFAULT
+   LET D.TYMCOM.10 = DEFAULT
+   LET A.TYMCOM.10 = DEFAULT
+   LET D.TYMCOM.370 = DEFAULT
+   LET A.TYMCOM.370 = DEFAULT
+   LET D.W.SYSTEMS = DEFAULT
+   LET A.W.SYSTEMS = DEFAULT
+   LET D.LEASCO = DEFAULT
+   LET A.LEASCO = DEFAULT
+   LET D.TASC.DEVEL = DEFAULT
+   LET A.TASC.DEVEL = DEFAULT
+   LET D.TASC.INSTL = DEFAULT
+   LET A.TASC.INSTL = DEFAULT
+   LET D.TASC.PRDTN = DEFAULT
+   LET A.TASC.PRDTN = DEFAULT
+   LET D.INF.SYS.DIV = DEFAULT
+   LET A.INF.SYS.DIV = DEFAULT
+   LET D.PRD.BEF.TAX = DEFAULT
+   LET A.PRD.BEF.TAX = DEFAULT
+   LET C.EMPLOYE.NUM = DEFAULT
+   LET C.M.BASE.REV.Q = DEFAULT
+   LET C.Y.BASE.REV.Q = DEFAULT
+   LET C.M.NEW.REV.Q = DEFAULT
+   LET C.Y.NEW.REV.Q = DEFAULT
+   LET C.M.REV.BEF.ADJ = DEFAULT
+   LET C.Y.REV.BEF.ADJ = DEFAULT
+   LET C.M.REV.ADJ = DEFAULT
+   LET C.Y.REV.ADJ = DEFAULT
+   LET C.M.NEW.ACC.REV = DEFAULT
+   LET C.Y.NEW.ACC.REV = DEFAULT
+   LET C.M.PRD.COM.REV = DEFAULT
+   LET C.Y.PRD.COM.REV = DEFAULT
+   LET C.M.NEW.REV.COM = DEFAULT
+   LET C.Y.NEW.REV.COM = DEFAULT
+   LET C.M.NROQ.COM = DEFAULT
+   LET C.Y.NROQ.COM = DEFAULT
+   LET C.M.TAS.DEV.COM = DEFAULT
+   LET C.Y.TAS.DEV.COM = DEFAULT
+   LET C.COM.EARNED = DEFAULT
+   LET C.PREV.COM.EARNED = DEFAULT
+   LET C.M.NAR.COM = DEFAULT
+   LET C.Y.NAR.COM = DEFAULT
+   LET C.M.PRODUCT.COM = DEFAULT
+   LET C.Y.PRODUCT.COM = DEFAULT
+   LET C.M.CHARGEBACKS = DEFAULT
+   LET C.Y.CHARGEBACKS = DEFAULT
+   LET C.M.COM.ADJ = DEFAULT
+   LET C.Y.COM.ADJ = DEFAULT
+   LET C.DRAW.AMOUNT = DEFAULT
+   LET C.M.DRAW.AMT.USED = DEFAULT
+   LET C.Y.RECV.DRAW.USED = DEFAULT
+   LET C.Y.NONR.DRAW.USED = DEFAULT
+   LET C.M.RECV.DRAW.USED = DEFAULT
+   LET C.M.NONR.DRAW.USED = DEFAULT
+   LET C.M.DRAW.RECVRY = DEFAULT
+   LET C.Y.DRAW.RECVRY = DEFAULT
+   LET C.M.COM.PAYABLE = DEFAULT
+   LET C.Y.COM.PAYABLE = DEFAULT
+   LET C.M.TYMCOM.9 = DEFAULT
+   LET C.Y.TYMCOM.9 = DEFAULT
+   LET C.M.TYMCOM.10 = DEFAULT
+   LET C.Y.TYMCOM.10 = DEFAULT
+   LET C.M.TYMCOM.370 = DEFAULT
+   LET C.Y.TYMCOM.370 = DEFAULT
+   LET C.M.W.SYSTEMS = DEFAULT
+   LET C.Y.W.SYSTEMS = DEFAULT
+   LET C.M.LEASCO = DEFAULT
+   LET C.Y.LEASCO = DEFAULT
+   LET C.M.TASC.DEVEL = DEFAULT
+   LET C.Y.TASC.DEVEL = DEFAULT
+   LET C.M.TASC.INSTL = DEFAULT
+   LET C.Y.TASC.INSTL = DEFAULT
+   LET C.M.TASC.PRDTN = DEFAULT
+   LET C.Y.TASC.PRDTN = DEFAULT
+   LET C.M.INF.SYS.DIV = DEFAULT
+   LET C.Y.INF.SYS.DIV = DEFAULT
+   LET C.M.PRD.BEF.TAX = DEFAULT
+   LET C.Y.PRD.BEF.TAX = DEFAULT
+
+
+  % Assigment of reserve payment percentages - will change as plan changes %
+
+        LET P.C.1ST.Q  =  0.10
+        LET P.C.2ED.Q  =  0.25
+        LET P.C.3RD.Q  =  0.50
+        LET P.C.4TH.Q  =  1.00
+% OBTAIN THE YEAR AND MONTH TO BE PROCESSED FROM THE USER %
+
+
+QUERY:
+  BEGIN
+  TYPE "Enter the year and month for the run as YY,MM: "
+  ACCEPT YR, MO
+  TYPE "Year and month entered are ",YR,
+    ',', MO, '.  OK? '
+  ACCEPT RESPONSE
+  IF RESPONSE NE "Y" AND NE "y" AND NE "YES" AND NE "yes" AND NE "Yes" THEN
+    REPEAT QUERY
+  END
+
+   IF MO = 1
+      THEN
+         BEGIN
+         LET PREV.MO = 12
+         LET PREV.YR = YR - 1
+         END
+      ELSE
+         BEGIN
+         LET PREV.MO = MO - 1
+         LET PREV.YR = YR
+         END
+
+
+% PROCESS THE MONTHLY REVENUE & ADJUSTMENT RELATION %
+
+   LET ERROR = 0
+
+WRITE REPORT
+   BEGIN
+
+   FOR EACH MBMDMSR VIA (YR.PROCESSED = YR,MO.PROCESSED = MO)
+      BEGIN     %   MAKE SURE EACH SALES REPRESENTATIVE HAS A COMMISSION PLAN  %
+      SELECT ISP VIA SALESNUM.5N 
+         THEN
+            BEGIN
+
+            IF COM.PLAN = 'SR'
+               THEN SELECT CSR VIA SALESNUM.5N
+                  THEN NOTHING
+                  ELSE
+                     BEGIN
+                     PRINT 'NO COMMISSION PLAN FOR SR#',SALESNUM.5N,@CR
+                     LET ERROR = 1
+                     END
+
+            IF COM.PLAN = 'DM'
+               THEN SELECT CDM VIA SALESNUM.5N
+                  THEN NOTHING
+                  ELSE
+                     BEGIN
+                     LET ERROR = 1
+                     PRINT 'NO COMMISSION PLAN FOR DM#',SALESNUM.5N,@CR
+                     END
+
+            IF COM.PLAN = 'BM'
+               THEN SELECT CBM VIA SALESNUM.5N
+                  THEN NOTHING
+                  ELSE
+                     BEGIN
+                     LET ERROR = 1
+                     PRINT 'NO COMMISSION PLAN FOR BM#',SALESNUM.5N,@CR
+                     END
+            END
+         ELSE
+            BEGIN
+            LET ERROR = 1
+            PRINT 'INVALID SALES REPRESENTATIVE #',SALESNUM.5N,@CR
+            END
+      END
+
+   IF ERROR = 1
+      THEN
+         BEGIN
+         PRINT 'COMMISSIONS NOT COMPUTED',@CR
+         ABORT
+         END
+
+
+   FOR EACH MBMDMSR VIA (YR.PROCESSED = YR,MO.PROCESSED = MO)
+
+PROCESS.DETAIL:
+
+      BEGIN
+      IF TRANSACTION = 'RVBFA'
+         THEN
+            BEGIN
+            LET C.M.REV.BEF.ADJ = AMOUNT
+            LET D.REV.BEF.ADJ = AMOUNT + D.REV.BEF.ADJ
+            LET A.REV.BEF.ADJ = AMOUNT + A.REV.BEF.ADJ
+            END
+
+      IF TRANSACTION = 'RVADJ'
+         THEN
+            BEGIN
+            LET C.M.REV.ADJ = AMOUNT
+            LET D.REV.ADJ = AMOUNT + D.REV.ADJ
+            LET A.REV.ADJ = AMOUNT + A.REV.ADJ
+            END
+
+      IF TRANSACTION = 'NACCR'
+         THEN
+            BEGIN
+            LET C.M.NEW.ACC.REV = AMOUNT
+            LET D.NEW.ACC.REV = AMOUNT + D.NEW.ACC.REV
+            END
+
+      IF TRANSACTION = 'RSPMT'
+         THEN
+            BEGIN
+            LET C.M.RESERVE.PMT = AMOUNT
+            END
+
+      IF TRANSACTION = 'CMADJ'
+         THEN
+            BEGIN
+            LET C.M.COM.ADJ = AMOUNT
+            END
+
+      IF TRANSACTION = 'DRRCV'
+         THEN
+            BEGIN
+            LET C.M.DRAW.RECVRY = AMOUNT
+            END
+
+      IF TRANSACTION = 'CHGBK'
+         THEN LET C.M.CHARGEBACKS = AMOUNT
+
+      IF TRANSACTION = 'TYMC9'
+         THEN
+            BEGIN
+            LET C.M.TYMCOM.9 = AMOUNT
+            LET D.TYMCOM.9 = AMOUNT + D.TYMCOM.9
+            LET A.TYMCOM.9 = AMOUNT + A.TYMCOM.9
+            END
+
+      IF TRANSACTION = 'TYMCX'
+         THEN
+            BEGIN
+            LET C.M.TYMCOM.10 = AMOUNT
+            LET D.TYMCOM.10 = AMOUNT + D.TYMCOM.10
+            LET A.TYMCOM.10 = AMOUNT + A.TYMCOM.10
+            END
+
+      IF TRANSACTION = 'TY370'
+         THEN
+            BEGIN
+            LET C.M.TYMCOM.370 = AMOUNT
+            LET D.TYMCOM.370 = AMOUNT + D.TYMCOM.370
+            LET A.TYMCOM.370 = AMOUNT + A.TYMCOM.370
+            END
+
+      IF TRANSACTION = 'WSYST'
+         THEN
+            BEGIN
+            LET C.M.W.SYSTEMS = AMOUNT
+            LET D.W.SYSTEMS = AMOUNT + D.W.SYSTEMS
+            LET A.W.SYSTEMS = AMOUNT + A.W.SYSTEMS
+            END
+      IF TRANSACTION = 'LESCO'
+         THEN
+            BEGIN
+            LET C.M.LEASCO = AMOUNT
+            LET D.LEASCO = AMOUNT + D.LEASCO
+            LET A.LEASCO = AMOUNT + A.LEASCO
+            END
+
+
+      IF TRANSACTION = 'TADEV'
+         THEN
+            BEGIN
+            LET C.M.TASC.DEVEL = AMOUNT
+            LET D.TASC.DEVEL = AMOUNT + D.TASC.DEVEL
+            LET A.TASC.DEVEL = AMOUNT + A.TASC.DEVEL
+            END
+
+      IF TRANSACTION = 'TAINS'
+         THEN
+            BEGIN
+            LET C.M.TASC.INSTL = AMOUNT
+            LET D.TASC.INSTL = AMOUNT + D.TASC.INSTL
+            LET A.TASC.INSTL = AMOUNT + A.TASC.INSTL
+            END
+
+      IF TRANSACTION = 'TAPRD'
+         THEN
+            BEGIN
+            LET C.M.TASC.PRDTN = AMOUNT
+            LET D.TASC.PRDTN = AMOUNT + D.TASC.PRDTN
+            LET A.TASC.PRDTN = AMOUNT + A.TASC.PRDTN
+            END
+
+      IF TRANSACTION = 'INFSD'
+         THEN
+            BEGIN
+            LET C.M.INF.SYS.DIV = AMOUNT
+            LET D.INF.SYS.DIV = AMOUNT + D.INF.SYS.DIV
+            LET A.INF.SYS.DIV = AMOUNT + A.INF.SYS.DIV
+
+            END
+      IF SALESNUM.5N CHANGING
+         THEN
+            BEGIN
+            SELECT ISP VIA SALESNUM.5N
+               THEN
+                  BEGIN
+                  LET C.EMPLOYE.NUM = EMPLOYE.NUM OF ISP
+                  LET PLAN.TYPE = COM.PLAN OF ISP
+                  END
+
+            IF PLAN.TYPE = 'SR'
+               THEN
+                  BEGIN
+                  SELECT MPRDREV VIA (YR.PROCESSED=YR,MO.PROCESSED=MO,
+                                        SALESNUM.5N)
+                     THEN
+                        BEGIN
+                        LET C.M.PRD.COM.REV = M.PRD.COM.REV OF MPRDREV
+                        LET C.M.PRODUCT.COM = M.PRODUCT.COM OF MPRDREV
+                        LET C.M.PRD.BEF.TAX = M.PRD.BEF.TAX OF MPRDREV
+                        LET D.PRD.COM.REV = D.PRD.COM.REV + C.M.PRD.COM.REV
+                        LET A.PRD.COM.REV = A.PRD.COM.REV + C.M.PRD.COM.REV
+                        LET D.PRODUCT.COM = D.PRODUCT.COM + M.PRODUCT.COM
+                        LET A.PRODUCT.COM = A.PRODUCT.COM + M.PRODUCT.COM
+                        LET D.PRD.BEF.TAX = D.PRD.BEF.TAX + C.M.PRD.BEF.TAX
+                        LET A.PRD.BEF.TAX = A.PRD.BEF.TAX + C.M.PRD.BEF.TAX
+                        END
+                  SELECT YSR VIA (YR.PROCESSED = PREV.YR,
+                        MO.PROCESSED = PREV.MO,SALESNUM.5N,
+                        EMPLOYE.NUM = C.EMPLOYE.NUM)
+                     THEN
+                        BEGIN
+                        LET C.Y.BASE.REV.Q = Y.BASE.REV.Q OF YSR
+                        LET C.Y.NEW.REV.Q = Y.NEW.REV.Q OF YSR
+                        LET C.PREV.COM.EARNED = COM.EARNED OF YSR
+                        LET C.Y.REV.BEF.ADJ = C.M.REV.BEF.ADJ+Y.REV.BEF.ADJ OF YSR
+                        LET C.Y.REV.ADJ = C.M.REV.ADJ+Y.REV.ADJ OF YSR
+                        LET C.Y.NEW.ACC.REV = C.M.NEW.ACC.REV+Y.NEW.ACC.REV OF YSR
+                        LET C.Y.PRD.COM.REV = C.M.PRD.COM.REV+Y.PRD.COM.REV OF YSR
+                        LET C.Y.NEW.REV.COM = Y.NEW.REV.COM OF YSR
+                        LET C.Y.NROQ.COM = Y.NROQ.COM OF YSR
+                        LET C.Y.TAS.DEV.COM = Y.TAS.DEV.COM OF YSR
+                        LET C.Y.NAR.COM = Y.NAR.COM OF YSR
+                        LET C.Y.PRODUCT.COM = C.M.PRODUCT.COM
+                                + Y.PRODUCT.COM OF YSR
+                        LET C.Y.CHARGEBACKS = C.M.CHARGEBACKS+Y.CHARGEBACKS OF YSR
+                        LET C.Y.COM.ADJ = C.M.COM.ADJ+Y.COM.ADJ OF YSR
+                        LET C.Y.RECV.DRAW.USED = Y.RECV.DRAW.USED OF YSR
+                        LET C.Y.NONR.DRAW.USED = Y.NONR.DRAW.USED OF YSR
+                        LET C.Y.DRAW.RECVRY = Y.DRAW.RECVRY OF YSR
+                        LET C.Y.COM.PAYABLE = Y.COM.PAYABLE OF YSR
+                        LET C.Y.TYMCOM.9 = C.M.TYMCOM.9+Y.TYMCOM.9 OF YSR
+                        LET C.Y.TYMCOM.10 = C.M.TYMCOM.10+Y.TYMCOM.10 OF YSR
+                        LETTYMCOM.370 = C.M.TYMCOM.370+Y.TYMCOM.370 OF YSR
+                        LET C.Y.W.SYSTEMS = C.M.W.SYSTEMS+Y.W.SYSTEMS OF YSR
+                        LET C.Y.LEASCO = C.M.LEASCO + Y.LEASCO OF YSR
+                        LET C.Y.TASC.DEVEL = C.M.TASC.DEVEL+Y.TASC.DEVEL OF YSR
+                        LET C.Y.TASC.INSTL = C.M.TASC.INSTL+Y.TASC.INSTL OF YSR
+                        LET C.Y.TASC.PRDTN = C.M.TASC.PRDTN+Y.TASC.PRDTN OF YSR
+                        LET C.Y.INF.SYS.DIV = C.M.INF.SYS.DIV+Y.INF.SYS.DIV OF YSR
+                        LET C.Y.PRD.BEF.TAX = C.M.PRD.BEF.TAX+Y.PRD.BEF.TAX OF YSR
+                        END
+                     ELSE   %  NO PREVIOUS MONTH  %
+                        BEGIN
+                        LET C.Y.BASE.REV.Q = DEFAULT
+                        LET C.Y.NEW.REV.Q = DEFAULT
+                        LET C.PREV.COM.EARNED = DEFAULT
+                        LET C.Y.REV.BEF.ADJ = C.M.REV.BEF.ADJ
+                        LET C.Y.REV.ADJ = C.M.REV.ADJ
+                        LET C.Y.NEW.ACC.REV = C.M.NEW.ACC.REV
+                        LET C.Y.PRD.COM.REV = C.M.PRD.COM.REV
+                        LET C.Y.NEW.REV.COM = DEFAULT
+                        LET C.Y.NROQ.COM = DEFAULT
+                        LET C.Y.TAS.DEV.COM = DEFAULT
+                        LET C.Y.NAR.COM = DEFAULT
+                        LET C.Y.PRODUCT.COM = C.M.PRODUCT.COM
+                        LET C.Y.CHARGEBACKS = C.M.CHARGEBACKS
+                        LET C.Y.COM.ADJ = C.M.COM.ADJ
+                        LET C.Y.RECV.DRAW.USED = DEFAULT
+                        LET C.Y.NONR.DRAW.USED = DEFAULT
+                        LET C.Y.DRAW.RECVRY = DEFAULT
+                        LET C.Y.COM.PAYABLE = DEFAULT
+                        LET C.Y.TYMCOM.9 = C.M.TYMCOM.9
+                        LET C.Y.TYMCOM.10 = C.M.TYMCOM.10
+                        LET C.Y.TYMCOM.370 = C.M.TYMCOM.370
+                        LET C.Y.W.SYSTEMS = C.M.W.SYSTEMS
+                        LET C.Y.LEASCO = C.M.LEASCO
+                        LET C.Y.TASC.DEVEL = C.M.TASC.DEVEL
+                        LET C.Y.TASC.INSTL = C.M.TASC.INSTL
+                        LET C.Y.TASC.PRDTN = C.M.TASC.PRDTN
+                        LET C.Y.INF.SYS.DIV = C.M.INF.SYS.DIV
+                        LET C.Y.PRD.BEF.TAX = C.M.PRD.BEF.TAX
+                        END
+                  SELECT CSR VIA SALESNUM.5N
+                     THEN IF PLAN.STATUS = 'A'
+                        THEN
+                           BEGIN
+                           LET C.M.BASE.REV.Q = BASE.REV.Q
+                           LET A.BASE.REV.Q = A.BASE.REV.Q + BASE.REV.Q
+                           LET C.Y.BASE.REV.Q = C.Y.BASE.REV.Q+BASE.REV.Q
+                            % Use BEGIN.MO to calculate effective %
+                            % sum-of-digits multiplier for this   %
+                            % sales representative.               %
+                            LET SD = 0
+                            LET I = % Current % MO - BEGIN.MO + 1
+                           LET C.M.NEW.REV.Q = I * NEW.REV.Q.INC
+                                + NEW.REV.Q.BAS
+                           LET A.NEW.REV.Q = A.NEW.REV.Q + C.M.NEW.REV.Q
+                           LET C.Y.NEW.REV.Q = C.Y.NEW.REV.Q + C.M.NEW.REV.Q
+                           LET TQ = C.Y.BASE.REV.Q+C.Y.NEW.REV.Q
+                           LET TSR = C.Y.REV.BEF.ADJ+C.Y.REV.ADJ
+                           LET NR = TSR - C.Y.BASE.REV.Q
+                           LET NROQ = TSR - TQ
+                           IF NR < 0
+                              THEN LET C.M.NEW.REV.COM = 0
+                              ELSE LET C.M.NEW.REV.COM = NR * PC.NEW.REV/100.00
+                           LET C.Y.NEW.REV.COM = C.Y.NEW.REV.COM + C.M.NEW.REV.COM
+                           IF NROQ < 0
+                              THEN LET C.M.NROQ.COM = 0
+
+                %  ADDITIONAL 6 PERCT COMMISSION VALID ONLY
+                   FOR 250 PERCT OF QUOTA. %
+
+                          ELSE IF NROQ > C.Y.NEW.REV.Q * 2.5 THEN
+                            LET C.M.NROQ.COM =(C.Y.NEW.REV.Q*2.5)*PC.N.R.O.Q/100
+                          ELSE IF NROQ < C.Y.NEW.REV.Q * 2.5 THEN
+                            LET C.M.NROQ.COM = NROQ * PC.N.R.O.Q /100
+                           LET C.Y.NROQ.COM = C.Y.NROQ.COM + C.M.NROQ.COM
+                           LET C.M.TAS.DEV.COM = C.Y.TASC.DEVEL*PC.TASC.DEVEL/100.000
+                           LET C.Y.TAS.DEV.COM = C.Y.TAS.DEV.COM + C.M.TAS.DEV.COM
+                           LET C.COM.EARNED = C.M.NEW.REV.COM+C.M.NROQ.COM+
+                                            C.M.TAS.DEV.COM+C.Y.PRODUCT.COM
+                           LET TCE = C.COM.EARNED - C.PREV.COM.EARNED
+                           LET C.M.NAR.COM = C.M.NEW.ACC.REV * PC.N.ACC.REV/100.00
+                           LET C.Y.NAR.COM = C.Y.NAR.COM + C.M.NAR.COM
+                           LET TCE = TCE + C.M.NAR.COM
+                           LET C.M.COM.PAYABLE = TCE + C.M.COM.ADJ
+                                              -C.M.CHARGEBACKS
+                           IF C.M.COM.PAYABLE < 0
+                              THEN
+                                 BEGIN
+                                 LET C.M.COM.PAYABLE = 0
+                                 PRINT 'NEGATIVE COMMISSION FOR SR#',SALESNUM.5N,
+                                       ' RESET TO ZERO.',
+                                       ' CAUSED BY:',@CR,
+                                       'TOTAL COMMISSION EARNED:',TCE,@CR
+                                 IF C.M.PRODUCT.COM < 0
+                                    THEN PRINT 'PRODUCT COMMISSION:',
+                                            C.M.PRODUCT.COM,@CR
+                                 IF C.M.COM.ADJ < 0
+                                    THEN PRINT 'COMMISSION ADJUSTMENT:',
+                                          C.M.COM.ADJ,@CR
+                                 IF C.M.CHARGEBACKS > 0
+                                    THEN PRINT 'CHARGEBACKS:',
+                                         C.M.CHARGEBACKS,@CR
+                                 PRINT @CR
+                                 END
+                           IF DRAW.PER.BEG LE MO AND DRAW.PER.END GE MO
+                              THEN LET C.DRAW.AMOUNT = DRAW.AMOUNT OF CSR
+                              ELSE LET C.DRAW.AMOUNT = 0
+                           IF C.DRAW.AMOUNT > 0
+                              THEN IF C.M.COM.PAYABLE < C.DRAW.AMOUNT
+                                 THEN
+                                    BEGIN
+                                    LET C.M.DRAW.AMT.USED = C.DRAW.AMOUNT
+                                             - C.M.COM.PAYABLE
+                                    LET C.M.COM.PAYABLE = C.DRAW.AMOUNT
+                                    END
+                                 ELSE LET C.M.DRAW.AMT.USED = 0
+                              ELSE LET C.M.DRAW.AMT.USED = 0
+
+                           IF DRAW.TYPE = 'R'
+                              THEN
+                                 BEGIN
+                                 LET C.M.RECV.DRAW.USED = C.M.DRAW.AMT.USED
+                                 LET C.Y.RECV.DRAW.USED = C.Y.RECV.DRAW.USED
+                                      + C.M.DRAW.AMT.USED
+                                 END
+                              ELSE
+                                 BEGIN
+                                 LET C.M.RECV.DRAW.USED = C.M.DRAW.AMT.USED
+                                 LET C.Y.NONR.DRAW.USED = C.Y.NONR.DRAW.USED
+                                      + C.M.DRAW.AMT.USED
+                                 END
+
+                           IF C.M.DRAW.RECVRY > 0
+                              THEN IF (C.Y.RECV.DRAW.USED - C.Y.DRAW.RECVRY)
+                                  < C.M.DRAW.RECVRY
+                                 THEN
+                                    BEGIN
+                                    PRINT C.M.DRAW.RECVRY,' DRAW RECOVERY > ',
+                                       ' YTD DRAW FOR SR#',SALESNUM.5N,
+                                       '. SET TO'
+                                    IF C.M.COM.PAYABLE < (C.Y.RECV.DRAW.USED
+                                         - C.Y.DRAW.RECVRY)
+                                       THEN
+                                          BEGIN
+                                          LET C.Y.DRAW.RECVRY = C.Y.DRAW.RECVRY
+                                              + C.M.COM.PAYABLE
+                                          LET C.M.DRAW.RECVRY = C.M.COM.PAYABLE
+                                          LET C.M.COM.PAYABLE = 0
+                                          END
+                                       ELSE
+                                          BEGIN
+                                          LET C.M.COM.PAYABLE = C.M.COM.PAYABLE
+                                           - (C.Y.RECV.DRAW.USED-C.Y.DRAW.RECVRY)
+                                          LET C.M.DRAW.RECVRY = 
+                                             (C.Y.RECV.DRAW.USED - C.Y.DRAW.RECVRY)
+                                          LET C.Y.DRAW.RECVRY = C.Y.RECV.DRAW.USED
+                                          END
+                                    PRINT C.M.DRAW.RECVRY,@CR,@CR
+                                    END
+                                 ELSE IF C.M.COM.PAYABLE < C.M.DRAW.RECVRY
+                                    THEN
+                                       BEGIN
+                                       PRINT C.M.DRAW.RECVRY,' DRAW RECOVERY',
+                                          ' > COMMISSION PAYABLE FOR SR#',
+                                          SALESNUM.5N,'. SET TO',C.M.COM.PAYABLE,
+                                          @CR,@CR
+                                       LET C.Y.DRAW.RECVRY = C.Y.DRAW.RECVRY
+                                            + C.M.COM.PAYABLE
+                                       LET C.M.DRAW.RECVRY = C.M.COM.PAYABLE
+                                       LET C.M.COM.PAYABLE = 0
+                                       END
+                                    ELSE
+                                       BEGIN
+                                       LET C.Y.DRAW.RECVRY = C.Y.DRAW.RECVRY + C.M.DRAW.RECVRY
+                                       LET C.M.COM.PAYABLE = C.M.COM.PAYABLE
+                                           - C.M.DRAW.RECVRY
+                                       END
+                           LET C.Y.COM.PAYABLE = C.Y.COM.PAYABLE + C.M.COM.PAYABLE
+                           END
+                  INSERT INTO YSR USING(
+                  YR FOR YR.PROCESSED,
+                  MO FOR MO.PROCESSED,
+                  SALESNUM.5N FOR SALESNUM.5N,
+                  C.EMPLOYE.NUM FOR EMPLOYE.NUM,
+                  C.M.BASE.REV.Q FOR M.BASE.REV.Q,
+                  C.Y.BASE.REV.Q FOR Y.BASE.REV.Q,
+                  C.M.NEW.REV.Q FOR M.NEW.REV.Q,
+                  C.Y.NEW.REV.Q FOR Y.NEW.REV.Q,
+                  C.M.REV.BEF.ADJ FOR M.REV.BEF.ADJ,
+                  C.Y.REV.BEF.ADJ FOR Y.REV.BEF.ADJ,
+                  C.M.REV.ADJ FOR M.REV.ADJ,
+                  C.Y.REV.ADJ FOR Y.REV.ADJ,
+                  C.M.NEW.ACC.REV FOR M.NEW.ACC.REV,
+                  C.Y.NEW.ACC.REV FOR Y.NEW.ACC.REV,
+                  C.M.PRD.COM.REV FOR M.PRD.COM.REV,
+                  C.Y.PRD.COM.REV FOR Y.PRD.COM.REV,
+                  C.M.NEW.REV.COM FOR M.NEW.REV.COM,
+                  C.Y.NEW.REV.COM FOR Y.NEW.REV.COM,
+                  C.M.NROQ.COM FOR M.NROQ.COM,
+                  C.Y.NROQ.COM FOR Y.NROQ.COM,
+                  C.M.TAS.DEV.COM FOR M.TAS.DEV.COM,
+                  C.Y.TAS.DEV.COM FOR Y.TAS.DEV.COM,
+                  C.COM.EARNED FOR COM.EARNED,
+                  C.PREV.COM.EARNED FOR PREV.COM.EARNED,
+                  C.M.NAR.COM FOR M.NAR.COM,
+                  C.Y.NAR.COM FOR Y.NAR.COM,
+                  C.M.PRODUCT.COM FOR M.PRODUCT.COM,
+                  C.Y.PRODUCT.COM FOR Y.PRODUCT.COM,
+                  C.M.CHARGEBACKS FOR M.CHARGEBACKS,
+                  C.Y.CHARGEBACKS FOR Y.CHARGEBACKS,
+                  C.M.COM.ADJ FOR M.COM.ADJ,
+                  C.Y.COM.ADJ FOR Y.COM.ADJ,
+                  C.DRAW.AMOUNT FOR DRAW.AMOUNT,
+                  C.M.RECV.DRAW.USED FOR M.RECV.DRAW.USED,
+                  C.Y.RECV.DRAW.USED FOR Y.RECV.DRAW.USED,
+                  C.M.NONR.DRAW.USED FOR M.NONR.DRAW.USED,
+                  C.Y.NONR.DRAW.USED FOR Y.NONR.DRAW.USED,
+                  C.M.DRAW.RECVRY FOR M.DRAW.RECVRY,
+                  C.Y.DRAW.RECVRY FOR Y.DRAW.RECVRY,
+                  C.M.COM.PAYABLE FOR M.COM.PAYABLE,
+                  C.Y.COM.PAYABLE FOR Y.COM.PAYABLE,
+                  C.M.TYMCOM.9 FOR M.TYMCOM.9,
+                  C.Y.TYMCOM.9 FOR Y.TYMCOM.9,
+                  C.M.TYMCOM.10 FOR M.TYMCOM.10,
+                  C.Y.TYMCOM.10 FOR Y.TYMCOM.10,
+                  C.M.TYMCOM.370 FOR M.TYMCOM.370,
+                  C.Y.TYMCOM.370 FOR Y.TYMCOM.370,
+                  C.M.W.SYSTEMS FOR M.W.SYSTEMS,
+                  C.Y.W.SYSTEMS FOR Y.W.SYSTEMS,
+                  C.M.LEASCO FOR M.LEASCO,
+                  C.Y.LEASCO FOR Y.LEASCO,
+                  C.M.TASC.DEVEL FOR M.TASC.DEVEL,
+                  C.Y.TASC.DEVEL FOR Y.TASC.DEVEL,
+                  C.M.TASC.INSTL FOR M.TASC.INSTL,
+                  C.Y.TASC.INSTL FOR Y.TASC.INSTL,
+                  C.M.TASC.PRDTN FOR M.TASC.PRDTN,
+                  C.Y.TASC.PRDTN FOR Y.TASC.PRDTN,
+                  C.M.INF.SYS.DIV FOR M.INF.SYS.DIV,
+                  C.Y.INF.SYS.DIV FOR Y.INF.SYS.DIV,
+                  C.M.PRD.BEF.TAX FOR M.PRD.BEF.TAX,
+                  C.Y.PRD.BEF.TAX FOR Y.PRD.BEF.TAX)
+                  LET C.M.BASE.REV.Q = DEFAULT
+                  LET C.M.NEW.REV.Q = DEFAULT
+                  LET C.M.REV.BEF.ADJ = DEFAULT
+                  LET C.M.REV.ADJ = DEFAULT
+                  LET C.M.NEW.ACC.REV = DEFAULT
+                  LET C.M.PRD.COM.REV = DEFAULT
+                  LET C.M.NEW.REV.COM = DEFAULT
+                  LET C.M.NROQ.COM = DEFAULT
+                  LET C.M.TAS.DEV.COM = DEFAULT
+                  LET C.COM.EARNED = DEFAULT
+                  LET C.PREV.COM.EARNED = DEFAULT
+                  LET C.M.NAR.COM = DEFAULT
+                  LET C.M.PRODUCT.COM = DEFAULT
+                  LET C.M.CHARGEBACKS = DEFAULT
+                  LET C.M.COM.ADJ = DEFAULT
+                  LET C.DRAW.AMOUNT = DEFAULT
+                  LET C.M.RECV.DRAW.USED = DEFAULT
+                  LET C.M.NONR.DRAW.USED = DEFAULT
+                  LET C.M.DRAW.AMT.USED = DEFAULT
+                  LET C.M.DRAW.RECVRY = DEFAULT
+                  LET C.M.COM.PAYABLE = DEFAULT
+                  LET C.M.TYMCOM.9 = DEFAULT
+                  LET C.M.TYMCOM.10 = DEFAULT
+                  LET C.M.TYMCOM.370 = DEFAULT
+                  LET C.M.W.SYSTEMS = DEFAULT
+                  LET C.M.LEASCO = DEFAULT
+                  LET C.M.TASC.DEVEL = DEFAULT
+                  LET C.M.TASC.INSTL = DEFAULT
+                  LET C.M.TASC.PRDTN = DEFAULT
+                  LET C.M.INF.SYS.DIV = DEFAULT
+                  LET C.M.PRD.BEF.TAX = DEFAULT
+                  END
+               ELSE IF PLAN.TYPE = 'DM' THEN
+                  BEGIN
+                  LET D.RESERVE.PMT = C.M.RESERVE.PMT
+                  LET D.COM.ADJ = C.M.COM.ADJ
+                  LET D.CHARGEBACKS = C.M.CHARGEBACKS
+                  LET D.DRAW.RECVRY = C.M.DRAW.RECVRY
+                  LET C.M.CHARGEBACKS = DEFAULT
+                  LET C.M.COM.ADJ = DEFAULT
+                  LET C.M.RESERVE.PMT = DEFAULT
+                  LET C.M.DRAW.RECVRY = DEFAULT
+                  END
+               ELSE IF PLAN.TYPE = 'BM' THEN
+                  BEGIN
+                  LET D.RESERVE.PMT = C.M.RESERVE.PMT
+                  LET D.COM.ADJ = C.M.COM.ADJ
+                  LET D.CHARGEBACKS = C.M.CHARGEBACKS
+                  LET D.DRAW.RECVRY = C.M.DRAW.RECVRY
+                  LET C.M.CHARGEBACKS = DEFAULT
+                  LET C.M.COM.ADJ = DEFAULT
+                  LET C.M.RESERVE.PMT = DEFAULT
+                  LET C.M.DRAW.RECVRY = DEFAULT
+                  END
+            END
+
+      IF DISTRICT.3N CHANGING
+         THEN
+            BEGIN
+            LET SALESNUM.5N = SALESNUM.5N (IDIST VIA DISTRICT.3N)
+            SELECT MPRDPRF VIA (YR.PROCESSED=YR,MO.PROCESSED=MO,SALESNUM.5N)
+               THEN
+                  BEGIN
+                  LET C.M.PROD.PROF = M.PROD.PROF
+                  LET A.PROD.PROF = A.PROD.PROF + C.M.PROD.PROF
+                  END
+            LET C.EMPLOYE.NUM = EMPLOYE.NUM (ISP VIA SALESNUM.5N)
+            LET PLAN.TYPE = COM.PLAN(ISP VIA SALESNUM.5N)
+
+            IF PLAN.TYPE = 'DM' THEN
+            BEGIN
+
+            SELECT YDM VIA (YR.PROCESSED = PREV.YR,
+                  MO.PROCESSED = PREV.MO,SALESNUM.5N,
+                  EMPLOYE.NUM = C.EMPLOYE.NUM)
+               THEN
+                  BEGIN
+                  LET C.Y.BASE.REV.Q = Y.BASE.REV.Q OF YDM
+                  LET C.Y.NEW.REV.Q = Y.NEW.REV.Q OF YDM
+                  LET C.PREV.COM.EARNED = PREV.COM.EARNED OF YDM
+                  LET C.Y.REV.BEF.ADJ = D.REV.BEF.ADJ+Y.REV.BEF.ADJ OF YDM
+                  LET C.Y.REV.ADJ = D.REV.ADJ+Y.REV.ADJ OF YDM
+                  LET C.Y.NEW.ACC.REV = D.NEW.ACC.REV+Y.NEW.ACC.REV OF YDM
+                  LET C.Y.INCENT.BASE = Y.INCENT.BASE OF YDM
+                  LET C.Y.NAR.COM = Y.NAR.COM OF YDM
+                  LET C.Y.RESERVE.PMT = Y.RESERVE.PMT OF YDM
+                  LET C.Y.PROD.PROF = C.M.PROD.PROF + Y.PROD.PROF OF YDM
+                  LET C.Y.PROD.PROF.COM = Y.PROD.PROF.COM OF YDM
+                  LET C.TOT.INCENT.ERND = TOT.INCENT.ERND OF YDM
+                  LET C.TOT.NROQ.BONUS = TOT.NROQ.BONUS OF YDM
+                  LET P.RESERVE.PMT = M.RESERVE.PMT OF YDM
+                  LET P.COM.THIS.MO = COM.THIS.MO OF YDM
+                  LET C.Y.TAS.DEV.COM = Y.TAS.DEV.COM OF YDM
+                  LET C.Y.NAR.COM = Y.NAR.COM OF YDM
+                  LET C.Y.PRODUCT.COM = Y.PRODUCT.COM OF YDM
+                  LET C.Y.CHARGEBACKS = D.CHARGEBACKS+Y.CHARGEBACKS OF YDM
+                  LET C.Y.COM.ADJ = D.COM.ADJ+Y.COM.ADJ OF YDM
+                  LET C.Y.RECV.DRAW.USED = Y.RECV.DRAW.USED OF YDM
+                  LET C.Y.NONR.DRAW.USED = Y.NONR.DRAW.USED OF YDM
+                  LET C.Y.DRAW.RECVRY = Y.DRAW.RECVRY OF YDM
+                  LET C.Y.COM.PAYABLE = Y.COM.PAYABLE OF YDM
+                  LET C.Y.TYMCOM.9 = D.TYMCOM.9+Y.TYMCOM.9 OF YDM
+                  LET C.Y.TYMCOM.10 = D.TYMCOM.10+Y.TYMCOM.10 OF YDM
+                  LET C.Y.TYMCOM.370 = D.TYMCOM.370+Y.TYMCOM.370 OF YDM
+                  LET C.Y.W.SYSTEMS = D.W.SYSTEMS+Y.W.SYSTEMS OF YDM
+                  LET C.Y.LEASCO = D.LEASCO + Y.LEASCO OF YDM
+                  LET C.Y.TASC.DEVEL = D.TASC.DEVEL+Y.TASC.DEVEL OF YDM
+                  LET C.Y.TASC.INSTL = D.TASC.INSTL+Y.TASC.INSTL OF YDM
+                  LET C.Y.TASC.PRDTN = D.TASC.PRDTN+Y.TASC.PRDTN OF YDM
+                  LET C.Y.INF.SYS.DIV = D.INF.SYS.DIV+Y.INF.SYS.DIV OF YDM
+                  LET C.Y.PRD.BEF.TAX = D.PRD.BEF.TAX+Y.PRD.BEF.TAX OF YDM
+                  END
+               ELSE   %  NO PREVIOUS MONTH  %
+                  BEGIN
+                  LET C.PREV.COM.EARNED = DEFAULT
+                  LET P.RESERVE.PMT = DEFAULT
+                  LET P.COM.THIS.MO = DEFAULT
+                  LET C.Y.BASE.REV.Q = DEFAULT
+                  LET C.Y.NEW.REV.Q = DEFAULT
+                  LET C.PREV.COM.EARNED = DEFAULT
+                  LET C.Y.REV.BEF.ADJ = D.REV.BEF.ADJ
+                  LET C.Y.REV.ADJ = D.REV.ADJ
+                  LET C.Y.NEW.ACC.REV = D.NEW.ACC.REV
+                  LET C.Y.INCENT.BASE = DEFAULT
+                  LET C.Y.NAR.COM = DEFAULT
+                  LET C.Y.RESERVE.PMT = DEFAULT
+                  LET C.Y.PROD.PROF = C.M.PROD.PROF
+                  LET C.Y.PROD.PROF.COM = DEFAULT
+                  LET C.TOT.INCENT.ERND = DEFAULT
+                  LET C.TOT.NROQ.BONUS = DEFAULT
+                  LET C.Y.TAS.DEV.COM = DEFAULT
+                  LET C.Y.NAR.COM = DEFAULT
+                  LET C.Y.PRODUCT.COM = DEFAULT
+                  LET C.Y.CHARGEBACKS = D.CHARGEBACKS
+                  LET C.Y.COM.ADJ = D.COM.ADJ
+                  LET C.Y.RECV.DRAW.USED = DEFAULT
+                  LET C.Y.NONR.DRAW.USED = DEFAULT
+                  LET C.Y.DRAW.RECVRY = DEFAULT
+                  LET C.Y.COM.PAYABLE = DEFAULT
+                  LET C.Y.TYMCOM.9 = D.TYMCOM.9
+                  LET C.Y.TYMCOM.10 = D.TYMCOM.10
+                  LET C.Y.TYMCOM.370 = D.TYMCOM.370
+                  LET C.Y.LEASCO = D.LEASCO
+                  LET C.Y.W.SYSTEMS = D.W.SYSTEMS
+                  LET C.Y.TASC.DEVEL = D.TASC.DEVEL
+                  LET C.Y.TASC.INSTL = D.TASC.INSTL
+                  LET C.Y.TASC.PRDTN = D.TASC.PRDTN
+                  LET C.Y.INF.SYS.DIV = D.INF.SYS.DIV
+                  LET C.Y.PRD.BEF.TAX = D.PRD.BEF.TAX
+                  END
+            SELECT CDM VIA SALESNUM.5N
+               THEN IF PLAN.STATUS = 'A'
+                  THEN
+                     BEGIN
+                     LET C.M.BASE.REV.Q = BASE.REV.Q
+                     LET C.Y.BASE.REV.Q = C.Y.BASE.REV.Q+BASE.REV.Q
+                            % Use BEGIN.MO to calculate effective %
+                            % sum-of-digits multiplier for this   %
+                            % sales representative.               %
+                            LET SD = 0
+                            LET I = % Current % MO - BEGIN.MO + 1
+%                           WHILE I > 0  DO
+                              BEGIN
+                              LET SD = SD + I
+                              LET I = I - 1
+                              END  %
+                     LET C.M.NEW.REV.Q =  I* NEW.REV.Q.INC + NEW.REV.Q.BAS
+                     LET C.Y.NEW.REV.Q = C.Y.NEW.REV.Q + C.M.NEW.REV.Q
+                     LET TQ = C.Y.BASE.REV.Q+C.Y.NEW.REV.Q
+                     LET TSR = C.Y.REV.BEF.ADJ+C.Y.REV.ADJ
+                     LET C.M.INCENT.BASE = INCENT.BASE.Q OF CDM
+                     LET C.Y.INCENT.BASE = C.M.INCENT.BASE + C.Y.INCENT.BASE
+                     LET NR = TSR - C.Y.BASE.REV.Q
+                     LET NROQ = TSR - TQ
+                     IF NR < 0 OR C.Y.NEW.REV.Q = 0
+                        THEN LET PC.QUOTA = 0
+                     ELSE LET PC.QUOTA = NR / C.Y.NEW.REV.Q
+                     IF NROQ < 0 OR C.Y.NEW.REV.Q = 0 
+                        THEN LET PC.NROQ = 0
+                     ELSE LET PC.NROQ = NROQ / C.Y.NEW.REV.Q * PC.N.R.O.Q
+                                % PC.N.R.O.Q == 'NROQ factor' %
+                     IF PC.QUOTA GE 1.00
+                        THEN LET C.M.INCENT.ERND.Y = C.Y.INCENT.BASE
+                        ELSE LET C.M.INCENT.ERND.Y = C.Y.INCENT.BASE * PC.QUOTA
+                     LET C.TOT.INCENT.ERND=C.M.INCENT.ERND.Y+C.TOT.INCENT.ERND
+                     LET C.M.NROQ.BONUS.Y = C.Y.INCENT.BASE * PC.NROQ
+                     LET C.TOT.NROQ.BONUS=C.TOT.NROQ.BONUS+C.M.NROQ.BONUS.Y
+
+
+                % COMPUTATIONS FOR DM REPORT (SEE REPORT FOR LINE
+                  REFERENCE)
+
+                  LINE 14:   %
+                     LET C.COM.EARNED = C.M.NROQ.BONUS.Y + C.M.INCENT.ERND.Y
+
+                % LINE 15:   %
+                     LET C.PREV.COM.EARNED = P.COM.THIS.MO + P.RESERVE.PMT
+                                                + C.PREV.COM.EARNED
+
+
+                % LINE 18:   %
+                             IF C.M.INCENT.ERND.Y - C.PREV.COM.EARNED GE
+                                C.M.INCENT.BASE THEN
+                                LET C.COM.THIS.MO = C.M.INCENT.ERND.Y -
+                                        C.PREV.COM.EARNED
+                             ELSE IF C.COM.EARNED - C.PREV.COM.EARNED GT
+                                C.M.INCENT.BASE THEN
+                                LET C.COM.THIS.MO = C.M.INCENT.BASE
+                             ELSE IF ((C.COM.EARNED - C.PREV.COM.EARNED) GE 0)
+                                AND ((C.COM.EARNED - C.PREV.COM.EARNED)
+                                        LE C.M.INCENT.BASE) THEN
+                                LET C.COM.THIS.MO = C.COM.EARNED -
+                                        C.PREV.COM.EARNED
+                             ELSE
+                                LET C.COM.THIS.MO = 0
+
+                % LINE 17 %
+                        LET C.RESERVE = (C.COM.EARNED - C.PREV.COM.EARNED) -
+                                        C.COM.THIS.MO
+% LINE 19: Calculation for reserve payments  %
+
+        LET C.M.RESERVE.PMT = 0 % Initialize varible %
+
+        IF (MO.PROCESSED = 3 OR 6 OR 9 OR 12 ) AND (C.RESERVE > 0)  THEN
+           BEGIN
+           IF MO.PROCESSED = 3 THEN LET PC.RESERVE = P.C.1ST.Q
+           IF MO.PROCESSED = 6 THEN LET PC.RESERVE = P.C.2ED.Q
+           IF MO.PROCESSED = 9 THEN LET PC.RESERVE = P.C.3RD.Q
+           IF MO.PROCESSED =12 THEN LET PC.RESERVE = P.C.4TH.Q
+
+           LET C.M.RESERVE.PMT = C.RESERVE * PC.RESERVE
+           SUBTRACT C.M.RESERVE.PMT FROM C.RESERVE
+           END
+
+
+                     LET C.M.TAS.DEV.COM = D.TASC.DEVEL*PC.TASC.DEVEL/100.000
+                     LET C.Y.TAS.DEV.COM = C.Y.TAS.DEV.COM + C.M.TAS.DEV.COM
+                     LET C.M.NAR.COM = D.NEW.ACC.REV * PC.N.ACC.REV/100.00
+                     LET C.Y.NAR.COM = C.Y.NAR.COM + C.M.NAR.COM
+                     LET C.M.PROD.PROF.COM = C.M.PROD.PROF * PC.PROD.PROF/100.00
+                     LET C.Y.PROD.PROF.COM=C.M.PROD.PROF.COM+C.Y.PROD.PROF.COM
+                     SELECT MPRDREV VIA (YR.PROCESSED=YR,MO.PROCESSED=MO,
+                                SALESNUM.5N)
+                        THEN
+                           BEGIN
+                           LET C.M.PRODUCT.COM = M.PRODUCT.COM OF MPRDREV
+                           LET C.Y.PRODUCT.COM=C.Y.PRODUCT.COM+C.M.PRODUCT.COM
+                           END
+            % PRD.BEF.TAX for DM must include values for all associated AC's %
+                     FOR EACH MPRDREV
+                        WHERE (COM.PLAN (ISP VIA KEY) = 'AC'
+                        AND DISTRICT.3N (ISP VIA KEY) = DISTRICT.3N)
+                             BEGIN
+                             ADD M.PRD.BEF.TAX TO D.PRD.BEF.TAX
+                             ADD M.PRD.BEF.TAX TO C.Y.PRD.BEF.TAX
+                             END
+                     LET TCE = C.COM.THIS.MO+C.M.TAS.DEV.COM+C.M.NAR.COM+
+                                C.M.RESERVE.PMT
+                     LET C.M.COM.PAYABLE = TCE +
+                               C.M.PROD.PROF.COM+C.M.PRODUCT.COM+D.COM.ADJ
+                                -D.CHARGEBACKS
+                     IF C.M.COM.PAYABLE < 0
+                        THEN
+                           BEGIN
+                           LET C.M.COM.PAYABLE = 0
+                           PRINT 'NEGATIVE COMMISSION FOR DM#',SALESNUM.5N,
+                              ' RESET TO ZERO.  CAUSED BY:',
+                              @CR
+                           PRINT 'TOTAL COMMISSION EARNED:',TCE,@CR
+                           IF C.M.PRODUCT.COM+C.M.PROD.PROF.COM < 0
+                              THEN 
+                                 BEGIN
+                                 LET TSR = C.M.PRODUCT.COM+C.M.PROD.PROF.COM
+                                 PRINT 'PRODUCT COMMISSION TOTAL:',
+                                     TSR,@CR
+                                 END
+                           IF D.COM.ADJ < 0
+                              THEN PRINT 'COMMISSION ADJUSTMENT:',
+                                     D.COM.ADJ,@CR
+                           IF D.CHARGEBACKS > 0
+                              THEN PRINT 'CHARGEBACKS:',D.CHARGEBACKS,@CR
+                           PRINT @CR
+                           END
+                     IF DRAW.PER.BEG LE MO AND DRAW.PER.END GE MO
+                        THEN LET C.DRAW.AMOUNT = DRAW.AMOUNT OF CDM
+                        ELSE LET C.DRAW.AMOUNT = 0
+                     IF C.M.COM.PAYABLE < C.DRAW.AMOUNT
+                        THEN
+                           BEGIN
+                           LET C.M.DRAW.AMT.USED = C.DRAW.AMOUNT
+                                    - C.M.COM.PAYABLE
+                           LET C.M.COM.PAYABLE = C.DRAW.AMOUNT
+                           END
+                        ELSE LET C.M.DRAW.AMT.USED = 0
+
+                     IF DRAW.TYPE = 'R'
+                        THEN
+                           BEGIN
+                           LET C.M.RECV.DRAW.USED = C.M.DRAW.AMT.USED
+                           LET C.Y.RECV.DRAW.USED = C.Y.RECV.DRAW.USED +
+                                   C.M.DRAW.AMT.USED
+                           END
+                        ELSE
+                           BEGIN
+                           LET C.M.NONR.DRAW.USED = C.M.DRAW.AMT.USED
+                           LET C.Y.NONR.DRAW.USED = C.Y.NONR.DRAW.USED +
+                                   C.M.DRAW.AMT.USED
+                           END
+
+                     IF D.DRAW.RECVRY > 0
+                        THEN IF (C.Y.RECV.DRAW.USED - C.Y.DRAW.RECVRY)
+                            < D.DRAW.RECVRY
+                           THEN
+                              BEGIN
+                              PRINT D.DRAW.RECVRY,' DRAW RECOVERY > ',
+                                 'YTD DRAW FOR DM#',SALESNUM.5N,' SET TO'
+                              IF C.M.COM.PAYABLE < (C.Y.RECV.DRAW.USED
+                                   - C.Y.DRAW.RECVRY)
+                                 THEN
+                                    BEGIN
+                                    LET C.Y.DRAW.RECVRY = C.Y.DRAW.RECVRY
+                                        + C.M.COM.PAYABLE
+                                    LET D.DRAW.RECVRY = C.M.COM.PAYABLE
+                                    LET C.M.COM.PAYABLE = 0
+                                    END
+                                 ELSE
+                                    BEGIN
+                                    LET C.M.COM.PAYABLE = C.M.COM.PAYABLE
+                                     - (C.Y.RECV.DRAW.USED-C.Y.DRAW.RECVRY)
+                                    LET D.DRAW.RECVRY =
+                                         (C.Y.RECV.DRAW.USED - C.Y.DRAW.RECVRY)
+                                    LET C.Y.DRAW.RECVRY = C.Y.RECV.DRAW.USED
+                                    END
+                              PRINT D.DRAW.RECVRY,@CR,@CR
+                              END
+                           ELSE IF C.M.COM.PAYABLE < D.DRAW.RECVRY
+                              THEN
+                                 BEGIN
+                                 PRINT D.DRAW.RECVRY,' DRAW RECOVERY > ',
+                                    'COMMISSION PAYABLE FOR DM#',SALESNUM.5N,
+                                    ' SET TO',C.M.COM.PAYABLE,@CR,@CR
+                                 LET C.Y.DRAW.RECVRY = C.Y.DRAW.RECVRY
+                                      + C.M.COM.PAYABLE
+                                 LET D.DRAW.RECVRY = C.M.COM.PAYABLE
+                                 LET C.M.COM.PAYABLE = 0
+                                 END
+                              ELSE
+                                 BEGIN
+                                 LET C.Y.DRAW.RECVRY = C.Y.DRAW.RECVRY + D.DRAW.RECVRY
+                                 LET C.M.COM.PAYABLE = C.M.COM.PAYABLE
+                                     - D.DRAW.RECVRY
+                                 END
+                     LET C.Y.COM.PAYABLE = C.Y.COM.PAYABLE + C.M.COM.PAYABLE
+
+                     END
+            INSERT INTO YDM USING(
+            YR FOR YR.PROCESSED,
+            MO FOR MO.PROCESSED,
+            SALESNUM.5N FOR SALESNUM.5N,
+            C.EMPLOYE.NUM FOR EMPLOYE.NUM,
+            C.M.BASE.REV.Q FOR M.BASE.REV.Q,
+            C.Y.BASE.REV.Q FOR Y.BASE.REV.Q,
+            C.M.NEW.REV.Q FOR M.NEW.REV.Q,
+            C.Y.NEW.REV.Q FOR Y.NEW.REV.Q,
+            D.REV.BEF.ADJ FOR M.REV.BEF.ADJ,
+            C.Y.REV.BEF.ADJ FOR Y.REV.BEF.ADJ,
+            D.REV.ADJ FOR M.REV.ADJ,
+            C.Y.REV.ADJ FOR Y.REV.ADJ,
+            D.NEW.ACC.REV FOR M.NEW.ACC.REV,
+            C.Y.NEW.ACC.REV FOR Y.NEW.ACC.REV,
+            C.M.INCENT.BASE FOR M.INCENT.BASE,
+            C.Y.INCENT.BASE FOR Y.INCENT.BASE,
+            C.TOT.INCENT.ERND FOR TOT.INCENT.ERND,
+            C.M.INCENT.ERND.Y FOR M.INCENT.ERND.Y,
+            C.TOT.NROQ.BONUS FOR TOT.NROQ.BONUS,
+            C.M.NROQ.BONUS.Y FOR M.NROQ.BONUS.Y,
+            C.COM.EARNED FOR COM.EARNED,
+            C.PREV.COM.EARNED FOR PREV.COM.EARNED,
+            C.M.NAR.COM FOR M.NAR.COM,
+            C.Y.NAR.COM FOR Y.NAR.COM,
+            C.M.RESERVE.PMT FOR M.RESERVE.PMT,
+            C.Y.RESERVE.PMT FOR Y.RESERVE.PMT,
+            C.RESERVE FOR RESERVE,
+            C.COM.THIS.MO FOR COM.THIS.MO,
+            C.M.PROD.PROF FOR M.PROD.PROF,
+            C.Y.PROD.PROF FOR Y.PROD.PROF,
+            C.M.TAS.DEV.COM FOR M.TAS.DEV.COM,
+            C.Y.TAS.DEV.COM FOR Y.TAS.DEV.COM,
+            C.M.PRODUCT.COM FOR M.PRODUCT.COM,
+            C.Y.PRODUCT.COM FOR Y.PRODUCT.COM,
+            C.M.PROD.PROF.COM FOR M.PROD.PROF.COM,
+            C.Y.PROD.PROF.COM FOR Y.PROD.PROF.COM,
+            D.CHARGEBACKS FOR M.CHARGEBACKS,
+            C.Y.CHARGEBACKS FOR Y.CHARGEBACKS,
+            D.COM.ADJ FOR M.COM.ADJ,
+            C.Y.COM.ADJ FOR Y.COM.ADJ,
+            C.DRAW.AMOUNT FOR DRAW.AMOUNT,
+            C.M.RECV.DRAW.USED FOR M.RECV.DRAW.USED,
+            C.Y.RECV.DRAW.USED FOR Y.RECV.DRAW.USED,
+            C.M.NONR.DRAW.USED FOR M.NONR.DRAW.USED,
+            C.Y.NONR.DRAW.USED FOR Y.NONR.DRAW.USED,
+            D.DRAW.RECVRY FOR M.DRAW.RECVRY,
+            C.Y.DRAW.RECVRY FOR Y.DRAW.RECVRY,
+            C.M.COM.PAYABLE FOR M.COM.PAYABLE,
+            C.Y.COM.PAYABLE FOR Y.COM.PAYABLE,
+            D.TYMCOM.9 FOR M.TYMCOM.9,
+            C.Y.TYMCOM.9 FOR Y.TYMCOM.9,
+            D.TYMCOM.10 FOR M.TYMCOM.10,
+            C.Y.TYMCOM.10 FOR Y.TYMCOM.10,
+            D.TYMCOM.370 FOR M.TYMCOM.370,
+            C.Y.TYMCOM.370 FOR Y.TYMCOM.370,
+            D.W.SYSTEMS FOR M.W.SYSTEMS,
+            C.Y.W.SYSTEMS FOR Y.W.SYSTEMS,
+            D.LEASCO FOR M.LEASCO,
+            C.Y.LEASCO FOR Y.LEASCO,
+            D.TASC.DEVEL FOR M.TASC.DEVEL,
+            C.Y.TASC.DEVEL FOR Y.TASC.DEVEL,
+            D.TASC.INSTL FOR M.TASC.INSTL,
+            C.Y.TASC.INSTL FOR Y.TASC.INSTL,
+            D.TASC.PRDTN FOR M.TASC.PRDTN,
+            C.Y.TASC.PRDTN FOR Y.TASC.PRDTN,
+            D.INF.SYS.DIV FOR M.INF.SYS.DIV,
+            C.Y.INF.SYS.DIV FOR Y.INF.SYS.DIV,
+            D.PRD.BEF.TAX FOR M.PRD.BEF.TAX,
+            C.Y.PRD.BEF.TAX FOR Y.PRD.BEF.TAX)
+          LET C.M.BASE.REV.Q = DEFAULT
+          LET C.M.NEW.REV.Q = DEFAULT
+          LET D.REV.BEF.ADJ = DEFAULT
+          LET D.REV.ADJ = DEFAULT
+          LET D.NEW.ACC.REV = DEFAULT
+          LET C.M.INCENT.BASE = DEFAULT
+          LET C.M.INCENT.ERND.Y = DEFAULT
+          LET C.M.NROQ.BONUS.Y = DEFAULT
+          LET C.COM.EARNED = DEFAULT
+          LET C.PREV.COM.EARNED = DEFAULT
+          LET C.M.NAR.COM = DEFAULT
+          LET D.RESERVE.PMT = DEFAULT
+          LET C.RESERVE = DEFAULT
+          LET C.COM.THIS.MO = DEFAULT
+          LET C.M.PROD.PROF = DEFAULT
+          LET C.M.TAS.DEV.COM = DEFAULT
+          LET C.M.PRODUCT.COM = DEFAULT
+          LET C.M.PROD.PROF.COM = DEFAULT
+          LET D.CHARGEBACKS = DEFAULT
+          LET D.COM.ADJ = DEFAULT
+          LET C.DRAW.AMOUNT = DEFAULT
+          LET C.M.RECV.DRAW.USED = DEFAULT
+          LET C.M.NONR.DRAW.USED = DEFAULT
+          LET C.M.DRAW.AMT.USED = DEFAULT
+          LET D.DRAW.RECVRY = DEFAULT
+          LET C.M.COM.PAYABLE = DEFAULT
+          LET D.TYMCOM.9 = DEFAULT
+          LET D.TYMCOM.10 = DEFAULT
+          LET D.TYMCOM.370 = DEFAULT
+          LET D.W.SYSTEMS = DEFAULT
+          LET D.LEASCO = DEFAULT
+          LET D.TASC.DEVEL = DEFAULT
+          LET D.TASC.INSTL = DEFAULT
+          LET D.TASC.PRDTN = DEFAULT
+          LET D.INF.SYS.DIV = DEFAULT
+          LET D.PRD.BEF.TAX = DEFAULT
+          END   % OF IF PLAN.TYPE = 'DM' %
+
+
+            ELSE IF PLAN.TYPE = 'BM' THEN
+            BEGIN
+            SELECT YBM VIA (YR.PROCESSED = PREV.YR,
+                  MO.PROCESSED = PREV.MO,SALESNUM.5N,
+                  EMPLOYE.NUM = C.EMPLOYE.NUM)
+               THEN
+                  BEGIN
+                  LET C.Y.BASE.REV.Q = Y.BASE.REV.Q OF YBM
+                  LET C.Y.NEW.REV.Q = Y.NEW.REV.Q OF YBM
+                  LET C.PREV.COM.EARNED = PREV.COM.EARNED OF YBM
+                  LET C.Y.REV.BEF.ADJ = D.REV.BEF.ADJ+Y.REV.BEF.ADJ OF YBM
+                  LET C.Y.REV.ADJ = D.REV.ADJ+Y.REV.ADJ OF YBM
+                  LET C.Y.NEW.ACC.REV = D.NEW.ACC.REV+Y.NEW.ACC.REV OF YBM
+                  LET C.Y.INCENT.BASE = Y.INCENT.BASE OF YBM
+                  LET C.Y.NAR.COM = Y.NAR.COM OF YBM
+                  LET P.RESERVE.PMT = M.RESERVE.PMT OF YBM
+                  LET P.COM.THIS.MO = COM.THIS.MO OF YBM
+                  LET C.Y.PROD.PROF = C.M.PROD.PROF + Y.PROD.PROF OF YBM
+                  LET C.Y.PROD.PROF.COM = Y.PROD.PROF.COM OF YBM
+                  LET C.TOT.INCENT.ERND = TOT.INCENT.ERND OF YBM
+                  LET C.TOT.NROQ.BONUS = TOT.NROQ.BONUS OF YBM
+                  LET C.Y.TAS.DEV.COM = Y.TAS.DEV.COM OF YBM
+                  LET C.Y.NAR.COM = Y.NAR.COM OF YBM
+                  LET C.Y.PRODUCT.COM = Y.PRODUCT.COM OF YBM
+                  LET C.Y.CHARGEBACKS = D.CHARGEBACKS+Y.CHARGEBACKS OF YBM
+                  LET C.Y.COM.ADJ = D.COM.ADJ+Y.COM.ADJ OF YBM
+                  LET C.Y.RECV.DRAW.USED = Y.RECV.DRAW.USED OF YBM
+                  LET C.Y.NONR.DRAW.USED = Y.NONR.DRAW.USED OF YBM
+                  LET C.Y.DRAW.RECVRY = Y.DRAW.RECVRY OF YBM
+                  LET C.Y.COM.PAYABLE = Y.COM.PAYABLE OF YBM
+                  LET C.Y.TYMCOM.9 = D.TYMCOM.9+Y.TYMCOM.9 OF YBM
+                  LET C.Y.TYMCOM.10 = D.TYMCOM.10+Y.TYMCOM.10 OF YBM
+                  LET C.Y.TYMCOM.370 = D.TYMCOM.370+Y.TYMCOM.370 OF YBM
+                  LET C.Y.W.SYSTEMS = D.W.SYSTEMS+Y.W.SYSTEMS OF YBM
+                  LET C.Y.LEASCO = D.LEASCO + Y.LEASCO OF YBM
+                  LET C.Y.TASC.DEVEL = D.TASC.DEVEL+Y.TASC.DEVEL OF YBM
+                  LET C.Y.TASC.INSTL = D.TASC.INSTL+Y.TASC.INSTL OF YBM
+                  LET C.Y.TASC.PRDTN = D.TASC.PRDTN+Y.TASC.PRDTN OF YBM
+                  LET C.Y.INF.SYS.DIV = D.INF.SYS.DIV+Y.INF.SYS.DIV OF YBM
+                  LET C.Y.PRD.BEF.TAX = D.PRD.BEF.TAX+Y.PRD.BEF.TAX OF YBM
+                  END
+               ELSE   %  NO PREVIOUS MONTH  %
+                  BEGIN
+                  LET C.PREV.COM.EARNED = DEFAULT
+                  LET P.RESERVE.PMT = DEFAULT
+                  LET P.COM.THIS.MO = DEFAULT
+                  LET C.Y.BASE.REV.Q = DEFAULT
+                  LET C.Y.NEW.REV.Q = DEFAULT
+                  LET C.PREV.COM.EARNED = DEFAULT
+                  LET C.Y.REV.BEF.ADJ = D.REV.BEF.ADJ
+                  LET C.Y.REV.ADJ = D.REV.ADJ
+                  LET C.Y.NEW.ACC.REV = D.NEW.ACC.REV
+                  LET C.Y.INCENT.BASE = DEFAULT
+                  LET C.Y.NAR.COM = DEFAULT
+                  LET C.Y.RESERVE.PMT = DEFAULT
+                  LET C.Y.PROD.PROF = C.M.PROD.PROF
+                  LET C.Y.PROD.PROF.COM = DEFAULT
+                  LET C.TOT.INCENT.ERND = DEFAULT
+                  LET C.TOT.NROQ.BONUS = DEFAULT
+                  LET C.Y.TAS.DEV.COM = DEFAULT
+                  LET C.Y.NAR.COM = DEFAULT
+                  LET C.Y.PRODUCT.COM = DEFAULT
+                  LET C.Y.CHARGEBACKS = D.CHARGEBACKS
+                  LET C.Y.COM.ADJ = D.COM.ADJ
+                  LET C.Y.RECV.DRAW.USED = DEFAULT
+                  LET C.Y.NONR.DRAW.USED = DEFAULT
+                  LET C.Y.DRAW.RECVRY = DEFAULT
+                  LET C.Y.COM.PAYABLE = DEFAULT
+                  LET C.Y.TYMCOM.9 = D.TYMCOM.9
+                  LET C.Y.TYMCOM.10 = D.TYMCOM.10
+                  LET C.Y.TYMCOM.370 = D.TYMCOM.370
+                  LET C.Y.W.SYSTEMS = D.W.SYSTEMS
+                  LET C.Y.LEASCO = D.LEASCO
+                  LET C.Y.TASC.DEVEL = D.TASC.DEVEL
+                  LET C.Y.TASC.INSTL = D.TASC.INSTL
+                  LET C.Y.TASC.PRDTN = D.TASC.PRDTN
+                  LET C.Y.INF.SYS.DIV = D.INF.SYS.DIV
+                  LET C.Y.PRD.BEF.TAX = D.PRD.BEF.TAX
+                  END
+            SELECT CBM VIA SALESNUM.5N
+               THEN IF PLAN.STATUS = 'A'
+                  THEN
+                     BEGIN
+                     LET C.M.BASE.REV.Q = BASE.REV.Q
+                     LET C.Y.BASE.REV.Q = C.Y.BASE.REV.Q+BASE.REV.Q
+                            % Use BEGIN.MO to calculate effective %
+                            % sum-of-digits multiplier for this   %
+                            % sales representative.               %
+                            LET SD = 0
+                            LET I = % Current % MO - BEGIN.MO + 1
+                     LET C.M.NEW.REV.Q = I * NEW.REV.Q.INC + NEW.REV.Q.BAS
+                     LET C.Y.NEW.REV.Q = C.Y.NEW.REV.Q + C.M.NEW.REV.Q
+                     LET TQ = C.Y.BASE.REV.Q+C.Y.NEW.REV.Q
+                     LET TSR = C.Y.REV.BEF.ADJ+C.Y.REV.ADJ
+                     LET C.M.INCENT.BASE = INCENT.BASE.Q OF CBM
+                     LET C.Y.INCENT.BASE = C.M.INCENT.BASE + C.Y.INCENT.BASE
+                     LET NR = TSR - C.Y.BASE.REV.Q
+                     LET NROQ = TSR - TQ
+                     IF NR < 0 OR C.Y.NEW.REV.Q = 0
+                        THEN LET PC.QUOTA = 0
+                     ELSE LET PC.QUOTA = NR / C.Y.NEW.REV.Q
+                     IF NROQ < 0 OR C.Y.NEW.REV.Q = 0
+                        THEN LET PC.NROQ = 0
+                     ELSE LET PC.NROQ = NROQ / C.Y.NEW.REV.Q * PC.N.R.O.Q
+                                % PC.N.R.O.Q == 'NROQ factor' %
+                     IF PC.QUOTA GE 1.00
+                        THEN LET C.M.INCENT.ERND.Y = C.Y.INCENT.BASE
+                        ELSE LET C.M.INCENT.ERND.Y = C.Y.INCENT.BASE * PC.QUOTA
+                     LET C.TOT.INCENT.ERND=C.M.INCENT.ERND.Y+C.TOT.INCENT.ERND
+                     LET C.M.NROQ.BONUS.Y = C.Y.INCENT.BASE * PC.NROQ
+                     LET C.TOT.NROQ.BONUS=C.TOT.NROQ.BONUS+C.M.NROQ.BONUS.Y
+
+
+                % COMPUTATIONS FOR BM REPORT (SEE REPORT FOR LINE
+                  REFERENCE)
+
+                  LINE 14:   %
+                     LET C.COM.EARNED = C.M.NROQ.BONUS.Y + C.M.INCENT.ERND.Y
+
+                % LINE 15:   %
+                     LET C.PREV.COM.EARNED = P.COM.THIS.MO + P.RESERVE.PMT
+                                                + C.PREV.COM.EARNED
+
+
+                % LINE 18:   %
+
+                             IF C.M.INCENT.ERND.Y - C.PREV.COM.EARNED GE
+                                C.M.INCENT.BASE THEN
+                                LET C.COM.THIS.MO = C.M.INCENT.ERND.Y -
+                                        C.PREV.COM.EARNED
+                             ELSE IF C.COM.EARNED - C.PREV.COM.EARNED GT
+                                C.M.INCENT.BASE THEN
+                                LET C.COM.THIS.MO = C.M.INCENT.BASE
+                              ELSE IF ((C.COM.EARNED - C.PREV.COM.EARNED) GE 0)
+                                AND ((C.COM.EARNED - C.PREV.COM.EARNED) LT
+                                C.M.INCENT.BASE) THEN
+                                LET C.COM.THIS.MO = C.COM.EARNED -
+                                        C.PREV.COM.EARNED
+                             ELSE
+                                LET C.COM.THIS.MO = 0
+
+
+                % LINE 17: %
+                        LET C.RESERVE = (C.COM.EARNED - C.PREV.COM.EARNED) -
+                                        C.COM.THIS.MO
+
+% LINE 19: Calculation for reserve payments  %
+
+        LET C.M.RESERVE.PMT = 0 % Initialize varible %
+        IF (MO.PROCESSED = 3 OR 6  OR 9 OR 12) AND (C.RESERVE > 0)  THEN
+           BEGIN
+           IF MO.PROCESSED = 3 THEN LET PC.RESERVE = P.C.1ST.Q
+           IF MO.PROCESSED = 6 THEN LET PC.RESERVE = P.C.2ED.Q
+           IF MO.PROCESSED = 9 THEN LET PC.RESERVE = P.C.3RD.Q
+           IF MO.PROCESSED =12 THEN LET PC.RESERVE = P.C.4TH.Q
+
+           LET C.M.RESERVE.PMT = C.RESERVE * PC.RESERVE
+           SUBTRACT C.M.RESERVE.PMT FROM C.RESERVE
+           END
+
+
+                     LET C.M.TAS.DEV.COM = D.TASC.DEVEL*PC.TASC.DEVEL/100.00
+                     LET C.Y.TAS.DEV.COM = C.Y.TAS.DEV.COM + C.M.TAS.DEV.COM
+
+                     % COMPUTE SR UNDER BM %
+
+                     LET SR.CNT = 0
+                     FOR EACH ISP
+                        IF DISTRICT.3N = DISTRICT.3N OF MBMDMSR AND
+                           COM.PLAN    = 'SR' AND
+                           EMPLOYE.NUM < 90000 THEN
+                        SELECT CSR VIA KEY THEN
+                          IF PLAN.STATUS = 'A' THEN
+                             ADD 1 TO SR.CNT
+
+
+                     IF SR.CNT = 0 THEN
+                        LET C.M.NAR.COM = D.NEW.ACC.REV * .060
+                     IF SR.CNT = 1 THEN
+                        LET C.M.NAR.COM = D.NEW.ACC.REV * .040
+                     IF SR.CNT >= 2 THEN
+                        LET C.M.NAR.COM = D.NEW.ACC.REV * .020
+
+                     LET C.Y.NAR.COM = C.Y.NAR.COM + C.M.NAR.COM
+                     LET C.M.PROD.PROF.COM = C.M.PROD.PROF * PC.PROD.PROF/100.00
+                     LET C.Y.PROD.PROF.COM=C.M.PROD.PROF.COM+C.Y.PROD.PROF.COM
+                     SELECT MPRDREV VIA (YR.PROCESSED=YR,MO.PROCESSED=MO,
+                                SALESNUM.5N)
+                        THEN
+                           BEGIN
+                           LET C.M.PRODUCT.COM = M.PRODUCT.COM OF MPRDREV
+                           LET C.Y.PRODUCT.COM=C.Y.PRODUCT.COM+C.M.PRODUCT.COM
+                           END
+            % PRD.BEF.TAX for DM must include values for all associated AC's %
+                     FOR EACH MPRDREV
+                        WHERE (COM.PLAN (ISP VIA KEY) = 'AC'
+                        AND DISTRICT.3N (ISP VIA KEY) = DISTRICT.3N)
+                             BEGIN
+                             ADD M.PRD.BEF.TAX TO D.PRD.BEF.TAX
+                             ADD M.PRD.BEF.TAX TO C.Y.PRD.BEF.TAX
+                             END
+                     LET TCE = C.COM.THIS.MO+C.M.TAS.DEV.COM+C.M.NAR.COM+
+                                C.M.RESERVE.PMT
+                     LET C.M.COM.PAYABLE = TCE +
+                               C.M.PROD.PROF.COM+C.M.PRODUCT.COM+D.COM.ADJ
+                                -D.CHARGEBACKS
+                     IF C.M.COM.PAYABLE < 0
+                        THEN
+                           BEGIN
+                           LET C.M.COM.PAYABLE = 0
+                           PRINT 'NEGATIVE COMMISSION FOR BM#',SALESNUM.5N,
+                              ' RESET TO ZERO.  CAUSED BY:',
+                              @CR
+                           PRINT 'TOTAL COMMISSION EARNED:',TCE,@CR
+                           IF C.M.PRODUCT.COM+C.M.PROD.PROF.COM < 0
+                              THEN 
+                                 BEGIN
+                                 LET TSR = C.M.PRODUCT.COM+C.M.PROD.PROF.COM
+                                 PRINT 'PRODUCT COMMISSION TOTAL:',
+                                     TSR,@CR
+                                 END
+                           IF D.COM.ADJ < 0
+                              THEN PRINT 'COMMISSION ADJUSTMENT:',
+                                     D.COM.ADJ,@CR
+                           IF D.CHARGEBACKS > 0
+                              THEN PRINT 'CHARGEBACKS:',D.CHARGEBACKS,@CR
+                           PRINT @CR
+                           END
+                     IF DRAW.PER.BEG LE MO AND DRAW.PER.END GE MO
+                        THEN LET C.DRAW.AMOUNT = DRAW.AMOUNT OF CBM
+                        ELSE LET C.DRAW.AMOUNT = 0
+                     IF C.M.COM.PAYABLE < C.DRAW.AMOUNT
+                        THEN
+                           BEGIN
+                           LET C.M.DRAW.AMT.USED = C.DRAW.AMOUNT
+                                    - C.M.COM.PAYABLE
+                           LET C.M.COM.PAYABLE = C.DRAW.AMOUNT
+                           END
+                        ELSE LET C.M.DRAW.AMT.USED = 0
+
+                     IF DRAW.TYPE = 'R'
+                        THEN
+                           BEGIN
+                           LET C.M.RECV.DRAW.USED = C.M.DRAW.AMT.USED
+                           LET C.Y.RECV.DRAW.USED = C.Y.RECV.DRAW.USED +
+                                   C.M.DRAW.AMT.USED
+                           END
+                        ELSE
+                           BEGIN
+                           LET C.M.NONR.DRAW.USED = C.M.DRAW.AMT.USED
+                           LET C.Y.NONR.DRAW.USED = C.Y.NONR.DRAW.USED +
+                                   C.M.DRAW.AMT.USED
+                           END
+
+                     IF D.DRAW.RECVRY > 0
+                        THEN IF (C.Y.RECV.DRAW.USED - C.Y.DRAW.RECVRY)
+                            < D.DRAW.RECVRY
+                           THEN
+                              BEGIN
+                              PRINT D.DRAW.RECVRY,' DRAW RECOVERY > ',
+                                 'YTD DRAW FOR BM#',SALESNUM.5N,' SET TO'
+                              IF C.M.COM.PAYABLE < (C.Y.RECV.DRAW.USED
+                                   - C.Y.DRAW.RECVRY)
+                                 THEN
+                                    BEGIN
+                                    LET C.Y.DRAW.RECVRY = C.Y.DRAW.RECVRY
+                                        + C.M.COM.PAYABLE
+                                    LET D.DRAW.RECVRY = C.M.COM.PAYABLE
+                                    LET C.M.COM.PAYABLE = 0
+                                    END
+                                 ELSE
+                                    BEGIN
+                                    LET C.M.COM.PAYABLE = C.M.COM.PAYABLE
+                                     - (C.Y.RECV.DRAW.USED-C.Y.DRAW.RECVRY)
+                                    LET D.DRAW.RECVRY =
+                                         (C.Y.RECV.DRAW.USED - C.Y.DRAW.RECVRY)
+                                    LET C.Y.DRAW.RECVRY = C.Y.RECV.DRAW.USED
+                                    END
+                              PRINT D.DRAW.RECVRY,@CR,@CR
+                              END
+                           ELSE IF C.M.COM.PAYABLE < D.DRAW.RECVRY
+                              THEN
+                                 BEGIN
+                                 PRINT D.DRAW.RECVRY,' DRAW RECOVERY > ',
+                                    'COMMISSION PAYABLE FOR BM#',SALESNUM.5N,
+                                    ' SET TO',C.M.COM.PAYABLE,@CR,@CR
+                                 LET C.Y.DRAW.RECVRY = C.Y.DRAW.RECVRY
+                                      + C.M.COM.PAYABLE
+                                 LET D.DRAW.RECVRY = C.M.COM.PAYABLE
+                                 LET C.M.COM.PAYABLE = 0
+                                 END
+                              ELSE
+                                 BEGIN
+                                 LET C.Y.DRAW.RECVRY = C.Y.DRAW.RECVRY + D.DRAW.RECVRY
+                                 LET C.M.COM.PAYABLE = C.M.COM.PAYABLE
+                                     - D.DRAW.RECVRY
+                                 END
+                     LET C.Y.COM.PAYABLE = C.Y.COM.PAYABLE + C.M.COM.PAYABLE
+                     END
+            INSERT INTO YBM USING(
+            YR FOR YR.PROCESSED,
+            MO FOR MO.PROCESSED,
+            SALESNUM.5N FOR SALESNUM.5N,
+            C.EMPLOYE.NUM FOR EMPLOYE.NUM,
+            C.M.BASE.REV.Q FOR M.BASE.REV.Q,
+            C.Y.BASE.REV.Q FOR Y.BASE.REV.Q,
+            C.M.NEW.REV.Q FOR M.NEW.REV.Q,
+            C.Y.NEW.REV.Q FOR Y.NEW.REV.Q,
+            D.REV.BEF.ADJ FOR M.REV.BEF.ADJ,
+            C.Y.REV.BEF.ADJ FOR Y.REV.BEF.ADJ,
+            D.REV.ADJ FOR M.REV.ADJ,
+            C.Y.REV.ADJ FOR Y.REV.ADJ,
+            D.NEW.ACC.REV FOR M.NEW.ACC.REV,
+            C.Y.NEW.ACC.REV FOR Y.NEW.ACC.REV,
+            C.M.INCENT.BASE FOR M.INCENT.BASE,
+            C.Y.INCENT.BASE FOR Y.INCENT.BASE,
+            C.TOT.INCENT.ERND FOR TOT.INCENT.ERND,
+            C.M.INCENT.ERND.Y FOR M.INCENT.ERND.Y,
+            C.TOT.NROQ.BONUS FOR TOT.NROQ.BONUS,
+            C.M.NROQ.BONUS.Y FOR M.NROQ.BONUS.Y,
+            C.COM.EARNED FOR COM.EARNED,
+            C.PREV.COM.EARNED FOR PREV.COM.EARNED,
+            C.M.NAR.COM FOR M.NAR.COM,
+            C.Y.NAR.COM FOR Y.NAR.COM,
+            C.M.RESERVE.PMT FOR M.RESERVE.PMT,
+            C.Y.RESERVE.PMT FOR Y.RESERVE.PMT,
+            C.RESERVE FOR RESERVE,
+            C.COM.THIS.MO FOR COM.THIS.MO,
+            C.M.PROD.PROF FOR M.PROD.PROF,
+            C.Y.PROD.PROF FOR Y.PROD.PROF,
+            C.M.TAS.DEV.COM FOR M.TAS.DEV.COM,
+            C.Y.TAS.DEV.COM FOR Y.TAS.DEV.COM,
+            C.M.PRODUCT.COM FOR M.PRODUCT.COM,
+            C.Y.PRODUCT.COM FOR Y.PRODUCT.COM,
+            C.M.PROD.PROF.COM FOR M.PROD.PROF.COM,
+            C.Y.PROD.PROF.COM FOR Y.PROD.PROF.COM,
+            D.CHARGEBACKS FOR M.CHARGEBACKS,
+            C.Y.CHARGEBACKS FOR Y.CHARGEBACKS,
+            D.COM.ADJ FOR M.COM.ADJ,
+            C.Y.COM.ADJ FOR Y.COM.ADJ,
+            C.DRAW.AMOUNT FOR DRAW.AMOUNT,
+            C.M.RECV.DRAW.USED FOR M.RECV.DRAW.USED,
+            C.Y.RECV.DRAW.USED FOR Y.RECV.DRAW.USED,
+            C.M.NONR.DRAW.USED FOR M.NONR.DRAW.USED,
+            C.Y.NONR.DRAW.USED FOR Y.NONR.DRAW.USED,
+            D.DRAW.RECVRY FOR M.DRAW.RECVRY,
+            C.Y.DRAW.RECVRY FOR Y.DRAW.RECVRY,
+            C.M.COM.PAYABLE FOR M.COM.PAYABLE,
+            C.Y.COM.PAYABLE FOR Y.COM.PAYABLE,
+            D.TYMCOM.9 FOR M.TYMCOM.9,
+            C.Y.TYMCOM.9 FOR Y.TYMCOM.9,
+            D.TYMCOM.10 FOR M.TYMCOM.10,
+            C.Y.TYMCOM.10 FOR Y.TYMCOM.10,
+            D.TYMCOM.370 FOR M.TYMCOM.370,
+            C.Y.TYMCOM.370 FOR Y.TYMCOM.370,
+            D.W.SYSTEMS FOR M.W.SYSTEMS,
+            C.Y.W.SYSTEMS FOR Y.W.SYSTEMS,
+            D.LEASCO FOR M.LEASCO,
+            C.Y.LEASCO FOR Y.LEASCO,
+            D.TASC.DEVEL FOR M.TASC.DEVEL,
+            C.Y.TASC.DEVEL FOR Y.TASC.DEVEL,
+            D.TASC.INSTL FOR M.TASC.INSTL,
+            C.Y.TASC.INSTL FOR Y.TASC.INSTL,
+            D.TASC.PRDTN FOR M.TASC.PRDTN,
+            C.Y.TASC.PRDTN FOR Y.TASC.PRDTN,
+            D.INF.SYS.DIV FOR M.INF.SYS.DIV,
+            C.Y.INF.SYS.DIV FOR Y.INF.SYS.DIV,
+            D.PRD.BEF.TAX FOR M.PRD.BEF.TAX,
+            C.Y.PRD.BEF.TAX FOR Y.PRD.BEF.TAX)
+          LET C.M.BASE.REV.Q = DEFAULT
+          LET C.M.NEW.REV.Q = DEFAULT
+          LET D.REV.BEF.ADJ = DEFAULT
+          LET D.REV.ADJ = DEFAULT
+          LET D.NEW.ACC.REV = DEFAULT
+          LET C.M.INCENT.BASE = DEFAULT
+          LET C.M.INCENT.ERND.Y = DEFAULT
+          LET C.M.NROQ.BONUS.Y = DEFAULT
+          LET C.COM.EARNED = DEFAULT
+          LET C.PREV.COM.EARNED = DEFAULT
+          LET C.M.NAR.COM = DEFAULT
+          LET D.RESERVE.PMT = DEFAULT
+          LET C.RESERVE = DEFAULT
+          LET C.COM.THIS.MO = DEFAULT
+          LET C.M.PROD.PROF = DEFAULT
+          LET C.M.TAS.DEV.COM = DEFAULT
+          LET C.M.PRODUCT.COM = DEFAULT
+          LET C.M.PROD.PROF.COM = DEFAULT
+          LET D.CHARGEBACKS = DEFAULT
+          LET D.COM.ADJ = DEFAULT
+          LET C.DRAW.AMOUNT = DEFAULT
+          LET C.M.RECV.DRAW.USED = DEFAULT
+          LET C.M.NONR.DRAW.USED = DEFAULT
+          LET C.M.DRAW.AMT.USED = DEFAULT
+          LET D.DRAW.RECVRY = DEFAULT
+          LET C.M.COM.PAYABLE = DEFAULT
+          LET D.TYMCOM.9 = DEFAULT
+          LET D.TYMCOM.10 = DEFAULT
+          LET D.TYMCOM.370 = DEFAULT
+          LET D.W.SYSTEMS = DEFAULT
+          LET D.LEASCO = DEFAULT
+          LET D.TASC.DEVEL = DEFAULT
+          LET D.TASC.INSTL = DEFAULT
+          LET D.TASC.PRDTN = DEFAULT
+          LET D.INF.SYS.DIV = DEFAULT
+          LET D.PRD.BEF.TAX = DEFAULT
+          END   % OF ELSE IF PLAN.TYPE = 'BM' %
+
+          END   % OF DISTRICT.3N CHANGING %
+
+      IF AREA.2N CHANGING
+         THEN
+            BEGIN
+            SELECT YAREA VIA (YR.PROCESSED = PREV.YR,MO.PROCESSED = PREV.MO,
+                              AREA.2N)
+               THEN
+                  BEGIN
+                  LET C.Y.BASE.REV.Q = A.BASE.REV.Q + Y.BASE.REV.Q
+                  LET C.Y.NEW.REV.Q = A.NEW.REV.Q + Y.NEW.REV.Q
+                  LET C.Y.REV.BEF.ADJ = A.REV.BEF.ADJ + Y.REV.BEF.ADJ
+                  LET C.Y.REV.ADJ = A.REV.ADJ + Y.REV.ADJ
+                  LET C.Y.TYMCOM.9 = A.TYMCOM.9 + Y.TYMCOM.9
+                  LET C.Y.TYMCOM.10 = A.TYMCOM.10 + Y.TYMCOM.10
+                  LET C.Y.TYMCOM.370 = A.TYMCOM.370 + Y.TYMCOM.370
+                  LET C.Y.W.SYSTEMS = A.W.SYSTEMS + Y.W.SYSTEMS
+                  LET C.Y.LEASCO = A.LEASCO + Y.LEASCO
+                  LET C.Y.TASC.DEVEL = A.TASC.DEVEL + Y.TASC.DEVEL
+                  LET C.Y.TASC.INSTL = A.TASC.INSTL + Y.TASC.INSTL
+                  LET C.Y.TASC.PRDTN = A.TASC.PRDTN + Y.TASC.PRDTN
+                  LET C.Y.INF.SYS.DIV = A.INF.SYS.DIV + Y.INF.SYS.DIV
+                  LET C.Y.PRD.BEF.TAX = A.PRD.BEF.TAX + Y.PRD.BEF.TAX
+                  END
+               ELSE
+                  BEGIN
+                  LET C.Y.BASE.REV.Q = A.BASE.REV.Q
+                  LET C.Y.NEW.REV.Q = A.NEW.REV.Q
+                  LET C.Y.REV.BEF.ADJ = A.REV.BEF.ADJ
+                  LET C.Y.REV.ADJ = A.REV.ADJ
+                  LET C.Y.TYMCOM.9 = A.TYMCOM.9
+                  LET C.Y.TYMCOM.10 = A.TYMCOM.10
+                  LET C.Y.TYMCOM.370 = A.TYMCOM.370
+                  LET C.Y.W.SYSTEMS = A.W.SYSTEMS
+                  LET C.Y.LEASCO = A.LEASCO
+                  LET C.Y.TASC.DEVEL = A.TASC.DEVEL
+                  LET C.Y.TASC.INSTL = A.TASC.INSTL
+                  LET C.Y.TASC.PRDTN = A.TASC.PRDTN
+                  LET C.Y.INF.SYS.DIV = A.INF.SYS.DIV
+                  LET C.Y.PRD.BEF.TAX = A.PRD.BEF.TAX
+                  END
+            INSERT INTO YAREA USING(
+            YR FOR YR.PROCESSED,
+            MO FOR MO.PROCESSED,
+            AREA.2N FOR AREA.2N,
+            A.BASE.REV.Q FOR M.BASE.REV.Q,
+            C.Y.BASE.REV.Q FOR Y.BASE.REV.Q,
+            A.NEW.REV.Q FOR M.NEW.REV.Q,
+            C.Y.NEW.REV.Q FOR Y.NEW.REV.Q,
+            A.REV.BEF.ADJ FOR M.REV.BEF.ADJ,
+            C.Y.REV.BEF.ADJ FOR Y.REV.BEF.ADJ,
+            A.REV.ADJ FOR M.REV.ADJ,
+            C.Y.REV.ADJ FOR Y.REV.ADJ,
+            A.TYMCOM.9 FOR M.TYMCOM.9,
+            C.Y.TYMCOM.9 FOR Y.TYMCOM.9,
+            A.TYMCOM.10 FOR M.TYMCOM.10,
+            C.Y.TYMCOM.10 FOR Y.TYMCOM.10,
+            A.TYMCOM.370 FOR M.TYMCOM.370,
+            C.Y.TYMCOM.370 FOR Y.TYMCOM.370,
+            A.W.SYSTEMS FOR M.W.SYSTEMS,
+            C.Y.W.SYSTEMS FOR Y.W.SYSTEMS,
+            A.LEASCO FOR M.LEASCO,
+            C.Y.LEASCO FOR Y.LEASCO,
+            A.TASC.DEVEL FOR M.TASC.DEVEL,
+            C.Y.TASC.DEVEL FOR Y.TASC.DEVEL,
+            A.TASC.INSTL FOR M.TASC.INSTL,
+            C.Y.TASC.INSTL FOR Y.TASC.INSTL,
+            A.TASC.PRDTN FOR M.TASC.PRDTN,
+            C.Y.TASC.PRDTN FOR Y.TASC.PRDTN,
+            A.INF.SYS.DIV FOR M.INF.SYS.DIV,
+            C.Y.INF.SYS.DIV FOR Y.INF.SYS.DIV,
+            A.PRD.BEF.TAX FOR M.PRD.BEF.TAX)
+            LET A.BASE.REV.Q = DEFAULT
+            LET A.NEW.REV.Q = DEFAULT
+            LET A.REV.BEF.ADJ = DEFAULT
+            LET A.REV.ADJ = DEFAULT
+            LET A.TYMCOM.9 = DEFAULT
+            LET A.TYMCOM.10 = DEFAULT
+            LET A.TYMCOM.370 = DEFAULT
+            LET A.W.SYSTEMS = DEFAULT
+            LET A.LEASCO = DEFAULT
+            LET A.TASC.DEVEL = DEFAULT
+            LET A.TASC.INSTL = DEFAULT
+            LET A.TASC.PRDTN = DEFAULT
+            LET A.INF.SYS.DIV = DEFAULT
+            LET A.PRD.BEF.TAX = DEFAULT
+            END % OF IF AREA.2N CHANGING %
+      END % FOR EACH MBMDMSR %
+   END % OF WRITE REPORT %
+END % Of PROCEDURE BM.DM.SR.COM.UPD %
+f8
+W
