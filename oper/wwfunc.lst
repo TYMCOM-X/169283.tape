@@ -1,0 +1,1669 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                      FUNCTIONAL SPECIFICATION FOR
+
+                     WIRRAP--WIRE-WRAPPING PROGRAM
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE   2
+
+
+
+          This is the functional specification for  a  Tymcom-X  program
+     for  the  generation and documentation of wire-wrap circuit boards.
+     The  program,  called  "WIRRAP",  will   permit   the   generation,
+     manipulation,   and  documentation  of  a  data-base  describing  a
+     specific wire-wrap implementation.
+
+          A wiring board consists of an arbitrary  set  of  sockets--not
+     necessarily all similar; each of which may be located anywhere upon
+     the board.  Each socket has a unique identification  or  name,  and
+     consists of an arbitrary set of pins.  Each pin within a socket has
+     its own name.  Each pin and  socket  may  have  certain  attributes
+     associated with it.
+
+          For example, a pin may be BUSSED: that is, connected to  other
+     pins on the board by fixed wiring.  In that case, since connections
+     already exist between these pins, the program should  not  generate
+     redundant  wiring.  Simularly, a socket may be an edge connector on
+     the board, and will impose certain constraints on any  wiring  nets
+     which include edge pins.
+
+          One  section  of  the  program  id  devoted  to  creating  and
+     maintaining   board  descriptions,  and  to  the  generation  of  a
+     data-base  file  for  a  specific  circuit  implementation.    This
+     data-base  contains  the  description  of the board, and is used to
+     produce the specific circuit implementation.
+
+          A second section of the program is devoted to  the  generation
+     and  maintainence  of libraries of plug descriptions.  A plug is an
+     entity which may be attached to a socket.  Each different  type  of
+     plug  has  a unique name: it also has a set of pins.  Each plug-pin
+     may  have  certain  attributes  associated  with  it.   A  plug  is
+     described by defining each pin--and its attributes--associated with
+     the plug.
+
+          A third section of the program is used to enter  circuit  nets
+     into a data-base: a net is the the list of all pins which are to be
+     connected  together,  and  has  a  net  (signal)   name.    Certain
+     constraints  are imposed on any net: no pin is to contain more than
+     two wires; the total length of the wire used for a  net  is  to  be
+     minimized.   Nets  are defined via a list of descriptors.  For each
+     descriptor, the corresponding pin on  the  board  is  located,  and
+     linked into the appropriate net.
+
+          Additional sections  of  the  program  are  used  to  document
+     various information about the circuit implementation contained in a
+     data-base, and to modify a  data-base  and  generate  documentation
+     (change orders) concerning those modifications to the data-base.
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE   3
+            INTRODUCTION
+
+
+                           1     W I R R A P
+
+              A PROGRAM FOR DEVELOPMENT OF CIRCUIT BOARDS
+
+
+                               John Kopf
+                             March 22, 1973
+
+
+          Wirrap is a program used  to  generate  and  document  circuit
+     boards,  particularly  those which are "wire-wrapped", but which is
+     also useful for back-panels, etc.  It is used to enter data into  a
+     specialized  form  of  data-base, to change the data in an existing
+     data-base of the correct form, and  to  permit  the  generation  of
+     various  documents relating to the information in the data-base, in
+     forms suitable both to  humans  and  to  other  machines,  such  as
+     automatic drilling and wirewraping machines.
+
+
+          The data-base is a diskfile, and contains information relating
+     to  the  specific  board used, and the wiring superimposed thereon,
+     and may in  addition  also  contain  information  relating  to  the
+     individual elements plugged into the board.
+
+
+          During a working session, the data-base specified is copied to
+     a set of working files, which are modified.  Only at session-end is
+     the data-base replaced with a new, updated version.
+
+
+                   1.1   DEFINITION OF ABBREVIATIONS
+
+
+          In the following material, certain abbreviations are  used  to
+     specify  certain  types  of constructs.  These are listed below for
+     the convenience of the user.
+
+      abbr.          meaning                 example
+     -----------------------------------------------
+      socid          SOCKET IDENTIFIER       A5
+      sigid          SIGNAL IDENTIFIER       RESET
+      spid           SOCKET PIN IDENTIFIER   3
+      bpid           BOARD PIN IDENTIFIER    A5-3
+      plgid          PLUG IDENTIFIER         SN7400
+      gid            GROUP IDENTIFIER        ROW
+      ppid           PLUG PIN IDENTIFIER     7
+     -----------------------------------------------
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE   4
+            INTRODUCTION
+
+
+                     1.2   BASIC PROGRAM STRUCTURE
+
+
+          The wirewrap program is divided  into  independent  functional
+     units.   Each  of  these is invoked via a specific command.  When a
+     unit is active, additional commands specific to that  unit  may  be
+     used.
+
+
+          Units are invoked via the general command form:
+
+               UNIT [USING/USE filename] <c/r>
+
+
+          The functional unit names and usage are:
+           BOARD         generate and edit board descriptions, generate
+                             data-base for wiring.
+           PLUG          generate and edit plug descriptions.
+           ENTER         generate and edit wiring descriptions.
+           CHANGE        modify existing data-base (change orders).
+           DOCUMENT      generate various documents relating to the
+                             data-base.
+
+
+          These functional units are described  in  more  detail  below.
+     BOARD  and  PLUG  may be used independently of any specific circuit
+     implementation, since they provide  specialized  editing  functions
+     for certain types of input.
+
+
+                      1.3   RESTRICTIONS ON USAGE
+
+
+          There are certain restrictions on  the  use  of  the  program.
+     These may be removed in later versions, but will exist in the first
+     version.  These are as follows:
+
+               1.3.1 A plug must match or be a subset of any  socket  it
+     is used in.  this restriction rules out the use of plugs which span
+     several sockets.  It is necessary  because  of  the  difficulty  of
+     searching  for  matching pins on sockets and plugs, especially when
+     one or another may be rotated in its description.
+
+               1.3.2 Plug pins must be described in the  same  order  as
+     the  socket  pins  used.   This is especially true if the plug is a
+     subset of the socket (e.g., if a 4-pin ic is plugged into a  16-pin
+     socket, then plug pin names do not correspond to socket pin names).
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE   5
+            INTRODUCTION
+
+
+               1.3.3 There is no guarantee of correctness in the use  of
+     plugs  in the specific case where they do not fill the socket used,
+     unless each plug pin description has a  coordinate  assigned,  such
+     that appropriate plug pins may be associated with the corresponding
+     plug pins by means of their relative positions.
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE   6
+            DESCRIPTION OF A BOARD
+
+
+                       2.  DESCRIPTION OF A BOARD
+
+
+          This functional unit is invoked via the command:
+
+               BOARD [USING/USE file]
+
+
+          If FILE is specified, it is used as a source file  for  input.
+     Such  a  file  may  be  generated  either  via  the editor or via a
+     previous usage of the wirewrap program where the board  description
+     was saved.
+
+
+          A board is described by a set of  english-language  statements
+     which define various elements of a board.
+
+
+          The board description language permits  one  to  define  board
+     elements  using  either primatives (individual pin descriptions) or
+     previously  defined  board  elements.   Various   commands   permit
+     verification  of elements; editing of elements; and generation of a
+     board description file for input to the wirewrap program.
+
+
+          2.1 pins, sockets, and groups
+
+          The basic element is the pin.  A pin has  certain  attributes.
+     These attributes are as follows:
+
+           ID            The label of the pin.
+           X             The X-position (in inches) of the pin, relative
+                             to some arbitrary point (normally the first
+                             pin in the list...pin "1").
+           Y             The Y-position of the pin (like X).
+           BUSS          The pin is not "pluggable", but is instead
+                             connected to a buss bar on the board. 
+      Bussed
+                             signals will be treated differently than
+                             non-bussed signals.
+           DRILL         This element is not a pin, but instead
+                             describes a hole which must be drilled in
+                             the circuit board.  Drill elements have no
+                             identification, and are not accessible from
+                             the data-base.
+
+
+          A socket is  a  collection  of  pins  and  drill  holes.   The
+     attributes of the pins are attached to the socket.
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE   7
+            DESCRIPTION OF A BOARD
+
+
+          A group consists of a list of pins  and/or  other  groups  and
+     their  attributes.  if a list entry is another group, it is treated
+     in a special fashion.  The position of the sub-group  is  taken  as
+     the  point  of reference for each sub-sub-group.  For example, if a
+     socket has been defined as an array of pins,  located  relative  to
+     pin "1", then a group defined as an array of sockets, each of which
+     has a (X, Y) specified, defines the position of  each  pin  in  the
+     array of sockets.
+
+
+          2.2 valid names, and their construction
+
+          If a group is given an id "A" (via use in  another  group  and
+     itself  has  subgroups  "1",  "2", ..., then the sub-groups are now
+     identified by the identifications "A1", "A2", ...,  and  these  new
+     identifications are unique.
+
+
+          However, since it is frequently convenient to  refer  to  pins
+     within a socket, and since a socket is the last element in a group,
+     it is desirable to distinguish the socket pins in some  way.   This
+     is  done  by  the  use  of the dash "-".  Pin "3" of socket "A1" is
+     referenced, not as 'A13', but  instead  as  "A1-3".   A  subsequent
+     reference  to pin "A1-5" may then be abbreviated as "5", as long as
+     no other group element has been referenced in the meantime.
+
+
+          An element is normally given an identification using the  form
+     "ID",  which  causes  normal  id  concatination as described above.
+     However it may be desirable to define an id which is  not  used  as
+     part  of the element id.  In this case it is permissable to use the
+     form 'ID'.  This construct  is  dangerous  however,  since  it  may
+     introduce ambiguity.
+
+
+          Element definitions are followed by an arbitrary length  list.
+     Each  list  element  is terminated by the character ";", except for
+     the last element which is terminated by the  list  terminator  ":".
+     Various  terms  in the list element are optional, and are specified
+     in the list description by [option].  other terms must  be  one  of
+     several  forms  which  are  designated  by  form1/form2.   Posative
+     numbers are specified by nn.n,  and  may  be  any  decimal  number.
+     Within  a  list,  imbedded  carriage  returns  and  line-feeds  are
+     ignored, and may be used to improve readability.  EXAMPLES OF  LIST
+     ELEMENTS
+
+
+               2.2.1 ["spid"/'spid'/DRILL] [X = nn.n], [Y=nn.n];
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE   8
+            DESCRIPTION OF A BOARD
+
+
+          This is the general form of list element for a  pin.   if  the
+     identification  is  not  used,  the last id is incremented by 1 and
+     used again.  Thus if the last id was "2", the default would be "3".
+     Note  that  no  carries  are  propagated,  thus  "9" is followed by
+     garbage, and not by "10".
+
+
+          If no X position is specified, the last one defined  is  used.
+     The  same  rule  applies  to Y.  If both X and Y are specified, the
+     line may be abbreviated as:
+
+               'spid'/"spid"/DRILL nn.n, nn.n;
+
+
+          Indeed, if only one number is specified, it  is  taken  as  X.
+     The  alternate forms are only to make the source more readable, and
+     to avoid ambiguity.
+
+
+               2.2.2 "spid" nn.n, nn.n;
+
+          This defines pin "spid" at the appropriate X and y position.
+
+
+               2.2.3 DRILL nn.n, nn.n;
+
+          This specifies that a hole will be drilled at the  appropriate
+     X and Y coordinate.
+
+
+               2.2.4 "spid" BUSSED "sigid" nn.n, nn.n;
+
+          This specifies that the designated pin is a bussed  pin.   The
+     signal  "sigid" is the signal assigned to the buss attached to this
+     pin.
+
+
+               2.2.5 "spid"Y=nn.n;
+
+          This specifies that the previous value of X is to be used.
+
+
+               2.2.6 "spid" nn.n;
+
+          This specifies that the old value of Y is to be used.   It  is
+     not necessary to specify "X=", since the first value is taken to be
+     X unless otherwise defined.
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE   9
+            DESCRIPTION OF A BOARD
+
+
+               2.2.7 "GID" USING/USE gid X = nn.n, Y = nn.n;
+
+          This is the general form using a group/socket definition as an
+     element  of  a  new group.  The word "USING" specifies that a group
+     definition is to be used instead of defining a pin.
+
+
+          2.3 socket definition
+
+          A socket is defined by the statement:
+
+               SOCKET DEFINITION socid: list:
+
+       The socket named "socid" is defined.  The list may  only  contain
+     pin or drill descriptions.
+
+
+          2.4 edge socket definition
+
+          An edge socket is defined by the statement:
+
+               EDGE SOCKET DEFINITION socid: list:
+
+       This is completely equivalent to a socket definition, except that
+     a  flag  associated with the socket is set, indicating that this is
+     an edge socket/connector.  This permits the capability  of  calling
+     out documentation relating to edge connectors as a specific type of
+     element, with any attributes associated with the card/board  as  an
+     element itself.  Plugs may not be used with edge sockets.
+
+
+          2.5 group definition
+
+          A group is defined via the statement:
+
+               GROUP DEFINITION id: group list:
+
+       Id is the name given to this  definition.   The  group  list  may
+     contain any valid list element.
+
+
+          2.6 listing a definition
+
+          A definition may be listed in tabular form via the command:
+
+               PRINT id
+
+       All attributes for a  definition  are  printed,  including  those
+     which  were  defined  by  default.   Appropriate control tokens are
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE  10
+            DESCRIPTION OF A BOARD
+
+
+     inserted to correspond  to  a  complete  description  input.   List
+     generates  an  image  of the text generated, if the save command is
+     used.
+
+
+          2.7 editing a definition
+
+          A definition may be edited via the command:
+
+               EDIT id
+
+       The attributes for a list definition are printed, line  by  line.
+     each  line  is terminated by the text "O/K? Y/N".  if "y" is typed,
+     it is accepted and the next line is performed.  If  "n"  is  typed,
+     the line is repeated, element by element.  Each element is followed
+     by "?", and the program waits for input.   A  value  typed  of  the
+     appropriate  form  will  replace  the  original  value.  A carriage
+     return accepts the current value.  At the  end  of  the  line,  the
+     entire new line is repeated with the normal message.  At the end of
+     a definition, the message "ANY MORE, Y/N" is output.  At this  time
+     additional elements may be entered.
+
+
+          2.8 wire routing
+
+          A list of wiring channels may be defined by the command:
+
+               WIRE CHANNEL[S] x/y: list:
+
+       Where LIST consists of one or more real  numbers  for  X  (or  Y)
+     which  specify  channels  through which wires will be routed.  Note
+     that wiring will be generated point-to-point  unless  one  or  more
+     channels  are  defined  before the data-base is generated.  In this
+     case, each wire will  be  routed  from  its  pins  to  the  nearest
+     channel, and then all routing will lie within channels.
+
+
+          2.9 saving a board description
+
+          A board description may be saved using the command:
+
+               SAVE ON file
+
+       The board description will be written out (in long form)  to  the
+     file specified.
+
+
+          2.10 calling out drilling orders
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE  11
+            DESCRIPTION OF A BOARD
+
+
+          A drilling tape may be generated with the command:
+
+               DRILL TAPE file USING id
+
+       The description of definition ID is expanded and  output  in  the
+     correct t for a drill paper-tape onto FILE.
+
+
+          2.11 generation of data-base file
+
+          A data-base file may be generated via the command:
+
+               GENERATE file USING id
+
+       The definition ID is expanded,  ignoring  drill  points,  and  is
+     output  to  FILE.  The file is the new data-base, and is in correct
+     form for subsequent description of the wiring to be implemented.
+
+
+
+                          A N   E X A M P L E
+
+
+
+          Define a board consisting of 4 rows of 3 columns  of  sockets,
+     each  of which has 8 pins and 2 bussed pins, and also has 2 drilled
+     holes.  We can say:
+
+
+      SOCKET DEFINITION IC:"1" X=0, Y=O;"2" X =  .1;"3"  X=.3;"4"  X=.4;
+     "5"  X=.4,  Y=.3;"6"  X=.3;"7"X=.1;"8"X=0;"ZX1"BUSSED "BP1" X = .1,
+     Y=.1; "ZX2" BUSSED "BP2" X = .3, Y = .2;DRILL X=0,Y=.15;DRILL .4:
+
+      GROUP DEFINITION COLUMN:"A" USING IC X=0, Y=0;"B" USING  IC  Y=.6;
+     "C" USING IC Y = 1.2:
+
+      GROUP DEFINITION ARRAY: "1" USING COLUMN X=0, Y=0; "2" USE  COLUMN
+     X=.5; "3" USING COLUMN X=.6;"4" USING COLUMN X=1.2:
+
+      DRILL TAPE PAPER USING ARRAY
+
+      GENERATE BOARD0 USING ARRAY
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE  12
+            DESCRIPTIONS OF PLUGS
+
+
+                        3   DESCRIPTION OF PLUGS
+
+
+          "PLUGS" are those elements which may be inserted into sockets.
+     A  plug for one board may be an integrated circuit; for a different
+     board, such as a back-panel, a plug may be an entire card,  perhaps
+     generated by a previous wirewrap program usage.
+
+
+          A plug may  be  described  in  such  a  fashion  that  certain
+     attributes  may  be  assigned to each pin of the plug, and all such
+     values may then be invoked by calling out the plug to insert into a
+     socket.   Examples  of  simple  attributes might be load and source
+     capability, or standard signals assigned to specific pins, such  as
+     +5V and GND.
+
+
+          The plug functional unit is invoked by the command:
+
+               PLUG USING/USE file
+
+
+      Where FILE is the name of a plug library.  This need not exist  at
+     the time of invocation.
+
+
+                         3.1     Plug libraries
+
+
+          A library may be defined, which contains  descriptions  of  an
+     entire  family  of  plugs.   For  example,  the library "TTL" might
+     contain plugs labeled "SN7400", "SN7401", "SN7410", and "SN7420".
+
+
+          By specifying "TTL" in a library definition, one may then call
+     out the appropriate data for SN7400 whenever desired.
+
+
+                      3.2     Definition of a plug
+
+
+          A new plug is defined by the command:
+
+               DEFINE plgid: list:
+
+
+      The current plug library is searched for the name "PLGID", and  if
+     not  there,  the  LIST is copied into a plug description in memory.
+     If it already is there, a message is output that "PLUG  IS  ALREADY
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE  13
+            DESCRIPTIONS OF PLUGS
+
+
+     DEFINED"  and input of the list is aborted, the program expecting a
+     new command.
+
+
+          LIST may be of two forms.  If the first word is "FROM", as in:
+
+               FROM file:
+
+
+      Then the file "FILE" is read to get the LIST.  This permits a plug
+     description to be generated by the editor and entered later.
+
+
+          The second form of LIST entry is:
+
+               "ppid" attribute list;
+
+
+      the pin identification "PPID" is assigned to  this  pin,  and  the
+     attribute list is associated with it.  Attributes may be left null,
+     or  undefined,  but  will  in  that  case  not  be  available   for
+     documentation.
+
+
+                   3.3     Editing a plug description
+
+
+          A plug description is edited by the command:
+
+               EDIT [plgid]
+
+
+      If plgid is not specified, the  most  recent  plug  referenced  is
+     used.   Otherwise  the specified plug is checked to determine if it
+     is the current plug, and if  not,  editing  is  aborted  until  the
+     program  determines  what  to do with the current plug description.
+     If the current plug has not been changed, and a good copy exists in
+     the  library,  then  it  is  deleted  and  editing  continues.  The
+     specified plug is located in the current plug library, brought into
+     the current description area, and editing proceeds.
+
+
+          The plug identification is output, followed by  editing  lines
+     for each pin of the plug description.  Each line output is followed
+     by the text "OK? Y/N If "Y" is typed, the next line  is  generated.
+     If  "N",  then  the  line is repeated, element by element, and each
+     element is followed by "?".  The element may be accepted by  typing
+     a  carriage  return, or changed by entering the appropriate form of
+     new value.  when the entire line for  a  pin  has  been  processed,
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE  14
+            DESCRIPTIONS OF PLUGS
+
+
+     editing  is continued for that line (the line is repeated), and for
+     succesive lines.  When all lines have been output, the message "ANY
+     MORE,  Y/N" is output.  If Y is typed, DEFINE is entered; if N, the
+     edit is complete.
+
+
+              3.4     Replacing a library plug description
+
+
+          The command:
+
+               ENTER PLUG
+
+
+      Causes the current plug description to be written  into  the  plug
+     library.  If the current plug id is a new id, it is appended to the
+     library; if it already exists in the library, it will  replace  the
+     old  description.   The  plug  library  directory is ordered in the
+     order of plug definition.  Replacing the plug description does  not
+     change the directory ordering.
+
+
+                       3.5     The plug directory
+
+
+          The command:
+
+               DIRECTORY
+
+
+      Causes the directory of plugs in the current library to be listed,
+     along with the number of pins on each plug.
+
+
+                  3.6     Plug attribute list elements
+
+
+          Each pin of a plug may have a number of attributes  associated
+     with it.  These are described below.  On definition, attributes are
+     input in any order, and are separated by commas (",").
+
+             3.6.1 Pin identification.  The  pin  identification  is  of
+     form:
+
+                    "ppid"/'ppid',
+
+
+      Where Ppid is the name of the pin, such as "1".
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE  15
+            DESCRIPTIONS OF PLUGS
+
+
+             3.6.2 Pin X-position.  The form of this attribute is:
+
+                    X=nn.n,
+
+             3.6.3 Pin Y-position.  The form of this attribute is:
+
+                    Y=nn.n,
+
+             3.6.4 Default signal.  the form is:
+
+                    SIGNAL = sigid,
+
+
+      Where SIGID is the name of any signal to be assigned to  this  pin
+     by default, such as GND.  Default signal names may be overridden at
+     the time a plug is assigned to a socket  along  with  signals,  but
+     their  use permits the option of not specifying constant pin usage,
+     such as +5V, and GND.
+
+             3.6.5 Group specification.  this specification is of form:
+
+                    GROUP groupid(n),
+
+
+      Where N is an optional number designating a specific, multiple-use
+     group number.  If not specified, the group is group 1.  The purpose
+     of group specification is to link all pins associated with a unique
+     element  on  a  plug, so that these elements may be used in certain
+     forms of documentation.  For  example,  if  a  plug  contains  four
+     independent  2-input  nand  gates,  the  pins  of each one could be
+     specified as an  independent  group,  as  in:  NAND2(1),  NAND2(2),
+     NAND2(3), and NAND2(4).  It is then possible to document the use of
+     all elements labeled NAND2.
+
+             3.6.6 Sub-group specification.  This  specification  is  of
+     form:
+
+                    SUBGROUP subgroup-id(n),
+
+
+      Where N is an optional  number  specifying  a  specific  subgroup.
+     Usage  is like that in 3.6.5, except that subgroups are elements of
+     a single group, with common  elements.   For  example,  a  pair  of
+     latches  (group)  may  have  a  common  reset,  and  so  each latch
+     (sub-group) is not entirely  independent,  since  the  use  of  the
+     second  latch can only be done if the usage requires the same reset
+     signal.
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE  16
+            DESCRIPTIONS OF PLUGS
+
+
+             3.6.7 Input logic type.  The specification:
+
+                    INPUT LOGIC TYPE = typid,
+
+
+      Permits documentation concerning logic type conflict verification.
+
+             3.6.8 Output logic type.  The specification:
+
+                    OUTPUT LOGIC TYPE = typid,
+
+
+      Permits the same sort of checking as described in 3.6.7.
+
+             3.6.9 Input load specification.  The specification:
+
+                    INPUT LOAD = nn.n,
+
+
+      Specifies the  input  load  value  in  arbitrary  units.   If  not
+     specified,  a  unit  load  is  assumed,  provided  any  other input
+     parameters are specified.
+
+             3.6.10 Output drive specification.  The specification:
+
+                    OUTPUT DRIVE = nn.n,
+
+
+      Specifies the output drive in arbitrary units.  If not  specified,
+     a  default  drive  capability  corresponding  to  8  unit  loads is
+     assigned, provided any other output parameters are specified.
+
+             3.6.11 Unused input flagging.  The specification:
+
+                    INPUT TIE no float/up/down/float ok,
+
+
+      Specifies, for documentation purposes, how unused pins of  a  plug
+     group/subgroup are to be flagged.  no float is the default case, if
+     any other input parameters are specified.
+
+             3.6.12 Output wired-or flagging.  The specification:
+
+                    OUTPUT WIRE-OR require/ok/forbidden,
+
+
+      Specifies, for documentation purposes,  how  signal  strings  with
+     multiple outputs are to be flagged.  forbidden is the default case,
+     if any other output parameters are specified.
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE  17
+            DESCRIPTIONS OF PLUGS
+
+
+          A given pin  may  be  specified  BOTH  for  input  and  output
+     independently,  since  there  are some plugs in existance which use
+     the same pin for both input and output.  However, any documentation
+     which  is  generated  using  such a device and which computes total
+     load for an entire signal string should be taken with  a  grain  of
+     salt.
+
+
+                      3.7     Plug pin attributes
+
+
+          The attributes described in section 5 above are tabulated here
+     to show the form of heirarchy defined.
+
+
+             PLUG ID
+              PIN ID
+               DEFAULT SIGNAL NAME
+               X
+               Y
+                GROUP ID
+                GROUP NUMBER
+                 SUB-GROUP ID
+                 SUB-GROUP NUMBER
+                 INPUT
+                  LOGIC TYPE
+                  LOAD
+                  HOW TO FLAG IF UNUSED PIN OF A SUB-GROUP
+                    NO FLOAT (DEFAULT)
+                    TIE UP
+                    TIE DOWN
+                    FLOAT OK
+                 OUTPUT
+                  LOGIC TYPE
+                  DRIVE
+                  WIRE-OR CONDITION
+                    REQUIRE
+                    OK
+                    FORBIDDEN  (DEFAULT)
+
+
+
+
+                               AN EXAMPLE
+
+
+          Define a 4-pin plug, containing a fixed-gain amplifier.
+     DEFINE amplifier:
+     "1", X=0, Y=0, SIGNAL = +5V;
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE  18
+            DESCRIPTIONS OF PLUGS
+
+
+     "2", x=0, y=-.1, INPUT LOGIC TYPE = ANLOG, input load = 1.0;
+     "3", x=.3, y = -.1, signal = GND;
+     "4", x = .3, y = .0, output logic type = ANLOG, output drive =
+      10.0:
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE  19
+            ENTERING SIGNALS INTO THE DATA-BASE
+
+
+                4    ENTERING SIGNALS INTO THE DATA-BASE
+
+
+          Once the data-base for a circuit has been generated using  the
+     BOARD  functional  unit, we are ready to enter data into it.  To do
+     this we give the command:
+
+               ENTER USING file
+
+
+      Where FILE is the name of the data-base to be used.
+
+
+          Data consists of a set of signal names  and  the  relationship
+     between plugs, sockets, and signal names.
+
+
+          If the use of plug descriptions  from  a  plug  library(s)  is
+     desired,  then  before any reference to a plug in the library it is
+     necessary to give the command:
+
+               USE PLUG LIBRARY/LIBRARIES libfile [,libfile]
+
+
+      Where libfile is the name of the file containing  descriptions  of
+     plugs.   It  is  necessary to use this command only once during the
+     course of a circuit implementation, since the  names  of  all  plug
+     library names are kept as part of the data-base.
+
+
+                       4.1    Valid signal names
+
+
+          A signal name consists of  one  or  more  characters  with  no
+     imbedded  blanks.  The character set used for signal names includes
+     all alphabetic and numeric characters, as well as the characters +,
+     , /, and  .  Signal names are limited to 10 characters.
+
+
+          Certain characters are reserved for special functions.  One of
+     these  is  the character $.  If $ preceeds an element in a list, it
+     is flagged as a  signal  source.   This  information  is  used  for
+     certain of the documents generated.
+
+
+          It is frequently desirable to have the program define a signal
+     name  which  has  no significance to the logic.  The character * is
+     used to define a new signal name.  A command is provided to  permit
+     the definition of defined signal format names.
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE  20
+            ENTERING SIGNALS INTO THE DATA-BASE
+
+
+          The character string ** is used to refer to the most  recently
+     used  signal  name  defined.  Other recently defined signals may be
+     referenced by means of expressions of the form **-3.  Note that  **
+     changes its value each time * is referenced.
+
+
+          The format of a  defined  signal  may  be  specified  via  the
+     command:
+
+               SIGNAL FORMAT A.A9.9
+
+
+      The characters A.A may be any valid signal name not including  the
+     digit  9.   The  characters  9.9  may  be  any  number  of 9's, and
+     specifies the number of digits appended to the defined signal name.
+     Each  time  * is used, the number used in this digit string will be
+     incremented by 1.  The default signal format is  Z999.   This  will
+     cause successive signals Z001, Z002, Z003, ...  to be defined.
+
+
+          The name of a signal may be changed using the rename  command.
+     The format of this command is:
+
+               RENAME sig1 AS sig2
+
+
+      If SIG1 does not exist, a comment is output  and  the  process  is
+     ignored.   If SIG2 already exists, the two signal lists are merged.
+     Rename applies to signals already defined.  If the  rename  command
+     is  followed  by  a  command defining SIG1, a new entry for SIG1 is
+     defined, rather than converting the new SIG1 to SIG2.
+
+
+          A use for this function is in renaming the signals defined  in
+     the  original  board  description  for bussed signals.  In one data
+     base, we may wish to refer to  a  buss  as  "+5V";  in  another  as
+     "+15V".
+
+
+                   4.2    Entering signal by pin list
+
+
+          The form of this command is:
+
+               WIRE SIGNAL sigid: bpid, bpid, [spid]:
+
+
+      Signal SIGID is assigned to the successive board pins.  Note  that
+     if two pins of the same socket are tied to a signal, the second and
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE  21
+            ENTERING SIGNALS INTO THE DATA-BASE
+
+
+     succeeding references to the socket may be via a socket pin  (SPID)
+     abbreviation.   Thus  the list A4-2,A4-7,A4-9 may be abbreviated as
+     A4-2, 7,9.  This holds true if no ambiguity will exist.
+
+
+          A special form of this command is:
+
+               WIRE EXACT SIGNAL sigid: list:
+
+
+      This causes the pins to be wired in the exact sequence  presented.
+     (Pins  are  normally  wired such that in the final wiring sequence,
+     source pins are at one end of the sequence, and edge  pins  are  at
+     the  other  end.   This  prevents  the  splitting of signals in two
+     directions.  however, in some special cases it may be desirable  to
+     wire in some other sequence.  This command permits this.)
+
+
+                   4.3    Entering signals by socket
+
+
+          To wire all signals  going  to  a  specific  socket  into  the
+     specific  wiring  strings  associated  with  each  signal, we use a
+     command of the form:
+
+               WIRE SOCKET socid: sigid, sigid, [(spid)]sigid, ...:
+
+
+      The socket with the socket identification socid  is  located,  and
+     successive  signals SIGID from the list are assigned to the pins of
+     the socket.  The order of assignment is that used in  the  original
+     socket  definition.  A specific socket pin may be called out by use
+     of the list element format (SPID)SIGID.   This  causes  socket  pin
+     SPID  to  be  located  and the signal assigned to it.  A successive
+     signal will be assigned to the next pin in sequence, unless  a  new
+     SPID is called out.
+
+
+                    4.4    Entering signals by plug
+
+
+          A plug in a plug  library  may  be  referenced,  placed  in  a
+     socket, and have signals assigned to the pins.  This causes various
+     attributes of the plug to be made available for documentation.  The
+     form of the command is:
+
+               PLUG plgid INTO socid: sigid, sigid, [(ppid)]sigid, ...:
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE  22
+            ENTERING SIGNALS INTO THE DATA-BASE
+
+
+      This causes plug PLGID to  be  located,  assigned  to  the  socket
+     SOCID,  and  the  list  of signals to be assigned to the successive
+     plug pins.  The same rules apply as described  under  section  4.3,
+     except  that the names of the pins are those of the plug.  This may
+     be significant if the plug does not fit the socket exactly.  (e.g.,
+     placing a 14-pin I.C.  into a 16-pin socket.)
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE  23
+            DOCUMENT GENERATION
+
+
+                        5   DOCUMENT GENERATION
+
+
+          For the purpose of this program,  a  document  is  a  complete
+     description  of  a set of attributes for an entire board.  This may
+     be a file suitable for listing on the lineprinter, or it may  be  a
+     file  used to generate a paper tape, for use in automatic wire-wrap
+     machines or in an automatic drilling machine.
+
+
+          The DOCUMENT functional unit is invoked by the command:
+
+               DOCUMENT USE/USING file
+
+
+      Where FILE is the data-base to document.
+
+
+                    5.1    Manual wire wrap listing
+
+
+          The command:
+
+               WIREWRAP
+
+
+      Will generate a listing for the purposes of  manual  wirewrapping.
+     the  sequence  of  wrapping  is  as follows: first all wires on the
+     lower level or wrapping plane are installed.  This is  followed  by
+     the  second layer of wraps.  For each layer of wraps, the first set
+     of wires placed are those which correspond to the  bussed  signals,
+     which  are  normally  power  and  ground.  These are normally wired
+     completely within the region of  each  socket.   Because  they  are
+     wired  first  within  each  layer,  they will normally be buried by
+     successive sets of wires.  Once the bussed signals are  wired,  all
+     other signals are wired in some arbitrary order.
+
+
+          The result is that on the end of the first  layer,  each  post
+     should have at most ONE wire upon it.  On the second layer, no post
+     should ever have more than TWO wires on  it.   In  addition,  those
+     posts  which  have  an upper layer wire ONLY will be flagged in the
+     listing with the symbol "$", indicating a single wire on the pin.
+
+
+                       5.2    Symbolic wire list
+
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE  24
+            DOCUMENT GENERATION
+
+
+          The command to generate a symbolic wire list is:
+
+               PRINT SIGNALS
+
+
+      The signals are listed in alphabetical order.   Each  signal  will
+     have associated with it a list of the form described in 7.1.
+
+
+                     5.3    Wire wrap control tape
+
+
+          The command used to generate a tape for an automatic  wirewrap
+     machine is:
+
+               WRITE TAPE ON file
+
+
+      Where file is the output file to which the control information  is
+     written.   The  sequence  of  wiring  is  the same as that for 5.1,
+     above.
+
+
+                        5.4    NC drilling tape
+
+
+          This function is described  in  the  chapter  "description  of
+     board", and may be invoked ONLY in that functional unit.
+
+
+                           5.5    Post counts
+
+
+          The command:
+
+               POST COUNT
+
+
+      Will  generate  a  map  of  the  board  with  all  pins  in  their
+     approximate  position  indicated  by  the  digit  0, 1, or 2.  This
+     number corresponds to the number of wraps on that pin (post).
+
+
+                            5.6    Plug map
+
+
+          This command will print a map showing each socket by name  and
+     the plug(s), if any, assigned to it.
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE  25
+            DOCUMENT GENERATION
+
+
+                 5.7    Socket map and cross references
+
+
+          The command:
+
+               SOCKET MAP
+
+
+      Will cause the listing of each socket, in the form given  in  7.2.
+     A  map  will  be  generated  for  each  socket,  even if empty.  In
+     addition, the (X, Y) coordinate of the first pin will be listed.
+
+
+                      5.8    Map of unused sockets
+
+
+          The command:
+
+               UNUSED SOCKETS
+
+
+      Will cause the printing of a map of all unused sockets, as in 7.6,
+     except that the file will be formatted for the printer.
+
+
+                       5.9    Map of unused plugs
+
+
+          The command:
+
+               UNUSED PLUGS
+
+
+      Will cause the printing of a list of  all  unused  plugs  and  the
+     sockets they are assigned to.
+
+
+                    5.10   Map of unused plug groups
+
+
+          The command:
+
+               UNUSED GROUPS
+
+
+      Will cause the printing of all unused plug groups, as  in  section
+     7.7,  except  that  the  list is not restricted to a single type of
+     group.
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE  26
+            DOCUMENT GENERATION
+
+
+                  5.11   Map of unused plug subgroups
+
+
+          The command:
+
+               UNUSED SUBGROUPS
+
+
+      Will cause the printing  of  all  unused  plug  subgroups,  as  in
+     section  7.8,  except  that  the list is not restricted to a single
+     type of subgroup.
+
+
+              5.12   Definition of current board as a plug
+     The command:
+
+               ADD EDGE socid TO file WITH NAME plgid
+
+
+      Will cause the edge socket labeled SOCID to  be  set  up  in  plug
+     library  format  and  added  to the plug library FILE with the plug
+     name PLGID.  This feature permits the subsequent use of the current
+     implementation  as  a  plug,  for  use when wiring back-panels, for
+     example.  The only default signal names  specified  will  be  those
+     with  the  bussed  attribute.   For  each  signal going to the edge
+     connector, load and drive will be summed and the  appropriate  form
+     of  load/drive specification will be generated for each pin.  Drive
+     will be set if any pins in the signal net  are  designated  sources
+     with  the  WIRED-OR FORBIDDEN attribute.  Otherwise load/drive will
+     depend on the net.
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE  27
+            GENERATING CHANGE ORDERS
+
+
+              6     CHANGING A DATA-BASE AFTER GENERATION
+
+
+          A data-base may be edited while a prototype is being developed
+     with  no  ill  effects.   However,  it sometimes occurs that in the
+     middle of production, a change must be made, both to existing units
+     and  to  future production units.  It is desirable, for the purpose
+     of uniform documentation, that existing units be changed to exactly
+     reflect the wiring sequence of future units.
+
+
+          The functional unit change permits the generation of documents
+     describing  changes  to  the  existing  units, and also updates the
+     data-base.  The form of this command is:
+
+               CHANGE file
+
+
+      Where FILE is the data-base to be edited.
+
+
+                          6.1    Moving a plug
+
+
+          The command:
+
+               MOVE PLUG plgid FROM socid/bpid TO socid/bpid
+
+
+      Causes all plug descriptions initially associated with  the  first
+     socket  (FROM)  to  be  removed  and instead attached to the second
+     socket (TO).  The process aborts with an appropriate error  message
+     if  the first socket has no plug, or if the plug specified does not
+     agree with the plug used at the socket, or  if  the  second  socket
+     already has a plug.  Signals are not transfered with the plug.
+
+
+                         6.2    Placing a plug
+
+
+          The command:
+
+               ADD PLUG plgid TO socid/bpid
+
+
+      Causes the specified plug to  be  assigned  to  the  socket.   The
+     process is aborted if the socket already has a plug.
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE  28
+            GENERATING CHANGE ORDERS
+
+
+                         6.3    Removing a plug
+
+
+          The command:
+
+               REMOVE PLUG plgid FROM socid/bpid
+
+
+      Causes the specified plug to be  removed  from  the  socket.   The
+     process  is  aborted  if  the  socket  has  no plug, or if the plug
+     specified does not agree with the plug used there.
+
+
+                         6.4    Moving a signal
+
+
+          The command:
+
+               MOVE SIGNAL sigid FROM bpid TO bpid
+
+
+      Causes the specified signal to be removed from the first  pin  and
+     instead  attached  to  the  second pin.  Routing of the net remains
+     unchanged.  No more than three wires will have  to  be  lifted  and
+     stored  using  this command.  However, the wiring generated may not
+     be optimum according to minimum wire length.
+
+
+                  6.5    Removing a signal from a pin
+
+
+          The command:
+
+               REMOVE SIGNAL sigid FROM bpid
+
+
+      Causes the specified signal (at the specified pin) to  be  deleted
+     from the net, and may require that most of the net be rewired.
+
+
+              6.6    Adding a set of pins to a signal net
+
+
+          The command:
+
+               ADD SIGNAL sigid [BEFORE/AFTER bpid]: list:
+
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE  29
+            GENERATING CHANGE ORDERS
+
+
+      Causes the individual list elements to be  inserted  in  the  best
+     place in the net.  If the optional part of the command is used, the
+     net must already be defined, and the list  is  wired  in  the  best
+     order at the location specified.
+
+
+                      6.7    Adding a net to a net
+
+
+          The command:
+
+               ADD EXACT SIGNAL sigid [BEFORE/AFTER bpid]: list:
+
+
+      Causes the list to be entered into the specified position  of  the
+     net  in  the  specified order.  It is inserted in the best place in
+     the net, unless the optional part of  the  command  is  used.   The
+     actual  point in the net will depend both on the new length, and on
+     the number of wires to remove and place.
+
+
+                      6.8    Transfering a signal
+
+
+          The command:
+
+               TRANSFER SIGNAL sigid FROM bpid TO bpid
+
+
+      Causes the specified signal to be deleted at the original pin, and
+     re-inserted in the best place in the net at the new location.  Both
+     wire length and number of wires to remove and replace will be  used
+     to decide the new position in the net.
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE  30
+            LISTING INFORMATION
+
+
+            7       ADDITIONAL DATA-BASE GENERATION FEATURES
+
+
+          During the  use  of  functional  units  ENTER,  document,  and
+     CHANGE,  it  is  frequently desirable to be able to look at certain
+     features of the data-base.  A set of  commands  enable  one  to  do
+     this.
+
+
+                           7.1    List signal
+
+
+          To look at a given  signal,  and  determine  the  pins  it  is
+     associated with, the command used is:
+
+               LIST SIGNAL sigid
+
+
+      The signal name is listed, along with the list of pins it goes to.
+     The list is ordered in wiring sequence.
+
+
+                           7.2    List socket
+
+
+          To look at a given socket,  and  list  information  associated
+     with it, the command used is:
+
+               LIST SOCKET socid
+
+
+      A map of the socket is output, which  includes  each  pin  of  the
+     socket,  the  signal associated with the pin, which pin it is wired
+     from, and which pin it is wired to.   If  one  or  more  plugs  are
+     associated  with  that  socket,  additional  information is output.
+     This includes the type of plug  at  each  pin,  and  the  plug  pin
+     identification.
+
+
+                            7.3    List load
+
+
+          To look at a given signal, and list the total  load  or  drive
+     capability,  and the load or drive at each pin that signal goes to,
+     the command used is:
+
+               LIST LOAD sigid
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE  31
+            LISTING INFORMATION
+
+
+      The signal load/drive is output, and the list of  pins  with  each
+     pin's load/drive is generated.
+
+
+                           7.4    List length
+
+
+          To look at a given signal and extract  information  about  the
+     lengths of wire used, use the command:
+
+               LIST LENGTH sigid
+
+
+      The signal name and total length of wire used  is  output,  and  a
+     list  of pins with the wiring distance between each pair of pins is
+     output
+
+
+                          7.5    List conflict
+
+
+          To look at a signal and determine if any  conflicts  exist  in
+     usage, such as inconsistant logic levels, use the command:
+
+               LIST CONFLICT sigid
+
+
+      The signal name is output, and either the message "OK" or  a  list
+     of conflicts and the associated pins is output.
+
+
+                       7.6    List empty sockets
+
+
+          This command causes a search of the data-base to be made,  and
+     outputs  a  list  of  all sockets with both no signals and no plugs
+     assigned.
+
+
+                       7.7    List unused groups
+
+
+          A search is made of all sockets, and for each socket with  one
+     or  more pins associated with a plug but no signal, a determination
+     is made if that plug pin is part of the specified group, and if all
+     parts of that group are unused.  If so, the socket, plug, and group
+     pins are output.  The form of the command is:
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE  32
+            LISTING INFORMATION
+
+
+               LIST UNUSED GROUP groupid
+
+
+                      7.8    List unused subgroups
+
+
+          This command is identical to the previous command, except that
+     instead of searching for unused plug groups, it searches for unused
+     plug subgroups.  The command form is:
+
+               LIST UNUSED SUBGROUP subgroupid
+
+
+                 7.9    Specification of documentation
+
+
+          The command:
+
+               LIST ON file
+
+
+      Specifies that the change orders generated are to  be  written  on
+     FILE for subsequent printing.
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE  33
+            INDEX
+
+
+
+     board command:  drill tape  . . . . . . . . . 10
+     board command:  edge socket . . . . . . . . . 9
+     board command:  edit  . . . . . . . . . . . . 10
+     board command:  generate  . . . . . . . . . . 11
+     board command:  group . . . . . . . . . . . . 9
+     board command:  print . . . . . . . . . . . . 9
+     board command:  save on . . . . . . . . . . . 10
+     board command:  socket  . . . . . . . . . . . 9
+     board command:  wire channels . . . . . . . . 10
+
+     change command:  add exact signal * . . . . . 29
+     change command:  add plug * to  . . . . . . . 27
+     change command:  add signal * . . . . . . . . 28
+     change command:  change . . . . . . . . . . . 27
+     change command:  move plug * from . . . . . . 27
+     change command:  move signal * from . . . . . 28
+     change command:  remove plug * from . . . . . 28
+     change command:  remove signal * from . . . . 28
+     change command:  transfer signal *  . . . . . 29
+     command:  board . . . . . . . . . . . . . . . 4, 6
+     command:  change  . . . . . . . . . . . . . . 4
+     command:  document  . . . . . . . . . . . . . 4
+     command:  enter . . . . . . . . . . . . . . . 4
+     command:  list conflict . . . . . . . . . . . 31
+     command:  list length . . . . . . . . . . . . 31
+     command:  list load . . . . . . . . . . . . . 30
+     command:  list on file  . . . . . . . . . . . 32
+     command:  list signal . . . . . . . . . . . . 30
+     command:  list socket . . . . . . . . . . . . 30
+     command:  list unused group . . . . . . . . . 31
+     command:  list unused subgroup  . . . . . . . 32
+     command:  plug  . . . . . . . . . . . . . . . 4
+
+     document command:  add edge * to *  . . . . . 26
+     document command:  post count . . . . . . . . 24
+     document command:  print signals  . . . . . . 24
+     document command:  socket map . . . . . . . . 25
+     document command:  unused groups  . . . . . . 25
+     document command:  unused plugs . . . . . . . 25
+     document command:  unused sockets . . . . . . 25
+     document command:  unused subgroups . . . . . 26
+     document command:  wirewrap . . . . . . . . . 23
+     document command:  write tape . . . . . . . . 24
+
+     enter command:  plug * into * . . . . . . . . 21
+     enter command:  rename  . . . . . . . . . . . 20
+     enter command:  signal format . . . . . . . . 20
+     enter command:  use plug library  . . . . . . 19
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE  34
+            INDEX
+
+
+     enter command:  wire exact signal . . . . . . 21
+     enter command:  wire signal . . . . . . . . . 20
+     enter command:  wire socket . . . . . . . . . 21
+
+     pins  . . . . . . . . . . . . . . . . . . . . 6
+     plug command:  define . . . . . . . . . . . . 12
+     plug command:  directory  . . . . . . . . . . 14
+     plug command:  edit . . . . . . . . . . . . . 13
+     plug command:  enter plug . . . . . . . . . . 14
+
+     sockets . . . . . . . . . . . . . . . . . . . 6
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE  35
+              APPENDIX I
+
+
+                           DRILL FILE FORMAT 
+
+
+
+
+          Upon  accepting  a  "DRILL  TAPE  ON  FILE"  command,   WIRRAP
+     generates  a  binary  file  containing  drilling information.  This
+     drilling information is not specific  to  any  particular  drilling
+     machine, but instead contains all information necessary to generate
+     a drill tape which is machine specific.
+
+
+          This section describes the binary file  generated  by  WIRRAP.
+     Knowledge  of  the file format permits the creation of a program to
+     transcribe the information for any specific drilling machine.
+
+
+          The file is formatted into two-word binary records.  The first
+     4 records contain specific information about the file.  This is:
+
+       Record    Word        Contents
+     ----------------------------------------
+         1        1          ASCII character string 'DRILL'
+                  2          ASCII character string ' TAPE'
+         2        1          XMIN, floating point
+                  2          XMAX, Floating point
+         3        1          YMIN, floating point
+                  2          YMAX, floating point
+         4        1          -0-
+                  2          NPOINT:  number of successive records
+
+
+          The ASCII strings may be used to verify that this is indeed  a
+     drill tape.  The max and min values correspond to the boundaries of
+     a box surrounding the set of holes drilled.
+
+
+          Each successive record describes one hole to be drilled.   The
+     first  word contains the floating point value for the x-coordinate;
+     the second the y-coordinate.
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE  36
+              APPENDIX II
+
+
+                            WIRE FILE FORMAT 
+
+
+
+
+          Upon  accepting  a  "WRITE  TAPE  ON  FILE"  command,   WIRRAP
+     generates a binary file containing wiring information.  This wiring
+     information is not specific to any particular wiring  machine,  but
+     instead  contains all information necessary to generate a wire tape
+     which is machine specific.
+
+
+          This section describes the binary file  generated  by  WIRRAP.
+     Knowledge  of  the file format permits the creation of a program to
+     transcribe the information for any specific wiring machine.
+
+
+          The file is formatted into twelve-word  binary  records.   The
+     first  record  contains  specific information about the file.  This
+     is:
+
+       Word        Contents
+     ------------------------
+         1           NREC:  integer number of records in the file
+         2           ASCII character string 'WIRRA'
+         3           ASCII character string 'P WIR'
+         4           ASCII character string 'E FIL'
+         5           ASCII character string 'E    '
+         6           XMIN:  minimum value of X on board
+         7           XMAX:  maximum value of X on board
+         8           YMIN:  minimum value of Y on board
+         9           YMAX:  maximum value of Y on board
+
+
+          The ASCII strings may be used to verify that this is indeed  a
+     wire tape.
+
+
+          Each successive record describes one wire to be  placed.   The
+     format of each record is:
+
+       Word  Contents
+     ---------------------------
+         1   LEVEL:  .true. if upper level wrap
+         2   X1:  x-coordinate of first wire-end
+         3   Y1:  y-coordinate of first wire-end
+         4   X2:  x-coordinate of second wire-end
+         5   Y2:  y-coordinate of second wire-end
+         6   NWORDS: number of words in this record
+
+WIRE-WRAP:  FUNCTIONAL SPECIFICATIONS                           PAGE  37
+              APPENDIX II
+
+
+         7   X3:  x-coordinate of first bend
+         8   Y3:  y-coordinate of first bend
+         9   X4:  x-coordinate of second bend
+        10   Y4:  y-coordinate of second bend
+        11   X5:  x-coordinate of third bend
+        12   Y5:  y-coordinate of third bend
+
+
+          NWORDS  is  an  integer  between  6  and  12,  inclusive.   It
+     specifies  the number of words in the record, and also indicates if
+     wiring is point-to-point or picture-frame.  If greater than 6,  the
+     additional  words  are  the coordinates of bends in the wire.  That
+     is, if NWORDS = 12, the wire run is:
+
+   PIN(X1,Y1)---BEND(X3,Y3)---BEND(X4,Y4)---BEND(X5,Y5)---PIN(X2,Y2)
+
+
+          A given wire in picture-frame wiring may thus have up to three
+     bends  in  it's length, or may have none.  The total length of wire
+     used is the sum of the wire lengths between the points.  The actual
+     location  of  the  bends  may  be  significant for certain types of
+     automatic wiring machines.
+ \Ky¶
