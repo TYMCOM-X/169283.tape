@@ -1,0 +1,229 @@
+    P R O G R A M   R O G E R 		COBOL 4(56)	 2-APR-73  21:44		PAGE 1
+
+    0001    IDENTIFICATION DIVISION.                                                        
+    0002    PROGRAM-ID. ROGER.                                                              
+    0003    AUTHOR. JOLLY ROGER.                                                            
+    0004    DATE-WRITTEN. 31DEC70.                                                          
+    0005                                                                                   
+    0006    ENVIRONMENT DIVISION.                                                           
+    0007    CONFIGURATION SECTION.                                                          
+    0008    SPECIAL-NAMES.                                                                  
+    0009       CHANNEL (1) IS TOP-OF-FORM.                                                 
+    0010                                                                                   
+    0011    INPUT-OUTPUT SECTION.                                                           
+    0012    FILE-CONTROL.                                                                   
+    0013       SELECT IN-FILE              ASSIGN TO DSK
+    0014           RECORDING MODE IS ASCII.
+    0015       SELECT L-PRINT              ASSIGN TO DSK.                                  
+    0016                                                                                   
+    0017    DATA DIVISION.                                                                  
+    0018    FILE SECTION.                                                                   
+    0019                                                                                   
+    0020    FD  IN-FILE                                                                     
+    0021       LABEL RECORDS ARE STANDARD                                                  
+    0022       VALUE OF IDENTIFICATION IS "CARDS    ".                                     
+    0023                                                                                   
+    0024    01 INPUT-RECORD.
+    0025          02 CUSTOMER-NAME PIC X(30).
+    0026          02 CITY PIC X(20).
+    0027          02 STATE PIC XX.
+    0028          02 TOTAL-SALES PIC S9(9)V99.
+    0029                                                                                   
+    0030    FD  L-PRINT                                                                     
+    0031       LABEL RECORDS ARE STANDARD                                                  
+    0032       VALUE OF IDENTIFICATION IS "REPOR    ".                                     
+    0033                                                                                   
+    0034    01  PRINT-LINE; DISPLAY-7.                                                      
+    0035       02 FILLER                   PICTURE X(65).                                  
+    0036       02 HEADER-PAGE              PICTURE ZZ9.                                    
+    0037       02 FILLER                   PICTURE X(64).                                  
+    0038                                                                                   
+    0039      P R O G R A M   R O G E R 		COBOL 4(56)	 2-APR-73  21:44		PAGE 2
+
+    0040    WORKING-STORAGE SECTION.                                                        
+    0041                                                                                   
+    0042    77  PAGE-COUNT                  PICTURE S9(3);  COMPUTATIONAL.                  
+    0043    77  LINE-COUNT                  PICTURE S99;    COMPUTATIONAL.                  
+    0044                                                                                   
+    0045    77  SAVE-01                     PICTURE XX.                                     
+    0046    77  SAVE-02                     PICTURE X(20).                                  
+    0047                                                                                   
+    0048    01  OUTPUT-LINE; DISPLAY-7.                                                     
+    0049          02 PRINT-CUSTOMER.
+    0050            03 FILLER PIC X(19).
+    0051            03 TITLE-1 PIC X(11).
+    0052          02 FILLER PIC XX.
+    0053          02 PRINT-CITY PIC X(20).
+    0054          02 FILLER PIC XX.
+    0055          02 PRINT-STATE PIC XX.
+    0056          02 FILLER PIC XX.
+    0057          02 PRINT-SALES PIC ZZZ,ZZZ,ZZZ,ZZZ,99-.
+    0058          02 FILLER PIC XX.
+    0059          02 PRINT-NUM PIC Z,ZZ9.
+    0060                                                                                   
+    0061                                                                                   
+    0062    01  LEVEL-0-ACS; COMPUTATIONAL.                                                 
+    0063       02 ACCUMULATOR-0             PICTURE S9(12)V9(2).                           
+    0064       02 ACCUMULATOR-1             PICTURE S9(5).                                 
+    0065                                                                                   
+    0066    01  LEVEL-1-ACS; COMPUTATIONAL.                                                 
+    0067       02 ACCUMULATOR-0             PICTURE S9(12)V9(2).                           
+    0068       02 ACCUMULATOR-1             PICTURE S9(5).                                 
+    0069                                                                                   
+    0070    01  LEVEL-F-ACS; COMPUTATIONAL.                                                 
+    0071       02 ACCUMULATOR-0             PICTURE S9(12)V9(2).                           
+    0072       02 ACCUMULATOR-1             PICTURE S9(5).                                 
+    0073                                                                                   
+    0074    01  HEADER.                                                                     
+    0075       02 FILL PIC X(30); VALUE "CUSTOMER   CITY    STATE    SA".                  
+    0076       02 FILL PIC X(30); VALUE "LES                           ".                  
+    0077       02 FILL PIC X(33); VALUE "PAGE                             ".               
+    0078       02 FILL PIC X(33); VALUE "                                 ".               
+    0079                                                                                   
+    0080      P R O G R A M   R O G E R 		COBOL 4(56)	 2-APR-73  21:44		PAGE 3
+
+    0081    PROCEDURE DIVISION.                                                             
+    0082                                                                                   
+    0083    ONLY SECTION.                                                                   
+    0084    START.                                                                          
+    0085       OPEN INPUT IN-FILE.                                                         
+    0086       OPEN OUTPUT L-PRINT.                                                        
+    0087       MOVE SPACES TO OUTPUT-LINE.                                                 
+    0088                                                                                   
+    0089       MOVE ZERO TO PAGE-COUNT.                                                    
+    0090       PERFORM PL-HDR THRU PL-EXIT.                                                
+    0091                                                                                   
+    0092    READ-IN.                                                                        
+    0093       READ IN-FILE; AT END GO TO LEVEL-0-BREAK.                                   
+    0094                                                                                   
+    0095    INIT-SW. GO TO RESET-INIT.                                                      
+    0096           NOTE AFTER THE FIRST READ, INIT-SW WILL GO TO COMPARE.                  
+    0097    RESET-INIT. ALTER INIT-SW TO PROCEED TO COMPARE.                                
+    0098       GO TO RESET-LEVEL-F.                                                        
+    0099                                                                                   
+    0100    COMPARE.                                                                        
+    0101       IF SAVE-01 IS NOT EQUAL TO STATE                                            
+    0102           ALTER LEVEL-1-SW TO PROCEED TO RESET-LEVEL-1;                           
+    0103           GO TO LEVEL-0-BREAK.                                                    
+    0104                                                                                   
+    0105       IF SAVE-02 IS NOT EQUAL TO CITY                                             
+    0106           ALTER LEVEL-0-SW TO PROCEED TO RESET-LEVEL-0;                           
+    0107           GO TO LEVEL-0-BREAK.                                                    
+    0108                                                                                   
+    0109    PRINT-DETAIL.                                                                   
+    0110       MOVE CUSTOMER-NAME            TO PRINT-CUSTOMER.                            
+    0111       MOVE TOTAL-SALES              TO PRINT-SALES.                               
+    0112       MOVE CITY                     TO PRINT-CITY.                                
+    0113       MOVE STATE                    TO PRINT-STATE.                               
+    0114       MOVE TOTAL-SALES              TO PRINT-SALES.                               
+    0115                                                                                   
+    0116       MOVE OUTPUT-LINE TO PRINT-LINE.                                             
+    0117       PERFORM PRINT-1 THRU PL-EXIT.                                               
+    0118       MOVE SPACES TO OUTPUT-LINE.                                                 
+    0119                                                                                   
+    0120       ADD TOTAL-SALES              TO ACCUMULATOR-0 OF LEVEL-0-ACS.               
+    0121       ADD 1                        TO ACCUMULATOR-1 OF LEVEL-0-ACS.               
+    0122                                                                                   
+    0123       GO TO READ-IN.                                                              
+    0124                                                                                   
+    0125      P R O G R A M   R O G E R 		COBOL 4(56)	 2-APR-73  21:44		PAGE 4
+
+    0126    LEVEL-0-BREAK.                                                                  
+    0127       MOVE SPACES TO PRINT-LINE.                                                  
+    0128       PERFORM PRINT-1 THRU PL-EXIT.                                               
+    0129                                                                                   
+    0130       MOVE ACCUMULATOR-0 OF LEVEL-0-ACS TO PRINT-SALES.                           
+    0131       MOVE ACCUMULATOR-1 OF LEVEL-0-ACS TO PRINT-NUM.                             
+    0132       MOVE "CITY TOTAL"             TO TITLE-1.                                   
+    0133       MOVE OUTPUT-LINE TO PRINT-LINE.                                             
+    0134       PERFORM PRINT-2 THRU PL-EXIT.                                               
+    0135       MOVE SPACES TO OUTPUT-LINE.                                                 
+    0136                                                                                   
+    0137       ADD CORRESPONDING LEVEL-0-ACS TO LEVEL-1-ACS.                               
+    0138                                                                                   
+    0139    LEVEL-0-SW. GO TO. NOTE GO TO RESET-LEVEL-0 OR LEVEL-1-BREAK.                   
+    0140                                                                                   
+    0141    LEVEL-1-BREAK.                                                                  
+    0142       MOVE ACCUMULATOR-0 OF LEVEL-1-ACS TO PRINT-SALES.                           
+    0143       MOVE ACCUMULATOR-1 OF LEVEL-1-ACS TO PRINT-NUM.                             
+    0144       MOVE "STATE TOTAL"            TO TITLE-1.                                   
+    0145       MOVE OUTPUT-LINE TO PRINT-LINE.                                             
+    0146       PERFORM PRINT-CH-1 THRU PL-EXIT.                                            
+    0147       MOVE SPACES TO OUTPUT-LINE.                                                 
+    0148                                                                                   
+    0149       ADD CORRESPONDING LEVEL-1-ACS TO LEVEL-F-ACS.                               
+    0150                                                                                   
+    0151    LEVEL-1-SW. GO TO. NOTE GO TO RESET-LEVEL-1 OR LEVEL-F-BREAK.                   
+    0152                                                                                   
+    0153    LEVEL-F-BREAK.                                                                  
+    0154       MOVE SPACES TO PRINT-LINE.                                                  
+    0155       PERFORM PRINT-1 THRU PL-EXIT.                                               
+    0156                                                                                   
+    0157       MOVE ACCUMULATOR-0 OF LEVEL-F-ACS TO PRINT-SALES.                           
+    0158       MOVE ACCUMULATOR-1 OF LEVEL-F-ACS TO PRINT-NUM.                             
+    0159       MOVE "FINAL TOTAL"            TO TITLE-1.                                   
+    0160       MOVE OUTPUT-LINE TO PRINT-LINE.                                             
+    0161       PERFORM PRINT-CH-1 THRU PL-EXIT.                                            
+    0162       MOVE SPACES TO OUTPUT-LINE.                                                 
+    0163                                                                                   
+    0164       GO TO FINISH.                                                               
+    0165                                                                                   
+    0166                                                                                   
+    0167      P R O G R A M   R O G E R 		COBOL 4(56)	 2-APR-73  21:44		PAGE 5
+
+    0168    RESET-LEVEL-F.                                                                  
+    0169       MOVE LOW-VALUES TO LEVEL-F-ACS.                                             
+    0170                                                                                   
+    0171    RESET-LEVEL-1.                                                                  
+    0172       MOVE LOW-VALUES TO LEVEL-1-ACS.                                             
+    0173       MOVE STATE                    TO SAVE-01.                                   
+    0174       ALTER LEVEL-1-SW TO PROCEED TO LEVEL-F-BREAK.                               
+    0175                                                                                   
+    0176    RESET-LEVEL-0.                                                                  
+    0177       MOVE LOW-VALUES TO LEVEL-0-ACS.                                             
+    0178       MOVE CITY                     TO SAVE-02.                                   
+    0179       ALTER LEVEL-0-SW TO PROCEED TO LEVEL-1-BREAK.                               
+    0180       GO TO PRINT-DETAIL.                                                         
+    0181                                                                                   
+    0182                                                                                   
+    0183      P R O G R A M   R O G E R 		COBOL 4(56)	 2-APR-73  21:44		PAGE 6
+
+    0184    PRINT-1. WRITE PRINT-LINE.                                                      
+    0185       SUBTRACT 1 FROM LINE-COUNT.                                                 
+    0186       IF LINE-COUNT IS POSITIVE GO TO PL-EXIT; ELSE GO TO PL-HDR.                 
+    0187                                                                                   
+    0188    PRINT-2. WRITE PRINT-LINE BEFORE 2 LINES;                                       
+    0189       SUBTRACT 2 FROM LINE-COUNT.                                                 
+    0190       IF LINE-COUNT IS POSITIVE GO TO PL-EXIT; ELSE GO TO PL-HDR.                 
+    0191                                                                                   
+    0192    PL-HDR. MOVE SPACES TO PRINT-LINE.                                              
+    0193                                                                                   
+    0194    PRINT-CH-1. WRITE PRINT-LINE BEFORE TOP-OF-FORM.                                
+    0195       MOVE HEADER TO PRINT-LINE.                                                  
+    0196       ADD 1 TO PAGE-COUNT; MOVE PAGE-COUNT TO HEADER-PAGE.                        
+    0197       WRITE PRINT-LINE BEFORE ADVANCING 2 LINES.                                  
+    0198       MOVE 54 TO LINE-COUNT.                                                      
+    0199                                                                                   
+    0200    PL-EXIT.  EXIT.                                                                 
+    0201                                                                                   
+    0202                                                                                   
+    0203    FINISH.                                                                         
+    0204       CLOSE IN-FILE.                                                              
+    0205       CLOSE L-PRINT.                                                              
+    0206                                                                                   
+    0207       STOP RUN.                                                                  P R O G R A M   R O G E R 		COBOL 4(56)	 2-APR-73  21:44		PAGE W-1
+
+WARNINGS:
+
+    0111  LEAST SIGNIFICANT DIGITS TRUNCATED ON PRINT-SALES
+    0114  LEAST SIGNIFICANT DIGITS TRUNCATED ON PRINT-SALES
+    0130  LEAST SIGNIFICANT DIGITS TRUNCATED ON PRINT-SALES
+    0131  MOST SIGNIFICANT DIGITS TRUNCATED ON PRINT-NUM
+    0142  LEAST SIGNIFICANT DIGITS TRUNCATED ON PRINT-SALES
+    0143  MOST SIGNIFICANT DIGITS TRUNCATED ON PRINT-NUM
+    0157  LEAST SIGNIFICANT DIGITS TRUNCATED ON PRINT-SALES
+    0158  MOST SIGNIFICANT DIGITS TRUNCATED ON PRINT-NUM
+
+
+NO FATAL ERRORS, 8 WARNINGS
+  e[_„
