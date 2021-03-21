@@ -1,0 +1,283 @@
+       SUBROUTINE GENER(ALPHA,A,BETA,BU,C,ETA,CB,CN,CBC,DICT,INDA,
+     +  INDETA,NFLAG,PI,RINV,TEMP,PIP)
+        DIMENSION ALPHA(1),A(1),BETA(1),BU(1),C(1),ETA(1),CB(1)
+        DIMENSION DICT(0/1),INDA(1),INDETA(1),NFLAG(1),PI(1),RINV(1)
+        DIMENSION CN(1),TEMP(1),PIP(1),CBC(1)
+C DECLARATIONS MADE 6/19/73
+C*S     START COMMON
+        COMMON /MIPCOM/ V,AV,WDCNT,DUEL,IR,IK,RI,L,M,N
+        COMMON /MIPCOM/ Q,QP,QPP,NETA,MAXETA,PRIM,NODUAL,NOPRIM
+        COMMON /MIPCOM/ BIG,NPM,MP1,NP1,DELTA,UNB,ITYPE,ISTAR,IRP,IRPP
+        COMMON /MIPCOM/ TOL,TOL1,OPTION,ISW,ID,CHSIN,ITER,OBVAL,OBJ1
+        COMMON /OUTCOM/ JL,JR,NAML,VAL,NAMR,KR,PR
+        COMMON /LINCNT/ LINE
+C       LINE IS CURRENT LINE NO. IN CREATE FILE
+        INTEGER DICT, OPTION
+        INTEGER V,AV,CB,CN,WDCNT,DUEL ,PRIM,UNB,RI
+C*E     END COMMON
+C
+C
+C       GENERATE A STARTING BASIS
+C
+C
+
+
+        DO 1000 IR = 1, M
+        IF(NFLAG(CB(IR)) .NE. 3) GO TO 1000
+
+        DO 100 I = 1, N
+100     RINV(I) = 0.
+        RINV(IR) = 1.
+
+        CALL BTRAN(RINV,0,RINV,ETA,TEMP,INDETA)
+
+        DUM1 = 0.
+
+       DUM3 = 0.
+        DUM2 = BIG
+        DUM4 = BIG
+ 
+        DO 200 J = 1, N
+        IF(NFLAG(CN(J)) .EQ. 3)  GO TO 200
+
+C       GET THE COLUMN CORRESPONDING TO CN(J)
+        IF(CN(J) .GT.M) GO TO 750
+
+        DO 760 JJ = 1,M
+760     A(JJ)=0.
+        A(CN(J)) = 1.
+        GO TO 770
+
+750     CALL GETA(CN(J)-M,INDA,TEMP,A)
+
+770     FM = 1.
+        IF(NFLAG(CN(J)) .EQ. -1)  FM = -1.
+
+        BB = 0.
+        
+        DO 780 JJ =1,M
+        ALPHA(JJ) = A(JJ) * FM
+780     BB = BB + ALPHA(JJ) * RINV(JJ)
+
+        IF(BB .EQ. 0.) GO TO 200
+
+
+        IF(NFLAG(CN(J)) .NE. 2)  GO TO 110
+
+        IK = J
+
+
+
+
+        GO TO 330
+
+110     RAT = ABS(PI(J) / BB)
+
+        IF((PI(J) .GE. 0) .OR. (BB .LT. 0))  GO TO 120
+
+        IF(DUM1 .GT. RAT)  GO TO 200
+        
+        DUM1 = RAT
+        IK1 = J
+        GO TO 200
+
+120     IF((PI(J) .LT. 0) .OR. (BB .LT. 0))  GO TO 130
+        IF(DUM2 .LT. RAT)  GO TO 200
+
+        IK2 = J
+        DUM2 = RAT
+        GO TO 200
+
+130     IF((PI(J) .GE. 0) .OR. (BB .GT. 0)) GO TO 140
+        IF(DUM3 .GT. RAT)  GO TO 200
+
+        DUM3 = RAT
+        IK3 = J
+        GO TO 200
+
+140     IF(DUM4 .LT. RAT) GO TO 200
+        
+        DUM4 = RAT
+        IK4 = J
+
+
+200     CONTINUE
+
+
+
+        IF((DUM1 .EQ. 0) .OR. (BETA(IR) .LT. 0)) GO TO 150
+
+        IK = IK1
+        GO TO 300
+
+150     IF((DUM2 .EQ. BIG) .OR. (BETA(IR).LT. 0)) GO TO 160
+
+        IK = IK2
+        GO TO 300
+
+160     IF((DUM3 .EQ. 0) .OR. (BETA(IR) .GT. 0))GO TO 170
+
+        IK = IK3
+        GO TO 300
+
+170     IF((DUM4 .EQ. BIG) .OR. (BETA(IR) .GT. 0))  GO TO 180
+
+        IK = IK4
+        GO TO 300
+
+180     IF(BETA(IR) .NE. 0) GO TO 190
+        WRITE(ID,5000) DICT(CB(IR))
+        GO TO 1000
+
+190     WRITE (ID,5100) DICT(CB(IR))
+        CALL EXIT
+
+300     IF(CN(IK) .GT. M)  GO TO 320
+
+        DO 310 I = 1, M
+310     ALPHA(I) = 0.
+        ALPHA(CN(IK)) = 1.
+        GO TO 321
+
+320     CALL GETA(CN(IK)-M,INDA,TEMP,A)
+
+321     FM = 1.
+        IF(NFLAG(CN(IK)) .EQ. -1)  FM = -1.
+        DO 322 I = 1,M
+322     ALPHA(I) = A(I) * FM
+
+330     CALL FTRAN(ALPHA,ETA,TEMP,INDETA)
+
+
+
+340     CALL PIVOT(IRES,ALPHA,ETA,BETA,CB,CN,TEMP,INDETA,
+     +  PI,BU,CBC,C,NFLAG,PIP,RINV,INDA,A,DICT)
+        
+        IF(CB(IR) .LE. M)  GO TO 1000
+
+        IF(BETA(IR) .LE. BU(CB(IR)-M))  GO TO 1000
+        
+        CALL COMPLE(BU,BETA,NFLAG,CB,CBC,INDETA)
+
+1000    CONTINUE
+
+
+
+C
+C       BRING FREE VARIABLES IN
+C
+        DO 2000 IK = 1, N
+        IF(NFLAG(CN(IK)) .NE. 2)  GO TO 2000
+
+        IF(CN(IK) .GT. M)  GO TO 400
+
+        DO 410 I = 1, M 
+410     ALPHA(I) = 0.
+        ALPHA(CN(IK)) = 1.
+        GO TO 420
+
+400     CALL GETA(CN(IK)-M,INDA,TEMP,A)
+        DO 402 I = 1,M
+402     ALPHA(I) = A(I)
+420     CALL FTRAN(ALPHA,ETA,TEMP,INDETA)
+
+        IF(NFLAG(CN(IK)) .NE. -1)  GO TO 430
+
+        DO 422 I = 1, M
+422     ALPHA(I) = -ALPHA(I)
+
+430     DUM1 = 0.
+        DUM3 = 0.
+        DUM2 = BIG
+        DUM4 = BIG
+
+        DO 1800 I = 1, M
+        IF(ALPHA(I) .EQ. 0)  GO TO 1800
+        IF(NFLAG(CB(IR)) .EQ. 2)  GO TO 1800
+
+        RAT = ABS(BETA(I) /ALPHA(I))
+
+        IF((BETA(I) .LT. 0) .AND. (ALPHA(I) .LT. 0))GO TO 440  
+        
+        IF((BETA(I) .GE. 0) .AND. (ALPHA(I) .LT. 0))GO TO 450
+
+        IF((BETA(I) .LT. 0) .AND. (ALPHA(I) .GT. 0)) GO TO 460
+        
+C       CASE D
+        IF(DUM4 .LT. RAT) GO TO 1800
+
+        DUM4 = RAT
+        I4 = I
+        GO TO 1800
+
+C       CASE A
+440     IF(DUM1 .GT. RAT)  GO TO 1800
+
+        DUM1 = RAT
+        I1 = I
+        GO TO 1800
+
+C       CASE B
+450     IF(DUM2 .LT. RAT)  GO TO 1800
+        DUM2 = RAT
+        I2 = I
+        GO TO 1800
+
+C       CASE C
+460     IF(DUM3 .GT. MAX)  GO TO 1800
+        DUM3 = RAT
+        I3 = I
+
+1800    CONTINUE
+
+
+        IF((DUM1 .EQ. 0) .OR. (PI(IK) .LT. 0)) GO TO 470
+
+        IR = I1
+        GO TO 700
+
+470     IF((DUM2 .EQ. BIG) .OR.(PI(IK) .LT. 0))   GO TO 480
+        IR = I2
+       GO TO 700
+
+480     IF((DUM3 .EQ. 0) .OR. (PI(IK) .GT. 0))GO TO 490
+
+        IR = I3
+        GO TO 700
+
+490     IF((DUM4 .EQ. BIG) .OR. (PI(IK) .GT. 0)) GO TO 500
+        IR = I4
+        GO TO 700
+500     IF(PI(IK) .NE. 0) GO TO 600
+
+        WRITE(ID,5000) DICT(CN(IK))
+        GO TO 2000
+
+600     WRITE(ID,5200) DICT(CN(IK))
+        CALL EXIT
+
+700     CALL PIVOT(IRES,ALPHA,ETA,BETA,CB,CN,TEMP,INDETA,
+     +  PI,BU,CBC,C,NFLAG,PIP,RINV,INDA,A,DICT)
+
+2000    CONTINUE
+
+
+
+        DO 3000 I = 1, M
+        IF(CB(IR) .LE. M) GO TO 3000
+        IF(BETA(IR) .LE. BU(CB(IR)-M)) GO TO 3000
+
+        CALL COMPLE(BU,BETA,NFLAG,CB,CBC,INDETA)
+
+3000    CONTINUE
+
+        RETURN
+5000    FORMAT(1X,'ROW NAMED ',A5,' IS UNNECESSARY IN THIS',
+     +  ' PROBLEM AND IS BEING DROPPED.')
+
+5100    FORMAT(' CHECK ROW NAMED ',A5,/,
+     +  'NO OPTIMAL FEASIBLE SOLUTION POSSIBLE.')
+
+5200    FORMAT(' CHECK COLUMN NAMED ',A5,/,
+     +  ' NO OPTIMAL FEASIBLE SOLUTION POSSIBLE.')
+        END
