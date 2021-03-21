@@ -1,0 +1,733 @@
+^DATA,KEY XMN201,CLASS HAZALL
+C //////////////    FF2E                ////////////////
+C     PROGRAM FF2E(INPUT,OUTPUT,TAPE5=INPUT,TAPE6=OUTPUT)C    C    C    C
+      COMMON /BLK1/ DB,DA,LB,LA,WB,CDB1,CDB2,FTANG,UDRIFT,H,DELTAS,
+     1PRINTI,UWIND,CDA,EPSLON,TBH,TBV,NCAB,NHPHS,CDAPK,WPAK,EP2
+      REAL LA,LB
+      CALL IFILE(21,'FF','IN')
+      CALL OPFILE(1,'FF','OUT')
+    2 FORMAT(23F)
+    3 FORMAT(23F)
+    4 FORMAT(4I,6F)
+    5 FORMAT(2F)
+    6 FORMAT(4F)
+    7 FORMAT(2I,2X,F)
+      COMMON /BLK2/ XX(30), YY(30)
+      COMMON /BLK5/ NPR(100),DC(100),WC(100),FLC(100),CDC(100),
+     1TREF(100),P(100),AE(100),CDABD(100),WBD(100),DCI(100),WCA(100),
+     2WCB(100),YYK(30)
+    8 FORMAT(24I)
+      READ(21,8) NCASES
+***** AFTER THIS CARD A33 SHOU3D BE IN SEQUENCE*****
+      DO 400 ICASE=1,NCASES
+   28 READ(21,4) ISTOP,NCUR,NCAB,NHPHS,DAI,LA,CDA,TBH,TBV,W1
+      READ(21,2) DB,LB,CDB1,CDB2,WB,UWINDK
+      READ(21,2) CDAPK,WPAK,CVFAC
+      READ(21,3) (FLC(K),K=1,NCAB)
+      READ(21,8) (NPR(K),K=1,NCAB)
+      READ(21,2) (DCI(K),K=1,NCAB)
+      READ(21,2) (WC(K),K=1,NCAB)
+      READ(21,2) (CDC(K),K=1,NCAB)
+      READ(21,3) (TREF(K),K=1,NCAB)
+      READ(21,2) (P(K),K=1,NCAB)
+      READ(21,3) (AE(K),K=1,NCAB)
+      READ(21,2) (CDABD(K),K=1,NCAB)
+      READ(21,2) (WBD(K),K=1,NCAB)
+      READ(21,3) (XX(K),K=1,NCUR)
+      READ(21,2) (YYK(K),K=1,NCUR)
+      EPSLON=0.0001
+      EP2=0.0001
+      FTANG=.020
+      DA=DAI/12.0
+      DO 50 J=1,NCAB
+      DC(J)=DCI(J)/12.
+   50 CONTINUE
+C  FIND THE MAXIMUM AND MINIMUM VALUES OF THE CURRENT
+      UMAXK=-1000.
+      UMINK=1000.
+      TOTL=0.
+      DO 52 J=1,NCAB
+   52 TOTL=TOTL+FLC(J)
+      TOTL=1.3*TOTL
+      DO 30 I=1,NCUR
+      IF(YYK(I).GT.UMAXK) UMAXK=YYK(I)
+      IF(YYK(I).LT.UMINK) UMINK=YYK(I)
+      IF(XX(I).GT.TOTL) GO TO 41
+   30 CONTINUE
+   41 UMAX=1.688*UMAXK
+      UMIN=1.688*UMINK
+  300 FORMAT(1H1,64H*****LISTING OF CABLE AND OCEAN ENVIRONMENT CHARACTE
+     1RISTICS*****)
+  302 FORMAT(1X,5X,13HDIAMETER (FT),46X,F8.5 )
+  301 FORMAT(1X,17HSURFACE BUOY.....)
+  303 FORMAT(6X,24HDIAMETER OF ANTENNA (IN),36X,F7.5)
+  304 FORMAT(6X,11HLENGTH (FT),44X,F12.5)
+  305 FORMAT(6X,22HLENGTH OF ANTENNA (FT),37X,F8.5)
+  306 FORMAT(6X,45HDRAG COEFFICIENT FOR BUOY (SUBMERGED PORTION),15X,F7.
+     15)
+  307 FORMAT(6X,44HDRAG COEFFICIENT FOR BUOY (SURFACED PORTION),16X,F7.5
+     1)
+  308 FORMAT(6X,28HDRAG COEFFICIENT FOR ANTENNA,32X,F7.5)
+  309 FORMAT(1X,18HWIND SPEED (KNOTS),45X,F9.5)
+  310 FORMAT(1X,18HOCEAN PROFILE.....)
+  311 FORMAT(5X,1X,10HDEPTH (FT),10X,15HCURRENT (KNOTS))
+  312 FORMAT(1X,8X,F8.2,13X,F8.4)
+  329 FORMAT(1X,5X,19HWEIGHT IN AIR (LBS),40X,F8.5)
+  330 FORMAT(1X)
+  345 FORMAT(1X,5X,31HBOTTOM HORIZONTAL TENSION (LBS),27X,F9.5)
+  346 FORMAT(1X,5X,29HBOTTOM VERTICAL TENSION (LBS),29X,F9.5)
+  358 FORMAT(6X,20HCABLE VOLUME FACTOR=,F12.6)
+  350 FORMAT(6X,16HCABLE PROPERTIES,73X,15HBODY PROPERTIES)
+  351 FORMAT(1X,3HNUM,2X,10HLENGTH(FT),4X,7HAE(LBS),3X,10HT REF(LBS),
+     13X,8HDIAM(IN),3X,10HWT/FT(LBS),3X,9HDRAG COEF,2X,
+     213HPOISSON RATIO,5X,9HCDA(FTSQ),5X,7HWT(LBS))
+  352 FORMAT(1X,I3,3F12.4,4F12.6,4X,F12.6,2X,F12.6)
+  353 FORMAT(1X,5X,21HNUMBER OF HYDROPHONES,37X,I3)
+  354 FORMAT(6X,25HPACKAGE DRAG AREA (FT SQ),30X,F12.5)
+  355 FORMAT(6X,29HPACKAGE WEIGHT IN WATER (LBS),26X,F12.5)
+   31 WRITE(1,300)
+      WRITE (1,330)
+      WRITE (1,330)
+      WRITE (1,301)
+      WRITE (1,302) DB
+      WRITE (1,303) DAI
+      WRITE(1,329) WB
+      WRITE (1,304) LB
+      WRITE (1,305) LA
+      WRITE (1,306) CDB1
+      WRITE (1,307) CDB2
+      WRITE (1,308) CDA
+      WRITE(1,354) CDAPK
+      WRITE(1,355) WPAK
+      WRITE (1,330)
+      WRITE(1,309) UWINDK
+      WRITE (1,330)
+      WRITE (1,310)
+      WRITE (1,311)
+      WRITE(1,312) (XX(I),YYK(I),I=1,NCUR)
+      WRITE(1,330)
+      WRITE(1,358) CVFAC
+      WRITE (1,330)
+      WRITE(1,350)
+      WRITE(1,351)
+      DO 370 K=1,NCAB
+      WRITE(1,352) K,FLC(K),AE(K),TREF(K),DCI(K),WC(K),CDC(K),P(K),
+     1CDABD(K),WBD(K)
+  370 CONTINUE
+      WRITE(1,330)
+      WRITE(1,353) NHPHS
+      WRITE(1,345) TBH
+      WRITE(1,346) TBV
+C   CONVERT FROM KNOTS TO FEET PER SECOND
+      UWIND=1.688*UWINDK
+      DO 32 I=1,NCUR
+      YY(I)=1.688*YYK(I)
+   32 CONTINUE
+      ALPHA=CVFAC*0.25*64.043*3.14159
+      DO 60 J=1,NCAB
+      WCB(J)=ALPHA*DC(J)*DC(J)
+      WCA(J)=WC(J)+WCB(J)
+   60 CONTINUE
+      IRUN=1
+C   CALL THE ROUTINE STEADT TO CALCULATE THE CONFIGURATION.
+      CALL STEADY(IRUN,UMAX,UMIN,W1)
+  400 CONTINUE
+      STOP
+      END
+      SUBROUTINE STEADY(IRUN,DLIMIT,UDMIN,W1)
+      DIMENSION S(400),X(400),Y(400),PHI(400),PHID(400),T(400)
+      DIMENSION XX(400),YY(400),Y0(5),PHIV(400),BPHI(400),SE(400)
+      DIMENSION BPHIV(400),HGRID(400),UGRID(400),SAR(400)
+      DIMENSION CUREL(400),DRAGH(400)
+      COMMON /BLK1/ DB,DA,LB,LA,WB,CDB1,CDB2,FTANG,UDRIFT,H,DELTAS,
+     1PRINTI,UWIND,CDA,EPSLON,TBH,TBV,NCAB,NHPHS,CDAPK,WPAK,EP2
+      COMMON /BLK3/ FIRST
+      COMMON /BLK4/ DRAG,WPLA,WPLB,FFTANG,DRIFT,TREFC,AEC,PC
+      COMMON /BLK5/ NPR(100),DC(100),WC(100),FLC(100),CDC(100),
+     1TREF(100),P(100),AE(100),CDABD(100),WBD(100),DCI(100),WCA(100),
+     2WCB(100)
+      REAL LA,LB
+C   THIS ROUTINE DOES THE CALCULATIONS FOR THE STEADY-STATE SCOPE.
+      DATA PI,RHO,RHOAIR,GAMMA,RADIAN
+     1/3.14159,1.9905,.002378,64.043,57.29578                          /
+  200 FORMAT(1X,22HASSUMED DRIFT SPEED IS,1X,F7.5,1X,6HKNOTS.)
+  201 FORMAT(1X,25HASSUMED BUOY DRAFT, H, IS,1X,F7.5,1X,5HFEET.)
+  202 FORMAT(1X)
+  203 FORMAT(1X,3X,9HS REF(FT),1X,9HS STR(FT),3X,5HX(FT),8X,5HY(FT),
+     13X,8HPHI(DEG),3X,6HT(LBS),4X,9HPHIV(DEG),3X)
+  204 FORMAT(1X,3X,F8.2,2X,F8.2,2X,F9.2,1X,F8.2,2X,F8.2,2X,F8.2,3X,
+     1F8.2)
+  205 FORMAT(1H1,16HITERATION NUMBER,1X,I3)
+  206 FORMAT(1X,36HTHE TOTAL WEIGHT OF BOTTOM WEIGHT IS,
+     11X,F9.5,1X,4HLBS.)
+  207 FORMAT(1X,45HTHE COMPUTED VERTICAL COMPONENT OF TENSION IS,1X,F8.5
+     1,1X,4HLBS.)
+  208 FORMAT(1X,38HTHE TOTAL DRAG OF THE BOTTOM WEIGHT IS,
+     11X,F9.5,1X,4HLBS.)
+  209 FORMAT(1X,47HTHE COMPUTED HORIZONTAL COMPONENT OF TENSION IS,1X,
+     1F9.5,1X,4HLBS.)
+  210 FORMAT(1H1,70H***CONFIGURATION OF THE LOWER ARRAY. POINT (0.0,0.0)
+     1 IS THE BOTTOM.***)
+  211 FORMAT(1X,5X,6H S(FT),8X,5HX(FT),8X,5HY(FT),6X,8HPHI(DEG),
+     16X,8HPSI(DEG))
+  212 FORMAT(1X,3X,F8.2,4(5X,F8.2))
+  213 FORMAT(1X,18HTHE ANGLE THETA IS,1X,F5.2,1X,8HDEGREES.)
+  214 FORMAT(1X,48HTHE MAXIMUM PERPENDICULAR DISTANCE FROM CHORD IS,1X,F
+     15.2,1X,5HFEET.)
+  215 FORMAT(1X,15HBOTTOM ANGLE IS,1X,F7.2,5X,17HBOTTOM TENSION IS,1X,
+     1 F6.2)
+  220 FORMAT(1X,42HREVERSAL IN SIGN BETWEEN DELTAU AND ERRORH)
+  222 FORMAT(1X,28HSTART OF SIMULTANEOUS SCHEME)
+  223 FORMAT(1X,25HSTART OF STAGGERED SCHEME)
+224   FORMAT(1X,8X,5HDRAGH,8X,7HREL CUR)
+225   FORMAT(1X,5X,F8.4,4X,F8.4)
+      WBOT=WBD(NCAB)
+      GPRBSQ=GAMMA*PI*.25*DB*DB
+      GPIOV4=GAMMA*PI*.25
+      ILAST=0
+      HMIN=WB/GPRBSQ
+      DLIMIT=1.2*DLIMIT
+      UDRIFT=UDMIN+0.5*(DLIMIT-UDMIN)
+C  LET INITIAL BUOYANCY BE THE WEIGHT OF EVERYTHING UNDER THE BUOY.
+      XNPHS=NHPHS
+      DELTA=1.
+      BCY=0.
+      DO 253 J=1,NCAB
+      BCY=BCY+FLC(J)*WC(J)+WBD(J)
+  253 CONTINUE
+      BCY=BCY+WPAK+TBV
+      IF(BCY.LE.0.) BCY=0.
+      H=(BCY+WB)/GPRBSQ
+      UMAX=DLIMIT
+      UMIN=UDMIN
+      UMIN1=UMIN
+      UMAX1=UMAX
+      WRITE(1,202)
+      PRV=0.
+      PRH=0.
+      ABSERH=0.
+      ABSERV=0.0
+      PERH=15.
+      PERV=15.
+      EPRIME=100.
+      BRSLT=EPRIME
+      DEN4=LB*CDB1*DB+CDAPK
+      DO 20 J=1,NCAB
+      DEN4=DEN4+CDC(J)*DC(J)*FLC(J)
+      DEN4=DEN4+CDABD(J)
+   20 CONTINUE
+      DEN5=RHO*DEN4
+      IB=0
+      USEN=1.
+      K2=0
+      K3=0
+      I2MANY=0
+      IRUN=1
+      INO=1
+      KIT=0
+      KUSTOP=22
+      IFRST=11
+      KUD=0
+      KH=0
+      KREV=0
+      DHFAC=0.6
+      PRERV=1000.
+      HMINP=HMIN
+      HMAXP=LB
+    2 CONTINUE
+      IF(H.LT.HMIN) H=1.01*HMIN
+      BCY=GPRBSQ*H-WB
+      HTEMP=H
+    8 FIRST=-100.0
+C   CONVERT FROM FEET PER SECOND TO KNOTS.
+      IF(UDRIFT.LT. 0.0) UDRIFT=0.0
+      UDKNTS=.5924*UDRIFT
+      DEP=0.5*H
+      CALL CUR(DEP,COFY)
+      CZERO=COFY
+      FIRST=100.0
+      CREL=COFY-UDRIFT
+      DRAGB=.5*RHO*DB*CDB1*CREL*ABS(CREL)*H
+     1 +.5*RHOAIR*DB*CDB2*(UWIND-UDRIFT)*ABS(UWIND-UDRIFT)*(LB-H)
+     2 +.5*RHOAIR*CDA*(UWIND-UDRIFT)*ABS(UWIND-UDRIFT)*LA*DA
+      CALL CUR(H,COFY)
+      CRELP=COFY-UDRIFT
+      DRGPK=0.5*RHO*CDAPK*CRELP*ABS(CRELP)
+      DRAGB=DRAGB+DRGPK
+C  INITIAL TENSION IS THE RESULTANT OF BUOYANCY AND DRIFT.
+      T(1)=SQRT(BCY*BCY+DRAGB*DRAGB)
+C  INITIAL ANGLE IS THE ANGLE WHOSE TANGENT IS BUOYANCY/DRAG OF BUOY.
+      PHI(1)=ATAN2(BCY,DRAGB)
+      X(1)=0.0
+      PHID(1)=PHI(1)*RADIAN
+      S(1)=0.0
+      SE(1)=0.0
+      Y(1)=H
+      NLAST=0
+      DRIFT=UDRIFT
+      FFTANG=FTANG
+      DO 240 J=1,NCAB
+      DRAG=0.5*RHO*CDC(J)*DC(J)
+      START=0.
+       YDRAGC=0
+      WPLA=WCA(J)
+      WPLB=WCB(J)
+      TREFC=TREF(J)
+      AEC=AE(J)
+      PC=P(J)
+      FNP=NPR(J)
+      SPA=FLC(J)/FNP
+      N1=NLAST+2
+      NLAST=N1+NPR(J)-1
+      DO 250 M=N1,NLAST
+      MINDEX=M
+      Y0(1)=T(M-1)
+      Y0(2)=PHI(M-1)
+      Y0(3)=X(M-1)
+      Y0(4)=Y(M-1)
+      Y0(5)=SE(M-1)
+      SS=S(M-1)
+      CALL KUTMER(5,SS,Y0,EPSLON,SPA,START,HCX,EP2)
+      T(M)=Y0(1)
+      PHI(M)=Y0(2)
+      PHID(M)=PHI(M)*RADIAN
+      IF(KIT-1) 952,951,952
+  951 IF((PHID(M).GT.125.).AND.(K2.LE.4)) GO TO 800
+      IF((PHID(M).LT.0.).AND.(K2.LE.4)) GO TO 820
+  952 X(M)=Y0(3)
+      Y(M)=Y0(4)
+      SE(M)=Y0(5)
+      S(M)=SS
+  250 CONTINUE
+      CALL CUR(Y(NLAST),COFY)
+      CUREL(J)=COFY-UDRIFT
+53    DRAGH(J)=0.5*RHO*CDABD(J)*CUREL(J)*ABS(CUREL(J))
+453   XCOMP=DRAGH(J)+T(NLAST)*COS(PHI(NLAST))
+      YCOMP=-WBD(J)+T(NLAST)*SIN(PHI(NLAST))
+      T(NLAST+1)=SQRT(XCOMP**2+YCOMP**2)
+      PHI(NLAST+1)=ATAN2(YCOMP,XCOMP)
+      PHID(NLAST+1)=PHI(NLAST+1)*RADIAN
+82      X(NLAST+1)=X(NLAST)
+      Y(NLAST+1)=Y(NLAST)
+      S(NLAST+1)=S(NLAST)
+      SE(NLAST+1)=SE(NLAST)
+  240 CONTINUE
+   95 MPRINT=NLAST
+      THORIZ=T(MPRINT)*COS(PHI(MPRINT))
+      TVERT=T(MPRINT)*SIN(PHI(MPRINT))
+      CALL CUR(Y(MPRINT),COFY)
+      I2MANY=0
+      CREL=COFY-UDRIFT
+      DRAGBT=0.5*RHO*CDABD(NCAB)*CREL*ABS(CREL)
+      IF(ABS(DRAGBT).LT.0.001) DRAGBT=0.001
+C  CHECK BOTTOM CONDITIONS WITH REALITY.
+      PPERV=PRV
+      PPERH=PRH
+      ERRORV=TVERT-WBOT-TBV
+      ERRORH=THORIZ+DRAGBT-TBH
+      PRV=ERRORV
+      PRH=ERRORH
+      ABSERH=ABS(ERRORH)
+      ABSERV=ABS(ERRORV)
+      RESULT=SQRT(ERRORH**2+ERRORV**2)
+  799 RATIO1=ABS(ERRORH/DRAGBT)
+      RATIO2=ABS(ERRORV/(WBOT+TBV))
+      DRGTBH=DRAGBT+TBH
+      RATIO3=ABS(ERRORH/DRGTBH)
+      IF(RESULT-BRSLT) 903,903,906
+  903 BH=H
+      BUDR=UDRIFT
+      BRSLT=RESULT
+  906 IF((RATIO3.LE..02).AND.(RATIO2.LE..02)) GO TO 150
+      IF(ABS(DRGTBH)-0.30) 2055,2055,2056
+ 2055 IF((RATIO3.LE.0.10).AND.(RATIO2.LE..02)) GO TO 150
+ 2056 CONTINUE
+   98 IRUN=IRUN+1
+      INO=IRUN
+      UTEMP=UDRIFT
+      IF(IB.GT.1) GO TO 150
+      IF(INO.GT.50) GO TO 960
+      IF(KIT.EQ.1) GO TO 650
+      IF(KIT-2) 120,121,121
+  121 KUD=KUD+1
+      IF((RATIO3.LE.0.02)) GO TO 102
+      IF((KUD.GT.KUSTOP).AND.(RATIO2.GT.0.02)) GO TO 102
+      IF(((PRH/PPERH).GT.1.).AND.(KUD.GE.2)) GO TO 2040
+  120 IF((RATIO3.LE.0.02).AND.(KIT.EQ.0)) GO TO 1651
+      IF((KUD.GT.KUSTOP).AND.(KIT.EQ.0)) GO TO 1651
+  303 IF(ERRORH.GT.0.0) GO TO 100
+  101 UDRIFT=.5*(UDRIFT+UMIN)
+      UMAX=UTEMP
+      GO TO 2
+  100 UDRIFT=.5*(UDRIFT+UMAX)
+      UMIN=UTEMP
+      GO TO 2
+  102 KH=KH+1
+      KUD=0
+      WRITE(1,202)
+      IF((-ERRORV/PRERV).GT.0.5) DHFAC=0.5*DHFAC
+      IF((ERRORV/PRERV).GT.0.7) DHFAC=1.5*DHFAC
+      PRERV=ERRORV
+  104 H=HTEMP+DHFAC*ABSERV/GPRBSQ
+      IF((ERRORV.GT.0.0).AND.(PHID(MPRINT).LT.180.)) GO TO 2002
+      IF(H.GE.HMAXP) H=HTEMP+0.75*(HMAXP-HTEMP)
+      HHT=H/HTEMP
+      HTH=HTEMP/H
+      HMINP=HTEMP
+      UMAX=(HHT+.05)*UDRIFT
+      UMIN=(HTH-.05)*UDRIFT
+      GO TO 2032
+ 2002 H=HTEMP-DHFAC*ABS(ERRORV)/GPRBSQ
+      IF(H.LT.(0.5*(HTEMP+HMIN))) H=0.5*(HTEMP+HMIN)
+      IF(H.LE.HMINP) H=HTEMP-0.75*(HTEMP-HMINP)
+      HMAXP=HTEMP
+      HHT=H/HTEMP
+      HTH=HTEMP/H
+      UMAX=(HTH+.05)*UDRIFT
+      UMIN=(HHT-.05)*UDRIFT
+ 2032 PREVH=HTEMP
+      PREVU=UDRIFT
+      UDRIFT=1.01*UDRIFT
+      UMAX1=UMAX
+      UMIN1=UMIN
+      GO TO 2
+ 2040 KREV=KREV+1
+      IF(KREV.GT.10) GO TO 960
+      WRITE(1,220)
+      GO TO 303
+ 1651 KIT=1
+      UD1=UDRIFT
+      H1=H
+      EV1=ERRORV
+      UMAX=UMAX+ABS(ERRORV)*UDRIFT*.03
+      UMIN=UMIN-ABS(ERRORV)*UDRIFT*.03
+      IF(WBOT.LT.0.) GO TO 1001
+      WRITE(1,202)
+      WRITE(1,222)
+      GO TO 650
+   99 WRITE(1,205) INO
+      WRITE(1,200) UDKNTS
+      WRITE (1,209) DRAGB
+      WRITE(1,201) HTEMP
+      WRITE (1,207) BCY
+      WRITE(1,202)
+      WRITE(1,202)
+      WRITE(1,203)
+      DO 97 I=1,MPRINT
+      PHIV(I)=90.0-PHID(I)
+   97 CONTINUE
+      WRITE(1,204) (S(I),SE(I),X(I),Y(I),PHID(I),T(I),PHIV(I),
+     1I=1,MPRINT)
+      WRITE(1,202)
+      TOTV=WBOT+TBV
+      WRITE(1,206) TOTV
+      WRITE(1,207) TVERT
+      WRITE(1,202)
+      TOTH=DRAGBT-TBH
+      WRITE(1,208) TOTH
+      WRITE(1,209) THORIZ
+      GO TO 130
+  650 K2=0
+      IF((IRUN.GT.35).AND.(RESULT.GT.EPRIME).AND.(EPRIME.GT.0.20)) GO
+     1TO 1001
+      IF(RESULT.GT.EPRIME) GO TO 660
+  901 PERV=ERRORV
+      PERH=ERRORH
+  905 EPRIME=RESULT
+      PUDRFT=UDRIFT
+      PH=H
+      DELTA=1.
+      USEN=1.
+  907 DELTAH=-DELTA*ABSERV*ERRORV/(RESULT*GPRBSQ)
+      DELTAU=USEN*DELTA*ERRORH*ABSERH/(RESULT*DEN5)
+      DELTAU=DELTAU/UDRIFT
+  721 IF(DELTAU) 651,651,652
+  651 UMAX=UDRIFT
+      UMIN=UDRIFT+DELTAU
+      GO TO 653
+  652 UMAX=UDRIFT+DELTAU
+      UMIN=UDRIFT
+  653 UDRIFT=UDRIFT+DELTAU
+      H=H+DELTAH
+      HINT=0.7
+      IF(H.LT.(HTEMP-HINT*(HTEMP-HMIN))) H=(HTEMP-HINT*(HTEMP-HMIN))
+  969 GO TO 2
+  660 IF((DELTA.LT.0.05).OR.(USEN.GT.500.)) GO TO 901
+      IF((DELTA.LT.0.3).AND.(IRUN.LT.25)) GO TO 901
+      IF(EPRIME.LT.0.1.AND.IRUN.LT.30) GO TO 901
+      EHPH=PRH/PERH
+      IF((EHPH.GT.1.).AND.(ABS(PRH).GT.ABS(PRV))) GO TO 901
+      AEHPH=ABS(EHPH)
+      ERRORH=PERH
+      ERRORV=PERV
+      ABSERV=ABS(ERRORV)
+      ABSERH=ABS(ERRORH)
+      RESULT=EPRIME
+      UDRIFT=PUDRFT
+      H=PH
+      DRAGB=PDRAGB
+      ARVPV=ABS(PRV/PERV)
+  914 DELTA=0.5*DELTA
+      USEN=1.
+      GO TO 907
+ 1001 KIT=5
+      HTEMP=H1
+      UTEMP=UD1
+      UDRIFT=UD1
+      ERRORV=EV1
+      KUD=0
+      WRITE(1,202)
+      WRITE(1,223)
+      GO TO 102
+  960 IB=15
+      H=BH
+      UDRIFT=BUDR
+      GO TO 2
+  800 UMAX=UDRIFT
+      I2MANY=I2MANY+1
+      MPRINT=MINDEX
+      IF(I2MANY.GT.7) GO TO 962
+      UDRIFT=.5*(UDRIFT+UMIN)
+      GO TO 2
+  820 UMIN=UDRIFT
+      I2MANY=I2MANY+1
+      MPRINT=MINDEX
+      IF(I2MANY.GT.7) GO TO 962
+      UDRIFT=.5*(UDRIFT+UMAX)
+      GO TO 2
+  962 K2=K2+1
+      K3=K3+1
+      IF(K3.GT.15) GO TO 1001
+      I2MANY=0
+      UMAX=UMAX+0.03*UDRIFT
+      UMIN=UMIN-0.03*UDRIFT
+      GO TO 2
+  150 ILAST=10
+      GO TO 99
+  130 XX(1)=0.0
+      YY(1)=0.0
+      SAR(1)=0.0
+      BPHI(1)=PHID(MPRINT)
+      IF(NHPHS.LE.1) GO TO 133
+      IARRAY=NHPHS
+      DO 255 MK=1,NHPHS
+      KK=MK-1
+      NMKK=NCAB-KK
+  255 IARRAY=IARRAY+NPR(NMKK)
+      DO 131 I=1,IARRAY
+      II=MPRINT-I
+      BPHI(I+1)=PHID(II)
+      XX(I+1)=-X(MPRINT)+X(II)
+      YY(I+1)=Y(MPRINT)-Y(II)
+      SAR(I+1)=S(MPRINT)-S(II)
+  131 CONTINUE
+      THETA1=ATAN2(YY(IARRAY+1),XX(IARRAY+1))
+      THETAD=90.0-RADIAN*THETA1
+      RMAX=0.0
+      I32=IARRAY+1
+      DO 132 I=2,I32
+      R=SQRT(XX(I)**2+YY(I)**2)
+      THETA2=ATAN2(YY(I),XX(I))
+      Z=R*ABS(SIN(THETA2-THETA1))
+      IF(Z.GT. RMAX)  RMAX=Z
+  132 CONTINUE
+      DO 140 I=1,I32
+      BPHIV(I)=90.0-BPHI(I)
+  140 CONTINUE
+      WRITE(1,202)
+      WRITE(1,213) THETAD
+      WRITE(1,214) RMAX
+        WRITE(1,202)
+      DO 88 I=1,MPRINT
+      Y(I)=-Y(I)
+88    CONTINUE
+      CALL PLOT(X,Y,1,MPRINT,5,1)
+      WRITE(1,202)
+      WRITE(1,224)
+      WRITE(1,225) (DRAGH(J),CUREL(J),J=1,NCAB)
+  133 CONTINUE
+      RETURN
+      END
+      SUBROUTINE CUR(X, FOFX)
+      COMMON /BLK2/ XX(30), YY(30)
+      COMMON /BLK3/ FIRST
+      IF(FIRST.LT. 0.0) I=1
+      IF(X.LT.0.) GO TO 80
+      IF(( X.GE.XX(I)).AND.(X.LE.XX(I+1))) GO TO 30
+      IF((X.GE.XX(I-1)).AND.(X.LE.XX(I)) ) GO TO 40
+      IF((X.GE.XX(I+1)).AND.(X.LE.XX(I+2))) GO TO 50
+   60 I=1
+   70 IF(X.LE.XX(I+1)) GO TO 30
+      I=I+1
+      GO TO 70
+   30 FOFX=YY(I)+((YY(I+1)-YY(I))/(XX(I+1)-XX(I)))*(X-XX(I))
+      RETURN
+   40 I=I-1
+      GO TO 30
+   50 I=I+1
+      GO TO 30
+   80 FOFX=YY(1)
+      RETURN
+      END
+      SUBROUTINE DAUX(S,IN,DE)
+      DIMENSION DE(5)
+      COMMON /BLK4/ DRAG,WPLA,WPLB,FFTANG,DRIFT,TREFC,AEC,PC
+      REAL IN(5)
+      CALL CUR(IN(4),COFY)
+      CREL=COFY-DRIFT
+      CABSC=CREL*ABS(CREL)
+      E=(IN(1)-TREFC)/AEC
+      DE(5)=1.+E
+      PCE=1.-PC*E
+      DRAP=DRAG*PCE
+      F2=PCE*PCE*DE(5)
+      WPUL=WPLA-WPLB*F2
+      DE(3)=-COS(IN(2))*DE(5)
+      DE(4)=SIN(IN(2))*DE(5)
+      DE(1)=DRAP*CABSC*SIGN(FFTANG,COS(IN(2)))*DE(5)-WPUL*SIN(IN(2))
+      DE(2)=-(DRAP*CABSC*SIN(IN(2))*ABS(SIN(IN(2))*DE(5))+WPUL*
+     1COS(IN(2)))/IN(1)
+      RETURN
+      END
+      SUBROUTINE KUTMER(N,T,Y0,EPS,H,FIRST,HCX, A)                          0020
+C      KUTMER ROUTINE REVISED FOR IVODE   JAN 30,1964                       0010
+      DIMENSION Y0(23),Y1(23),Y2(23),F0(23),F1(23),F2(23)                   0030
+      IF(FIRST)20,10,20                                                     0040
+   10 HC=H                                                                  0050
+      IPLOC=1                                                               0060
+      FIRST=1.                                                              0070
+   20 LOC=0                                                                 0080
+        HCX=HC                                                              0090
+   30 CALL DAUX (T,Y0,F0)                                                   0100
+   39 DO 40 I=1,N                                                      0110
+   40 Y1(I)=Y0(I)+(HC/3.)*F0(I)                                             0120
+      CALL DAUX (T+HC/3.,Y1,F1)                                             0130
+      DO 50 I=1,N                                                           0140
+   50 Y1(I)=Y0(I)+(HC/6.)*F0(I)+(HC/6.)*F1(I)                               0150
+      CALL DAUX (T+HC/3.,Y1,F1)                                             0160
+      DO 60 I=1,N                                                           0170
+   60 Y1(I)=Y0(I)+HC/8.*F0(I)+.375*HC*F1(I)                                 0180
+      CALL DAUX (T+HC/2.,Y1,F2)                                             0190
+      DO 70 I=1,N                                                           0200
+   70 Y1(I)=Y0(I)+HC/2.*F0(I)-1.5*HC*F1(I)+2.*HC*F2(I)                      0210
+      CALL DAUX (T+HC,Y1,F1)                                                0220
+      DO 80 I=1,N                                                           0230
+   80 Y2(I)=Y0(I)+HC/6.*F0(I)+.66666667*HC*F2(I)+(HC/6.)*F1(I)              0240
+      INC=0                                                                 0250
+      DO 110 I=1,N                                                          0260
+        ZZZ=ABS (Y1(I))-A
+        IF(ZZZ) 85,87,87                                                    0280
+   85  ERROR = ABS(.2*(Y1(I)-Y2(I)) )                                       0290
+        IF(ERROR-A)100,100,90                                               0300
+   87 ERROR=ABS (.2-.2*Y2(I)/Y1(I))                                         0310
+      IF(ERROR-EPS)100,100,90                                               0320
+   90 CONTINUE                                                              0322
+      KYSCIE=12                                                             0324
+      CZATR=2.**KYSCIE                                                      0326
+      XX= CZATR*ABS(HC)-ABS(H)                                              0330
+      IF (XX) 91,95,95                                                      0340
+   91  WRITE(1,92)  T,ERROR,I                                               0350
+   92 FORMAT(21H RELATIVE ERROR AT X= 1P1E12.3,3H ISF10.6/  6H  I=  ,I4)    0360
+        FIRST = 2.                                                          0370
+        RETURN                                                              0380
+   95 HC=HC/2.                                                              0390
+      IPLOC=2 *IPLOC                                                        0400
+      LOC=2 *LOC                                                            0410
+        HCX=HC                                                              0420
+      GO TO 30                                                              0430
+  100 IF(ERROR*64.-EPS)110,110,101                                          0440
+  101 INC=1                                                                 0450
+  110 CONTINUE                                                              0460
+  111 T=T+HC                                                                0470
+      DO 112 I=1,N                                                          0480
+  112 Y0(I)=Y2(I)                                                           0490
+      LOC=LOC+1                                                             0500
+       IF(LOC-IPLOC)120,210,210                                             0510
+  120 IF(INC)210,130,210                                                    0520
+  130 IF(LOC-(LOC/2)*2)210,140,210                                          0530
+  140 IF(IPLOC-1)210,210,200                                                0540
+  200 HC=2.*HC                                                              0550
+      LOC=LOC/2                                                             0560
+      IPLOC=IPLOC/2                                                         0570
+  210 IF(IPLOC-LOC)30,220,30                                                0580
+  220 RETURN                                                                0590
+       END                                                                  0600
+       SUBROUTINE CRAN(CREL,W1,DRAGH,YDRAGC)
+       DIMENSION E(90),F(0/90),J(90),G(90),Z(0/90)
+       DEG(A)=(A/3.1415926)*180
+       CM=1.985
+       C1=1.51
+       L1=4*W1
+       D=0.537*L1
+       L=1.25*D
+       A1=((2*L1*W1)-W1**2)/144
+       W=(2*L1*W1*0.02646)/(2*90*22)
+       B=0.868*W1
+       C=(D-B)/2
+       IW1=W1
+       E(IW1)=0.721*W1
+       A2=((4*C*E(IW1))+B**2)/144
+       DO 490 IX=88,0,-1
+       F(IX)=(C1*CM*CREL**2*A2)/2
+       Z(IX)=DEG(ATAN(W/F(IX)))
+      IF(IX-Z(IX) .LE. 1) GO TO 500
+490    CONTINUE
+500    DRAGH=-F(IX)*COSD(Z(IX))
+       YDRAGC=F(IX)*SIND(Z(IX))
+       RETURN
+       END
+       SUBROUTINE OMITNI(CREL,T,T2,PHI,PHI2,W)
+       REAL  K,L,M,N
+       DIMENSION F(100)
+       RAD(A)=(A/180.)*3.1415926
+       DEG(A)=(A/3.1415926)*180
+       K=.0000122
+       M=1.985
+       P=64
+      D=1.375
+      L=.750
+       R=(CREL*(D/12))/K
+       IF(R .LE. 100) GO TO 400
+       IF(R .LE. 100000) GO TO 420
+       IF (R .GT. 1000000) GO TO 430
+400    F(I)=0
+410    GO TO 690
+420    C=.80
+       GO TO 650
+430    C=.40
+       GO TO 650
+650       DO 685 I=1,900,1
+       DE=I
+      F(I)=(M*((.0366*I*D**2*SIND(DE))+(C*D*L*COSD(DE))*V**2))/288
+       Z=DEG(ATAN((F(I)-2*T*COSD(PHI))/(W-B-2*T*SIND(PHI))))
+       IF((Z-(I/10)) .LE. 0) GO TO 690
+685    CONTINUE
+690    PHI2=DEG(ATAN((T*SIND(X)+B-W)/(T*COSD(X)-F(I))))
+700    T2=(T*SIND(PHI)+B-W)/(SIND(PHI))
+780    RETURN
+790    END
+C /////////0////    EOP                 ////////////////
+^END
+^DATA,KEY XMN201,CLASS HAZDAT
+C //////////////    FF.IN               ////////////////
+1
+1,17,23,11,0,0,0,0,0,0
+ 0.41        3.0          0.8         0.8           5.0       0.
+  0.0         0.0       1.0
+30,70,150,1100,52,3,5,110,3,10,33.1,16.5,8.3,7.275,1.025,.3125,.416,.291,7.1275,
+6,7,3,11,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+.042,.042,.042,.042,.25,.042,.042,.25,.042,.082,.082,.082,.082,.082,.082,.082,.0
+.0006,.0006,.0006,.0006,.00094,.0006,.0006,.00094,.0006,.0027,.0027,.0027,.0027,
+1.2,1.2,1.2,1.2,1.2,1.2,1.2,1.2,1.2,1.2,1.2,1.2,1.2,1.2,1.2,1.2,1.2,1.2,1.2,1.2,
+6.03,5.98,5.89,5.20,5.14,4.74,4.74,4.64,4.63,4.17,4.03,3.92,3.84,3.77,3.71,4.02,
+.3,.3,.3,.3,0,.3,.3,0,.3,.3,.3,.3,.3,.3,.3,.3,.3,.3,.3,.3,.3,.3,.3
+6960,6960,6960,6960,5.03,6960,6960,3.36,6960,26400,26400,26400,26400,26400,26400
+0,0,0,0,0,2.13,27.9,0,2.721,.005,.005,.005,.005,.005,.005,.0552,.1844,.005,.005,
+0,0,0,0,0,.4,0,0,.4,.057,.057,.057,.057,.057,.057,-.309,-.5083,.057,.057,.057,.0
+0,8,18,30,48,72,108,168,288,648,1368,1460,1560,1660,1760,1860,1960
+2.5,2.25,2,1.75,1.5,1.25,1,.75,.50,.25,.125,.125,.125,.125,.125,.125,.125
+ 
+C //////////////    EOP                 ////////////////
+C //////////////    EOF                 ////////////////
+^END
+                                                                                                                                                                                                                                        r |ó
