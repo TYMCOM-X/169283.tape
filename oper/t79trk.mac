@@ -1,0 +1,318 @@
+;  T79TRK.MAC      THAD FLORYAN        JAN 1973
+
+; WRITES A 7-TRACK TAPE TO BE READ ON 940 FROM A IBM 360 OS V TAPE
+; PERFORMING THE FOLLOWING EDITING/COMPRESSIONS:
+;
+;  HEX FF = OCTAL 377  -  END OF RECORD, 2 OF THESE FOR END OF FILE
+;  HEX FE = OCTAL 376  -  ACCEPT NEXT CHAR LITERALLY
+;  HEX FD = OCTAL 375  -  MULTIPLE SPACE COUNT FOLLOWS
+;  HEX FC = OCTAL 374  -  MULTIPLE ZERO COUNT FOLOWS
+;
+;  THE ABOVE CONTROL CHARS ARE INSERTED INTO THE 7 TRACK TAPE RECORDS.
+;
+;  THE 7 TRACK TAPE CONSISTS OF:
+;
+;       (1200 PDP-10 WORD) RECORDS
+;       (1800 940 WORD) RECORDS
+;       (7200 6 BIT) RECORDS
+;       (5400 8 BIT) RECORDS
+;
+;  THE LOGICAL RECORDS MAY SPAN THE PHYSICAL RECORDS ON THE
+;  7 TRACK TAPE.
+
+;  FORMAT OF EACH PHYSICAL RECORD ON 360-370/OS V (VAR.LENGTH) TAPE:
+;
+;    360    360     CONTENTS   DESCRIPTION
+;
+;  WORD=0 BYTE=0,1    ?        NOT USED
+;              2,3    S        PHYSICAL RECORD BYTE SIZE (INCL.WORD=0)
+;       1      0,1    ?        NOT USED
+;              2,3    X        LOGICAL RECORD BYTE SIZE (INCL.WORD=1)
+;       2      0,1             LOGICAL RECORD'S DATA
+;              ...                "       "       "
+;            X-1,X                "       "       "
+;            X+1,X+2  ?        NOT USED
+;            X+3,X+4  Y        LOGICAL RECORD BYTE SIZE
+;            X+5,X+6           LOGICAL RECORD'S DATA
+;            .......              "       "       "
+;            Y-1,Y                "       "       "
+;             ETC. UP TO 'S' BYTES IN PHYSICAL RECORD
+
+
+;  TO USE THIS PROGRAM, DO:
+;
+;       -ASS MTA1 MTB     (THE 7 TRACK TAPE TO BE WRITTEN)
+;       -ASS MTA2 MTA     (THE 9 TRACK TAPE TO BE READ)
+;       -DEB T79TRK
+;       LOADING
+;       SEMI-GEE
+
+
+
+IBSZ=   ^D260           ; WORD SIZE OF 9-TRACK INPUT TAPE BUFFER
+OBSZ=   ^D1200          ; WORD SIZE OF 7-TRACK OUTPUT TAPE BUFFER
+
+
+START:  OPEN    1,TAPE9
+E1:     0
+        MTAPE   1,1             ;REWIND
+        MTAPE   1,0
+        MTAPE   1,101           ; INIT 9-TRACK STANDARD MODE
+        MTAPE   1,16            ; SKIP ONE FILE
+        MTAPE   1,0
+        OPEN    2,TAPE7
+E2:     0
+        MTAPE   2,1             ;REWIND
+        MTAPE   2,0
+        STATZ   2,400000        ; IS TAPE WRITE-PROTECTED
+E3:     0                       ; YES
+        MTAPE   2,13            ; NO, WRITE 3" BLANK TAPE
+        MTAPE   2,0
+        JSP     17,INTPUT       ; INIT CHAR PUT ROUTINE
+PHLOOP: JSP     17,RDTAPE
+        JRST    EOTF            ; EOF
+        MOVE    12,READPT       ; GET BYTE POINTER
+        ILDB    2,12            ; GET PHYSICAL RECORD SIZE
+        LSH     2,^D8
+        ILDB    13,12
+        OR      13,2            ; (13) HAS PHYSICAL RECORD SIZE
+        ILDB    1,12            ; GET PAST 2 NULLS
+        ILDB    1,12
+        SUBI    13,4            ; DECR PHYS RECORD SIZE
+LGLOOP: JUMPLE  13,PHLOOP       ; GET ANOTHER PHYSICAL RECORD
+        ILDB    2,12
+        LSH     2,^D8
+        ILDB    11,12
+        OR      11,2            ; (11) HAS LOGICAL RECORD SIZE
+        ILDB    1,12            ; GET PAST 2 NULLS
+        ILDB    1,12
+        SUB     13,11           ; DECR PHYSICAL RECORD SIZE
+        SUBI    11,4            ; DECR LOGICAL RECORD SIZE
+PLR:    JSP     10,GNC
+        JRST    PLREND          ; END OF LOGICAL RECORD
+PLRA:   CAIE    1,100           ; HEX SPACE
+        JRST    PLR1            ; NO
+        MOVEI   3,0
+PLRS:   ADDI    3,1
+        JSP     10,GNC
+        JRST    PLRS1           ; END OF LOGICAL RECORD
+        CAIN    1,100
+        JRST    PLRS            ; ANOTHER SPACE
+        MOVE    4,1
+        CAILE   3,2             ; HAVE WE MORE THAN 2 SPACES
+        JRST    PLRSM1          ; YES, COMPRESS
+        MOVEI   1,100           ; NO, WRITE 1 OR 2 SPACES
+        JSP     17,(16)
+        SOJG    3,.-2
+        JRST    PLRSM3
+PLRSM1: CAIG    3,377           ; HAVE WE MORE THAN 256 SPACES
+        JRST    PLRSM2          ; NO
+        SUBI    3,377           ; YES, ADJUST COUNT
+        MOVEI   1,375           ; MULTIPLE SPACE FLAG
+        JSP     17,(16)         ; WRITE IT
+        MOVEI   1,377
+        JSP     17,(16)         ; WRITE COUNT OF 256
+        JRST    PLRSM1          ; CHECK IF STILL MORE THN 256
+PLRSM2: MOVEI   1,375           ; MULTIPLE SPACE FLAG
+        JSP     17,(16)         ; WRITE IT
+        MOVE    1,3
+        JSP     17,(16)         ; WRITE COUNT
+PLRSM3: MOVE    1,4
+PLR1:   CAIE    1,0             ; NULL
+        JRST    PLR2            ; NO
+        MOVEI   3,0
+PLRZ:   ADDI    3,1
+        JSP     10,GNC
+        JRST    PLRZ1           ; END OF LOGICAL RECORD
+        CAIN    1,0
+        JRST    PLRZ            ; ANOTHER ZERO
+        MOVE    4,1
+        CAILE   3,2             ; HAVE WE MORE THAN 2 ZEROES
+        JRST    PLRZM1          ; YES, COMPRESS
+        MOVEI   1,0             ; NO, WRITE 1 OR 2 ZEROES
+        JSP     17,(16)
+        SOJG    3,.-2
+        JRST    PLRZM3
+PLRZM1: CAIG    3,377           ; HAVE WE MORE THAN 256 NULLS
+        JRST    PLRZM2          ; NO
+        SUBI    3,377           ; YES, ADJUST COUNT
+        MOVEI   1,374           ; MULTIPLE ZERO FLAG
+        JSP     17,(16)         ; WRITE IT
+        MOVEI   1,377
+        JSP     17,(16)         ; WRITE COUNT OF 256
+        JRST    PLRZM1          ; CHECK IF STILL MORE THAN 256
+PLRZM2: MOVEI   1,374           ; MULTIPLE ZERO FLAG
+        JSP     17,(16)         ; WRITE IT
+        MOVE    1,3
+        JSP     17,(16)         ; WRITE COUNT
+PLRZM3: MOVE    1,4
+        JRST    PLRA
+PLR2:   CAIE    1,377
+        JRST    PLR3
+PLR2SP: MOVE    4,1
+        MOVEI   1,376           ; FLAG TO ACCEPT LITERALLY
+        JSP     17,(16)
+        MOVE    1,4
+        JSP     17,(16)
+        JRST    PLR
+PLR3:   CAIN    1,376
+        JRST    PLR2SP
+        CAIN    1,375
+        JRST    PLR2SP
+        CAIN    1,374
+        JRST    PLR2SP
+        JSP     17,(16)         ; WRITE CHAR
+        JRST    PLR
+PLRS1:  MOVEI   4,375           ; GET MULTIPLE SPACE FLAG
+        MOVEI   5,100           ; HEX SPACE
+PLRS2:  CAILE   3,2             ; HAVE WE MORE THAN 2
+        JRST    PLRS3           ; YES, COMPRESS
+        MOVE    1,5             ; NO, WRITE 1 OR 2
+        JSP     17,(16)
+        SOJG    3,.-2
+        JRST    PLREND
+PLRS3:  CAIG    3,377           ; HAVE WE MORE THAN 256
+        JRST    PLRS4           ; NO
+        SUBI    3,377           ; YES, ADJUST COUNT
+        MOVE    1,4             ; MULTIPLE FLAG
+        JSP     17,(16)         ; WRITE IT
+        MOVEI   1,377
+        JSP     17,(16)         ; WRITE COUNT OF 256
+        JRST    PLRS3           ; CHECK IF STILL MORE THAN 256
+PLRS4:  MOVE    1,4
+        JSP     17,(16)         ; WRITE MULTIPLE FLAG
+        MOVE    1,3
+        JSP     17,(16)         ; WRITE COUNT
+PLREND: MOVEI   1,377
+        JSP     17,(16)         ; WRITE END OF LOGICAL RECORD
+        JRST    LGLOOP          ; GO GET ANOTHER LOGICAL RECORD
+PLRZ1:  MOVEI   4,374           ; GET MULTIPLE ZERO FLAG
+        MOVEI   5,0
+        JRST    PLRS2
+
+EOTF:   MOVEI   1,377
+        JSP     17,(16)         ; WRITE ANOTHER END OF RECORD CHAR
+        MOVEI   4,10
+        MOVEI   1,0
+        JSP     17,(16)         ; FILL WITH ZEROES
+        SOJG    4,.-2
+        JSP     6,WRTAPE
+        CLOSE   1,
+        CLOSE   2,
+        MTAPE   1,1
+        MTAPE   2,1             ; REWIND TAPES
+        EXIT    1,
+
+GNC:    SOJL    11,(10)         ; END OF LOGICAL RECORD
+        AOJ     10,
+        ILDB    1,12
+        JRST    (10)
+
+;  CALL AS PER:   JSP 17,INTPUT
+;
+INTPUT: MOVEI   16,OBSZ-1
+        SETZM   OBUF(16)
+        SOJGE   16,.-1
+        MOVEI   15,OBUF
+        MOVEI   14,OBSZ/2               ; DOUBLEWORD BUFFER COUNT
+        MOVEI   16,PUTC1
+        JRST    (17)
+
+;  WITH CHAR IN (1), CALL AS PER:  JSP 17,(16)
+;
+PUTC1:  MOVEI   2,0
+        ROTC    1,^D-8
+        MOVEM   2,@15
+        JSP     16,(17)
+PUTC2:  MOVEI   2,0
+        ROTC    1,^D-16
+        IORM    2,@15
+        JSP     16,(17)
+PUTC3:  LSH     1,^D12
+        IORM    1,@15
+        JSP     16,(17)
+PUTC4:  LSH     1,4
+        IORM    1,@15
+        JSP     16,(17)
+PUTC5:  MOVEI   2,0
+        ROTC    1,-4
+        IORM    1,@15
+        AOJ     15,
+        MOVEM   2,@15
+        JSP     16,(17)
+PUTC6:  MOVEI   2,0
+        ROTC    1,^D-12
+        IORM    2,@15
+        JSP     16,(17)
+PUTC7:  LSH     1,^D16
+        IORM    1,@15
+        JSP     16,(17)
+PUTC8:  LSH     1,^D8
+        IORM    1,@15
+        JSP     16,(17)
+PUTC9:  IORM    1,@15
+        AOJ     15,
+        SOJG    14,PUTOK
+        JSP     6,WRTAPE
+        MOVEI   16,OBSZ-1
+        SETZM   OBUF(16)
+        SOJGE   16,.-1
+        MOVEI   15,OBUF
+        MOVEI   14,OBSZ/2
+PUTOK:  JSP     16,(17)
+        JRST    PUTC1
+
+;  CALL AS PER:
+;
+;       JSP  17,RDTAPE
+;       (EOF RETURN)
+;       (NORMAL RETURN)
+;
+RDTAPE: MOVEI   6,IBSZ-1
+        SETZM   IBUF(6)                ; ZERO OUT IBUF
+        SOJGE   6,.-1
+        IN      1,MTARWD
+        JRST    READOK          ; OK, SKIP RETURN
+        STATZ   1,20000         ; BIT 22: EOF
+        JRST    (17)            ; YES
+        STATZ   1,200000        ; BIT 19: BAD TAPE
+RE1:    0
+        STATZ   1,100000        ; BIT 20: PARITY ERROR
+RE2:    0
+        STATZ   1,40000         ; BIT 21, REC > BUF SIZE
+RE3:    0
+        STATZ   1,2000          ; BIT 25: END OF TAPE
+RE4:    0
+        GETSTS  1,0
+RE5:    0
+
+READOK: AOJ     17,
+        JRST    (17)
+
+MTARWD: IOWD    IBSZ,IBUF
+        0
+IBUF:  BLOCK   IBSZ+2
+
+READPT: POINT   ^D8,IBUF
+
+TAPE9:  EXP     617             ; 800 BPI, VAR LEN IMAGE I-O
+        SIXBIT  /MTA/
+        EXP     0               ; NO RING BUFFERS
+
+;  CALL AS PER:   JSP 6,WRTAPE
+;
+WRTAPE: OUT     2,MTAWWD
+        JRST    (6)
+        GETSTS  2,0             ; ERROR
+WE1:    0
+
+MTAWWD: IOWD    OBSZ,OBUF
+        0
+OBUF: BLOCK   OBSZ+2
+
+TAPE7:  EXP     617             ; 800 BPI, VAR LEN IMAGE I-O
+        SIXBIT  /MTB/
+        EXP     0               ; NO RING BUFFERS
+
+        END     START
+ 
