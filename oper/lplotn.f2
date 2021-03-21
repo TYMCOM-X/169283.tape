@@ -1,0 +1,508 @@
+/ID SALV 09945801859185442S P.JUDD , X7385 ,FILE SALVAGE                        
+************************************************************************PLOT0010
+      SUBROUTINE OLPLT (NDEP,NP,X,Y1,Y2,Y3,Y4,IHZ,IGRID,IWRIT)          PLOT0020
+C                                                                       PLOT0030
+      DIMENSION  X(1),Y1(1),Y2(1),Y3(1),Y4(1),PLOT(121)                 PLOT0040
+C                                                                       PLOT0050
+C        THE ORIGINAL OLPLT HAS BEEN REPLACED BY OLPLOT                 PLOT0060
+C           CF. HEADER CARDS OF OLPLOT                                  PLOT0070
+C           CF. HEADER CARDS OF OLPLOT                                  PLOT0080
+C                                                                       PLOT0090
+      IF (IHZ) 20,10,20                                                 PLOT0100
+   10 MPLOT  = IABS(NDEP)                                               PLOT0110
+      GO TO 30                                                          PLOT0120
+   20 MPLOT  = -IABS(NDEP)                                              PLOT0130
+   30 MY     = IABS (NP)                                                PLOT0140
+      CALL OLPLOT (MPLOT,MY,X,Y1,Y2,Y3,Y4,PLOT)                         PLOT0150
+      RETURN                                                            PLOT0160
+      END                                                               PLOT0170
+/FTC                                                                    PLOT0180
+CLAS        OLPLOT - OFF-LINE PRINTER PLOT ROUTINE WITH GRIDS.          PLOT0190
+C     ..................................................................PLOT0200
+      SUBROUTINE OLPLOT (MPLOT, MY, X, Y1, Y2, Y3, Y4, PLOT)            PLOT0210
+C    ...................................................................PLOT0220
+C                                                                       PLOT0230
+C        PURPOSE                                                        PLOT0240
+C           PLOT 1 TO 4 FUNCTIONS OF THE FORM  Y = F(X),  USING THE     PLOT0250
+C           SYSTEM OFF-LINE PRINTER. THE ROUTINE IS INTENDED TO PROVIDE PLOT0260
+C           NO MORE THAN A CURSORY LOOK AT THE VARIABLES OF INTEREST.   PLOT0270
+C                                                                       PLOT0280
+C        USAGE                                                          PLOT0290
+CALL        CALL OLPLOT (MPLOT, MY, X, Y1, Y2, Y3, Y4, PLOT)            PLOT0300
+C                                                                       PLOT0310
+C        DESCRIPTION OF PARAMETERS                                      PLOT0320
+C           MPLOT - PLOT CONTROL CODE                                   PLOT0330
+C                   POSITIVE -  MULTI-PAGE PLOT WITH Y-AXIS HORIZONTAL  PLOT0340
+C                              (TURN PAGE SIDE-WAYS FOR PROPER VIEWING) PLOT0350
+C                   NEGATIVE - SINGLE-PAGE PLOT WITH Y-AXIS VERTICAL    PLOT0360
+C                              (VIEW PAGE IN NORMAL POSITION)           PLOT0370
+C                   1 - PLOT Y1=*                       (1 FUNCTION)    PLOT0380
+C                   2 - PLOT Y1=* AND Y2=0              (2 FUNCTIONS)   PLOT0390
+C                   3 - PLOT Y1=*, Y2=0, AND Y3=+       (3 FUNCTIONS)   PLOT0400
+C                   4 - PLOT Y1=*, Y2=0, Y3=+, AND Y4=$ (4 FUNCTIONS)   PLOT0410
+C                                                                       PLOT0420
+C           MY    - NUMBER OF DATA POINTS (PER ARRAY) TO BE PLOTTED.    PLOT0430
+C                   POSITIVE - SEARCH FUNCTION ARRAYS FOR MINIMUM AND   PLOT0440
+C                              MAXIMUM VALUES, INCL 0.0 AS AN EXTREME.  PLOT0450
+C                   NEGATIVE - AN ARBITRARY EXTREME (IE, A MINIMUM OR A PLOT0460
+C                              MAXIMUM) IS SPECIFIED AS THE FIRST ENTRY PLOT0470
+C                              IN EACH FUNCTION ARRAY. THE PLOT WILL BE PLOT0480
+C                              SCALED BETWEEN THE GREATEST OF THESE     PLOT0490
+C                              SPECIFIED EXTREMA, INCLUDING 0.0 AS A    PLOT0500
+C                              POSSIBLE EXTREME.  WHEN ONLY ONE FUNCTIONPLOT0510
+C                              IS TO BE PLOTTED, ONLY ONE EXTREME CAN BEPLOT0520
+C                              SPECIFIED AS Y1(1). THE ROUTINE REQUIRES PLOT0530
+C                              THAT AT LEAST 2 EXTREMA BE SPECIFIED. IN PLOT0540
+C                              THIS CASE, Y2(1) MUST BE SET TO THE OTHERPLOT0550
+C                              EXTREME (THE Y2 ARRAY OTHERWISE WILL NOT PLOT0560
+C                              BE USED, AND MAY CONSIST OF THIS 1 ENTRY)PLOT0570
+C                                                                       PLOT0580
+C           X     - LINEAR ARRAY CONTAINING INDEPENDENT VARIABLE.       PLOT0590
+C                                                                       PLOT0600
+C     NB...         WHEN THE MULTIPAGE PLOT IS SELECTED (MPLOT POSITIVE)PLOT0610
+C                   THE X ARRAY IS NOT SCANNED FOR MONOTONICITY.        PLOT0620
+C                                                                       PLOT0630
+C           Y1,Y2 - EACH OF THESE IS A LIST OF FUNCTIONAL VALUES OF X.  PLOT0640
+C           Y3,Y4 - THOSE USED MUST BE DIMENSIONED .GE. MY.             PLOT0650
+C                                                                       PLOT0660
+C           PLOT  - WORKING STORAGE FOR PLOTTING, DIMENSIONED .GE. 121  PLOT0670
+C                                                                       PLOT0680
+C        REMARKS                                                        PLOT0690
+C           X,Y1,Y2,Y3,Y4 AND PLOT MUST BE DIMENSIONED IN THE CALLING   PLOT0700
+C           PROGRAM.    X,Y1,Y2,Y3 AND Y4 (EACH ONE USED) DIMENSIONED   PLOT0710
+C           .GE. MY, AND PLOT DIMENSIONED AT LEAST TO WIDTH OF GRAPH.   PLOT0720
+C                                                                       PLOT0730
+C           THE PRESENT MODIFICATION REQUIRES A MINIMUM PRINTER WIDTH OFPLOT0740
+C           132 CHARACTERS (INCLUDING CARRIAGE CONTROL).                PLOT0750
+C                                                                       PLOT0760
+C           GRAPHS ARE SCALED TO FILL THE PAGE, UNESS ALL POINTS LIE IN PLOT0770
+C           THE SAME HALF PLANE.  HOWEVER, IT IS POSSIBLE TO FORCE THE  PLOT0780
+C           ROUTINE TO SCALE TO A DESIRED MAXIMUM (GREATER THAN ANY     PLOT0790
+C           POINT IN THE FUNCTION ARRAY) BY SETTING THE FIRST ENTRY     PLOT0800
+C           IN THE FUNCTION EQUAL TO THAT MAXIMUM.                      PLOT0810
+C                                                                       PLOT0820
+C           WHEN THE MULTI-PAGE MODE (MPLOT POSITIVE) AND FORCED SCALINGPLOT0830
+C           (MY NEGATIVE) ARE OPTIONED, AND A POINT Y(J) IS ENCOUNTERED PLOT0840
+C           WHICH DOES NOT FALL WITHIN THE SPECIFIED MAXIMUM LIMIT, THATPLOT0850
+C           POINT IS CONSTRAINED BY THE BOUNDRY OF THE GRAPH AND PLOTTEDPLOT0860
+C           AS THE SYMBOL  X.  IN THE ONE-PAGE MODE, THE POINT SIMPLY ISPLOT0870
+C           LOST AND DOES NOT APPEAR ON THE GRAPH                       PLOT0880
+C                                                                       PLOT0890
+C           THE MULTI-PAGE MODE REQUIRES THAT VALUES OF THE ABSCISSA (X)PLOT0900
+C           BE POSITIVE AND EQUALLY SPACED IN ASCENDING ORDER. THIS IS  PLOT0910
+C           BECAUSE EACH OF THE EQUALLY SPACED PRINT LINES CORRESPONDS  PLOT0920
+C           TO AN ENTRY IN THE X ARRAY.                                 PLOT0930
+C                                                                       PLOT0940
+C           WHEN TWO OR MORE FUNCTIONS ATTEMPT TO OCCUPY THE SAME PRINT PLOT0950
+C           POSITION FOR A PARTICULAR VALUE OF Y, PRECEDENCE IS GIVEN TOPLOT0960
+C           THAT FUNCTION APPEARING FIRST IN THE CALL LIST.             PLOT0970
+C                                                                       PLOT0980
+C        SUBROUTINES AND FUNCTION SUBPROGRAMS REQUIRED                  PLOT0990
+C           MINMAX - SCAN A LINEAR ARRAY FOR MIN AND MAX VALUES         PLOT1000
+C           RESET  - RESET A LINEAR ARRAY TO A SPECIFIED VALUE.         PLOT1010
+C                                                                       PLOT1020
+C        METHOD                                                         PLOT1030
+C           EACH REQUESTED FUNCTION ARRAY IS SCANNED TO DETERMINE ITS   PLOT1040
+C           MINIMUM AND MAXIMUM VALUES. THESE EXTREMA THEN ARE SCANNED  PLOT1050
+C           TO FIND THE OVER-ALL MAXIMUM AND MINIMUM.                   PLOT1060
+C                                                                       PLOT1070
+C           IN THE MULTI-PAGE MODE, EACH POINT IN THE FUNCTION ARRAY IS PLOT1080
+C           USED FORM A SUBSCRIPT IN THE PLOT ARRAY WHICH REPRESENTS THEPLOT1090
+C           RATIO OF THE AMPLITUDE OF THE POINT TO THE WIDTH OF THE PLOTPLOT1100
+C           ROUNDED TO THE NEAREST INTEGER VALUE. A CHARACTER THEN IS   PLOT1110
+C           PLOTTED IN THE PRINTER COLUMN CORRESPONDING TO THIS POSITIONPLOT1120
+C                                                                       PLOT1130
+C           IN THE ONE-PAGE MODE, THE MAXIMUM FUNCTION WIDTH IS SCALED  PLOT1140
+C           TO FILL 5O PRINT LINES. A DELTA Y IS FORMED REPRESENTING THEPLOT1150
+C           FUNCTION RESOLUTION PER LINE, AND VALUES OF THE FUNCTION AREPLOT1160
+C           PLOTTED ACCORDINGLY, LINE BY LINE.  THE X ARRAY IS SCALED TOPLOT1170
+C           FILL EXACTLY 120 COLUMNS. THUS, THE ABSCISSA MAY BE EXPANDEDPLOT1180
+C           OR COMPRESSED, DEPENDING IF MY IS LESS THAN OR GREATER THAN PLOT1190
+C           120, RESPECTIVELY. UNEQUAL SPACING OF THE ABSCISSA ARRAY    PLOT1200
+C           DOES NOT AFFECT THIS PLOT, OTHER THAN POINTS TOO CLOSELY    PLOT1210
+C           SPACED IN X MAY BE LOST DUE TO THE ESTABLISHED RESOLUTION   PLOT1220
+C           PER COLUMN = (SPREAD OF X)/120.  WHEN MY IS GT 120, ONLY    PLOT1230
+C           120 VALUES OF EACH FUNCTION WILL APPEAR ON THE GRAPH.       PLOT1240
+C                                                                       PLOT1250
+C    ...................................................................PLOT1260
+C                                                                       PLOT1270
+CODE                                                                    PLOT1280
+      DIMENSION  X(1), Y1(1), Y2(1), Y3(1), Y4(1), PLOT(1), A(10)       PLOT1290
+      DIMENSION SYMBOL(4)                                               PLOT1300
+C                                                                       PLOT1310
+C      EQUIV IS USED TO PROVIDE SEQUENCING OF THE FOLLOWING TERMS...    PLOT1320
+      EQUIVALENCE  (A( 1),  XMIN) , (A( 2),  XMAX)                      PLOT1330
+     *           , (A( 3), Y1MIN) , (A( 4), Y1MAX)                      PLOT1340
+     *           , (A( 5), Y2MIN) , (A( 6), Y2MAX)                      PLOT1350
+     *           , (A( 7), Y3MIN) , (A( 8), Y3MAX)                      PLOT1360
+     *           , (A( 9), Y4MIN) , (A(10), Y4MAX)                      PLOT1370
+      EQUIVALENCE  (SYMBOL(1), STAR) , (SYMBOL(2), ZRO)                 PLOT1380
+     *           , (SYMBOL(3), PLUS) , (SYMBOL(4), DLR)                 PLOT1390
+C                                                                       PLOT1400
+C     DEFINE PLOTTING SYMBOLS                                           PLOT1410
+C                                                                       PLOT1420
+C           FOR BPS FORTRAN REPLACE DATA STATEMENT WITH THE FOLLOWING   PLOT1430
+C              DECIMAL EQUIVALENTS OF ALPHAMERIC DATA                   PLOT1440
+C     DATA  BLANK, DOT, STAR, ZRO, PLUS, DLR, HORIZ, VERT, XAX          PLOT1450
+C    *     / 1H  , 1H.,  1H*, 1H0,  1H+, 1H$,   1H-,  1HI, 1HX /        PLOT1460
+      EQUIVALENCE (IBLANK,BLANK),(IDOT,DOT),(ISTAR,STAR),(IZRO,ZRO)     PLOT1470
+     1,(IPLUS,PLUS),(IDLR,DLR),(IHORIZ,HORIZ),(IVERT,VERT),(IXAX,XAX)   PLOT1480
+      IBLANK   = 001073741824                                           PLOT1490
+      IDOT     = 001258291200                                           PLOT1500
+      ISTAR    = 001543503872                                           PLOT1510
+      IZRO     =-000268435456                                           PLOT1520
+      IPLUS    = 001342177280                                           PLOT1530
+      IDLR     = 001526726656                                           PLOT1540
+      IHORIZ   = 001610612736                                           PLOT1550
+      IVERT    =-000922746880                                           PLOT1560
+      IXAX     =-000419430400                                           PLOT1570
+C                                                                       PLOT1580
+C                                                                       PLOT1590
+C     DATA NWH / 101 /, NWV / 121 /,WH/100.0/,WV/120.0/                 PLOT1600
+      NWH = 81                                                          PLOT1610
+      NWV = 111                                                         PLOT1620
+      WH = 80.0                                                         PLOT1630
+      WV = 110.0                                                        PLOT1640
+C     SET PLOT WIDTH CONTROLS ABOVE                                     PLOT1650
+C                                                                       PLOT1660
+C     = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = PLOT1670
+C                                                                       PLOT1680
+C           G E N E R A L   I N I T I A L I Z A T I O N                 PLOT1690
+C                                                                       PLOT1700
+      NY     = IABS(MY)                                                 PLOT1710
+      K       = 0                                                       PLOT1720
+      IF (MPLOT) 100,100,101                                            PLOT1730
+  100 K       = 1                                                       PLOT1740
+  101 NPLOT   = IABS(MPLOT)                                             PLOT1750
+C                                                                       PLOT1760
+C     ESTABLISH THE MAXIMUM AND MINIMUM FUNCTIONAL VALUES               PLOT1770
+C     USE FIRST ENTRY WHEN THE EXTREMES ARE SPECIFIED                   PLOT1780
+C                                                                       PLOT1790
+      CALL RESET (10,A, 0.0)                                            PLOT1800
+      IF (MY) 102,200,106                                               PLOT1810
+  102 A( 4)   = Y1(1)                                                   PLOT1820
+      A( 6)   = Y2(1)                                                   PLOT1830
+      A( 8)   = Y3(1)                                                   PLOT1840
+      A(10)   = Y4(1)                                                   PLOT1850
+      IF (NPLOT - 1) 200,103,111                                        PLOT1860
+  103 N       = 6                                                       PLOT1870
+      GO TO 112                                                         PLOT1880
+C                                                                       PLOT1890
+C     SCAN THE FUNCTION ARRAYS WHEN EXTREMES ARE NOT SPECIFIED.         PLOT1900
+C                                                                       PLOT1910
+  106 GO TO (110,109,108,107), NPLOT                                    PLOT1920
+  107 CALL MINMAX (NY,Y4, Y4MIN,Y4MAX)                                  PLOT1930
+  108 CALL MINMAX (NY,Y3, Y3MIN,Y3MAX)                                  PLOT1940
+  109 CALL MINMAX (NY,Y2, Y2MIN,Y2MAX)                                  PLOT1950
+  110 CALL MINMAX (NY,Y1, Y1MIN,Y1MAX)                                  PLOT1960
+  111 N       = 2 * NPLOT + 2                                           PLOT1970
+C                                                                       PLOT1980
+C     FIND OVERALL MAX AND MIN                                          PLOT1990
+C                                                                       PLOT2000
+  112 CALL MINMAX (N, A, YMIN,YMAX)                                     PLOT2010
+C                                                                       PLOT2020
+C     COMPUTE PLOTTING RANGE (SPREAD).                                  PLOT2030
+C                                                                       PLOT2040
+      SPREAD = ABS (YMAX - YMIN)                                        PLOT2050
+      IF (SPREAD) 130,130,131                                           PLOT2060
+  130 SPREAD = 1.0                                                      PLOT2070
+      YMAX   = 1.0                                                      PLOT2080
+  131 IF (K) 165,1315,165                                               PLOT2090
+C                                                                       PLOT2100
+C     = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = PLOT2110
+C                                                                       PLOT2120
+C           M U L T I - P A G E   P L O T   (Y-AXIS ACROSS THE PAGE)    PLOT2130
+C                                                                       PLOT2140
+C     COMPUTE POSITION OF X - AXIS  (KX).                               PLOT2150
+C                                                                       PLOT2160
+ 1315 KX     = IFIX ( ABS(YMIN/SPREAD) * WH     + 1.5)                  PLOT2170
+      KI    = KX -(KX /20) * 20                                         PLOT2180
+      IF (KI) 132,132,133                                               PLOT2190
+  132 KI     = 20                                                       PLOT2200
+  133 IF (KI - KX)135,134,135                                           PLOT2210
+  134 KI     = KX + 20                                                  PLOT2220
+C                                                                       PLOT2230
+C ABEL THE Y-AXIS, THEN WRITE A LINE OF DOTS TO POSITION IT.       PLOT2240
+C                                                                       PLOT2250
+  135 WRITE (6,900) YMIN,YMAX                                           PLOT2260
+      CALL RESET (NWH, PLOT, DOT)                                       PLOT2270
+      WRITE (6,901) (PLOT(K), K=1,NWH)                                  PLOT2280
+C                                                                       PLOT2290
+C     LOOP UNTIL  NY  LINES HAVE BEEN PLOTTED.                          PLOT2300
+C                                                                       PLOT2310
+      M        = 0                                                      PLOT2320
+      DO 161 N = 1,NY                                                   PLOT2330
+C                                                                       PLOT2340
+C     BLANK THE LINE                                                    PLOT2350
+C                                                                       PLOT2360
+      CALL RESET (NWH, PLOT, BLANK)                                     PLOT2370
+C                                                                       PLOT2380
+C     SET THE VERTICAL GRID CHARACTERS  (I)  EACH 20TH COLUMN           PLOT2390
+C                                                                       PLOT2400
+      DO 136 K = KI,NWH,20                                              PLOT2410
+  136 PLOT(K)  = VERT                                                   PLOT2420
+C                                                                       PLOT2430
+C     SET THE HORIZONTAL GRID CHARACTERS  (-)  EACH 10TH LINE           PLOT2440
+C                                                                       PLOT2450
+      M       = M + 1                                                   PLOT2460
+      IF (M - 10)  138,137,137                                          PLOT2470
+  137 M        = 0                                                      PLOT2480
+      CALL RESET (NWH, PLOT, HORIZ)                                     PLOT2490
+  138 PLOT(KX) = DOT                                                    PLOT2500
+C                                                                       PLOT2510
+C     COMPUTE POSITION OF EACH PLOT POINT AND PLACE PROPER CHARACTER.   PLOT2520
+C                                                                       PLOT2530
+      GO TO (155,150,145,140), NPLOT                                    PLOT2540
+C                                                                       PLOT2550
+  140 K        = IFIX (( (-YMIN + Y4(N)) / SPREAD) * WH     +  1.5)     PLOT2560
+      IF (K - 1) 141,144,142                                            PLOT2570
+  141 PLOT(1)  = XAX                                                    PLOT2580
+      GO TO 145                                                         PLOT2590
+  142 IF (K - NWH) 144,144,143                                          PLOT2600
+  143 PLOT(NWH)= XAX                                                    PLOT2610
+      GO TO 145                                                         PLOT2620
+  144 PLOT(K)  = DLR                                                    PLOT2630
+C                                                                       PLOT2640
+  145 K        = IFIX (( (-YMIN + Y3(N)) / SPREAD) * WH     +  1.5)     PLOT2650
+      IF (K - 1) 146,149,147                                            PLOT2660
+  146 PLOT(1)  = XAX                                                    PLOT2670
+      GO TO 150                                                         PLOT2680
+  147 IF (K - NWH) 149,149,148                                          PLOT2690
+  148 PLOT(NWH)= XAX                                                    PLOT2700
+      GO TO 150                                                         PLOT2710
+  149 PLOT(K)  = PLUS                                                   PLOT2720
+C                                                                       PLOT2730
+  150 K        = IFIX (( (-YMIN + Y2(N)) / SPREAD) * WH     +  1.5)     PLOT2740
+      IF (K - 1) 151,154,152                                            PLOT2750
+  151 PLOT(1)  = XAX                                                    PLOT2760
+      GO TO 155                                                         PLOT2770
+  152 IF (K - NWH) 154,154,153                                          PLOT2780
+  153 PLOT(NWH)= XAX                                                    PLOT2790
+      GO TO 155                                                         PLOT2800
+  154 PLOT(K)  = ZRO                                                    PLOT2810
+C                                                                       PLOT2820
+  155 K        = IFIX (( (-YMIN + Y1(N)) / SPREAD) * WH     +  1.5)     PLOT2830
+      IF (K - 1) 156,159,157                                            PLOT2840
+  156 PLOT(1)  = XAX                                                    PLOT2850
+      GO TO 160                                                         PLOT2860
+  157 IF (K - NWH) 159,159,158                                          PLOT2870
+  158 PLOT(NWH)= XAX                                                    PLOT2880
+      GO TO 160                                                         PLOT2890
+  159 PLOT(K)  = STAR                                                   PLOT2900
+C                                                                       PLOT2910
+C     PLOT THIS LINE OF CHARACTERS ACROSS THE PAGE.                     PLOT2920
+C                                                                       PLOT2930
+  160 WRITE (6,902) X(N),Y1(N),(PLOT(K),K=1,NWH)                        PLOT2940
+  161 CONTINUE                                                          PLOT2950
+      GO TO 200                                                         PLOT2960
+C                                                                       PLOT2970
+C     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * PLOT2980
+C                                                                       PLOT2990
+C           S I N G L E   P A G E   P L O T   (Y-AXIS VERTICAL)         PLOT3000
+C                                                                       PLOT3010
+C     COMPUTE POSITION OF X - AXIS  (KX).                               PLOT3020
+C                                                                       PLOT3030
+  165 KX      = IFIX ( ABS(YMAX/SPREAD) * 50.0  +  1.5)                 PLOT3040
+      KI    = KX -(KX /10) * 10                                         PLOT3050
+      IF (KI) 166,166,167                                               PLOT3060
+  166 KI      = 10                                                      PLOT3070
+  167 IF (KI - KX) 169,168,169                                          PLOT3080
+  168 KI      = KX + 10                                                 PLOT3090
+C                                                                       PLOT3100
+C     COMPUTE POSITION OF Y-AXIS  (KY)                                  PLOT3110
+C                                                                       PLOT3120
+  169 CALL MINMAX (NY,X,XMIN,XMAX)                                      PLOT3130
+      KY     = 1                                                        PLOT3140
+      IF (XMIN)   1691,1693,1693                                        PLOT3150
+ 1691 KY     = IFIX ( ABS (XMIN / (XMAX - XMIN)) * WV     +  1.5)       PLOT3160
+      KH    = KY -(KY /20) * 20                                         PLOT3170
+      IF (KH) 1693,1693,1694                                            PLOT3180
+ 1693 KH      = 1                                                       PLOT3190
+ 1694 DELY    = SPREAD / 50.0                                           PLOT3200
+      YU      = YMAX + DELY * 0.5                                       PLOT3210
+      YL      = YMAX - DELY * 0.5                                       PLOT3220
+      SPREAD  = ABS (XMAX - XMIN)                                       PLOT3230
+      L       = 0                                                       PLOT3240
+C                                                                       PLOT3250
+C     LOOP UNTIL  51  LINES HAVE BEEN PLOTTED.                          PLOT3260
+C                                                                       PLOT3270
+      DO 199 N=1,51                                                     PLOT3280
+C                                                                       PLOT3290
+C     BLANK THE LINE                                                    PLOT3300
+C     SET THE HORIZONTAL GRID CHARACTERS  (-)  EACH 10TH LINE           PLOT3310
+C                                                                       PLOT3320
+      CALL RESET (NWV, PLOT, BLANK)                                     PLOT3330
+      IF (N - KI) 171,170,170                                           PLOT3340
+  170 CALL RESET (NWV, PLOT, HORIZ)                                     PLOT3350
+C                                                                       PLOT3360
+C     SET THE VERTICAL GRID CHARACTERS  (I)  EACH 20TH COLUMN           PLOT3370
+C                                                                       PLOT3380
+  171 DO 172 K=KH,NWV,20                                                PLOT3390
+  172 PLOT(K) = VERT                                                    PLOT3400
+C                                                                       PLOT3410
+C        FORM LINE OF DOTS FOR  X - AXIS (ONE TIME ONLY)                PLOT3420
+C                                                                       PLOT3430
+      IF (N - KX) 174,173,174                                           PLOT3440
+  173 CALL RESET (NWV, PLOT, DOT)                                       PLOT3450
+      KI     = KX                                                       PLOT3460
+C                                                                       PLOT3470
+  174 PLOT(KY)= DOT                                                     PLOT3480
+      DO 194 M=1,NY                                                     PLOT3490
+      GO TO (184,181,178,175), NPLOT                                    PLOT3500
+C                                                                       PLOT3510
+  175 POINT   = Y4(M)                                                   PLOT3520
+      IF (POINT - YU) 176,178,178                                       PLOT3530
+  176 IF (POINT - YL) 178,177,177                                       PLOT3540
+  177 L       = 4                                                       PLOT3550
+C                                                                       PLOT3560
+  178 POINT   = Y3(M)                                                   PLOT3570
+      IF (POINT - YU) 179,181,181                                       PLOT3580
+  179 IF (POINT - YL) 181,180,180                                       PLOT3590
+  180 L       = 3                                                       PLOT3600
+C                                                                       PLOT3610
+  181 POINT   = Y2(M)                                                   PLOT3620
+      IF (POINT - YU) 182,184,184                                       PLOT3630
+  182 IF (POINT - YL) 184,183,183                                       PLOT3640
+  183 L       = 2                                                       PLOT3650
+C                                                                       PLOT3660
+  184 POINT   = Y1(M)                                                   PLOT3670
+      IF (POINT - YU) 185,188,188                                       PLOT3680
+  185 IF (POINT - YL) 188,186,186                                       PLOT3690
+  186 L       = 1                                                       PLOT3700
+C                                                                       PLOT3710
+C     ASSIGN APPROPRIATE SYMBOL TO THIS COLUMN, IF REQUIRED.            PLOT3720
+C                                                                       PLOT3730
+  188 IF (L) 194,194,189                                                PLOT3740
+  189 K      = IFIX(ABS((-XMIN+X(M))/ SPREAD) * WV    +1.5)             PLOT3750
+      IF (K) 190,190,191                                                PLOT3760
+  190 K      = 1                                                        PLOT3770
+      GO TO 193                                                         PLOT3780
+  191 IF (K - NWV) 193,193,192                                          PLOT3790
+  192 K      = NWV                                                      PLOT3800
+  193 PLOT(K)= SYMBOL(L)                                                PLOT3810
+      L      = 0                                                        PLOT3820
+  194 CONTINUE                                                          PLOT3830
+C                                                                       PLOT3840
+C     PLOT THIS LINE OF CHARACTERS ACROSS THE PAGE.  LABEL THE GRIDS.   PLOT3850
+C                                                                       PLOT3860
+      IF (N - KI) 1885,195,1885                                         PLOT3870
+  195 IF (KI - KX) 197,196,197                                          PLOT3880
+  196 POINT  = 0.0                                                      PLOT3890
+      GO TO 198                                                         PLOT3900
+  197 POINT  = (YU + YL) * 0.5                                          PLOT3910
+  198 WRITE (6,905) POINT, (PLOT(K), K=1,NWV)                           PLOT3920
+      KI      = KI + 10                                                 PLOT3930
+      GO TO 1887                                                        PLOT3940
+ 1885 WRITE (6,904) (PLOT(K), K=1,NWV)                                  PLOT3950
+ 1887 YU      = YU - DELY                                               PLOT3960
+      YL      = YL - DELY                                               PLOT3970
+  199 CONTINUE                                                          PLOT3980
+C                                                                       PLOT3990
+C     LABEL THE X-AXIS AND RETURN TO CALLING PROGRAM.                   PLOT4000
+C                                                                       PLOT4010
+      POINT = SPREAD / FLOAT (NWV - 1) * 20.0                           PLOT4020
+      WRITE (6,903) XMIN,POINT,XMAX                                     PLOT4030
+  200 RETURN                                                            PLOT4040
+C     ------------------------------------------------------------------PLOT4050
+  900 FORMAT (1H ,7X,1HX,10X,4HY1=*,6X,1PE11.4,8H = Y MIN,53X,8HY MAX = PLOT4060
+     * 1PE11.4)                                                         PLOT4070
+  901 FORMAT (1H ,28X, 81A1)                                            PLOT4080
+  902 FORMAT (1H ,2X,1PE11.4,2X,1PE11.4,2X, 81A1  )                     PLOT4090
+  903 FORMAT (1H , 5X,1PE11.4,8H = X MIN,12X,9HDELTA X =,1PE10.3,16H UNIPLOT4100
+     1TS/GRID LINE,24X,8HX MAX = ,1PE11.4)                              PLOT4110
+  904 FORMAT (1H , 9X,111A1)                                            PLOT4120
+  905 FORMAT (1H ,1PE9.2,   111A1)                                      PLOT4130
+      RETURN                                                            PLOT4140
+      END                                                               PLOT4150
+/FTC                                                                    PLOT4160
+CLAS        MINMAX - SCAN A LINEAR ARRAY FOR MIN AND MAX VALUES         PLOT4170
+C     ..................................................................PLOT4180
+      SUBROUTINE MINMAX (N,A, AMIN,AMAX)                                PLOT4190
+C     ..................................................................PLOT4200
+C                                                                       PLOT4210
+C        PURPOSE                                                        PLOT4220
+C           FIND THE MINIMUM AND MAXIMUM VALUES IN A LINEAR ARRAY.      PLOT4230
+C                                                                       PLOT4240
+C        USAGE                                                          PLOT4250
+CALL        CALL MINMAX (N,A, AMIN,AMAX)                                PLOT4260
+C                                                                       PLOT4270
+C        DESCRIPTION OF PARAMETERS                                      PLOT4280
+C           N    - NUMBER OF ENTRIES IN ARRAY A                         PLOT4290
+C           A    - LINEAR (ONE-DIMENSIONAL) ARRAY                       PLOT4300
+C           AMIN - MINIMUM VALUE                                        PLOT4310
+C           AMAX - MAXIMUM VALUE                                        PLOT4320
+C                                                                       PLOT4330
+C        REMARKS                                                        PLOT4340
+C           DIMENSIONING FOR ALL ARRAYS MUST BE PROVIDED BY MAIN PROGRAMPLOT4350
+C     NB... THIS ROUTINE WILL SERVICE BOTH REAL AND INTEGER ARRAYS.     PLOT4360
+C                                                                       PLOT4370
+C        SUBROUTINES AND FUNCTION SUBPROGRAMS REQUIRED                  PLOT4380
+C           NONE                                                        PLOT4390
+C                                                                       PLOT4400
+C        METHOD                                                         PLOT4410
+C           SEE LISTING                                                 PLOT4420
+C                                                                       PLOT4430
+C     ..................................................................PLOT4440
+C                                                                       PLOT4450
+CODE                                                                    PLOT4460
+      DIMENSION A(1)                                                    PLOT4470
+C                                                                       PLOT4480
+      AMIN   = A(1)                                                     PLOT4490
+      AMAX   = A(1)                                                     PLOT4500
+      MAX    = IABS (N)                                                 PLOT4510
+      IF (MAX - 1) 6,6,1                                                PLOT4520
+C                                                                       PLOT4530
+C     SEARCH THE ARRAY                                                  PLOT4540
+C                                                                       PLOT4550
+    1 DO 5  J=2,MAX                                                     PLOT4560
+      SAVE   = A(J)                                                     PLOT4570
+      IF (SAVE -AMIN) 2,5,3                                             PLOT4580
+    2 AMIN   = SAVE                                                     PLOT4590
+      GO TO 5                                                           PLOT4600
+    3 IF (SAVE - AMAX) 5,5,4                                            PLOT4610
+    4 AMAX   = SAVE                                                     PLOT4620
+    5 CONTINUE                                                          PLOT4630
+    6 RETURN                                                            PLOT4640
+       END                                                              PLOT4650
+/FTC                                                                    PLOT4660
+CLAS        RESET  - RESET A 1-DIMEN. ARRAY TO A SPECIFIED VALUE (EG, 0)PLOT4670
+C     ..................................................................PLOT4680
+      SUBROUTINE RESET (NC,C,VALUE)                                     PLOT4690
+C     ..................................................................PLOT4700
+C                                                                       PLOT4710
+C        PURPOSE                                                        PLOT4720
+C           RESET A ONE-DIMENSIONAL ARRAY TO A SPECIFIED VALUE (EG, 0.0)PLOT4730
+C                                                                       PLOT4740
+C        USAGE                                                          PLOT4750
+CALL        CALL RESET  (NC,C,VALUE)                                    PLOT4760
+C                                                                       PLOT4770
+C        DESCRIPTION OF PARAMETERS                                      PLOT4780
+C           NC    - NUMBER OF ENTRIES IN ARRAY C.                       PLOT4790
+C           C     - ONE DIMENSIONAL ARRAY                               PLOT4800
+C           VALUE - SET ALL C(J) TO THIS VARIABLE.                      PLOT4810
+C                                                                       PLOT4820
+C        REMARKS                                                        PLOT4830
+C           DIMENSIONING FOR ALL ARRAYS MUST BE PROVIDED BY MAIN PROGRAMPLOT4840
+C                                                                       PLOT4850
+C           THIS ROUTINE ALSO WILL HANDLE AN INTEGER ARRAY RESET TO AN  PLOT4860
+C           INTEGER CONSTANT...EG, CALL RESET (NK,K, KONST)...          PLOT4870
+C           OR A REAL ARRAY RESET TO A HOLERITH (ALPHANUMERIC) TERM.    PLOT4880
+C                                                                       PLOT4890
+C        SUBROUTINE AND FUNCTION SUBPROGRAMS REQUIRED                   PLOT4900
+C           NONE                                                        PLOT4910
+C                                                                       PLOT4920
+C        METHOD                                                         PLOT4930
+C           SEE LISTING                                                 PLOT4940
+C                                                                       PLOT4950
+C     ..................................................................PLOT4960
+C                                                                       PLOT4970
+CODE                                                                    PLOT4980
+      DIMENSION C(1)                                                    PLOT4990
+      MAX   = IABS(NC)                                                  PLOT5000
+      DO 1 J=1,MAX                                                      PLOT5010
+      C(J)  = VALUE                                                     PLOT5020
+    1 CONTINUE                                                          PLOT5030
+C                                                                       PLOT5040
+      RETURN                                                            PLOT5050
+       END                                                              PLOT5060
+ _@ß
