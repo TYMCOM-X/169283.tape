@@ -1,0 +1,342 @@
+C  BODE PLOT PROGRAM
+C  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+C  ......................INSTRUCTIONS....................................
+C  INPUT THE NUMBER OF BODEPLOTS TO RUN**NRUN**FORMAT(I1)...
+C  INPUT THE NUMBER OF NUMERATOR POLYNOMIALS TO BE MULTIPLID**NPOL**(I2)
+C  TWO TERMS MINIMUM IN NUMERATOR AND DENOMINATOR.
+C  INPUT THE ORDER OF THE POLYNOMIAL**NOD **(I2)
+C  INPUT POLY. COEFF. FROM LOWEST TO HIGHEST POWER  4  ON A CARD**(G15.5)..
+C  REPEAT FOR NUMERATOR POLYNOMIALS,THAN FO RTHE DENOMINATOR...
+C  INPUT THE LOWER FREQ,THE NUMBER OF POINTS PER DECADE,THE UPPER FREQ,
+C   THAN THE INITIAL PHASE AFTER -,+ 180 DEGREES...
+C  FLOW,PTPD,FHIG,SPFA=FORMAT(G15.5)
+C  NN AND MM ARE THE ORDER OF THE NUMERATOR AND DENOMINATOR RESPECTIVELY...
+C  NRUN IS THE NUMBER OF BODEPLOTS TO BE PROCESSED..
+C  PTPD IS THE NUMBER OF POINTS PER DECADE TO BE PRINTED AND PLOTTED..
+C  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+      DIMENSION A(25),B(25),C(25),ROOTR(25),ROOTI(25)
+      DIMENSION PRPLT(100) , PRPLTP(100)
+        TYPE 666
+666     FORMAT(1H ,'INPUT THE NUMBER OF PROGRAM RUNS:'/)
+      READ(5,100) NRUN
+100   FORMAT(I)
+      DO 150 ITR=1,NRUN
+        TYPE 822
+822     FORMAT(1X,'ENTER THE NUMERATOR DATA:'/)
+      CALL PMPY(A,N)
+      NN=N-1
+        TYPE 823
+823     FORMAT(1X,'ENTER THE DENOMINATOR DATA:'/)
+      CALL PMPY(B,M)
+      MM=M-1
+        TYPE 667
+667     FORMAT(1H ,'INPUT FLOW,# POINTS/DECADE,FHIGH,INITIAL PHASE'/)
+      READ(5,25)FLOW,PTPD,FHIG,SPHA
+      NP=(ALOG10(FHIG/FLOW)*PTPD)+1.00001
+      FMUL =EXP(ALOG(10.)/PTPD)
+      WRITE(5,125) NN,MM,(A(II),II=1,N)
+      WRITE(5,111) (B(JJ),JJ=1,M)
+      WRITE(5,126) FLOW,FMUL,FHIG
+      CALL POLRT(B,C,MM,ROOTR,ROOTI,IER)
+      WRITE(5,500) IER,(ROOTR(KK),ROOTI(KK),KK=1,MM)
+      WRITE(5,50)
+      F=FLOW
+      K=1
+      ANO=0.
+      AMO=0.
+40    FNRL=0.
+      FNIM=0.
+      FDRL=0.
+      FDIM=0.
+      W=2.*3.1415916*F
+      SGN=1.0
+      DO 12 JA=1,N,2
+      JB=JA-1
+      FNRL=FNRL+SGN*W**JB*A(JA)
+      SGN=-1.*SGN
+12    CONTINUE
+      SGN=1.
+      DO 13 JC=2,N,2
+      JD=JC-1
+      FNIM=FNIM+SGN*W**JD*A(JC)
+      SGN=-1.*SGN
+13    CONTINUE
+      SGN=1.
+      DO 14 JE=1,M,2
+      JF=JE-1
+      FDRL=FDRL+SGN*W**JF*B(JE)
+      SGN=-1.*SGN
+14    CONTINUE
+      SGN=1.0
+      DO 15 JG=2,M,2
+      JH=JG-1
+      FDIM=FDIM+SGN*W**JH*B(JG)
+      SGN=-1.*SGN
+15    CONTINUE
+      AMP=SQRT((FNRL*FNRL+FNIM*FNIM)/(FDRL*FDRL+FDIM*FDIM))
+      AMOG=20.*ALOG10(AMP)
+      ANN=ATAN(FNIM/FNRL)
+      AMN=ATAN(FDIM/FDRL)
+      IF(ANN*ANO) 30,31,31
+30    IF(ANN*ANN-.25) 31,31,32
+32    IF(ANN) 33,33,34
+33    SPHA=SPHA+180.
+      GO TO 31
+34    SPHA=SPHA-180.
+31    IF(AMN*AMO) 35,36,36
+35    IF(AMN*AMN-.25) 36,36,37
+37    IF(AMN) 38,38,39
+38    SPHA=SPHA-180.
+      GO TO 36
+39    SPHA=SPHA+180.
+36    PHAS=SPHA+57.29577*(ANN-AMN)
+      ANO=ANN
+      AMO=AMN
+      FLOG=20.*ALOG10(F)
+      WRITE(5,20) F,FLOG,AMP,AMOG,PHAS
+      PRPLT(K)=FLOG
+      PRPLT(K+NP)=AMOG
+      PRPLTP(K)=FLOG
+      PRPLTP(K+NP)=PHAS
+      IF(FHIG-F) 60,21,21
+21    K=K+1
+      IF(K .GT. NP ) GO TO 60
+      F=F*FMUL
+      GO TO 40
+20    FORMAT(1H ,5G14.5)
+25    FORMAT(4G)
+50    FORMAT (1H1,////' FREQUENCY',9X,'LOG-FREQ',9X,'GAIN',9X,'GAIN-DB'
+     1 ,4X,'PHASE-DEGREES'/1X,72('*')/)
+111   FORMAT(1H ,'DENOMINATOR COEFF.'/1H ,19('*')/(1X,G15.5))
+125   FORMAT(1H1,////' ORDER OF THE NUMERATOR=',I2,5X,'ORDER OF THE DENO
+     1MINATOR=',I2,//' NUMERATOR COEFF.',/1H ,19('*')/(1X,G15.5))
+126   FORMAT(1H ,'FLOW=',G15.5,5X,'FMUL=',G15.5,5X,'FHIG=',G15.5//)
+500   FORMAT(1H1,'IER=',I2/' THE ROOTS OF THE CHARACTERISTIC EQUATION
+     1 ARE@  REAL--IMAGINARY@'/1H ,(G15.5,5X,G15.5/))
+60    CALL PLOT(1,PRPLT,NP,2,NP,0)
+      CALL PLOT(2,PRPLTP,NP,2,NP,0)
+150   CONTINUE
+      STOP
+      END
+      SUBROUTINE PMPY(Z,IDIMZ)
+C  THIS SUBROUTINE WILL MULTIPLY SUCCESSIVE POLYNOMIALS...
+C  *********************************************************************
+      DIMENSION X(25),Y(25),Z(25)
+      IDIMY=1
+      Y(1)=1.
+C  INPUT THE NUMBER OF POLYNOMIALS TO BE MULTIPLIED..,NPOL...
+        TYPE 110
+110     FORMAT(1H ,'INPUT THE # OF POLYNOMIALS TO BE MULT.'/)
+      READ(5,120) NPOL
+120   FORMAT(I)
+      DO 250 II=1,NPOL
+C  INPUT THE ORDER OF THE POLYNOMIAL..,NOD...
+        TYPE 130
+130     FORMAT(1H ,'INPUT THE ORDER OF POLYNOMIAL'/)
+      READ(5,120) NOD
+      IDIMX=NOD+1
+C  INPUT THE COEFFICIENTS FROM LOWEST TO HIGHEST POWER...
+        TYPE 150
+150     FORMAT(1H ,'INPUT COEFFICIENTS LOWEST TO HIGHEST POWER'/)
+      READ(5,140) (X(K),K=1,IDIMX)
+140   FORMAT(4G)
+      IF(IDIMX*IDIMY)10,10,20
+10    IDIMZ=0
+      GO TO 50
+20    IDIMZ=IDIMX+IDIMY-1
+      DO 30 I=1,IDIMZ
+30    Z(I)=0.0
+      DO 40 I=1,IDIMX
+      DO 40 J=1,IDIMY
+      K=I+J-1
+40    Z(K)=X(I)*Y(J)+Z(K)
+      DO 100 L=1,IDIMZ
+100   Y(L)=Z(L)
+      IDIMY=IDIMZ
+250   CONTINUE
+50    RETURN
+      END
+      SUBROUTINE POLRT(XCOF,COF,M,ROOTR,ROOTI,IER)                      PLRT 450
+      DIMENSION XCOF(25),COF(25),ROOTR(25),ROOTI(25)
+      DOUBLE PRECISION XO,YO,X,Y,XPR,YPR,UX,UY,V,YT,XT,U,XT2,YT2,SUMSQ, PLRT 470
+     1 DX,DY,TEMP,ALPHA                                                 PLRT 480
+      IFIT=0                                                            PLRT 680
+      N=M                                                               PLRT 690
+      IER=0                                                             PLRT 700
+      IF(XCOF(N+1))10,25,10                                             PLRT 710
+   10 IF(N) 15,15,32                                                    PLRT 720
+   15 IER=1                                                             PLRT 760
+   20 RETURN                                                            PLRT 770
+   25 IER=4                                                             PLRT 810
+      GO TO 20                                                          PLRT 820
+   30 IER=2                                                             PLRT 860
+      GO TO 20                                                          PLRT 870
+   32 IF(N-36) 35,35,30                                                 PLRT 880
+   35 NX=N                                                              PLRT 890
+      NXX=N+1                                                           PLRT 900
+      N2=1                                                              PLRT 910
+      KJ1 = N+1                                                         PLRT 920
+      DO 40 L=1,KJ1                                                     PLRT 930
+      MT=KJ1-L+1                                                        PLRT 940
+   40 COF(MT)=XCOF(L)                                                   PLRT 950
+   45 XO=.00500101                                                      PLRT 990
+      YO=0.01000101                                                     PLRT1000
+      IN=0                                                              PLRT1040
+   50 X=XO                                                              PLRT1050
+      XO=-10.0*YO                                                       PLRT1090
+      YO=-10.0*X                                                        PLRT1100
+      X=XO                                                              PLRT1140
+      Y=YO                                                              PLRT1150
+      IN=IN+1                                                           PLRT1160
+      GO TO 59                                                          PLRT1170
+   55 IFIT=1                                                            PLRT1180
+      XPR=X                                                             PLRT1190
+      YPR=Y                                                             PLRT1200
+   59 ICT=0                                                             PLRT1240
+   60 UX=0.0                                                            PLRT1250
+      UY=0.0                                                            PLRT1260
+      V =0.0                                                            PLRT1270
+      YT=0.0                                                            PLRT1280
+      XT=1.0                                                            PLRT1290
+      U=COF(N+1)                                                        PLRT1300
+      IF(U) 65,130,65                                                   PLRT1310
+   65 DO 70 I=1,N                                                       PLRT1320
+      L =N-I+1                                                          PLRT1330
+      TEMP=COF(L)                                                       PLRT1340
+      XT2=X*XT-Y*YT                                                     PLRT1350
+      YT2=X*YT+Y*XT                                                     PLRT1360
+      U=U+TEMP*XT2                                                      PLRT1370
+      V=V+TEMP*YT2                                                      PLRT1380
+      FI=I                                                              PLRT1390
+      UX=UX+FI*XT*TEMP                                                  PLRT1400
+      UY=UY-FI*YT*TEMP                                                  PLRT1410
+      XT=XT2                                                            PLRT1420
+   70 YT=YT2                                                            PLRT1430
+      SUMSQ=UX*UX+UY*UY                                                 PLRT1440
+      IF(SUMSQ) 75,110,75                                               PLRT1450
+   75 DX=(V*UY-U*UX)/SUMSQ                                              PLRT1460
+      X=X+DX                                                            PLRT1470
+      DY=-(U*UY+V*UX)/SUMSQ                                             PLRT1480
+      Y=Y+DY                                                            PLRT1490
+   78 IF(DABS(DY)+DABS(DX)-1.0D-05) 100,80,80                           PLRT1500
+   80 ICT=ICT+1                                                         PLRT1540
+      IF(ICT-500) 60,85,85                                              PLRT1550
+   85 IF(IFIT)100,90,100                                                PLRT1560
+   90 IF(IN-5) 50,95,95                                                 PLRT1570
+   95 IER=3                                                             PLRT1610
+      GO TO 20                                                          PLRT1620
+  100 DO 105 L=1,NXX                                                    PLRT1630
+      MT=KJ1-L+1                                                        PLRT1640
+      TEMP=XCOF(MT)                                                     PLRT1650
+      XCOF(MT)=COF(L)                                                   PLRT1660
+  105 COF(L)=TEMP                                                       PLRT1670
+      ITEMP=N                                                           PLRT1680
+      N=NX                                                              PLRT1690
+      NX=ITEMP                                                          PLRT1700
+      IF(IFIT) 120,55,120                                               PLRT1710
+  110 IF(IFIT) 115,50,115                                               PLRT1720
+  115 X=XPR                                                             PLRT1730
+      Y=YPR                                                             PLRT1740
+  120 IFIT=0                                                            PLRT1750
+  122 IF(DABS(Y)-1.0D-4*DABS(X)) 135,125,125                            PLRT1760
+  125 ALPHA=X+X                                                         PLRT1770
+      SUMSQ=X*X+Y*Y                                                     PLRT1780
+      N=N-2                                                             PLRT1790
+      GO TO 140                                                         PLRT1800
+  130 X=0.0                                                             PLRT1810
+      NX=NX-1                                                           PLRT1820
+      NXX=NXX-1                                                         PLRT1830
+  135 Y=0.0                                                             PLRT1840
+      SUMSQ=0.0                                                         PLRT1850
+      ALPHA=X                                                           PLRT1860
+      N=N-1                                                             PLRT1870
+  140 COF(2)=COF(2)+ALPHA*COF(1)                                        PLRT1880
+  145 DO 150 L=2,N                                                      PLRT1890
+  150 COF(L+1)=COF(L+1)+ALPHA*COF(L)-SUMSQ*COF(L-1)                     PLRT1900
+  155 ROOTI(N2)=Y                                                       PLRT1910
+      ROOTR(N2)=X                                                       PLRT1920
+      N2=N2+1                                                           PLRT1930
+      IF(SUMSQ) 160,165,160                                             PLRT1940
+  160 Y=-Y                                                              PLRT1950
+      SUMSQ=0.0                                                         PLRT1960
+      GO TO 155                                                         PLRT1970
+  165 IF(N) 20,20,45                                                    PLRT1980
+      END
+      SUBROUTINE PLOT(NO,A,N,M,NL,NS)
+      DIMENSION OUT(101),YPR(11),ANG(9)
+      DIMENSION A(200)
+      DATA BLANK/' '/, ANG(1)/'*'/, ANG(2)/'-'/,ANG(3)/'.'/
+1     FORMAT(1H1,////30X,7H CHART ,I3,//)
+2     FORMAT(1H ,F11.4,4X,'+',101A1)
+3     FORMAT(1H ,15X,'+')
+7     FORMAT(1H ,16X, 51H+.........+.........+.........+.........+......
+     1...+)
+8     FORMAT(1H ,9X,11F10.4)
+      NLL=NL
+      IF(NS) 16, 16, 10
+10    DO 15 I=1,N
+      DO 14 J=I,N
+      IF(A(I)-A(J))14, 14, 11
+11    L=I-N
+      DO 12 J=1,M
+      L=L+N
+      LL=LL+N
+      F=A(L)
+      A(L)=A(LL)
+12    A(LL)=F
+14    CONTINUE
+15    CONTINUE
+16    IF(NLL)20, 18, 20
+18    NLL=50
+20    WRITE(5,1) NO
+      WRITE(5,7)
+      XSCAL=(A(N)-A(1))/(FLOAT(NLL-1))
+      M1=N+1
+      YMIN=A(M1)
+      YMAX=YMIN
+      M2=N*M
+      DO 40 J=M1,M2
+      IF(A(J)-YMIN) 28, 26, 26
+26    IF(A(J)-YMAX) 40, 40, 30
+28    YMIN=A(J)
+      GO TO 40
+30    YMAX=A(J)
+40    CONTINUE
+      YSCAL=(YMAX-YMIN)/50.
+      XB=A(1)
+      L=1
+      MY=M-1
+      I=1
+45    F=I-1
+      XPR=XB+F*XSCAL
+      IF(A(L)-XPR-.0001) 50, 50, 70
+50    DO 55 IX=1,51
+55    OUT(IX)=BLANK
+      DO 60 J=1,MY
+      LL=L+J*N
+      JP=((A(LL)-YMIN)/YSCAL)+1.00001
+      OUT(JP)=ANG(J)
+60    CONTINUE
+      IF(JP .LE. 1.001) GO TO 65
+      JPP=JP-1
+      DO 65 JK=1,JPP
+      OUT(JK)=ANG(2)
+65    CONTINUE
+      AXPR=(10.**(XPR/20.))
+      WRITE(5,2)AXPR,(OUT(IZ), IZ=1,51)
+      L=L+1
+      GO TO 80
+70    WRITE(5,3)
+80    I=I+1
+      IF(I-NLL) 45, 84, 86
+84    XPR=A(N)
+      GO TO 50
+86    WRITE(5,7)
+      YPR(1)=YMIN
+      DO 90 KN=1,6
+90    YPR(KN+1)=YPR(KN)+YSCAL*10.0
+      YPR(06)=YMAX
+      WRITE(5,8) (YPR(IP), IP=1,6)
+      RETURN
+      END
+  
