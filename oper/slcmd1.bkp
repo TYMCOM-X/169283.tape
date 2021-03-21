@@ -1,0 +1,529 @@
+ 6 SEPT 72
+
+** SYNTAX AND SEMANTICS FOR INITIAL SLAVE COMMANDS
+
+** SYNTAX
+
+<CHARACTER> ::= AN 8-BIT FROTZ; THERE ARE 256 OF THEM.
+
+<ALPHA> ::= A / B / C / ... / Z
+
+<NUMERIC> ::= 0 / 1 / 2 / ... / 9
+
+<ALPHA-NUMERIC> ::= <ALPHA> / <NUMERIC>
+
+<INTEGER> ::= <NUMERIC> / <INTEGER><NUMERIC>
+
+<IDENTIFIER> ::= <ALPHA> / <IDENTIFIER><ALPHA-NUMERIC>
+              /  <INTEGER>DEL<INTEGER NUMBER OF <CHARACTER>S>
+
+<EOC> ::= ;
+
+<VAR VALUE> ::= NIL / <IDENTIFIER> / <INTEGER>
+
+<CHAN NAME> ::= <ALPHA>
+
+<TEXT> ::= A SEQUENCE OF CHARACTERS NOT <EOC> OR XSOH OR XSTX OR XETX,
+           THE FIRST CHARACTER NOT A SPACE.
+
+<DATA RECORD BODY> ::= <COMMAND>
+                    /  <COMMAND>;<DATA RECORD BODY>
+
+<COMMAND> ::= NIL
+           /  <BCKT COMMAND>
+           /  <CHAN COMMAND>
+           /  <ECHO COMMAND>
+           /  <ECHOR COMMAND>
+           /  <ERR COMMAND>
+           /  <NULL COMMAND>
+           /  <PAUSE COMMAND>
+           /  <QUIT COMMAND>
+           /  <RTEXT COMMAND>
+           /  <STEXT COMMAND>
+           /  <SENDV COMMAND>
+           /  <SETV COMMAND>
+           /  <VAR COMMAND>
+           /  <WSLAVE COMMAND>
+           /  <ZCKT COMMAND>
+
+<BCKT COMMAND> ::= BCKT <INTEGER>,<CHAN NAME>
+
+     <BSDATA command> ::= BSDATA <identifier>,<integer>
+
+<CHAN COMMAND> ::= CHAN <CHAN NAME>,<CHAN NAME>
+
+<close command> ::= CLOSE <identifier>
+
+<CLOSEA command> ::= CLOSEA
+
+<CREATE command> ::= CREATE <identifier>,<integer>
+
+<ECHO COMMAND> ::= ECHO <INTEGER>,<INTEGER>
+
+<ECHOR COMMAND> ::= ECHOR <INTEGER>,<INTEGER>
+
+<ERASE command> ::= ERASE <identifier>,<integer>,<integer>
+
+<ERR COMMAND> ::= ??????
+
+<FCBDATA command> ::= FCBDATA <identifier>,<varval>
+
+<NULL COMMAND> ::= NULL <TEXT>
+
+<open command> ::= OPEN <identifier>,<integer>
+
+<PAUSE COMMAND> ::= PAUSE <INTEGER>
+
+<QUIT COMMAND> ::= QUIT <TEXT>
+
+<RBLKS command> ::=  RBLKS  <idnetifier>,<integer>,<data>
+
+<open command> ::= OPEN <identifier>,<integer>
+
+<RTEXT COMMAND> ::= RTEXT <IDENTIFIER>
+
+<STEXT COMMAND> ::= STEXT <CHAN NAME>,<IDENTIFIER>
+
+<SBLKS command> ::=  SBLKS  <identifier>,<integer>
+
+<SENDBS command> ::=  SENDBS <identifier>
+
+<sendcp command> ::= SENDCP <idnetifier>
+
+<SENDFCB command> ::=  SENDFCB<identifier>
+
+<SENDFS command> ::=  SENDFS  <identifier>
+
+<SENDV COMMAND> ::= SENDV <IDENTIFIER>,<INTEGER>
+
+<SETV COMMAND> ::= SETV <IDENTIFIER>,<INTEGER>,<VAR VALUE>
+
+<SETBS command> ::=  SETBS  <identifier>,<integer>
+
+<setcp command> ::= SETCP  <identifier>,<integer>
+
+<SETFS command> ::=  SETFS  <identifier>, <integer>
+
+<VAR COMMAND> ::= VAR <IDENTIFIER>,<INTEGER>,<VAR VALUE>
+
+<WSLAVE COMMAND> ::= WSLAVE <CHAN NAME>,<IDENTIFIER>
+
+<ZCKT COMMAND> ::= ZCKT <CHAN NAME>
+
+** SEMANTICS
+
+*BUILD CIRCUIT
+
+<BCKT COMMAND> ::= BCKT <INTEGER>,<CHAN NAME>
+
+AN AUXILIARY CIRCUIT WILL BE BUILT TO COMPUTER <INTEGER> USING
+BRS 173 (ON THE 940, ONLY, AT PRESENT).  <CHAN NAME> WILL BE
+ASSOCIATED WITH THE RESULTANT CHANNEL (IF SUCCESSFUL).  ERRORS
+WILL BE REPORTED VIA THE ERROR COMMAND.  IF THE <CHAN NAME> IS
+ALREADY ASSOCIATED WITH A CHANNEL, THEN THAT ASSOCIATION WILL
+BE RE-ASSIGNED.
+
+ERRORS:        1) ERRORS  FROM BRS 173
+               2) SYNTAX
+
+
+*CHANNEL ASSIGNMENT
+
+<CHAN COMMAND> ::= CHAN <CHAN NAME>,<CHAN NAME>
+
+THE CHANNEL KNOWN BY THE FIRST <CHAN NAME> ("KNOWN" BY REASON OF
+A PREVIOUS BUILD CIRCUIT COMMAND OR A PREVIOUS CHANNEL ASSIGNMENT)
+WILL ALSO BE ASSOCIATED WITH THE SECOND <CHAN NAME>.  IF THE
+SECOND <CHAN NAME> IS ALREADY ASSOCIATED WITH A CHANNEL, THEN
+THAT ASSOCIATION WILL BE RE-ASSIGNED.
+
+ERRORS:        1) FIRST <CHAN NAME> INVALID.
+               2) SYNTAX
+
+
+*ECHO
+
+<ECHO COMMAND> ::= ECHO <INTEGER>,<INTEGER>
+
+THE ECHO COMMAND WILL RESULT IN THE TRANSMISSION OF AN ECHO REPLY
+TO THE ORIGINATOR OF THE ECHO COMMAND.
+
+ERRORS:        1) REPLY ROUTE UNKNOWN
+
+
+*ECHO REPLY
+
+<ECHOR COMMAND> ::= ECHOR <INTEGER>,<INTEGER>
+
+THE ECHOR COMMAND IS GENERATED IN RESPONSE TO AN ECHO COMMAND.
+THE OPERANDS IN AN ECHOR ARE A COPY OF THE OPERANDS IN THE ECHO
+COMMAND WHICH CAUSED THE ECHO REPLY.
+
+ERRORS:        NONE (?)
+
+
+*ERROR
+
+????????
+
+*NULL
+
+<NULL COMMAND> ::= NULL <TEXT>
+
+NO ACTION IS TAKEN.  AN AUDIT RECORD WILL BE WRITTEN IF
+AUDITING IS BEING PERFORMED.
+
+ERRORS:        NONE (?)
+
+
+*PAUSE
+
+<PAUSE COMMAND> ::= PAUSE <INTEGER>
+
+THE JOB WILL PAUSE IN ITS COMMAND PROCESSING FOR MIN(MAXPAUSE,
+<INTEGER>) SECONDS, WHERE WE DEFINE MAXPAUSE INITIALLY AS, SAY,
+15.
+
+ERRORS:        NONE (?)
+
+
+*QUIT
+
+<QUIT COMMAND> ::= QUIT <TEXT>
+
+AN AUDIT RECORD WILL BE WRITTEN IF APPROPRIATE.  ALL FILES WILL
+BE CLOSED.  IF THE JOB IS THE MASTER (AND ON A 940), THEN CIRCUIT 
+ZAPPERS WILL BE SENT ON ANY EXISTING AUXILIARY CIRCUITS.  THEN THE
+JOB WILL DO AN EXIT.
+
+ERRORS:        NONE (?)
+
+
+*RECEIVED FREE TEXT
+
+<RTEXT COMMAND> ::= RTEXT <IDENTIFIER>
+
+FREE TEXT CAN EXIST IN LINKS OF THE NET.  WHEN SUCH TEXT IS
+DETECTED BY A SLAVE, IT IS PACKAGED INTO A RTEXT COMMAND AS
+AN <IDENTIFIER> AND SENT TO 0 (THE MASTER).
+
+ERRORS:        1) SYNTAX
+
+
+*SEND TEXT
+
+<STEXT COMMAND> ::= STEXT <CHAN NAME>,<IDENTIFIER>
+
+THE <IDENTIFIER> WILL BE TRANSMITTED ON THE PORT <CHAN NAME>.
+
+ERRORS:        1) INVALID <CHAN NAME>
+               2) SYNTAX
+
+
+*SEND VARIABLE
+
+<SENDV COMMAND> ::= SENDV <IDENTIFIER>,<INTEGER>
+
+THE VALUE OF THE VARIABLE <IDENTIFIER>, OF SYMBOL TYPE THE VALUE OF
+<INTEGER>, WILL BE TRANSMITTED TO THE ORIGINATOR OF A SEND VARIABLE
+COMMAND VIA A VARIABLE COMMAND.
+
+ERRORS:        1) SYNTAX
+               2) ROUTE TO THE ORIGINATOR UNKNOWN.
+               3) IF <INTEGER>=S.T.FILE THEN NIL ACTION
+
+
+*SET VARIABLE
+
+<SETV COMMAND> ::= SETV <IDENTIFIER>,<INTEGER>,<VAR VALUE>
+
+THE VARIABLE <IDENTIFIER>, OF TYPE THE VALUE OF <INTEGER>, WILL
+BE ASSIGNED THE VALUE OF <VAR VALUE>.  A NIL <VAR VALUE> WILL
+RESULT IN A NIL VALUE BEING ASSIGNED.
+
+ERRORS:        1) A SMALL SET OF IDENTIFIERS HAVE FIXED (I.E.,
+                  UNCHANGABLE) VALUES FOR A GIVEN TYPE; ATTEMPTS
+                  TO  CHANGE THESE VALUES ARE IN ERROR.
+               2) SYNTAX
+               3) IF <INTEGER>=S.T.FILE THEN NIL ACTION
+
+
+*VARIABLE
+
+<VAR COMMAND> ::= VAR <IDENTIFIER>,<INTEGER>,<VAR VALUE>
+
+THIS COMMAND IS A STATEMENT OF FACT IN THE UNIVERSE OF THE
+ORIGINATOR, AND STATES THAT THE CURRENT VALUE OF THE VARIABLE
+<IDENTIFIER>, OF TYPE THE VALUE OF <INTEGER>, IS <VAR VALUE>.
+A NIL THIRD ARGUMENT INDICATES A NIL VALUE.
+
+ERRORS:        1) SYNTAX
+
+
+*WAKE SLAVE
+
+<WSLAVE COMMAND> ::= WSLAVE <CHAN NAME>,<IDENTIFIER>
+
+A SLAVE JOB ON THE CIRCUIT ASSOCIATED WITH <CHAN NAME> WILL BE
+AWAKENED.  THE TEXT OF THE SECOND <IDENTIFIER> WILL BE USED TO
+INVOKE THE SLAVE.  A SLAVE ON INVOCATION WILL ESTABLISH APPROPRIATE
+8-LEVEL CONVENTIONS, THEN ISSUE A HANDSHAKE,  THE AWAKENER
+WILL ACKNOWLEDGE THE HANDSHAKE, THEN TELL THE NEWLY AWAKENED
+SLAVE THAT ITS NAME IS <CHAN NAME>.
+
+A TIMEOUT OF ***SECONDS WILL BE MADE ON THE HANDSHAKE.
+
+EXAMPLE TEXT:  "R SLAVE <C.R.>"
+               "SLAVE <C.R.>"
+
+ERRORS:        1) TIMEOUT
+               2) INVALID <CHAN NAME>
+
+
+*ZAP CIRCUIT
+
+<ZCKT COMMAND> ::= ZCKT <CHAN NAME>
+
+THE CIRCUIT ASSOCIATED WITH <CHAN NAME> WILL BE ZAPPED, AND THE
+<CHAN NAME>-CIRCUIT ASSOCIATION DELETED.
+
+ERRORS:        1) INVALID <CHAN NAME>
+               2) ERROR FROM BRS 139 (NO PORT ASSIGNED)
+
+
+  
+The File Control Block
+
+     File names used in slave commands are entered in the symbol table
+with a symbol type of file (S.T.FILE).  The symbol value type is ptr
+(S.V.T.PTR) and the value is the file control block pointer.
+
+     The file control block (or F.C.B.) contains the information
+necessary to define the status of a file for use by the slave
+command routines.
+
+     The f.c.b. is usually created at open time.  All fields are
+filled with some value, either given or defaulted.
+
+     The fields of the f.c.b. are discussed below:
+
+     1.  fn.  The file number is returned by the 940 open BRS or
+              or the PDP-10 IOCS open routine, and is used by the
+              slave in subsequent file operations.
+
+     2.  cp.  The cursor position is a byte count, initially 
+              zero at open time.  The cp is changed implicitly by
+              EACH 'READ','WRITE' OR 'ERASE' COMMAND, OR SET 
+              EXPLICITLY BY THE 'SETCP' COMMAND.
+
+     3.  Open/close indicator.  True if file open, false if not.
+
+     4.  Open mode.  If the file is open then the mode is one of
+                     the three:
+
+                        .read
+                        .write
+                        .update  (read and write)
+
+     5.  Block size.  The block size is a byte count, initially
+                      set to the value of the 'std.blk.size' slave
+                      variable at open time.  The 'setbs' (set block
+                      size) command is used to change this value.
+                      The 'sendbs' command is used to request this
+                      value.
+
+     6.  File Type.  This is the problem area - what properties are
+                     the same or isomorphic between 940 - PDP10?
+                     See Codie's proposals for file standardization.
+
+     7.  File name.  The bufferlet string ptr to the filename char-
+                     acter string.
+
+
+Variables associated with files
+
+     1.  std.block.size - used as the block size (in bytes) in 
+              file.control.block when f.c.b is set up.
+
+* send file size
+
+     <SENDFS command> ::=  SENDFS  <identifier>
+
+          The file size in bytes of the file with name <identifier> is
+     sent to the requestor via a FSDATA command.  If the file does not
+     exist, then a zero is sent.
+
+* Set file size
+
+     <SETFS command> ::=  SETFS  <identifier>, <integer>
+
+          The file size in bytes of the file with name <identifier>
+     is the value of <integer>.
+
+* Send Blocks  (Read)
+
+     <SBLKS command> ::=  SBLKS  <identifier>,<integer>
+
+          The SBLKS command requests that <integer> number of
+     blocks be sent from file with name <identifier>.  The
+     blocks are sent via the RBLKS command.  The cursor position
+     and block size are taken from the files f.c.b.
+
+ *Receive Blocks
+
+     <RBLKS command> ::=  RBLKS  <idnetifier>,<integer>,<data>
+          The RBLKS command is generated in response to SBLKS or
+     STEST commands.  The blocks from file with name <identifier>
+     (or a pseudonym if generated by STEST) are sent <integer.>
+     blocks per RBLKS command.  The <integer>'s are:
+
+          1.  Number of blocks in this RBLKS
+
+
+
+          Each block has a header with
+
+          1.  Seq # of this block within SBLKS request or
+              STEST request.
+
+          2.  Cursor position
+
+* Set Block Size
+
+     <SETBS command> ::=  SETBS  <identifier>,<integer>
+
+          The block size in the f.c.b of the file with name <identifier>
+     is set to the value of <integer>.
+
+          If the file does not exist, then an error message is sent
+     to the master.
+
+* Send Block Size
+
+     <SENDBS command> ::=  SENDBS <identifier>
+
+          The block size from the file control block (f.c.b) of
+     the file with name <identifier> is sent to the requestor
+     via a 'BSDATA' command.
+
+* BSDATA Command
+
+     <BSDATA command> ::= BSDATA <identifier>,<integer>
+
+          The block size in bytes of the file with name <identifier>
+     is the value of <integer>.
+
+
+* Send File Control Block
+
+     <SENDFCB command> ::=  SENDFCB<identifier>
+
+          The file control block (f.c.b.) of the file with name
+     <identifier> is sent to the requestor via the FCB command.
+
+          If the file does not exist, an error message is sent
+     in the FCB command.
+
+          If the file exists, but has no f.c.b. then the file is
+     opened and closed in order to create one.
+
+* File Control Block
+
+     <FCBDATA command> ::= FCBDATA <identifier>,<varval>
+
+          The file control block of the file with name <identifier>
+     follows in the <varval> list of integers.  The <varval> has
+     the following format:
+
+          <integer1>,<integer2>, . . . ,<integer4>,
+     Where integer
+          1.  True/false if the file exists
+          2.  File number
+          3.  Cursor position
+          4.  Open/close status
+          5.  Open mode
+          6.  Block size
+          7.  File type
+          8.  File size
+
+* Set Cursor Position
+
+     <setcp command> ::= SETCP  <identifier>,<integer>
+
+          The byte cursor position in the file control block (f.c.b.)
+     of the file with name <identifier> is set to the value of
+     <integer>.  If the new cursor position if larger than the file
+     size, then the file size is used and an error message sent to
+     the master.
+
+* Send Cursor Position
+
+     <sendcp command> ::= SENDCP <idnetifier>
+
+          The cursor position in the file control block (f.c.b.) of
+     the file with name <identifier> is returned to the sender via
+     a SETCP command.
+
+          If the file does not exist, a 0 is sent as the value.
+
+* Erase Block (set cursor and erase)
+
+     <ERASE command> ::= ERASE <identifier>,<integer>,<integer>
+
+          The cursor position of the file with name <identifier>
+     is set to the value of the first <integer>, after which the
+     second <integer> number of blocks are erased.  After the
+     erase operation, the cursor position remains at the value
+     of the first <integer>.
+
+
+* RENAME File
+
+     <RENAME command> ::= RENAME <identifier>,<identifier>
+
+          The file name given in the first <identifier> is renamed
+     to the name given in the second <identifier>.  The file
+     retains its file control block with new name.
+
+* CREATE FILE
+
+     <CREATE command> ::= CREATE <identifier>,<integer>
+
+          The 'CREATE' command creates a new file with the name
+     <identifier> and the file type <integer> (*** need to specify
+     file types, e.g. symbolic, data, etc.)
+
+          If a file already exists then an error message is sent
+     to the master.
+
+* CLOSE ALL FILES
+
+     <CLOSEA command> ::= CLOSEA
+
+          The CLOSEA command closes all files that are open.
+     There are no operands.
+
+* CLOSE FILE
+
+     <close command> ::= CLOSE <identifier>
+
+          The existing opened file with filename <identifier> is
+     closed.
+
+          The 'CLOSE' command will send an error message to the
+     master (1) if the file is already closed or (2) if the file
+     does not exist.
+
+          If <identifier> is defaulted, then the filename in the
+     slave variable 'curfile' is used.
+
+* OPEN FILE
+
+     <open command> ::= OPEN <identifier>,<integer>
+
+          The already existing file with filename <identifier> will
+     be opened in READ,WRITE, or UPDATE mode if <integer> is
+     1, 2, or 3 respectively.  A new file is created by the CREATE
+     command; the OPEN command will send an error message to the
+     master if the given file does not exist.
+
