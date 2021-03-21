@@ -1,0 +1,3308 @@
+
+
+CHAPTER 4 - USER PROGRAMMING
+
+
+4.l  PROCESSOR MODES
+
+In a single-user, non-timesharing system, the user's program
+is subject only to those conditions inherent in the hardware.
+The program must:
+
+a.  Stay within the memory capacity
+
+b.  Observe the hardware restrictions placed on the use of certain
+    memory locations.
+
+c.  Observe the restriction on interrupt instructions.  With
+    timesharing, the hardware limits the central processor
+    operations to one of three modes: user mode, user I/O
+    mode, and executive mode.
+
+
+4.l.l  User Mode
+
+User programs run with the processor in user mode must operate
+within an assigned area of core.  In user mode, certain instruc-
+tions are illegal.  User mode is used to guarantee the integrity
+of the monitor and each user program.  The user mode of the
+processor is characterized by the following:
+
+a.  Automatic memory protection and relocation (refer to Chapter 3).
+
+b.  Trap to absolute location 40 in the monitor on any of the
+    following:
+
+    l.  Operation codes 040 through 077 and operation code 00.
+
+    2.  Input/output instructions (DATAI, DATAO, BLKI, BLKO,
+        CONI, CONO, CONSZ, and CONSO)
+
+    3.  HALT (i.e., JRST 4,)
+
+    4.  Any JRST instruction that attempts to enter executive
+        mode or user I/O mode.
+
+c.  Trap to relative location 40 in the user area on execution 
+    of operation codes 00l through 037.
+
+
+4.l.2  User I/O Mode
+
+The user I/O mode (bits 5 and 6 of PC word = ll) of the central
+processor allows running privileged user program with automatic
+protection and relocation in effect, as well as the normal
+execution of all defined operation codes.  The user I/O mode
+provides some protection against partially debugged monitor
+routines, and permits running infrequently used device service
+routines as a user job.  Direct control by the user program of
+special devices is particularly important in real-time applica-
+tions.
+
+To utilize this mode, the job number must be l.  CALL (SIXBIT 
+/RESET/) or CALLI 0 terminates user I/O mode.  User I/O
+mode is not used by the monitor and is normally not available
+to the timesharing user (refer to Paragraph 4.l0.l0.l).
+
+
+4.l.3  Executive Mode
+
+The monitor operates with the processor in executive mode, which
+is characterized by the lack of memory protection and relocation
+(refer to Chapter 3) and by the normal execution of all 
+defined operation codes.
+
+User programs run in user mode; therefore, the monitor must
+schedule user programs, service interrupts, perform all input
+and output operations, take action when control returns from a
+user program, and perform any other legal, user-requested
+operations that are not available in user mode.  This chapter
+describes the services the monitor makes available to user-mode
+programs and how a user program obtains these services.
+
+
+4.2  PROGRAMMED OPERATORS (UUOs)
+
+Operation codes 000 through 077 in the PDP-l0 are programmed
+operators, sometimes referred to as UUOs (Unimplemented User
+Operators) because from a hardware point of view, their
+function is not pre-specified.  Some of these op-codes trap
+to the monitor and the rest trap to the user program.
+
+After the effective address calculation is complete, the
+contents of the instruction register, along with the
+effective address, are stored in user or monitor location 40
+and the instruction in user or monitor location 4l is executed
+out of normal sequence.  Location 4l must contain a JSR
+instruction to a routine to interpret the contents of location
+40.
+
+
+4.2.l  Operation Codes 00l-037 (User UUOs)
+
+Operation codes 00l through 037 do not affect the mode of the
+central processor; thus, when executed in user mode, they trap
+to user location 40, which allows the user program complete
+freedom in the use of these programmed operators.
+
+If a user's undebugged program accidentally executes one
+of these op-codes when the user did not intend to use it,
+the following error message is normally issued:
+
+   ERROR IN JOB n
+   ILLEGAL UUO AT USER 4l
+
+This message is given because the user's relative location 4l
+contains zero (unless his program has overtly changed it)
+and 000 is an illegal monitor UUO.
+
+
+4.2.2  Operation Codes 040-077 and 000 (Monitor UUOs)
+
+Operation codes 040 through 077 and 000 trap to absolute location
+40, with the central processor in executive mode.  These programmed
+operators are interpreted by the monitor to perform I/O operations
+and other control functions for the user's program.
+
+Operation code 000 always returns the user to monitor mode with
+the error message:
+
+   ERROR IN JOB n
+   ILLEGAL UUO AT USER addr
+
+Table 4-l lists the operation codes 040 through 077 and their
+mnemonics.  Most of Chapter 4 is a detailed description of their
+operation.
+
+
+                        TABLE 4-l
+              MONITOR PROGRAMMED OPERATORS
+
+
+
+Op Code          Call                          Function
+-----------------------------------------------------------------------
+
+040       CALL AC,(SIXBIT/NAME/)      Programmed operator extension
+                                      (refer to Para. 4.2.2.l).
+
+04l       INIT D, MODE                Select I/O device (refer to
+          SIXBIT /DEV/                para. 4.l0.2.3).
+          XWD OBUF, IBUF
+          error return
+          normal return
+
+042                                   No operation )
+
+043                                   No operation )
+                                                      Reserved for in-
+044                                   No operation )  stallation depen-
+-                                                     dent definition
+045                                   No operation )
+
+046                                   No operation )
+
+047       CALLI AC, N                 Programmed operator extension
+                                      (refer to para. 4.2.2.l).
+
+050       OPEN, D, E                  Select I/O device (refer to
+         error return                para. 4.l0.2.3).
+          E: EXP STATUS
+             SIXBIT /DEV/
+             XWD OBUF, IBUF
+
+05l       TTCALL AC, ADR              Extended operations on job-
+                                     controlling teletype (refer to
+                                      para. 5.9.3).
+
+052                                   Reserved for future expansion by DEC
+
+053                                   Reserved for future expansion by DEC
+
+054                                   Reserved for future expansion by DEC
+
+055       RENAME D, E                 Rename or delete a file (see 
+          error return                Section 4.l0.4.3).
+          normal return
+          E: SIXBIT /FILE/
+             SIXBIT /EXT/
+             EXP(PROT)B8+DATE
+             XWD PROJ, PROG
+
+056       IN D,                       INPUT and skip on error or EOF.
+          normal return               (See Section 4.l0.5).
+          error or EOF return
+
+057       OUT D,                      OUTPUT and skip on error or EOF.
+          normal return               (See Section 4.l0.5).
+          error return
+
+060       SETSTS D, STATUS            Set file status. (See Sec. 4.l0.6.2).
+
+06l       STATO D, BITS               Skip if file status bits = l.
+          RO: NO SELECTED BITS = l    (See Section 4.l0.6.l).
+          Rl: SOME SEL. BITS = l
+
+062       GETSTS D, E                 Copy file status to E.  (See
+                                      Sect. 4.l0.6.l).
+
+063       STATZ D, BITS               Skip if file status bits = 0.
+          RO: SOME SEL. BITS = l      (See Section 4.l0.6.l).
+          Rl: ALL SELECTED BITS = 0
+
+064       INBUF D, N                  Set up input buffer ring with
+                                      N buffers (refer to para. 4.l0.3.2).
+
+065       OUTBUF D, N                 Set up output buffer ring with N
+                                      buffers (refer to para. 4.l0.3.2).
+
+066       INPUT D,                    Request input or request next
+                                      buffer (refer to para. 4.l0.5).
+
+067       OUTPUT D,                   Request output or request next
+                                      buffer (refer to para. 4.l0.5).
+
+070       CLOSE D,                    Terminate file operation (refer
+                                      to para. 4.l0.7).
+
+07l       RELEAS D,                   Release device (refer para. 
+                                      4.l0.8.l).
+
+072       MTAPE D, N                  Perform tape positioning operation
+                                      (refer paras. 5.5.3 and 6.l.6.5).
+
+073       UGETF D,                    Get next free block number on 
+                                      DECtape (refer para. 6.l.6.3).
+
+074       USETI D, E                  Set next input block number 
+                                      (refer paras. 6.l.6.l and 6.2.6.3).
+
+075       USETO D, E                  Set next output block number
+                                      (refer paras 6.l.6.2 and 6.2.6.3).
+
+076       LOOKUP D, E                 Slecct a file for input (refer
+          error return                to para. 4.l0.4.l).
+          normal return
+          E: SIXBIT /FILE/
+             SIXBIT /EXT/
+             0
+             XWS PROJ, PROG
+
+077       ENTER D, E                  Select a file for output (refer
+          error return                to para. 4.l0.4.2).
+          normal return
+          E: SIXBIT /FILE/
+             SIXBIT /EXT/
+             0
+             XWD PROJ, PROG
+
+l00       UJEN                        Dismiss real time interrupt
+                                      (refer to para. 4.l0.l0.2).
+
+
+
+4.2.2.l  CALL and CALLI - Operation codes 040 through 077 limit
+the monitor to 40(8) operations.  The CALL operation extends this
+set by specifying the name of the operation by the contents of
+the location specified by the effective address (e.g. CALL
+(SIXBIT /EXIT/)).  This capability provides for indefinite
+extendability of the monitor operations, at the overhead cost
+to the monitor of a table lookup.
+
+The CALLI operation eliminates the table lookup of the CALL
+operation by having the programmer to the assembler perform
+the lookup and specify the index to the operation in the
+effective address of the CALLI.  Table 4-2 lists the monitor
+operations specified by the CALL and CALLI operations.
+
+
+
+(Table 4-2 goes in here)
+
+
+The customer is allowed to add his own CALL and CALLI calls to
+the monitor.  A negative CALLI effective address (-2 or less)
+should be used to specify such customer-added operations.
+
+
+4.2.2.2  Restriction on Monitor UUOs in Reentrant User Programs -
+A number of restrictions on UUOs that involve a high segment
+prevent naive or malicious users from interferring with
+other users while sharing segments and minimize monitor
+overhead in handling two-segment programs.  The basic rules
+are as follows:
+
+a.  All UUOs can be executed from the low or high segment 
+    although some of their arguments cannot be in, or   
+    refer to, the high segment.
+
+b.  No buffers, buffer headers, or dump-mode command lists
+    may exist in the high segment for reading from or writing
+    to any I/O device.
+
+c.  No I/O is processed into or out of the high segment
+    except via the SAVE and SSAVE commands.
+
+d.  No STATUS, CALL or CALLI UUO allows a store in the high
+    segment.
+
+e.  The effective address of the LOOKUP, ENTER, INPUT,
+    OUTPUT and RENAME UUOs cannot be in the high segment.
+    If any rule is violated, an address check error message
+    is given (refer to Table 2-ll).
+
+f.  As a convenience in writing user programs, the monitor makes
+    a special check so that the INIT UUO can be executed 
+    from the high segment, although the calling sequence is
+    in the high segment.  The monitor also allows the effective
+    address of the CALLUUO (contains the SIXBIT monitor
+    function name) and the effective address of the OPEN UUO 
+    (contains the status bits, device name, and buffer header
+    addresses) in the high segment.  The address of TTCALL l,
+    and TTCALL 3, may be in the high segment for convenience
+    in typing messages.
+
+
+4.2.3  Operation Codes l00-l27 (Unimplemented Op Codes)
+
+Op Code l00-UJEN     Dismiss real-time interrupt from user mode
+                     (refer to paragraph 8.4.2).
+
+Op Code l0l-l27      Monitor prints ILL INST AT USER n and stops
+                     the job.
+
+
+4.2.4  Illegal Operation Codes
+
+The eight I/O instructions (e.g., DATAI) and JRST instructions
+attempting to enter executive or user I/O mode from the user
+mode are interpreted by the monitor as illegal instructions.
+The job is stopped and the following error message is printed
+on the user's console:
+
+   ERROR IN JOB n
+   ILL INST AT USER addr
+
+
+
+4.3  EXECUTION CONTROL
+
+4.3.l  Starting
+
+A user program may start another program only by using the RUN
+or GETSEG UUOs (refer to Paragraphs 4.5.l and 4.5.2).  A console
+user may start a program with the monitor commands RUN, START
+CSTART, CONT, CCONT, DDT and REENTER (refer to Chapter 2).
+The starting address is either an argument of the command
+or stored in the user's job data area (refer to Chapter 3).
+
+
+4.3.l.l  SETDDT AC, or CALLI AC, 2 - This UUO causes the contents
+of the AC to replace the DDT starting address, which is stored
+in the protected job data area location, JOBDDT.  The starting
+address is used by the monitor command, DDT (refer to Paragraph
+3.2.2.4).
+
+
+4.3.2  Stopping
+
+Any of the following procedures can stop a running program:
+
+a.  One %C from user console if user program is in a teletype
+    input wait; otherwise, two %C's from user console (refer
+    to Chapter 2).
+
+b.  A monitor detected error.
+
+c.  Program execution of HALT, CALL (SIXBIT /EXIT/), or 
+    CALL (SIXBIT /LOGOUT/).
+
+
+4.3.2.l  Illegal Instructions (700-777, JRST l0, JRST l4) and
+Unimplemented OP Codes (l0l-l27) - Illegal instructions trap to
+the monitor, stop the job, and print:
+
+   ERROR IN JOB
+   ILL INST AT USER adr
+
+Note that the program cannot be continued by typing the CONT
+or CCONT commands.
+
+
+4.3.2.2  HALT or JRST 4 - The HALT instruction is an exception
+to the illegal instructions; it traps to the monitor, stops
+the job, and prints:
+
+    ERROR IN JOB
+    HALT AT USER n
+
+where n is the location of the HALT instruction.
+
+However, the CONT and CCONT commands are still valid and,
+if typed, will continue the program at the effective address
+of the HALT instruction.  After a user program HALT instruction
+followed by a START, DDT, CSTART or REENTER command, JOBOPC
+contains the address of the HALT.  To proceed at the address
+specified by the effective address, it is necessary for the
+user or his program to recompute the effective address of the
+HALT instruction and to use this address to start (refer to
+JOBOPC description, Table 3-l).  HALT is not the instruction
+used to terminate a program (refer to Paragraph 4.3.2.3).
+HALT is useful for indicating impossible error conditions.
+
+
+
+4.3.2.3  EXIT AC, or CALLI AC, l2 - When the value of AC is 
+zero, all I/O devices (including real-time devices) are
+RELEASed (refer to Paragraph 4.l0.8.l), the job is unlocked
+from core, the user mode write protect bit (UWP) for the high
+segment is set, and APR traps are reset to 0, the PC flags
+are cleared, and the job is stopped.  If timesharing was
+stopped (refer to Paragraph 8.4), it is resumed.  In other
+words, after releasing all I/O devices which close out all
+files, a RESET is done (refer to Paragraph 4.l0.l.2).  The
+carriage-return and line-feed is performed and
+
+    EXIT
+
+is printed on the user's console, which is left in monitor mode.
+The CONT and CCONT commands cannot continue the program.
+
+When AC is l, the job is stopped, but devices are not released
+and a RESET is not done.  Instead of printing EXIT, only a
+carriage-return and line-feed is performed and a period is 
+printed on the user's console.  The CONT and CCONT commands
+may be used to continue the program.  In other words, this
+form of EXIT does not affect the state of the job except to
+stop it and return the console to monitor mode.  Programs using
+EXIT l, as a substitute for EXIT (to eliminate the typing of
+EXIT) should RELEASE all devices first.
+
+
+4.3.2.4  CALL (SIXBIT /LOGOUT/) or CALLI l7 - All I/O devices are
+RELEASed (refer to Paragraph 4.l0.8.l), and returned with the
+allocated core and the job number to the monitor pool.  The
+accumulated running time of the job is printed on the user's
+console, which is left in monitir mode.  This UUO is not
+available to user programmers, but is only for use by the
+LOGOUT CUSP.  If a user program executes a LOGOUT UUO, the
+monitor will treat it like EXIT (refer to Paragraph 4.3.2.3).
+
+4.3.3  Trapping
+
+4.3.3.l  APRENB AC, or CALLI AC, l6 - APR trapping allows a user
+to handle any and all traps that occur while his job is running
+on the central processor, including illegal memory references,
+non-existent memory references, pushdown list overflow, arithmetic
+overflow, floating point overflow, and clock flag.  To enable
+for trapping, a CALL AC, (SIXBIT /APRENB/) or CALLI AC, l6 is
+executed, where the AC contains the central processor flags
+to be tested on interrupts, as defined below:
+
+             AC BIT                 TRAP ON
+
+         l8      400000        Repetitive enable
+         l9      200000        Pushdown overflow
+         22       20000        Memory protection violation
+         23       l0000        Nonexistent memory flag
+         26        l000        Clock flag
+         29         l00        Floating-point overlfow
+         32          l0        Arithmetic overflow
+
+
+When one of the specified conditions occurs while the central
+processor is in use mode, the state of the central processor
+is conditioned into (CONT) location JOBCNI, and the PC is stored
+in location JOBTPC in the job data area (refer to Table 3-l).
+Then control is transferred to the user trap-answering routine
+specified by the contents of the right half of JOBAPR, after
+thehmetic overflow and floating point overflow flags are
+cleared.  The user program must set up location JOBAPR
+before executing the CALL AC, (SIXBIT /APREND/) or CALLI AC l6.
+To return control to his interrupted program, the user's trap-
+answering routine must execute a JRSTF  JOBTPC to restore the
+state of the processor.
+
+The APREND UUO normally enables traps for only one occurence
+of any selected condition and must be reissued after each
+condition of a trap.  To disable this feature, set bit l8 to
+a l when executing the UUO.  However, even with bit l8 = l,
+clock interrupts must be re-enabled after each trap.
+
+If the user program does not enable traps, the monitor sets
+the PDP-l0 processor to ignore arithmetic and floating-point
+overflow, but enables interrupts for the other error condi-
+tions in the list above.  If the user program produces
+such an error condition, the monitor stops the user job and
+prints
+
+   ERROR IN JOB n
+
+followed by one of the following appropriate messages:
+
+     PC OUT OF BOUNDS AT USER addr
+     ILL MEM REF AT USER addr
+     NON-EX MEM AT USER addr
+     PDL OV AT USER addr
+
+The CONT and CCONT commands will not succeed after such an error.
+
+
+4.3.3.2  Console-Initiated Traps - Program control can be regained
+from the user's console by use of the %C command (refer to Chapter 2.)
+
+
+4.3.4  Suspending
+
+4.3.4.l  CALL AC, (SIXBIT /SLEEP/) or CALLI AC, 3l - This UUO stops
+the job, and continues automatically after an elapsed real time of
+(C(AC) x clock frequency) modulo 2(l2) jiffies.  The contents of
+the AC are thus interpreted as the number of seconds the job 
+wishes to SLEEP; however, there is an implied maximum of approx-
+imately 68s (82s in 50-Hz countries) or l minute.
+
+
+
+4.4  CORE CONTROL
+
+4.4.l  ACLL AC, (SIXBIT /CORE/) or CALLI, ll
+
+This UUO provides a user program with the ability to
+expand and contract its core size as its memory requirements
+change.  To allocate core in either or both segments, the left
+half of AC is used to specify the highest user address to be
+assigned to the high segment.  If the left half of AC contains 0,
+the high segment core assignment is not changed.  If the left 
+half of AC is non-zero and is either less than 400000 or the
+length of the low segment, whichever is greater, the high segment
+is eliminated.  If this is executed from the high segment, an
+illegal memory error message is printed when the monitor
+attempts to return control to the illegal address.
+
+The error return is given if LH is greater than or equal to 400000
+and if either the system does not have a two-segment capability
+or the user has been meddling without write access privileges
+(refer to Paragraph 6.2.3).  An RH of 0 leaves the low segment
+core assignment unaffected.  The monitor clears new core before
+assigning it to the user; so therefore, privacy of information
+is ensured.
+
+In swapping systems, these programmed operators return the
+maximum number of lK core blocks (all of core minus the monitor,
+unless an installation chooses the restrict the amount of core)
+available to the user.  By restricting the amount of core avail-
+able to users, the number of jobs in core simultaneously is
+increased.  In nonswapping systems, the number of free and 
+dormant lK blocks are returned; therefore, the CORE UUO and the
+CORE command return the same information.
+
+The call is:
+
+     MOVE AC (XWD HIGH ADR or 0, LOW ADDR or 0)
+     CALL AC, (SIXBIT /CORE/) or CALLI AC, ll
+     error return
+     normal return
+
+The CORE UUO reassigns the low segment (if RH is non-zero) and
+then reassigns the high segment (if LH is non-zero).  If the sum
+of the new low segment and the old high segment exceeds the 
+maximum amount of core allowed to a user, the error return is
+given, the core assignment is unchanged, and the maximum core
+available to the user for high and low segments (in lK blocks)
+is returned in the AC.  In a nonswapping system, the number
+of free and dormant lK blocks is returned.
+
+If the sum of the new low segment and the new high segment exceeds
+the maximum amount of core allowed to a user, the error
+return is given, the new low segment is assigned, the old high
+segment remains, and the maximum core available to the user in
+lK blocks is returned in the AC.  Therefore, to increase the low
+segment and decrease the high segment at the same time, two
+separate CORE UUOs should be used to reduce the chances of
+exceeding the maximum size allowed to a user job.
+
+If the new low segment extends beyond 377777, the high segment
+shifts up into the virtual addressing space instead of being
+overlaid.  If a long low segment is shortened to 377777 or 
+less, the high segment shifts from the virtual addressing space
+to 400000 instead of growing longer or remaining where it
+was.  If the high segment is a program, it does not execute
+properly after a shift unless it is a self-relocating program
+in which all transfer instructions are indexed.
+
+If the high segment is eliminated by a CORE UUO, a subsequent
+CORE UUO, in which the LH is greater than 400000, will create
+a new, nonsharable segment rather than re-establishing the old
+high segment.  This segment becomes sharable after it has been:
+
+a.  Given an extension .SHR
+
+b.  Written onto the storage device
+
+c.  Closed so that a directory entry is made
+
+d.  Initialized from the storage device by GET,R, or RUN 
+    commands to RUN or GETSEG UUOs
+
+The loader and the SAVE and GET commands use the above sequence
+to create and initialize new sharable segments.
+
+
+4.4.2  SETUWP AC, or CALLI AC, 36
+
+This UUO allows a user program to set or clear the hardware
+user-mode write protect bit and to obtain the previous setting.
+It must be used if a user program is to modify the high segment.
+
+The call is:
+
+     SETUWP AC,;OR CALLI AC, 36
+     error return
+     normal return
+
+If the system has a two-register capability, the normal return 
+will be given unless the user has been meddling without write
+privileges, in which case an error return will be given.  An
+error return is given whether or not the program has a high
+segment, because the reentrant software is designed to allow
+users to write program for two-register machines, which will
+run under one-register machines.  Compatibility of source
+and relocatable binary files, is, therefore, maintained between
+one-register and two-register machines.
+
+If the system has a one-register capability, the error return
+(bit 35 of AC = 0) is given.  This error return allows the user
+program to find out whether or not the system has a two-segment
+capability.  The user program specifies the setting of the 
+user-mode write protect bit in bit 35 of AC (write protect = l,
+write privileges = 0).  The previous setting of the user-mode
+write protect bit is returned in bit 35 of AC, so that any user
+subroutine can preserve the previous setting before changing it.
+Therefore, nested user subroutines, which either set or clear
+the bit, can be written, provided the subroutines save the
+previous value of the bit and restore it on returning to its
+caller.
+
+
+4.4.3  LOCK AC, or CALLI AC, 60
+
+This UUO locks jobs in core; refer to Paragraph 8.2.
+
+
+4.5  SEGMENT CONTROL
+
+4.5.l  RUN AC, or CALLI AC, 35
+
+This UUO has been implemented so that programs can transfer
+control to one another.  Both the low and high segments
+of the user's addressing space are replaced with the program
+being called.
+
+The call is:
+
+     MOVSI AC, starting address increment
+     HRRI AC, Adr of six-word argument block
+     RUN AC, or CALLI AC, 35
+     error return (unless HALT in LH)
+     (normal return is not here, but to starting address
+      plus increment of new program).
+
+The arguments contained in the six-word block are:
+
+     E:  SIXBIT/logical device name/
+         SIXBIT/filename/           ;for either or both high and
+                                     low files
+         SIXBIT/ext.for low file/   ;if LH=0, .LOW is asuumed if
+                                     high segment exists, .SAV is
+                                     assumed if high segment does
+                                     not exist.
+         0
+         XWD proj.no.,prog.no       ;if = 0, use current user's
+                                     proj,prog.
+         XWD O, optional core       ;RH = new highest user address 
+                assignment           to be assigned to low segment
+                                    LH is ignored rather than setting
+                                     high segment
+
+A user program usually will specify only the first two words and
+set the others to 0.  The RUN UUO destroys the contents of all
+of the user's ACs and releases all the user's I/O channels;
+therefore, arguments or devices cannot be passed to the next 
+program.
+
+Programs on the system library (CUSPs) should be called by using
+device SYS with a zero project-programmer number instead of
+device DSK with the project-programmer number l, 4.  The extension
+should also be 0 so that the calling user program does not need
+to know if the called CUSP is reentrant or not.
+
+The LH of AC is added to and stored in the starting address
+(JOBSA) of the new program before control is transferred to it.
+The command %C followed by the START command restarts the program
+at the location specified by the RUNUUO, so that the user can 
+start the current CUSP over again.  The user is considered to be
+meddling with the program if the LH of AC is not 0 or l.  (Refer
+to Paragraph 4.5.4).
+
+Programs accept commands from a teletype or a file, depending
+on how they were started, due to control by the program calling
+the RUN UUO.  The following convention is used with all the 
+DEC's standard CUSPs: 0 in LH of AC means type an asterisk and
+accept commands from the teletype.  A l means accept commands
+from a command file, if it exists; if not, type an asterisk
+and accept commands from the teletype.  The convention for naming
+CUSP command files is that the filename be of the form
+
+          III.TMP
+
+where III are the first three (or fewer if three do not exist)
+characters of the name of the CUSP doing the LOOKUP and
+    is the deciaml character expansion (with leading zeroes)
+of the binary job number.  The job number is included to allow
+a user to run two or more jobs under the same project-programmer
+number.  For example,
+
+      009PIP.TMP
+      039MAC.TMP
+
+Decimal numbers are used so that a user listing his directory
+can see the same number as the PJOB command types.  These command
+files are temporary and are, therefore, deleted by the LOGOUT
+CUSP.  (Refer to KJOB command in Chapter 2.)
+
+The RUN UUO can give an error return with one of 20 error
+codes in AC if any errors are detected; thus, the user program
+may attempt to recover from the error/give the user a more
+informative message on how to proceed.  Some user programs do
+not go to the bother of including error recovery code.
+The monitor detects this and does not give an error return
+if the LH of the error return location is a HALT instruction.
+If this is the case, the monitor simply prints its standard
+error message for that type of error and returns the user's
+console to monitor mode.  This optional error recovery procedure
+also allows a user program to analyze the error code received
+and then execute a second RUN UUO with a HALT if the error code
+indicates an error for which the monitor message is sufficiently
+informative or one from which the user program cannot recover.
+
+The error codes are an extension of the LOOKUP, ENTER and RENAME 
+UUO error codes and are defined in the S.MAC monitor file.
+Refer to Appendix E for an explanation of the error
+codes.
+
+The monitor does not attempt an error return to a user program
+after the high or low segment containing the RUN UUO has been
+overlaid.
+
+To successfully program the RUN UUO for all size systems and for
+all CUSPs with a size that is not known at the time the RUN UUO
+is coded, it is necessary to understand the sequence of opera-
+tions the RUN UUO initiates.  Assume that the job executing the
+RUN UUO has both a low and a high segment.  (It can be executed
+from either segment; however, fewer errors can be returned
+to the user if it is executed from the high segment).
+
+The sequence of operations for the RUN UUO is as follows:
+
+l.  Does a high segment already exist with desired name?
+    If yes, go to 30.
+    INIT and LOOKUP filename .SHR.  If not found, go to l0.
+    Read high file into top of low segment by extending it.
+    (Here the old low segment and new high segment and old high
+    segment together may not exceed the capacity of core).
+    REMAP the top of low segment replacing old high segment
+    in logical addressing space.
+    If high segment is sharable (.SHR) store its name so 
+    others can share it.
+    Always go to 40 or return to user if GETSEG UUO.
+
+l0. LOOKUP filename .HGH.  If not found, go to 4l or error
+    return to user if GETSEG UUO.
+    Read high file into top of low segment by extending
+    it.  (The old low segment and hew high segment and old
+    high segment together may not exceed the capacity of core).
+    Check for I/O errors.  If any, error return to user unless
+    HALT in LH of return.
+    Go to 4l.
+
+30. Remove old high segment, if any, from logical addressing
+    space.
+    Place the sharable segment in user's logical addressing
+    space.  Go to 40 or return to user if GETSEG UUO.
+
+35. Remove old high segment, if any, from logical addressing
+    space.
+    (Go to 4l).
+
+40. Copy vestigial job data area into job data area.
+    Does the new high segment have a low file 
+    (LH JOBCOR l37)?
+    If not, go to 45.
+
+4l. LOOKUP filename .SAV or .LOW or user specified extension.
+    Error if not found.  Return to user if there is no HALT in
+    LH of error return, provided that if the CALL is from the
+    high segment it is still the original high segment.
+    Otherwise, the monitor prints the error message
+
+       ERROR IN JOB n
+       filename NOT FOUND, UUO AT USER addr
+
+    and stops the job.
+    Reassign low segment core according to size of file
+    or user specified core argument, whichever is larger.
+    Previous low segment is overlaid.  Read low file into
+    beginning of low segment.  Check for I/O errors.  If
+    there is an error print error message and do not return
+    to user.  If there are no errors, perform START.
+
+45. Reassign low segment core according to larger of user's
+    core argument or argument when file saved (RH JOBCOR).
+
+    NOTE:  To be guaranteed of handling the largest number of
+    errors, the cautious user should remove his high segment 
+    from high logical addressing space (use core UUO with a 
+    one in LH of AC).  The error handling code should be put in
+    the low segment along with the RUN UUO and the size of
+    the low segment reduced to lK.  A better idea would
+    be to have the error handling code written once and
+    put in a seldom used (probably nonsharable) high
+    semgnet, which could be gotten in high segment
+    using GETSEG UUO (see below) when an error return
+    occurs to low segment on a RUN UUO.
+
+
+4.5.2  GETSEG AC, or CALLI AC, 40
+
+This UUO has been implemented so that a high segment can be 
+initialized from a file or shared segment without affecting the
+low segment.  It is used for shared data segments, shared program
+overlays, and run-time routines such as FORTRAN or COBOL operating
+systems.  This programmed operator works exactly like the RUN UUO
+with the following exceptions:
+
+a.  No attempt is made to read a low file.
+
+b.  The accumulators are not preserved.  JOBDAT is not changed
+    except for the setting of JOBHRL.
+
+c.  If an error occurs, control is returned to the location of
+    the error return, unless the left half of the location contains  
+    a HALT instruction.
+
+d.  On a normal return, control is returned to two locations
+    following the UUO, whether it is called from a low or high
+    segment.  It should be called from low segment unless the 
+    normal return coincides with the starting address of the new
+    high segment.
+
+e.  User channels l through l7 are not released so the GETSEG UUO
+    can be used for program overlays, such as the COBOL
+    compiler.  Channel 0 is released because it is used by
+    the UUO.
+
+Refer to steps l through 3l of the RUN UUO description (Paragraph
+    4.4.2) for the details of GETSEG UUO operation.
+
+
+4.5.3  REMAP AC, or CALLI AC, 37
+
+This UUO takes the top part of a low segment and remaps
+it into the high segment.  The previous high segment (if any)
+will be removed from the user's addressing space.  The new low
+segment will be the previous low segment minus the amount remapped.   
+
+The call is:
+
+     MOVEI AC, Desired highest adr in low segment
+     REMAP AC, ; or CALLI AC, 37
+     error return
+     normal return
+
+To ensure that the amount remapped is a multiple of lK decimal
+words, the monitor performs the inclusive OR function of l777
+and the user's request.  If the argument exceeds the length of
+the low segment, remapping will not take place, the high segment
+will remain unchanged in the user's addressing space, and the error
+return will be taken.  The error return will also be taken if
+the system does not have a two-register capability.  The
+contents of AC are unchanged.  The contents of JOBREL (refer
+to Paragraph 3.2.l) are set to the new highest legal user 
+address in the low segment.  The RH of JOBHRL will be set to the
+highest legal user address in the high segment (40l777 or greater
+or 0).  The hardware relocation will be changed and the user-mode
+write protect bit will be set.
+
+This UUO is used by the LOADER to load reentrant programs,
+which make use of all of physical core.  Otherwise, the LOADER
+might exceed core in assigning additional core and moving the
+data from the low to the high segment with a BLT instruction.
+The GET command also uses this UUO to perform I/O into the low
+segment instead of the high segment.
+
+
+4.5.4  Testing for Sharable High Segments
+
+Occasionally, it is desirable for a program to determine whether
+its high segment is sharable.  If the high segment is sharable,
+the program may decide not to modify itself.  The following code
+tests the high segment whether or not l) the system has a high
+segment capability, or 2) the job has a high segment.
+
+     HRROI    T,l4        ;See if high segment is sharable
+     GETTAB   T,          ;Look at monitor JBTSGN table
+     JRST     .+2         ;Table or UUO not present
+     TLNN     T,200000    ;Is sharable bit on?
+     JRST     NOTSHR      ;If high segment is sharable.
+
+
+
+4.5.5  Modifying Shared Segments and Meddling
+
+A high segment is usually write-protected, but it is possible
+for a user program to turn off the user write-protect bit or to
+increase or decrease a shared segment's core assignment by 
+using the SETUWP or CORE UUOs.  These UUOs are legal from the
+high or low segment, if the sharable segment has not been
+"moddled" with unless the user has write privileges for the
+file that initialized the high segment.  Even the malicious user
+can have the privilege of running such a program, although he
+does not have the access rights to modify the file used to 
+initialize the sharable segment.
+
+Meddling is defined as any of the following, even if the user has
+provileges to write the file which initialized the sharable
+segment.
+
+a.  START or CSTART commands with an argument.
+
+b.  DEPOSIT command in the low or high segment.
+
+c.  RUN UUO with anything other than a 0 or l in LH of AC as
+    a starting address increment.
+
+d.  GETSEG UUO.
+
+It is not considered meddling to perform any of the above commands
+or UUOs with a nonsharable program.  It is never considered
+meddling to type %C followed by START (without an argument),
+CONT, CCONT, CSTART (without an argument), REENTER, DDT, SAVE,
+or E command.
+
+When a sharable program is meddled with, the monitor sets
+the meddle bit for the user.  An error return is given when
+the clearing of the user write-protect bit is attempted with the
+SETUWP UUO or when the reassignment of core for the high segment
+(except to remove it completely) is attempted with the CORE UUO.
+An attempt to modify the high segment with the DEPOSIT command
+causes the message
+
+     OUT OF BOUNDS
+
+to be printed.  If the user write-protect bit was not set when
+the user meddled, it will be set to protect the high segment
+in case it is being shared.  The command and the two UUOs
+are allowed in spite of meddling, if the user has the access
+provileges to write the file which initialized the high segment.
+
+A privileged programmer is able to supersede a sharable program,
+which is in the process of being shared by a number of users.
+When a successful CLOSE, OUTPUT, or RENAME UUO is executed for
+a file with the same directory name and filename (previous name
+if the RENAME UUO is used) as the segment being shared, the name
+of the segment is set to 0.  New users do not share the 
+older version, but they do share the newer version.  This
+requires the monitor to read the newly created file only once
+to initialize it.  The monitor deletes the older version when
+all users are finished sharing it.
+
+Users with access privileges are able to write programs that 
+access sharable data segments via the GETSEG UUO (whhich is
+meddling) and then turn off the user write-protect bit using
+SETUWP UUO.  With DECtape, write privileges exist if it is
+assigned to the job (cannot be a system tape) or is not
+assigned to any job and is not a system tape.
+
+When control can be transferred only to a small number of entry
+points (two), which the shared program is prepared to handle,
+then the shared program can do anything it has the privileges
+to do, although the person running the program does not
+have these privileges.
+
+The ASSIGN (and DEASSIGN, FINISH, KJOB if device was previously
+assigned by console) command clears all shared segment names
+currently in use, which were initialized for the device, if the
+device is removable (DTA, MTA).  Otherwise, new users could
+continue to shre the old segment indefinitely, even if a new
+version were mounted on the device.  Therefore, it is possible
+to update the libraray during regular timehsaring, if the
+programmer has access privileges.  In a DECtape system,
+a new CUSP tape can be mounted followed by an ASSIGN SYS command,
+which clears segment names for the physical device, but does not
+assign the device because everyone needs to share it.
+
+
+
+4.6  FILE STRUCTURE CONTROL
+
+4.6.l  STRUUO AC, or CALLI AC, 50
+
+This UUO manipulates file structures and is intended primarily for
+monitor support CUSPs.
+
+The first word of the argument list specifies the function to be
+performed.  Function 0 (.FSSRC) is the only unprivileged
+function; the other functions are used with the OMOUNT and
+UMOUNT CUSPs and are not discussed in this manual since
+they are not meant for general use.
+
+The call is:
+     MOVE AC, (XWD N,LOC)     ;N is the number of words in the
+                              ;argument list starting at location
+                              ;LOC.
+     STRUUO AC,               ;or CALLI AC, 50
+     error return             ;AC contains an error code
+     normal return            ;AC contains status information
+     LOC/.FSSR
+     LOC+l/First SIXBIT filestructure name, left justified
+     LOC+2/0
+     LOC+3/Status bits
+     LOC+4/Second SIXBIT file structure name, left jusgified
+     LOC+5/0
+     LOC+6/Status bits
+      .
+      .
+      .
+
+
+
+4.6.l.l  Function 0 .FSSRC - This function allows a new file
+structure search list to be specified for the job issuing 
+the UUO.  The argument list consists of word triplets, which
+specify the new search list order to replace the current search
+list.  The current search list may be determined with the JOBSTR UUO.
+The first word contains a left-justified file structure name
+in SIXBIT.  The second word is not used at present.  The third
+word contains the following status bits:
+
+   Bit 0 = l if software write-protection is requested for this
+           file structure.
+
+   Bit l = l if files are not to be created on this file structure
+          unless the specific file structure is specified in an
+           ASSIGN command or in a INIT or OPEN UUO.
+
+The user may use the MOUNT command to add a new file structure
+name to his search list.  The MOUNT CUSP
+
+a.  Requests the file structure to be mounted (if it is
+    not already mounted).
+b.  Creates a UFD for the user if he has a logged-in quota in
+    file SYS:QUOTA.SYS on that file structure.
+
+A user cannot create files on a file structure unless he or
+the project-programmer number specified has a UFD on that file
+structure.  However, by using the .FSSRC function, the user may
+add a file structure name to his search list if the file
+structure is mounted and either the user has a UFD for that file
+structure or he does not want to write on that file structure.
+If the user attempts to delete a file structure name from his
+search list by the .FFSRC function, the monitor moves the
+file structure name from the active search list to the passive
+search list.  However, because the mount count is not decremented,
+the user may still do I/O explicitly to the file structure.
+The DISMOUNT command must be used to remove the file structure
+from the active or passive search list.  The DISMOUNT
+command causes the mount count to be decremented, signifying
+that the user is finished with the file structure, and checks
+that the user has not exceeded his logged-out quota on that
+file structure.
+
+
+
+                           TABLE 4-3
+
+                       .FSSRC Error Codes
+
+
+    Symbol        Code                     Explanation
+    ------        ----                     -----------
+
+    .ERILF         0            Illegal function code.
+
+    .ERSNF         l            One or more file structures not found.
+
+    .ERSSA         2            One or more file structures single
+                                access only.
+
+    .ERTME         4            Too many entries in search list.
+
+    .ERRSL         l7           File structure is repeated in
+                                a search list definition.
+
+
+
+4.7  PROGRAM IDENTIFICATION
+
+4.7.l  CALL AC, (SIXBIT /LOGIN/) or CALLI AC, l5
+
+This UUO is not available to user programmers.  It is for the
+exclusive use of the LOGIN CUSP, which uses this perator to 
+exit to the monitor and to pass it certain crucial parameters
+(including project and programmer numbers) about the user who
+just successfully logged in.  When the LOGIN CUSP calls this UUO,
+any devices the CUSP was using are released, and a period
+is printed on the user's console.
+
+The console is left in monitor mode ready to accept the user's
+first command.
+
+Any other user program that calls this UUO receives the error
+message
+
+   ILLEGAL UUO AT USER addr
+
+The user's console is then put in monitor mode, and the CONT 
+and CCONT commands are not permitted.
+
+
+4.7.2  CALL AC, (SIXBIT /SETNAM/) or CALLI AC, 43
+
+This UUO is used by the LOADER.  The contents of AC contain a
+left-justified SIXBIT program name, which is stored in a monitor
+job table.  The information in the table is used by the SYSTAT
+CUSP (refer to Table 4-4).
+
+
+4.8  INTER-PROGRAM COMMUNICATION
+
+4.8.l  CALL AC, (SIXBIT /TMPCOR/), or CALLI AC, 44
+
+This allows a job to leave several short files in core from the
+running of one user program or CUSP to the next.  These files are
+referenced by a three-character filename and are unique to
+each job.  All files are deleted when the job is killed.  This
+system of temporary storate improves response times and
+reduces the number of disk operations.
+
+Each temporary file appears to the user as one dump mode buffer.
+The actual size of the file, the number of temporary files a user
+can have, and the total core a user cna use for temporary storage
+are parameters determined at MONGEN time.  All temporary files
+reside in a fixed area, but the space is dynamically allocated
+among different jobs and several different files for any given
+job.
+
+The call is:
+
+           MOVE AC, (XWD CODE, BLOCK)
+           CALL AC, (SIXBIT /TEMPCOR/)      ;or CALLI AC, 44
+           error return
+           normal return
+             .
+             .
+             .
+   BLOCK:  XWD NAME, 0                      ;NAME is filename
+           IOWD BUFLEN, BUFFER              ;user buffer area
+                                            ;(zero for no buffer)
+
+The AC must be set by the user program prior to execution of the
+UUO and is changed by the UUO on return to a value that depends
+on the particular function performed.  Functions of the TMPCOR
+UUO are presented in the following paragraphs.
+
+
+4.8.l.l  CODE = 0, Obtain Free Space - This is the only form of
+the UUO that does not use a two-word parameter block, and
+therefore, the contensts of AC are ordinarily set to 0.
+A normal return is given (unless the UUO is not implemented)
+and the number of free words available to the user is returned
+in AC.
+
+
+4.8.l.2  CODE = l, Read File - If the specified file is not found,
+the number of free words available for temporary files is
+returned in AC and the error return is taken.  If the specified
+file is found, the length of the file in words is returned in AC,
+and as much of the file as possible is copied into the user's
+buffer.  The user may check for truncation of the file by
+comparing the contents of AC with BUFLEN. 
+
+
+4.8.l.3  CODE = 2, Read and Delete File - This function is similar
+to code = l, except that if the specified file is found, it
+is deleted and its space is reclaimed.
+
+
+4.8.l.4  CODE = 3, Write File - If a file exists with the specified
+name, it is deleted and its space reclaimed.  The requested
+size of the file is specified by BUFLEN.  If there is enough space
+
+a.  The file is written
+b.  The number of remaining blocks is returned in AC
+c.  The normal return is taken
+
+If there is not enough space to completly write the file
+
+a.  The file is not written
+b.  The number of free words available to the user is returned in AC
+c.  The error return is taken.
+
+
+4.8.l.5  CODE = 4, Read Directory - The number of different 
+files in the temporary file area of the job is returned in AC.
+An entry is made for each file in the user's buffer area until
+either there is no more space or all files have been listed.  The
+error return is never taken.  The user may check for truncation
+of the entries by comparing the contents of AC with BUFLEN.  The
+format of a directory entry is as follows:
+
+     XWD NAME, SIZE
+
+where NAME is the filename and SIZE is the file length in words.
+
+
+4.8.l.6  CODE = 5, Read and Clear Directory - This function
+is similar to CODE = 4, except that any files in the temporary
+storage area of the job are deleted and their space is reclaimed.
+
+This UUO is used by the LOGOUT CUSP.
+
+
+
+4.9  ENVIRONMENTAL INFORMATION
+
+4.9.l  Timing Information
+
+The central processor clock, which generates interrupts at the
+power-source frequency (60 Hz in North America, 50 Hz in most
+other countries), keeps time in the monitor.  Each clock interrupt
+(tick) corresponds to l/60th (for l/50th) of a second of elapsed
+real time.  The clock is set initially to the current time by
+console input when the system is started, as is the current date.
+When the clock reaches midnight, it is reset to zero, and the
+date is advanced.
+
+
+4.9.l.l  CALL AC, (SIXBIT /DATE/) or CALLI AC, l5 - A l2-bit
+binary integer computed by the formula
+
+     date = ((year-l964)xl2+(month-l))x3l+day-l
+
+represents the date.
+
+This integer representation is returned right justified in
+accumulator AC.
+
+
+4.9.l.2  CALL AC, (SIXBIT /TIMER/), or CALLI AC, 22 - This UUO
+returned the time of day, in clock ticks (jiffies), right justified
+in accumulator AC.
+
+
+4.9.l.3  CALL AC, (SIXBIT /MSTIME/) or CALLI AC, 23 - This UUO
+returns the time of day, in milliseconds, right justified 
+in accumulator AC.
+
+
+4.9.2  Job Status Information
+
+4.9.2.l  CALL AC, (SIXBIT /RUNTIM/) or CALLI AC, 27 - The
+accumulated running time (in milliseconds) of the job number
+in accumulator AC is returned right justified in accumulator AC.
+If the job number in AC is zero, the running time of the currently
+running job is returned.  If the job number in AC does not exist,
+zero is returned.
+
+
+4.9.2.2  CALL AC, (SIXBIT /PJOB/) or CALLI AC, 30 - This UUO
+returns the job number right justified in accumulator AC.
+
+
+4.9.2.3  CALL AC, (SIXBIT /GETPPN/) or CALLI AC, 24- This UUO
+returns in AC the project-programmer pair of the job.  The
+project number is a binary number in the left half of AC, and
+the programmer number is a binary number in the right half of AC.
+If the program is LOGIN or LOGOUT from the system device, a skip
+return is given if the old project-programmer number is also
+logged in on another job.
+
+
+4.9.2.4  CALL AC, (SIXBIT /GETLIN/) or CALLI AC, 34 - This UUO
+returns the SIXBIT physical name of the teletype console
+that the program is attached to.
+
+The call is:
+
+     CALL AC, (SIXBIT /GETLIN/)   ;OR CALLI AC, 34
+
+The name is returned left justified in the AC.
+
+Example:
+
+     CTY or TTY3 or TTY30
+
+This UUO is used by the LOGIN program to print the TTY name.
+
+
+4.9.2.5  CALL AC, (SIXBIT ?JOBSTR/) or CALLI AC, 47 - This UUO
+returns the next file structure name in the job's search list
+along iwth other information about the file structure.  Programs
+like PIP use this UUO to list a user's directory correctly and
+specify in which file structures the files occur, as well as
+the order in which they are scanned.
+
+The call is:
+
+     MOVE AC, (XWD N,LOC)
+     CALL AC, (SIXBIT ?JOBSTR/)     ;or CALLI AC, 47
+     error return
+     normal return
+
+LOC is the address of an N-word block.  The first word of this 
+block should contain either -l or the last value returned
+by the previous JOBSTR.  On return, the first word is either
+the next file structure name or -l if all file structure names
+have been returned.  The second word contains the project-programmer
+number requested in the file structure, and the third word contains
+status bits.  Current status bits include the following:
+
+   Bit 0 = l  if software write protection is in effect for this
+              job.
+
+   Bit l = l  if files are not to be created on this file structure,
+              when a multiple file structure name is specified in
+              an INIT or OPEN UUO.  Files can be created if a
+              specific file structure or physical unit is specified.
+
+
+4.9.2.6  GOBSTR AC, or CALLI AC, 66 - This privileged UUO
+returns successive file structure names in the search list of
+an arbitrary job.  The GOBSTR UUO is a generalization of
+the JOBSTR UUO (see Paragraph 4.9.2.5).
+
+The call is:
+
+     MOVE AC, (XWD N,LOC)  
+      GOBSTR AC,             ;or CALLI AC, 66
+     Error return            ;AC contains an error code
+     normal return
+
+When the UUO is called, AC specifies the length (N) and address
+(LOC) of an argument list.  N may be 0, 3, 4, or 5 where N = 0
+has the same effect as N = 3.  Only the arguments included
+by N(LOC, LOC=l,...,LOC+N-l) are used or returned.
+The argument list is as follows:
+
+   LOC: SIXBIT /file structure name/    ;or -l
+        job number                      ;job whose search
+                                        ;list is desired.
+        XWD proj. prog.                 ;project-programmer
+                                        ;number of the above job.
+        0                               ;currently unused
+        Status                          ;status bits are the same
+                                        ;as in JOBSTR UUO.
+
+On an error return, AC contains one of the following error codes:
+
+     CODE                    MEANING
+
+      0             If LOC is not -l or a file structure name in
+                    jobs list.
+
+      l             If job issuing the UUO is not privileged.
+
+      2             If job number (LOC + l) and project-programmer
+                    number (LOC+2) do not correspond.
+
+
+4.9.3  Monitor Examination
+
+4.9.3.l  PEEK AC, or CALLI AC, 33 - This UUO allows a user program
+to examine any location in the monitor.  It is used by SYSTAT,
+FILDDT, and DATDMP and could be used for on-line monitor debugging.
+Some customers may want to restrict the use of this UUO to project l.
+
+The call is:
+
+   MOVEI AC, exec address      ;TAKEN MODULO SIZE OF MONITOR
+   PEEK AC,                    ;OR CALLI AC, 33
+
+This calls returns with the contents of the monitor location in AC.
+
+
+4.9.3.2  SPY AC, or CALLI AC, 42 - This UUO is used for efficient
+examination of the monitor during timehsaring.  Any number of
+K of physical core (not limited to the size of the monitor)
+is placed into the user's logical high segment.  This amount
+cannot be saved with the monitor SAVE command (only the low
+segment is saved), cannot be increased or decreased by the 
+CORE UUO (error return taken), or cannot have the user-mode
+write protect bit cleared (error return taken).
+
+The call is:
+
+     MOVEI AC, highest physical core location desired
+     SPY AC,           ;or CALLI AC, 42
+     error return
+     normal return
+
+Any program that is written to use the SPY UUO should try the
+PEEK UUO if it receives an error return.  Some installations may
+restrict the use of the SPY UUO to certain privileged users
+(e.g., project l only).
+
+
+4.9.3.3  GETTAB AC, or CALLI AC, 4l - This UUO provides a
+mechanism which will not vary from monitor to monitor for user
+programs to examine the contents of certain monitor locations.
+
+The call is:
+
+     MOVE AC, (XWD index, table number)
+     GETTAB AC,        ;OR CALLI AC, 4l
+     error return
+     normal return
+The left half of AC contains a job number or some other index to
+a table.  Some job numbers may refer to high segments of programs
+by using arguments greater than the highest job number for the
+current monitor.  A negative LH indicates the current job number.
+The right half of AC contains a table number from the list of
+monitor data tables and parameters in Table 4-4.  The entries
+in these tables are globals in the monitor subroutine COMMON.
+The actual values of the core addresses of these locations are
+subject to change and can be found in the LOADER storage map for
+the monitor.  The com!lete description of these globals is found
+in the listing of COMMON.
+
+An error return leaves the AC unchanged and is given if the job
+number or index number in the left half of AC is too high, the
+table number in the right half of AC is too high, or the user does
+not have the privilege of accessing that table.
+
+A normal return supplies the contents of the requested table 
+in AC, or a zero if the table is not defined in the current
+monitor.
+
+The SYSTAT CUSP makes frequent use of this UUO.
+
+
+                         TABLE 4-4
+                       GETTAB TABLES
+
+
+Table Numbers
+ (RH of AC)       Table Names                 Explanation
+-------------     -----------                 ------------
+
+    00             JBTSTS         Job status word; index by job or
+                                  segment number.
+
+    0l             JBTADR         Job relocation and protection;
+                                  Index by job or segment number.
+
+    02             PRJPRG         Project and programmer numbers;
+                                  Index by job or segment number.
+
+    03             JBTPRG         User porgram name; index by job 
+                                  or segment number.
+
+    04             TTIME          Total time used, index by job no.
+
+    05             JBTKCT         Kilo-Core ticks of job, index by
+                                 job number.
+
+    06             JBTPRV         Privilege bits of job, index by 
+                                  job number.
+
+    07             JBTSWP         Swapping Parameters of job, index
+                                  by job or segment number.
+
+    l0             TTYTAB         Teletype-to-job translation; index
+                                  by console line number.
+
+    ll             CNFTBL         Configuration table; index by
+                                  item number; see below.
+
+    l2             NSWTBL         Nonswapping data; index by item
+                                  number; see below.
+
+    l3             SWPTBL         Swapping data; index by item number;
+                                  see below.
+
+    l4             JBTSGN         High segment table; index by
+                                  job number.  Bit l = l if job
+                                  has a high segment that is sharable.
+
+    l5             ODPTBL         Once-only disk parameters; index
+                                  by item number, see below.
+
+    l6             LVDTBL         Level D disk parameters; index by
+                                  item number; see below.
+
+    l7             JBTRCT         Disk blocks read by job; used by
+                                 DSK command.
+                                  a. Bits 0-ll = incremental blocks.
+                                  b. Bits l2-35 = total blocks since
+                                     LOGIN.  Index by job number.
+
+    20             JBTWCT         Disk blocks written by job:
+                                  a. Bits 0-ll = incremental blocks.
+                                  b. Bits l2-35 = total blocks since
+                                     LOGIN. Index by job number.
+
+    2l             JBTDBS         Reserved for future.
+
+    22             JBTTDB         a. Bits 0-l6 = time of day in seconds
+                                     of last disk allocation.
+                                  b. Bits l7-35 = number of disk blocks
+                                     allocated on all file structures
+                                     of this job. Index by job no.
+
+    23             NUMTAB         Table of GETTAB addresses (GETTAB
+                                  immediate); index by GETTAB table
+                                 number; see below.
+
+    24             JBTDEV         Device or file structure name of
+                                  sharable high segment. Index by
+                                  high segment number.
+
+    25             STSTBL         Two-character SIXBIT names for
+                                  job queues; index by item numbers,
+                                  see below.
+
+    26             JBTLOC         Reserved for future.
+
+    27             CORTAB         Physical core allocation. One bit
+                                  per one K of core is system does
+                                  not include LOCK UUO. Two bits per
+                                  entry if system includes LOCK UUO.
+                                  Non-zero entry indicates core in use.
+
+
+Entries in Table ll - CNFTBL (Configuration Table)
+
+   Item    Location                Use
+   ----    --------                ---
+
+     0     CONFIG         Name of system in ASCIZ
+     -
+     4     CONFIG+4
+     5     SYSDAT         Date of system in ASCIZ
+     6     SYSDAT+l
+     7     SYSTAP         Name of day in jiffies
+    l0     TIME           Time of day in jiffies
+    ll     THSDAT         Today's date (l2-bit format)
+    l2     SYSSIZ         Hgihest location in monitor +l
+    l3     DEVOPR         Name of OPR TTY console (SIXBIT)
+    l4     DEVLST         LH is start of DDB (device-data-block) chain
+    l5     SEGPTR         LH=-# of high segments, RH=+#of JOBS (counting
+                          NULL job.
+    l6     TWOREG         Nonzero if system has two-register hardware
+                          and software
+    l7     STATES         Location describing feature switches of
+                          this system in LH, and current state i  RH.
+
+                          Assembled according to MONGEN dialog
+                          and S.MAC:
+ 
+                          Bit 0=l if disk system (FTDISK)
+                          Bit l=l if swap system (FTSWAP)
+                          Bit 2=l if LOGIN system (FTLOGIN)
+                          Bit 3=l if full duplex software (FTTYSER)
+                          Bit 4=l if privilege feature (FTPRV)
+                          Bit 5=l if assembled for choice of reentrant
+                                  or non-reentrant software at monitor
+                                  load time (FT2REL)
+                          Bit 6=l if clock is 50 cycle instead of
+                                  60 cycle.
+                          Bit 7=9 type of disk system
+                                  if 0, 4-series disk system
+                                  if l, 5-series disk system
+                          Bit l0=l if independent programmer numbers
+                                   between project (INDPPN is non-zero)
+                          Bit ll=l if image mode on teletype
+                                   (8-bit SCNS ER)
+      
+                          Set by the privileged operator command,
+                          SCHEDULE:
+
+                          Bit 34=l means no remote LOGINs
+                          Bit 35=l means no more LOGINs except from cty
+                          Bit 35=l means no more LOGINs except from cty
+    20     SERIAL         Serial number of PDP-l0 processor. Set
+                          by MONGEN dialog.
+
+    2l     MEMNSP         Number of nanoseconds per memory cycle
+                          for memory system. Used by SYSTAT to
+                          compute shuffling time.
+
+Entries in Table ll - NSWTBL (Nonswapping Data)
+
+   Item    Location                      Use
+   ----    --------                      ---
+
+     0     CORTAB         Obsolete,
+     -                    unspecified data
+     7     CORTAB+7       
+    l0     CORMAX         Size in words of largest legal user job
+                            (low seg+high seg)
+    ll     CORLST         Byte pointer to last free block in CORTAB
+    l2     CORTAL         Total free+dormant+idle K physical core left
+    l3     SHFWAT         Job number shuffler has stopped
+    l4     HOLEF          Absolute address of job above lowest hole,
+                            0 if no job
+    l5     UPTIME         Time system has been up in jiffies
+    l6     SHFWRD         Total number of words shiffled by system
+    l7     STUSER         Number of job using SYS if not a disk
+    20     HIGHJB         Highest job number ucrrently assigned
+    2l     CLRWRD         Total number of words cleared by CLRCOR
+    22     LSTWRD         Total number of clock ticks when null job
+                          ran and other jobs wanted to but couldnt
+                          because:
+                          a. Swapped out or on way in or out
+                          b. Monitor waiting for I/O to stop so it
+                             can shuffle or swap
+                          c. Job being swapped out because of expanding
+                             core
+
+
+Entires in Table l3 - SWPTBL (Swapping Data
+
+  Item      Location                      Use
+  ----      --------                      ---
+
+    0       BIGHOL        Number of K in biggest hole in core
+    l       FINISH        +Job number of job being swapped out
+                          -Job number of job being swapped in
+    2       FORCE         Job being forced to swap out
+    3       FIT           Job waiting to be fit into core
+    4       VIRTAL        Amount of virtual core left in system
+                          in K (initially set to number of K of
+                          swapping space)
+    5       SWPERC        LH=No. of swap read or write errors
+                          RH=error bits (bits l8-2l same as status bits)
+                          + number of K discarded
+
+
+Entries in Table l5 - ODPTBL (Once-Only Disk Parametsrs)
+
+   Item      Location                     Use
+   ----      --------                     ---
+
+     0       SWPHGH       Unused, contains zero in 5-series monitors.
+     l       K4SWAP       K of disk words set aside for swapping on
+                          all units in active swapping list
+     2       PROT         In-core protect time multiplies size of
+                          job in K-l.
+     3       PROT0        In-core protect time added to above result
+                          after multiply.
+
+
+Entries in Table l6 - LVDTBL (Level D Disk Parameters)
+
+   Item      Location                     Use
+   ----      --------                     ---
+
+     0       MFDPPN       Project-programmer no. for UFDs only (l,l)
+     l       SYSPPN       Project-programmer no. for device SYS (l,4)
+     2       FSFPPN       Project-programmer no. for FAILSAFE (l,2)
+     3       HELPPP       Project-programmer no. for SYSTAT and HELP
+                          (2,5)
+     4       PNTPPN       Proj-Prog no. for PRINTER spooling prog. (3,3)
+     5       SYSPPB       a. LH=address of first PPB block
+                          b. RH=address of next PPB block to be scanned
+     6       SYSSTR       a. LH=address of first file struc. data block
+                          b. RH=unused
+     7       SYSUNI       a. LH-address of data block of first unit
+                             in system
+                          b. RH=unused
+    l0       SWPUNI       a. LH=address of first unit for swapping in sys.
+                          b. RH=unused
+    ll       FREPTR       AOBJN word to use bit map in monitor for
+                         allocating 4-word core blocks.
+    l2       STNPRT      Standard file privilege code (057) can
+                          be changed by installation
+    l3       UFDPRT       Standard UFD privilege code (775), can be
+                          changed by installation
+    l4       MBFNUM       Number of monitor buffers allocated at
+                          once-only time (2)
+     l5      QUESTR       SIXBIT Name of file struc. containing 3,3.UFD
+                          for PRINTR and OPFILE queues.
+
+
+Entries in Table 23 - NUMTAB (GETTAB Immediate)
+
+This table is useful for a program that uses the SPY UUO for
+efficiency and needs the core address of the monitor tables.
+
+The format of each entry is as follows:
+
+     LH = Bits 0-8 = maximum item number in table
+          Bits l4-l7 = a monitor AC.
+
+     RH = executive-mode address of table (item 0)
+
+Examples:
+
+     XWD ITEM + JBTMXL, JOBSTS
+     XWD ITEM + TTPMXL, TTYTAB
+
+Entries in Table 25 - STSTBL (Two-character SIXBIT names for job
+queues)
+
+Word 0
+
+     Bits 0-ll = contain the two SIXBIT Character mnemonic of
+                 job state code 0
+     Bits l2-23 = contain the two SIXBIT character mnemonic of
+                  job state code l
+     Bits 24-35 = contain the two SIXBIT character mnemonic of
+                  job state code 2
+
+Word l
+
+     Bits 0-ll = contain the mnemonics of job state code 3
+     Bits l2-23 = contain the mnemonics of job state code 4
+     Bits 24-35 = contain the mnemonics of job state code 5
+     etc.
+
+The job state code for a disk system are as follows:
+
+     RN - one of the run queues
+     WS - I/O wait satisfied
+     TS - Teletype I/O wait satisfied
+     DS - disk I/O wait satisfied
+     ST - system tape wait
+     AU - disk alter UFD wait
+     MQ - disk monitor buffer wait
+     DA - disk storage allocation wait
+     CB - disk core block scan wait
+     DT - DECtape control wait
+     DC - data control wait
+     MT - magnetic control wait
+     CA - core allocation wait (to be locked)
+     I/O - I/O wait
+     TI - teletype I/O wait
+     DI - disk I/O wait
+     SL - sleep wait
+     NU - null state
+     ST - stop (%C) state
+
+These state codes are printed by SYSTAT and MOVEI.
+
+
+4.9.3.4  DEVSTS AC, or CALLI AC, 54 - This UUO is a diagnostic UUO
+used to retrieve the DEVSTS word of the device data block for an
+INITed device.  The DECSTS word is used by a device service
+routine to save the results of a CONI after each interrupt from
+the device.  Devices that use the DEVSTS UUO are the following:
+CDR, CDP, MTA, DTA, PTR, PTP, DSK, LPT and PLT.
+
+The call is:
+
+     MOVEI AC, channel number of device
+     DEVSTS AC,        ;or CALLI AC, 54
+     error return      ;UUO not implemented for any devices
+     normal return     ;AC contains the DEVSTS word of the DDB
+
+Upon return, the contents of the DEVSTS word is returned in AC.
+Therefore, if the device service routine does not store a CONI
+useless information may be returned to user.  Note that an error
+return is not indicated if the device service routine does not
+use the DEVSTS word for its intended purpose.  Devices with both
+a control and data interrupt store the controller CONI(MTS, DTS,
+DSK, DSK2, DPC, DPC2).
+
+The DEVSTS UUO is not meaningful when used in asynchronous
+buffered I/O mode unless a WAIT UUO (see Paragraph 4.l0.5.3) is
+issued first to ensure synchronization of the actual data trans-
+ferred with the device status returned.
+
+
+4.9.4  Configuration Information
+
+4.9.4.l  CALL AC, (SIXBIT /SWITCH/) or CALLI AC, 20 - This UUO
+returns the contents of the central processor data switches in
+AC.  Caution must be exercised in using the data switches because
+they are not an allocated resource and are always available to
+all users.
+
+
+4.9.4.2  CALL AC, (SIXBIT /DEVCHR/) or CALLI AC, 4 - This UUO
+allows the user to determine the physical characteristics asso-
+ciated with a device name.  The logical or physical device name
+must be in AC as a left-justified SIXBIT quantity when the UUO
+is called.
+
+The call is:
+
+     MOVE AC, (SIXBIT/DEV/)
+     CALL AC, (SIXBIT/DEVCHR/)
+     return
+
+If the device is not found, the contents of AC is zero on return.
+If the device is found, the following information is returned in AC.
+
+
+   Bit                               Explanation
+   ---                               -----------
+
+Bit 0=l            DECtape directory is in core. This bit is cleared
+                   by an ASSIGN or DEASSIGN to that unit.
+
+Bit l=l            Device is a file structure.
+
+Bit 2=l            Device is a card reader or card punch.
+
+Bit 3=l            Device is a line printer.
+
+Bit 4=l            TTY is attached to a job.
+
+Bit 5=l            TTY is in use as auser console (even if detached).
+
+Bit 6=l            TTY is in use as an I/O device.
+
+Bit 7=l            Device is a display.
+
+Bit 8=l            Device has a long dispatch table (e.g., UUOs other
+                   than INPUT, OUTPUT CLOSE and RELEASE perform real
+                   action.)
+
+Bit 9=l            Device is a paper-tape punch.
+
+Bit l0=l           Device is a paper-tape reader.
+
+Bit ll=l           Device is a DECtape.
+
+Bit l2=l           Device is available to this job or is already
+                   assigned to this job.
+
+Bit l3=l           Device is a magnetic tape.
+
+Bit l4=l           Device is a TTY.
+
+Bit l5=l           Device has a directory (DTA or DSK).
+
+Bit l6=l           Device can perform input.
+
+Bit l7=l           Device can perform output.
+
+Bit l8=l           Device is assigned by a console command.
+
+Bit l9=l           Device is assigned by program (INIT).
+
+Remaining          If bit 35-n contains a l, then mode n is legal for
+bits               that device. The mode number (0 thru l7) must be
+                   converted to decimal (e.g., mode l7(8) is
+                   represented by bit 35-l5(l0) or bit 20).
+
+
+4.9.4.3  CALL AC, (SIXBIT /DEVPPN/) or CALLI AC, 55 - This UUO
+allows a user program to obtain the project-programmer number
+associated with a device name.
+
+The call is:
+
+     MOVE AC, (SIXBIT /DEV/)
+     CALL AC, (SIXBIT /DEVPPN/)     ;or CALLI AC, 55
+     error return
+     normal return
+
+DEV may be a logical or physical device name or SYS.  The error
+return is taken if:
+
+a.  The UUO is not implemented; therefore the contents of AC
+    remain the same on return.
+b.  The device does not exist, therefore, zero is returned in AC.
+
+If a legal device is specified, the normal return is given and the
+project-programmer number of either the user's directory or device
+SYS is returned in AC.
+
+The following is an example to read a UFD even if device SYS is
+specified.
+
+   MOVEI A,l6                         ;get MFD proj-prog. number
+   CALL AC,(SIXBITH/GETTAB/)          ;no change if no GETTAB
+   SKIPA                              ;store MFD directory no.
+   MOVEM A,MFDPPN
+   MOVE A, DEVICE NAME TYPED BY USER
+   MOVEM A,MODE=l                     ;store device name for OPEN
+   CALL A,(SIXBIT /DEVPPN/)           ;get proj-prog. number
+                                      ;implied by the device name
+   MOVE I A,O                         ;not implemented or no such device
+   MOVEM A,PPN                        ;store proj-prog. number
+                                      ;associated with this device
+   OPEN A,MODE                        ;try to assign device
+   JRST ERROR                         ;not available
+   LOOKUP A,PPN                       ;try to lookup UFD
+   JRST ERROR                         ;not there
+   INPUT A,                           ;read first block UFD
+     .
+     .
+     .
+
+MODE:  l4                             ;mode is binary
+       0                              ;device name
+       XWD O, INBUF                   ;buffer headers
+PPN:   0                              ;directory names
+       SIXBIT/UFD/                 ;extension
+       0     
+MFDPPN:  XWD l,l                      ;lookup UFD in MFD
+
+
+4.9.4.4  CALL AC, (SIXBIT /DSKCHR/) or CALLI AC, 45 - The
+disk characteristics UUO provides necessary information
+for allocating storage efficiently on different types of disks.
+Most programs are able to use the generic device name DSK
+rather than special disk names; however, this UUO is needed by
+special monitor support CUSPs.
+
+This UUO accepts, as arguments, names of file structures (e.g.,
+DSKA), types of controllers (e.g., DP) controllers (e.g., DPA)
+logical units (e.g., DSKA3), physical disk units (e.g., DPA3),
+or logical device names (e.g., ALPHA).  If the argument in LOC
+specifies more than one unit, the values returned in AC are
+for the first unit of the specified set.  If the argument 
+specifies more than one file structure (i.e., DSK or logical
+device name for disk), the first unit of the first file structure
+is returned. 
+
+The call is:
+
+     MOVE AC, (XWD+N,LOC)          ;N is the no. of locations
+                                   ;of arguments and values starting
+                                   ;at location LOC
+     CALL AC, (SIXBIT/DSKCHR/)     ;or CALlI AC, 45
+     error return                  ;not a disk
+     normal return
+
+On a normal return, AC contains status information in the left
+half and configuration information in the right half.  The
+left half bits have been chosen so that the normal state is 0.
+
+
+Symbol      Bit                        Explanation
+------      ---                        -----------
+
+.UPRHB    Bit 0=l       The monitor must reread home block before the
+                        next operation to ensure that the pack ID
+                        is correct. The monitor sets this bit when
+                       a disk pack goes off-line.
+
+.UPOFL    Bit l=l       The unit is off-line.
+
+.UPHWP    Bit 2=l       The unit is write-protected.
+
+.UPSWP    Bit 3=l       The unit belongs to a file structure that is
+                        write-protected by software for this job.
+
+.UPSAF    Bit 4=l       Unit belongs to a single-access file structure.
+
+.UPZMT    Bit 5=l       Unit belongs to a file structure with a mount
+                        count that has gone to zero. (i.e., no one is
+                        using the file structure). Available in 5.02
+                        monitors and later models.
+
+.UPPRF    Bit 6=l       Unit belongs to a private file structure.
+
+          Bits 7 & 8
+          = ll          The unit is down
+          = l0          No pack is mounted
+          =0l           A pack is being mounted (desired file structure
+                        and pack ID is already known by the monitor).
+          = 00          A pack is mounted.
+
+.UPMSB    Bit 9=l       The unit has more than one SAT block.
+
+.UPNNA    Bit l0=l      Unit belongs to a file structure for which
+                        the operator has requested no new INITs,
+                        LOOKUPs, or ENTERs; set by privileged
+                        STRUUO function.
+
+          Bits ll-l4    Reserved for future expansion
+
+          Bits l5-l7    The code identifies which type of argument
+                        was passed to the monitor in location LOC.
+
+          Bits l8-20    Data channel number that software believes
+                        hardware is connected to; first data channel
+                        is 0.
+
+          Bits 2l-26    Controller type:
+          = 0           DR (Future drum) contoller RXl0
+          = l           FH (Burroughs disk, Bryant drum) controller RCl0
+          = 2           DP (Memorex disk packs) controller RPl0
+          = 3           MD (Bryant mass disk) controller RAl0
+
+          Bits 27-29    Controller number; fist controller of
+                        each type starts at 0 (e.g, DTA=0,
+                        DPB=l).
+
+          Bits 30-32    Unit type; a controller-dependent field used
+                        to distinguish various options of a unit
+                        on its controller.
+
+                        If bits 2l-26 and bits 30-32 then type is
+                          l   0   RDl0 Burroughs disk on RCl0
+                          l   l   RMl0B Bryant drum on RCl0
+                          2   0   RP0l disk pack on RPl0
+                          2   l   RP02 disk pack on RPl0
+                          3   0   RBl0B dual positioner on RAl0
+                          3   l   RBl0A single positoner on RAl0
+
+          Bits 33-35    Physical unit no. within controller; first
+                        unit is 0.
+
+The user program supplies in location LOC a left-justified, SIXBIT
+disk name which may be one of the following:
+
+     0   generic disk name
+     l   subset of file structure because of file structure abbrev.
+     2   file structure name
+     3   unit within a file structure
+     4   controller class name
+     5   controller class
+     6   physical disk unit name.
+
+or a logical name for one of the above assigned by the ASSIGN
+command.
+
+On a normal return, the monitor returns values in the following
+locations:
+
+LOC+l(.UFTAL)     The number of blocks left of the logged-in job
+                  quota before the UFD of the job is exhausted on
+                  the unit specified in LOC. If negative, the UFD
+                  is overdrawn.
+
+LOC+2(.STTAL)     The number of blocks on a priority basis left
+                  for all users on the file structure.
+
+LOC+3(.UNTAL)     Number of blocks left for all users on specified unit.
+
+LOC+4(.STNAM)    File structure name to which this unit belongs.
+
+LOC+5(.UNCHR)     a. Bits 0-8 are the number of blocks/cluster.
+                  b. Bits 9-l7 are the no. of blocks/track.
+                  c. Bits l8-35 are the no. of blocks/cylinder (see
+                     Appendix H.)
+
+LOC+6(.UNBPU)     Number of l28-word blocks on specified unit.
+
+LOC+7(.STMNT)     Mount count is the no. of jobs that have done a
+                  MOUNT command for this file structure without
+                  executing a REMOVE command; it is a use count
+                  (available in 5.02 monitors and later monitors).
+
+LOC+l0(.UNWPS)    Number of words containing data bits per SAT 
+                  block on this unit.
+
+LOC+ll(.UNSAV)    Zero if file structure is not single access.
+                  RH=job number of user if file structure is
+                  single access.
+
+
+4.9.4.5  SYSSTR AC, or CALLI AC, 44 - This UUO provides a simple
+mechanism to obtain all the file structure names in the system.
+The proper technique to access all files in all UFDs is to access
+the MFD on each file structure separately.  Monitor support
+CUSPs use this UUO to access all the files in the system.
+
+The call is:
+
+     MOVEI AC,0 or the last value returned by previous SYSSTR
+     SYSSTR AC,       ;or CALLI AC, 46
+     error return
+     normal return
+
+An error return is given if either
+
+a.  the UUO is not implemented
+b.  the argument is not a file structure name
+
+On a normal return, the next public or private file strucutre
+name in the system is returned in AC.  A return of 0 in AC
+on a normal return means that the list of file structure names
+has been exhausted.  If 0 is specified as an argument, the 
+first file structure name is returned in AC.  The argument cannot
+be a physical disk unit name or a logical name.
+
+
+4.9.4.6  SYSPHY AC, or CALLI AC, 5l - This UUO returns all
+physical disk units in the system.  This SYSPHY UUO is similar
+to the SYSSTR UUO (see Paragraph 4.9.4.5).
+
+The call is:
+
+     MOVEI AC,0 or the last unit name returned by previous SYSPHY
+     SYSPHY AC,         ;or CALLI AC, 5l
+     error return       ;not implemented or not a physical disk
+     normal return      ;unit name
+
+On the first call AC should be 0 to request the return of the
+first physical unit name.  On subsequent calls, AC should
+contain the previously returned unit name.
+
+An error return is given if AC does not contain a physical disk
+unit name or zero.  On a normal return, the next physical unit
+name in the system is returned in AC.  A return of 0 in AC
+indicates that the list of physical units has been exhausted.
+
+
+4.l0  I/O PROGRAMMING
+
+All user mode I/O programming is controlled by monitor 
+programmed operators.  I/O is directed by'
+
+a.  Associating a device and a ring of buffers with one of
+    the user's I/O channels (INIT, OPEN).
+
+b.  Optionally selecting a file (LOOKUP, ENTER).
+
+c.  Passing buffers of data to or from the user program (IN,
+    INPUT, OUT, OUTPUT).
+
+Device specification may be delayed from program-generation time
+until program-run time sicne the monitor
+
+a.  Allows a logical device name to be associated with a
+    physical device (ASSIGN command)
+
+b.  Treats operations that are not pertinent to a given device
+    as no-operation code.
+
+For example:  a rewind directed to a line printer does nothing,
+and file selection operatiosn for devices without a filename
+directory are alwasy successful.
+
+
+4.l0.l  I/O Organization
+
+4.l0.l.l  Files - A file is an ordered set of data on a peripheral
+device.  The extent of a file on input is determined by an end-of
+file condition dependent on the device.  For example:  a file
+is terminated by reading an end-of-file gap from magnetic tape,
+by an end-of-file card from a card reader, or by
+depressing the end-of-file switch on a card reader (refer
+to Chapter 5).  The extent of a file on output is determined
+by the amount of information written by the OUT or OUTPUT program-
+med operators up through and including the next CLOSE or RELEAS
+operator.
+
+
+4.l0.l.2  Job I/O Initialization - The monitor programmed operator
+
+     CALL (SIXBIT /RESET/) or CALLI 0
+
+should normally be the first instruction in each user program.
+It immediately stops all I/O transmissions on all devices without
+waiting for the devices to become inactive.  All device allocations
+made by the INIT and OPEN operators are cleared, and, unless the
+devices have been assigned by the ASSIGN command (refer to 
+Chapter 2), the devices are returned to the monitor facilities
+pool.  The content of the left half of JOBSA (program break)
+is stored in the right half of JOBFF so that the user buffer
+area is reclaimed if the program is restarting.  The left half
+of JOBFF is cleared.  Any files that have not been closed are
+deleted on disk.  Any older version with the same filename remains.
+The user-mode write-protect bit is automatically set if a high
+segment exists, whether it is sharable or not; therefore, a
+program cannot inadvertently store into the high segment.
+
+
+4.l0.2  Device Selection
+
+For all I/O operations, a specific device must be assocaited with
+a software I/O channel.  This specification is made by an 
+argument of the INIT or the OPEN programmed operators.  The INIT
+or the OPEN programmed operators may specify a device with a
+logical name that is associated with a particular physical device
+by the ASSIGN monitor command.  A given device remains
+associated with a software I/O channel until released (refer to
+Paragraph 4.l0.8.l) or until another INIT or OPEN is performed
+for that channel.  Devices are separated into two categories:
+those with no filename directory (refer to Chapter 5) and
+those with at least one filename directory (refer to Chapter 6).
+
+
+4.l0.2.l  Nondirectory Devices - For nondirectory devices, (e.g.,
+card reader and punch, line printer, paper-tape reader and punch,
+and user console) selection of the device is sufficient to
+allow I/O operations over the associated software channel.
+All other file specifiers, if given, are ignored.  Magnetic tape,
+a nondirectory device, requires in addition to the name, that the
+tape be properly positioned.  It is advisable to use the programmed
+operators that select a file, so that a directory device may be
+substituted for a nondirectory device at run time.
+
+
+4.l0.2.2  Directory Device - For directory devices, (e.g., DECtape
+and disk) files are addressable by name.  If the device has a
+single file directory (e.g., DECtape) the device name and file-
+name are sufficient information to determine a file.  If the
+device has multiple file directories (e.g., disk) the name of the
+file directory must also be specified.  These names are specified
+as arguments to the LOOKUP, ENTER and RENAME programmed operators.
+
+
+4.l0.2.3  Device Initialization - The OPEN (operation code 050)
+and INIT (operation code 04l) programmed operators initialize
+a file by specifying a device, ldev, and initial file status,
+STATUS and the location of the input and output buffer headers.
+
+     OPEN D,SPEC               INIT D, STATUS
+     error return              SIXBIT/ldev)
+     normal return             XWD OBUF,IBUF
+         .                     error return
+         .                     normal return
+         .
+     SPEC:EXP STATUS
+        SIXBIT /dev/
+        XWD OBUF,IBUF
+
+a.  DATA CHANNEL - OPEN and INIT establish a correspondence
+between the device, ldev, and a 4-bit data channel number, D.
+Most of the other input/output operators require this channel
+number as an argument.  If a device is already assigned to 
+channel D, it is release (refer to Paragraph 4.l0.8.l).  The
+device name, dev, is either a logical or physical name, with
+logical names taking precedence over physical names (refer to
+ASSIGN command. Chapter 2).  If the device, dev, is not the
+system device SYS and is allocated to another job or does not
+exist, the error return is taken.  In nondisk systems, if the
+device is the system device SYS, the job is put into a system
+device wait queue, and continues running when SYS becomes
+available.  In disk systems where the system device SYS is
+one or more file structures, control returns immediately.
+
+b.  INITIAL FILE STATUS - The file status, including the data mode,
+is set to the value of the symbol STATUS.  Thereafter, bits
+are set by the monitor and may be tested and reset by the
+user via monitor programmed operators.  Bits 30-35 of the file
+status are normally set by an OPEN or INIT UUO.  Refer to Table
+4-7 for the file status bits.  If the data mode is not legal
+(refer to Chapter 5 and 6) for the specified device, the job is
+stopped and the monitor prints
+
+   ILL DEVICE DATA MODE FOR DEVICE dev AT USER addr,
+
+where dev is the physical name of the device and addr is the
+location of the OPEN or INIT operator, on the user's console.
+The console is left in monitor mode.
+
+c.  DATA MODES - Data transmissions are either unbuffered or
+buffered.  (Unbuffered mode is sometimes referred to as dump
+mode.)  The mode of transmission is specified by a 4-bit argu-
+ment to the INIT, OPEN or SETSTS programmed operators.  Tables
+4-5 and 4-6 summarize the data modes.
+
+
+                         TABLE 4-5
+                     BUFFERED DATA MODES
+
+Octal Code   Mnemonic                       Meaning
+----------   --------                       -------
+
+    0           A          ASCII. 7-bit characters packed left
+                           justified, five characters per word.
+
+    l           AL         ASCII line. Same as 0, except the buffer
+                         is terminated by a FORM, VT, LINE-FEED,
+                           or ALTMODE character. Differs from ASCII
+                           on TTY and PRT only.
+
+   2-7                     Unused.
+
+    l0          I          Image.  A device dependent mode. Buffer
+                          is filled with data exactly as supplied
+                           by the device.
+
+  ll-ll                    Unused.
+
+    l3          IB         Image binary. 36-bit bytes.  This mode is
+                           similar to binary mode, except that no
+                           automatic formatting or checksumming is
+                           done by the monitor.
+
+    l4          B          Binary.  36-bit byte.  This is blocked
+                           format consisting of a word count, n
+                           (the right half of the first data word
+                           of the buffer), followed by n 36-bit
+                           data words.  Checksum for cards and 
+                           paper tape.
+
+
+
+                         Table 4-6
+                    UNBUFFERED DATA MODES
+
+
+Octal Code   Mnemonic                       Meaning
+----------   --------                       -------
+
+    l5          ID         Image dump.  A device dependent dump mode.
+
+    l6          DR         Dump as records without core buffering.
+                           Data is transmitted between any contigous
+                           blocks of core and one or more standard
+                           length records on the device for each
+                           command word in the command list.
+
+    l7          D          Dump one record without core buffering.
+                           Data is transmitted between any contigous
+                           block of core and exactly one record of
+                          arbitrary length on the device for each
+                           command word in the command list.
+
+
+d.  BUFFER HEADER - Symbols OBUF and IBUF, if non-zero specify
+the location of the first word of the 3-word buffer ring header
+block for output and input, respectively.  Buffered data modes
+utilize a ring of buffers in the user area and the priority
+interrupt system to permit the user to overlap computation with
+his data transmission.  Core memory in the user's area serves
+as an intermediate buffer between the user's program and the
+device.  The buffer storage mechanism consists of a 3-word buffer
+ring header block for bookkeeping and a data storage area sub-
+divided into one or more individual buffers linked together to
+form a ring.  During input operations, the monitor fills a
+buffer, makes the buffer available to the users program,
+advances to the next buffer in the ring, and fills the buffer
+if it is free.  The user's program follows the monitor, emptying
+the next buffer if it is full or waiting for the next buffer to
+fill.
+
+
+During output operations, the user's program and the 
+monitor exchange roles; the user fills the buffers and the
+monitor empties them.  Only the headers that will be used need
+to be specified.  For instance, the output header need not be
+specified, if only input is to be done.  Also, data modes l5,
+l6 and l7 require no header.  If either of the buffer headers or
+the 3-word block starting at location SPEC lies outside the
+user's allocated core area*, the job is stopped and the monitor 
+prints
+
+   ILLEGAL UUO AT USER addr
+
+(addr is the address of the OPEN or INIT operator) on the user's
+console, leaving the console in monitor mode.
+
+*Buffer headers may not be in the user's ACs; however, the 
+buffer headers may be in location above JOBPFI (refer to
+Table 3-l).
+
+The first and third words of the buffer header are set to 
+zero.  The left half of the second word is set up with the
+byte pointer size field in bits 6 through ll for the selected
+device-data mode combination.
+
+If the same device (other than disk) is INITed on two or 
+more channels, the monitor retains only the buffer 
+headers mentioned in the last INIT (a 0 specification does
+not override a previous buffer header specification).  Other
+I/O operations to any of the channels involved act on the
+buffers mentioned in the last INIT previous to the I/O operations.
+
+
+4.l0.3  Ring Buffers
+
+4.l0.3.l  Buffer Structure - The ring buffer (see Figure 4-l)
+is comprised of a buffer ring header block and bufferings.
+
+a.  BUFFER RING HEADER BLOCK - The location of the 3-word buffer
+ring header block is specified by an argument of the INIT and
+OPEN operators.  Information is stored in the header by the 
+monitor in response to user execution of monitor programmed
+operators.  The user's program finds all the information
+required to fill and empty buffers in the header.  Bit 
+position 0 of the first word of the header is a flag, which
+if l, means that no input or output has occurred for this
+ring of buffers.  The right half of the first word is the
+address of the second word of the buffer currently used by
+the user's program.  The second word of the header contains a
+byte pointer to the current byte in the current buffer.  The
+byte size is determined by the data mode.  The third word of
+the header contains the number of bytes remaining in the
+buffer.  A program may not use a single buffer header for
+both input and output, nor may a single buffer ring header be
+used for more than one I/O function at a time.  User's cannot
+use the same buffer ring for simultaneous input and output;
+only one buffer ring is associated with each buffer ring
+header.
+
+
+
+
+
+
+
+
+
+
+
+        
+(Figure 4-l  User's Ring of Buffers)
+
+
+b.  BUFFER RING - The buffer ring is established by the INBUF
+and OUTBUF operators, or, if none exists when the first IN,
+INPUT, OUT or OUTPUT operator is executed, a 2-buffer ring is
+set up.  The effective address of the INBUF and OUTBUF operators
+specifies the number of buffers in the ring.  The location
+of the buffer ring is specified by the contents of the right
+half of JOBFF in the user's job data area.  The monitor 
+updates JOBFF to point to the first location past the storage
+area.
+
+All buffers in the ring are identical in structure.  The right
+half of the first word contains the file status when the monitor
+advances to the next buffer in the ring (see Figure 4-2).  Bit
+0 of the second word of a buffer, the use bit, is a flag
+that indicates whether the buffer contains active data.  This
+bit is set to l by the monitor when the buffer is full on input
+or being emptied on output, and set to 0 when the buffer is empty
+on output or is being filled on input.  In other words, if
+the use bit = 0, the buffer is available to the filler; if
+the use bit = l, the buffer is available to the emptier.  The
+use bit prevents the monitor and the user's program from interfering
+with each other by attempting to use the same buffer simultaneously.
+Buffers are advanced by the UUOs and not by the user's program.
+The use bit in each buffer should never be changed by the 
+user's program escept by means of the UUOs.  Bits l through l7
+of the second word of the buffer contain the size of the data
+area of the buffer plus l.  The size of this data area depends
+on the device.  The right half of the third word of the
+buffer is reserved for a count of the number of words that
+actually contain data.  The left half of this word is reserved
+for other bookkeeping purposes, depending on the particular
+device and the data mode.
+
+
+
+
+
+
+
+(Figure 4-2  Detailed Diagram of Individual Buffer)
+
+
+4.l0.3.2  Buffer Initialization - Buffer data storage areas
+may be established by the INBUF and OUTBUF programmed
+operators, by by the first IN, INPUT, OUT, OUTPUT operator
+if none exists at that time, or the user may set up his
+own buffer data storage area.
+
+a.  MONITOR GENERATED BUFFERS - Each device has an associated
+standard buffer size (refer to Chapters 5 and 6).  The
+monitor programmed operators INBUF D, n (operation code 064)
+and OUTBUD D, n (operation code 065) set up a ring of n standard
+size buffers associated with the input and output buffer headers,
+respectively, specified by the last OPEN or INIT operator on
+data channel D.  If no OPEN or INIT operator has been performed
+on channel D, the monitor stops the job and prints
+
+   I/O TO UNASSIGNED CHANNEL AT USER addr
+
+(addr is the location of the INBUF or OUTBUF operator) on the
+user's console leaving the console in the monitor mode.
+
+The storage space for the ring is taken from successive locations,
+beginning with the location specified in the right half of JOBFF.
+This location is set to the program break, which is the first free
+location above the program area, by RESET.  If there is
+insufficient space to set up the ring, the monitor automatically 
+attempts to expand the user's core allocation by lK.  If this
+fails, the monitor stops the job and prints
+
+    ADDRESS CHECK FOR DEVICE dev AT USER addr
+
+(dev is the physical name of the device associated with channel D
+and the addr is the location of the INBUF or OUTBUF operator)
+on the user's console, leaving the console in monitor mode.
+
+This message is also printed when an INBUF (OUTBUF) is attempted
+if the last INIT or OPEN UUO on channel D did not specify an
+input (output) buffer header.
+
+The ring is set up by setting the second word of each buffer
+with a zero use bit, the appropriate data area size, and the
+link to the next buffer.  The first word of the buffer header
+is set with a l in the ring use bit, and the right half contains
+the address of the second word of the first buffer.
+
+b.  USER GENERATED BUFFERS - The following code illustrates an
+alternative to the use of the INBUF programmed operator.  
+analogous code may replace OUTBUF.  This user code operates
+similarly to INBUF.  SIZE must be set equal to the greatest
+number of data words expected in one physical record.
+
+
+GO:      INIT l,0                   ;initialize ASCII mode
+         SIXBIT/MTAO/               ;magnetic tape unit 0
+         XWD 0, MAGBUF              ;input only
+         JRST NOTAVL
+         MOVE O, (XED 400000,BUF    ;the 400000 in the left half
+                  l+l)              ;means the buffer was never
+                                    ;referenced
+
+         MOVEM 0, MAGBUF            ;set up non-standard byte
+         MOVE 0, (POINT BYTSIZ,     ;size
+                  0,35)
+         MOVEM 0, MAGBUF+l
+         JRST CONTIN                ;go back to main sequence
+
+MAGBUF:  BLOCK 3                    ;space for buffer ring header
+BUFl:    0                          ;buffer l, lst word unused
+         XWD SIZE+l,BUF2+l          ;left half contains data area
+                                    ;size+l, right half has address
+                                   ;of next buffer
+         BLOCK SIZE +l              ;space for data, lst word
+                                    ;receives word-count. Thus one
+                                    ;more word is reserved than is
+                                    ;required for data lone.
+BUF2:    0                          ;second buffer
+         XWD SIZE+l,BUF3+l          
+         BLOCK SIZE+l
+BUF3:    0
+         XWD SIZE+l,BUFl+l          ;third buffer
+         BLOCK SIZE +l              ;right half closes the ring
+
+
+
+4.l0.4  File Selection (LOOKUP and ENTER)
+
+The LOOKUP (operation code 076) and ENTER (operation code 077)
+programmed operators select a file for input and output,
+respectively.  These operators are not necessary for nondirectory
+devices; however, it is good programming practice to always use
+them so that directory devices may be substituted at run time
+(refer to the ASSIGN command, Chapter 2).  The monitor gives the
+normal return for a LOOKUP or ENTER to a nondirectory device
+therefore, user programs can be coded in a device-independent
+fashion.
+
+
+4.l0.4.l  The LOOKUP Operator - LOOKUP selects a file for input
+on channel D.
+
+   LOOKUP D,E
+   error return
+   normal return
+       .
+       .
+       .
+       .
+E: SIXBIT/file/                ;filename l to 6 char. left-justified
+   SIXBIT/ext/                 ;filename extension, 0 to 3
+                               ;characters, left-justified
+   0
+   XWD project number, programmer number
+
+If no device has been associated with channel D by an INIT or
+OPEN UUO, the monitor stops the job, prints
+
+   I/O TO UNASSIGNED CHANNEL AT USER LOC addr
+
+and returns the user's console to monitor mode.  The input
+side of channel D is closed if not already closed.  The output
+side is not affected.
+
+On DECtape, LOOKUP searches the device directory as specified
+by an INIT.  On disk, the user's file directory as specified
+by the contents of location E+3 is searched.
+
+If the device is a directory device and the file is found, the
+normal return is taken and information concerning the file is
+returned in location E+l through E+3.  The normal return is
+always taken if the device associated with the channel D does not
+have a directory.  The error return is taken if either the file
+is not found, or the file is found but the user does not have
+access to it.
+
+
+4.l0.4.2  The ENTER Operator - ENTER selects a file for output on
+channel D.
+
+   ENTER D,E
+   error return
+   normal return
+      .
+      .
+      .
+E: SIXBIT/file/                ;filename, l through 6
+                               ;characters, left-justified
+   SIXBIT/ext/                 ;filename, extension, 0
+                               ;through 3 char., left-justified
+   EXP(PROT)B8+EXP(TIME)B3+DATE
+   XWD project number, programmer number
+
+If no device has been associated with channel D by an INIT or
+OPEN UUO, the monitor stops the job, prints
+
+   I/O TO UNASSIGNED CHANNEL AT USER LOC addr
+
+and returns the user's console to monitor mode.  The output side
+of channel D is now closed (if it was not closed); the input 
+side is not affected.  On DECtape, ENTER searches the device
+directory as specified by an INIT.  On disk, the user's file
+directory, as specified by the contents of location E+3, is
+searched.
+
+If the device does not have a directory, the normal return is
+always taken.  On directory devices, if the file is found and is
+not being written or renamed, the file is deleted (the user must
+have access privileges to the file) and the storage space on the
+device is reclaimed.  On DECtape, this deletion must occur
+immediately upon ENTER to ensure that space is available for
+writing the new version of the file.  On disk, the deletion of
+the previous version does not occur until output CLOSE time;
+consequently, if the new file is aborted when partially written,
+the old version remains.  The normal return is taken, and the
+monitor makes the file entry, and records file information.
+
+The error return is taken if:
+
+a.  The file is not found (LOOKUP only)
+
+b.  The filename in location E is 0
+
+c.  The file is found but is being written or renamed (ENTER only)
+
+d.  The user does not have access to the file, as supplied by the
+    file if it exists or by the UFD if the file does not exist.
+
+
+4.l0.4.3  RENAME Operator - The RENAME (operation code 055) 
+programmed operator is used
+
+a.  To alter the filename, filename extension, and file access
+    privileges
+
+b.  To delete a file associated with channel D on a directory
+    device.
+
+   RENAME D,E
+   error return
+   normal return
+      .
+      .
+      .
+E: SIXBIT/file/            ;filename, l to 6 characters
+   SIXBIT/ext/             ;filename extension, 0 to 3 characters
+   EXP(PROT)B8+(TIME)B23+DATE
+   XWD project number, programmer number.
+
+If no device has been associated with channel D, the monitor
+stops the job, prints
+
+   I/O TO UNASSIGNED CHANNEL AT USER LOC addr
+
+and returns the user's console to monitor mode.
+
+The normal return is given if:
+
+a.  The device specified is a nondirectory device.
+
+b.  If the filename specified in location E is 0, the file is
+    deleted after all read references are completed.
+
+c.  If the filename specified in location E and the filename 
+    extension specified in the left half of Location E+l are the
+    same as the current filename and filename extension, the
+    access protection bits are set to the contents of bits
+    0 to 9 of location E+2.
+
+d.  If the filename/filename extension specified differ from the
+    current filename/filename extension, a search if made for
+    the specified filename and filename extension.  If a match is
+    not found (l) the filename is changed to the filename in
+    location E, (2) the filename extension is changed to the
+    filename extension in the left half of location E+l, (3) the
+    access protection bits are chanted to the contents of bits
+    0-8 of location E+2, and (4) the access date is unchanged.
+
+The error return is given if:
+
+a.  No file is selected on channel D.
+
+b.  The specified file is not found.
+
+c.  The file is found, but is being written or renamed.
+
+d.  The file is found but the user odes not have the privileges
+    to RENAME the file.
+
+e.  If the filename/filename extension specified differ from the
+    current filename/filename extension, a search is made for the
+    specified filename and filename extension.  If a match is
+    found, the error return is taken.
+
+Refer to Appendix E for the error codes returned in bits 33-35
+of location E+l.
+
+Examples
+
+                   GENERAL DEVICE INITIALIZATION
+
+INIDEV:  0                      ;JSR here
+         INIT 3, l4             ;binary mode, channel 3
+         SIXBIT/DTA5/           ;device dectape unit 5
+         XWD OBUF,lBUF          ;both input and output
+         JRST NOTAVL            ;where to go if DTA5 is busy
+
+;From here down is optional depending on the device and program
+requirements.
+
+         MOVE 0, JOBFF
+         MOVEM 0, SVJBFF        ;save the first address of the buffer
+                                ;ring in case the space must be
+                                ;reclaimed
+         INBUF 3,4              ;set up 4 input buffers
+         OUTBUF 3,l             ;set up l output buffer
+         LOOKUP 3, INNAM        ;initialize an input file
+         JRST NOTFND            ;where to go if the input filename
+                                ;is not in the directory
+         ENTER 3, OUTNAME       ;initialize an output file
+         JRST NOROOM            ;where to go if there is no room in
+                                ;directory for a new filename
+         JRST  INIDEV           ;return to main sequence
+0BUF:    BLOCK 3                ;space for output buffer header
+lBUF:    BLOCK 3                ;space for input buffer header
+INNAM:   SIXBIT/NAME/           ;file name
+         SIXBIT/EXT/            ;file name extension (optionally 0),
+                                ;right half word receives the first
+                               ;block number
+         0                      ;receives the date
+         0                      ;unused for nondump I/O
+OUTNAM:  SIXBIT/NAME/           ;same information as in INNAM
+         SIXBIT/EXT/  
+         0
+         0
+
+
+4.l0.5  Data Transmission
+
+The programmed operators
+
+     INPUT D,E and IN D,E
+                   normal return
+                   error return
+
+transmit data from the file selected on channel D to the user's
+core area.  The programmed operators
+
+     OUTPUT D,E and OUT D,E
+                    normal return
+                    error return
+
+transmit data from the user's core area to the file selected
+on channel D.
+
+If no OPEN or INIT operator has been performed on channel D,
+the monitor stops the job and prints
+
+     I/O TO UNASSIGNED CHANNEL AT USER addr
+
+(addr is the location of the IN, INPUT, OUT, or OUTPUT programmed
+operator) on the user's console and the console is left in monitor
+mode.  If the device is a multiple-directory device and no file
+is selected on channel D, bit l8 of the file status is set to l,
+and control returns to the user's program.  Control always returns
+to the location immediately following an INPUT (operation
+code 066) and an OUTPUT (operation code 067).  A check of the
+file status for end-of-file and error conditions must then
+be made by another programmed operator.  Control returns to the
+location immediately following an IN (operation code 056) and
+an OUT (operation code 057), if no end-of-file or error condition
+exists (i.e., if bits l8 through 22 of the file status are all 0).
+Otherwise, control returns to the second location following the
+IN or OUT.  Note that IN and OUT UUOs are the only ones in
+which the error return is a skip and the normal return is not a 
+skip.
+
+
+4.l0.5.l  Unbuffered Data Modes - Data modes l5, l6 and l7
+utilize a command list to specify areas in the user's allocated
+core to be read or written.  The effective address E of the
+IN, INPUT, OUT and OUTPUT programmed operators point to the
+first word of the command list.  Three types of entries may 
+occur in the command list.
+
+a.  IOWD n, loc - Causes n words from loc through loc+n-l to
+    be transmitted.  The next command is obtained from the
+    next location following the IOWD.  The assembler pseudo-op
+    IOWD generates XWD -n, loc -l.
+
+b.  XWD 0, y - Causes the next command to be taken from location
+    y.  Referred to as a GOTO word.  Up to three consecutive
+    GOTO words are allowed in the command list.  After three
+    consecutive GOTO words, an I/O instruction must be written.
+
+c.  0 - Terminates the command list.
+
+The monitor does not return program control to the user until the
+command list has been completely processed.  If an illegal
+address is encountered while processing the list, the job
+is stopped and the monitor prints
+
+   ADDRESS CHECK AT USER addr
+
+on the user's console and the console is left in monitor mode.
+
+Example:  Dump Output
+
+Dump inout is similar to dump output.  This routine outputs
+fixed-length records.
+
+DMP INl:   0                    ;JRS here to initialize a file
+           INIT 0, l6           ;channel 0, dump mode
+           SIXBIT/MTA2/         ;magnetic tape unit 2
+           0                    ;no ring buffers
+           JRST NOTAVL          ;where to go if unit 2 is busy
+           JRST  DMP INl        ;return
+EMPOUT:    0                    ;JSR here to output the output area
+           OUTPUT 0, OUTLST     ;specifies dump output according to
+                               ;the list at outlist
+           STATZ 0, 740000      ;check error bits
+           CALL(SIXBIT/EXIT/)   ;quit if an error occurs
+           JRST  DMPOUT         ;return
+
+EMPDON:    0                    ;JSR here to write an end of file
+           CLOSE 0,             ;write the end of file
+           STATZ 0, 740000      ;check for error during write
+                                ;end of file operation
+           CALL(SIXBIT/EXIT/)   ;quit if error occurs
+           RELEAS 0,            ;relinquish the device
+           JRST  DMPDON         ;return
+
+OUTLST:    IOWD BUFSIZ,BUFFER   ;specifies dumping a number of words
+                                ;equal to bufsiz, starting at loc.
+                                ;buffer
+           0                    ;specifies the end of the command list
+
+BUFFER:    BLOCK BUFSIZ         ;output buffer, must be cleared
+                                ;and filled by main program
+
+
+4.l0.5.2  Buffered Data Modes - In data modes 0, l, l0, l3 and l4
+the effective address E of the INPUT, IN, OUTPUT and OUT
+programmed operators may be used to alter the normal sequence
+of buffer reference.  If E is 0, the address of the next buffer
+is obtained from the right half of the second word of the current
+buffer.  If E is non-zero, it is the address of the second word
+of the next buffer to be referenced.  The buffer pointed to by E
+can be in an entirely separate ring from the present buffer.
+Once a new buffer location is established, the following buffers
+are taken from the ring started at E.
+
+a.  Input - If no input buffer ring is established when the first
+    INPUT or IN is executed, a 2-buffer ring is set up (refer to
+    Paragraph 4.l0.3.2).
+
+    Buffered input may be performed synchronously or asynchronously
+    at the option of the user.  If bit 30 of the file status i l,
+    each INPUT and IN programmed operator performs the following:
+
+    (l)  Clears the use bit in the second word of the buffer with
+         an address in the right half of the first word of the
+         buffer header, thereby making the buffer available for
+         refilling by the monitor.
+
+    (2)  Advances to the next buffer by moving the contents
+         of the second word of the current buffer to the right
+         half of the first word of the 3-word buffer header.
+
+    (3)  Returns control to the user's program if an end-of-file
+         or error condition eixsts.  Otherwise, the monitor starts
+         the device, which fills the buffer and stops transmission.
+
+    (4)  Computes the number of bytes in the buffer from the
+         numberf of words in the buffer (right half of the first
+         data word of the buffer) and the byte size, and stores 
+         the result in the third word of the buffer header.
+
+    (5)  Sets the position and address fields of the byte pointer
+         in the second word of the buffer header, so that the
+         first data byte is obtained by an ILDB instruction.
+
+    (6)  Returns control to the user's program.
+
+Thus, in synchronous mode, the position of a device (e.g., magnetic
+tape), relative to the current data, is easily determined.  The
+asynchronous input mode differs in that once a device is started,
+successive buffers in the ring are filled at the interrupt level
+without stopping transmission until a buffer whose bit is l is
+encountered.  Control returns to the user's program after the 
+first buffer is filled.  The position of the device,
+relative to the data currently being processed by the
+user's program, depends on the number of buffers in the ring
+and when the device was last stopped.
+
+Example:  General Subroutine to Input One Character
+
+GETCHR:  0                    ;call is JSR GETCHR
+GETNXT:  SOSLE IBUF+2         ;decrement the byte count
+         JRST GETOK
+         INl,                 ;get next buffer from monitor
+         jRST GETOK           ;return when buffer is full
+         STATZ l,740000       ;test error bits
+         JRST INERR           ;go process error
+         JRST INEOF           ;assume end-of-file
+GETOK:   ILDB AC,IBUF+l       ;get charcter from buffer
+         JUMPN AC,  GETCHR    ;return if not null character *
+         JRST GETNXT          ;ignore null and get next character
+
+*  For some devices in ASCII mode, the item count provided is 
+always a multiple of five characters.  The last word of a buffer
+may be partially full; therefore user programs that rely on the
+item count should always ignore null characters.
+
+b.  Output - If no output buffer ring has been established (i.e.,
+    if the first word of the buffer header is 0), when the first
+    OUT or OUTPUT is executed, a 2-buffer ring is set up (refer
+    to Paragraph 4.l0.3.2).  If the ring use bit (bit 0 of
+    the first word of the buffer header) is l, it is set to 0,
+    the current buffer is cleared to all 0s, and the position and
+    address fields of the buffer byte pointer (the second word
+    of the buffer header) are set so that the first byte is
+    properly stored by an IDPB instruction.  The byte count
+    (the third word of the buffer header) is set to the 
+    maximum of bytes that may be stored in the buffer, and
+    control is returned to the user's program.  Thus, the first
+    OUT or OUTPUT initializes the buffer header and the first
+    buffer, but does not result in data transmission.
+
+    If the ring use bit is 0 and the bit 3l of the file status
+    is 0, the number of words in the buffer is computed from the
+    address field of the buffer byte pointer (the second word of
+    the buffer header) and the buffer pointer (the first word of
+    the buffer header), and the result is stored in the right half
+    of the first data word of the buffer.  If bit 3l of the
+    file status is l, it is assumed that the user has already
+    set the word count in the right half of the first data word.
+    The buffer use bit (bit 0 of the second word of the buffer)
+    is set to l, indicating that the buffer contains data to be
+    transmitted to the device.  If the device is not currently
+    active (i.e., not receiving data), it is started.  The
+    buffer header is advanced to the next buffer by setting the
+    buffer pointer in the first word of the buffer header.  If
+    the buffer use bit of the new buffer is l, the job is put into
+    a wait state until the buffer is emptied at the interrupt
+    level.  The buffer is then cleared to 0s, the buffer byte
+    pointer and byte count are initialized in the buffer header,
+    and control is returned to the user's program.
+
+    Example:  General Subroutine to Output One Character
+
+    PUTCHR:  0                     ;call is JSR PUTCHR
+             SOSLE OBUF+2          ;decrement byte count
+             JRST PUTOK            ;character will fit
+             OUT 2,                ;call monitor to empty this buffer
+             JRST PUTOK            ;return when buffer available
+             JRST OUTERR           ;process output error
+    PUTOK:   IDPB AC,OBUF+l        ;store this character
+             JRST PUTCHR           ;return to caller
+    OUTFRR:  GETSTS 2,AC           ;get the error status
+               .
+               .
+               .
+               .
+
+
+4.l0.5.3  Synchronization of Buffered I/O (CALL D, (SIXBIT/WAIT/)) -
+In some instances, such as recovery from transmission errors,
+it is desirable to delay until a device completes its I/O
+activities.  The programmed operators
+
+   CALL D,(SIXBIT/WAIT/) and CALLI D, l0
+
+return control to the user's program when all data transfers on
+channel D have finished.  This UUO does not wait for a magnetic
+tape spacing operation, since no data transfer is in progress.
+An MTAPE D,0 (refer to Paragraph 5.5.3) should be used to
+wait for spacing and I/O activity to finish on magnetic tape.
+If no device is assocaited with data channel D, control returns
+immediately.  After the device is stopped, the position
+of the device relative to the data currently being processed
+by the user's program can be determined by the buffer use bits.
+
+
+4.l0.6  Status Checking and Setting
+
+The file status is a set of l8 bits (right half word), which 
+reflects the current state of a file transmission.  The initial
+status is a parameter of the INIT and OPEN operators.  Thereafter,
+bits are set by the monitor, and may be tested and reset by the
+user via monitor programmed operators.  Table 4-7 defines the 
+file status bits.  All bits, except the end-of-file bit, are set
+immediately by the monitor as the conditions occur, rather than
+being associated with the buffer currently used by the user.
+However, the file status is stored with each buffer so that the
+user can determine which buffer produced an error.  A more thorough
+description of bits l8 through 29 for each device is given in
+Chapters 5 and 6.
+
+
+4.l0.6.l  File Status Checking - The file status (refer to
+Table 4-9) is retrieved by the GETSTS (operation code 062) and
+tested by the STATZ (operation code 063) and STATO (operation
+code 06l) programmed operators.  In each case, the accumulator
+field of the instruction selects a data channel.  If no device
+is associated with the specified data channel, the monitor stops
+the job and prints
+
+   I/O TO UNASSIGNED CHANNEL AT USER addr
+
+(addr is the location of the GETSTS, STATZ, STATO, or SETSTS
+programmed operator) on the user's console and the console is left
+in monitor mode.
+
+GETSTS D,E stores the file status of data channel D in the right
+half and 0 in the left half of location E.
+
+STATZ D,E skips, if all file status bits selected by the effective
+address E are 0.
+
+STATO D,E skips, if any file status bit selected by the effective
+address E is l.
+
+
+4.l0.6.2  File Status Setting - The initial file status is a
+parameter of the INIT and OPEN programmed operators; however,
+the file status may be changed by the SETSTS (operation code 060)
+programmed operator.
+
+SETSTS D,E waits until the device on channel D stops transmitting
+data and replaces the current file status, except bit 23, with the
+effective address E.  If the new data mode, indicated in the
+right four bits of E, is not legal for the device, the job is
+stopped and the monitor prints
+
+   ILL DEVICE DATA MODE FOR DEVICE dev AT USER addr
+
+(dev is the physical name of the device and addr is the location
+of the SETSTS operator) on the user's console and the console 
+is left in monitor mode.  If the user program changes the data
+mode, it must also change the byte size for the byte pointer in
+the input buffer header (if any) and the byte size and item count
+in the output buffer header (if any).  The output item count 
+should be changed by using the count already placed there by
+the monitor and dividing or multiplying the appropriate
+conversion factor, rather than assuming the length of a 
+buffer.
+
+
+                          TABLE 4-7
+                       FILE STATUS BITS
+
+
+Bit                                  Meaning
+---                                  -------
+
+l8         Improper mode (IOIMPM).  Attempt to write on a hardware
+           or sfotware write-locked tape or file structure, or a
+           software detected redundancy failure occured.  Usually
+           set by monitor.
+
+l9         Hard device detected error (IODERR), other than hardware
+           checksum, parity, or search error.  The device is in
+           error rather than the data on the medium.  However, the
+           data read into core or written on the device is
+           probably incorrec.t  Usually set by monitor.
+
+20         Hard data error (IODTER).  The data read or written has
+           incorrect parity or checksum as detected by hardware
+           (or by software on CDR, PTR).  Usually set by monitor.
+
+2l         Block too large (IOBKTL).  A block of data from a device
+          is too large to fit in a buffer; a block number is too
+           large for the unit the file structure (DSK) or unit (DTA)
+           has filled; or the user's quota on the file structure has
+           been exceeded.  Usually set by monitor.
+
+22         End of file (IOEOF).  The user program has requested
+           data beyond the last record or block, or USETl has
+           specified a block beyond the last data block of the
+           file.  Usually set by monitor.
+
+23         I/O active (IOACT).  The device is actively transmitting
+          or receiving data.  Always set by monitor.
+
+24-29      Device dependent parameters.  Refer to Chapters 5 and 6
+           and Appendix D for detailed information about each 
+           device.  Usually set by user.
+
+30         Synchronous input.  Stops the device after ea h buffer
+           is filled.  Usually set by user.
+
+3l         User word count.  Forces the monitor to use the word
+           count in the third word of the buffer (output only).
+           The monitor normally computes the word count from 
+           the byte pointer in the buffer header.  Usually set by
+           user.
+
+32-35      Data mode.  Refer to Tables 4-5 and 4-6.  Usually set by
+          user.
+
+
+4.l0.7  File Termination
+
+File transmission is terminated by the CLOSE D,N (operation code
+070) programmed operator.  N is usually zero, but individual
+options may be selected independently to control the effect of
+the CLOSE.
+
+Usually a given channel is OPEN for file transmission in only
+one direction, and CLOSE has the effect of either closing input
+if INPUTs have been done or closing output if OUTPUTs have been
+done.  However, disk and DECtape may have a single channel OPEN
+for both INPUT and OUTPUT, in which case the first two options
+below are useful.
+
+
+4.l0.7.l  CLOSE D,0 - The output side of channel D is closed
+(bit 35=0).  In unbuffered data modes, the effect is to execute
+a device dependent function.  In buffered data modes, if a buffer
+ring exists, the following operations are performed:
+
+a.  All data in the buffers that has not been transmitted to the
+    device is written.
+
+b.  Device dependent functions are performed.
+
+c.  The ring use bit (bit 0 of the first word of the buffer
+    header) is set to l indicating that the buffer ring is
+    available.
+
+d.  The buffer byte count (the third word of the buffer header)
+    is set to 0.
+
+e.  Control returns to the user program when transmission is
+    complete.
+
+The input side of channel D is also closed (bit 34=0).  The
+end-of-file flag is always cleared.  Further action depends on
+the data mode in unbuffered data modes, the effect is to execute
+a device dependent function.  In buffered data modes, if a ring
+buffer exists, the following operations are performed:
+
+a.  Wait until device is inactive.
+
+b.  The use bit of each buffer (bit 0 of the second word) is
+    cleared indicating that the buffer is empty.
+
+c.  The ring use bit of the buffer header (bit 0 of the first
+    wofd of the buffer header) is set to l indicating that the 
+    buffer ring is available.
+
+d.  The buffer byte count (the third word of the buffer header)
+    is set to 0.
+
+e.  Control returns to the user program.
+
+On output CLOSE, the unwritten blocks at the end of a disk file
+are automatically deallocated (bit 33=0).  On input CLOSE, the
+access date of a disk file is updated (bit 32=0).
+
+
+4.l0.7.2  CLOSE D,l (Bit 35=l) - The closing of the output side of
+channel D is suppressed.  Other actions of CLOSE are unaffected.
+
+
+
+4.l0.7.3  CLOSE D,2 (Bit 34=l) - The closing of the input side of
+channel D is inhibited; other actions of CLOSE are unaffected.
+
+
+
+4.l0.7.4  CLOSE D,4 (Bit 33=l)* - The unwritten blocks at the
+end of a disk file are not deallocated.  This capability is
+provided for users who specifically allocate disk space and wish
+to retain it.
+
+
+4.l0.7.5  CLOSE D,l0 (Bits 32=l)* - The updating of the access
+date on CLOSE input is inhibited.  This capability is intended
+for use with FAILSAFE, so that files can be saved on magnetic
+tape without causing the disk copy to appear as if it has been
+accessed.
+
+
+4.l0.7.6  CLOSE D,20 (Bit 3l=l)* - The deleting of the NAME block
+in monitor core on CLOSE input is inhibited if a LOOKUP was done
+without subsequent INPUT.  This bit is sued by the COMPIL CUSP to
+retain the core block in order to speed up the subsequent access
+by the CUSP called by COMPIL.  Any combinations of the above bit
+settings are legal.
+
+*  Meaningful with disk files only, ignored with non-disk files.
+
+
+Example:  Terminating a File
+
+DROPDV:  0                  ;JRS here
+         CLOSE 3,           ;write end of file and terminate input
+         STATZ 3, 740000    ;recheck final error bits
+         JRST OUTERR        ;error during close
+         RELEAS 3,          ;relinquish the use of device, write out
+                           ;the directory
+         MOVE 0, SVJBFF
+         MOVEM 0, JOBFF     ;reclaim the buffer space
+         JRST  DROPDV       ;return to main sequence
+
+
+4.l0.8  Device Termination
+
+4.l0.8.l  RELEASE - When all transmission between the user's
+program and a device is finished, the program must relinquish 
+the device by performing a
+
+   RELEASE D,
+
+RELEASE (operation code 07l) returns control immediately, if no
+device is associated with data channel D.  Otherwise, both input
+and output sides of data channel D are CLOSEd and the correspon-
+dence between channel D and the device, which was established by
+the INIT or OPEN programmed operators, is terminated.  If the
+device is neither associated with another data channel nor assigned
+by the ASSIGN command (refer to Chapter 2), it is returned to
+the monitor's pool of available facilties.  Control is
+returned to the user's program.
+
+
+
+4.l0.8.2  REASSIGN - This UUO reassigns a device under program
+control from the current job to a specified job and clears the
+directory currently in core.
+
+The call is:
+
+   MOVE AC, job number
+   MOVE AC+l (SIXBIT /DEVICE/)
+   CALL AC, (SIXBIT /REASSI/)      ;or CALLI AC, 2l
+   return                          ;error and normal
+
+If on return the contents of AC=0, the specified job has not been
+initialized.  If the contents of AC+l=0, the deive has not been
+assigned to the new job or the device is a teletype.
+
+
+4.l0.9  Examples
+
+
+4.l0.9.l  File Reading - The following UUO sequence is required
+to read a file:
+
+   INIT           Establishes a file structure channel correspon-
+                  dence (or set of file structures-channel corres-
+                  pondence).
+
+   LOOKUP         Establishes a file-channel correspondence.  
+                  Invokes a search of the UFD.  Returns information
+                  from the file system.
+
+   INBUF          (Optional).  Sets up l to N ring buffers in the
+                  top of core, expand core if necessary.
+
+   INPUT          Sets up 2-buffer ring if no INBUF was done.
+     .
+     .
+     .
+   INPUT          Requests buffers of data from the monitor.
+
+   CLOSE          Breaks file-channel correspondence.
+
+   RELEASE        Breaks device-channel correspondence.
+
+
+
+4.l0.9.2  File Writing _ The following UUO sequence is
+required to write a file:
+
+   INIT           Forms file structure-channel correspondence 
+                  (or set of file structures-channel corres.)
+
+   ENTER          Forms file-channel correspondence.  The monitor
+                  creates some temporary storage for interlocking
+                  and shared access purpose for the filename.  No
+                  directory entry is made.
+
+   OUTPUT
+     .
+     .
+     .
+   OUTPUT         Passes buffers of data to monitor for transmission
+                 to storage device.
+
+   CLOSE          Completes the action of ENTER.  Adds filename
+                  to file system.  Normally returns allocated,
+                  but unused, blocks to the file system.
+
+   RELEASE        Breaks device-channel correspondence.
+
+
+
+ kGÞ
