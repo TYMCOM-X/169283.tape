@@ -1,0 +1,117 @@
+% PRODUCES FATAL ERROR 10 %
+
+% INV UPD PROCEDURE --- 11/30/74 %
+
+PROCEDURE UPDATE.INVENTORY
+
+ BEGIN
+
+   FIELDS
+      NADDS AS '3N',         % NUMBER OF REC ADDED %
+      NDELS AS '3N',         % NUMBER OF DELETED RECS %
+      NUPDS AS '3N',         % NUMBER OF UPDATES %
+      OPT   AS '3C',         % OPTION FOR UPDATING %
+      QTY   AS '6N',         % VAR USED TO UPD QOH AND QORD %
+      IPART AS '6C',         % INPUT PART NUMBER %
+      IDESC AS '20C',        % INPUT DESCRIPTION %
+      IQOH  AS '6N',         % INPUT QTY ON HAND %
+      IQORD AS '6N',         % INPUT QTY ON ORD %
+      IMQTY AS '4N',         % INPUT MIN QTY ON HAND %
+      ICOST AS '5N.2N'       % INPUT COST %
+
+
+
+% INITILIZATION %
+
+  MOVE 0 TO QTY,NADDS,NDELS,NUPDS
+
+% OK NOW SET UP SOURCE INPUT DECLARATION %
+% WE WILL BE USING THE CONDITIONAL OPTION FOR THE VARIOUS %
+% OPT CODES BECAUSE WE HAVE DIFFERENT RECORDS FOR DIFFERENT OPT %
+% CODES %
+
+
+  SOURCE TRANS.REC FROM 'TRANS.DAT' FIXED FORM
+     INPUT OPT,
+     CONDITIONAL ON OPT
+       BEGIN
+        'NEW': IPART,IDESC,IQOH,IQORD,IMQTY,ICOST
+        'DEL': IPART
+        'REC': IPART,QTY
+        'ISU': IPART,QTY
+       END
+
+
+% NOW READ EACH TRANS.REC AND UPDATE THE INVENTORY %
+
+   FOR EACH TRANS.REC
+
+   GETREC: BEGIN
+
+     SELECT INVENTORY VIA (PARTNO = IPART)
+        THEN          % FROM HERE ON WE HAVE A MATCH %
+       BEGIN
+         IF OPT = 'DEL' THEN
+            BEGIN
+            DELETE INVENTORY WHERE PARTNO = IPART
+            ADD 1 TO NDELS
+            TYPE @CR,@CR,' PARTNO: ',IPART,' DELETED',@CR,@CR
+            FINISH GETREC
+             END
+
+        IF OPT = 'REC' THEN      % REC LOGIC HERE %
+            BEGIN
+           ADD QTY + QORD TO QTY
+            ALTER INVENTORY USING QTY FOR QORD
+            ADD 1 TO NUPDS
+           FINISH GETREC
+           END
+
+        IF OPT = 'ISU' THEN      % ISSUE LOGIC HERE %
+           BEGIN
+           LET QTY = QOH - QTY
+           ALTER INVENTORY USING QTY FOR QOH
+           ADD 1 TO NUPDS
+           END
+
+        IF OPT = 'NEW' THEN   % AN ERROR %
+           BEGIN
+            TYPE @CR,@CR,'PARTNO: ',IPART,' ALREADY EXIST',@CR,
+                'CAN NOT ADD',@CR,@CR
+            FINISH GETREC
+           END
+     END
+
+
+   ELSE       % THIS IS WHERE WE DID NOT FIND THE PART %
+     BEGIN
+       IF OPT # 'NEW' THEN     % ONLY CAN DO AN ADD HERE %
+        TYPE @CR,@CR,' PARTNO: ',IPPART,' NOT FOUND',@CR
+
+       ELSE
+        BEGIN
+          INSERT INTO INVENTORY USING
+          IPART FOR PARTNO,
+           IDESC FOR DESC,
+          IQOH  FOR QOH,
+           IQORD FOR QORD,
+          IMQTY FOR MQTY,
+          ICOST FOR COST
+
+          ADD 1 TO NADDS
+          TYPE @CR,' PARTNO: ',IPART,' ADDED',@CR
+          FINISH GETREC
+        END
+
+      END
+
+
+  END
+% OK NOW PRINT OUT THE STATICS %
+
+  TYPE @CR,@CR,' NUMBER OF ADDS ',NADDS,@CR,
+               ' NUMBER OF UPDATES ',NUPDS,@CR,
+               ' NUMBER OF DELETES ',NDELS,@CR,@CR,
+                ' JOB FINISHED ',@CR,@CR
+
+END  % THE END %
