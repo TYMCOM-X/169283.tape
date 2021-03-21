@@ -1,0 +1,71 @@
+        DIMENSION EL(20),X(9),STRS(9)
+        OPEN(2,'DIRT')
+240     TYPE 10
+10      FORMAT(48H TAPE FEED(-1) OR SPD MANUAL(0) OR REG MANUAL(1)/)
+11      FORMAT(2I)
+12      FORMAT(I,5F,2I)
+        ACCEPT 11,KM
+13      FORMAT(F)
+        IF (KM) 220,204,101
+220     READ(2, 12) IDUM,WT,B,ELT,ELB,SLP,NS,NX
+203     READ(2, 12) IDUM,(EL(I),I=1,NS)
+225     READ(2, 12) IDUM,(X(J),J=1,NX)
+        READ(2, 11) IDUM,KT
+        GO TO 210
+204     ACCEPT 12,WT,B,ELT,ELB,SLP,NS,NX
+205     ACCEPT 13,EL(I)
+        DO 226 I=1,NX
+226     ACCEPT 13,X(I)
+        GO TO 210
+101     CONTINUE
+210     HT=ELT-ELB
+        WS=HT*SLP
+        TWT=HT*WT
+        TYPE 104,WT,B,ELT,ELB
+        TYPE 105,SLP,NS,NX
+104     FORMAT (4H WT=,F7.2,3H B=,F7.2/5H ELT=,F7.2,5H ELB=,F7.2,/)
+105     FORMAT(7H SLOPE=,F7.3,4H NS=,I4,4H NX=,I4)
+        TYPE 14
+14      FORMAT(38H PT   EL         STRESSES FOR X-VALUES,/)
+        TYPE 229,(X(I),I=1,NX)
+229     FORMAT(9X,9F7.1)
+        CON=TWT/3.141593
+        DO 251 I=1,NS
+        ZZ=ELB-EL(I)
+        DO 250 J=1,NX
+        XX=X(J)
+        A3=ATAN((XX+(B/2.))/ZZ)
+        A1= ATAN((WS+(B/2.)+XX)/ZZ)
+        A4=ATAN(ABS(((B/2.)-XX)/ZZ))
+        IF(XX-WS-B/2.) 249,249,242
+249     A2=ATAN((WS+(B/2.)-XX)/ZZ)
+        AL1=A1-A3
+        IF(XX-B/2.) 243,243,244
+243     AL3=A2-A4
+        GO TO 245
+244     AL3=A2+A4
+245     ALT=A1+A2
+        GO TO 246
+242     A2=ATAN((XX-WS-(B/2.))/ZZ)
+        AL1=A1-A3
+        AL3=A4-A2
+        ALT=A1-A2
+246     STRS(J)= ALT+(B/(2.*WS))*(AL1+AL3)-(XX/WS)*(AL3-AL1)
+        STRS(J)=CON*STRS(J)
+250     CONTINUE
+        TYPE 450,I,EL(I),(STRS(J),J=1,NX)
+450     FORMAT(I3,F6.1,9F7.1)
+251     CONTINUE
+        IF(KM) 484,486,486
+486     TYPE 15
+15      FORMAT(31H ANY MORE TESTS  YES(1)  NO(-1),/)
+        ACCEPT 11,KT
+484     IF(KT) 109,109,512
+512     IF(KM) 220,204,101
+109     TYPE 16
+16      FORMAT(38H WANT TO CHANGE MODES?  YES(-1)  NO(1),/)
+        ACCEPT 11,KK
+        IF(KK) 240,241,241
+241     CONTINUE
+        STOP
+        END
