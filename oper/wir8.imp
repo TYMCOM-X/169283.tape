@@ -1,0 +1,325 @@
+WIR8.IMP
+        WIRE WRAP IMPLEMENTATION SPECIFICATION--SECTION 8
+
+                PLUG FUNCTIONAL UNIT
+
+        IN THIS SECTION, REFERENCE WILL BE MADE TO THE ARRAY pclist,
+WHICH STANDS FOR plug-clause-list, AND HAS ASSOCIATED WITH IT A SET
+OF ELEMENTS.  THESE ARE:
+
+     pclist  ELEMENT    CONTENTS/USAGE
+-------------------------------------------------------------------
+        1       ID      PLUG PIN ID (A5 FORMAT)
+        2,3     SIG     DEFAULT SIGNAL TO ASSIGN TO SOCKET (A10 FORMAT)
+        4,5     GRP     GROUP ID (A10 FORMAT)
+        6,7     SGRP    SUB-GROUP ID (A10 FORMAT)
+        8       ILT     INPUT LOGIC TYPE (A5 FORMAT)
+        9       OLT     OUTPUT LOGIC TYPE (A5 FORMAT)
+        10      GN      GROUP NUMBER
+        11      SGN     SUB-GROUP NUMBER 
+        12      ILD     INPUT LOAD (REAL)
+        13      ODR     OUTPUT DRIVE (REAL)
+        14      WOC     WIRE-OR CONDITION CODE
+        15      TCC     TIE CONDITION CODE
+        16,17          *c o r a l  RING POINTERS FOR PLUG PIN LIST
+        18             *GROUP RING
+        19             *SUB-GROUP RING
+        20      X       X-POSITION OF PIN (REAL)
+        21      Y       Y-POSITION OF PIN (REAL)
+------------------------------------------------------------------
+
+**** NOTE...THE INDICATED ELEMENTS (*) ARE PART OF A pclist ARRAY, BUT
+ARE NOT GENERATED DIRECTLY ON PLUG CLAUSE INPUT.
+
+        IN ADDITION, REFERENCE WILL ALSO BE MADE TO THE ARRAY pidlist,
+WHICH STANDS FOR plug-id-list, AND WHICH HAS ASSOCIATED WITH IT THE
+ELEMENTS:
+
+        pidlist         CONTENTS/USAGE
+---------------------------------------------------------------------
+        1-3             PLUG IDENTIFICATION (A15 FORMAT)
+        4               "rbn" OF START OF PLUG DESCRIPTION
+        5               SIZE OF PLUG DESCRIPTION IN WORDS
+        6               NUMBER OF PINS IN PLUG DESCRIPTION
+----------------------------------------------------------------------
+
+
+        REFERENCE IS ALSO MADE TO THE FILE PREAMBLE.  THIS CONSISTS
+OF A TABLE CONTAINING PARAMETERS CONCERNING THE FILE.  THE
+PREAMBLE STARTS WITH THE FIRST WORD OF THE FIRST BLOCK ON THE FILE.
+THE PREAMBLE CONTENTS ARE:
+
+        WORD            USAGE
+--------------------------------------------------------
+        1               NUMBER OF WORDS/BLOCK
+        2               NUMBER OF WORDS/INDEX ENTRY
+        3               NUMBER OF INDEX ENTRIES
+        4               START BLOCK OF INDEX ENTRIES
+        5               START BLOCK OF PLUG PIN ENTRIES
+        6               FIRST FREE BLOCK IN FILE
+--------------------------------------------------------
+
+
+        THE PROCESS:
+
+        1       GET AND VERIFY file;  OPEN IF IT EXISTS:
+
+        2       READ A LINE:
+
+        3       GO TO (4, 5, 6), ["DEFINE", "EDIT", "ENTER"];
+                ELSE CALL GENERAL;  GO TO 3:
+
+        4       !DEFINE!  CALL PDEFINE FUNCTION;  GO TO 2:
+
+        5       !EDIT!  CALL PEDIT FUNCTION;  GO TO 2:
+
+        6       !ENTER!  VERIFY "PLUG";  IF SO, CALL PENTER;  GO TO 2;
+                ELSE ERROR ("INVALID COMMAND"), GO TO 2:
+
+
+
+
+
+8.1      LOGICAL FUNCTION PGETC ( pclist )
+
+        PGETC (PLUG.GET.CLAUSE) RETURNS .TRUE. IF A COMPLETE, 
+CONSISTANT CLAUSE APPEARS IN THE INPUT LINE.  ELSE RETURN .FALSE.
+
+        IF .TRUE., INPUT BUFFER LEFT POINTING AT `:` OR `;`.
+
+        IF .FALSE., CALLS ERROR('INCONSISTANT SPECIFICATION'), pclist 
+UNCHANGED, NEW LINE IN INPUT BUFFER, SET TO `:` OR `;` IF PRESENT.
+
+        IF X .OR. Y NOT ENTERED, RETURNS OLD VALUE.
+
+        IF ID NOT ENTERED, INCREMENTS LAST CHARACTER OF OLD ID.
+
+        CALLS ROUTINES: PACK
+                        MGETCH
+                        MPUTCH
+                        ERROR
+
+        THE PROCESS (NOTE..."F:" IS FLAG, "T:" IS TEMP):
+
+    1       INITIALIZE FLAGS .FALSE.; SET pgetc = .TRUE.;
+            COPY OLD ID, X, Y TO T: ARRAY; INCREMENT T:ID LAST CHAR;
+            SET ALL OTHER T: = 0:
+
+    2       IF `"` OR `'`, GO TO 5;
+            IF `X=`, GO TO 6;
+            IF `Y=`, GO TO 7;
+            IF `SIGNAL=`, GO TO 8;
+            IF `GROUP`, GO TO 9;
+            IF `SUBGROUP`, GO TO 11;
+            IF `INPUT`, GO TO 13;
+            IF `OUTPUT`, GO TO 18;
+            IF `:` .OR. `;`, GO TO 23:
+
+    3       ERROR `INCONSISTANT SPECIFICATION`;  INPUT NEW LINE;
+            SET TO LEADING `;` .OR. `:`;  RETURN .FALSE.:
+
+    4       SKIP `,`;  GO TO 2:
+
+    5       IF F:ID, GO TO 3;  SET F:ID = .TRUE.;
+            SET T:ID = PACK;  IF NOWCH .NE. NGETCH(T:ID,1), GO TO 3;
+            CALL NEXTCH;  GO TO 4:
+
+    6       IF F:X, GO TO 3;  SET F:X = .TRUE.;  SET T:X = nn.n;
+            IF NEXTCH .NE. `,`, GO TO 2;  IF NOT nn.n, GO TO 2:
+
+    7       IF F:Y, GO TO 3;  SET F:Y = .TRUE.;  SET T:Y = nn.n;
+            GO TO 4:
+
+    8       IF F:SIG, GO TO 3;  SET F:SIG = .TRUE.;  SET T:SIG = PACK;
+            GO TO 4:
+
+    9       IF F:GRP, GO TO 3;  SET F:GRP = .TRUE.;  SET T:GRP = PACK;
+            IF NEXTCH .EQ. `(`, GO TO 12;  SET T:GN = 1;  GO TO 4:
+
+    10      SET T:GN = nn;  IF NEXTCH .NE. `)`, GO TO 3;
+            ELSE GO TO 4:
+
+    11      IF F:SGRP, GO TO 3;  SET F:SGRP = .TRUE.;
+            SET T:SGRP = PACK;  IF NEXTCH .EQ. `(`, GO TO 12;
+            SET T:SGN = 1;  GO TO 4:
+
+    12      SET T:SGN = nn;  IF NEXTCH .NE. `)`, GO TO 3;  ELSE GO TO 4:
+
+    13      IF F:INPUT, GO TO 14;  ELSE SET F:INPUT = .TRUE.;
+            T:ILD = 1.0;  T:TCC = 1:
+
+    14      IF `LOGIC TYPE`, GO TO 15;
+            IF `LOAD=`, GO TO 16;
+            IF `TIE`, GO TO 17;
+            ELSE GO TO 3:
+
+    15      IF F:ILT, GO TO 3;  SET F:ILT = .TRUE.;
+            T:ILT = PACK;  GO TO 4:
+
+    16      IF F:ILD, GO TO 3;  SET F:ILD = .TRUE.;
+            T:ILD = nn.n;  GO TO 4:
+
+    17      IF F:TCC, GO TO 3;  SET F:TCC = .TRUE.;
+            T:TCC = INDEX(`NO FLOAT`/`UP`/`DOWN`/`FLOAT OK`);
+            GO TO 4:
+
+    18      IF F:OUTPUT, GO TO 19; ELSE SET F:OUTPUT = .TRUE.;
+            T:WOC = 1;  T:ODR = 8.0:
+
+    19      IF `LOGIC TYPE`, GO TO 20;
+            IF `DRIVE`, GO TO 21;
+            IF `WIRE-OR`, GO TO 22;
+            ELSE GO TO 3:
+
+    20      IF F:OLT, GO TO 3;  SET F:OLT = .TRUE.;
+            T:OLT = PACK;  GO TO 4:
+
+    21      IF F:ODR, GO TO 3;  SET F:ODR = .TRUE.;
+            T:ODR = nn.n;  GO TO 4:
+
+    22      IF F:WOC, GO TO 3;  SET F:WOC = .TRUE.;
+            T:WOC = INDEX(`REQUIRE`/`OK`/`FORBIDDEN`);
+            GO TO 4:
+
+    23      SET ALL pidlist TO CORRESPONDING T:LIST;  RETURN .TRUE.:
+
+
+
+
+
+8.2     SUBROUTINE DELETE ( pidno )
+
+        THIS ROUTINE REMOVES THE PLUG DESCRIPTION SPECIFIED BY PLUG-ID
+NUMBERED pidno, MOVING THE DATA WITHIN THE FILE IF NECESSARY.
+
+        THE PROCESS:
+
+        1       LOOK UP PIDLIST(pidno);  IF NOT LAST ENTRY, GO TO 2;
+                ELSE SET .TO. = PIDLIST:"rbn";  GO TO 6:
+
+        2       SET .TO. = PIDLIST:"rbn":
+
+        3       GET NEXT PIDLIST;  SET .FROM. = PIDLIST:"rbn";
+                SET COUNT = PIDLIST:NUMBER;  SET PIDLIST:"rbn" = .TO.:
+
+        4       DO (1:COUNT);  MOVE PCLIST(.FROM.) TO PCLIST(.TO.);
+                .FROM. = .FROM. + 1;  .TO. = .TO. + 1:
+
+        5       IF THIS WAS NOT THE LAST ENTRY, GO TO 3:
+
+        6       SET PREAMBLE:FREE = .TO.;  SET PIDLIST:"rbn", :SIZE,
+                :NUMBER = 0;  RETURN:
+
+
+
+
+
+8.3     SUBROUTINE PENTER
+
+        THIS ROUTINE IS USED TO ENTER A PLUG DESCRIPTION INTO THE
+TABLE.
+
+        USES ROUTINES:  PDELETE
+
+        THE PROCESS:
+
+        1       IF PID EXISTS, GO TO 2;  ELSE ERROR 'NOTHING TO ENTER';
+                RETURN:
+
+        2       IF FILE IS OPEN, GO TO 3;  ELSE OPEN IT;  CREATE PREAMBLE;
+                ENTER PID INTO FILE;  GO TO 5:
+
+        3       SEARCH FOR ID;  IF FOUND, GO TO 4;  ELSE INSERT ID;
+                GO TO 5:
+
+        4       CALL DELETE(ID#):
+
+        5       APPEND NEW ENTRY;  UPDATE PREAMBLE; RETURN
+
+
+
+
+
+
+8.4     SUBROUTINE PAPPEND
+
+        THIS ROUTINE IS USED TO APPEND A PLUG DESCRIPTION TO THE FILE.
+
+        THE PROCESS:
+
+        MOVE THE DATA TO THE END OF THE FILE;  UPDATE PREAMBLE:NUMBER; RETURN:
+
+
+
+
+
+
+8.5     SUBROUTINE PDEFINE
+
+        THIS ROUTINE IS USED TO DEFINE AN ENTRY.
+
+        THE PROCESS:
+
+        1       IF FILE IS NOT OPEN, GO TO 2;  ELSE SEARCH FOR ID;
+                IF NOT THERE, GO TO 2;  ELSE ERROR 'PLUG ALREADY DEFINED';
+                RETURN:
+
+        2       SET UP PIDLIST;  OPEN FILE;  GET CLAUSE;
+                IF SUCCESS, WRITE OUT TO FILE;  IF TERMINAL ";", GO TO 2;
+                IF ":", RETURN:
+
+
+
+
+
+8.6     SUBROUTINE PEDIT
+
+        THIS ROUTINE IS USED TO EDIT A DESCRIPTION.
+
+        THE PROCESS:
+
+        1       IF plgid, GO TO 2;  ELSE IF CURRENT EXISTS, GO TO 5;
+                ELSE ERROR "NO PLUG DESCRIPTION TO EDIT";  RETURN:
+
+        2       IF NO CURRENT DESCRIPTION, GO TO 3;
+                IF CURRENT DESCRIPTION WRITTEN, GO TO 3;
+                ELSE TYPE "CURRENT PLUG DESCRIPTION NOT SAVED, OK?";
+                GET LINE;  IF NULL, GO TO 3;  ELSE RETURN:
+
+        3       IF FILE NOT OPEN, GO TO 4;
+                IF PLUG NOT THERE, GO TO 4;  ELSE SET UP AND INPUT;
+                GO TO 5:
+
+        4       TYPE "PLUG NOT IN FILE";  RETURN:
+
+        5       OUTPUT HEADER;  QUERY;  IF NULL OR "Y", GO TO 6;
+                ELSE EDIT CLAUSE ELEMENTS;  GO TO 5:
+
+        6       OUTPUT CLAUSE;  QUERY;  IF NULL OR "Y", GO TO 7;
+                ELSE EDIT CLAUSE ELEMENTS;  GO TO 6:
+
+        7       SET NEXT CLAUSE;  IF NONE, RETURN;  ELSE GO TO 6:
+
+
+
+
+
+8.7     SUBROUTINE PENTER
+
+        THIS ROUTINE ENTERS THE CURRENT PLUG DESCRIPTION INTO THE 
+LIBRARY.
+
+        THE PROCESS:
+
+        1       IF file IS NOT OPEN, GO TO 3;  ELSE LOOKUP PLUG;
+                IF NOT THERE, GO TO 2;  ELSE DELETE DESCRIPTION;
+                GO TO 4:
+
+        2       !NOT THERE!  MAKE NEW ENTRY;  GO TO 4:
+
+        3       OPEN FILE;  DEFINE PREAMBLE, FIRST ENTRY:
+
+        4       APPEND PLUG DESCRIPTION TO FILE;  SET CURRENT WRITTEN;
+                RETURN:
+
+  
