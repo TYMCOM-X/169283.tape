@@ -1,0 +1,118 @@
+      SUBROUTINE ASSEMY(A,NMAX)
+C          LINK ASSEM                                                         2
+C     ******************************************************************      3
+C                  ASSEMBLES EQUATIONS OF MOTION DELETING                     4
+C                  ANY ZEROED COMPONENTS                                      5
+      REAL   TITLE(70),CODE(80)                                               6
+C     ******************************************************************      7
+C                  DIMENSION TO APPROPRIATE SIZE                              8
+C                  A IS DIMENSIONED TO (NMAX*(NMAX+1))/2                      9
+C                  B MUST BE DIMENSIONED TO NVPR AND D1 TO 6X6               10
+      DIMENSION A(NMAX),D1(6,6),B(40)
+C     ******************************************************************     12
+      COMMON IN,IOUT,NOUTP,IFPLT,NEXEC,NERR,NNT,NEQ,IFEQ(3),IFUNA,           13
+     1       IFUPD(3),NREC(4),NFN(4),NS(10),NSTAT(600),TITLE,CODE            14
+     1      ,IDMY(8),RDMY(34)                                                15
+C                   MAXIMUM NUMBER OF EQUATIONS                              16
+      WRITE(5,9978)(NREC(II),NFN(II),II=1,4)
+ 9978 FORMAT(' ENTERED ASSEMY' ,2I6)
+      NVPR=40                                                                19
+C                  COMPUTE NUMBER OF EQUATIONS TO BE GENERATED               20
+      NNEQ=0                                                                 21
+      NV=6*NNT                                                               22
+      DO 5 I=1,NV                                                            23
+      IF(NSTAT(I))2,2,5                                                      24
+    2 NNEQ=NNEQ+1                                                            25
+    5 CONTINUE                                                               26
+      IF(NNEQ-NMAX)6,6,230                                                   27
+    6 IF(NERR)8,8,250                                                        28
+C                  START LOOP TO ASSEMBLE M, C, AND K                        29
+    8 ICT=0                                                                  30
+   10 ICT=ICT+1                                                              31
+      IF(ICT-3)15,15,250                                                     32
+   15 IF(IFUPD(ICT))10,10,20                                                 33
+   20 NFILE=NFN(ICT)                                                         34
+      REWIND NFILE                                                           35
+C                  ZERO SPACE FOR EQUATIONS                                  36
+      NV=(NNEQ*(NNEQ+1))/2                                                   37
+      DO 25 I=1,NV                                                           38
+   25 A(I)=0.0                                                               39
+      NCT=0                                                                  40
+      IF(IFEQ(ICT))140,140,30                                                41
+C                  READ ESTABLISHED EQUATIONS, DELETING ZEROED ELEMENTS      42
+   30 NV=(NEQ*(NEQ+1))/2                                                     43
+C                  NUMBER OF VARIABLES PER RECORD                            44
+      NVAR=NVPR                                                              45
+C                  NUMBER OF FULL RECORDS TO READ                            46
+      NRTR=NV/NVAR                                                           47
+      IROW=0                                                                 48
+      ICOL=1                                                                 49
+      NVECT=0                                                                50
+   40 IF(NCT-NRTR)55,50,140                                                  51
+   50 NVAR=NV-NVAR*NRTR                                                      52
+      IF(NVAR)140,140,55                                                     53
+   55 NCT=NCT+1                                                              54
+      READ(NFILE)B                                                           55
+      NREC(ICT)=NREC(ICT)-1                                                  56
+      DO 130 I=1,NVAR                                                        57
+C                  COMPUTE ORIGINAL ROW-COLUMN NUMBER FOR B ELEMENT          58
+   60 IROW=IROW+1                                                            59
+      IF(IROW-ICOL)80,80,70                                                  60
+   70 ICOL=ICOL+1                                                            61
+      IROW=1                                                                 62
+   80 IF(NSTAT(IROW)-1)90,90,60                                              63
+   90 IF(NSTAT(ICOL)-1)100,100,60                                            64
+C                  ORIGINAL ROW/COL FOUND, CHECK IF STILL ACTIVE             65
+  100 IF(NSTAT(IROW))110,110,130                                             66
+  110 IF(NSTAT(ICOL))120,120,130                                             67
+  120 NVECT=NVECT+1                                                          68
+      A(NVECT)=B(I)                                                          69
+  130 CONTINUE                                                               70
+      GO TO 40                                                               71
+C                  READ NEW RECORDS                                          72
+  140 NRRD=0                                                                 73
+      NRTR=NREC(ICT)                                                         74
+  150 IF(NRRD-NRTR)155,200,200                                               75
+  155 NRRD=NRRD+1                                                            76
+      NCT=NCT+1                                                              77
+      READ(NFILE)N1,N2,D1                                                    78
+      DO 190 I=1,6                                                           79
+      NOR=0                                                                  80
+      CALL NBEQ(NROW,NOR,N1,I,NSTAT)                                         81
+      IF(NROW)190,190,156                                                    82
+  156 IF(NSTAT(NOR))190,160,190                                              83
+  160 DO 180 J=1,6                                                           84
+      NOR=0                                                                  85
+      CALL NBEQ(NCOL,NOR,N2,J,NSTAT)                                         86
+      IF(NCOL)180,180,162                                                    87
+  162 IF(NSTAT(NOR))180,165,180                                              88
+  165 IF(N1-N2)175,170,175                                                   89
+  170 IF(NROW-NCOL)175,175,180                                               90
+  175 NV=NFND1(NROW,NCOL)                                                    91
+      A(NV)=A(NV)+D1(I,J)                                                    92
+  180 CONTINUE                                                               93
+  190 CONTINUE                                                               94
+      GO TO 150                                                              96
+C                  WRITE ASSEMBLED EQUATIONS ON FILE                         97
+  200 IFEQ(ICT)=NNEQ                                                         98
+      NV=(NNEQ*(NNEQ+1))/2                                                   99
+      CALL VRDWT(A,NV,NFN(ICT),NVPR,B,1)                                    100
+      NREC(ICT)=1+(NV-1)/NVPR                                               101
+      GO TO 10                                                              102
+C                  ERROR RETURN                                             103
+  230 WRITE(IOUT,240)NMAX
+  240 FORMAT( 2X,'----- MORE THAN',I4,' EQUATIONS -----')
+      IF(ITERM)242,242,244
+  242 NERR=1
+  244 CONTINUE
+C                  FINISH UP                                                107
+  250 NV=6*NNT                                                              108
+      DO 260 I=1,NV                                                         109
+      IF(NSTAT(I)-1)260,270,260                                             110
+  270 NSTAT(I)=3                                                            111
+  260 CONTINUE                                                              112
+      NEQ=NNEQ                                                              113
+      IFUNA=0                                                               114
+      RETURN
+      END                                                                   116
+    
