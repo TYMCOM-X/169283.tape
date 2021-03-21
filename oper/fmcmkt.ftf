@@ -1,0 +1,189 @@
+YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY%%%%%%%%YY%%%%%%%%YY]]]]]]]]Y
+                                                                     $$$$$$$$$$$
+ /*      PROGRAM   ID   :   OB11      - OED BILLING RECORD TRANSFER - */        
+ /*      AUTHOR         :   D.L.HUGHES                                */        
+ /*      FACILITY       :   FMC    MANAGEMENT INFORMATION SYSTEMS     */        
+ /*      COMPUTER       :   IBM    360 / 50                           */        
+  OED_BIL:         PROCEDURE OPTIONS(MAIN);                                     
+            DCL (COUNT)FIXED DEC(3,0); COUNT=0;                                 
+            DCL 1 BILL_IN,                                                      
+                  2 BILL_CD CHARACTER(1),                                       
+                  2 TRAN_CD CHARACTER(3),                                       
+                  2 SYSTEM_CD CHARACTER(3),                                     
+                  2 DIV_NO CHARACTER(3),                                        
+                  2 SKP_RST CHARACTER(168);                                     
+   DCL MONTHLY FILE;                                                            
+   DCL OEDOUT FILE;                                                             
+    OPEN FILE(MONTHLY) RECORD INPUT;                                            
+   OPEN FILE(OEDOUT) RECORD OUTPUT;                                             
+     NEW_TRY:  READ FILE(MONTHLY)INTO(BILL_IN);                                 
+   ON ENDFILE(MONTHLY)GO TO TERM;                                               
+   IF(DIV_NO = '404' ) THEN WRITE FILE(OEDOUT)FROM(BILL_IN);                    
+   IF (DIV_NO = '404') THEN GO TO COUNTER;                                      
+                GO TO NEW_TRY;                                                  
+     COUNTER: COUNT=COUNT+1; GO TO NEW_TRY;                                     
+     TERM: CLOSE FILE(MONTHLY); CLOSE FILE(OEDOUT);                             
+  PUT LIST('RECORD TRANSFER COMPLETE :',COUNT,'RECORDS PROCESSED');             
+     END;                                                                       
+                                                                     $$$$$$$$$$$
+*   P1G01S0105                                                                  
+      INTEGER ALPHA,AMT,COST,DIFF,ORDER,RES,SALES,TITLE                         
+      DIMENSION A(32,21),ALPHA(32,5),AMT(12),B(32),ORDER(32),RATE(12),          
+     1RES(32),TITLE(5)                                                          
+  198 FORMAT(I2)                                                                
+  200 FORMAT(1H1,30X,5A4)                                                       
+  202 FORMAT(1H0,12X,8HRESOURCE,37X,6HAMOUNT)                                   
+  204 FORMAT(5A4,1X,I9)                                                         
+  206 FORMAT(4(1X,I9,F10.0))                                                    
+  208 FORMAT(1H0,12X,5A4,T56,I9)                                                
+  210 FORMAT(1H1,40X,5A4,//13X,14HPERCENT CHANGE,T56,9HNEW RATIO,T96,           
+     111HDELTA RATIO)                                                           
+  212 FORMAT(1H1,50X,20HSENSITIVITY ANALYSIS)                                   
+  214 FORMAT(1H0,5X,5A4,105H  -50       -40       -30       -20       -1        
+     10         0        10        20        30        40        50)            
+  216 FORMAT(1H0,21X,11(4X,F6.3))                                               
+  218 FORMAT(1H0,5X,5A4,105H           -2.0      -1.5      -1.0      -0.        
+     15         0       0.5       1.0       1.5       2.0          )            
+  220 FORMAT(1H0,31X, 9(4X,F6.3))                                               
+  222 FORMAT(1H0,12X,10HTOTAL COST,T56,I9)                                      
+  226 FORMAT(1H0,12X,17HMARGIN=SALES-COST,T56,I9)                               
+  228 FORMAT(1H0,12X,24HRATIO OF MARGIN TO SALES,T59,F6.3)                      
+  230 FORMAT(1H1)                                                               
+  240 FORMAT(1H0,18X,F5.1,T59,F6.3,T100,F6.3)                                   
+      READ (5,198) NRUNS                                                        
+      DO 100 N=1,NRUNS                                                          
+      READ (5,204) (TITLE(J),J=1,5),NRES                                        
+      WRITE(6,200) (TITLE(J),J=1,5)                                             
+      WRITE(6,202)                                                              
+      COST=0                                                                    
+      READ (5,206) (AMT(K),RATE(K),K=1,4)                                       
+      RES(1)=0                                                                  
+C     LOAD    'INTEREST CHARGES    '                                            
+      ALPHA(1,1)=-908729403                                                     
+      ALPHA(1,2)=-641342749                                                     
+      ALPHA(1,3)=1086572737                                                     
+      ALPHA(1,4)=-641219102                                                     
+      ALPHA(1,5)=1077952576                                                     
+      DO 10 K=1,4                                                               
+      RES(1)=RES(1)+AMT(K)*RATE(K)                                              
+   10 CONTINUE                                                                  
+      COST=COST+RES(1)                                                          
+      WRITE(6,208) (ALPHA(1,J),J=1,5),RES(1)                                    
+      LINECT=5                                                                  
+      DO 20 I=2,NRES                                                            
+      READ (5,204) (ALPHA(I,J),J=1,5),RES(I)                                    
+      WRITE(6,208) (ALPHA(I,J),J=1,5),RES(I)                                    
+      LINECT=LINECT+2                                                           
+      COST=COST+RES(I)                                                          
+   20 CONTINUE                                                                  
+      IF (LINECT .GT. 54) GO TO 120                                             
+   25 WRITE(6,222) COST                                                         
+      I=NRES+2                                                                  
+      READ (5,204) (ALPHA(I,J),J=1,5),RES(I)                                    
+      WRITE(6,208) (ALPHA(I,J),J=1,5),RES(I)                                    
+      SALES=RES(I)                                                              
+      MARGIN=SALES-COST                                                         
+      WRITE(6,226) MARGIN                                                       
+      XMARG=MARGIN                                                              
+      XSALE=SALES                                                               
+      RATIO=XMARG/XSALE                                                         
+      CRATIO=RATIO                                                              
+      WRITE(6,228) RATIO                                                        
+      I=1                                                                       
+      WRITE(6,210) (ALPHA(I,J),J=1,5)                                           
+      DO 30 J=1,9                                                               
+      VARY=-0.02+(J-1)*0.005                                                    
+      PER=VARY*100                                                              
+      DIFF=VARY*(AMT(1)+AMT(2)+AMT(3)+AMT(4))                                   
+      XMARG=MARGIN-DIFF                                                         
+      RATIO=XMARG/XSALE                                                         
+      A(I,J)=RATIO                                                              
+      DRATIO=RATIO-CRATIO                                                       
+      WRITE(6,240) PER,RATIO,DRATIO                                             
+   30 CONTINUE                                                                  
+      DO 40 I=2,NRES                                                            
+      WRITE(6,210) (ALPHA(I,J),J=1,5)                                           
+      DO 40 J=1,21                                                              
+      VARY=-0.50+(J-1)*0.05                                                     
+      PER=VARY*100                                                              
+      DIFF=VARY*RES(I)                                                          
+      XMARG=MARGIN-DIFF                                                         
+      RATIO=XMARG/XSALE                                                         
+      A(I,J)=RATIO                                                              
+      DRATIO=RATIO-CRATIO                                                       
+      WRITE(6,240) PER,RATIO,DRATIO                                             
+   40 CONTINUE                                                                  
+      I=NRES+1                                                                  
+C     LOAD    'CAPITALIZATION COSTS'                                            
+      ALPHA(I,1)=-1010706487                                                    
+      ALPHA(I,2)=-473836599                                                     
+      ALPHA(I,3)=-373169207                                                     
+      ALPHA(I,4)=-690667325                                                     
+      ALPHA(I,5)=-689773598                                                     
+      WRITE(6,210) (ALPHA(I,J),J=1,5)                                           
+      DO 45 K=1,3                                                               
+      L=4*K-4                                                                   
+   45 READ (5,206) (AMT(L+M),RATE(L+M),M=1,4)                                   
+      RES(I)=0                                                                  
+      TRATE=0.0                                                                 
+      DO 47 K=1,12                                                              
+      RES(I)=RES(I)+AMT(K)*RATE(K)                                              
+   47 TRATE=TRATE+RATE(K)                                                       
+      DO 50 J=1,21                                                              
+      VARY=-0.50+(J-1)*0.05                                                     
+      PER=VARY*100                                                              
+      DIFF=VARY*RES(I)*TRATE                                                    
+      XMARG=MARGIN-DIFF                                                         
+      RATIO=XMARG/XSALE                                                         
+      A(I,J)=RATIO                                                              
+      DRATIO=RATIO-CRATIO                                                       
+      WRITE(6,240) PER,RATIO,DRATIO                                             
+   50 CONTINUE                                                                  
+      I=NRES+2                                                                  
+      WRITE(6,210) (ALPHA(I,J),J=1,5)                                           
+      DO 60 J=1,21                                                              
+      VARY=-0.50+(J-1)*0.05                                                     
+      PER=VARY*100                                                              
+      XSALE=(1.0+VARY)*SALES                                                    
+      XMARG=XSALE-COST                                                          
+      RATIO=XMARG/XSALE                                                         
+      A(I,J)=RATIO                                                              
+      DRATIO=RATIO-CRATIO                                                       
+      WRITE(6,240) PER,RATIO,DRATIO                                             
+   60 CONTINUE                                                                  
+      M=NRES+2                                                                  
+      DO 70 I=1,M                                                               
+   70 B(I)=ABS(CRATIO-A(I,1))                                                   
+      DO 90 L=1,M                                                               
+      XMAX=B(1)                                                                 
+      ORDER(L)=1                                                                
+      DO 80 I=1,M                                                               
+      IF (XMAX .GE. B(I)) GO TO 80                                              
+      XMAX=B(I)                                                                 
+      ORDER(L)=I                                                                
+   80 CONTINUE                                                                  
+      I=ORDER(L)                                                                
+      B(I)=0                                                                    
+   90 CONTINUE                                                                  
+      WRITE(6,212)                                                              
+      LINECT=1                                                                  
+      DO 100 L=1,M                                                              
+      I=ORDER(L)                                                                
+      LINECT=LINECT+4                                                           
+      IF (LINECT .GT. 56) GO TO 130                                             
+   95 IF (I .EQ. 1) GO TO 110                                                   
+      WRITE(6,214) (ALPHA(I,J),J=1,5)                                           
+      WRITE(6,216) (A(I,J),J=1,21,2)                                            
+  100 CONTINUE                                                                  
+      CALL EXIT                                                                 
+  110 WRITE(6,218) (ALPHA(I,J),J=1,5)                                           
+      WRITE(6,220) (A(I,J),J=1,9)                                               
+      GO TO 100                                                                 
+  120 WRITE(6,230)                                                              
+      GO TO 25                                                                  
+  130 WRITE(6,230)                                                              
+      GO TO 95                                                                  
+      END                                                                       
+                                                                     $$$$$$$$$$$
+//                                                                              
+    
