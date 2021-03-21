@@ -1,0 +1,608 @@
+
+
+
+
+
+                     
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      SNAPSHOT COMMAND DESCRIPTION AND SPECIFICATIONS
+
+
+
+
+
+
+
+
+
+
+
+                                        9 MAY,1973
+
+
+                                                    PAGE   2
+
+
+
+Node Specification
+
+
+     The following is the syntax for the node  specification
+for the node information and circuit tracing commands.
+
+     nodespec := nodelist|ALL|BASES|REMOTES|@filename
+     nodelist := node|noderange|nodepair|nodelist,nodelist
+     noderange := node:node
+     nodepair := node/node
+     node := nn|nn(linelist)
+     nn := [nodename]|[node number]
+     linelist := digit|digit,linelist
+     digit := 0|1|2|3|4|5|6|7|8
+
+
+     [nodename] and [node number] are  the  node  names  and
+numbers as in use for the network.
+
+     @filename  will  read  a  node  list  from  "filename".
+"filename"  must  be  a  symbolic file and the format is the
+same as  nodespec  except  that  carriage  returns  will  be
+treated as commas and the first blank will be considered the
+end of the line.  The file may not however  contain  another
+@filename designation.
+
+                                                    PAGE   3
+
+
+
+N  -  Node Information
+
+
+Instruction Format
+[X][A]N nodespec optionlist
+
+     The node specification is  as  described  elsewhere  in
+this document.  The option list is two strings of individual
+characters, without imbedded blanks, separated by  a  comma.
+The  first string of characters specifies the information to
+be printed and the second string specifies  the  exceptional
+conditions  which  will  cause printing if the 'X' option is
+used.  The second string will have no  meaning  if  the  'X'
+option is not chosen.
+
+     The 'A' option indicates that  the  command  is  to  be
+executed   for   all   nodes  and  in  this  case  the  node
+specification is to be omitted.
+
+     The options available in this command are as follows;
+Group 1
+N - type the node name and number
+A - type only the node name
+# - type only the node number
+H - type the host number(s)
+T - type the number of circuit terminations in this node
+P - type the number of passthroughs in this node
+V - type the version number of this node
+U - type the upstream switch
+D - type the downstream switch
+K - type the crashkount
+L - we wish some line information
+  N - type name and number of node at end of each line
+  A - type the name of the node at the end of the line
+  # - type the number of the node at the end of the line
+  G - type the number of groups on each line
+  C - type the number of circuits on each line
+Group 2
+H - print if host down or shut
+P - print if out of passthrough buffers
+L - print if line out of channels,shut,out or overloaded
+T - print if node being taken over
+
+     If either of group 1 or group 2 is omitted entirely,the
+entire  group is assumed.  The indented options below 'L' in
+group 1 are suboptions of 'L'  an  if  specified  follow  it
+surrounded  by  /.   If  'L'  is  specified  alone, then all
+suboptions are assumed.  If group  2  is  omitted  then  the
+comma  is not necessary but if group 1 is omitt`ed and group
+2 specified then the comma must appear.   There  is  another
+option  'Q'  which  is neither group 1 or 2 but represents a
+group of commonly use options, Q is equivalent to NTPL,PL.
+
+                                                    PAGE   4
+
+
+
+     This command requires the following information;
+     
+1) permuter tables and associated pointers
+2) host table and pointers
+3) NEWNOD list
+4) @MAP file
+5) version number table
+6) NODUPS table
+7) crashcount table
+
+     Each option that is specified will set a  corresponding
+switch  that will be checked to determine what data is to be
+printed.  Nodes specified will be placed  on  a  list  which
+will  be  processed in order to determine which nodes are to
+be printed.  The 'all nodes' option and range options in the
+node  specification  will  cause  references  to  NODTAB  to
+determine the required nodes.  The node  name  is  dtermined
+from  the  number  through  the @MAP file.  Host numbers are
+obtained  from  the  host  table.   The  version  number  is
+obtained  from  the  version  number  table(),  and upstream
+switches from the NODUPS table.   Likewise  the  crashcounts
+come  from the table NCRASH.  The number of passthroughs and
+terminations is determined by counting the bits in  the  bit
+maps  for  the  buffers,  these  bit  maps  are  in the node
+descriptor.   The  downstream  switch  and  all   the   line
+information  is  found  in  the node descriptor.  If the 'X'
+option is specified  then  we  will  look  at  the  required
+conditions before setting up the print line for the node.
+
+     The print line will consist of the following fields  in
+the  given  order  with  the  specified field widths, if any
+option is not specified  then  that  field  will  simply  be
+omitted  from  the  print  line and those to the right of it
+will be shifted over the appropriate amount.
+
+NODE information
+
+ FIELD NAME            WIDTH
+Node number              4
+/                        1
+node name                8
+host #1                  5
+ports on host #1         4
+host #2                  5
+ports on host #2         4
+passthroughs             4
+space                    1
+version number           7 
+upstream switch          6
+downstrm switch          6
+crashcount               3
+
+                                                    PAGE   5
+
+
+
+LINE information
+
+ FIELD NAME            WIDTH
+
+line number             3
+node number             4
+/                       1
+node name               8
+number of groups        3
+number of circuits      3
+
+
+     All items except node number and host numbers  will  be
+left  justified  in  the  print field.  Host numbers will be
+left justified to the second  position  in  the  field,  the
+first  position will be normally blank and will be D or S to
+indicate that the host is down or shut.  Node number will be
+right justified, the slash between node number and name will
+appear only if both fields are present,  otherwise  it  will
+simply be omitted.  The line information will appear only if
+the 'L' option is specified and in this case there will also
+be   a   blank  line  before  each  new  node.Each  item  of
+information will be preceded by the letter  used  to  choose
+the  option  as  shown  in  the following sample output.  No
+downstream switch will be indicated by a - following the  D.
+Exceptional  line conditions will be indicated following the
+rest of the information for that line.
+
+
+
+
+
+
+
+
+
+
+
+     The following sample output will give an  idea  of  the
+output from this command.  Example 1 shows the output if the
+L option is not specified and example 2 if it is specified.
+   1/C1B      H1  T37           P11  V1     U0    D2
+   2/C2-3B    H2  T35  H3  T13  P48  V1     U2    D14
+   3/N4-0B    H4  T10  H0  T0   P35  V1     U13   D1056
+   4/P14B     H14 T7            P0   V10    U1061 D-
+   5/C19-0B   H19 T13  H0  T0   P16  V1     U11   D1006
+   6/C9-8B    H9  T12  H8  T12  P61  V1     U42   D27
+   7/C7B      H7  T11           P28  V10    U20   D-
+  10/N24-0B   H0  T0   H0  T0   P26  V1     U1035 D21
+
+EX 1 - No line information
+
+                                                    PAGE   6
+
+
+
+   1/C1B     H1   T37          P11 V1     U0    D2   
+L0 1021/CUP3    G3 C18
+L1 1000/CUP5    G2  C9
+L2   43/C33B    G3  C5
+L3   26/C12B    G3 C27
+
+   2/C2-3B   H2   T35 H3   T13 P48 V1     U2    D14  
+L0   14/C0-5B   G3 C23
+L1   26/C12B    G3 C25
+L2   11/C0-13B  G3  C6
+L3   42/C32B    G3 C11
+L4   20/C18B    G3 C35
+L5 1054/CUP2    G2 C12
+L6 1021/CUP3    G2 C16
+L7   43/C33B    G2 C16
+
+   3/N4-0B   H4   T10 H0   T0  P35 V1     U13   D1056
+L0   13/C16-0B  G5 C30
+L1 1053/GPI1    G2  C4
+L2   10/N24-0B  G3 C15
+L3 1037/MAN2    G3 C11
+L4 1040/BOS1    G3 C20
+
+   4/P14B    H14  T7           P0  V10    U1061 D-   
+L0 1062/PAR1    G3  C8
+L1 1062/PAR2    G3  C1
+
+   5/C19-0B  H19  T13 H0   T0  P16 V1     U11   D1006
+L0   27/C17B    G3  C8
+L1   11/C0-13B  G3  C8
+L2 1006/ING1    G3 C16
+L3 1002/NC01    G3 C13
+
+   6/C9-8B   H9   T12 H8   T12 P61 V1     U42   D27  
+L0   24/H22B    G3 C30
+L1 1020/LOC1    G2 C14
+L2   27/C17B    G3 C19
+L3   42/C32B    G3 C32
+L4    7/C7B     G3 C25
+L5   17/C11-10B G3 C21
+L6 1002/NCO1    G2  C5
+
+   7/C7B     H7   T11          P28 V10    U20   D-   
+L0    6/C9-8B   G3 C25
+L1 1017/PA1     G3 C25
+L2   20/C18B    G3 C17
+
+EX 2 - Line information included
+
+                                                    PAGE   7
+
+
+
+C  -  Circuit tracing
+
+
+Instruction Format
+[X]C[|P|T|L|B] nodespec optionlist
+
+     The character immediately following  the  C  determines
+the  type  of  circuit  tracing that we wish to do.  T means
+trace all the  circuits  that  terminate  in  the  specified
+node(s),  P  means  trace all the circuits that pass through
+the given node(s), C with nothing after it means  the  union
+of  the  above  or trace all circuits going in or out of the
+node(s).  L means we want all the circuits  going  over  the
+specified  line  on  the  node,  and  B  means trace all the
+circuits that touch both of the specified nodes.  These  are
+in fact 5 different commands but will be treated together as
+the similarities outweigh the differences.
+
+     The node specification is  as  described  elsewhere  in
+this  document.   Note  that  the  nodepair specification is
+valid only for the CB command and  that  the  node(linelist)
+specification is valid only for the CL command.
+
+     The  option  list  is   two   strings   of   individual
+characters,  without  imbedded blanks, separated by a comma.
+The first string of characters specifies the information  to
+be  printed  and the second string specifies the exceptional
+conditions which will cause printing if the  'X'  option  is
+used.   The  second  string  will have no meaning if the 'X'
+option is not chosen.
+
+     The options available are as follows;
+Group 1
+N - type name and number of all nodes along the circuit
+A - type only names of nodes along the circuit
+# - type only numbers of nodes along the circuit
+C - type channels numbers along the circuit
+B - type buffer numbers in all nodes along the circuit
+L - list the circuits by line (assumed for CL command)
+T - type only the terminal ends of each circuit
+P - followed by a port number means trace only the circuit
+    on the given port
+Group 2
+B - print the trace only if bad node descriptor or
+    incomplete node encountered
+D - print trace only if dead end encountered
+X - print trace only if duplicate buffer encountered
+
+     If group 1 is omitted entirely then NCB is assumed,  if
+group  2  is  omitted then the entire group is assumed.  The
+comma must appear if and only if group 2 is specified.
+
+                                                    PAGE   8
+
+
+
+     This  command   will   require   that   the   following
+information be available;
+1) node descriptors and pointers
+2) @MAP file
+
+     This  command  will  trace  circuits  by  reading   the
+permuter  table  entries  and following the circuit from one
+node to the next.  Ports can be distinguished by the  buffer
+number.  Dead ends can be distinguished by a mismatch in the
+permuter table entries.  As the permuter tables are searched
+we  will  make note of duplicate buffer usage and note it on
+the output.  If the node is incomplete or has a bad permuter
+table entry then we can not trace any more so the trace will
+terminate  and  a  message  printed  explaining   what   has
+occurred.
+
+     Since the output from these commands will  normally  be
+read across ie.  along the circuit, there will be no attempt
+to align the output in the vertical direction.   Rather  the
+output has been designed in such a way as to make it as easy
+to read as possible across the page.   The  port  number  at
+each  end  of the circuit will always print, if it is a dead
+end then the port number will  be  replaced  by  *DE*.   The
+other  information  will  appear  as requested in the option
+list.In the case of the CT command, the node name and number
+will  not  appear at the initial end of the circuit as it is
+understood to be the  node  specified,  the  node  name  and
+number  of  the specified node will appear before each group
+of  circuits.   The  node   information   will   appear   as
+nodename/nodenumber buffernumber.  The / will appear only if
+both name and number are printed.  Duplicate buffers will be
+indicated  by 2 asterisks following the buffer number, these
+will  print  even  if  buffers  were  not  requested.    Any
+information  not printed will simply be omitted and no space
+left for it.  The channel number will appear surrounded by -
+-  and  if the channel number is not requested there will be
+-- to indicated the line between nodes.  A blank  line  will
+be left between circuits as some circuits may take more than
+one line.  If the  T  option  is  specified  then  only  the
+terminal  ends  of  the circuit will be printed separated by
+the number of intermediate nodes in parentheses.  If  the  L
+option is selected then the circuits will be grouped by line
+and every circuit going over each line will be listed,  thus
+passthroughs  will  be  printed twice, once for the incoming
+line and once for the outgoing line.  Normally each  circuit
+would be printed only once.
+
+                                                    PAGE   9
+
+
+
+P37 B76 -C7- CUP5/1000 B30 P15
+P56 B104 -C10- CUP5/1000 B52 P12
+P63 B124 -C13- CUP5/1000 B244 -C14- C31B/41 B452 -C5-
+ MAN3/1034 B234
+  -C25- MAN2/1037 B22 P9
+P49 B74 -C14- CUP5/1000 B34 P17
+P31 B72 -C15- CUP5/1000 B242 -C15- C31B/41 B442 -C7-
+ MAN3/1034 B224
+  -C24- MAN2/1037 B206 -C14- DAR1/1033 B60 P30
+P62 B126 -C2- C12B/26 B462 -C3- C16-0B/13 B466 -C3- N4-0B/3
+ B516
+  -C2- BOS1/1021 B252 -C2- M52B/35 B102 P63
+
+EX 1 - Circuit tracing with all options
+
+
+
+P37 B76 -- CUP5/1000 B30 P15
+
+P56 B104 -- CUP5/1000 B52 P12
+
+P63 B124 -- CUP5/1000 B244 -- C31B/41 B452 -- MAN3/1034 B234
+  -- MAN2/1037 B22 P9
+
+P49 B74 -- CUP5/1000 B34 P17
+
+P31 B72 -- CUP5/1000 B242 -- C31B/41 B442 -- MAN3/1034 B224
+  -- MAN2/1037 B206 -- DAR1/1033 B60 P30
+
+P62 B126 -- C12B/26 B462 -- C16-0B/13 B466 -- N4-0B/3 B516
+  -- BOS1/1021 B252 -- M52B/35 B102 P63
+
+EX 2 - circuit tracing with no channel numbers
+
+                                                    PAGE  10
+
+
+
+Miscillaneous commands
+
+
+OUTFILE filename
+
+     filename becomes the new output file for  the  program,
+this  is  not  changing  the  TOUT  file merely the file for
+program output, prompts and messages will  still  appear  on
+TOUT.
+
+-----
+
+COMMANDS filename
+
+     Change the commands in file to filename.
+
+-----
+
+SNAP
+
+     Makes an in core copy of the running  supervisor,  this
+copy  will  then  be  used to obtain any further information
+requested about the  supervisor  or  network.   The  routine
+which  makes the copy will check to see if the supervisor is
+dormant and if so will  print  a  message  to  that  effect.
+Whether  the  supervisor is dormant or not control will then
+be passed back to the command processor so  another  command
+can  be  executed.   The snap routine will also check to see
+how long it has been since the supervisor  has  run  and  if
+more than 1 minute will print a message to that effect.
+
+     Unless there is a linefeed waiting in the input  buffer
+when the program is started up this command will be executed
+automatically.  If there was a linefeed in the  buffer  then
+the user must do a SNAP or RECOVER before he can do anything
+else.
+
+-----
+
+SAVE filename
+
+     This will write the current snapshot out  to  filename,
+this is not a complete copy of the supervisor but merely the
+information that the program needs.(See also DUMP command)
+
+-----
+
+DUMP filename
+
+     This will dump a complete copy  of  the  supervisor  to
+filename.   This command will require system status in order
+to execute.
+
+                                                    PAGE  11
+
+
+
+RECOVER filename
+
+     This command will recover a file which has  been  SAVEd
+or  DUMPed.  After RECOVERing a DUMPed file the program will
+be in the same state that it was after  the  original  SNAP.
+After  RECOVERing  a  SAVEd file, the program will be in the
+same state except that the DUMP and octal printout  commands
+will not operate..
+
+-----
+
+#nnnnn
+
+     This  will  print  in  octal,  the  contents  of  octal
+location nnnnn.
+
+-----
+
+REJECTS
+
+     This will type out the number of logins rejected.
+
+-----
+
+VERSION
+
+     This will  type  the  version  number  of  the  current
+snapshot  program,  and the version number of the supervisor
+from the snap.
+
+-----
+
+DATE
+
+     This will type the current date and time and  the  date
+and time that the snapshot was taken.
+
+-----
+
+TIME
+
+     This is the same as DATE.
+
+                                                    PAGE  12
+
+
+
+COUNT
+
+     This will print a count of the number of  terminations,
+passthroughs,  dead  ends, duplicate ports and nodes, in the
+network.  If an AN command had been  previously  given  then
+the  count  of  passthroughs,  terminations terminations and
+nodes will have been obtained from it and we can merely  get
+the  counts  from  there.   If  this  command  has  not been
+previously given then we must force it with no output, as we
+must  search  all  permuter  tables  in  order  to count the
+passthroughs and terminations.  Likewise if  the  DE  or  DP
+comand  has  not previously been issued it will be forced in
+order to count the dead ends or duplicate ports.
+
+-----
+
+STATISTICS
+
+     This command will print all the information provided by
+the  following commands; DATE,VERSION,REJECTS, and COUNT and
+will also tell whether or not a takeover was in process when
+the snap was taken.  The following is a sample output;
+
+CURRENT TIME   1500  7 MAY/1973
+SNAP TAKEN     1455  7 MAY/1973
+
+SUPER VERSION 111K
+
+210 LOGINS REJECTED
+1036 PASSTHROUGHS
+987 TERMINA
+45 DEAD ENDS
+86 NODES
+
+TAKEOVER IN PROCESS
+
+The last line of course will be omitted if a takeover is not
+in process.
+
+-----
+
+TS optionlist
+
+     The optionlist here is a string of digits between 1 and
+5.   This command will list, for each of the takeover states
+mentioned in the optionlist, the name of each node  that  is
+in  that  takeover  state.  If optionlist is omitted it will
+merely list the number of nodes in each state.
+
+                                                    PAGE  13
+
+
+
+HELP or ?
+
+     This will list all the valid commands.
+
+-----
+
+INSTRUCTIONS
+
+     This will give complete instructions on how to use  the
+program.
+ \m[J
