@@ -1,0 +1,729 @@
+      COMMON/B1/ INEL(17),IFIR(17),ICIR(1486),JUMP,ISH,IDATX(4),
+     1IALPH(16),IB(16),MAX(379),IDUM1(480),NISN(4),PAR(379)
+      DIMENSION K(72),IPAR(379),XPAR(379)
+      OPEN(3,'DEL.DAT',OUTPUT)
+C     FILENAME DATX,DDATX
+      DATA IALPH /'K','W','L','CH','R','C','PA','NA','CX','VI','VX',
+     1'TC','P1','P2','P3','P4'/
+      DATA NISN /3,2,2,1/
+      DATA IFIR /1,21,121,141,161,181,201,221,361,461,661,761,861,
+     1881,1081,1281,1481/
+      IB(1)=1
+      DO 415 J=2,4
+  415 IB(J)=31+40*(J-2)
+      DO 416 J=5,11
+  416 IB(J)=151+20*(J-5)
+      IB(12)=276
+      DO 417 J=13,16
+  417 IB(J)=296+21*(J-13)
+  401 TYPE 1001
+ 1001 FORMAT(///' ALL MOSFETS P CHANNEL?  ',$)
+      ACCEPT 1002,IDFILE
+ 1002 FORMAT(A5)
+      IF (IDFILE.EQ.'NO') GOTO 400
+      IF(IDFILE.EQ.'YES') GOTO 402
+      GOTO 401
+  400 NCMOS=2
+      GOTO 403
+  402 NCMOS=1
+  403 ISH=536870912
+        GO TO 1004
+9999    TYPE 9998
+9998    FORMAT('  NO SUCH FILE???'//)
+ 1004 TYPE 1003
+ 1003 FORMAT(' DATA FILE NAME?  ',$)
+      ACCEPT 2000,IDATX
+ 2000 FORMAT(4A5)
+      DO 275 J=1,30
+  275 MAX(J)=31-J
+      MAX(31)=40
+      MAX(71)=40
+      MAX(111)=40
+      DO 404 J=1,6
+  404 MAX(131+20*J)=20
+      MAX(271)=5
+      MAX(276)=20
+      DO 405 J=1,4
+  405 MAX(275+21*J)=21
+      OPEN(2,IDATX,RANDIO,ERR=9999)
+      TYPE 1006
+ 1006 FORMAT(' DO YOU WANT TRANSLATION?  ',$)
+      ACCEPT 1002,IDFILE
+      IF(IDFILE.EQ.'YES')GOTO 214
+  211 READ(2#POSITION(2),200,END=212) LCK
+      IF(LCK-1000)211,213,213
+  213 JUMP=2
+  410 GOTO (411,412) NCMOS
+  411 CLOSE(2)
+        CLOSE(3)
+      CALL CHAIN('CMOS')
+      STOP
+C     411 IS CHAIN 'PCH'
+  412 CLOSE(2)
+        CLOSE(3)
+      CALL CHAIN('CMOS')
+      STOP
+C     412 IS CHAIN 'PNCH'
+  212 CLOSE(2)
+      OPEN(2,IDATX,OUTPUT)
+C     212 IS REWIND INPUT FILE
+  214 PAR(1)=1
+        PAR(2)=20
+        PAR(3)= .175
+        PAR(4)= 20
+        PAR(5)= .5
+        PAR(6)= .05
+      PAR(7)=.1
+        PAR(8)= 20
+        PAR(9)= 3
+        PAR(10)= 2.5
+      GOTO (406,407) NCMOS
+  406 PAR(11)=4
+        PAR(12)= 2.5
+        PAR(13)= .2
+        PAR(14)= .06
+        PAR(15)= .034
+      PAR(16)=.48
+        PAR(17)= .5
+        PAR(18)= .1
+      GOTO 281
+  407 PAR(11)=4
+        PAR(12)= 1
+        PAR(13)= .2
+        PAR(14)= .06
+        PAR(15)= .034
+      PAR(16)=.2
+        PAR(17) =.87
+        PAR(18)=.1
+        PAR(21)=5
+        PAR(22)= 1
+      PAR(23)=.25
+        PAR(24)= .15
+        PAR(25)= .034
+        PAR(26)= .53
+        PAR(27)= .85
+  281 READ(2#POSITION(2),201,END=996)(K(I),I=1,36)
+      IOPT=ICHECK(K)
+      GOTO (999,996,281,215,217) IOPT
+  215 READ(2#POSITION(2),202,END=224)K
+      IOPT=ISET(K)
+      GOTO (215,216,999,996,224) IOPT
+  216 IERR=1
+      GOTO 215
+  217 IERR=1
+      GOTO 281
+  224 IF (IERR-1) 226,996,226
+  226 CONTINUE
+C     226 ENDFILEDATX
+      CALL TRANS2
+      LN=1000
+      WRITE(3,310)
+      WRITE(2#SIZE(2)+1,310) LN,(INEL(J),J=1,17)
+      LN=LN+10
+      DO 300 J1=1,17
+      J2=INEL(J1)
+      MI=J2/20
+      MR=MOD(J2,20)
+      J3=IFIR(J1)-20
+      IF(MI.EQ.0) GOTO 301
+      DO 302 J5=1,MI
+      J3=J3+20
+      J4=J3+19
+      WRITE(3,310)
+      WRITE(2#SIZE(2)+1,310) LN,(ICIR(I),I=J3,J4)
+  302 LN=LN+10
+  301 IF(MR.EQ.0) GOTO 300
+      J3=J3+20
+      J4=J3+MR-1
+      WRITE(3,310)
+      WRITE(2#SIZE(2)+1,310) LN,(ICIR(I),I=J3,J4)
+  300 LN=LN+10
+  310 FORMAT(I4,1X,20I3)
+      J=O
+      DO 104 I=1,379
+      IF(PAR(I)) 103,104,103
+  103 J=J+1
+      IPAR(J)=I
+      XPAR(J)=PAR(I)
+  104 LN=2990
+      IFILL=379
+      DO 105 I=1,J,5
+      LN=LN+10
+      JJ=I+4
+      IF(J-JJ) 106,2010,2010
+ 2010 WRITE(3,270)
+  105 WRITE(2#SIZE(2)+1,270) LN,(IPAR(II),XPAR(II),II=I,JJ)
+  106 N=MOD(J,5)
+      IF(N) 272,272,273
+  273 WRITE(3,270)
+        ILN=LN+10
+      WRITE(2#SIZE(2)+1,270)ILN,(IPAR(II),XPAR(II),II=I,J),
+     1(IFILL,XPAR(IFILL),I=N,4)
+  272 CONTINUE
+C     272 ENDFILEDATX
+218     TYPE 9000
+9000    FORMAT(' TRANSLATION COMPLETE')
+      JUMP=1
+      GOTO 410
+  270 FORMAT(I4,1X,5(I3,F10.4))
+  200 FORMAT(I)
+  201 FORMAT(36A1)
+  202 FORMAT(72A1)
+996     TYPE 9001
+9001    FORMAT(' CORRECT ERRORS IN DATA FILE THEN TRY AGAIN...')
+  999 STOP
+      END
+      FUNCTION ISET(K)
+      COMMON/B1/ IDUM1(1521),ISH,IDUM2(36),MAX(379),IDUM3(484),PAR(379)
+      DIMENSION K(72)
+      LN=0
+      DO 50 J=1,5
+      K(J)=K(J)/ISH-48
+        IF(K(J).LT.-80)K(J)=K(J)+127
+      IF(K(J))53,52,52
+   52 IF (K(J)-9) 50,50,53
+   50 LN=LN*10+K(J)
+   53 IF(LN.LT.100.OR.LN.GT.999) GOTO 57
+      J=J-1
+      GOTO 51
+   57 ISET=4
+        TYPE 9002
+9002    FORMAT(' LINE # INCORRECT OR  END  MISSING')
+      RETURN
+   51 IF(ISPACE(K,J,KP))25,55,21
+   55 KCHAR=K(J)-16
+      IF(KCHAR) 6,6,54
+   54 IF (KCHAR-26) 49,49,6
+   49 IMAX=1
+      ICHP=0
+      GOTO(6,6,3,4,10,6,6,6,11,6,8,9,10,11,6,1,6,12,6,11,6,
+     111,15,6,6,6) KCHAR
+   60 IMAX=O
+   68 IF(ISPACE(K,J,KP)) 6,65,21
+   65 IF(K(J)) 62,61,61
+   61 IF(K(J)-9) 63,63,6
+   62 IF(K(J)+7) 6,241,6
+  241 IF(ISPACE(K,J,KP)) 6,67,21
+   63 IMAX=IMAX*10+K(J)
+      GOTO 68
+   67 IF(K(J)-13) 6,504,6
+   11 IF(ISPACE(K,J,KP)) 6,80,21
+   80 KCHAR=K(J)-16
+      IF (KCHAR) 6,6,44
+   44 IF (KCHAR-24) 45,45,6
+   45 GOTO(7,93,94,6,6,13,6,6,95,6,6,6,6,6,6,97,6,6,14,5,6,6,
+     16,99) KCHAR
+   13 IF(KP.NE.25) GOTO 6
+      ISN=2
+      GOTO 70
+   14 IF(KP.NE.25) GOTO 6
+      ISN=1
+      GOTO 70
+    7 IF(KP.NE.30) GOTO 6
+      ISN=211
+      GOTO 70
+  103 ISET=1
+      RETURN
+    4 ISN=7
+      GOTO 70
+   93 IF(KP.NE.38) GOTO 6
+      ISN=9
+      GOTO 70
+   94 IF(KP.NE.36) GOTO 6
+      ISN=276
+      GOTO 70
+   95 IF(KP.NE.38)GOTO 6
+      ISN=251
+      GOTO 70
+   96 IF(KP.NE.28)GOTO 6
+      ISN=3
+      GOTO 70
+   97 IF (KP.NE.36) GOTO6
+      ISN=4
+      GOTO 70
+   92 IF(KP.NE.19) GOTO 6
+      ISN=111
+      ICHP=1
+        IREP=1
+        NDIG=0
+        LAST=0
+      GOTO 70
+   99 IF(KP.NE.38) GOTO 6
+      ISN=271
+      GOTO 70
+    3 ISN=171
+      GOTO 10
+   12 ISN=151
+      GOTO 10
+    9 ISN=71
+   10 IF(ISPACE(K,J,KP)) 6,81,21
+   81 KCHAR=K(J)-16
+      IF(KCHAR) 46,47,47
+   47 IF(KCHAR-25) 48,6,6
+   46 IF(KP.EQ.29) GOTO 6
+      IF(KCHAR+20) 249,504,21
+  249 IF(KCHAR+24) 6,60,6
+   48 GOTO(84,85,6,6,6,6,6,92,86,6,6,6,6,2,96,6,6,6,6,6,6,6,6,88) KCHAR
+   84 IF(KP.NE.29) GOTO 6
+      ISN=5
+      GOTO 70
+   85 IF(KP.NE.34) GOTO 6
+      ISN=10
+      GOTO 70
+   86 IF(KP.NE.29) GOTO 6
+      ISN=6
+      GOTO 70
+   88 IF (KP.NE.19) GOTO 6
+      ISN=231
+      GOTO 70
+    1 ISN=191
+      IF(ISPACE(K,J,KP)) 6,600,21
+  600 IF(K(J).EQ.17) GOTO 70
+      IF(K(J).EQ.1) ISN=296
+      IF(K(J).EQ.2) ISN=317
+      IF (K(J).EQ.3) ISN=338
+      IF (K(J).EQ.4) ISN=359
+      IF (200-ISN) 70,6,6
+    2 IF (KP.NE.21) GOTO 6
+      ISET=5
+      RETURN
+    8 ISN=1
+      GOTO 70
+    5 IF(KP.NE.30) GOTO 6
+      ISN=8
+      GOTO 70
+   15 ISN=31
+   70 IF(ISPACE(K,J,KP)) 6,73,21
+   73 IF(K(J)+4) 75,504,75
+   75 IF(K(J)+8) 6,60,76
+   76 IF(K(J)-17) 6,70,70
+  504 IF(ISPACE(K,J,KP))25,40,25
+   40 IF(K(J)-16) 415,415,98
+   98 IF(ICHP)23,6,79
+   79 IF(K(J).NE.30.AND.K(J).NE.32) GOTO 6
+      INUM=K(J)
+      IDEC=0
+      IMINUS=1
+      GOTO 183
+  300 IF(K(J)-16) 414,23,6
+  109 IF(K(J)-16) 413,23,6
+  415 IREP=1
+      IMINUS=1
+      LAST=0
+      IDEC=0
+  413 NDIG=0
+      INUM=0
+  414 KNUM=K(J)+7
+      IF(KNUM) 6,6,416
+  416 GOTO(111,112,150,113,114,181,115,115,115,115,115,115,115,115,
+     1115,115,6,6,6,6,6,6,6) KNUM
+  112 IF(NDIG) 23,312,6
+  312 IF(ISPACE(K,J,KP)) 6,300,21
+  113 IF(IMINUS-1) 6,313,23
+  313 IF(NDIG) 23,314,6
+  314 IMINUS=-1
+      IF(ISPACE(K,J,KP)) 6,300,21
+  114 IF(IDEC) 23,315,6
+  315 IDEC=1
+      IF(ISPACE(K,J,KP)) 290,300,290
+  290 IF(NDIG) 23,6,180
+  115 NDIG=NDIG+1
+      INUM=INUM*10+K(J)
+      IF(IDEC) 23,183,182
+  182 IDEC=IDEC+1
+  183 IF(ISPACE(K,J,KP)) 6,300,180
+  180 LAST=1
+      GOTO 150
+  111 IF(INUM)23,6,127
+  127 IF(IDEC) 23,128,6
+  128 IF(IMINUS-1) 6,130,23
+  130 IREP=INUM
+      IF(ISPACE(K,J,KP)) 25,109,25
+  181 IF(LAST) 23,151,6
+  151 LAST=-1
+  150 XNUM=INUM
+      IF(IDEC) 23,382,383
+  383 IDEC=IDEC-1
+  382 XNUM=XNUM/(10.**IDEC)
+      DO 135 NN=1,IREP
+      IF(IMAX-MAX(ISN)) 319,319,24
+  319 PAR(ISN+IMAX-1)=XNUM*IMINUS
+  135 IMAX=IMAX+1
+      IF (LAST) 51,137,103
+  137 IF(ISPACE(K,J,KP)) 103,40,103
+   21 TYPE 221,LN
+      GOTO 502
+   24 TYPE 224,LN
+      GOTO 502
+   25 TYPE 225,LN
+      GOTO 502
+    6 TYPE 220,LN
+      GOTO 502
+   23 TYPE 223
+  221 FORMAT('  IN',1X,I3,' TOO MANY SPACES')
+  224 FORMAT('  IN',1X,I3,' SUBSCRIPT ERROR')
+  225 FORMAT('  IN',1X,I3,' NOT ENOUGH DATA')
+  220 FORMAT('  IN',1X,I3,' ILLEGAL ENTRY')
+  223 FORMAT('  PROGRAM ERROR IN  ISET  ')
+      ISET=3
+      RETURN
+  502 ISET=2
+      RETURN
+      END
+      FUNCTION ISPACE(K,J,KP)
+      COMMON/B1/ IDUM1(1521),ISH,IDUM2(899),PAR(379)
+      DIMENSION K(72)
+      ISP=0
+      IF(J.EQ.0) GOTO 4
+      KP=K(J)
+    4 J=J+1
+      IF(J-72) 1,2,2
+    1 K(J)=K(J)/ISH-48
+        IF(K(J).LT.-80)K(J)=K(J)+127
+      IF(K(J)+16) 4,5,6
+    5 ISP=ISP+1
+      IF(ISP-6) 4,8,8
+    2 ISPACE=-1
+      RETURN
+    6 ISPACE=0
+      RETURN
+    8 ISPACE=1
+      RETURN
+      END
+      FUNCTION ICHECK(K)
+      COMMON/B1/ IDUM1(1521),ISH,IDUM2(415),L(4,40,3),NISN(4),PAR(379)
+      DIMENSION K(36)
+      ICHECK=3
+      LN=0
+      DO 50 J=1,5
+      K(J)=K(J)/ISH-48
+        IF(K(J).LT.-80)K(J)=K(J)+127
+      IF(K(J)) 53,52,52
+   52 IF(K(J)-9) 50,50,53
+   50 LN=LN*10+K(J)
+   53 IF(LN.GT.0.AND.LN.LE.99) GOTO 58
+      TYPE 33,LN
+      ICHECK=2
+      RETURN
+   51 J=J+1
+      K(J)=K(J)/ISH-48
+        IF(K(J).LT.-80)K(J)=K(J)+127
+   58 IF(J-36) 55,8,8
+   55 IF(K(J)+16) 6,51,59
+    6 TYPE 26,LN
+      GOTO 502
+    7 TYPE 27,LN
+      GOTO 502
+    8 TYPE 28,LN
+      GOTO 502
+    9 TYPE 29,LN
+      GOTO 502
+   26 FORMAT('   IN',1X,I3,' ILLEGAL CHARACTER')
+   27 FORMAT('   IN',1X,I3,' COMPONENT ALREADY USED')
+   28 FORMAT('   IN',1X,I3,' NEEDS MORE DATA')
+   29 FORMAT('   IN',1X,I3,' COMPONENT # TOO LARGE')
+   10 ICHECK=1
+        TYPE 9003
+9003    FORMAT(' PROGRAM ERROR IN ICHECK')
+      RETURN
+   12 TYPE 32,LN
+      GOTO 502
+   32 FORMAT('  IN',1X,I3, ' NODE # TOO LARGE')
+   33 FORMAT('  IN',1X,I4, ' LINE # TOO LARGE OR  END  MISSING')
+  502 ICHECK=5
+      RETURN
+   59 K(J)=K(J)-18
+      IF(K(J)) 6,6,54
+   54 IF(K(J)-16) 49,49,6
+   49 IMAX=0
+      KCHAR=K(J)
+      M=0
+      GOTO(3,6,5,6,6,6,4,6,6,6,6,6,6,6,1,2) KCHAR
+    5 ICHECK=4
+      RETURN
+    1 ISN=1
+      GOTO 60
+    2 ISN=2
+      GOTO 60
+    3 ISN=3
+   60 J=J+1
+      K(J)=K(J)/ISH-48
+        IF(K(J).LT.-80)K(J)=K(J)+127
+      IF(J-36) 65,8,8
+   65 IF(K(J)) 62,61,61
+   61 IF(K(J)-9) 63,63,6
+   62 IF(K(J)+16) 66,60,66
+   66 IF(K(J)+4) 6,70,6
+   63 IMAX=IMAX*10+K(J)
+      GOTO 60
+   70 IF(IMAX-20-20*(1/ISN)) 72,72,9
+   72 IF(L(ISN,IMAX,1)) 10,80,7
+    4 KJ=0
+      IF(L(4,1,1)) 10,74,7
+   74 ISN=4
+      IMAX=1
+      INUM=0
+   77 J=J+1
+      K(J)=K(J)/ISH-48
+        IF(K(J).LT.-80)K(J)=K(J)+127
+      IF(J-36) 75,8,8
+   75 IF(K(J)+16) 6,77,76
+   76 IF(K(J)+4) 6,88,78
+   78 KJ=KJ+1
+      IF(KJ-4) 77,6,10
+   88 IEND=30
+      GOTO 84
+   80 IEND=J
+   84 M=M+1
+      INUM=0
+   81 J=J+1
+      K(J)=K(J)/ISH-48
+        IF(K(J).LT.-80)K(J)=K(J)+127
+      IEND=IEND+1
+      IF(IEND-36) 83,95,95
+   83 IF(K(J)) 90,89,89
+   89 IF(K(J)-9) 92,92,6
+   90 IF(K(J)+16) 6,81,82
+   82 IF(K(J)+4) 6,85,6
+   92 INUM=INUM*10+K(J)
+      GOTO 81
+   85 IF(M-NISN(ISN)) 87,87,6
+   87 IF(INUM-30)86,86,12
+   86 L(ISN,IMAX,M)=INUM
+      IEND=30
+      GOTO 84
+   95 IF(M-NISN(ISN)) 8,97,6
+   97 IF(INUM) 8,8,94
+   94 IF(INUM-30) 96,96,12
+   96 L(ISN,IMAX,M)=INUM
+      RETURN
+      END
+      SUBROUTINE TRANS2
+      COMMON/B1/ INEL(17),IFIR(17),LENI(20),MAPI(100),MAPP(20,4),
+     1LENAD(20),MAPAD(140),LENA(100),MAPA(200),IDG1(100),IDG2(100),
+     2LEND(20),MAPC(200),MAPD(200),ITRANS(200),NN,NT,NR,NC,NTTL,NCL,
+     3IDUM1(417),L(4,40,3),IDUM2(4),PAR(379)
+      DIMENSION JKK(4)
+      J=1
+   12 IF(L(1,J,1)) 10,10,9
+    9 DO 11 K=1,3
+      KK=3*J-5+(K+3)/K+(K+3)/3
+   11 ITRANS(KK)=L(1,J,K)
+      NT=J
+      J=J+1
+      GOTO 12
+   10 J=1
+   13 IF(L(2,J,1)) 14,14,8
+    8 DO 15 K=1,2
+      KK=3*NT+2*J-2+K
+   15 ITRANS(KK)=L(2,J,K)
+      NR=J
+      J=J+1
+      GOTO 13
+   14 J=1
+   16 IF(L(3,J,1)) 17,17,7
+    7 DO 18 K=1,2
+      KK=2*J-2+K+2*NR+3*NT
+   18 ITRANS(KK)=L(3,J,K)
+      NC=J
+      J=J+1
+      GOTO 16
+   17 IF(L(4,1,1)) 19,19,6
+    6 NTTL=L(4,1,1)
+   19 I=3*NT+2*(NR+NC)
+      DO 21 J=1,I
+      IF(20-ITRANS(J))21,22,22
+   22 IF(ITRANS(J)-NN) 21,21,23
+   23 NN=ITRANS(J)
+   21 CONTINUE
+      ITRNSE=I
+      I=24
+  200 DO 201 J=1,ITRNSE
+      IF(ITRANS(J)-I) 201,203,201
+  201 CONTINUE
+      I=I-1
+      IF(I-20) 203,203,200
+  203 NCL=I-20
+      K=1
+      DO 56 J=1,NN
+      DO 32 JJ=1,NT
+      II=ITRANS(3*JJ-2)
+      DO 40 KK=1,2
+      I=ITRANS(3*JJ-2+KK)
+      IF(I-J) 40,36,40
+   36 LENI(J)=LENI(J)+1
+      MAPI(K)=JJ+40*(KK-1)
+      K=K+1
+      DO 68 J1=1,NCL
+      IF(II-20-J1) 68,205,68
+  205 JKK(J1)=JKK(J1)+1
+      LENI(J)=LENI(J)+1
+      MAPI(K)=100+20*J1+JKK(J1)
+      K=K+1
+      MAPP(JKK(J1),J1)=JJ+40*KK
+   68 CONTINUE
+   40 CONTINUE
+      IF(II-J) 32,41,32
+   41 DO 32 KK=1,2
+      I=ITRANS(3*JJ-2+KK)
+      DO 32 J1=1,NCL
+      IF(I-20-J1) 32,44,32
+   44 JKK(J1)=JKK(J1)+1
+      LENI(J)=LENI(J)+1
+      MAPI(K)=100+20*J1+JKK(J1)
+      K=K+1
+      MAPP(JKK(J1),J1)=JJ+40*KK
+   32 CONTINUE
+      IF(NR) 46,46,114
+  114 CONTINUE
+      DO 46 JJ=1,NR
+      DO 46 KK=1,3,2
+      M=(KK+1)/KK-1
+      I=ITRANS(3*NT+2*JJ-M)
+      IF(I-J) 46,47,46
+   47 LENI(J)=LENI(J)+1
+      MAPI(K)=JJ+80+20*M
+      K=K+1
+   46 CONTINUE
+      DO 35 JJ=1,NC
+      I=ITRANS(3*NT+2*(NR+JJ)-1)
+      II=ITRANS(3*NT+2*(NR+JJ))
+      IF(I-J) 50,51,50
+   50 IF(II-J) 35,55,35
+   55 II=I
+   51 DO 35 J1=1,NCL
+      IF(II-20-J1) 35,52,35
+   52 JKK(J1)=JKK(J1)+1
+      LENI(J)=LENI(J)+1
+      MAPI(K)=100+20*J1+JKK(J1)
+      K=K+1
+      MAPP(JKK(J1),J1)=120+JJ
+   35 CONTINUE
+      IF(NTTL-J) 58,57,58
+   57 LENI(J)=LENI(J)+1
+      MAPI(K)=201
+      K=K+1
+   58 IF(LENI(J)) 56,59,56
+   59 LENI(J)=1
+      MAPI(K)=202
+      K=K+1
+   56 MAPIE=K-1
+      DO 111 J1=1,4
+      IF(JKK(J1)) 110,110,111
+  110 JKK(J1)=1
+      MAPP(1,J1)=141
+  111 CONTINUE
+      K=1
+      DO 66 J=1,NN
+      DO 63 JJ=1,NT
+      DO 63 KK=1,3
+      I=ITRANS(3*JJ+KK-3)
+      IF(I-J) 63,62,63
+   62 LENAD(J)=LENAD(J)+1
+      MAPAD(K)=40*(KK-1)+JJ
+      K=K+1
+   63 CONTINUE
+      DO 69 JJ=1,NC
+      DO 69 KK=1,2
+      I=ITRANS(3*NT+2*(NR+JJ-1)+KK)
+      IF (I-J) 69,67,69
+   67 LENAD(J)=LENAD(J)+1
+      MAPAD(K)=120+JJ
+      K=K+1
+   69 CONTINUE
+      IF(LENAD(J).NE.0) GOTO 66
+      LENAD(J)=1
+      MAPAD(K)=141
+      K=K+1
+   66 CONTINUE
+      MAPADE=K-1
+      J1=1
+        J2=1
+      DO 70 K=1,NN
+      DO 70 M=1,NN
+      IF(M-K) 70,70,71
+   71 IN=0
+      DO 72 JJ=1,NT
+      DO 72 KK=1,2
+      I=ITRANS(3*JJ-2+KK)
+      IF(I-M) 74,73,74
+   74 IF (I-K) 72,75,72
+   73 MM=K
+      GOTO 77
+   75 MM=M
+   77 IF(ITRANS(3*JJ-2)-MM) 72,76,72
+   76 IDG1(J1)=NN*(K-1)+M
+      IDG2(J1)=NN*(M-1)+K
+      LENA(J1)=LENA(J1)+1
+      MAPA(J2)=JJ+40*KK
+      J2=J2+1
+      IN=1
+   72 CONTINUE
+      I=3*NT+2*NR+1
+      II=I+2*NC-2
+      DO 78 JJ=I,II,2
+      IF(ITRANS(JJ)-K) 81,82,81
+   82 MM=M
+   83 IF(ITRANS(JJ+1)-MM) 78,84,78
+   81 IF (ITRANS(JJ)-M) 78,85,78
+   85 MM=K
+      GOTO 83
+   84 IDG1(J1)=NN*(K-1)+M
+      IDG2(J1)=NN*(M-1)+K
+      LENA(J1)=LENA(J1)+1
+      MAPA(J2)=121+(JJ-I)/2
+      J2=J2+1
+      IN=1
+   78 CONTINUE
+      IF(IN) 70,70,89
+   89 J1=J1+1
+   70 CONTINUE
+      IF(J1-1) 96,96,97
+   96 LENAE=1
+        MAPAE=1
+        LENA(1)=1
+        IDG1(1)=1
+        IDG2(1)=1
+        MAPA(1)=1
+      GOTO 98
+   97 MAPAE=J2-1
+      LENAE=J1-1
+   98 CONTINUE
+      J1=1
+      DO 95 K=1,NN
+      DO 93 M=1,NN
+      J2=NN*(K-1)+M
+      IF(M-K) 91,93,92
+   91 DO 93 J=1,LENAE
+      IF(IDG2(J)-J2) 93,94,93
+   92 DO 93 JJ=1,LENAE
+      IF(IDG1(JJ)-J2) 93,94,93
+   94 MAPD(J1)=M
+      MAPC(J1)=J2
+      LEND(K)=LEND(K)+1
+      J1=J1+1
+   93 CONTINUE
+      IF (LEND(K)) 95,90,95
+   90 LEND(K)=1
+      MAPC(J1)=30
+      MAPD(J1)=30
+      J1=J1+1
+   95 CONTINUE
+      MAPCE=J1-1
+      INEL(1)=NN
+      INEL(2)=MAPIE
+      DO 112 J1=1,4
+  112 INEL(2+J1)=JKK(J1)
+      INEL(7)=NN
+        INEL(8)=MAPADE
+        INEL(9)=LENAE
+        INEL(10)=MAPAE
+      INEL(11)=LENAE
+        INEL(12)=LENAE
+        INEL(13)=NN
+        INEL(14)=MAPCE
+      INEL(15)=MAPCE
+        INEL(16)=ITRNSE
+        INEL(17)=6
+  100 RETURN
+      END
