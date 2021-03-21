@@ -1,0 +1,263 @@
+JUDMF.F4	F40	V26(10)	15-MAY-73	15:25	PAGE 1
+
+
+  		      C****************************************************************
+JUDMF.F4	F40	V26(10)	15-MAY-73	15:25	PAGE 2
+
+
+  		      C*     COPYRIGHT        TEKTRONIX, INC    1973
+  		      C*                       BEAVERTON, OREGON
+  		      C*     PLOT-10/DECISION MAKER RELEASE 1.0 - VERSION 1
+  		      C*               MODIFICATION LEVEL 0
+  		      C****************************************************************
+  		             SUBROUTINE JUDMF
+  		             COMMON /GAMA1/IFFN,WA(2560),YDATA(600),XDATA(30),TITLE(270)
+  		           1,D(640),E(640)
+  		             DIMENSION YT(52),PI(52),PIM(600)
+  		             DIMENSION L1(2),L2(1),T2(6),T3(4)
+  		             DIMENSION JMENU(3,3),M1(8),M2(7),M3(9),M4(7),M5(14),EDAT(1)
+  		            DATA JMENU/'FORE','CAST',' ','PROP','ORTI','ON','END',' ',' '/
+  		             DATA MX,MY/880,760/
+  		             DATA T2/';','AVER','AGE ','PROP','ORTI','ONS'/
+  		             DATA T3/';','PROJ','ECTI','ONS'/
+  		             DATA L1/'PERC','ENTS'/
+  		             DATA L2/'YEAR'/
+  		             DATA N1, M1/29,'ENTE','R NO',' PER','IODS',' TO ',' FOR','ECAS'
+  		           1,'T'/
+  		             DATA N2,M2/27,'TOTA','L FO','RECA','ST F','OR Y','EAR ','IS-'/
+  		             DATA N3,M3/36,'DO Y','OU H','AVE ','A FI','LE O','F PR','OPOR',
+  		           1'TION','S? '/
+  		             DATA N4,M4/28,'ENTE','R YO','UR P','ROJE','CTED',' TOT','AL-'/
+  		             DATA N5,M5/53,'THIS',' PRO','GRAM',' CAN',' NOT',' BE ','USED',
+  		           1' FOR',' FUL','L YE','AR F','OREC','ASTS','.'/
+  		            DATA DOL,BLK/1H$,1H /
+  		             DATA OO/'NO'/
+  		            CALL NEWPAG
+  		            CALL WRITEL(' ',0)
+  		             CALL MESAGE(1)
+  		             READ(5,100)FSN
+  		      100   FORMAT(A4)
+  		            IF(FSN.EQ.BLK.OR.FSN.EQ.DOL)RETURN
+  		             CALL READER
+  		             CALL SEGGET(FSN,JJ)
+  		             IF(JJ.EQ.0)RETURN
+  		             CALL GETD(XDATA,YDATA,NO,PPY,WA(JJ))
+  		      C   PHASE 1: CALCULATE AVERAGE PROPORTIONS
+  		             IF(NO.GE.0)RETURN
+  		            NO=-NO
+  		             ITYPE=PPY
+  		             IBDAT=XDATA(1)
+  		             CALL DTADD(IBDAT,NO-1,ITYPE,ICDAT)
+  		             CALL WRITEL(M3,N3)
+  		             READ(5,100)FSN
+  		             IF(FSN.EQ.BLK.OR.FSN.EQ.OO)GO TO 60
+  		             CALL SEGGET(FSN,JK)
+  		             IF(JK.EQ.0)RETURN
+  		             CALL GETD(XDATA(3),PI,N,PPY,WA(JK))
+  		             GO TO 200
+  		      60      N=NO/ITYPE
+  		             NN=N*ITYPE
+  		             K=0
+JUDMF.F4	F40	V26(10)	15-MAY-73	15:25	PAGE 3
+
+
+  		             DO 20 J=1,NN,ITYPE
+  		             K=K+1
+  		             YT(K)=0.
+  		               DO 10 I=1,ITYPE
+  		      10    YT(K)=YT(K)+YDATA(I+J-1)
+  		      C  YT IS THE TOTAL FOR YEAR(K)
+  		             DO 20 I=1,ITYPE
+  		      20    PIM(I+J-1)=YDATA(I+J-1)/YT(K)
+  		      C  PIM IS THE PROPORTION FOR EACH DATA POINT TO ITS YEAR
+  		             DO 30 J=1,ITYPE
+  		             PI(J)=0
+  		             DO 40 I=1,NN,ITYPE
+  		      40    PI(J)=PI(J)+PIM(I+J-1)
+  		      C PI IS THE SUM OF THE PROPORTIONS FOR EACH MONTH
+  		      30    PI(J)=PI(J)/N*100.
+  		      C   PI IS NOW THE AVERAGES
+  		             DO 16 I=1,20
+  		      16       D(I)=0.
+  		             CALL GETT(TITLE,LEN,WA(JJ))
+  		             DO 11 I=1,6
+  		      11    TITLE(LEN+I)=T2(I)
+  		             LEN=LEN+6
+  		             CALL SAVET(TITLE,LEN,D)
+  		             CALL SAVEU(L1,2,D)
+  		             CALL SAVEL(L2,1,D)
+  		             CALL SAVED(XDATA,PI,-ITYPE,PPY,D)
+  		             CALL DISITG(D,1)
+  		             CALL MESAGE(4)
+  		             READ(5,100)FSN
+  		             IF(FSN.EQ.DOL)RETURN
+  		             IF(FSN.EQ.BLK)GO TO 200
+  		             CALL SEGSAV(FSN,D)
+  		             CALL WRITER
+  		      C ROTATE PI TO START AT ONE
+  		      200    MS=MOD(IBDAT,100)
+  		             IF(MS.EQ.1) GO TO 17
+  		             GO TO 17
+  		             DO 18 I=1,ITYPE
+  		      18    YDATA(I)=PI(I)
+  		             CALL ROTE(-MS-1,ITYPE,YDATA,D)
+  		             DO 19 I=1,ITYPE
+  		      19    PI(I)=YDATA(I)
+  		      C RESTORE THE YDATA ARRAY
+  		      C       CALL GETD(XDATA,YDATA,NO,PPY,WA(JJ))
+  		      17       IPRT=1
+  		      C PHASE 2:  FORCAST OR PROPORTION
+  		      3     CALL MENUG(JMENU,3,3,IPRT,MX,MY,ISEL)
+  		            IF(IPRT.EQ.36)RETURN
+  		            CALL NEWPAG
+  		            CALL WRITEL(' ',0)
+  		            GO TO (51,52,53,54),ISEL
+  		      51    CALL MESAGE(2)
+  		             IPRT=0
+JUDMF.F4	F40	V26(10)	15-MAY-73	15:25	PAGE 4
+
+
+  		             GO TO 3
+  		      52     CALL WRITEL(M1,N1)
+  		             CALL FIN(5,EDAT(1),1)
+  		             MTS=EDAT(1)
+  		             IF(MTS.GE.ITYPE)GO TO 55
+  		             CALL DTADD(ICDAT,MTS+1-ITYPE,ITYPE,ISDAT)
+  		             MS=MOD(ISDAT,100)
+  		             MC=MOD(ICDAT,100)
+  		             IP=NO-ITYPE
+  		             I=MS
+  		             PC=0
+  		             CT=0
+  		      80    PC=PC+PI(I)
+  		             CT=CT+YDATA(I+IP)
+  		             IF(I.EQ.MC)GO TO 90
+  		             IF(I.EQ.ITYPE)GO TO 91
+  		             I=I+1
+  		             GO TO 80
+  		      91    IP=IP+ITYPE-MS
+  		             I=1
+  		             GO TO 80
+  		      90    TF=CT/PC*100
+  		             CALL WRITEL(M2,N2)
+  		            CALL FOUT(TF,2)
+  		             DO 41 I=1,MTS
+  		             J=MC+I
+  		             IF(J.GT.ITYPE)J=J-ITYPE
+  		      41    YDATA(NO+I)=PI(J)*TF/100.
+  		             DO 15 I=1,20
+  		      15       E(I)=0.
+  		             CALL GETT(TITLE,LEN,WA(JJ))
+  		             DO 12 I=1,4
+  		      12    TITLE(LEN+I)=T3(I)
+  		             CALL SAVET(TITLE,LEN+4,E)
+  		      34       CALL GETU(TITLE,LEN,WA(JJ))
+  		             CALL SAVEU(TITLE,LEN,E)
+  		             CALL GETL(TITLE,LEN,WA(JJ))
+  		      33       CALL SAVED(XDATA,YDATA,-NO-MTS,PPY,E)
+  		             CALL DISITG(E,1)
+  		             CALL MESAGE(4)
+  		             READ(5,100)FSN
+  		             IF(FSN.EQ.DOL)RETURN
+  		             IF(FSN.EQ.BLK)GO TO 3
+  		             CALL SEGSAV(FSN,E)
+  		             CALL WRITER
+  		             GO TO 3
+  		      53     CALL WRITEL(M4,N4)
+  		             CALL FIN(5,FT,1)
+  		              CALL WRITEL(M1,N1)
+  		             CALL FIN(5,EDAT(1),1)
+  		             MTS=EDAT(1)
+  		             IF(MTS.GE.ITYPE)GO TO 55
+  		             CALL DTADD(ICDAT,MTS+1-ITYPE,ITYPE,ISDAT)
+JUDMF.F4	F40	V26(10)	15-MAY-73	15:25	PAGE 5
+
+
+  		             MS=MOD(ISDAT,100)
+  		             MC=MOD(ICDAT,100)
+  		             CALL DTADD(ICDAT,MTS,ITYPE,IEDAT)
+  		             ME=MOD(IEDAT,100)
+  		             IP=NO-ITYPE
+  		             I=MS
+  		             PC=0
+  		             CT=0
+  		      180       CT=CT+YDATA(I+IP)
+  		             IF(I.EQ.MC)GO TO 190
+  		             IF(I.EQ.ITYPE)GO TO 191
+  		             I=I+1
+  		             GO TO 180
+  		      191    IP=IP+ITYPE-MS
+  		             I=1
+  		             GO TO 180
+  		      190   IF(I.EQ.ITYPE)GO TO 201
+  		             I=I+1
+  		      280    PC=PC+PI(I)
+  		             IF(I.EQ.ME)GO TO 290
+  		             GO TO 190
+  		      201   I=1
+  		             GO TO 280
+  		      290       DO 141 I=1,MTS
+  		             J=MC+I
+  		             IF(J.GT.ITYPE)J=J-ITYPE
+  		      141    YDATA(NO+I)=PI(J)*(FT-CT)/PC
+  		             DO 115 I=1,20
+  		      115       E(I)=0.
+  		             CALL GETT(TITLE,LEN,WA(JJ))
+  		             DO 112 I=1,4
+  		      112    TITLE(LEN+I)=T3(I)
+  		             CALL SAVET(TITLE,LEN+4,E)
+  		             CALL GETU(TITLE,LEN,WA(JJ))
+  		             CALL SAVEU(TITLE,LEN,E)
+  		             CALL GETL(TITLE,LEN,WA(JJ))
+  		             CALL SAVED(XDATA,YDATA,-NO-MTS,PPY,E)
+  		             CALL DISITG(E,1)
+  		             CALL MESAGE(4)
+  		             READ(5,100)FSN
+  		             IF(FSN.EQ.DOL)RETURN
+  		             IF(FSN.EQ.BLK)GO TO 3
+  		             CALL SEGSAV(FSN,E)
+  		             CALL WRITER
+  		             GO TO 3
+  		      55    CALL WRITEL(M5,N5)
+  		             GO TO 3
+  		      54       RETURN
+  		             END
+
+CONSTANTS
+
+0	201004020100	1	000000000000	2	000000000001	3	000000000002	4	000000000004
+JUDMF.F4	F40	V26(10)	15-MAY-73	15:25	PAGE 6
+
+
+5	000000000144	6	000000000003	7	000000000005	10	207620000000	
+
+COMMON
+
+IFFN  	/GAMA1 /+0	WA    	/GAMA1 /+1	YDATA 	/GAMA1 /+5001	XDATA 	/GAMA1 /+6131	TITLE 	/GAMA1 /+6167
+D     	/GAMA1 /+6605	E     	/GAMA1 /+10005	
+
+SUBPROGRAMS
+
+NEWPAG	WRITEL	MESAGE	ALPHO.	ALPHI.	READER	SEGGET	GETD  	INT   	DTADD 	FLOAT 	GETT  	SAVET 	SAVEU 	SAVEL 
+SAVED 	DISITG	SEGSAV	WRITER	MOD   	ROTE  	MENUG 	FIN   	FOUT  	GETU  	GETL  	
+
+SCALARS
+
+JUDMF 	1210		MX    	1211		MY    	1212		N1    	1213		N2    	1214	
+N3    	1215		N4    	1216		N5    	1217		DOL   	1220		BLK   	1221	
+OO    	1222		FSN   	1223		JJ    	1224		NO    	1225		PPY   	1226	
+ITYPE 	1227		IBDAT 	1230		ICDAT 	1231		JK    	1232		N     	1233	
+NN    	1234		K     	1235		J     	1236		I     	1237		LEN   	1240	
+MS    	1241		IPRT  	1242		ISEL  	1243		MTS   	1244		ISDAT 	1245	
+MC    	1246		IP    	1247		PC    	1250		CT    	1251		TF    	1252	
+FT    	1253		IEDAT 	1254		ME    	1255		IFFN  	0		
+
+ARRAYS
+
+WA    	1		YDATA 	5001		XDATA 	6131		TITLE 	6167		D     	6605	
+E     	10005		YT    	1256		PI    	1342		PIM   	1426		L1    	2556	
+L2    	2560		T2    	2561		T3    	2567		JMENU 	2573		M1    	2604	
+M2    	2614		M3    	2623		M4    	2634		M5    	2643		EDAT  	2661	
+
+ JUDMF
+    
