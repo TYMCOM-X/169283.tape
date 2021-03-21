@@ -1,0 +1,606 @@
+              ENTRY          RECOUT,RECIN,OPEN,CLOSE
+        TITLE   XRECIO
+              CHN=4
+              MODE=5
+       ;
+       ; CALL RECOUT(ICHAN,BUFFER,NWRDS,IWORD,IERR)
+       ;
+       RECOUT:                BLOCK  1
+       ;
+              MOVE           CHN,@0(16)  ;LOAD & CHECK CHANNEL NO.
+              CAIL           CHN,13
+              CAIL           CHN,20
+              JRST           ERR1
+              SUBI           CHN,13
+       ;
+              HRR            01,FCB(CHN)      ;FILE OPEN FOR WRITE?
+              HRRZ           00,4(01)
+              CAIE           00,2
+              JRST           ERR2
+       ;
+              MOVE           00,@3(16)   ;COMPUTE BLOCK/BUFFER
+              SUBI           00,1       ; INDICES OF FIRST WORD
+              IDIVI          00,200          ; OF RECORD.
+              ADDI           00,1
+              ADDI           01,1
+              MOVEM          00,B1
+              MOVEM          01,W1
+       ;
+              MOVE           01,@3(16)
+              ADD            01,@2(16)   ;COMPUTE BLOCK/BUFFER
+              SUBI           01,1       ;INDICES OF FIRST WORD
+              IDIVI          01,200          ;FOLLOWING RECORD.
+              ADDI           01,1
+              ADDI           02,1
+              MOVEM          01,B2
+              MOVEM          02,W2
+       ;
+              SETZM          N1         ;CLEAR TRANSFER COUNT.
+              MOVE           00,W1
+              CAIG           00,1
+              JRST           OUT1
+              SETZM          EOFSW
+              JSA            16,FILBUF   ;FILL BUFFER.
+              ARG            0,B1
+       ;
+              HRRZ           00,1(16)    ;BLOCK TRANSFER FIRST
+              MOVEM          00,A1      ;PART OF RECORD TO BUF.
+              HRRZ           00,BUF(CHN)
+              ADD            00,W1
+              MOVEM          00,A2
+              MOVEI          00,201
+              MOVE           01,B1
+              CAME           01,B2
+              JRST           .+2
+              MOVE           00,W2
+              SUB            00,W1
+              MOVEM          00,N1
+              JSA            16,BLKTRF
+              ARG            0,A1
+              ARG            0,A2
+              ARG            0,N1
+              MOVEI          00,1
+              MOVEM          00,W1
+              MOVEM          00,WSWCH(CHN)
+              MOVE           00,N1
+              CAML           00,@2(16)
+              JRST           ERR0
+              AOS            B1
+       ;
+       OUT1:  BLOCK          0
+              MOVE           00,B1
+              CAMN           00,B2
+              JRST           OUT2
+       ;
+              SUB            00,B2
+              IMULI          00,200          ;WRITE AS MANY BLOCKS AS
+              ASH            00,22      ;POSSIBLE IN UNBUFFERED MODE.
+              HLLM           00,IOCW
+              HRRZ           00,1(16)
+              SUBI           00,1
+              ADD            00,N1
+              HRRM           00,IOCW
+       ;
+              MOVE           00,B2
+              SUB            00,B1
+              IMULI          00,200
+              ADDM           00,N1
+       ;
+              HLL            00,FCB(CHN)
+              HRR            00,B1
+              OR             00,[USETO 0,0]
+              XCT            00
+              HLLZ           00,FCB(CHN)
+              OR             00,[OUT 0,IOCW]
+              XCT            00
+              JRST           .+2
+              JRST           ERR3
+       ;
+       OUT2:  BLOCK          0          ;BLOCK TRANSFER LAST PART
+              MOVE           00,W2      ;OF RECORD TO BUFFER.
+              CAIN           00,1
+              JRST           ERR0
+              SETOM          EOFSW
+              JSA            16,FILBUF
+              ARG            0,B2
+              MOVE           00,1(16)
+              ADD            00,N1
+              MOVEM          00,A1
+              HRRZ           00,BUF(CHN)
+              ADDI           00,1
+              MOVEM          00,A2
+              MOVE           00,@2(16)
+              SUB            00,N1
+              MOVEM          00,N1
+              JSA            16,BLKTRF
+              ARG            0,A1
+              ARG            0,A2
+              ARG            0,N1
+              MOVEI          00,1
+              MOVEM          00,WSWCH(CHN)
+              JRST           ERR0
+       ;
+       ;
+       ; CALL RECIN(ICHAN,BUFFER,NWRDS,IWORD,IERR)
+       ;
+       RECIN:                 BLOCK  1
+       ;
+              MOVE           CHN,@0(16)  ;LOAD & CHECK CHANNEL NUMBER
+              CAIL           CHN,13
+              CAIL           CHN,20
+              JRST           ERR1
+              SUBI           CHN,13
+       ;
+              HRRZ           01,FCB(CHN)      ;FILE OPEN FOR READ?
+              HRRZ           00,4(01)
+              JUMPE          00,ERR2
+       ;
+              MOVE           00,@3(16)   ;COMPUTE BLOCK/BUFFER
+              SUBI           00,1       ; INDICES OF FIRST WORD
+              IDIVI          00,200          ; OF RECORD.
+              ADDI           00,1
+              ADDI           01,1
+              MOVEM          00,B1
+              MOVEM          01,W1
+       ;
+              MOVE           01,@3(16)
+              ADD            01,@2(16)   ;COMPUTE BLOCK/BUFFER
+              SUBI           01,1       ;INDICES OF FIRST WORD
+              IDIVI          01,200          ;FOLLOWING RECORD.
+              ADDI           01,1
+              ADDI           02,1
+              MOVEM          01,B2
+              MOVEM          02,W2
+       ;
+              SETZM          N1         ;CLEAR TRANSFER COUNT.
+              ;
+              MOVE           00,W1
+              CAIG           00,1
+              JRST           IN1
+              SETZM          EOFSW
+              JSA            16,FILBUF   ;FILL BUFFER.
+              ARG            0,B1
+       ;
+              HRRZ           00,BUF(CHN)      ;BLOCK TRANSFER FIRST PART
+              ADD            00,W1      ;OF RECORD FROM BUFFER.
+              MOVEM          00,A1
+              HRRZ           00,1(16)
+              MOVEM          00,A2
+              MOVEI          00,201
+              MOVE           01,B1
+              CAME           01,B2
+              JRST           .+2
+              MOVE           00,W2
+              SUB            00,W1
+              MOVEM          00,N1
+              JSA            16,BLKTRF
+              ARG            0,A1
+              ARG            0,A2
+              ARG            0,N1
+              MOVE           00,N1
+              CAML           00,@2(16)
+              JRST           ERR0
+              AOS            B1
+       ;
+       IN1:   BLOCK          0          ;READ REMAINING PART OF
+              SKIPN          WSWCH(CHN)
+              JRST           .+3
+              JSA            16,DMPBUF
+              ARG            0,LBLK(CHN)
+              MOVN           00,@2(16)   ;RECORD IN UNBUFFERED MODE.
+              ADD            00,N1
+              ASH            00,22
+              HLLM           00,IOCW
+              HRRZ           00,1(16)
+              SUBI           00,1
+              ADD            00,N1
+              HRRM           00,IOCW
+              HLL            00,FCB(CHN)
+              HRR            00,B1
+              OR             00,[USETI 0,0]
+              XCT            00
+              HLLZ           00,FCB(CHN)
+              OR             00,[IN 0,IOCW]
+              XCT            00
+              JRST           ERR0
+              JRST           ERR3
+       ;
+       ;
+       ; SUBROUTINES TO FILL AND DUMP THE BUFFER TO DISK.
+       ;
+       FILBUF:                BLOCK  1       ;ROUTINE TO FILL BUFFER.
+       ;
+              MOVE           00,@0(16)   ;DISK BLOCK INDEX.
+              CAMN           00,LBLK(CHN)     ;BLOCK IN BUFFER?
+              JRA            16,1(16)    ;YES
+              MOVEM          00,RBLK     ;NO
+              SKIPN          00,WSWCH(CHN)
+              JRST           .+3
+              JSA            16,DMPBUF   ;DUMP CURRENT BUFFERFULL.
+              ARG            0,LBLK(CHN)
+              MOVE           00,@0(16)
+              MOVEM          00,LBLK(CHN)
+              HLL            00,FCB(CHN)      ;READ IN BLOCK.
+              HRR            00,RBLK
+              OR             00,[USETI 0,0]
+              XCT            00
+              MOVE           00,BUF(CHN)
+              MOVEM          00,IOCW
+              HLLZ           00,FCB(CHN)
+              OR             00,[IN 0,IOCW]
+              XCT            00
+              JRA            16,1(16)
+              HLLZ           00,FCB(CHN)
+              OR             00,[STATO 0,20000]
+              XCT            00
+              JRST           .+3       ;CORRECTION 7/19/72
+              SKIPE          EOFSW
+              JRA            16,1(16)
+                MOVE    16,FILBUF      ;CORRECTION 7/19/72
+              JRST           ERR3
+       ;
+       ;
+       DMPBUF:                BLOCK  1       ;ROUTINE TO DUMP BUFFER.
+       ;
+              HLL            00,FCB(CHN)
+              HRR            00,@0(16)
+              OR             00,[USETO 0,0]
+              XCT            00
+              MOVE           00,BUF(CHN)
+              MOVEM          00,IOCW
+              HLLZ           00,FCB(CHN)
+              OR             00,[OUT 0,IOCW]
+              XCT            00
+                JRST    .+3             ;CORRECTION 8/9/72
+                MOVE    16,DMPBUF
+                JRST    ERR3
+              SETZM          WSWCH(CHN)
+              JRA            16,1(16)
+       ;
+       RBLK:  BLOCK          1
+       EOFSW:                 BLOCK  1
+       ;
+       ;
+       ; SUBROUTINE TO BLOCK TRANSFER DATA.
+       ;
+       BLKTRF:                BLOCK  1
+       ;
+              HRLZ           01,@0(16)
+              HRR            01,@1(16)
+              HRRZ           00,@1(16)
+              ADD            00,@2(16)
+              SUBI           00,1
+              HRRM           00,.+1
+              BLT            01,00
+              JRA            16,3(16)
+       ;
+       ;
+       ;
+       ERR0:  BLOCK          0          ;NO ERRORS.
+              MOVE           00,@2(16)
+              ADDM           00,@3(16)
+              MOVEI          00,0
+              JRST           RIOUT
+       ;
+       ERR1:  BLOCK          0          ;ILLEGAL CHANNEL.
+              MOVEI          00,1
+              JRST           RIOUT
+       ;
+       ERR2:  BLOCK          0          ;IMPROPER MODE OR FILE
+              MOVEI          00,2       ; IS NOT OPEN.
+              JRST           RIOUT
+       ;
+       ERR3:  BLOCK          0          ;I-O ERROR.
+              HLLZ           01,FCB(CHN)
+              OR             01,[STATZ 0,20000]
+              MOVEI          00,3
+              XCT            01
+              ADDI           00,1
+              JRST           RIOUT
+       ;
+       RIOUT:                 BLOCK  0       ;STORE ERROR FLAG & RETURN.
+              MOVEM          00,@4(16)
+              JRA            16,5(16)
+       ;
+       ;
+       ; CALL OPEN(ICHAN,'FILE.EXT',NPROJ,NPROG,MODE,IERR)
+       ;
+        SEXTERN DYNDV.
+        EXTERN JOBHCU,JOBJDA
+
+       OPEN:  BLOCK          1
+       ;
+              MOVE           CHN,@0(16)  ;LOAD AND CHECK CHANNEL NO.
+              CAILE          CHN,12
+              CAILE          CHN,17
+              JRST           OPN07
+              SUBI           CHN,13
+       ;
+DOCHN:  MOVEI 2,0       ;CHANNEL NUMBER TO TEST
+CKCHN:  SKIPN JOBJDA(2) ;CHECK IF IN USE
+        JRST GOTCHN     ;NOPE, STEAL IT
+        CAMGE 2,JOBHCU  ;YES, KEEP TRYING
+        AOJA 2,CKCHN
+        CAIGE 2,17      ;NO LUCK, BUT MIGHT BE ROOM ABOVE JOBHCU
+        AOJA 2,GOTCHN   ;YES
+        OUTSTR [ASCIZ/NO CHANNELS AVAILABLE/]
+        MOVEI 12
+        JRST OPN14
+GOTCHN: DPB 2,[POINT 4,FCB(CHN),12]     ;SAVE CHANNEL IN DUMMY I/O INST.
+        SKIPE [DYNDV.]
+        SETOM DYNDV.(2) ;ALSO TELL FORSE WE GRABBED CHANNEL
+
+              MOVE           MODE,@4(16)      ;LOAD AND CHECK MODE.
+              CAIL           MODE,3
+              JRST           OPN08
+       ;
+       OPN00:                 BLOCK  0
+              HRRZ           01,FCB(CHN)      ;ZERO FILE NAME AND EXTEN
+              MOVEI          00,0       ; IN FILE CONTROL BLOCK.
+              MOVEM          00,0(01)
+              MOVEM          00,1(01)
+              MOVEM          00,2(01)
+              MOVEM          00,3(01)
+       ;
+              MOVEM          MODE,4(01)  ;STORE MODE IN FCB.
+       ;
+              MOVE           00,@2(16)   ;STORE PROJECT & PROGRAMMER
+              HRLM           00,3(01)    ; NUMBERS IN FCB.
+              MOVE           00,@3(16)
+              HRRM           00,3(01)
+       ;
+              HRR            00,1(16)    ;SET BYTE POINTER TO FILE-
+              HLL            00,[POINT 7,0]   ; NAME (7-BIT ASCII).
+              MOVEM          00,PTR1
+       ;
+              HRR            00,FCB(CHN)      ;SET BYTE POINTER TO FCB
+              HLL            00,[POINT 6,0]   ; (SIXBIT CODE).
+              MOVEM          00,PTR2
+       ;
+              MOVEI          01,7       ;CONVERT FILE-NAME FROM ASCII
+       OPN01:                 BLOCK  0       ; TO SIXBIT AND STORE IN FCB.
+              SOJL           01,OPN09    ; CHECK FOR ILLEGAL CHARACTERS
+              ILDB           00,PTR1         ; PERIOD OR NULL TERMINATES
+              JUMPE          00,OPN04    ; THE FILE-NAME STRING.
+              CAIL           00,40
+              CAIL           00,140
+              JRST           OPN09
+              SUBI           00,40
+              JUMPE          00,OPN04
+              CAIN           00,16
+              JRST           OPN02
+              IDPB           00,PTR2
+              JRST           OPN01
+       ;
+       OPN02:                 BLOCK  0       ;CONVERT AND STORE EXTENSION.
+              HRR            00,FCB(CHN)      ; (LAST CHARACTER OF FILE-
+              ADDI           00,1       ;  NAME WAS NOT NULL).
+              HLL            00,[POINT 6,0]
+              MOVEM          00,PTR2
+              MOVEI          01,3
+       OPN03:                 BLOCK  0
+              SOJL           01,OPN04
+              ILDB           00,PTR1
+              JUMPE          00,OPN04
+              CAIL           00,40
+              CAIL           00,140
+              JRST           OPN09
+              SUBI           00,40
+              JUMPE          00,OPN04
+              IDPB           00,PTR2
+              JRST           OPN03
+       ;
+       OPN04:                 BLOCK  0       ;OPEN CHANNEL FOR DUMP MODE
+              HLLZ           00,FCB(CHN)      ; I-O TO DISK.
+              OR             00,[INIT 0,16]
+              MOVEM          00,.+1
+              BLOCK          1
+              SIXBIT         /DSK/
+              0
+              JRST           OPN10
+       ;
+              MOVE           00,FCB(CHN)      ;OPEN FILE FOR INPUT.
+              OR             00,[LOOKUP 0,0]
+              MOVEM          00,.+1
+              BLOCK          1
+              JRST           OPN11
+       ;
+              CAIG           MODE,0          ;MODE <= 0?
+              JRST           OPN13      ;YES - ERROR.
+              CAIN           MODE,1          ;MODE=1?
+              JRST           OPN06      ;YES - DONE.
+       ;
+       OPN05:                 BLOCK  0       ;OPEN FILE FOR OUTPUT.
+              HRRZ           01,FCB(CHN)
+              SETZM          3(01)
+              MOVE           00,FCB(CHN)      ;
+              OR             00,[ENTER 0,0]
+              MOVEM          00,.+1
+              BLOCK          1
+              JRST           OPN12
+       ;
+              JUMPG          MODE,OPN06  ;IF MODE<=0 CHANGE TO 2.
+              HRRZ           01,FCB(CHN)
+              MOVEI          00,2
+              MOVEM          00,4(01)
+              JUMPE          MODE,OPN06
+       ;
+              MOVE           00,CLEAR    ;CLEAR REQUESTED AREA 
+              MOVEM          00,IOCW         ; ON THE DISK.
+              MOVN           00,MODE
+              IDIVI          00,1200
+              CAIE           01,0
+              ADDI           00,1
+              MOVEM          00,N1
+              MOVEI          MODE,2
+              HLLZ           02,FCB(CHN)
+              OR             02,[USETO 0,1]
+              HLLZ           01,FCB(CHN)
+              OR             01,[OUT 0,IOCW]
+       T02:   SOJL           00,OPN15
+              XCT            02
+              ADDI           02,5
+              XCT            01
+              JRST           T02
+              MOVEI          00,12
+              JRST           OPN14
+       OPN15:                 HLLZ   00,FCB(CHN)
+              OR             00,[CLOSE 0,0]
+              XCT            00
+              MOVE           00,N1
+              IMULI          00,5
+              MOVEM          00,N1
+              MOVE           00,[POINT 3,N1,17]
+              MOVEM          00,PTR1
+              MOVEI          01,6
+       T01:   SOJL           01,OPN00
+              ILDB           00,PTR1
+              ADDI           00,60
+              JRST           T01
+       ;
+       OPN06:                 BLOCK  0       ;SET BLOCK INDICATOR & FLAG.
+              MOVEI          00,0
+              JRST           OPN14
+       ;
+       OPN07:                 BLOCK  0       ;ILLEGAL CHANNEL NUMBER.
+              MOVEI          00,1
+              JRST           OPN14
+       ;
+       OPN08:                 BLOCK  0       ;IMPROPER MODE.
+              MOVEI          00,2
+              JRST           OPN14
+       ;
+       OPN09:                 BLOCK  0       ;BAD FILE-NAME OR EXTENSION.
+              MOVEI          00,3
+              JRST           OPN14
+       ;
+       OPN10:                 BLOCK  0       ;DISK NOT AVAILABLE.
+              MOVEI          00,4
+         JRST           OPN14
+       ;
+       OPN11:                 BLOCK  0       ;LOOKUP ERROR.
+              HRRZ           01,FCB(CHN)
+              HRRZ           00,1(01)
+              JUMPN          00,OPN12
+              JUMPLE         MODE,OPN05
+              JRST           OPN12
+       ;
+       OPN12:                 BLOCK  0       ;I-O ERROR.
+              HRRZ           01,FCB(CHN)
+              HRRZ           00,1(01)
+              ADDI           00,5
+              JRST           OPN14
+       ;
+       OPN13:                 BLOCK  0       ;FILE EXITS IN CREATE MODE.
+              MOVEI          00,11
+              JRST           OPN14
+       ;
+       OPN14:                 BLOCK  0       ;SET ERROR FLAG & RETURN.
+              MOVEM          00,@5(16)
+              JRA            16,6(16)
+       ;
+       ; CALL CLOSE(ICHAN,IERR)
+       ;
+       CLOSE:                 BLOCK  1
+       ;
+              MOVE           CHN,@0(16)  ;LOAD & CHECK CHANNEL NO.
+              CAILE          CHN,12
+              CAILE          CHN,17
+              JRST           CLS01
+              SUBI           CHN,13
+       ;
+              HRRZ           01,FCB(CHN)
+              HRRZ           00,4(01)
+              JUMPE          CLS02
+       ;
+              MOVE           00,WSWCH(CHN)    ;DUMP BUFFER TO DISK IF
+              JUMPE          00,CLS10    ; SWITCH IS ON.
+              HLL            00,FCB(CHN)
+              HRR            00,LBLK(CHN)
+              OR             00,[USETO 0,0]
+              XCT            00
+              MOVE           00,BUF(CHN)
+              MOVEM          00,IOCW
+              HLLZ           00,FCB(CHN)
+              OR             00,[OUT 0,IOCW]
+              XCT            00
+              JRST           .+2
+              JRST           CLS03
+              MOVEI          00,0
+              MOVEM          00,WSWCH(CHN)
+       ;
+       CLS10:                 BLOCK  0
+              MOVEI          00,0
+              MOVEM          00,LBLK(CHN)
+       ;
+       ;
+              HLLZ           FCB(CHN)    ;CLOSE FILE.
+              OR             00,[CLOSE 0,0]
+              MOVEM          00,.+1
+              BLOCK          1
+       ;
+              HLLZ           00,FCB(CHN)      ; CHECK STATUS.
+              OR             00,[STATZ 0,740000]
+              MOVEM          00,.+1
+              BLOCK          1
+              JRST           CLS03
+       ;
+              HLLZ           00,FCB(CHN)      ;RELEASE CHANNEL.
+              OR             00,[RELEAS 0,0]
+              MOVEM          00,.+1
+              BLOCK          1
+       ;
+              MOVEI          MODE,0
+              MOVEM          MODE,4(01)
+       ;
+              MOVEI          00,0
+              JRST           CLS04
+       ;
+       CLS01:                 BLOCK  0       ;ILLEGAL CHANNEL NUMBER.
+              MOVEI          00,1
+              JRST           CLS04
+       ;
+       CLS02:                 BLOCK  0       ;FILE NOT OPEN.
+              MOVEI          00,2
+              JRST           CLS04
+       ;
+       CLS03:                 BLOCK  0       ;I-O ERROR.
+              MOVEI          00,3
+              JRST           CLS04
+       ;
+       CLS04:                 BLOCK  0       ;STORE ERROR FLAG & RETURN.
+              MOVEM          00,@1(16)
+              JRA            16,2(16)
+       ;
+       ;
+       ;
+       ;
+       PTR1:  BLOCK          1
+       PTR2:  BLOCK          1
+       B1:    BLOCK          1
+       B2:    BLOCK          1
+       W1:    BLOCK          1
+       W2:    BLOCK          1
+       A1:    BLOCK          1
+       A2:    BLOCK          1
+       N1:    BLOCK          1
+FCB:    EXP FCB11,FCB12,FCB13,FCB14,FCB15
+       FCB11:                 EXP    0,0,0,0,0,0,0
+       FCB12:                 EXP    0,0,0,0,0,0,0
+       FCB13:                 EXP    0,0,0,0,0,0,0
+       FCB14:                 EXP    0,0,0,0,0,0,0
+       FCB15:                 EXP    0,0,0,0,0,0,0
+       LBLK:  EXP            0,0,0,0,0
+       WSWCH:                 EXP    0,0,0,0,0
+       BUF:   IOWD           200,BUFFER
+              IOWD           200,BUFFER+200
+              IOWD           200,BUFFER+400
+              IOWD           200,BUFFER+600
+              IOWD           200,BUFFER+1000
+       CLEAR:                 IOWD   1100,BUFFER
+       BUFFER:                BLOCK  1200
+       IOCW:  0
+              0
+       ;
+              END
+   ^ Qˆ
