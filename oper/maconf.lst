@@ -1,0 +1,291 @@
+MACONF.F4	F40	V26(10)	15-MAY-73	15:26	PAGE 1
+
+
+  		      C****************************************************************
+MACONF.F4	F40	V26(10)	15-MAY-73	15:26	PAGE 2
+
+
+  		      C*     COPYRIGHT        TEKTRONIX, INC    1973
+  		      C*                       BEAVERTON, OREGON
+  		      C*     PLOT-10/DECISION MAKER RELEASE 1.0 - VERSION 1
+  		      C*               MODIFICATION LEVEL 0
+  		      C****************************************************************
+  		            SUBROUTINE  MACONF
+  		      C
+  		      C          MACONF   MOVING AVERAGE CONTROL
+  		      C
+  		            COMMON/GAMA1/MFILE,MFLARY(2560),YDATA(600),XDATA(300),BUFFER(600)
+  		            DIMENSION  ITITLE(30)
+  		            DIMENSION  ILABEL  (30)
+  		            DIMENSION ILABX1  (30)
+  		            DIMENSION  FMADAT (260)
+  		            DIMENSION  MENUK  (4,2), EMAP (8)
+  		            DIMENSION ELT (5)
+  		            DIMENSION  ITPLUS (5)
+  		            DATA ITPLUS / 4H;   , 4HMOVI, 4HNG A, 4HVERA, 4HGE    /
+  		      C
+  		      C
+  		            DATA (MENUK(I,1),I=1,4) /
+  		           *   4HSIMP, 4HLE   , 4HM.A. , 4H     /
+  		      C
+  		            DATA (MENUK(I,2),I=1,4) /
+  		           *   4HTREN, 4HD CO, 4HRREC, 4HTED  /
+  		      C
+  		            DATA  MENL / 4/
+  		      C
+  		            DATA (EMAP(I),I=1,8) /
+  		           *  4HENTE, 4HR MO, 4HVING, 4H AVE, 4HRAGE, 4H PER, 4HIOD ,4H=    /
+  		      C
+  		            DATA (ELT(I),I=1,5) /
+  		           *  4HENTE, 4HR LE, 4HAD T, 4HIME ,4H=   /
+  		      C
+  		      C
+  		            DATA  IDOLLR  / 4H$      /
+  		            DATA  IBLANK  / 4H     /
+  		      C-----
+  		      C
+  		      C                             . OPEN FILE
+  		            CALL READER
+  		      C-----
+  		      C
+  		      10      CONTINUE
+  		      C               . GET FILE SEGMENT NAME
+  		            NAMSEG = 0
+  		            CALL NEWPAG
+  		      11    CONTINUE
+  		            CALL MESAGE (1)
+  		            READ (5,10000) NAMSEG
+  		      10000       FORMAT (A4)
+  		            IF( NAMSEG  .EQ.  IDOLLR  .OR.  NAMSEG  .EQ.  IBLANK )  GO TO 999
+  		      C-----
+MACONF.F4	F40	V26(10)	15-MAY-73	15:26	PAGE 3
+
+
+  		      C
+  		      C                . GET SEGMENT
+  		                CALL SEGGET (NAMSEG,  J)
+  		            IF( J  .GT.  0 )  GO TO 20
+  		            GO TO 11
+  		      C-----
+  		      C
+  		      20      CONTINUE
+  		      C                   . GET UNITS
+  		            CALL  GETU (ILABEL, LFN, MFLARY (J) )
+  		            CALL  GETL (ILABX1, LX1, MFLARY (J) )
+  		      C-----
+  		      C
+  		      C                  . GET TITLE
+  		            CALL GETT (ITITLE, LENTLE, MFLARY(J))
+  		      C-----
+  		      C
+  		      C                    . GET DATA
+  		            CALL GETD (XDATA, YDATA, NDAT, PNTPYR, MFLARY (J) )
+  		            NDATA = IABS (NDAT)
+  		            FNDATA = FLOAT (NDATA)
+  		      C-----
+  		      C
+  		      C                       . PLOT ORIGINAL DATA
+  		            ISYR = XDATA (1)
+  		            IYRS = FNDATA / PNTPYR
+  		            YRS = IYRS
+  		            IF( AMOD(FNDATA,PNTPYR)  .NE.  0.0 )  YRS = YRS + 1.0
+  		            TIM = PNTPYR
+  		      C
+  		            CALL NEWPAG
+  		            CALL SWINDO (200, 600, 100, 500)
+  		            CALL TGRAPH (YDATA, NDATA, ISYR, YRS, TIM, 0, 1024+64, 64, 0 )
+  		            CALL MOVABS (200,655)
+  		            CALL ANMODE
+  		            WRITE (5,10200)
+  		      10200 FORMAT(1X, 13HORIGINAL DATA )
+  		      C-----
+  		      C
+  		      C
+  		      C                     . CHOOSE MENU ITEM
+  		            LOCX = 825
+  		            LOCY = 780
+  		            I = 1
+  		            CALL MENUG (MENUK, MENL, 2, I, LOCX, LOCY, IRTN)
+  		            IF(I.EQ.36) GO TO 999
+  		            IF( IRTN .EQ. 1 )  GO TO 999
+  		      C
+  		            ITFTOG = 0
+  		            IF( IRTN  .EQ.  2 )  GO TO 50
+  		            ITFTOG = 1
+  		      50      CONTINUE
+  		      C-----
+MACONF.F4	F40	V26(10)	15-MAY-73	15:26	PAGE 4
+
+
+  		      C
+  		      C                    . SET CONSTANTS
+  		            L = 0
+  		            ILTTOG = 0
+  		            IT = 0
+  		            MAPOLD = -1
+  		            CALL WRITEL (IBLANK,0)
+  		      C-----
+  		      C
+  		      60      CONTINUE
+  		      C                    . ENTER MOVING AVERAGE PERIOD
+  		            CALL WRITEL (EMAP, 32)
+  		            I = 1
+  		            CALL FIN (5, F, I)
+  		            IF(I.LT.0) F = 0.0
+  		            MAP = F
+  		            IF( MAP  .GT.  0 )  GO TO 70
+  		      C
+  		            IF( IT .EQ. 1 )  GO TO 999
+  		            IT = 1
+  		            CALL AUTCOF (NDATA, PNTPYR)
+  		            GO TO 60
+  		      C-----
+  		      C
+  		      C                        . PERFORM MOVING AVERAGE
+  		      70      CONTINUE
+  		            IF( MAP  .EQ.  MAPOLD )  GO TO 90
+  		            MAPOLD = MAP
+  		      C
+  		      80      CONTINUE
+  		            CALL  MAF (YDATA, FMADAT, NDATA, MAP, ITFTOG, L)
+  		      C-----
+  		      C
+  		      C                               . PLOT MOVING AVERAGE DATA
+  		      C                               . PLOT ORIGINAL DATA
+  		            CALL NEWPAG
+  		            CALL WRITEL (IBLANK,0)
+  		            CALL ANMODE
+  		            WRITE (5,10500) MAP
+  		      10500 FORMAT (1X, 24HMOVING AVERAGE PERIOD =  , I3 )
+  		            IF( L .GT. 0 )  WRITE (5,10600) L
+  		      10600 FORMAT (1H+, 35X, 12HLEAD TIME =  , I3 )
+  		            CALL WRITEL (IBLANK, 1)
+  		            CALL WRITEL (IBLANK, 1)
+  		            LNDATA = NDATA - MAP + 1 + L
+  		            IPNTYR = PNTPYR
+  		            YRSP = LNDATA / IPNTYR
+  		            IF( MOD(LNDATA,IPNTYR) .NE. 0 )  YRSP = YRSP + 1.0
+  		      C
+  		            CALL MNMX1 (DUMMIN,YDMAX,NDATA,YDATA)
+  		            CALL MNMX1 (DUMMIN,FMMAX,LNDATA,FMADAT)
+  		            IF( YDMAX  .GT.  FMMAX )  GO TO 81
+  		            CALL DTADD (ISYR,MAP-2,IPNTYR,NEWYR)
+MACONF.F4	F40	V26(10)	15-MAY-73	15:26	PAGE 5
+
+
+  		            CALL TGRAPH (FMADAT(MAP),LNDATA,NEWYR,YRSP,TIM,0, 1024+64, 64, 32)
+  		            CALL MOVABS (200,635)
+  		            CALL ANMODE
+  		            WRITE (5,10400)
+  		      C
+  		            CALL TGRAPH (YDATA , NDATA, ISYR, YRSP, TIM, 0, 160, 160, 16 )
+  		            CALL MOVABS (200,655)
+  		            CALL ANMODE
+  		            WRITE (5, 10200)
+  		      10400 FORMAT (1X, 22H---MOVING AVERAGE DATA  )
+  		            GO TO 82
+  		      81    CONTINUE
+  		            CALL TGRAPH (YDATA,NDATA,ISYR,YRSP,TIM,0,1024+64,64,0)
+  		            CALL MOVABS (200,655)
+  		            CALL ANMODE
+  		            WRITE (5, 10200)
+  		      C
+  		            CALL DTADD (ISYR,MAP,IPNTYR,NEWYR)
+  		            CALL TGRAPH (FMADAT(MAP),LNDATA,NEWYR,YRSP,TIM,0,160,160,16+32)
+  		            CALL MOVABS (200,635)
+  		            CALL ANMODE
+  		            WRITE (5,10400)
+  		      82    CONTINUE
+  		      C-----
+  		      C
+  		      C
+  		            IF( ILTTOG  .EQ.  1 )  GO TO 100
+  		            GO TO 60
+  		      C-----
+  		      C
+  		      90      CONTINUE
+  		      C                         . ENTER LEAD TIME
+  		            IF( ILTTOG  .EQ.  1 )  GO TO 100
+  		            ILTTOG = 1
+  		            CALL WRITEL (ELT, 20)
+  		            I = 1
+  		            CALL FIN (5, F, I)
+  		            IF(I.LT.0) F = 0.0
+  		            L = F
+  		            IF( L  .EQ.  0 )  GO TO 100
+  		            GO TO 80
+  		      C-----
+  		      C
+  		      100      CONTINUE
+  		      C                     . GET NEW SEGMENT NAME
+  		            CALL MESAGE (4)
+  		            READ (5,10000)  NEWSEG
+  		                IF( NEWSEG  .EQ.  IBLANK )  GO TO 999
+  		      C-----
+  		      C
+  		      C                     . FINISH UP
+  		            LEN5 = LENTLE + 5
+  		            IF( LEN5  .GT.  30 )  GO TO 120
+MACONF.F4	F40	V26(10)	15-MAY-73	15:27	PAGE 6
+
+
+  		            DO 110 I = 1, 5
+  		            ITITLE (LENTLE+I) = ITPLUS (I)
+  		      110      CONTINUE
+  		      120      CONTINUE
+  		            DO 125 I = 1, 600
+  		            BUFFER (I) = 0.0
+  		      125   CONTINUE
+  		            CALL SAVET (ITITLE, LEN5, BUFFER)
+  		            CALL SAVEU (ILABEL, LFN, BUFFER)
+  		            CALL SAVEL (ILABX1, LX1, BUFFER)
+  		            FNEWYR = NEWYR
+  		            CALL SAVED (FNEWYR, FMADAT(MAP), -LNDATA, PNTPYR, BUFFER)
+  		            CALL SEGSAV (NEWSEG,  BUFFER)
+  		            CALL WRITER
+  		      C-----
+  		      C
+  		      999      CONTINUE
+  		             CALL NEWPAG
+  		            RETURN
+  		            END
+
+CONSTANTS
+
+0	000000000001	1	000000000310	2	000000001130	3	000000000144	4	000000000764
+5	000000000000	6	000000002100	7	000000000100	10	000000001217	11	000000000002
+12	000000000040	13	000000000005	14	000000001173	15	000000000240	16	000000000020
+17	000000000060	20	000000000024	21	000000000004	
+
+COMMON
+
+MFILE 	/GAMA1 /+0	MFLARY	/GAMA1 /+1	YDATA 	/GAMA1 /+5001	XDATA 	/GAMA1 /+6131	BUFFER	/GAMA1 /+6605
+
+SUBPROGRAMS
+
+READER	NEWPAG	MESAGE	ALPHO.	ALPHI.	SEGGET	GETU  	GETL  	GETT  	GETD  	IABS  	FLOAT 	INT   	AMOD  	SWINDO
+TGRAPH	MOVABS	ANMODE	MENUG 	WRITEL	FIN   	AUTCOF	MAF   	INTO. 	INTI. 	MOD   	MNMX1 	DTADD 	SAVET 	SAVEU 
+SAVEL 	SAVED 	SEGSAV	WRITER	
+
+SCALARS
+
+MACONF	721		MENL  	722		IDOLLR	723		IBLANK	724		NAMSEG	725	
+J     	726		LFN   	727		LX1   	730		LENTLE	731		NDAT  	732	
+PNTPYR	733		NDATA 	734		FNDATA	735		ISYR  	736		IYRS  	737	
+YRS   	740		TIM   	741		LOCX  	742		LOCY  	743		I     	744	
+IRTN  	745		ITFTOG	746		L     	747		ILTTOG	750		IT    	751	
+MAPOLD	752		F     	753		MAP   	754		LNDATA	755		IPNTYR	756	
+YRSP  	757		DUMMIN	760		YDMAX 	761		FMMAX 	762		NEWYR 	763	
+NEWSEG	764		LEN5  	765		FNEWYR	766		MFILE 	0		
+
+ARRAYS
+
+MFLARY	1		YDATA 	5001		XDATA 	6131		BUFFER	6605		ITITLE	767	
+ILABEL	1025		ILABX1	1063		FMADAT	1121		MENUK 	1525		EMAP  	1535	
+MACONF.F4	F40	V26(10)	15-MAY-73	15:27	PAGE 7
+
+
+ELT   	1545		ITPLUS	1552		
+
+ MACONF
+    
