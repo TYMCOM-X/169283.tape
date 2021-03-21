@@ -1,0 +1,112 @@
+      SUBROUTINE SROTE(JM,A,B,C,D)
+C     SUBROUTINE OF SLNK2-SROTE(JM)                                     ROTE0060
+C     COMPUTES ROTATION MATRIX FOR MEMBER JM, GLOBAL TO LOCAL IN A MATRIROTE0070
+C     NEEDS MEMBER LENGTH AND PROJECTIONS IN B(8-11), R(6,6) IN SCRATCH ROTE0080
+C     STRESS PROGRAMMING SYSTEM FOR IBM 1130                            ROTE0090
+C     DIMENSION AND COMMON STATEMENTS WHICH MUST APPEAR IN ALL ROUTINES ROTE0100
+C     SYSTEM PARAMETERS  -  14 WORDS                                    ROTE0110
+      DIMENSION NSYSF(6)                                                ROTE0120
+      DIMENSION NARRF(36)                                               ROTE0130
+      DIMENSION  JMIN(250),JPLS(250),MTYP(250)                                  
+      DIMENSION A(40),B(40),C(40),D(40),R(6,6)
+      DIMENSION NPRBF(6)                                                ROTE0160
+      COMMON NTMP,KCUR,NAVAL,NOVER,ISOLV,ISUCC,ISCAN,ITRAC,NSYSF        ROTE0170
+C     PROBLEM PARAMETERS  -  30 WORDS                                   ROTE0180
+      COMMON NJ,NB,NDAT,NFJS,NLDS,NLDSI,ID,NCORD,JF,NSQ,IMETH,NMR,NJR,  ROTE0190
+     1IBETA,IYOUN,ISHEA,GSHEA,EYOUN,FILL1,FILL2,IPZER,ISTRS,NPRBF             ROTE0200
+C     PLATE PARAMETERS                                                  $OTE0204
+      COMMON IPLAT,NPLAT,KPLA1,KPLAT,KTHI1,KTHIK                        $OTE0206
+C     ARRAY CODEWORDS  40 PAIRS = 80 WORDS                              ROTE0210
+      COMMON KNAM1,KNAME,KXY1,KXYZ,KJRE1,KJREL,MEGA1,MEGAZ,KMEM1,KMEMB, ROTE0220
+     1KBET1,KBETA,KYON1,KYOUN,KSHE1,KSHEA,KMRE1,KMREL,KMEG1,KMEGA,      ROTE0230
+     2KMKS1,KMKST,KROT1,KROTE,KPPL1,KPPLS,KPMN1,KPMNS,LOAD1,LOADS,      ROTE0240
+     3KLIN1,KLINT,MLOA1,MLOAD,JLOA1,JLOAD,KDIA1,KDIAG,KOFD1,KOFDG,      ROTE0250
+     4KPPR1,KPPRI,KSTA1,KSTAT                                           ROTE0260
+      COMMON NARRF                                                      ROTE0270
+C  MEMBER INCIDENCE AND TYPE TABLES  250 JOINTS  500 MEMBERS                    
+      COMMON JMIN,JPLS,MTYP                                             ROTE0290
+C     SCRATCH AREA CAN BE INSERTED AS DESIRED FOR EACH ROUTINE          ROTE0300
+C     SCRATCH AREA                                                      ROTE0310
+C     MATRIX OPERATION AREAS  -  EACH TO CONTAIN NSQ VALUES,            ROTE0320
+C     OR A MAX. OF 36.  36*2=72, THUS 4 FILE RECORDS ARE NEEDED.        ROTE0330
+C     INITIALIZE R(6,6)                                                 ROTE0360
+      DO 1 I=1,6                                                        ROTE0370
+      DO 2 J=1,6                                                        ROTE0380
+2     R(I,J)=0.0                                                        ROTE0390
+1     R(I,I)=1.0                                                        ROTE0400
+C     ANY BETA ANGLES                                                   ROTE0410
+      IF(IBETA)4,5,4                                                    ROTE0420
+C     BETA ANGLES GIVEN                                                 ROTE0430
+4     CALL SDATA(KBET1,KBETA,JM,BETA,JKL,-1,1)                          ROTE0440
+      RADIN=BETA/57.2957                                                ROTE0450
+      SPSI=SIN(RADIN)                                                   ROTE0460
+      CPSI=COS(RADIN)                                                   ROTE0470
+      GO TO 6                                                           ROTE0480
+C     NO BETA ANGLES                                                    ROTE0490
+5     CPSI=1.0                                                          ROTE0500
+      SPSI=0.0                                                          ROTE0510
+C     UNSIGNED PROJECTED LENGTH IN X-Z GLOBAL PLANE                     ROTE0520
+6     DL=SQRT(B(9)*B(9)+B(11)*B(11))                                    ROTE0530
+C     IS MEMBER PERPENDICULAR TO THAT PLANE                             ROTE0540
+      IF(DL/B(8)-1.0E-04)7,8,8                                          ROTE0550
+C     NO                                                                ROTE0560
+8     S1=B(11)/DL                                                       ROTE0570
+      S2=B(10)/B(8)                                                     ROTE0580
+      IF(ID-4)9,10,10                                                   ROTE0590
+C     PLANE STRUCTURE, PSI1=0.0                                         ROTE0600
+9     C1=1.0                                                            ROTE0610
+      C2=B(9)/B(8)                                                      ROTE0620
+      GO TO 11                                                          ROTE0630
+C     SPACE STRUCTURE                                                   ROTE0640
+10    C1=B(9)/DL                                                        ROTE0650
+      C2=DL/B(8)                                                        ROTE0660
+11    R(1,1)=C2*C1                                                      ROTE0670
+      R(1,2)=S2                                                         ROTE0680
+      R(1,3)=C2*S1                                                      ROTE0690
+      R(2,1)=-S1*SPSI-C1*S2*CPSI                                        ROTE0700
+      R(2,2)=C2*CPSI                                                    ROTE0710
+      R(2,3)=C1*SPSI-S1*S2*CPSI                                         ROTE0720
+      R(3,1)=C1*S2*SPSI-S1*CPSI                                         ROTE0730
+      R(3,2)=-C2*SPSI                                                   ROTE0740
+      R(3,3)=C1*CPSI+S1*S2*SPSI                                         ROTE0750
+      GO TO 12                                                          ROTE0760
+C     MEMBER IS PERPENDICULAR TO GLOBAL X-Z PLANE, SPECIAL CASE         ROTE0770
+7     SIGN=ABS(B(10))/B(10)                                             ROTE0780
+      R(1,1)=0.0                                                        ROTE0790
+      R(1,2)=B(10)/B(8)                                                 ROTE0800
+      R(1,3)=0.0                                                        ROTE0810
+      R(2,1)=-CPSI*SIGN                                                 ROTE0820
+      R(2,2)=0.0                                                        ROTE0830
+      R(2,3)=SPSI                                                       ROTE0840
+      R(3,1)=SPSI*SIGN                                                  ROTE0850
+      R(3,2)=0.0                                                        ROTE0860
+      R(3,3)=CPSI                                                       ROTE0870
+C     FILL OUT MATRIX LOWER RIGHT                                       ROTE0880
+12    DO 13 I=1,3                                                       ROTE0890
+      KK=I+3                                                            ROTE0900
+      DO 13 J=1,3                                                       ROTE0910
+      JK=J+3                                                            ROTE0920
+13    R(KK,JK)=R(I,J)                                                   ROTE0930
+C     DELETE AS REQUIRED                                                ROTE0940
+      GO TO (15,16,17,15,15),ID                                         $OTE0950
+C     PLANE FRAME                                                       ROTE0960
+16    R(2,3)=0.0                                                        ROTE0970
+      R(1,3)=0.0                                                        ROTE0980
+      R(3,1)=R(6,1)                                                     ROTE0990
+      R(3,2)=R(6,2)                                                     ROTE1000
+      GO TO 15                                                          ROTE1010
+C     PLANE GRID                                                        ROTE1020
+17    DO 18 I=1,3                                                       ROTE1030
+      KK=I+2                                                            ROTE1040
+      DO 18 J=1,3                                                       ROTE1050
+      JK=J+2                                                            ROTE1060
+18    R(I,J)=R(KK,JK)                                                   ROTE1070
+C     STORE ROTATION MATRIX, COMPACTED IN A(1-NSQ)                      ROTE1080
+15    N=0                                                               ROTE1090
+      DO 22 J=1,JF                                                      ROTE1100
+      DO 22 I=1,JF                                                      ROTE1110
+      N=N+1                                                             ROTE1120
+22    A(N)=R(I,J)                                                       ROTE1130
+      RETURN                                                            ROTE1140
+      END                                                               ROTE1150
+  
