@@ -1,0 +1,150 @@
+C           FIND ANTI-RESONANT FREQUENCY OF TRANSDUCER ELEMENT          FFN00110    
+C                                                                       FFN00120    
+      SUBROUTINE FINDFN                                                 FFN00130    
+C                                                                       FFN00140    
+C     THIS SUBROUTINE USES THE SAME METHOD AND HAS THE SAME             FFN00150    
+C     LIMITATIONS AS SUBROUTINE FINDFM.                                 FFN00160    
+C     THIS SUBROUTINE USES THE PREVIOUSLY FOUND VALUE OF FM AS A        FFN00170    
+C     STARTING VALUE.  THUS, SUBROUTINE FINDFM MUST BE CALLED FIRST.    FFN00180    
+C                                                                       FFN00190    
+      COMMON /DELTA / DELTAF,FMIN,FMAX                                  FFN00200    
+      COMMON /FREQ  / FREQ,TWOPI                                        FFN00210    
+      COMMON /SW    / LSW(20)                                           FFN00220    
+      COMMON /YC    / IC,YC                                             FFN00230    
+      COMMON /COM92 / FM,YM,FN,YN,CUT,NPRINT                            FFN00240    
+      COMMON /COM95 / ZIN,YIN,EIN,IIN                                   FFN00250    
+      COMMON /COM97 / MODE                                              FFN00260    
+C                                                                       FFN00270    
+      LOGICAL LSW,LSAVE(20),SKIPIT                                      FFN00280    
+C                                                                       FFN00290    
+      DIMENSION FF(3),YY(3)                                             FFN00300    
+C                                                                       FFN00310    
+      COMPLEX IC,YC,ZIN,YIN,EIN,IIN                                     FFN00320    
+C                                                                       FFN00330    
+C     TURN OFF OUTPUT CONTROLS                                          FFN00340    
+      SKIPIT=.TRUE.                                                     FFN00350    
+      DO 100 I=1,11                                                     FFN00360    
+        LSAVE(I)=LSW(I)                                                 FFN00370    
+        IF(LSW(I))SKIPIT=.FALSE.                                        FFN00380    
+        LSW(I)=.FALSE.                                                  FFN00390    
+  100 CONTINUE                                                          FFN00400    
+      IF(FM.GT.1.0)GOTO150                                              FFN00410    
+      IF(FM.NE.1.0)GOTO140                                              FFN00420    
+C     RESONANT FREQUENCY WAS NOT FOUND                                  FFN00430    
+  110 WRITE(6,300)                                                      FFN00440    
+  120 FN=1.0                                                            FFN00450    
+      YN=0.0                                                            FFN00460    
+C     RESET OUTPUT CONTROLS                                             FFN00470    
+      DO 130 I=1,11                                                     FFN00480    
+        LSW(I)=LSAVE(I)                                                 FFN00490    
+  130 CONTINUE                                                          FFN00500    
+      GOTO270                                                           FFN00510    
+C     SUBROUTINE FINDFM NOT YET CALLED                                  FFN00520    
+  140 WRITE(6,310)                                                      FFN00530    
+      CALL FINDFM                                                       FFN00540    
+      IF(FM.EQ.1.0)GOTO110                                              FFN00550    
+C     SET INITIAL THREE FREQUENCIES                                     FFN00560    
+  150 DF=DELTAF/2.0                                                     FFN00570    
+      FF(1)=FM+1.0                                                      FFN00580    
+      FF(2)=FF(1)+DF                                                    FFN00590    
+      FF(3)=FF(2)+DF                                                    FFN00600    
+      I1=1                                                              FFN00610    
+      I2=3                                                              FFN00620    
+      I3=1                                                              FFN00630    
+C     CALCULATE ADMITTANCE MAGNITUDE AT THREE FREQUENCIES               FFN00640    
+  160 DO 170 I=I1,I2,I3                                                 FFN00650    
+        FREQ=FF(I)                                                      FFN00660    
+        CALL COMPZA                                                     FFN00670    
+        IF(MODE.EQ.31)CALL COMP31                                       FFN00680    
+        IF(MODE.EQ.33)CALL COMPCC                                       FFN00690    
+        CALL TOTAL                                                      FFN00700    
+        IF(LSW(13))CALL FFZH                                            FFN00710    
+        CALL BEGIN                                                      FFN00720    
+        CALL ADMIT                                                      FFN00730    
+C       ANTI-RESONANCE IS MINIMUM INPUT ADMITTANCE MAGNITUDE            FFN00740    
+        YY(I)=CABS(YIN)                                                 FFN00750    
+C       ANTI-RESONANCE IS MINIMUM INPUT CONDUCTANCE                     FFN00760    
+C       YY(I)=REAL(YIN)                                                 FFN00770    
+C       ANTI-RESONANCE IS MINIMUM CERAMIC ADMITTANCE MAGNITUDE          FFN00780    
+C       YY(I)=CABS(YC)                                                  FFN00790    
+C       ANTI-RESONANCE IS MINIMUM CERAMIC CONDUCTANCE                   FFN00800    
+C       YY(I)=REAL(YC)                                                  FFN00810    
+C       ANTI-RESONANCE IS MINIMUM INPUT RESISTANCE                      FFN00820    
+C       YY(I)=REAL(ZIN)                                                 FFN00830    
+  170 CONTINUE                                                          FFN00840    
+C     CHECK SLOPE OF ADMITTANCE VS. FREQUENCY CURVE                     FFN00850    
+      IF(YY(1)-YY(2))180,190,190                                        FFN00860    
+  180 IF(YY(2)-YY(3))200,200,210                                        FFN00870    
+  190 IF(YY(2)-YY(3))230,220,220                                        FFN00880    
+C     ADMITTANCE INCREASING                                             FFN00890    
+  200 FF(3)=FF(2)                                                       FFN00900    
+      YY(3)=YY(2)                                                       FFN00910    
+      FF(2)=FF(1)                                                       FFN00920    
+      YY(2)=YY(1)                                                       FFN00930    
+      FF(1)=FF(1)-DF                                                    FFN00940    
+      I1=1                                                              FFN00950    
+      I2=1                                                              FFN00960    
+      I3=1                                                              FFN00970    
+      IF(FF(1)-FM)280,160,160                                           FFN00980    
+C     ADMITTANCE PEAKED                                                 FFN00990    
+  210 GOTO220                                                           FFN01000    
+C     ADMITTANCE DECREASING                                             FFN01010    
+  220 FF(1)=FF(2)                                                       FFN01020    
+      YY(1)=YY(2)                                                       FFN01030    
+      FF(2)=FF(3)                                                       FFN01040    
+      YY(2)=YY(3)                                                       FFN01050    
+      FF(3)=FF(3)+DF                                                    FFN01060    
+      I1=3                                                              FFN01070    
+      I2=3                                                              FFN01080    
+      I3=1                                                              FFN01090    
+      IF(FF(3)-FMAX)160,160,290                                         FFN01100    
+C     ADMITTANCE DIPPED                                                 FFN01110    
+  230 IF(DF-CUT)250,240,240                                             FFN01120    
+  240 DF=DF/2.0                                                         FFN01130    
+      FF(1)=FF(2)-DF                                                    FFN01140    
+      FF(3)=FF(2)+DF                                                    FFN01150    
+      I1=1                                                              FFN01160    
+      I2=3                                                              FFN01170    
+      I3=2                                                              FFN01180    
+      GOTO160                                                           FFN01190    
+  250 FN=FF(2)                                                          FFN01200    
+      YN=YY(2)                                                          FFN01210    
+      IF(NPRINT.LE.0)WRITE(6,320)FN,YN,DF                               FFN01220    
+C     RESET OUTPUT CONTROLS                                             FFN01230    
+      DO 260 I=1,11                                                     FFN01240    
+        LSW(I)=LSAVE(I)                                                 FFN01250    
+  260 CONTINUE                                                          FFN01260    
+      IF(SKIPIT)GOTO270                                                 FFN01270    
+      FREQ=FN                                                           FFN01280    
+      CALL COMPZA                                                       FFN01290    
+      IF(MODE.EQ.31)CALL COMP31                                         FFN01300    
+      IF(MODE.EQ.33)CALL COMPCC                                         FFN01310    
+      CALL TOTAL                                                        FFN01320    
+      CALL BEGIN                                                        FFN01330    
+      CALL ADMIT                                                        FFN01340    
+      CALL FOCZOC                                                       FFN01350    
+      CALL ADMIT                                                        FFN01360    
+      CALL CCFV                                                         FFN01370    
+      CALL CFV                                                          FFN01380    
+      CALL CST                                                          FFN01390    
+      CALL CCI                                                          FFN01400    
+      CALL CCST                                                         FFN01410    
+  270 RETURN                                                            FFN01420    
+  280 WRITE(6,330)FM                                                    FFN01430    
+      GOTO120                                                           FFN01440    
+  290 WRITE(6,340)FMAX                                                  FFN01450    
+      GOTO120                                                           FFN01460    
+C                                                                       FFN01470    
+  300 FORMAT (//6X64HRESONANCE WAS NOT FOUND - SEARCH FOR ANTI-RESONANCEFFN01480    
+     1 CANNOT BEGIN)                                                    FFN01490    
+  310 FORMAT (//6X66HRESONANCE MUST BE FOUND BEFORE SEARCH FOR ANTI-RESOFFN01500    
+     1NANCE CAN BEGIN)                                                  FFN01510    
+  320 FORMAT (//10X26HANTI-RESONANT FREQUENCY IS,F8.2,6H HERTZ/10X31HADMFFN01520    
+     1ITTANCE AT ANTI-RESONANCE IS,1PE12.4,6H MHOS./10X24HFREQUENCY IS AFFN01530    
+     2CCURATE TO,0PF7.3,6H HERTZ)                                       FFN01540    
+  330 FORMAT (//10X36HANTI-RESONANCE IS BELOW RESONANCE OF,F8.2,6H HERTZFFN01550    
+     1)                                                                 FFN01560    
+  340 FORMAT (//10X38HANTI-RESONANCE IS ABOVE UPPER LIMIT OF,F8.2,6H HERFFN01570    
+     1TZ)                                                               FFN01580    
+C                                                                       FFN01590    
+      END                                                               FFN01600    
