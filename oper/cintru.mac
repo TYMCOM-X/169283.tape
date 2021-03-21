@@ -1,0 +1,45 @@
+TITLE CINTRUPT
+
+RELOC 0
+
+ENTRY   $CILLM          ; Intercept ILL. MEM. REF.
+ENTRY   $CESCP          ; Intercept ESCAPES
+ENTRY   $CARIT          ; Intercept Arith. Overflow
+ENTRY   $CSTKO           ; Intercept Stack Over/Under-Flow
+ENTRY   $CDSTK          ; Default Stack Over/Under-Flow Handler
+
+EXTERN  CIHDT$          ; Interrupt handling routine address table
+EXTERN  CISDT$          ; Interrupt monitor dispatch table
+
+ADJ:    XWD     1,1     ; Value by which to adjust stack for one param.
+
+STKMSG: ASCIZ  /FATAL MIDAS ERROR ** PLEASE CONTACT YOUR TYMSHARE REPRESENTATIVE
+                STACK OVERFLOW
+               /
+
+
+$CILLM: PUSH    0, CISDT$+2     ; Pass address of interrupt
+        PUSHJ   0, @CIHDT$+1    ; Go to handler routine
+        SUB     0, ADJ
+        DISMIS                  ; Return to interrupted code
+
+$CESCP: PUSH    0, CISDT$       ; Pass Address of Interrupt
+        PUSHJ   0, @CIHDT$      ; Go to handler routine
+        SUB     0, ADJ
+        DISMIS                  ; Return to interrupted code
+
+
+$CARIT: PUSH    0, CISDT$+6     ; Pass Address of Interrupt
+        PUSHJ   0, @CIHDT$+3    ; Go to handler routine
+        SUB     0, ADJ
+        JRST    0, @CISDT$+6    ; Return to interrupted code
+
+$CSTKO: JSR     0, @CIHDT$+2     ; Go to handler routine
+        JRST    0, @CISDT$+4    ; Return to Interrupted Code
+
+$CDSTK:         0
+        TTCALL  3, STKMSG       ; Default Stack Overflow Message
+        HALT
+
+
+        END
