@@ -1,0 +1,391 @@
+MODULE GASGN(DOLLAR,ENTRIES=($GBASG,$GLET,$GADD,$GSUB,$GBVTL,$GEVTL),FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+  BEGIN
+
+  REQUIRE ADEFS.BLI[7,107355];
+  REQUIRE GDEFS.BLI[7,107355];
+  REQUIRE FDEFS.BLI[7,107355];
+  REQUIRE FPDEFS.BLI[7,107355];
+  REQUIRE SDEFS.BLI[7,107355];
+  REQUIRE TDEFS.BLI[7,107355];
+  REQUIRE UDEFS.BLI[7,107355];
+  REQUIRE ZDEFS.BLI[7,107355];
+
+  UNDECLARE $GBASG,$GLET,$GADD,$GSUB,$GBVTL,$GEVTL;
+  MAP GDBG$ GDBGF$;
+  MAP G$OPND GGBOP$;
+
+
+%****
+  STACK THE TV$8BGVLST TOKEN AND SET  GBVTL$  TO POINT TO IT. THIS ROUTINE IS CALLED
+  BY $GEXEC EXCLUSIVELY.
+****%
+  GLOBAL ROUTINE $GBVTL =
+    BEGIN
+    GBVTL$ := $GPUSH(.GBTKN$,AV$SZTOK);
+    END;
+
+
+%****
+  STACK THE TV$8VLST TOKEN AND SET  GEVTL$  TO POINT IT. THIS ROUTINE IS CALLED
+  BY $GEXEC EXCLUSIVELY.
+****%
+  GLOBAL ROUTINE $GEVTL =
+    BEGIN
+    GEVTL$ := $GPUSH(.GBTKN$,AV$SZTOK);
+    END;
+
+
+%****
+  STACK THE BEGINNING OF ASSIGNMENT TOKEN ALONG WITH THE ELSE-LABEL STUFF. THIS ROUTINE 
+  IS CALLED BY $GEXEC EXCLUSIVELY.
+****%
+  GLOBAL ROUTINE $GBASG =
+    BEGIN
+
+    MAP Z$ ZBSTK$;
+
+    $GPUSH(.GBTKN$,AV$SZTOK+2);
+    ZBSTK$[Z$ELSELAB,.ZSTKP$] := .GELSL$;
+    ZBSTK$[Z$ELSEFLG,.ZSTKP$] := .GELSF$;
+    ZBSTK$[Z$ELSEP,.ZSTKP$] := .GELSP$;
+    GELSF$ := GNOKF$ := ZV$RESET;
+    GELSP$ := .ZSTKP$;
+    END;
+
+
+%****
+  PROCESS ASSIGNMENT TYPE STATEMENTS SUCH AS ADD, SUBTRACT, LET AND MOVE.
+  THIS ROUTINE IS CALLED BY $GLET EXCLUSIVELY.
+
+       PARAMETER:
+          TYPE    CONTAINS THE TYPE OF PRIMARY GAMMA N-TUPLE ASSOCIATED WITH
+                  THE CALLING ROUTINE.
+
+****%
+  ROUTINE BARITH(TYPE) =
+    BEGIN
+
+    LOCAL BOPREC[5], LOPND, ROPND, OPND, DMAX, SIGNEDF;
+    LOCAL OPERATION, LDTYPE, RDTYPE, RESULT, SIZE;
+    LOCAL GDTC$ DTCNODE;
+    LOCAL G$ BRECP;
+    MAP   G$ GGBFP$;
+    LOCAL G$OPND BOPNDP;
+    MAP Z$ ZBSTK$;
+    LOCAL S$ NAMESTE:DEFSTE:INCSTE : WVNSTE;
+    LABEL THISVAR;
+    LOCAL FP$I LOPIC : ROPIC;
+
+    MACRO COMBINATION(OP,LDTYPE,RDTYPE)=
+                .DTCNODE[GDTC$STATUS,GM$DTCIX(OP,LDTYPE,RDTYPE)] &;
+
+    MACRO OPRESULT(OP,LDTYPE,RDTYPE)=
+                .DTCNODE[GDTC$RESULT,GM$DTCIX(OP,LDTYPE,RDTYPE)] &;
+
+    BRECP := BOPREC;
+    BOPNDP := .BRECP + 2;
+    ROPND := .ZBSTK$[Z$PREDP,.ZSTKP$];
+    LOPND := .ZBSTK$[Z$SUCP,.GBVTL$];
+    IF $GICHK(.ROPND) EQL ZV$FALSE           % CHECK RIGHT OPERAND TO INSURE IT HAS AN ACTIVE INCARNATION %
+      THEN
+        $GERR(526,.ROPND);
+
+    %***
+      PROCESS VARIABLE-T-LIST
+    ***%
+    WHILE .LOPND LSS .GEVTL$
+      DO
+        BEGIN
+          THISVAR:
+            BEGIN
+            IF .ZBSTK$[Z$ID,.ROPND] EQL TV$DEFAULT
+              THEN
+                $GDFSUB(.ROPND,.LOPND);
+            %****
+              INSURE THAT OPERANDS ARE COMPATIBLE
+            ****%
+    
+            IF .ZBSTK$[Z$SBID,.LOPND] NEQ ZV$RPITEM             % IS THE TARGET A REPORT ITEM OR FIELD? %
+              THEN
+                IF .ZBSTK$[Z$ID,.LOPND] NEQ TV$NAME
+                  THEN
+                    BEGIN                                       % NO; OOPS!! %
+                    $GERR(508,.LOPND);
+                    LEAVE THISVAR;
+                    END
+                  ELSE                                          % YES; CHECK FOR INCARNATION STP %
+                    BEGIN
+                    IF .ZBSTK$[Z$SBID,.LOPND] NEQ ZV$FLD
+                      THEN
+                        BEGIN
+                        $GERR(508,.LOPND);
+                        LEAVE THISVAR;
+                        END;
+                    IF .ZBSTK$[Z$INCSTP,.LOPND] EQL ZV$NULL
+                      THEN
+                        $GICHK(.LOPND);
+                    END;
+            DTCNODE := GDTCP$;
+            OPERATION                   % GET TH INDEX FOR THE OPERATION %
+                := SELECT .TYPE OF
+                        NSET
+                      GV$ADD  :  GDTCV$ADD;
+                      GV$SUB  :  GDTCV$SUB;
+                      GV$STORE:   GDTCV$STORE;
+                        TESN;
+        %**  USE THE OPERAND DATA TYPES FOR THEIR INDEXES **%
+            LDTYPE := .ZBSTK$[Z$DATATYP,.LOPND];
+            RDTYPE := .ZBSTK$[Z$DATATYP,.ROPND];
+        %**  CHECK FOR A VALID COMBINATION OF OPERATION AND OPERANDS  **%
+            IF COMBINATION(.OPERATION,.LDTYPE,.RDTYPE) EQL ZV$FALSE
+              THEN
+                BEGIN                   % NOT LEGAL %
+                $GERR(570,.LOPND);
+                LEAVE THISVAR;
+                END
+              ELSE
+                BEGIN                   % OK SO FAR %
+                RESULT := OPRESULT(.OPERATION,.LDTYPE,.RDTYPE);
+                IF .OPERATION NEQ GDTCV$STORE   % LET OR MOVE STMT? %
+                  THEN                  % NO, BUT THE ADD OR SUB WAS OK. CHECKK ON %
+                    IF COMBINATION(GDTCV$STORE,.LDTYPE,.RESULT) EQL ZV$FALSE
+                      THEN
+                        BEGIN           % OH OH! CAN'T DO IT! %
+                        $GERR(570,.LOPND);
+                        LEAVE THISVAR;
+                        END;
+                END;
+        %**  IF THE RESULT IS A DATE, THEN WE ARE INCREMENTING/DECREMENTING
+             A DATE.
+        **%
+            IF .RESULT EQL ZV$DATE
+              THEN
+                BEGIN                   % DOES THE INCREMENT NEED ROUNDING? %
+                IF .ZBSTK$[Z$DCNT,.ROPND] GTR 0
+                  THEN
+                    BEGIN               % YES, ROUND IT %
+                    WVNSTE := $GWVAR(ZV$NUMERIC,.ZBSTK$[Z$ICNT,.ROPND],0);
+                    $GIREC(GV$STORE,5);
+                    GGBOP$[0,G$OPTYP] := GV$STP;
+                    GGBOP$[0,G$OPVAL] := .WVNSTE[S$CISTP];
+                    GGBFP$[G$OPND2]   := $GOPND(.ROPND);
+                    GGBFP$[G$OPND3]   := GV$ROUND;
+                    $GWBUF(.GGBFP$,.GOB1I$);
+                    BOPNDP[2,G$OPTYP] := GV$STP;
+                    BOPNDP[2,G$OPVAL] := .WVNSTE[S$CISTP];
+                    END
+                  ELSE
+                    BRECP[G$OPND2] := $GOPND(.ROPND);
+                SIZE := IF .TYPE EQL GV$STORE
+                          THEN
+                            5
+                          ELSE
+                            4;
+                $GIREC(.TYPE,.SIZE);
+                GGBFP$[G$UCNT] := 1;
+                GGBFP$[G$ICNT] := 8;
+                GGBFP$[G$DCNT] := 0;
+                GGBFP$[G$OPND1] := $GOPND(.LOPND);
+                GGBFP$[G$OPND2] := .BRECP[G$OPND2];
+                GGBFP$[G$OPND3] := GV$ROUND;
+                $GWBUF(.GGBFP$,.GOB1I$);
+                IF .TYPE NEQ GV$STORE
+                  THEN
+                    BEGIN
+                    $GIREC(GV$STORE,5);
+                    GGBFP$[G$OPND1] := $GOPND(.LOPND);
+                    GGBFP$[G$OPND3] := GV$ROUND;
+                    GGBOP$[1,G$OPTYP] := GV$NP;
+                    GGBOP$[1,G$NPTYPE] := GV$DRSLT;
+                    GGBOP$[1,G$OPVAL] := .GGBFP$[G$ID] - 1;
+                    $GWBUF(.GGBFP$,.GOB1I$);
+                    END;
+                END
+              ELSE
+                BEGIN
+                $UZERO(5,.BRECP);
+                IF .ZBSTK$[Z$DATATYP,.ROPND] EQL ZV$NUMERIC       % CHECK FOR ALIGNMENT %
+                  THEN
+                    BEGIN
+                    IF .ZBSTK$[Z$DCNT,.LOPND] LSS .ZBSTK$[Z$DCNT,.ROPND]
+                      THEN
+                        DMAX := .ZBSTK$[Z$DCNT,.ROPND]
+                      ELSE
+                        DMAX := .ZBSTK$[Z$DCNT,.LOPND];
+                    OPND := .LOPND;
+                    INCR I FROM 0 TO 1
+                      DO
+                        BEGIN
+                        IF .ZBSTK$[Z$DCNT,.OPND] LSS .DMAX       AND
+                           NOT (.TYPE EQL GV$STORE  AND  .I EQL 0)
+                          THEN
+                            BEGIN
+                            IF .ZBSTK$[Z$DCNT,.OPND] + .ZBSTK$[Z$ICNT,.OPND] + 
+                                        (.DMAX - .ZBSTK$[Z$DCNT,.OPND]) GTR 30
+                                THEN
+                                  BEGIN
+                                  $GERR(513,.OPND);
+                                  LEAVE THISVAR;
+                                  END;
+                            (BRECP[G$OPNDN])[.I] := $GALIGN(.OPND,.DMAX);
+                            END
+                          ELSE
+                            (BRECP[G$OPNDN])[.I] := $GOPND(.OPND);
+                        OPND := .ROPND;
+                        END
+                    END
+                  ELSE
+                    BEGIN
+                    (BRECP[G$OPNDN])[1] := $GOPND(.ROPND);
+                    (BRECP[G$OPNDN])[0] := $GOPND(.LOPND);
+                    END;
+    
+    
+    
+                %**
+                  IF PROCESSING AN ADD OR SUBTRACT THEN GENERATE THE APPROPRIATE N-TUPLE BEFORE
+                 STORING.
+                **%
+                LOPIC := .ZBSTK$[Z$FP,.LOPND];
+                ROPIC := .ZBSTK$[Z$FP,.ROPND];
+                IF .TYPE EQL GV$ADD   OR
+                   .TYPE EQL GV$SUB
+                  THEN
+                    BEGIN
+                    IF .ZBSTK$[Z$DATATYP,.LOPND] EQL ZV$STRING
+                      THEN
+                        $GERR(505,.LOPND);
+                    IF .ZBSTK$[Z$DATATYP,.ROPND] EQL ZV$STRING
+                      THEN
+                        $GERR(505,.ROPND);
+                    BRECP[G$LENGTH] := 4;
+                    BRECP[G$TYPE]   := .TYPE;
+                    BRECP[G$ID]     := .GGFID$;
+                    BRECP[G$ICNT]   :=
+                            IF .ZBSTK$[Z$ICNT,.LOPND] LSS .ZBSTK$[Z$ICNT,.ROPND]
+                              THEN
+                                .ZBSTK$[Z$ICNT,.ROPND]
+                              ELSE
+                                .ZBSTK$[Z$ICNT,.LOPND];
+                    IF .TYPE EQL GV$ADD
+                      THEN
+                        BRECP[G$ICNT]  := .BRECP[G$ICNT] + 1;
+                    BRECP[G$DCNT]   := .DMAX;
+                    BRECP[G$UCNT]   := 1;
+                    $GWBUF(.BRECP,.GOB1I$);
+                    (BRECP[G$OPNDN])[1] := 0;
+                    BOPNDP[1,G$OPTYP] := GV$NP;
+                    BOPNDP[1,G$NPTYPE] := GV$ARITH;
+                    BOPNDP[1,G$OPVAL] := .GGFID$;
+                    BRECP[G$UCNT] := 0;
+                    GGFID$ := .GGFID$ + 1;
+                IF .ROPIC[FP$SIGN] EQL FPV$NSC   AND
+                   .LOPIC[FP$SIGN] EQL FPV$NSC
+                  THEN
+                    IF .TYPE EQL GV$ADD
+                      THEN
+                        SIGNEDF := ZV$FALSE
+                      ELSE
+                        IF .ZBSTK$[Z$ICNT,.LOPND] GTR .ZBSTK$[Z$ICNT,.ROPND]
+                          THEN
+                            SIGNEDF := ZV$FALSE
+                          ELSE
+                            SIGNEDF := ZV$TRUE
+                  ELSE
+                    SIGNEDF := ZV$TRUE;
+                    END
+                  ELSE
+                    IF .ROPIC[FP$SIGN] EQL FPV$NSC
+                      THEN
+                        SIGNEDF := ZV$FALSE
+                      ELSE
+                        SIGNEDF := ZV$TRUE;
+    
+                %**
+                  GENERATE A STORE N-TUPLE
+                **%
+
+                IF .ZBSTK$[Z$ICNT,.LOPND] LSS .BRECP[G$ICNT]   OR
+                   (.LOPIC[FP$SIGN] EQL FPV$NSC   AND   .SIGNEDF EQL ZV$TRUE)
+                  THEN
+                    $GERR(507,.LOPND);
+                BRECP[G$LENGTH] := 5;
+                BRECP[G$TYPE]   := GV$STORE;
+                BRECP[G$ID]     := .GGFID$;
+                BRECP[G$ICNT]   := .ZBSTK$[Z$ICNT,.LOPND];
+                BRECP[G$DCNT]   := .ZBSTK$[Z$DCNT,.LOPND];
+                (BRECP[G$OPNDN])[0] := $GOPND(.LOPND);
+                (BRECP[G$OPNDN])[2] :=
+                    IF .ZBSTK$[Z$ID,.ZSTKP$] EQL TV$ROUND
+                      THEN
+                        GV$ROUND
+                      ELSE
+                        GV$TRUNC;
+                $GWBUF(.BRECP,.GOB1I$);
+                GGFID$ := .GGFID$ + 1;
+                INCSTE := $SGSTE(.ZBSTK$[Z$INCSTP,.LOPND]);
+                INCSTE[S$VALCHGF] := SV$TRUE;
+                $SFRCH(.INCSTE);
+                END;
+            END;
+        LOPND := .ZBSTK$[Z$SUCP,.LOPND];
+        END;
+
+    DO
+      LOPND := $GPOP()
+    UNTIL .LOPND EQL .GBVTL$;
+    $GPOP();
+    GELSF$ := .ZBSTK$[Z$ELSEFLG,.ZSTKP$];
+    GELSL$ := .ZBSTK$[Z$ELSELAB,.ZSTKP$];
+    GELSP$ := .ZBSTK$[Z$ELSEP,.ZSTKP$];
+    $GPOP();
+    
+    IF .ZBSTK$[Z$SBID,.ZSTKP$] EQL ZV$LBL       % IS THE TOP STACK ENTRY A LABEL? %
+      THEN
+        $GPOP();
+    GBVTL$ := GEVTL$ := 0;
+
+    IF .ZBSTK$[Z$ID,.ZSTKP$] EQL TV$NAME   AND
+       .ZBSTK$[Z$SBID,.ZSTKP$] EQL ZV$LBL
+      THEN
+        $GPOP();
+
+    END;
+
+%****
+  BEGINNING OF ADD STATEMENT PROCESSING
+****%
+  GLOBAL ROUTINE $GADD =
+    BEGIN
+
+
+    BARITH(GV$ADD);
+    
+    END;
+
+
+%****
+  BEGINNING OF SUBTRACT STATEMENT PROCESSING
+****%
+  GLOBAL ROUTINE $GSUB =
+    BEGIN
+
+    BARITH(GV$SUB);
+
+    END;
+
+
+%****
+  PROCESS A LET OR MOVE STATEMENT
+****%
+  GLOBAL ROUTINE $GLET =
+    BEGIN
+ 
+    BARITH(GV$STORE);
+
+    END;
+
+
+  END
+ELUDOM
+ 
