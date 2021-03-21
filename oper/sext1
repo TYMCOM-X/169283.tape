@@ -1,0 +1,242 @@
+      SUBROUTINE SEXT1                                                  EXT1  70
+C     STRESS PROGRAMMING SYSTEM FOR IBM 1130                            EXT1  80
+C     READ AND PROCESS LOAD DATA - MEMBER AND JOINT                     EXT1  90
+C     DIMENSION AND COMMON STATEMENTS WHICH MUST APPEAR IN ALL ROUTINES EXT1 100
+C     SYSTEM PARAMETERS  -  14 WORDS                                    EXT1 110
+      DIMENSION NSYSF(6)                                                EXT1 120
+      DIMENSION NPRBF(6)                                                EXT1 130
+      DIMENSION NARRF(32)                                               EXT1 140
+      DIMENSION  JMIN(250),JPLS(250),MTYP(250)
+      DIMENSION A(40),BETA(37),LABL(16),IFREE(20),ICHK(2),IBUFF(40)     EXT1 160
+      DIMENSION BUFF(18)                                                EXT1 170
+      COMMON NTMP,KCUR,NAVAL,NOVER,ISOLV,ISUCC,ISCAN,ITRAC,NSYSF        EXT1 180
+C     PROBLEM PARAMETERS  -  32 WORDS                                   EXT1 190
+      COMMON NJ,NB,NDAT,NFJS,NLDS,NLDSI,ID,NCORD,JF,NSQ,IMETH,NMR,NJR,  EXT1 200
+     1IBETA,IYOUN,ISHEA,GSHEA,EYOUN,FILL1,FILL2,IPZER,ISTRS,NPRBF             EXT1 210
+C     PLATE PARAMETERS                                                  $XT1 212
+      COMMON IPLAT,NPLAT,KPLA1,KPLAT,KTHI1,KTHIK                        $XT1 214
+C     ARRAY CODEWORDS  40 PAIRS = 80 WORDS                              EXT1 220
+      COMMON KNAM1,KNAME,KXY1,KXYZ,KJRE1,KJREL,MEGA1,MEGAZ,KMEM1,KMEMB, EXT1 230
+     1KBET1,KBETA,KYON1,KYOUN,KSHE1,KSHEA,KMRE1,KMREL,KMEG1,KMEGA,      EXT1 240
+     2KMKS1,KMKST,KROT1,KROTE,KPPL1,KPPLS,KPMN1,KPMNS,LOAD1,LOADS,      EXT1 250
+     3KLIN1,KLINT,MLOA1,MLOAD,JLOA1,JLOAD,KDIA1,KDIAG,KOFD1,KOFDG,      EXT1 260
+     4KPPR1,KPPRI,KSTA1,KSTAT,KJIN1,KJINT,KJEX1,KJEXT                   EXT1 270
+      COMMON NARRF                                                      EXT1 280
+C  MEMBER INCIDENCE AND TYPE TABLES  250 JOINTS  500 MEMBERS
+      COMMON JMIN,JPLS,MTYP,IAMDU                                       EXT1 300
+C     SCRATCH AREA CAN BE INSERTED AS DESIRED FOR EACH ROUTINE          EXT1 310
+C     SCRATCH AREA FOR INPUT PHASE  -  SPH1A AND SPH1B                  EXT1 320
+      COMMON A,BETA,IFREE,LABL,IB,IL,ILOOK,JTOMB,K1,IPRER,JLD,INDEX,    EXT1 330
+     1JINDL,JDEPL,IPRTA,KK,JJC,JDC,IS,ICHK,JMIC,JMPC,JCODE,JIB          EXT1 340
+     2,MEMRE,CTE,KS1,LEM,IBUFF                                          EXT1 350
+      EQUIVALENCE (IBUFF(2), BUFF(1))                                   EXT1 360
+C     K1=1=MEMBER, K1=2=JOINT,FROM(JTOMB)                               EXT1 370
+3545  FORMAT(49H LOAD ON MEMBER INCOMPATIBLE WITH STRUCTURE TYPE.)      EXT1 380
+      JW=NSYSF(1)                                                       EXT1 390
+      IPRER=-1                                                          EXT1 400
+      NB1=NB+IPLAT                                                      $XT1 405
+      IF(K1-2)305,309,9909                                              EXT1 410
+305   IF(NB1)9917,9917,308                                              $XT1 420
+308   IF(NB1-JTOMB)9910,311,311                                         $XT1 430
+C     JOINT LOADS =5 FORCE Y-17.0=EXAMPLE                               EXT1 440
+309   IF(NJ)9916,9916,310                                               EXT1 450
+310   IF(NJ-JTOMB)9911,313,313                                          EXT1 460
+313   IF(JJC+JDC-NJ)9932,314,314                                        EXT1 470
+C     CONVERT TO INTERNAL JOINT NUMBER-SET UP TABLE FOR FIXED FROM      EXT1 480
+C     DISK TO NAREA                                                     EXT1 490
+314   CALL SDATA(KJIN1,KJINT,JTOMB,A,JTOMB,1,1)                         EXT1 500
+      GO TO 315                                                         EXT1 510
+C     CHECK IF STIFFNESS OR FLEXIBILITY GIVEN , AND, IF GIVEN, THAT     EXT1 520
+C     ONLY MEMBER END LOADS ARE SPECIFIED-KIND=1=PRISM, 2=STIFF, 3=FLEX.EXT1 530
+C     RELEASE =1=PRISM, 2=STIFF, 3=FLEX.                                EXT1 540
+311   CALL SPAK2(+JTOMB,MTYP,KIND)                                      EXT1 550
+      IF(KIND-1)315,315,312                                             EXT1 560
+C     INDEX=3=MEMBER END LOADS                                          EXT1 570
+  312 IF(KIND-4)316,315,316                                             $XT1 572
+  316 IF(INDEX-3)9922,315,9922                                          $XT1 580
+  315 IG=3                                                              EXT1 590
+      CALL SREAD(IG)                                                    EXT1 600
+      IF(IG-3)500,320,500                                               EXT1 610
+C     STORAGE OF LOADING DATA                                           EXT1 620
+320   DO 347 KK=1,13                                                    EXT1 630
+  347 A(KK)=0.0                                                         EXT1 640
+C     INDEX=1=JOINT LOADS,INDEX=2=MBR LOADS,INDEX=3=MBR END LOADS       EXT1 650
+348   IF(INDEX-2)351,3566,351                                           EXT1 660
+C     FOR ALL BUT MEMBER LOADS                                          EXT1 670
+C     IB= CODE FOR FLOATING POINT NO. FOR X,Y,Z                         EXT1 680
+351   IF(IB-IL)9913,352,9913                                            EXT1 690
+352   IF(ISCAN-1)500,380,500                                            EXT1 700
+C     DISTORTION = JKL=0                                                EXT1 710
+380   JKL=0                                                             EXT1 720
+      IF(KS1)3510,3510,381                                              EXT1 730
+C     JKL=1=TEMP AND LENGTH                                             EXT1 740
+381   JKL=1                                                             EXT1 750
+      IF(LEM)3510,382,3510                                              EXT1 760
+382   KS1=0                                                             EXT1 770
+3510  CALL SPAK4(1,A(1),JLD,INDEX,JKL,0)                                EXT1 780
+      DO 353 KK=1,IB                                                    EXT1 790
+      K=LABL(KK)                                                        EXT1 800
+  353 A(K+1)=BETA(KK)                                                   EXT1 810
+C     COMPACT LOADS ARRAYS TO JF, OR 2JF FOR MEMBER END LOADS           EXT1 820
+355   IPLA1=1                                                           EXT1 830
+      IPLA2=1                                                           EXT1 840
+      IF(ID)9919,9919,3549                                              EXT1 850
+ 3549 GO TO(3556,3550,3552,3556,375),ID                                 EXT1 860
+C     ID=2= PLANE FRAME                                                 EXT1 870
+ 3550 A(IPLA1+1)=A(IPLA2+1)                                             EXT1 880
+      A(IPLA1+2)=A(IPLA2+2)                                             EXT1 890
+      A(IPLA1+3)=A(IPLA2+6)                                             EXT1 900
+      GO TO 3551                                                        EXT1 910
+C     ID=3 = PLANE GRID                                                 EXT1 920
+ 3552 A(IPLA1+1)=A(IPLA2+3)                                             EXT1 930
+      A(IPLA1+2)=A(IPLA2+4)                                             EXT1 940
+      A(IPLA1+3)=A(IPLA2+5)                                             EXT1 950
+ 3551 IF(INDEX-3)375,3553,375                                           EXT1 960
+ 3553 IF(IPLA1-1)375,3554,375                                           EXT1 970
+3554  IPLA1=4                                                           EXT1 980
+      IPLA2=7                                                           EXT1 990
+      IF(ID-2)3554,3550,3552                                            EXT11000
+ 3556 IF(INDEX-3)375,3558,375                                           EXT11010
+ 3558 IF(ID-3)3557,3554,3540                                            EXT11020
+C     ID=1 = PLANE TRUSS                                                EXT11030
+ 3557 IPLA1=2                                                           EXT11040
+      GO TO 3541                                                        EXT11050
+C     ID=4 = SPACED TRUSS                                               EXT11060
+ 3540 IPLA1=3                                                           EXT11070
+ 3541 DO 3542  I=1,IPLA1                                                EXT11080
+3542  LTEM=IPLA1+1+I                                                    EXT11090
+      A(LTEM)=A(I+7)                                                    EXT11100
+      GO TO 375                                                         EXT11110
+C     FOR MEMBER LOADS                                                  EXT11120
+C     COMPACT J IF PLANE FRAME OR GRID                                  EXT11130
+C     IS DIRECTION OF LOAD COMPATIBLE WITH STRUCTURE TYPE               EXT11140
+C     CHECK J WITH ID FOR COMPATIBILITY OF LOADS                        EXT11150
+C     INDEX=2=MEMBER LOADS                                              EXT11160
+ 3566 IF(ID)9919,9919,3559                                              EXT11170
+ 3559 GO TO(3560,3561,3563,3560,3568),ID                                EXT11180
+C     TRUSSES = ID=1, SPACED TRUSS                                      EXT11190
+3560  IF(LABL(1)-1)3569,3568,3569                                       EXT11200
+C     PLANE FRAME =ID=2                                                 EXT11210
+3561   IF(LABL(1)-2)3568,3568,3562                                      EXT11220
+ 3562 IF(LABL(1)-6)3569,3570,3569                                       EXT11230
+ 3570 LABL(1)=3                                                         EXT11240
+      GO TO 3568                                                        EXT11250
+C     PLANE GRID =ID=3                                                  EXT11260
+3563  KK=LABL(1)                                                        EXT11270
+      GO TO(3569,3569,3564,3564,3564,3569),KK                           EXT11280
+3564  LABL(1)=LABL(1)-2                                                 EXT11290
+      GO TO 3568                                                        EXT11300
+3569  WRITE(5,9957) (IBUFF(I),I=1,36)
+      WRITE(JW,3545)                                                    EXT11320
+      WRITE (1,3545)                                                    EXT11330
+      GO TO 9900                                                        EXT11340
+C     SPACED FRAME=ID=5                                                 EXT11350
+3568  IF(ISCAN-1)500,3567,500                                           EXT11360
+C     SET UP 1ST WORD OF 3RD LEVEL LOAD ARRAY                           EXT11370
+3567  IF(IL-2)9905,3591,3591                                            EXT11380
+3591  CALL SPAK4(1,A(1),JLD,INDEX,LABL(1),LABL(2))                      EXT11390
+C     DECODE LABELS IF GIVEN AND SET UP TEMPORARY STORAGE               EXT11400
+C  CHECK TO SEE THAT ONLY UNIFORM LOADS ARE APPLIED TO PLATES           $XT11392
+      IF(KIND-4)3593,3594,3593                                          $XT11394
+ 3594 IF(LABL(2)-2)9958,3593,9958                                       $XT11396
+ 3593 IF(IL-2)9905,359,3592                                             $XT11410
+C     MORE THAN 2 LABELS                                                EXT11420
+3592  IF(IB-IL+2)9913,372,9913                                          EXT11430
+C     MEMBER LOADS WITHOUT LABELS SO INSERT LABELS IN CORRECT ORDER     EXT11440
+  359 IF(LABL(2)-2) 365,362,368                                         EXT11450
+  362 LABL(5)=4                                                         EXT11460
+      IL=5                                                              EXT11470
+  365 LABL(4)=3                                                         EXT11480
+      LABL(3)=1                                                         EXT11490
+      IF(LABL(2)-1)374,366,374                                          EXT11500
+  366 IL=4                                                              EXT11510
+      GO TO 374                                                         EXT11520
+  368 DO 371 KK=1,4                                                     EXT11530
+  371 LABL(KK+2)=KK                                                     EXT11540
+      IL=6                                                              EXT11550
+374   IF(IB-IL+2)372,372,9913                                           EXT11560
+  372 DO 373  KK=1,IB                                                   EXT11570
+      K=LABL(KK+2)                                                      EXT11580
+373   A(K+1)=BETA(KK)                                                   EXT11590
+C     MBR LOADS,DISTORTION AND JOINT LOADS                              EXT11600
+375   GO TO(319,318),K1                                                 EXT11610
+  319 LODA1=MLOA1                                                       EXT11620
+      LODA2=MLOAD                                                       EXT11630
+      GO TO 317                                                         EXT11640
+  318 LODA1=JLOA1                                                       EXT11650
+      LODA2=JLOAD                                                       EXT11660
+  317 CALL SDATA(LODA1,LODA2,2*JTOMB-1,A,L1,+1,10)                      EXT11670
+      CALL SDATA(LODA1,LODA2,2*JTOMB,A,L2,+1,10)                        EXT11680
+C     HAS JOINT OR MEMBER BEEN LOADED BEFORE   YES=323  NO=329          EXT11690
+      IF(L2)323,329,323                                                 EXT11700
+  323 CALL SDATA(L1,L2,1,A,NBL,+1,10)                                   EXT11710
+      CALL SDATA(L1,L2,2,A,NSECT,+1,10)                                 EXT11720
+C     CHECK IF ENOUGH ROOM FOR ONE MORE LOAD                            EXT11730
+      IF((NBL     +1)-(9+10*(NSECT   -1))) 335,335,326                  EXT11740
+326   NSECT=NSECT+1                                                     EXT11750
+      GO TO 332                                                         EXT11760
+  329 NBL=0                                                             EXT11770
+      NSECT=1                                                           EXT11780
+C     ALLOCATE OR REALLOCATE SECOND LEVEL                               EXT11790
+  332 CALL SBITE(L1,L2,1,(20*NSECT),0)                                  EXT11800
+C     STORE CODEWORDS                                                   EXT11810
+      CALL SDATA(LODA1,LODA2,2*JTOMB-1,A,L1,+2,10)                      EXT11820
+      CALL SDATA(LODA1,LODA2,2*JTOMB,A,L2,+2,10)                        EXT11830
+C     INCREMENT NBL                                                     EXT11840
+  335 NBL=NBL+1                                                         EXT11850
+C     STORE NBL                                                         EXT11860
+      CALL SDATA(L1,L2,1,A,NBL,+2,10)                                   EXT11870
+C     STORE NSECT                                                       EXT11880
+      CALL SDATA(L1,L2,2,A,NSECT,+2,10)                                 EXT11890
+      IF(INDEX-3)341,338,341                                            EXT11900
+  338 IF(ID-5)341,3380,341                                              EXT11910
+ 3380 N=2                                                               EXT11920
+      GO TO 344                                                         EXT11930
+  341 N=1                                                               EXT11940
+C     ALLOCATE FOR ACTUAL DATA                                          EXT11950
+344   CALL SBITE(ITLC1,ITLC,2,1,10*N)                                   EXT11960
+C     STORE THIRD LEVEL CODEWORDS                                       EXT11970
+      CALL SDATA(L1,L2,((NBL   +1)*2-1),A,ITLC1,+2,10)                  EXT11980
+      CALL SDATA(L1,L2,((NBL    +1)*2),A,ITLC,+2,10)                    EXT11990
+      CALL SDATA(ITLC1,ITLC,1,A,NAREA,-2,0)                             EXT12000
+      IF(LEM)345,500,345                                                EXT12010
+345   JTOMB=JTOMB+1                                                     EXT12020
+      IF(JTOMB-IAMDU)317,317,346                                        EXT12030
+346   LEM=0                                                             EXT12040
+      KS1=0                                                             EXT12050
+      GO TO 500                                                         EXT12060
+ 9957 FORMAT(36A2)                                                      EXT12070
+ 9900 IPRER=0                                                           EXT12080
+      GO TO 500                                                         EXT12090
+ 9905 IPRER=5                                                           EXT12100
+      GO TO 500                                                         EXT12110
+ 9909 IPRER=9                                                           EXT12120
+      GO TO 600                                                         EXT12130
+ 9910 IPRER=10                                                          EXT12140
+      GO TO 500                                                         EXT12150
+ 9911 IPRER=11                                                          EXT12160
+      GO TO 500                                                         EXT12170
+9913  IPRER=13                                                          EXT12180
+      GO TO 500                                                         EXT12190
+9916  IPRER=16                                                          EXT12200
+      GO TO 600                                                         EXT12210
+9917  IPRER=17                                                          EXT12220
+      GO TO 600                                                         EXT12230
+ 9919 ISUCC=2                                                           $XT12250
+      RETUR22   IPRER=22                                                         EXT12270
+      GO TO 500                                                         EXT12280
+ 9958 IPRER=58                                                          $XT12292
+      GO TO 600                                                         $XT12294
+9932  IPRER=32                                                          EXT12290
+  600 IF(ISCAN-2)601,500,500                                            EXT12300
+  601 ISCAN=0                                                           EXT12310
+500   ILOOK=4                                                           EXT12320
+      RETURN                                                            EXT12330
+      END                                                               EXT12340
+// DUP                                                                  EXT12350
+*DELETE             SEXT1
+*STORE      WS  UA  SEXT1
+// FOR
+*ONE WORD INTEGERS
+**SOINC
+    /@½
