@@ -1,0 +1,593 @@
+!FAZ1 MUST BE ASSEMBLED IN THE ORDER F1HEAD,F72BNF,LOOK72,FIRST,FAZ1
+!***COPYRIGHT 1972, DIGITAL EQUIPMENT CORP., MAYNARD, MASS.***
+!AUTHOR: T.E. OSTEN
+GLOBAL BIND FAZ1V = 26;	!10-APR-73
+BIND	E0=0,E1=1,E2=2,E3=3,E4=4,E5=5,E6=6,E7=7,E8=8,E9=9,E10=10;
+BIND	VECTX	TYPE[0]=	BNFTBL<24,12>,
+	VECTX	SUBP[0]=	BNFTBL<12,12>,
+	VECTX	NUMBER[0]=	BNFTBL<0,12>,
+	VECTX	LEXNUM[0]=	BNFTBL<12,6>,
+	VECTX	OPNUM[0]=	BNFTBL<18,6>;
+EXTERNAL
+	SCAN,		%SCAN(PLIT'X')%
+	CHAR,		%CHAR()%
+	NEWCARD,	%NEWCARD()%
+	ERROUT,		%ERROUT()%
+	GETCONST,	%GETCONST()%
+	TBLSEARCH;	%TBLSEARCH()%
+FORWARD
+	QUEUE,		%(= PUTS THE CONTENTS OF REGISTER C ON THE MINOR QUEUE.
+			)%
+	DEQUEUE,	%(= REMOVES ONE CHARACTER FROM THE MINOR QUEUE.
+			RETURNS IT IN REGISTER C.
+			)%
+	ADDOPQ,		%(L)= CALLED WHEN A "+" OR "-" IS SEEN, TO DISTINGUISH BETWEEN
+			SIGNED REAL CONSTANTS AND DOTTED OPERATORS.
+			)%
+	EQUALQ,		%(= DETERMINES WHICH OPERATOR STARTING WITH AN "=" IS PRESENT.
+			)%
+	DOT,		%(= DETERMINES WHICH DOTTET OPERATOR OR REAL CONSTANT IS PRESENT.
+			)%
+	OCTQ,		%(= DECODES OCTAL CONSTANTS, RETURNS POINTER TO
+			NUMERIC CONSTANT TABLE IN LEFT HALF, LEXEME CONSTANT IN RIGHT HALF.
+			)%
+	IDENTQ,		%(= INPUTS IDENTIFIER, RETURNS SYMBOL TABLE ADDRESS
+			IN LEFT HALF, LEXEME IDENTIFIER IN RIGHT.
+			)%
+	LEXEMEGEN,	%(= RETURNS ONE LEXEME.
+			)%
+	SYNTAX,		%(NODE)= PARSES INCOMING LEXEMES AS A BNFTBL(NODE).
+			)%
+	ORERROR;	%(= OUTPUTS A SUITABLE MESSAGE WHEN NONE OF A
+			SET OF "OR" CHOICES WERE FOUND.
+			)%
+EXTERNAL	LEXL,LSAVE,Q[10],QON,QOFF,STK[100],SP,CHOICE,ASAVE,PIN,POUT;
+BIND EOL=";";
+REGISTER T1=1,T2=2;
+GLOBAL ROUTINE QUEUE=(IF .QON LEQ .QOFF THEN QON_QOFF_-1;Q[QON_.QON+1]_.C);
+%(-----------------------------------------------------------------------------------------------------------------
+	DEQUEUE REMOVES ONE CHARACTER FROM MINOR QUEUE, RETURNS IT IN REGISTER C.
+-----------------------------------------------------------------------------------------------------------------)%
+GLOBAL ROUTINE DEQUEUE =C_.Q[QOFF_.QOFF+1];
+!****************************************
+!THE FOLLOWING ROUTINES ARE CALLED BY LEXEME()
+!IN SOME CASES MACROS ARE SUBSTITUTED FOR ROUTINE CALLS
+!
+MACRO
+%(-----------------------------------------------------------------------------------------------------------------
+	GRTRQ RETURNS ">=" OR ">"
+-----------------------------------------------------------------------------------------------------------------)%
+	GRTRQ =IF SIGCHAR EQL "="
+		THEN DOTGE
+		ELSE (QUEUE();RETURN DOTGT)$,
+%(-----------------------------------------------------------------------------------------------------------------
+	LESSQ RETURNS "<=" OR "<"
+-----------------------------------------------------------------------------------------------------------------)%
+	LESSQ =	IF SIGCHAR EQL "="
+		THEN DOTLE
+		ELSE (QUEUE();RETURN DOTLT)$,
+!	RETURNS "*" OR "**"
+	TIMESQ =IF SIGCHAR EQL "*"
+		THEN POWER^18
+		ELSE (QUEUE(); RETURN TIMES^18;)$,
+	REL(N) = RELATIONALOP^18+N$,
+	DOTNE = REL(6)$,
+	DOTEQ = REL(2)$,
+	DOTGT = REL(7)$,
+	DOTLT = REL(1)$,
+	DOTGE = REL(5)$,
+	DOTLE = REL(3)$;
+ROUTINE LITQ =
+BEGIN
+	EXTERNAL NEWENTRY %()%,LITERL,QTDELIM;
+	QTDELIM_.C;
+	ENTRY_0; LITERL();
+	VREG<LEFT>_LITSTRING;RETURN .VREG
+END;
+%(-----------------------------------------------------------------------------------------------------------------
+LITQ COPIES LITERAL TO CONSTANT TABLE, RETURNS POINTER TO TABLE IN LEFT HALF,
+LEXEME LITERAL IN RIGHT.
+	THE ROUTINE TBLSEARCH(LITTBL,K) HAS TWO BRANCHES. IF K IS A POSITIVE
+	INTEGER IT MAKES K CALLS TO CHAR() AND USES THOSE CHARACTERS AS THE
+	LITERAL. IF K=0 IT COPIES UNTIL IT HITS A QUOTE NOT FOLLOWED BY A QUOTE
+	(AND THEN QUEUES THE "EXTRA" CHARACTER). IN THE LATTER CASE 2 CONSECUTIVE
+	QUOTES REPRESENT A SINGLE QUOTE WITHIN THE LITERAL. IF K IS NEGATIVE
+	THEN ENTER THE NEGATIVE OF THE NEXT -K CHARACTERS
+-----------------------------------------------------------------------------------------------------------------)%
+ROUTINE ADDOPQ(L) =	
+%(-----------------------------------------------------------------------------------------------------------------
+	CALLED WHEN A + OR - IS FOUND. LOOKS AHEAD FOR A . THEN FOR A
+	DIGIT TO TELL -.3 FROM -.NOT. . IF A DIGIT IS FOUND A CONSTANT
+	IS CREATED, OTHERWISE THE + OR - IS RETURNED.
+-----------------------------------------------------------------------------------------------------------------)%
+	BEGIN
+		QUEUE();	
+		SIGCHAR;	
+		IF .C EQL "." THEN (QUEUE(); SIGCHAR;);
+		QUEUE();
+		IF DIGIT(C) THEN GETCONST() ELSE (DEQUEUE(); RETURN .L); 
+	END;
+ROUTINE EQUALQ =
+%(-----------------------------------------------------------------------------------------------------------------
+	RETURNS "=", "==" , "=>" , OR "=<"
+-----------------------------------------------------------------------------------------------------------------)%
+BEGIN
+	SELECT SIGCHAR OF NSET
+	"=":RETURN DOTEQ;
+	">":RETURN DOTGE;
+	"<":RETURN DOTLE;
+	OTHERWISE:(QUEUE();RETURN EQUAL^18)
+	TESN
+END;
+ROUTINE DOT=
+%(-----------------------------------------------------------------------------------------------------------------
+	UPON FINDING A DOT (".") DETERMINE IF THE LEXEME IS: .NOT. (LOGICALNOT),
+	.NE. (DOTNE), .AND. (LOGICALAND), .OR. (LOGICALOR), .XOR. (LOGICALMATCH(2)), .EQV. (LOGICALMATCH(1)),
+	.EQ. (DOTEQ), .GT. (DOTGT), .GE. (DOTGE), .LE. (DOTLE), .LT. (DOTLT), OR .DIGIT (CONSTANT)
+-----------------------------------------------------------------------------------------------------------------)%
+BEGIN
+MACRO LOGI=0$;
+MACRO LOGCONST = 
+	BEGIN
+		NAME _ CONTAB; SYMTYPE _ LOGI;ENTRY[0]_0;
+		CONSTANT^18+TBLSEARCH()
+	END$;
+	BIND XXXX=0;	!THIS IS A DUMMY TO GET AROUND A BLIS10 BUG.
+	SIGCHAR;
+	IF DIGIT(C) THEN (QUEUE(); C_".";RETURN GETCONST()); !SEND GETCONST A DOT WITH NEXT CHAR (DIGIT) IN QUEUE
+	SELECT .C OF NSET
+	"N":SELECT SIGCHAR OF NSET
+		"O": IF (SIGCHAR EQL "T") AND (SIGCHAR EQL ".") THEN RETURN LOGICALNOT^18
+			ELSE ENTRY[2]_PLIT'.NOT.?0';
+		"E": IF SIGCHAR EQL "." THEN RETURN DOTNE
+			ELSE ENTRY[2]_PLIT'.NE.?0';
+		OTHERWISE:ENTRY[2]_PLIT'.NOT. OR .NE.?0'
+		TESN;
+	"A": IF (SIGCHAR EQL "N") AND (SIGCHAR EQL "D") AND (SIGCHAR EQL ".") THEN RETURN LOGICALAND^18
+		ELSE ENTRY[2]_PLIT'.AND.?0';
+	"O": IF (SIGCHAR EQL "R") AND (SIGCHAR EQL ".") THEN RETURN LOGICALOR^18
+		ELSE ENTRY[2]_PLIT'.OR.?0';
+	"X": IF (SIGCHAR EQL "O") AND (SIGCHAR EQL "R") AND (SIGCHAR EQL ".") THEN RETURN LOGICALMATCH^18+2
+		ELSE ENTRY[2]_PLIT'.XOR.?0';
+	"E": IF SIGCHAR EQL "Q" THEN
+		SELECT SIGCHAR OF NSET
+		"V": IF SIGCHAR EQL "." THEN RETURN LOGICALMATCH^18+1
+			ELSE ENTRY[2]-PLIT'.EQV.?0';
+		".": RETURN DOTEQ;
+		OTHERWISE:ENTRY[2]_PLIT'.EQV. OR .EQ.?0'
+		TESN;
+	"G": SELECT SIGCHAR OF NSET
+		"T": IF SIGCHAR EQL "." THEN RETURN DOTGT
+			ELSE ENTRY[2]_PLIT'.GT.?0';
+		"E": IF SIGCHAR EQL "." THEN RETURN DOTGE
+			ELSE ENTRY[2]_PLIT'.GE.?0';
+		OTHERWISE:ENTRY[2]_PLIT'.GT. OR .GE.?0'
+		TESN;
+	"L": SELECT SIGCHAR OF NSET
+		"E": IF SIGCHAR EQL "." THEN RETURN DOTLE
+			ELSE ENTRY[2]_PLIT'.LE.?0';
+		"T": IF SIGCHAR EQL "." THEN RETURN DOTLT
+			ELSE ENTRY[2]_PLIT'.LT.?0';
+		OTHERWISE:ENTRY[2]_PLIT'.LE OR .LT.?0'
+		TESN;
+	"T":	IF SCAN(PLIT'RUE.') LSS 0
+		 THEN ENTRY[2] _PLIT'.TRUE.?0'
+		 ELSE RETURN (ENTRY[1] _-1; LOGCONST); !LOGICAL CONST .TRUE. MADE IN ITIALIZATION
+	"F":	IF SCAN(PLIT'ALSE.') LSS 0
+		 THEN ENTRY[2] _ PLIT'.FALSE.?0' 	!MISPELLED LOGICAL CONST
+		 ELSE RETURN (ENTRY[1] _0; LOGCONST);	!.FALSE. CONSTANT MADE INITIALIZATION
+	OTHERWISE: ENTRY[2]_PLIT'DOTTED OPERATOR?0'
+	TESN;
+	ENTRY[0]_@ISN;ENTRY[1]_.C^29+ENTRY[1]<0,0>;ERROUT(E0)
+END;
+ROUTINE OCTQ =
+%(-----------------------------------------------------------------------------------------------------------------
+	DECODES OCTAL CONSTANTS, RETURNS PTR TO NUMTBL IN LEFT
+	HALF, LEXEME CONSTANT IN RIGHT HALF
+-----------------------------------------------------------------------------------------------------------------)%
+BEGIN
+	BIND OCPLIT=PLIT'OCTAL DIGIT';
+	EXTERNAL SYMTYPE;
+	MACRO OCTAL=0$, DOUBLOCT=8$;
+	LOCAL SIGNUM,HII,LOO;
+	HII _ LOO _ 0;
+	QUEUE();
+	IF SIGCHAR NEQ "'" THEN (QUEUE();DEQUEUE();IDENTQ();RETURN);
+	SIGNUM_ IF .VREG EQL MINUS^18 THEN -1 ELSE 0;
+	SIGCHAR;
+	WHILE DIGIT (C) DO
+		BEGIN
+		T1 _ .HII; T2 _ .LOO;
+		IF .C GEQ "8" THEN
+			RETURN (ENTRY[0]_@ISN;ENTRY[1]_.C^29+ENTRY[1]<0,0>;ENTRY[2]_OCPLIT;ERROUT(E0)) !ILLEGAL OCTAL DIGIT
+		ELSE (LSHC(T1,3); T2 _ .T2 - #60+.C;);  !SHIFT AND ADD DIGIT
+		HII _ .T1; LOO _ .T2;
+		SIGCHAR;
+		END;
+	IF .C NEQ "'" THEN RETURN(ENTRY[0]_@ISN;ENTRY[1]_.C;ENTRY[2]_OCPLIT;ERROUT(E0));
+	NAME_CONTAB;
+	IF .SIGNUM NEQ 0 THEN (HII _ -.HII; LOO _ -.LOO);
+	SYMTYPE _ IF .HII NEQ 0 THEN DOUBLOCT ELSE OCTAL; !IF HIGH ORDER WD IS
+			!NON-ZERO THEN DOUBLE OCTAL
+	ENTRY[0] _ .HII;
+	ENTRY[1] _ .LOO;
+	TBLSEARCH();VREG<LEFT>_CONSTANT;DEQUEUE();RETURN .VREG
+END;
+GLOBAL ROUTINE STRSCAN=		!STRING SCAN
+				!PUTS A STRING OF UP TO 6 SIXBIT CHARACTERS
+				!IN SIX LEFT JUSTIFIED AND RETURNS IT
+BEGIN
+	OWN SWITCH;
+	EXTERNAL WARNOUT;
+	REGISTER SIX;
+	SWITCH _ 0;
+	DECR SHIFT FROM 30 TO 0 BY 6 DO !PACK THE FIRST 6 CHARACTERS
+	BEGIN
+		MACHOP ADDI=#271;SIX_.SIX^6;
+		IF ALPHA(C) THEN ADDI(SIX,-" ",C)
+		ELSE
+			IF DIGIT(C) THEN ADDI(SIX,-" ",C)
+			ELSE
+				IF LCALPHA(C) THEN ADDI(SIX,-"@",C)
+				ELSE
+				BEGIN
+					SIX_.SIX^.SHIFT;
+					EXITLOOP
+				END;
+		SIGCHAR
+	END;
+	DO
+	BEGIN
+		IF NOT ALPHA(C) THEN
+			IF NOT DIGIT(C) THEN
+				IF NOT LCALPHA(C) THEN EXITLOOP;
+		IF .SWITCH EQL 0 THEN (WARNOUT(76);SWITCH _ -1);	!WARNING ID MORE THAN 6 CHARACTERS
+		SIGCHAR
+	END WHILE 1;
+	QUEUE();		!SAVES BREAK CHARACTER
+	RETURN .SIX
+END;	!OF STRSCAN
+ROUTINE IDENTQ =
+%(-----------------------------------------------------------------------------------------------------------------
+	INPUTS IDENTIFIER, RETURNS SYMBOL TABLE ADDRESS
+	IN RIGHT HALF, IDENTIFIER LEXEME IN LEFT
+-----------------------------------------------------------------------------------------------------------------)%
+BEGIN
+	!----------------------------------------------------------------------------------------------------------
+	!SIX IS A REGISTER BECAUSE THERE IS LESS OVERHEAD IN SAVING AND RESTORING ONE REGISTER
+	!FOR EACH IDENTIFIER THAN LOADING AND STORING ACCUMULATED CHARACTERS TWICE PER CHARACTER.
+	!ALSO REGISTER TO REGISTER OPERATIONS WOULD NOT BE AVAILABLE, WHICH ADDS TO THE TIME.
+	!THE DECR LOOP ALSO SAVES AND RESTORES A REGISTER FOR "SHIFT".
+	!----------------------------------------------------------------------------------------------------------
+EXTERNAL SYMTYPE,STRSCAN,TYPTAB[26],CREFLINK,CORMAN;
+MAP BASE VREG;
+	NAME_IDTAB;
+	SYMTYPE _  .TYPTAB[.C-"A"];
+	ENTRY_STRSCAN();	!GET A STRING OF CHARACTERS FOR SYMBOL
+	TBLSEARCH();
+	VREG<LEFT>_IDENTIFIER;
+	IF .FLGREG<CROSSREF>
+	THEN
+	BEGIN
+		MAP BASE VREG:CREFLINK;
+		ENTRY[4] _ .VREG;
+		NAME<LEFT> _ 1; VREG _ CORMAN();
+		IF .CREFLINK EQL 0
+		THEN CREFLINK<LEFT> _ CREFLINK<RIGHT> _ .VREG
+		ELSE (
+			CREFLINK[CLINK] _ .VREG;
+			CREFLINK<RIGHT> _ .VREG;
+		     );
+		VREG[CW0L] _ .ENTRY[4]<RIGHT>;
+		VREG _ .ENTRY[4];
+	END;
+RETURN .VREG
+END;
+!****************************************
+GLOBAL ROUTINE LEXEMEGEN =
+%(-----------------------------------------------------------------------------------------------------------------
+	RETURNS ONE LEXEME
+	TO INITIALIZE , CALL NEWCARD() WHICH WILL RETURN A DUMMY END-OF-LINE (";")
+-----------------------------------------------------------------------------------------------------------------)%
+BEGIN
+	ROUTINE ERR = (ENTRY[0]_@ISN;ENTRY[1]_(.C+"^ ")^22+ENTRY[1]<0,0>;ERROUT(E8);.VREG);
+	DO
+	VREG_CASE (CHAR() AND #177) OF SET
+% NUL=	#000 %	-1;	!RECURSE ON NUL
+% SOH=	#001 %	ERR();
+% STX=	#002 %	ERR();
+% ETX=	#003 %	ERR();
+% EOT=	#004 %	ERR();
+% ENQ=	#005 %	ERR();
+% ACK=	#006 %	ERR();
+% BEL=	#007 %	ERR();
+% BS=	#010 %	ERR();
+% HT=	#011 %	-1;	!TABS IGNORED RECURSIVELY
+% LF=	#012 %	(NEWCARD(); QUEUE(); -1); !QUEUEING C FROM NEWCARD FOR RECURSE
+% VT=	#013 %	ERR();
+% FF=	#014 %	-1;	!LINE FEEDS IGNORED RECURSIVELY
+% CR=	#015 %	(NEWCARD(); QUEUE(); -1); !QUEUEING C FROM NEWCARD FOR RECURSE
+% SO=	#016 %	ERR();
+% SI=	#017 %	ERR();
+% DCE=	#020 %	ERR();
+% DC1=	#021 %	ERR();
+% DC2=	#022 %	ERR();
+% DC3=	#023 %	ERR();
+% DC4=	#024 %	ERR();
+% NAK=	#025 %	ERR();
+% SYN=	#026 %	ERR();
+% ETB=	#027 %	ERR();
+% CAN=	#030 %	ERR();
+% EM=	#031 %	ERR();
+% SUB=	#032 %	ERR();
+% ESC=	#033 %	(NEWCARD(); QUEUE(); -1); !QUEUEING C FROM NEWCARD FOR RECURSE
+% FS=	#034 %	ERR();
+% GS=	#035 %	ERR();
+% RS=	#036 %	ERR();
+% US=	#037 %	ERR();
+% " "=  #040 %	-1;	!BLANKS IGNORED RECURSIVELY
+% "!"=	#041 %	(NEWCARD(); QUEUE(); -1); !QUEUEING C FROM NEWCARD FOR RECURSE
+% """=  #042 %	LITQ();		!LITERAL
+% "#"=	#043 %	DOTNE;		!SAME AS .NE.
+% "$"=	#044 %	DOLLAR^18;
+% PCNT=	#045 %	(ENTRY[0]_@ISN;ENTRY[1]_PLIT'%?0';ERROUT(E8));
+% "&"=	#046 %	DOLLAR^18;
+% "'"=	#047 %	LITQ();		!LITERAL
+% "("=	#050 %	LPAREN^18;
+% ")"=	#051 %	RPAREN^18;
+% "*"=	#052 %	TIMESQ();	!EITHER "*" OR "**"
+% "+"=	#053 %	PLUS^18;	!PLUS OR POSITIVE CONSTANT
+% ","=	#054 %	COMMA^18;
+% "-"=	#055 %	MINUS^18;	!MINUS OR NEGATIVE CONSTANT
+% "."=	#056 %	DOT();		!CALLS GETCONST OR RETURNS OPERATOR, .AND. FOR EXAMPLE
+% "/"=	#057 %	DIVIDE^18;
+% "0"=	#060 %	GETCONST();
+% "1"=	#061 %	GETCONST();
+% "2"=	#062 %	GETCONST();
+% "3"=	#063 %	GETCONST();
+% "4"=	#064 %	GETCONST();
+% "5"=	#065 %	GETCONST();
+% "6"=	#066 %	GETCONST();
+% "7"=	#067 %	GETCONST();
+% "8"=	#070 %	GETCONST();
+% "9"=	#071 %	GETCONST();
+% ":"=	#072 %	COLON^18;
+% ";"=	#073 %	LINEND^18;
+% "<"=	#074 %	LESSQ();	!EITHER "<" OR "<="
+% "="=	#075 %	EQUALQ();	!EITHER "=" , "=="  , "=<" OR "=>"
+% ">"=	#076 %	GRTRQ();	!EITHER ">" OR ">="
+% "?"=	#077 %	(ENTRY[0]_@ISN;ENTRY[1]_PLIT'???0';ERROUT(E8));
+% "@"=	#100 %	(ENTRY[0]_@ISN;ENTRY[1]_PLIT'@?0';ERROUT(E8));
+% "A"=	#101 %	IDENTQ();
+% "B"=	#102 %	IDENTQ();
+% "C"=	#103 %	IDENTQ();
+% "D"=	#104 %	IDENTQ();
+% "E"=	#105 %	IDENTQ();
+% "F"=	#106 %	IDENTQ();
+% "G"=	#107 %	IDENTQ();
+% "H"=	#110 %	IDENTQ();
+% "I"=	#111 %	IDENTQ();
+% "J"=	#112 %	IDENTQ();
+% "K"=	#113 %	IDENTQ();
+% "L"=	#114 %	IDENTQ();
+% "M"=	#115 %	IDENTQ();
+% "N"=	#116 %	IDENTQ();
+% "O"=	#117 %	OCTQ();
+% "P"=	#120 %	IDENTQ();
+% "Q"=	#121 %	IDENTQ();
+% "R"=	#122 %	IDENTQ();
+% "S"=	#123 %	IDENTQ();
+% "T"=	#124 %	IDENTQ();
+% "U"=	#125 %	IDENTQ();
+% "V"=	#126 %	IDENTQ();
+% "W"=	#127 %	IDENTQ();
+% "X"=	#130 %	IDENTQ();
+% "Y"=	#131 %	IDENTQ();
+% "Z"=	#132 %	IDENTQ();
+% "["=	#133 %	LBRKT^18;
+% "\"=	#134 %	(ENTRY[0]_@ISN;ENTRY[1]_PLIT'\?0';ERROUT(E8));
+% "]"=	#135 %	RBRKT^18;
+% "^"=	#136 %	POWER^18;
+% "_"=	#137 %	EQUAL^18;
+!******************* LOWER CASE CHARACTERS *****************************
+% "`"=	#140 %	(ENTRY[0]_@ISN;ENTRY[1]_PLIT'LOWER CASE @?0';ERROUT(E8));
+% "a"=	#141 %	IDENTQ();
+% "b"=	#142 %	IDENTQ();
+% "c"=	#143 %	IDENTQ();
+% "d"=	#144 %	IDENTQ();
+% "e"=	#145 %	IDENTQ();
+% "f"=	#146 %	IDENTQ();
+% "g"=	#147 %	IDENTQ();
+% "h"=	#150 %	IDENTQ();
+% "i"=	#151 %	IDENTQ();
+% "j"=	#152 %	IDENTQ();
+% "k"=	#153 %	IDENTQ();
+% "l"=	#154 %	IDENTQ();
+% "m"=	#155 %	IDENTQ();
+% "n"=	#156 %	IDENTQ();
+% "o"=	#157 %	OCTQ();
+% "p"=	#160 %	IDENTQ();
+% "q"=	#161 %	IDENTQ();
+% "r"=	#162 %	IDENTQ();
+% "s"=	#163 %	IDENTQ();
+% "t"=	#164 %	IDENTQ();
+% "u"=	#165 %	IDENTQ();
+% "v"=	#166 %	IDENTQ();
+% "w"=	#167 %	IDENTQ();
+% "x"=	#170 %	IDENTQ();
+% "y"=	#171 %	IDENTQ();
+% "z"=	#172 %	IDENTQ();
+% "["=	#173 %	(ENTRY[0]_@ISN;ENTRY[1]_PLIT'LOWER CASE [?0';ERROUT(E8));	!LEFT BRACE
+% "\"=	#174 %	(ENTRY[0]_@ISN;ENTRY[1]_PLIT'LOWER CASE \?0';ERROUT(E8));	!COMPLEMENT
+% "]"=	#175 %	(NEWCARD(); QUEUE(); -1); !QUEUEING C FROM NEWCARD FOR RECURSE
+		!ALTERNATE FORM OF ALTMODE, BECOMES #175 - BAR
+% "^"=	#176 %	(ENTRY[0]_@ISN;ENTRY[1]_PLIT'LOWER CASE ^?0';ERROUT(E8));
+% "_"=	#177 %	LINEND^18;	!LINE END
+				!SIMULATED TO DISTINGUISH FROM ";"
+	TES WHILE .VREG LSS 0;
+	.VREG
+END;
+GLOBAL ROUTINE SYNTAX (NODE) =
+BEGIN
+	ROUTINE MASK (N) =
+	BEGIN
+		!--------------------------------------------------------------------------------------------------
+		!IF THERE IS CURRENTLY NO LEXEME LOOKAHEAD, MASK GETS THE NEXT ACTION OR LEXEME.
+		!RETURNS THE LOOKAHEAD MASK OF THE ACTION OR LEXEME FOUND OR THE LEXEME
+		!ALREADY SEEN.
+		!--------------------------------------------------------------------------------------------------
+		REGISTER R1,R2;
+		IF .LSAVE EQL 0 THEN
+		BEGIN
+			LSAVE_-1;R1_@LOOKAHEAD[@N];
+			WHILE (R2_35-FIRSTONE(.R1)) GTR LASTLEX DO
+			BEGIN
+				!----------------------------------------------------------------------------------
+				!A LOOKAHEAD WORD BY DEFINITION IS NON-ZERO, THEREFORE THE RESULT OF THE
+				!FIRSTONE WILL ALWAYS BE LESS THAN 36
+				!----------------------------------------------------------------------------------
+				R2_.R2-LASTLEX;
+				IF (@ACTIONCASE[.R2])() LSS 0 THEN
+					(IF (R1_.R1 XOR ((1^LASTLEX)^.R2)) EQL 0 THEN (ASAVE _ 0;EXITLOOP);)
+					ELSE (ASAVE_.R2;	!ACTION NUMBER IN ASAVE USED LATER IN SYNTAX(ACTION)
+						T2_((1^LASTLEX)^.R2);
+						LEXL_0;LSAVE_0;RETURN);
+					!LEXL _0 SO THAT ACTIONCASE DOESN'T RETURN A LEXEME
+			END;
+			LEXL_LEXEMEGEN()
+		END;
+		T2_1; T2_.T2^(.LEXL<LEFT>);
+		.VREG
+	END;
+	GLOBAL ROUTINE COPYLIST ( LSP ) =
+	BEGIN
+		EXTERNAL CORMAN %()%;
+		MACHOP BLT=#251;
+		IF (NAME<LEFT>_T2_.SP-.LSP) EQL 0 THEN RETURN;
+		NAME<RIGHT>_CORMAN();
+		VREG<LEFT>_STK[.LSP+1]<0,0>;
+		T1_.VREG+.T2-1;
+		BLT(VREG,0,T1);
+		STK[SP_.LSP+1]_.NAME-1^18;	!MAKES ALL LISTS RELATIVE TO 0
+		RETURN 0
+	END;
+	LOCAL SUBNODE;
+	BIND STKSIZ=250;
+	IF .SP GEQ STKSIZ THEN RETURN ERROUT(82);
+	SUBNODE_.SUBP[.NODE];
+	CASE .TYPE[.NODE] OF SET
+!
+!CASE 0-LEXEME
+!
+	BEGIN
+		IF .LSAVE NEQ 0 THEN LSAVE_0 ELSE LEXL_LEXEMEGEN();
+		IF .LEXL<LEFT> NEQ @SUBNODE THEN 
+		BEGIN
+			VREG _ .LEXL;
+			UNTIL .VREG EQL LINEND^18 DO LEXEMEGEN();
+			ENTRY[1]_.LEXNAME[.LEXL<LEFT>];ENTRY[2]_.LEXNAME[.SUBNODE];
+			LEXL<LEFT> _ 1; !LINEND;
+			RETURN ERROUT(E0)
+		END;
+		IF @SUBNODE GEQ POWER THEN STK[SP_.SP+1]_.LEXL
+	END;
+!
+!CASE 1-META
+!
+	BEGIN
+		IF SYNTAX(.SUBNODE) LSS 0 THEN RETURN -1;
+	END;
+!
+!CASE 2-ALL
+!
+	BEGIN
+		LOCAL LSP;
+		LSP_.SP;
+		INCR I FROM .SUBNODE TO .SUBNODE+.NUMBER[.NODE] DO
+		BEGIN
+			IF SYNI) LSS 0 THEN RETURN .VREG;
+		END;
+		COPYLIST(.LSP)
+	END;
+!
+!CASE 3-ONE
+!
+	BEGIN
+		MASK(@NODE);
+		VREG _INCR I FROM .SUBNODE TO .SUBNODE+.NUMBER[.NODE] DO 
+		BEGIN
+			IF (.LOOKAHEAD[ .I] AND .T2) NEQ 0 THEN EXITLOOP .I;
+		END;
+		IF .VREG LSS 0 THEN RETURN ORERROR (.NODE) ;	!NO ALTERNATIVES CORRECT
+		STK[SP_.SP+1]_.VREG-.SUBNODE+1;
+		IF SYNTAX(.VREG) LSS 0 THEN RETURN .VREG; ASAVE_0;
+	END;
+!
+!CASE 4-OPTION
+!
+	BEGIN
+		MASK(@NODE);
+		VREG _INCR I FROM .SUBNODE TO .SUBNODE+.NUMBER[.NODE] DO 
+		BEGIN
+			IF (.LOOKAHEAD[ .I] AND .T2) NEQ 0 THEN EXITLOOP .I;
+		END;
+		IF .VREG LSS 0 THEN (STK[SP_.SP+1]_0;RETURN);	!NO ALTERNATIVES CORRECT
+		STK[SP_.SP+1]_.VREG-.SUBNODE+1;
+		IF SYNTAX(.VREG) LSS 0 THEN RETURN -1; ASAVE_0;
+	END;
+!
+!CASE 5-LIST
+!
+	BEGIN
+		LOCAL LSP;LSP_.SP;
+		WHILE 1 DO
+		BEGIN
+			IF SYNTAX(.SUBNODE) LSS 0 THEN RETURN .VREG;
+			MASK(@NODE);
+			IF .LEXL<LEFT> EQL COMMA THEN LSAVE_0 ELSE EXITLOOP;
+		END;
+		COPYLIST(.LSP)
+	END;
+!
+!CASE 6-REPEAT
+!
+	BEGIN
+		LOCAL LSP;LSP_.SP;
+		DO
+		BEGIN
+			IF SYNTAX(.SUBNODE) LSS 0 THEN RETURN .VREG;
+			MASK(@NODE)
+		END
+		WHILE (@T2 AND @LOOKAHEAD[@NODE]) NEQ 0;
+		COPYLIST(.LSP)
+	END;
+!
+!CASE 7-ACTION
+!
+	BEGIN
+		T1_.SUBNODE;
+		VREG_IF .ASAVE NEQ .T1 THEN (@ACTIONCASE[.T1])()	!EXECUTE ACTION
+			ELSE 0
+	END
+	TES;
+	.VREG
+END;
+ROUTINE ORERROR(NODE) =
+%(-----------------------------------------------------------------------------------------------------------------
+	NONE OF A SET  OF "OR" CHOICES WERE FOUND
+	OUTPUT SUITABLE MESSAGE
+-----------------------------------------------------------------------------------------------------------------)%
+BEGIN
+	LOCAL L,N;
+	N_0;L_.LOOKAHEAD[.NODE];
+	UNTIL .L DO (L_.L^(-1);N_.N+1);
+	(ENTRY[1]_.LEXNAME[.LEXL<LEFT>];ENTRY[2]_.LEXNAME[.N];ERROUT(E2));
+	UNTIL (N_.N+1;L_.L^(-1)) EQL 0 DO
+	BEGIN
+		UNTIL .L DO (L_.L^(-1);N_.N+1);
+		(ENTRY[1]_.LEXNAME[.N];ERROUT(E3))
+	END
+END;
+!****************************************
+END ELUDOM
+   F@YS
