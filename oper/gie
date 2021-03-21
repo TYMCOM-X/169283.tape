@@ -1,0 +1,2328 @@
+C     PROGRAM PLSIM( INPUT,OUTPUT,TAPE5=INPUT,TAPE6=OUTPUT)             00000010
+      DIMENSION TITLE(22),PCA(50),PCB(50,10),PCC(50,20),D(300),Z(300)   00000020
+      DIMENSION T(22,501), IT(2,501)                                    00000030
+      COMMON TITLE,PCA,PCB,PCC,D,Z,T,IT,M1,M2,NTR,NTC,MNB,MNP,NDX       00000040
+C 001                                                                   00000050
+C         THIS IS THE MAIN PROGRAM TO SIMULATE THE UNSTEADY STATE       00000060
+C         THERMAL BEHAVIOR OF AN INSULATED AND BURIED PIPELINE SYSTEM.  00000070
+C                                                                       00000080
+C         INITIAL AUTHORS ARE REX L. ROWELL AND BEN L. MALEK OF         00000090
+C         PETROCHEM CONSULTANTS, INC.-HOUSTON,TEXAS.                    00000100
+C                                                                       00000110
+C   PROGRAM                  SEQUENCE                                   00000120
+C    NUMBER    NAME           NUMBER                                    00000130
+C   *********  ****         **********                                  00000140
+C      001    PLSIM          00000010                                   00000150
+C      002    MP2            00001130                                   00000160
+C      003    MP3            00001310                                   00000170
+C      004    MP4            00002230                                   00000180
+C      005    ZEROV          00002660                                   00000190
+C      006    READX          00002820                                   00000200
+C      007    WTITL          00003220                                   00000210
+C      008    TESTA          00003450                                   00000220
+C      009    MOVE           00003570                                   00000230
+C      010    SETUP          00003710                                   00000240
+C      011    FITKC          00004950                                   00000250
+C      012    XTPL           00005120                                   00000260
+C      013    EQFLO          00005520                                   00000270
+C      014    REYNO          00006820                                   00000280
+C      015    RFILM          00007030                                   00000290
+C      016    PRNO           00007430                                   00000300
+C      017    RFOST          00007690                                   00000310
+C      018    RINSO          00007900                                   00000320
+C      019    FDELP          00008180                                   00000330
+C      020    MOVER          00008570                                   00000340
+C      021    DYFLO          00008750                                   00000350
+C      022    TMATX          00009730                                   00000360
+C      023    TPROF          00002180                                   00000370
+C      024    TPIPE          00003170                                   00000380
+C      025    TOIL           00003440                                   00000390
+C      026    INTFAC         00003690                                   00000400
+C      027    HTBAL          00004900                                   00000410
+C      028    NOFLO          00005350                                   00000420
+C      029    COOLR          00006360                                   00000430
+C      030    OUTTP          00006860                                   00000440
+C      031    OUTTM          00007980                                   00000450
+C      032    TMHDR          00008550                                   00000460
+C      033    PAGEX          00008820                                   00000470
+C      034    PRNTV          00009140                                   00000480
+C      035    PRNTM          00009560                                   00000490
+C      036    DEFINE         NONE                                       00000500
+C                                                                       00000510
+C                                                                       00000520
+C         CLEAR COMMON STATEMENT, IN TOTAL                              00000530
+    1 CALL ZEROV(TITLE(1),14196)                                        00000540
+C         ASSIGN INPUT AND OUTPUT DEVICES                               00000550
+       M1 = 105
+       M2 = 108
+C         DEFINE T MATRIX BOUNDARIES                                    00000580
+      NTR=22                                                            00000590
+      NTC=501                                                           00000600
+C         DEFINE MAX NO. OF OIL BATCHES AND P.L. SEGMENTS               00000610
+      MNB=10                                                            00000620
+      MNP=20                                                            00000630
+C         NOTE TO REVISING PROGRAMMER-WHEN DIMENSIONED VECTORS OR       00000640
+C         MATRICIES ARE CHANGED IN SIZE, DONOT FORGET TO CHANGE         00000650
+C         ST. NO. 1 ABOVE.  ALSO, PLEASE CORRECT VECTOR LENGTHS         00000660
+C         USED BY SR PAGEX WHEN IT CALLS PRNTV OR PRNTM ROUTINES.       00000670
+C                                                                       00000680
+C         READ THE 1ST PCA CARD                                         00000690
+      READ (M1,900) (PCA(K),K=1,7),IDR,(TITLE(L),L=21,22)               00000700
+  900 FORMAT(1H F9.3,6(F10.4),I2,2(A4))                                 00000710
+C         TEST LISTING SWITCH                                           00000720
+      IF(PCA(6)) 3,3,2                                                  00000730
+C         WRITE A HEADER CARD                                           00000740
+    2 WRITE(M2,901)                                                     00000750
+  901 FORMAT(1H1 48H**** A LISTING OF PROGRAM CONSTANTS FOLLOWS ****)   00000760
+      WRITE (M2,900) (PCA(K),K=1,7),IDR,(TITLE(L),L=21,22)              00000770
+C         READ REMAINDER OF PCA DATA                                    00000780
+    3 CALL READX(PCA(8),21,2,PCA(6))                                    00000790
+C         READ PCB DATA (OIL BATCH PROPERTIES), 7/CARD.  USE PCA(27)    00000800
+C         TO DETM LENGTH OF PCB TO BE ENTERED.                          00000810
+C         SET UP DO LOOP FOR READING COLUMNS INTO THE PCB MATRIX        00000820
+      NBAT= PCA(27) + 0.001                                             00000830
+      IA=0                                                              00000840
+      IDE=0                                                             00000850
+      DO 301 I=1,NBAT                                                   00000860
+      IDE = I  + IA                                                     00000870
+      CALL READX(PCB(1,I),21,IDE,PCA(6))                                00000880
+      IA = IA + 2                                                       00000890
+  301 CONTINUE                                                          00000900
+C         READ PCC DATA (PIPELINE SEGMENT DATA), 7/CARD. USE PCA(28)    00000910
+C         TO DETM LENGTH OF PCC TO BE ENTERED.                          00000920
+      NSEG=PCA(28) + 0.001                                              00000930
+      IA = 0                                                            00000940
+      IDE=0                                                             00000950
+      DO 302 I=1,NSEG                                                   00000960
+      IDE = I  + IA                                                     00000970
+      CALL READX(PCC(1,I),28,IDE,PCA(6))                                00000980
+      IA = IA + 3                                                       00000990
+  302 CONTINUE                                                          00001000
+C         READ BLANK CARD THAT FOLLOWS THE LAST PROGRAM CONSTANT CARD   00001010
+      READ (M1,902)                                                     00001020
+  902 FORMAT(1H 39H                                       ,40H          00001030
+     1                              )                                   00001040
+C         NOW WRITE IT IF PC-LIST SWITCH IS ON.                         00001050
+      IF(PCA(6))5,5,4                                                   00001060
+    4 WRITE(M2,902)                                                     00001070
+    5 CONTINUE                                                          00001080
+      CALL DEFINE                                                       00001090
+C         TRANSFER CONTROL TO MP2 FOR THE REMAINDER OF THIS COMP. ACCESS00001100
+      CALL MP2                                                          00001110
+      END                                                               00001120
+      DIMENSION TITLE(22),PCA(50),PCB(50,10),PCC(50,20),D(300),Z(300)   00001140
+      SUBROUTINE MP2                                                    00001130
+      DIMENSION T(22,501), IT(2,501)                                    00001150
+      COMMON TITLE,PCA,PCB,PCC,D,Z,T,IT,M1,M2,NTR,NTC,MNB,MNP,NDX       00001160
+C 002                                                                   00001170
+C         CALLED BY MAIN PROGRAM AND, UPON ENGR FAILURE, BY SR,S-       00001180
+C                                                                       00001190
+C         THIS SR IS THE =RUN= EXECUTIVE.  IT PROCESSES AS MANY CASES   00001200
+C         AS ARE READ IN, STOPPING ONLY WHEN SR MP3(INPUT) FINDS A STOP 00001210
+C         CARD.                                                         00001220
+C                                                                       00001230
+C         PROCESS INPUT FOR THE NEXT CASE                               00001240
+    1 CALL MP3                                                          00001250
+C         PERFORM ENGINEERING CALC,S--WRITING OUTPUT AS REQ,D.          00001260
+    2 CALL MP4                                                          00001270
+C         NEXT CASE PLEASE. NOTE LACK OF RETURN STATEMENT.              00001280
+    3 GO TO 1                                                           00001290
+      END                                                               00001300
+      SUBROUTINE MP3                                                    00001310
+      DIMENSION TITLE(22),PCA(50),PCB(50,10),PCC(50,20),D(300),Z(300)   00001320
+      DIMENSION T(22,501), IT(2,501)                                    00001330
+      COMMON TITLE,PCA,PCB,PCC,D,Z,T,IT,M1,M2,NTR,NTC,MNB,MNP,NDX       00001340
+C 003                                                                   00001350
+C         CALLED BY MP2.                                                00001360
+C         THIS SR READS CASE STUDY INPUT, AND LISTS IT WHEN REQ,D.      00001370
+C                                                                       00001380
+C         CLEAR ALL STORAGE FROM PREVIOUS RUN, EXCEPT FOR CERTAIN PC    00001390
+C         VALUE READ IN JUST ONCE BEFORE CASE 1, AND EXCEPTING=T=AND=IT=00001400
+      DO 101 I=1,MNB                                                    00001410
+  101 CALL ZEROV(PCB(22,I),29)                                          00001420
+      DO 102 J=1,MNP                                                    00001430
+  102 CALL ZEROV(PCC(29,J),21)                                          00001440
+      CALL ZEROV(D(1),300)                                              00001450
+      CALL ZEROV(Z(1),300)                                              00001460
+      I=NTR*NTC                                                         00001470
+      CALL ZEROV(T(1,1),I)                                              00001480
+      DO 1 J=1,NTC                                                      00001490
+      IT(1,J)=0                                                         00001500
+    1 IT(2,J)=0                                                         00001510
+C         PREPARE TO LIST INPUT AS IT,S READ, UNLESS PCA(7) IS =OFF=.   00001520
+      IF(PCA(7) ) 3,3,2                                                 00001530
+    2 WRITE(M2,900)                                                     00001540
+  900 FORMAT(1H1 41H**** A LISTING OF CASE INPUT FOLLOWS ****)          00001550
+C         READ 1ST TITLE CARD, TEST FOR =STOP= MESSAGE AND TEST ID      00001560
+    3 IDE=1                                                             00001570
+      READ(M1,901) (TITLE(K),K=1,10),IDR,(TITLE(J),J=21,22)             00001580
+  901 FORMAT(1H 10(A4),29X,I2,2(A4))                                    00001590
+C         LIST IT, IF DESIRED BY USER                                   00001600
+      IF(PCA(7))5,5,4                                                   00001610
+    4 WRITE(M2,901)(TITLE(K),K=1,10),IDR,(TITLE(J),J=21,22)             00001620
+C         TEST FOR STOP CARD, WHICH WOULD TERMINATE THIS RUN            00001630
+    5 CALL TESTA(TITLE(1),4HSTOP,JDIFF)                                 00001640
+C         TEST =WORD READ= VS THE WORD =STOP= FOR A ZERO DIFFERENCE     00001650
+      IF(JDIFF)7,6,7                                                    00001660
+C         SHUT IT ALL DOWN                                              00001670
+    6 STOP                                                              00001680
+C         CARRY ON, AND TEST CARD ID FOR LEGALITY                       00001690
+    7 IF(IDE-IDR)8,9,8                                                  00001700
+C         INVALID ID, COMPLAIN LOUDLY                                   00001710
+    8 CALL WTITL                                                        00001720
+      WRITE(M2,902) IDE, IDR                                            00001730
+  902 FORMAT(1H1 40HINPUT CARDS OUT OF SEQUENCE.  WHEN CARD ,I3,14H WAS 00001740
+     1EXPECTED,// 6H CARD ,I3,34H WAS RECEIVED.  RUN WILL CONTINUE.)    00001750
+C         READ AND TEST ID ON SECOND TITLE CARD                         00001760
+    9 IDE=2                                                             00001770
+      READ(M1,901) (TITLE(K),K=11,20),IDR,(TITLE(J),J=21,22)            00001780
+      IF(PCA(7))11,11,10                                                00001790
+C         LIST IT                                                       00001800
+   10 WRITE(M2,901)(TITLE(K),K=11,20),IDR,(TITLE(J),J=21,22)            00001810
+C         TEST ID                                                       00001820
+   11 IF(IDE-IDR)12,13,12                                               00001830
+C         INVALID ID                                                    00001840
+   12 CALL WTITL                                                        00001850
+      WRITE(M2,902) IDE,IDR                                             00001860
+C         READ TWO CONTROL CARDS (VECTOR STORAGE RESERVES ROOM FOR 7)   00001870
+   13 CALL READX(D(1),14,3,PCA(7))                                      00001880
+C         READ OIL BATCH CARDS (VARIABLE NO OF BATCHES, VARIABLE NO. OF 00001890
+C         CARDS PER BATCH).                                             00001900
+      NBAT= D(2) + 0.001                                                00001910
+      IDE=10                                                            00001920
+      DO 17 I=1,NBAT                                                    00001930
+      IDE=IDE + 1                                                       00001940
+      CALL READX(D(51),7,IDE,PCA(7))                                    00001950
+C         TRANSFER THIS OIL BATCH FLOW DATA TO PCB MATRIX               00001960
+      D(I+60)=D(51)                                                     00001970
+      J=D(51)+ 0.001                                                    00001980
+      CALL MOVE(D(51),PCB(31,J),7)                                      00001990
+C         SEE IF PROPS CARDS ARE NEXT                                   00002000
+      IF(D(57))16,17,16                                                 00002010
+C         READ 3 PROP CARDS DIRECTLY INTO PCB MATRIX                    00002020
+   16 IDE=IDE+1                                                         00002030
+      CALL READX(PCB(1,J),21,IDE,PCA(7))                                00002040
+C         UPDATE ID FOR DO-LOOP                                         00002050
+      IDE=IDE+2                                                         00002060
+   17 CONTINUE                                                          00002070
+C         NOW, TEST IF TEMP PROFILES FOR OIL AND STEEL ARE TO BE READ   00002080
+      IF(D(3))18,19,18                                                  00002090
+C         READ 4 OIL TEMP CARDS AND 4 STEEL TEMP CARDS                  00002100
+   18 CALL READX(D(101),28,1,PCA(7))                                    00002110
+      CALL READX(D(201),28,5,PCA(7))                                    00002120
+C         FINALLY, READ A BLANK CARD TO FINISH THIS DATA SET.           00002130
+   19 READ (M1,903)                                                     00002140
+  903 FORMAT(1H 39H                                       ,40H          00002150
+     1                              )                                   00002160
+C         IF PCA(7) IS ON, LIST THE BLANK CARD                          00002170
+      IF(PCA(7))20,21,20                                                00002180
+   20 WRITE(M2,903)                                                     00002190
+   21 CONTINUE                                                          00002200
+      RETURN                                                            00002210
+      END                                                               00002220
+      SUBROUTINE MP4                                                    00002230
+      DIMENSION TITLE(22),PCA(50),PCB(50,10),PCC(50,20),D(300),Z(300)   00002240
+      DIMENSION T(22,501), IT(2,501)                                    00002250
+      COMMON TITLE,PCA,PCB,PCC,D,Z,T,IT,M1,M2,NTR,NB,MNP,NDX       00002260
+C 004                                                                   00002270
+C         CALLED BY SR MP2                                              00002280
+C         THIS SR IS THE ENGINEERING EXECUTIVE ROUTINE FOR A SINGLE     00002290
+C         CASE STUDY INVOLVING ONE OR MORE OIL BATCHES BEING PUMPED     00002300
+C         THROUGH ONE OR MORE PIPELINE SEGMENTS.                        00002310
+C                                                                       00002320
+C         SET-UP INPUT AS REQ,D (TEMP PROFILES, PL SEGMENTS, ETC)       00002330
+    1 CALL SETUP                                                        00002340
+C         TEST FOR FLOW DIRECTION                                       00002350
+      IF(D(1)-1.0)2,2,3                                                 00002360
+C         CASE TYPE 1.0, SO USE FIRST BATCH TO STABILIZE FLOWING TEMPS  00002370
+    2 I=D(61) + 0.001                                                   00002380
+      CALL EQFLO(I)                                                     00002390
+      K=0                                                               00002400
+      GO TO 4                                                           00002410
+C         PRINT PROFILE, BE IT  EQUIL. OR INPUT                         00002420
+    3 K=1                                                               00002430
+    4 CALL OUTTP(K)                                                     00002440
+C         SAVE INITIAL OIL TEMP AT TERMINUS FOR USE BY SR OUTTM         00002450
+      Z(250)=T(1,NDX+1)                                                 00002460
+      Z(251)=0.0                                                        00002470
+      Z(253)=T(12,NDX+1)                                                00002480
+C         SET UP THERMAL LOOP FOR 1-10 OIL BATCHES                      00002490
+      NTBAT=D(2) + 0.001                                                00002500
+      DO 5 K=1,NTBAT                                                    00002510
+      I=D(K+60)+.001                                                    00002520
+C         PERFORM CALCS AND WRITE OUTPUT FOR FLOWING DYNAMIC STATE      00002530
+      CALL DYFLO(I)                                                     00002540
+C         PERFORM CALCS AND WRITE OUTPUT FOR NO-FLOW DYNAMIC STATE      00002550
+      CALL NOFLO(I)                                                     00002560
+    5 CONTINUE                                                          00002570
+C         SEE IF A VECTOR DUMP IS DESIRED                               00002580
+      IF(D(7))7,7,6                                                     00002590
+C         WRITE A DUMP OF THE DIMENSIONED VECTORS                       00002600
+    6 CALL PAGEX                                                        00002610
+    7 CONTINUE                                                          00002620
+C         RETURN CONTROL TO MP2 FOR NEXT CASE STUDY                     00002630
+      RETURN                                                            00002640
+      END                                                               00002650
+      SUBROUTINE ZEROV(REGV,LNGTH)                                      00002660
+      DIMENSION TITLE(22),PCA(50),PCB(50,10),PCC(50,20),D(300),Z(300)   00002670
+      DIMENSION T(22,501), IT(2,501)                                    00002680
+      COMMON TITLE,PCA,PCB,PCC,D,Z,T,IT,M1,M2,NTR,NTC,MNB,MNP,NDX       00002690
+C 005                                                                   00002700
+      DIMENSION REGV(2)                                                 00002710
+C         CALLED BY MAIN PROGRAM,EQFLO                                  00002720
+C         THIS SR SETS A REGION IN A GIVEN VECTOR TO ZERO.              00002730
+C         ARGUMENTS-REGV=THE 1ST POSITION OF A REGION TO BE ZEROED.     00002740
+C                  LNGTH=THE LENGTH TO BE CLEARED                       00002750
+C                                                                       00002760
+C         HAVING SETUP DUMMY DIMENSIONING, EXECUTE THE ZEROING          00002770
+    1 DO 2 I=1,LNGTH                                                    00002780
+    2 REGV(I)=0.0                                                       00002790
+      RETURN                                                            00002800
+      END                                                               00002810
+      SUBROUTINE READX(REGV,LNGTH,IDC,OUTKY)                            00002820
+      DIMENSION TITLE(22),PCA(50),PCB(50,10),PCC(50,20),D(300),Z(300)   00002830
+      DIMENSION T(22,501), IT(2,501)                                    00002840
+      COMMON TITLE,PCA,PCB,PCC,D,Z,T,IT,M1,M2,NTR,NTC,MNB,MNP,NDX       00002850
+C 006                                                                   00002860
+      DIMENSION REGV(2)                                                 00002870
+C         CALLED BY MAIN PROGRAM, MP3                                   00002880
+C         THIS SR READS FLOATING POINT DATA, 7/CARD, PLUS AN ID/COMMENT.00002890
+C         THE STANDARD FORMAT IS (1H F9.4,6(F10.3),I2,2(A4)).           00002900
+C         ARGUMENTS-REGV=1ST LOCATION TO BE READ                        00002910
+C                  LNGTH=LENGTH OF VECTOR TO BE READ.                   00002920
+C                    IDC=ID NO. OF 1ST CARD TO BE READ, WITH ALL FOLLOW-00002930
+C                        ING CARDS READ TO BE INCREMENT BY ONE.         00002940
+C                  OUTKY=OUTPUT KEY, IF NON-ZERO, LIST ALL INPUT        00002950
+    1 IF(LNGTH)10,10,101                                                00002960
+  101 IDE=IDC-1                                                         00002970
+C         READ INPUT AS REQUIRED                                        00002980
+    2 DO 7 I=1,LNGTH,7                                                  00002990
+      IDE=IDE + 1                                                       00003000
+      J=I + 6                                                           00003010
+    3 READ(M1,900) (REGV(K),K=I,J),IDR,(TITLE(L),L=21,22)               00003020
+  900 FORMAT(1H F9.4,6(F10.3),I2,2(A4))                                 00003030
+C         SEE IF LISTING IS DESIRED                                     00003040
+      IF(OUTKY)5,5,4                                                    00003050
+C         LIST IT                                                       00003060
+    4 WRITE(M2,900)(REGV(K),K=I,J),IDR,(TITLE(L),L=21,22)               00003070
+C         TEST CARD ID FOR LEGALITY                                     00003080
+    5 IF(IDE-IDR)6,7,6                                                  00003090
+C         CARDS OUT OF ORDER, SAY SO AND CONTINUE THE RUN               00003100
+    6 CALL WTITL                                                        00003110
+      WRITE (M2,901) IDE,IDR                                            00003120
+  901 FORMAT(1H 40HINPUT CARDS OUT OF SEQUENCE.  WHEN CARD ,I3,14H WAS E00003130
+     1XPECTED,// 6H CARD ,I3,34H WAS RECEIVED.  RUN WILL CONTINUE.)     00003140
+C         SKIP A LINE                                                   00003150
+      WRITE (M2,902)                                                    00003160
+  902 FORMAT(1H )                                                       00003170
+C         CONTINUE THE READ LOOP                                        00003180
+    7 CONTINUE                                                          00003190
+   10 RETURN                                                            00003200
+      END                                                               00003210
+      SUBROUTINE WTITL                                                  00003220
+      DIMENSION TITLE(22),PCA(50),PCB(50,10),PCC(50,20),D(300),Z(300)   00003230
+      DIMENSION T(22,501), IT(2,501)                                    00003240
+      COMMON TITLE,PCA,PCB,PCC,D,Z,T,IT,M1,M2,NTR,NTC,MNB,MNP,NDX       00003250
+C 007                                                                   00003260
+C         CALLED BY MP3,READX,PAGEX,OUTTP,TMHDR,TPROF                   00003270
+C         THIS SR SKIPS TO TOP OF PAGE, WRITES A HEADER, SKIPS A LINE,  00003280
+C         WRITES TWO TITLES AND THEN SKIPS TWO LINES--ALL CENTERED FOR  00003290
+C         72-COLUMN (8.5X11) WIDTH.                                     00003300
+    1 WRITE(M2,900)                                                     00003310
+  900 FORMAT(1H1 8X,55HGULF INTERSTATE ENG. CO. -- PIPELINE SIMULATION P00003320
+     1ROGRAM)                                                           00003330
+      WRITE(M2,901)                                                     00003340
+  901 FORMAT(1H )                                                       00003350
+C         WRITE TWO CASE STUDY TITLE CARDS                              00003360
+      WRITE(M2,902) (TITLE(I),I=1,10)                                   00003370
+      WRITE(M2,902) (TITLE(I),I=11,20)                                  00003380
+  902 FORMAT(1H 15X,10(A4))                                             00003390
+C         SKIP TWO LINES                                                00003400
+      WRITE(M2,901)                                                     00003410
+      WRITE(M2,901)                                                     00003420
+      RETURN                                                            00003430
+      END                                                               00003440
+      SUBROUTINE TESTA(I1,I2,I3)                                        00003450
+      DIMENSION TITLE(22),PCA(50),PCB(50,10),PCC(50,20),D(300),Z(300)   00003460
+      DIMENSION T(22,501), IT(2,501)                                    00003470
+      COMMON TITLE,PCA,PCB,PCC,D,Z,T,IT,M1,M2,NTR,NTC,MNB,MNP,NDX       00003480
+C 008                                                                   00003490
+C         CALLED BY MP3                                                 00003500
+C         THIS SR IS NEEDED TO SET UP AN IF STATEMENT BETWEEN TWO WORDS.00003510
+C         IT TAKES THE DIFFERENCE BETWEEN ARGUMENTS I1 AND I2 AND STORES00003520
+C         IT IN I3.                                                     00003530
+    1 I3=I1-I2                                                          00003540
+      RETURN                                                            00003550
+      END                                                               00003560
+      SUBROUTINE MOVE(REG1,REG2,N1)                                     00003570
+      DIMENSION TITLE(22),PCA(50),PCB(50,10),PCC(50,20),D(300),Z(300)   00003580
+      DIMENSION T(22,501), IT(2,501)                                    00003590
+      COMMON TITLE,PCA,PCB,PCC,D,Z,T,IT,M1,M2,NTR,NTC,MNB,MNP,NDX       00003600
+C 009                                                                   00003610
+      DIMENSION REG1(2),REG2(2)                                         00003620
+C         CALLED BY MP3, EQFLO                                          00003630
+C         THIS SR MOVES N1 ITEMS FROM A REGION STARTING IN REG1 TO      00003640
+C         A REGION STARTING IN REG2.                                    00003650
+C                                                                       00003660
+    1 DO 2 I=1,N1                                                       00003670
+    2 REG2(I)=REG1(I)                                                   00003680
+      RETURN                                                            00003690
+      END                                                               00003700
+      SUBROUTINE SETUP                                                  00003710
+      DIMENSION TITLE(22),PCA(50),PCB(50,10),PCC(50,20),D(300),Z(300)   00003720
+      DIMENSION T(22,501), IT(2,501)                                    00003730
+      COMMON TITLE,PCA,PCB,PCC,D,Z,T,IT,M1,M2,NTR,NTC,MNB,MNP,NDX       00003740
+C 010                                                                   00003750
+C         CALLED BY SR MP4                                              00003760
+C         THIS SR IS USED TO BRIDGE THE GAP BETWEEN RAW INPUT DATA      00003770
+C         AND POLISHED DATA NEEDED BY THE VARIOUS ENGINEERING ROUTINES. 00003780
+C         IT IS ALSO USED TO INITIALIZE MANY CONTROL VARIABLES.         00003790
+C                                                                       00003800
+C         COUNT THE NO. OF PL SEGMENTS BEING USED FOR THIS CASE         00003810
+    1 NTSEG=0                                                           00003820
+      DO 3 K=1,MNP                                                      00003830
+      IF(D(K+7))3,3,2                                                   00003840
+C         NOTCH THE COUNTER                                             00003850
+    2 NTSEG=NTSEG +1                                                    00003860
+    3 CONTINUE                                                          00003870
+C         CHECK FOR OVERRIDE NEED ON KEY INPUT. IF BLANK, OVERRIDE      00003880
+      DO 5 K= 1,3                                                       00003890
+      IF(D(K+3))4,4,5                                                   00003900
+    4 D(K+3)=PCA(K)                                                     00003910
+    5 CONTINUE                                                          00003920
+C         DO NOT ALLOW INPUT TO EXCEED MAXIMUM-ALLOWABLE DX             00003930
+      IF(D(4)-PCA(5))502,502,501                                        00003940
+C         OVERRIDE EVEN A POSITIVE INPUT THAT,S TOO BIG                 00003950
+  501 D(4)=PCA(5)                                                       00003960
+C         NOW, BUILD THE NUMBER OF DX,S TO BE USED.  ROUND UP EACH PL   00003970
+C         SEGMENT(WITH A FRAGMENT OF LENGTH LEFT OVER)TO THE NEXT DX.   00003980
+  502 NDX=0                                                             00003990
+      DO 11 K=1,NTSEG                                                   00004000
+      J=D(K+7)+0.001                                                    00004010
+      Z(1)=PCC(2,J)                                                     00004020
+      Z(2)= Z(1)/D(4)                                                   00004030
+      I2=(Z(1)/D(4)) + 0.001                                            00004040
+      Z(3)=I2                                                           00004050
+      IF(Z(2)-Z(3))6,6,7                                                00004060
+    6 JD2=I2+NDX                                                        00004070
+      GO TO 8                                                           00004080
+    7 JD2=I2+NDX+1                                                      00004090
+    8 JD1=NDX + 1                                                       00004100
+    9 DO 10 KK=JD1,JD2                                                  00004110
+   10 IT(1,KK)=PCC(1,J) + 0.001                                         00004120
+      NDX=I2+JD1-1                                                      00004130
+C         NOTE, IN ST. NO. 9 ABOVE, WE FILLED IN SEG NO. INTO IT MTX.   00004140
+C         NOW, FOR EACH PL SEGMENT IN USE, CALC K AND CP EQN CONSTANTS  00004150
+      CALL FITKC(PCC(8,J),PCC(10,J),PCC(32,J))                          00004160
+      CALL FITKC(PCC(8,J),PCC(12,J),PCC(34,J))                          00004170
+C         DO SAME FOR INSULATION                                        00004180
+      CALL FITKC(PCC(8,J),PCC(18,J),PCC(36,J))                          00004190
+      CALL FITKC(PCC(8,J),PCC(20,J),PCC(38,J))                          00004200
+C         CALC ID, IN. AND FT.                                          00004210
+      PCC(29,J)= PCC(3,J) -(2.0*PCC(4,J))                               00004220
+      PCC(30,J)= PCC(29,J)/12.0                                         00004230
+C         CALC OD, FT                                                   00004240
+      PCC(31,J)=PCC(3,J)/12.0                                           00004250
+C         CALC CS AREA-OIL FILLED                                       00004260
+      PCC(40,J)=  3.14159*(PCC(30,J)**2)/4.0                            00004270
+C         CALC ANNULAR CS AREA-STEEL FILLED                             00004280
+      PCC(41,J)= (3.14159*  (PCC(31,J)**2)/4.0) - PCC(40,J)             00004290
+C         VOL CAPACITY OF DX IN THIS SEGMENT, STD BBLS (AT 60 F)        00004300
+      PCC(42,J)=  PCC(40,J)*(D(4)*5280.0) * 7.4805 / 42.0               00004310
+C         END OF SEGMENT DO-LOOP                                        00004320
+   11 CONTINUE                                                          00004330
+C         OIL BATCHING WILL NOW COMMENCE                                00004340
+C         FIRST, WE,LL COUNT THE BATCHES TO BE PROCESSED                00004350
+      NTBAT=0                                                           00004360
+      DO 13 K=1,MNB                                                     00004370
+      IF(D(K+60))13,13,12                                               00004380
+   12 NTBAT=NTBAT + 1                                                   00004390
+   13 CONTINUE                                                          00004400
+   14 DO 15 K=1,NTBAT                                                   00004410
+      I= D(K+60) + 0.001                                                00004420
+C         SG AT  60 F                                                   00004430
+      PCB(22,I)=141.5/(131.5+PCB(2,I))                                  00004440
+C         EQN CONSTANTS FOR VISCOSITY,  B THEN A IN  Z=A * E(B/T,DEG R) 00004450
+      PCB(24,I)=  ALOG(PCB(6,I)/PCB(7,I)) / ( (1.0/(PCB(4,I)+460.0)) -  00004460
+     1            (1.0/(PCB(5,I)+460.0)) )                              00004470
+      PCB(23,I)=  PCB(6,I)/ EXP(PCB(24,I)/(PCB(4,I)+460.0))             00004480
+C         EQN CONSTANTS FOR K AND CP                                    00004490
+      CALL FITKC(PCB(8,I),PCB(10,I),PCB(25,I))                          00004500
+   15 CALL FITKC(PCB(15,I),PCB(17,I),PCB(27,I))                         00004510
+C         PUT 1ST OIL BATCH INTO IT MATRIX, AND SET FRACTION=1.0        00004520
+      DO 16 K=1,NDX                                                     00004530
+      IT(2,K)= D(61) + 0.001                                            00004540
+   16 T(21,K)=1.0                                                       00004550
+C         ZERO THE MASTER CLOCK                                         00004560
+      D(100)=0.0                                                        00004570
+C         TEST FOR CASE STUDY TYPE (WE MAY HAVE TO HANDLE INPUT TEMP    00004580
+C         PROFILES FOR OIL AND STEEL.)                                  00004590
+      IF(D(1)-1.0)50,50,20                                              00004600
+C         UH-OHH, PROFILES MUST BE CURVE-FITTED AND TEMPS PUT TO T MTX  00004610
+   20 DX=D(4)                                                           00004620
+      DO 40 KK=1,2                                                      00004630
+C         COUNT THE OIL (STEEL) TEMP POINTS THAT WERE INPUT(IF T=0,OUCH)00004640
+      NTM=0                                                             00004650
+      DO 23 J=1,14                                                      00004660
+      II=(100*KK) + (J*2)                                               00004670
+      IF(D(II))21,22,21                                                 00004680
+   21 NTM=NTM + 1                                                       00004690
+C         NOW, SET UP A TABLE OF MILEAGE VS TEMP FOR SUBSEQUENT         00004700
+C         INTERPOLATION AND OR EXTRAPOLATION BASIS DX,S                 00004710
+   22 D(J+170)= D(II)                                                   00004720
+      D(J+150)= D(II-1)                                                 00004730
+   23 CONTINUE                                                          00004740
+C         HAVING MILES IN D(151-164) AND TEMPS IN D(171-184)            00004750
+C         RUN THE PL,DX BY DX, AND PICK OFF A TEMP THATS AT THE         00004760
+C         START OF THAT DX,--ALL BY S-L INTERPOLATION OR EXTRAPOLATION. 00004770
+C                                                                       00004780
+C         BUT FIRST, GET ALL MILE MARKS BASED ON ZERO AT ORIGIN         00004790
+      Z(6)=D(151)                                                       00004800
+      DO 24 J=1,NTM                                                     00004810
+   24 D(J+150)= D(J+150) - Z(6)                                         00004820
+C         CLEAR MILES TO(-DX) NULL POSITION, THEN INTERPOLATE           00004830
+      TDX= -DX                                                          00004840
+      I=NDX +1                                                          00004850
+      DO 30 J=1,I                                                       00004860
+      TDX=TDX + DX                                                      00004870
+   30 CALL XTPL(D(151),D(171),NTM,TDX,T(KK,J),1)                        00004880
+C         END OF OIL-THEN-STEEL DO LOOP FOR TEMP PROFILES               00004890
+   40 CONTINUE                                                          00004900
+C         THAT,S ALL TO THE SETUP ACTIVITY                              00004910
+   50 CONTINUE                                                          00004920
+      RETURN                                                            00004930
+      END                                                               00004940
+      SUBROUTINE FITKC(REGT,REGK,REGA)                                  00004950
+      DIMENSION TITLE(22),PCA(50),PCB(50,10),PCC(50,20),D(300),Z(300)   00004960
+      DIMENSION T(22,501), IT(2,501)                                    00004970
+      COMMON TITLE,PCA,PCB,PCC,D,Z,T,IT,M1,M2,NTR,NTC,MNB,MNP,NDX       00004980
+C 011                                                                   00004990
+      DIMENSION REGT(2),REGK(2),REGA(2)                                 00005000
+C         CALLED BY SETUP                                               00005010
+C         THIS SR CURVE FITS A TWO-POINT CURVE TO THE EQN FORM OF       00005020
+C           ANSWER = A + B(X).  IT IS USED TO FIT K AND CP VALUES       00005030
+C           FOR OIL, INSULATION AND STEEL IN THIS PROGRAM APPLICATION.  00005040
+C         ARGUMENTS REGT=1ST LOCN. OF FIT TEMPS (TWO IN A ROW ARE REQ,D)00005050
+C                   REGK=1ST LOCN. OF TWO K OR CP VALUES                00005060
+C                   REGA=1ST LOCN. OF TWO ANSWERS, A AND B CONSTANTS.   00005070
+    1 REGA(2)=(REGK(2)-REGK(1)) /(REGT(2) - REGT(1))                    00005080
+      REGA(1)= REGK(1) -  REGA(2)*REGT(1)                               00005090
+      RETURN                                                            00005100
+      END                                                               00005110
+      SUBROUTINE XTPL(RG1X,RG1Y,L1,RG2X,RG2Y,L2)                        00005120
+      DIMENSION TITLE(22),PCA(50),PCB(50,10),PCC(50,20),D(300),Z(300)   00005130
+      DIMENSION T(22,501), IT(2,501)                                    00005140
+      COMMON TITLE,PCA,PCB,PCC,D,Z,T,IT,M1,M2,NTR,NTC,MNB,MNP,NDX       00005150
+C 012                                                                   00005160
+      DIMENSION RG1X(2),RG1Y(2),RG2X(2),RG2Y(2)                         00005170
+C         CALLED BY SETUP                                               00005180
+C         THIS SR INTERPOLATES OR EXTROPLATES IN A 2-COL TABLE, THAT    00005190
+C         HAS  1ST LOCATIONS OF REG1X AND RG1Y AND IS OF LENGTH L1.     00005200
+C         THE FIRST OF THE SEARCH VALUES IN RG2X AND THE 1ST OF         00005210
+C         THE ANSWER VALUES IS IN RG2Y.  THESE TWO VALUE VECTORS        00005220
+C         ARE BOTH OF LENGTH L2.                                        00005230
+C                                                                       00005240
+C         SET UP DO-LOOP FOR SEARCH VALUE OR VALUES                     00005250
+   50 DO 65 J=1,L2                                                      00005260
+C         SEE IF SEARCH VALUE (RG2X) IS BELOW LOWEST RG1X IN TABLE      00005270
+   51 IF(RG2X(J) - RG1X(1)) 52,53,53                                    00005280
+C         IF SO, SET UP INDEX FOR EXTRAPOLATION DOWNWARD AND DO IT      00005290
+   52 K=2                                                               00005300
+      GO TO 64                                                          00005310
+C         SEE IF SEARCH VALUE (RG2X) IS ABOVE HIGHEST RG1X IN TABLE     00005320
+   53 IF(RG2X(J) - RG1X(L1)) 55,55,54                                   00005330
+C         IF SO, SET UP INDEX FOR EXTRAPOLATION UPWARD AND DO IT        00005340
+   54 K=L1                                                              00005350
+      GO TO 64                                                          00005360
+C         NOW WE KNOW SEARCH VALUE IS BRACKETED. FIND OUT JUST WHERE.   00005370
+   55 DO 59 N=1,L1                                                      00005380
+C         COMPARE RG2X TO EACH TABULAR POINT IN RG1X UNTIL BRACKETED    00005390
+      IF(RG2X(J) - RG1X(N)) 63,61,59                                    00005400
+   59 CONTINUE                                                          00005410
+C         PROCEDURE FOR RG2X = RG1X TABLE VALUE                         00005420
+   61 RG2Y(J) = RG1Y(N)                                                 00005430
+      GO TO 65                                                          00005440
+C         FINALLY, WE GET TO THE POINT AND INTERPOLATE OR EXTRAPOLATE   00005450
+   63 K=N                                                               00005460
+   64 X1 = (RG2X(J)-RG1X(K-1)) / (RG1X(K) - RG1X(K-1))                  00005470
+      RG2Y(J) = RG1Y(K-1) +(X1 * (RG1Y(K) - RG1Y(K-1)))                 00005480
+   65 CONTINUE                                                          00005490
+      RETURN                                                            00005500
+      END                                                               00005510
+      SUBROUTINE EQFLO(IBAT)                                            00005520
+      DIMENSION TITLE(22),PCA(50),PCB(50,10),PCC(50,20),D(300),Z(300)   00005530
+      DIMENSION T(22,501), IT(2,501)                                    00005540
+      COMMON TITLE,PCA,PCB,PCC,D,Z,T,IT,M1,M2,NTR,NTC,MNB,MNP,NDX       00005550
+C 013                                                                   00005560
+C         CALLED BY MP4                                                 00005570
+C         THIS SR CALCS AN EQUILIBRIUM TEMP PROFILE FOR BOTH OIL AND    00005580
+C         STEEL UNDER FLOWING CONDITIONS OF A SINGLE OIL BATCH.         00005590
+C         THE EQUATION USED IS EQUATION NO 4 IN THE MATHEMATICAL        00005600
+C         DOCUMENTATION                                                 00005610
+C         ARGUMENT IBAT=BATCH NO OF EQUILIBRATION OIL                   00005620
+C         ASSIGN TEMP INTO PL FM PUMP. ALSO, SET ASSOCIATED PIPE TEMP.  00005630
+    1 I=IBAT                                                            00005640
+      T(1,1)=PCB(33,I)                                                  00005650
+      T(2,1)=T(1,1)-1.0                                                 00005660
+C         EST. DELTA T ACROSS FIRST DELTA X LENGTH, FOR OIL AND PIPE    00005670
+C         GUESS 1 DEG F PER MILE DROP AS FIRST GUESS                    00005680
+      DTB=(-1.0)  * D(4)                                                00005690
+      DTP=DTB                                                           00005700
+C         SET DX LENGTH, FT                                             00005710
+      DX=D(4)*5280.0                                                    00005720
+C         CLEAR HT BAL ERROR SUMMATION STORAGE FOR PREV. ITERATION      00005730
+      CALL ZEROV(Z(61),6)                                               00005740
+C         DENSITY, LB/FT3 AT INLET                                      00005750
+      Z(49)=62.3*(PCB(22,I)+PCB(3,I)*(PCB(33,I)-60.))                   00005760
+C         VELOCITY AT INLET, FT/HR                                      00005770
+      Z(50) = PCB(32,I)* 349.79 * PCB(22,I)/(24.0 * Z(49) * PCC(40,     00005780
+     1IT(1,1)))                                                         00005790
+C         RATIO OF SG AT 60 TO SP GR AT TEMP                            00005800
+      Z(51)= PCB(22,I)/ (PCB(22,I) + PCB(3,I)*(PCB(33,I)-60.))          00005810
+C         SET UP OUTER DO-LOOP TO WORK THE TOTAL PL 2-5 TIMES.          00005820
+      PCA(8)=1.0                                                        00005830
+    2 DO 10 KK=1,5                                                      00005840
+C         SAVE LATEST SUMS                                              00005850
+      CALL MOVE(Z(61),Z(64),3)                                          00005860
+C         SET UP INNER DO-LOOP TO CALC FULL T MTX FOR EACH DELTA X      00005870
+    3 DO  5 K=1,NDX                                                     00005880
+C         ASSIGN PL SEG AND OIL BATCH ID,S                              00005890
+      J= IT(1,K)                                                        00005900
+      I= IT(2,K)                                                        00005910
+C         CLEAR HT BAL SUMBOXES FOR THIS ITERATION                      00005920
+      CALL ZEROV(Z(61),3)                                               00005930
+C         EST. T(O) INTO NEXT DX, AND CALC T-AVG FOR OIL AND PIPE       00005940
+      TAB= T(1,K)+(DTB*0.5)                                             00005950
+      TAP= T(2,K)+(DTP*0.5)                                             00005960
+C         OIL DENSITY, LBS/CF AT T(AVG) FOR OIL BATCH IN THIS DELTA X   00005970
+      T(9,K)= (PCB(22,I) + (PCB(3,I)*(TAB-60.0))) * 62.30               00005980
+C         VOL CORR. FACTOR FOR TEMP  (SG-AT-60/SG AT TAB)               00005990
+      T(20,K)= PCB(22,I) / (T(9,K)/62.30)                               00006000
+C         STD BBLS OIL IN DX, =(DX CAPACITY,STD BBLS)* (SG-T/SG-60)     00006010
+      T(19,K)= PCC(42,J) / T(20,K)                                      00006020
+C         OIL VELOCITY,FT/HR =(PUMPRATE-STD B/D)/24  * (DX/BBLS IN DX)  00006030
+      IF(K.GT.1) GO TO 4                                                00006040
+      T(5,K)= Z(50)*T(20,K) / Z(51)                                     00006050
+      GO TO 40                                                          00006060
+    4 IF(IT(1,K).NE.IT(1,K-1)) GO TO 30                                 00006070
+      VMP = 1.0                                                         00006080
+      GO TO 35                                                          00006090
+   30 VMP = PCC(40,IT(1,K-1))/PCC(40,IT(1,K))                           00006100
+   35 T(5,K)=T(5,K-1)*(T(20,K)/T(20,K-1))*VMP                           00006110
+C         R NUMBER (PSEUDO REYNOLDS NO.)                                00006120
+C         FIRST GET ACTUAL BBLS/DAY                                     00006130
+   40 Z(52)=T(5,K)*PCC(40,J)*7.4805*24./42.                             00006140
+      CALL REYNO(Z(52),TAB,I,J,T(6,K))                                  00006150
+C         R(F)--OIL FILM, SCALE AND METAL RESISTANCE                    00006160
+      CALL RFILM(T(6,K),TAB,I,J,T(7,K))                                 00006170
+      CALL RFOST(TAP,J,Z(7))                                            00006180
+C         COMBINE THEM (FILM + (SCALE + STEEL))                         00006190
+      T(7,K)= T(7,K) + Z(7)                                             00006200
+C         R(T)--INSUL, SOIL RESISTANCE                                  00006210
+      TIN=(TAP+ PCC(24,J)) * 0.5                                        00006220
+      CALL RINSO(TIN,J,T(8,K))                                          00006230
+C         CP OF OIL                                                     00006240
+      T(10,K)= PCB(27,I) +(PCB(28,I)*TAB)                               00006250
+C         CP OF STEEL                                                   00006260
+      T(11,K)= PCC(34,J) +(PCC(35,J)*TAP)                               00006270
+C         DELTA P, PSI DUE TO FRICTION IN DX LENGTH                     00006280
+      CALL FDELP(Z(52),T(5,K),TAB,DX,I,J,T(12,K))                       00006290
+C         FRICTIONAL HEAT GAIN, BTU/HR-FT                               00006300
+      T(13,K)=Z(52)*42.0*2544.48*T(12,K)/(1714.0*1440.0*DX)             00006310
+C         OIL HT CONTENT, MMBTU                                         00006320
+      T(14,K)=PCC(40,J)*DX*T(9,K)*T(10,K)*TAB*1.0E-6                    00006330
+C         HT CONTENT OF STEEL, MMBTU                                    00006340
+      T(16,K)= PCC(5,J) * PCC(41,J) * DX * T(11,K) * TAP*1.0E-6         00006350
+C         HT FLOW TO SOIL, MMBTU/HR                                     00006360
+      T(18,K)=((TAP-PCC(24,J)) / T(8,K))*1.0E-6                         00006370
+C         SUM Q,S AS WE RUN THE P.L.                                    00006380
+      Z(61)=Z(61) + T(14,K)                                             00006390
+      Z(62)=Z(62) + T(16,K)                                             00006400
+      Z(63)=Z(63) + T(18,K)                                             00006410
+C         CALC ACTUAL T(OIL) OUT OF DX, I.E. INTO THE NEXT DX.          00006420
+C         THE EQUATION USED IS EQUATION NO 4 IN THE MATHEMATICAL        00006430
+C         DOCUMENTATION                                                 00006440
+      FR= T(13,K) * (T(7,K)+T(8,K))                                     00006450
+      AR=PCC(40,J)*T(10,K)*T(9,K)*T(5,K)                                00006460
+     1    * (T(7,K)+T(8,K))                                             00006470
+      T(1,K+1)=((T(1,K)-PCC(24,J)-FR)/(EXP(DX/AR))) + PCC(24,J) + FR    00006480
+C         ESTIMATE DTB ACROSS NEXT DX, BASIS DT/DX EQN                  00006490
+      DTB=((T(13,K)/(AR/(T(7,K)+T(8,K))))+(PCC(24,J)/AR)-(T(1,K+1)/AR)  00006500
+     1 )*DX                                                             00006510
+C         CALC ACTUAL T(PIPE) OUT OF THIS DX                            00006520
+      T(2,K+1)=(T(8,K)*T(1,K+1) + T(7,K)*PCC(24,J)) / (T(8,K) + T(7,K)) 00006530
+C         ESTIMATE DTP ACROSS NEXT DX, USING R,S OF THIS DX             00006540
+      DTP=T(2,K+1)-T(2,K)                                               00006550
+C         END OF INNER DO LOOP                                          00006560
+    5 CONTINUE                                                          00006570
+C         DO SOME HOUSEKEEPING REGARDING 1ST PL STEEL TEMP              00006580
+      T(2,1)=(T(8,1)*T(1,1)+T(7,1)*PCC(24,IT(1,1)))/(T(8,1)+T(7,1))     00006590
+C         TEST FOR Q CONVERGENCE TO TOLERANCE DESIRED                   00006600
+C         SET AND TEST CONVERGENCE TOLERANCE TO 0.5 PER CENT OF         00006610
+C         PREVIOUS ITERATION.                                           00006620
+      IF(ABS(Z(61)-Z(64))-(0.5    *Z(61)/100.0))6,6,9                   00006630
+    6 IF(ABS(Z(62)-Z(65))-(0.5    *Z(62)/100.0))7,7,9                   00006640
+    7 IF(ABS(Z(63)-Z(66))-(0.5    *Z(63)/100.0))11,11,9                 00006650
+C         UPDATE LOOP COUNT BOX (EQUIL ITERATIONS)                      00006660
+    9 Z(197) = Z(197) + 1.0                                             00006670
+C         OUTER DO-LOOP TERMINAL                                        00006680
+   10 CONTINUE                                                          00006690
+C         EQUILIBRIUM AT LAST (OR END OF 5 SHOTS AT IT)                 00006700
+C         TRANSFER DATA AT(THETA)TO (THETA+DELTA THETA)                 00006710
+   11 CALL MOVER(T(1,1),T(3,1),NDX+1,22)                                00006720
+      CALL MOVER(T(2,1),T(4,1),NDX+1,22)                                00006730
+      CALL MOVER(T(14,1),T(15,1),NDX+1,22)                              00006740
+      CALL MOVER(T(16,1),T(17,1),NDX+1,22)                              00006750
+      T(12,NDX+1) = 0.0                                                 00006760
+      DO 12 J= 1,NDX                                                    00006770
+   12 T(12,NDX+1)=T(12,NDX+1) + T(12,J)                                 00006780
+C         THAT,S ALL FOR EQ. FLOW CALCULATIONS                          00006790
+      RETURN                                                            00006800
+      END                                                               00006810
+      SUBROUTINE REYNO(QTY,TEMP,IBAT,JSEG,ANS)                          00006820
+      DIMENSION TITLE(22),PCA(50),PCB(50,10),PCC(50,20),D(300),Z(300)   00006830
+      DIMENSION T(22,501), IT(2,501)                                    00006840
+      COMMON TITLE,PCA,PCB,PCC,D,Z,T,IT,M1,M2,NTR,NTC,MNB,MNP,NDX       00006850
+C 014                                                                   00006860
+C         CALLED BY SR,S EQFLO, FDELP, TMATX                            00006870
+C         THIS SR CALCS A REYNOLDS NO. (R) THAT CAN BE CONVERTED TO A   00006880
+C         CONVENTIONAL REYNOLDS NO. BY MULTIPLYING R BY 7742.0.         00006890
+C         ARGUMENTS   QTY=QTY OF FLOW  IN ACTUAL BBLS/DAY               00006900
+C                    TEMP=FLOWING OIL TEMP, DEG F                       00006910
+C                    JSEG=SEGMENT NO. OF P.L. BEING USED                00006920
+C                    IBAT=BATCH NO. OF OIL FLOWING                      00006930
+C                    ANS =LOCN FOR ANSWER, R                            00006940
+    1 I=IBAT                                                            00006950
+      J=JSEG                                                            00006960
+C         CALC  VISCOSITY AT T                                          00006970
+      Z(1)= PCB(23,I) *  EXP(PCB(24,I)/(TEMP+460.0))                    00006980
+C         CALC R                                                        00006990
+      ANS= (0.0119 * QTY) / (PCC(29,J)*Z(1))                            00007000
+      RETURN                                                            00007010
+      END                                                               00007020
+      SUBROUTINE RFILM(REN,TEMP,IBAT,JSEG,ANS)                          00007030
+      DIMENSION TITLE(22),PCA(50),PCB(50,10),PCC(50,20),D(300),Z(300)   00007040
+      DIMENSION T(22,501), IT(2,501)                                    00007050
+      COMMON TITLE,PCA,PCB,PCC,D,Z,T,IT,M1,M2,NTR,NTC,MNB,MNP,NDX       00007060
+C 015                                                                   00007070
+C         CALLED BY EQFLO, TMATX                                        00007080
+C         THIS SR CALCS THE RESISTANCE OF THE FLOWING OIL FILM TO       00007090
+C         THE TRANSFER OF HEAT THRU IT. REFERENCE= MC ADAMS, P-168,P-19000007100
+C          =HEAT TRANSMISSION=                                          00007110
+C         THE EQN (VALID AT RE GT 2,000) IS AS FOLLOWS                  00007120
+C            H= (K/ID) * 0.023 * (RE**0.8) * (PR**0.4) ,BTU/(HR-SQFT-F) 00007130
+C            R= 1/(H * PI * ID)                                         00007140
+C         ARGUMENTS REN=REYNOLDS NO (R) IN SPECIAL UNITS, R=RE NO /7742 00007150
+C                  TEMP=TEMP OF FLOWING OIL, DEG F                      00007160
+C                  JSEG=SEG. NO. OF PIPELINE                            00007170
+C                  IBAT=BATCH NO. OF FLOWING OIL                        00007180
+C                   ANS=LOCN FOR ANSWER, FILM RESISTANCE, HR-FT-F/BTU   00007190
+C                                                                       00007200
+    1 I=IBAT                                                            00007210
+      J=JSEG                                                            00007220
+C         CALC RE NO IN CONVENTIONAL SIZE                               00007230
+      Z(12)= REN  * 7742.0                                              00007240
+C         CALC PRANDTL NO. (NOTE K-AT-T WILL BE LEFT IN Z(5) BY SR PRNO)00007250
+      CALL PRNO(TEMP,I,Z(13))                                           00007260
+C         CALC (K/DIAM)                                                 00007270
+      Z(14)= Z(5) / PCC(30,J)                                           00007280
+C         CHECK CALC ROUTING BASIS RE NO                                00007290
+      IF(Z(12)-2000)3,3,2                                               00007300
+C         USE TURB. H EQN (MC ADAMS, PG 168) , BTU/(HR-SQFT-DEG F)      00007310
+    2 Z(15)=(Z(14) * Z(12)**0.8 * Z(13)**0.4)*.023                      00007320
+      GO TO 4                                                           00007330
+C         USE LAMINAR H EQN (MC ADAMS, PG 190)                          00007340
+C         ASSUME THAT ((VIS AT BULK T)/(VIS AT WALL T))**0.14=1.0585    00007350
+C         HD/K * (Z/Z)**0.14 = 1.86 ( (RENO)*(PRNO)* (D/L) )**0.3333    00007360
+    3 Z(15)=((1.86/1.0585) * (Z(12)*Z(13)*(PCC(30,J)/(1.0)))**           0007370
+     1       0.3333)*Z(14)                                              00007380
+C         CALC R(FILM), HR-FT-DEG F/BTU                                 00007390
+    4 ANS= 1.0 / (Z(15) * 3.14159 * PCC(30,J))                          00007400
+      RETURN                                                            00007410
+      END                                                               00007420
+      SUBROUTINE PRNO(TEMP,IBAT,ANS)                                    00007430
+      DIMENSION TITLE(22),PCA(50),PCB(50,10),PCC(50,20),D(300),Z(300)   00007440
+      DIMENSION T(22,501), IT(2,501)                                    00007450
+      COMMON TITLE,PCA,PCB,PCC,D,Z,T,IT,M1,M2,NTR,NTC,MNB,MNP,NDX       00007460
+C 016                                                                   00007470
+C         CALLED BY SR,S RFILM                                          00007480
+C         THIS SR CALCS A PRANDTL NUMBER  (PR =(CP*Z) / K )             00007490
+C         ARGUMENTS ARE-TEMP=TEMP, DEG F, OF FLOWING OIL                00007500
+C                       IBAT=BATCH NO. OF FLOWING OIL                   00007510
+C                        ANS=LOCN FOR ANSWER, PR NO.                    00007520
+C                                                                       00007530
+    1 I=IBAT                                                            00007540
+C         GET C(P) AT T, BTU/LB-DEG F                                   00007550
+      Z(1)= PCB(27,I) +  (PCB(28,I)*TEMP)                               00007560
+C         GET Z (VIS) AT T, CENTISTOKES                                 00007570
+      Z(2)= PCB(23,I) * EXP(PCB(24,I)/(TEMP+460.0))                     00007580
+C         GET SG AT TEMP                                                00007590
+      Z(3)= PCB(22,I) +(PCB(3,I)*(TEMP-60.0))                           00007600
+C         GET Z AT T, LB/(FT-HR)                                        00007610
+      Z(4)= Z(2) * Z(3) *  2.42                                         00007620
+C         GET K AT T                                                    00007630
+      Z(5)= PCB(25,I) +(PCB(26,I)*TEMP)                                 00007640
+C         CALC PRANDTL NO                                               00007650
+      ANS=(Z(1)*Z(4)) / Z(5)                                            00007660
+      RETURN                                                            00007670
+      END                                                               00007680
+      SUBROUTINE RFOST(TEMP,JSEG,ANS)                                   00007690
+      DIMENSION TITLE(22),PCA(50),PCB(50,10),PCC(50,20),D(300),Z(300)   00007700
+      DIMENSION T(22,501), IT(2,501)                                    00007710
+      COMMON TITLE,PCA,PCB,PCC,D,Z,T,IT,M1,M2,NTR,NTC,MNB,MNP,NDX       00007720
+C 017                                                                   00007730
+C         CALLED BY EQFLO, TMATX, COOLR                                 00007740
+C         THIS SR CALCULATES THE FOULING FACTOR + PL STEEL RESISTANCE   00007750
+C         TO HEAT FLOW.  EACH PL SEGMENT HAS IT,S OWN INPUT FOUL FACTOR.00007760
+C         ARGUMENT TEMP=TEMP, DEG F, OF STEEL                           00007770
+C                  JSEG=SEG. NO. OF PIPELINE                            00007780
+C                   ANS=LOCN OF ANSWER, R(FOULING+STEEL),HR-FT-F/BTU    00007790
+      J=JSEG                                                            00007800
+C         FOULING FACTOR R                                              00007810
+      Z(21)=PCC(6,J)/(3.14159* PCC(30,J))                               00007820
+C         STEEL R               R= (1/2PI*KSTL)*LN(RI/RO) (NOTE,D/D=R/R)00007830
+      Z(22)=     (1.0/(2.0*3.14159*(PCC(32,J)+PCC(33,J)*TEMP)))*ALOG    00007840
+     1    (PCC(31,J)/PCC(30,J))                                         00007850
+C         COMBINE THEM                                                  00007860
+      ANS= Z(21) + Z(22)                                                00007870
+      RETURN                                                            00007880
+      END                                                               00007890
+      SUBROUTINE RINSO(TEMP,JSEG,ANS)                                   00007900
+      DIMENSION TITLE(22),PCA(50),PCB(50,10),PCC(50,20),D(300),Z(300)   00007910
+      DIMENSION T(22,501), IT(2,501)                                    00007920
+      COMMON TITLE,PCA,PCB,PCC,D,Z,T,IT,M1,M2,NTR,NTC,MNB,MNP,NDX       00007930
+C 018                                                                   00007940
+C         CALLED BY EQFLO, TMATX, COOLR                                 00007950
+C         THIS SR CALCS THE COMBINED RESISTANCE (TO HEAT FLOW) OF BOTH  00007960
+C         INSULATION AND SOIL, CALLED RT.                               00007970
+C         ARGUMENTS TEMP=AVG TEMP, DEG F, OF INSULATION                 00007980
+C                   JSEG=SEGMENT NO. OF PL                              00007990
+C                    ANS=LOCN OF ANSWER, R(INSUL + SOIL), HR-FT-F/BTU   00008000
+      J=JSEG                                                            00008010
+C         GET K OF INSUL                                                00008020
+      Z(23)= PCC(36,J) + (PCC(37,J)*TEMP)                               00008030
+C         GET R OF INSUL ONLY  (NOTE, D/D=R/R)  R=(1/(2PIK))*LN(RO/RI)  00008040
+      Z(24)= (1.0/(2.0*3.14159*Z(23))) * ALOG ((PCC(31,J)+(PCC(16,J)*   00008050
+     1  2.0)/12.)/PCC(31,J))                                            00008060
+C         GET R OF SOIL, REFERENCE=NATL BUR STDS REPORT 10194, PG 4.    00008070
+C             R= (1/(2PIK)) * LN((DEPTH/RI0)+SQRT((D/RI0)**2 -1))       00008080
+C         CALC(DEPTH OF COVER/RADIUS TO OUTER INSUL) (NOTE,IN/IN =FT/FT)00008090
+      Z(25)=PCC(23,J)/((PCC(3,J)/2.)+PCC(16,J))                         00008100
+C         R ITSELF (FOR SOIL)                                           00008110
+      Z(26)= (1.0/(2.0*3.14159*PCC(25,J)))* ALOG(Z(25) +((Z(25)**2)-1.0)00008120
+     1       **0.5)                                                     00008130
+C         COMBINE TO GET RT, HR-FT-DEG F/BTU                            00008140
+      ANS= Z(24) + Z(26)                                                00008150
+      RETURN                                                            00008160
+      END                                                               00008170
+      SUBROUTINE FDELP(QTY,VEL,TEMP,XLONG,IBAT,JSEG,ANS)                00008180
+      DIMENSION TITLE(22),PCA(50),PCB(50,10),PCC(50,20),D(300),Z(300)   00008190
+      DIMENSION T(22,501), IT(2,501)                                    00008200
+      COMMON TITLE,PCA,PCB,PCC,D,Z,T,IT,M1,M2,NTR,NTC,MNB,MNP,NDX       00008210
+C 019                                                                   00008220
+C         CALLED BY SR,S EQFLO, TMATX                                   00008230
+C         THIS SR CALCS DELTA P, PSI, FOR A LINE LENGTH                 00008240
+C         ARGUMENTS QTY=OIL FLOW, ACTUAL BBLS/DAY                       00008250
+C                   VEL=OIL VELOCITY, FT/HR                             00008260
+C                  TEMP=OIL TEMP, DEG F                                 00008270
+C                 XLONG=LINE LENGTH, FT                                 00008280
+C                  IBAT=OIL BATCH NO.                                   00008290
+C                  JSEG=P.L. SEGMENT NO.                                00008300
+C                   ANS=LOCN FOR ANSWER, PSI                            00008310
+C         REFERENCE=WILSON-MCADAMS =CONTRIBUTION NO 19, DEPT CHE, MIT=  00008320
+    1 I=IBAT                                                            00008330
+      J=JSEG                                                            00008340
+C         SG AT T                                                       00008350
+      Z(2)= PCB(22,I) + (PCB(3,I)*(TEMP-60.0))                          00008360
+C         R NO.                                                         00008370
+      CALL REYNO(QTY,TEMP,I,J,Z(3))                                     00008380
+C         CHECK R NO  (R OF 0.2583=RE OF 2,000, R OF 0.5167=RE OF 4,000)00008390
+      IF(Z(3)-0.2583)2,2,3                                              00008400
+C         LAMINAR FLOW FRICTION FACTOR                                  00008410
+    2 Z(5)= 0.00207 * (1.0/Z(3))                                        00008420
+      GO TO 6                                                           00008430
+C         CHECK R AGAIN                                                 00008440
+    3 IF(Z(3)-0.5167)4,5,5                                              00008450
+C         INTERMEDIATE, SO USE S-L TIE LINE IN THIS UNCERTAIN ZONE      00008460
+    4 Z(5)=0.005861 +(0.008335 * Z(3))                                  00008470
+      GO TO 6                                                           00008480
+C         TURBULENT ZONE FRICTION FACTOR                                00008490
+    5 Z(5)= 0.0018 +(.00662 * (1.0/Z(3))**0.355)                        00008500
+C         CALC DELTA P PER MILE                                         00008510
+    6 Z(6)=(0.241 * Z(5)*Z(2)* QTY**2) / (PCC(29,J)**5)                 00008520
+C         ADJUST DELTA P FOR LENGTH                                     00008530
+      ANS= Z(6) *(XLONG/5280.0)                                         00008540
+      RETURN                                                            00008550
+      END                                                               00008560
+      SUBROUTINE MOVER(REG1,REG2,NC,NR)                                 00008570
+      DIMENSION TITLE(22),PCA(50),PCB(50,10),PCC(50,20),D(300),Z(300)   00008580
+      DIMENSION T(22,501), IT(2,501)                                    00008590
+      COMMON TITLE,PCA,PCB,PCC,D,Z,T,IT,M1,M2,NTR,NTC,MNB,MNP,NDX       00008600
+C 020                                                                   00008610
+      DIMENSION REG1(2),REG2(2)                                         00008620
+C         CALLED BY EQFLO, DYFLO                                        00008630
+C         THIS SR MOVES THE DATA IN ONE ROW OF A MTX TO ANOTHER ROW     00008640
+C         IN THE SAME MATRIX, OR ONE OF IDENTICAL SIZE.                 00008650
+C         ARGUMENTS=REG1=1ST LOCN OF ROW TO BE MOVED                    00008660
+C                   REG2=1ST LOCN OF RECEIVING ROW                      00008670
+C                     NC=NO. OF COLUMNS IN THE SENDING AND RECEIVING MTX00008680
+C                     NR=NO. OF ROWS IN BOTH MATRICIES DIMEN ST.        00008690
+    1 DO 2 I=1,NC                                                       00008700
+      II=I*NR - NR + 1                                                  00008710
+    2 REG2(II)= REG1(II)                                                00008720
+      RETURN                                                            00008730
+      END                                                               00008740
+      SUBROUTINE  DYFLO(I)                                              00008750
+      DIMENSION TITLE(22),PCA(50),PCB(50,10),PCC(50,20),D(300),Z(300)   00008760
+      DIMENSION T(22,501), IT(2,501)                                    00008770
+      COMMON TITLE,PCA,PCB,PCC,D,Z,T,IT,M1,M2,NTR,NTC,MNB,MNP,NDX       00008780
+C 021                                                                   00008790
+C         CALLED BY MP4                                                 00008800
+C         THIS SUBROUTINE CALCS NON-STEADY STATE TEMPERATURE PROFILES   00008810
+C         FROM HEAT BALANCES AROUND A PIPE SEGMENT OF LENGTH DELTA X,   00008820
+C         AND A TIME INTERVAL  DELTA TIME                               00008830
+C         ARGUMENTS, I = OIL BATCH NO.CURRENTLY BEING PUMPED            00008840
+C                                                                       00008850
+C         UPDATE NO OF TIMES THIS SUBROUTINE CALLED. THIS ALSO GIVES    00008860
+C         NO OF DISTINCT BATCHES INTRODUCED INTO LINE SINCE TIME ZERO   00008870
+      Z(170) = Z(170) + 1.0                                             00008880
+C         CHECK IF PUMPING TIME FOR THIS BATCH IS ZERO AND IF THIS      00008890
+C         IS BATCH NO 2 OR HIGHER                                       00008900
+      IF(PCB(34,I) .GT. 0.) GO TO 20                                    00008910
+C         CALC T MATRIX DATA IF REQUIRED FOR NO FLOW                    00008920
+      IF(D(1) .GT. 1.0) CALL TMATX(I)                                   00008930
+C         CALC INITIAL PIPELINE FILL                                    00008940
+      Z(105)=0.0                                                        00008950
+      DO 15  J= 1,NDX                                                   00008960
+   15 Z(105)  =  Z(105) + T(19,J)                                       00008970
+      GO TO 100                                                         00008980
+C         INIT. TIME COUNT FOR PUMPING ON THIS BATCH                    00008990
+   20 Z(102) =0.0                                                       00009000
+C         INIT. PRINT CLOCK FOR TERMINUS OUTPUT                         00009010
+      PCT =0.0                                                          00009020
+C         INIT  PRINT CLOCK FOR TEMP. PROFILE OUTPUT                    00009030
+      PCP =0.0                                                          00009040
+C         CALC INITIAL T MATRIX DATA                                    00009050
+      CALL TMATX(I)                                                     00009060
+C         DELTA TIME BASED ON VELOCITY OF INCOMING BATCH                00009070
+      Z(103) = PCA(4) * D(4)*5280./ Z(160)                              00009080
+C                                                                       00009090
+   30 CONTINUE                                                          00009100
+C         STEP BATCH CLOCK                                              00009110
+      Z(102) = Z(102) +Z(103)                                           00009120
+C         STEP MASTER CLOCK                                             00009130
+      D(100) = D(100) +Z(103)                                           00009140
+C         STEP OUTPUT CLOCK FOR TEMP PROFILE                            00009150
+      PCP = PCP + Z(103)                                                00009160
+C         STEP OUTPUT CLOCK FOR TERMINUS OUTPUT                         00009170
+      PCT = PCT + Z(103)                                                00009180
+C         STEP COUNTER ON TOTAL NO OF ITERATIONS W/ TIME                00009190
+      Z(101) =Z(101) + 1.0                                              00009200
+C         CALCULATE TEMPERATURE PROFILES                                00009210
+      CALL TPROF(I)                                                     00009220
+C         LOCATE BATCH INTERFACES AND MONITOR PIPELINE OUTPUT           00009230
+      CALL INTFAC(I)                                                    00009240
+C         CALCULATE T MATRIX DATA                                       00009250
+      CALL TMATX(I)                                                     00009260
+C         DO HEAT BALANCES                                              00009270
+      CALL HTBAL(I)                                                     00009280
+C         ADJUST OIL TEMPS BEHIND INTERFACES                            00009290
+      DO 35 J=2,NDX                                                     00009300
+      IF(T(21,J).EQ.1.0) GO TO 35                                       00009310
+      IF(J.NE.2) GO TO 36                                               00009320
+      T(3,J) = T(3,1) +  (T(3,2) - T(3,1))*0.5                          00009330
+      GO TO 35                                                          00009340
+   36 T(3,J) = T(3,J-1) + T(3,J-1) - T(3,J-2)                           00009350
+   35 CONTINUE                                                          00009360
+C         CHECK FOR OUTPUT REQUEST FOR TEMP PROFILES                    00009370
+      IF(PCB(36,I).EQ.0.0) GO TO 40                                     00009380
+      IF( PCP .LT. PCB(36,I)) GO TO 40                                  00009390
+      CALL OUTTP(2)                                                     00009400
+      Z(251)=0.0                                                        00009410
+      PCP =0.0                                                          00009420
+C         CHECK FOR OUTPUT REQUEST FOR TERMINUS CONDITIONS              00009430
+   40 IF( PCT .LT. D(5) )  GO TO 50                                     00009440
+      CALL OUTTM(D(100),0)                                              00009450
+      PCT =0.0                                                          00009460
+C         ZERO  T(19,NDX+1),T(20,NDX+1), AND Z(225) AT END OF OUTPUT    00009470
+C                                                                       00009480
+          T(19,NDX+1) =0.0                                              00009490
+          T(20,NDX+1) =0.0                                              00009500
+          Z(225) = 0.0                                                  00009510
+C         CHECK IF PUMPING TIME FOR THIS BATCH HAS BEEN REACHED         00009520
+   50 IF( Z(102) .GE. PCB(34,I))  GO TO  60                             00009530
+C         MOVE  T(3,J) ROW TO  T(1,J) ROW                               00009540
+      CALL MOVER (T(3,1),T(1,1),NDX+1,22)                               00009550
+C         MOVE  T(4,J) ROW TO  T(2,J) ROW                               00009560
+      CALL MOVER (T(4,1),T(2,1),NDX+1,22)                               00009570
+C         LOOP AGAIN                                                    00009580
+      GO  TO  30                                                        00009590
+   60 CALL WTITL                                                        00009600
+C         CALC CUM. Q IN LESS Q GAIN IN OIL AND STEEL SINCE PUMPING     00009610
+C         BEGAN ON THIS BATCH                                           00009620
+      Z(159)=Z(152)+Z(155)+(Z(153)-T(14,NDX+1))+(Z(154)-T(16,NDX+1))    00009630
+      PE= (Z(158)/Z(159))*100.                                          00009640
+      WRITE(M2,900) PE,I                                                00009650
+  900 FORMAT(1H 8X,31HHEAT OUT, ADJUSTED FOR GAIN, IS,F6.1,8H PERCENT,  00009660
+     1 /,9X,37HOF HEAT IN AT END OF PUMPING ON BATCH,I3)                00009670
+      DO 70 J=1,8                                                       00009680
+   70 Z(151+J)=0.0                                                      00009690
+      Z(251)=0.0                                                        00009700
+  100 RETURN                                                            00009710
+      END                                                               00009720
+      SUBROUTINE TMATX(I)                                               00009730
+      DIMENSION TITLE(22),PCA(50),PCB(50,10),PCC(50,20),D(300),Z(300)   00009740
+      DIMENSION T(22,501), IT(2,501)                                    00009750
+      COMMON TITLE,PCA,PCB,PCC,D,Z,T,IT,M1,M2,NTR,NTC,MNB,MNP,NDX       00009760
+C 022                                                                   00009770
+C         CALLED BY DYFLO                                               00009780
+C         THIS SUBROUTINE CALCULATES VALUES FOR PROPERTIES              00009790
+C         IN T MATRIX                                                   00009800
+C         ARGUMENTS,I = OIL BATCH NO.                                   00009810
+C                                                                       00009820
+C                                                                       00009830
+C         CALCULATE PROPERTIES OF FLUID CURRENTLY BEING PUMPED          00009840
+C                                                                       00009850
+C         DENSITY, LB/FT3 AT INLET                                      00009860
+      Z(164)=62.3 *(PCB(22,I) + PCB(3,I)*(PCB(33,I)-60.0))              00009870
+C         VELOCITY, FT/HR AT ZERO MILES                                 00009880
+      Z(160)= PCB(32,I)* 349.79 * PCB(22,I)/(24.0 * Z(164)* PCC(40,     00009890
+     1IT(1,1)))                                                         00009900
+C         RATIO OF SG AT 60F TO  SG AT TEMP                             00009910
+      Z(169)= 62.3*(PCB(22,I)) /Z(164)                                  00009920
+C         REYNOLDS NO.                                                  00009930
+      Z(200)= PCB(32,I)* Z(169)                                         00009940
+      CALL REYNO(Z(200),PCB(33,I),I,IT(1,1),Z(161))                     00009950
+C         COMBINED RESISTANCE OF FLUID FILM AND SCALE,HR-FT-DEG F/BTU   00009960
+C                                                                       00009970
+      CALL RFILM(Z(161),PCB(33,I),I,IT(1,1),Z(201))                     00009980
+      CALL RFOST(PCB(33,I),IT(1,1), Z(202))                             00009990
+      Z(162) = Z(201) +Z(202)                                           00000000
+C         COMBINED RESISTANCE OF INSULATION AND SOIL,HR-FT-DEG F/BTU    00000010
+C         FIRST GET AVG INSULATION TEMP                                 00000020
+      Z(50)=(T(2,1)+PCC(24,IT(1,1)))/2.0                                00000030
+      CALL RINSO( Z(50)   ,IT(1,1),Z(163))                              00000040
+C         HEAT CAPACITY OF OIL, BTU/LB- DEG F                           00000050
+      Z(165)= PCB(27,I) +PCB(28,I)* PCB(33,I)                           00000060
+C         HEAT CAPACITY OF STEEL,BTU/LB-DEG F                           00000070
+      Z(166)=PCC(34,IT(1,1))+ PCC(35,IT(1,1))* T(2,1)                   00000080
+C         DELTA P ,PSI/DELTAX LENGTH                                    00000090
+      Z(200)= PCB(32,I)* Z(169)                                         00000100
+      Z(201)= D(4)* 5280.                                               00000110
+      CALL FDELP(Z(200),Z(160),PCB(33,I),Z(201),I,IT(1,1),Z(167))       00000120
+C         CALC FRICTIONAL HEAT GAIN F, BTU/HR-FT                        00000130
+      Z(168)=Z(200)*42.0*2544.48*Z(167)/(1714.*1440.* Z(201))           00000140
+C         CALC  T MATRIX PROPERTIES , T(5,J) THRU  T(20,J)              00000150
+C         VALUES ARE AVERAGES OVER THE SEGMENT ,X(J) TO X(J+1)          00000160
+      DO 5  J = 1,NDX                                                   00000170
+C                  T(P)= TEMP OF PIPE OUTSIDE T(0)                      00000180
+      IF(T(21,J).NE. 1.0.AND.J.GT.1) GO TO 3                            00000190
+      K= IT(2,J)                                                        00000200
+      L= IT(1,J)                                                        00000210
+C         AVG OIL TEMP                                                  00000220
+      TOA = (T(1,J) + T(1,J+1))/2.0                                     00000230
+C         AVG STEEL TEMP                                                00000240
+      TSA = (T(2,J) + T(2,J+1))/2.0                                     00000250
+C         DELTAX  LENGTH                                                00000260
+      DELX = D(4)* 5280.                                                00000270
+C                                                                       00000280
+C               DENSITY , LB/CU FT                                      00000290
+C                                                                       00000300
+      T(9,J) =  62.3 *(PCB(22,K) + PCB(3,K) *(TOA -60.0))               00000310
+C                                                                       00000320
+C               RATIO OF SP GR AT 60F TO SP GR AT TEMP                  00000330
+C                                                                       00000340
+      T(20,J)=  PCB(22,K)/ (PCB(22,K) +PCB(3,K)*(TOA-60.))              00000350
+C                                                                       00000360
+C               VELOCITY ,FT/HR                                         00000370
+C                                                                       00000380
+      IF(J.GT.1) GO TO 4                                                00000390
+      T(5,J) = Z(160) * T(20,J) / Z(169)                                00000400
+      GO TO 6                                                           00000410
+    4 IF(IT(1,J).NE.IT(1,J-1)) GO TO 30                                 00000420
+      VMP = 1.0                                                         00000430
+      GO TO 35                                                          00000440
+   30 VMP = PCC(40,IT(1,J-1))/PCC(40,IT(1,J))                           00000450
+   35 T(5,J)=T(5,J-1)*(T(20,J)/T(20,J-1))*VMP                           00000460
+C                                                                       00000470
+C              REYNOLDS NO -(NON STANDARD UNITS)                        00000480
+C                                                                       00000490
+C         FIRST GET ACTUAL BBLS/DAY                                     00000500
+    6 Z(200)= T(5,J)*PCC(40,L)*7.4805*24.0/42.0                         00000510
+      CALL REYNO( Z(200),TOA,K,L,T(6,J))                                00000520
+C                                                                       00000530
+C              COMBINED RESISTANCE OF FLUID FILM-SCALE,HR-FT-DEGF/BTU   00000540
+C                                                                       00000550
+      CALL RFILM(T(6,J),TOA,K,L,Z(203))                                 00000560
+      CALL RFOST(TSA,L, Z(204))                                         00000570
+      T(7,J) = Z(203) + Z(204)                                          00000580
+C                                                                       00000590
+C              COMBINED RESISTANCE OF INSULATION AND SOIL,HR-FT-DEGF/BTU00000600
+C                                                                       00000610
+C         FIRST GET AVG INSULATION TEMPERATURE                          00000620
+      Z(205) =(TSA + PCC(24,L) )/2.0                                    00000630
+      CALL RINSO(Z(205),L, T(8,J))                                      00000640
+C                                                                       00000650
+C              HEAT CAPACITY OF OIL, BTU/LB-DEGF                        00000660
+C                                                                       00000670
+      T(10,J) = PCB(27,K) +(PCB(28,K) * TOA)                            00000680
+C                                                                       00000690
+C              HEAT CAPACITY OF STEEL, BTU/LB-DEGF                      00000700
+C                                                                       00000710
+      T(11,J) = PCC(34,L) +(PCC(35,L)*TSA)                              00000720
+C                                                                       00000730
+C              FLUID FLOW PRESSURE DROP PER DELTAX LENGTH , PSI         00000740
+C                                                                       00000750
+      CALL FDELP(Z(200),T(5,J),TOA,DELX,K,L,T(12,J))                    00000760
+C                                                                       00000770
+C              FRICTIONAL HEAT GAIN, F,  BTU/FT-HR                      00000780
+C                                                                       00000790
+      T(13,J) =   Z(200)*42.0*2544.48 *T(12,J)/(1714. *1440.*DELX)      00000800
+C                                                                       00000810
+C              Q CONTAINED IN OIL, MM BTU                               00000820
+C                                                                       00000830
+      T(14,J) = PCC(40,L)* DELX * T(9,J) * T(10,J)*TOA * 1.0E-6         00000840
+C                                                                       00000850
+C              Q CONTAINED IN STEEL, MMBTU                              00000860
+C                                                                       00000870
+      T(16,J) = PCC(41,L)* DELX *PCC(5,L)* T(11,J)*TSA * 1.0E-6         00000880
+C                                                                       00000890
+C         Q PER HR TO SOIL, MMBTU/HR                                    00000900
+C                                                                       00000910
+      T(18,J)  =((TSA - PCC(24,L))/T(8,J))*DELX*1.0E-6                  00000920
+C                                                                       00000930
+C         STANDARD BBL OF OIL PER SEGMENT                               00000940
+C                                                                       00000950
+      T(19,J) = PCC(40,L) * DELX * 7.4805 /(T(20,J) *42.0)              00000960
+      GO TO 5                                                           00000970
+C         THIS SEGMENT CONTAINS AN INTERFACE SO IT PROPERTIES ARE       00000980
+C         AVERAGED ACROSS SEGMENT.                                      00000990
+    3 KR=IT(2,J)                                                        00001000
+      KL=IT(2,J-1)                                                      00001010
+      L =IT(1,J)                                                        00001020
+      FR=T(21,J)                                                        00001030
+      FL= 1.0-T(21,J)                                                   00001040
+      DELXR = D(4)*5280.*FR                                             00001050
+      DELXL = D(4)*5280.*FL                                             00001060
+C         TEMP OF OIL TO RIGHT OF INTERFACE ,TORI                       00001070
+      IF( J .NE. NDX)    GO TO 40                                       00001080
+      TORI= T(1,J+1)                                                    00001090
+C         TEMP OF STEEL TO RIGHT OF INTERFACE                           00001100
+      TSRI= T(2,J+1)                                                    00001110
+      GO TO 50                                                          00001120
+   40 TORI = T(1,J+1) +FR *(T(1,J+1) - T(1,J+2))                        00001130
+      TSRI = T(2,J+1) +FR *(T(2,J+1) - T(2,J+2))                        00001140
+C         TEMP OF OIL TO LEFT OF INTERFACE, TOLI                        00001150
+   50 TOLI = T(3,J-1)                                                   00001160
+C         TEMP OF STEEL TO LEFT OF INTERFACE, TSLI                      00001170
+      TSLI = T(4,J-1)                                                   00001180
+C                                                                       00001190
+C         AVG OIL-STL TEMP TO RIGHT AND LEFT OF INTERFACE               00001200
+      TOARI =(TORI + T(1,J+1))/2.0                                      00001210
+      TOALI =(TOLI + T(1,J))/2.0                                        00001220
+      TSARI =(TSRI + T(2,J+1))/2.0                                      00001230
+      TSALI =(TSLI + T(2,J))/2.0                                        00001240
+C              DENSITY                                                  00001250
+      T(9,J)=(62.3 *(PCB(22,KR) + PCB(3,KR) *(TOARI -60.)))* FR  +      00001260
+     1       (62.3 *(PCB(22,KL) + PCB(3,KL) *(TOALI -60.)))* FL         00001270
+C                                                                       00001280
+C              RATIO OF SP GR AT 60F TO SP GR AT TEMP                   00001290
+C                                                                       00001300
+      T(20,J)=(PCB(22,KR) / (PCB(22,KR) + PCB(3,KR) *(TOARI -60.)))*FR +00001310
+     1        (PCB(22,KL) / (PCB(22,KL) + PCB(3,KL) *(TOALI -60.)))*FL  00001320
+C                                                                       00001330
+C              VELOCITY                                                 00001340
+C                                                                       00001350
+      IF(IT(1,J).NE.IT(1,J-1)) GO TO 55                                 00001360
+      VMP = 1.0                                                         00001370
+      GO TO 56                                                          00001380
+   55 VMP = PCC(40,IT(1,J-1))/PCC(40,IT(1,J))                           00001390
+   56 T(5,J)=T(5,J-1)*(T(20,J)/T(20,J-1))*VMP                           00001400
+C                                                                       00001410
+C              REYNOLDS NO                                              00001420
+C                                                                       00001430
+C         FIRST GET ACTUAL BBLS/DAY                                     00001440
+      Z(200)= T(5,J) *PCC(40,L)*7.4805 *24.0/42.0                       00001450
+      CALL REYNO(Z(200),TOARI,KR,L,Z(205))                              00001460
+      CALL REYNO(Z(200),TOALI,KL,L,Z(206))                              00001470
+      T(6,J) = Z(205)*FR  + Z(206)* FL                                  00001480
+C                                                                       00001490
+C              COMBINED RESISTANCE OF FLUID FILM AND SCALE              00001500
+C                                                                       00001510
+      CALL RFILM(Z(205),TOARI,KR,L,Z(207))                              00001520
+      CALL RFILM(Z(206),TOALI,KL,L,Z(208))                              00001530
+      Z(209) = Z(207)*FR + Z(208)*FL                                    00001540
+      CALL RFOST(TSARI,L,Z(210))                                        00001550
+      CALL RFOST(TSALI,L,Z(211))                                        00001560
+      Z(212) = Z(210)*FR + Z(211)*FL                                    00001570
+      T(7,J) = Z(209) + Z(212)                                          00001580
+C              COMBINED RESISTANCE OF INSULATION AND SOIL               00001590
+C         FIRST GET AVG INSULATION TEMPERATURE                          00001600
+      Z(205)=((TSARI + PCC(24,L))/2.0  +(TSALI +PCC(24,L))/2.0)*0.5     00001610
+      CALL RINSO(Z(205),L,T(8,J))                                       00001620
+C                                                                       00001630
+C              HEAT CAPACITY OF OIL                                     00001640
+C                                                                       00001650
+      T(10,J) =(PCB(27,KR) +(PCB(28,KR)*TOARI))*FR +                    00001660
+     1         (PCB(27,KL) +(PCB(28,KL)*TOALI))*FL                      00001670
+C                                                                       00001680
+C              HEAT CAPACITY OF STEEL                                   00001690
+C                                                                       00001700
+      T(11,J) =(PCC(34,L) +(PCC(35,L)*TSARI))*FR +                      00001710
+     1         (PCC(34,L) +(PCC(35,L)*TSALI))*FL                        00001720
+C                                                                       00001730
+C              FLUID FLOW PRESSURE DROP PER DELTAX LENGTH               00001740
+C                                                                       00001750
+      CALL FDELP(Z(200),T(5,J),TOARI,DELXR,KR,L,Z(205))                 00001760
+      CALL FDELP(Z(200),T(5,J),TOALI,DELXL,KL,L,Z(206))                 00001770
+      T(12,J) = Z(205)*FR + Z(206)*FL                                   00001780
+C                                                                       00001790
+C              FRICTIONAL HEAT GAIN                                     00001800
+C                                                                       00001810
+      T(13,J) = Z(200)* 42.0* 2544.48 *T(12,J)/(1714.* 1440.*(DELXR + DE00001820
+     1LXL))                                                             00001830
+C                                                                       00001840
+C              Q CONTAINED IN OIL                                       00001850
+C                                                                       00001860
+      T(14,J)= PCC(40,L)*(DELXR +DELXL)* T(9,J)* T(10,J)*(TOARI +TOALI)*00001870
+     1 0.5 *1.0E-6                                                      00001880
+C                                                                       00001890
+C              Q CONTAINED IN STEEL                                     00001900
+C                                                                       00001910
+      T(16,J)= PCC(41,L)* (DELXR +DELXL)*PCC(5,L)*T(11,J)*(TSARI +TSALI)00001920
+     1 *0.5 * 1.0E-6                                                    00001930
+C                                                                       00001940
+C              Q PER HR TO SOIL                                         00001950
+C                                                                       00001960
+      T(18,J) = (((TSARI +TSALI)*.5 - PCC(24,L))/ T(8,J))*DELX*1.0E-6   00001970
+C                                                                       00001980
+C               STANDARD BBL OF OIL PER SEGMENT                         00001990
+C                                                                       00002000
+      T(19,J) = PCC(40,L) *(DELXR +DELXL) *7.4805/(T(20,J)* 42.0)       00002010
+    5 CONTINUE                                                          00002020
+C         SUM VALUES IN T MATRIX                                        00002030
+      T(12,NDX+1) =0.0                                                  00002040
+      T(13,NDX+1) = 0.0                                                 00002050
+      T(14,NDX+1) = 0.0                                                 00002060
+      T(16,NDX+1) = 0.0                                                 00002070
+      T(18,NDX+1) =0.0                                                  00002080
+      DO 60  J=1,NDX                                                    00002090
+      T(12,NDX+1)= T(12,NDX +1) + T(12,J)                               00002100
+      T(13,NDX+1) = T(13,NDX+1) + T(13,J)                               00002110
+      T(14,NDX+1) = T(14,NDX+1) + T(14,J)                               00002120
+      T(16,NDX+1) = T(16,NDX+1) + T(16,J)                               00002130
+   60 T(18,NDX+1)= T(18,NDX +1) + T(18,J)                               00002140
+C         RETURN CONTROL TO DYFLO                                       00002150
+      RETURN                                                            00002160
+      END                                                               00002170
+      SUBROUTINE TPROF(I)                                               00002180
+      DIMENSION TITLE(22),PCA(50),PCB(50,10),PCC(50,20),D(300),Z(300)   00002190
+      DIMENSION T(22,501), IT(2,501)                                    00002200
+      COMMON TITLE,PCA,PCB,PCC,D,Z,T,IT,M1,M2,NTR,NTC,MNB,MNP,NDX       00002210
+C 023                                                                   00002220
+C         CALLED BY DYFLO                                               00002230
+C         THIS SUBROUTINE CALCS UNKNOWN TEMPS IN PIPE MATERIAL AND OIL  00002240
+C         THE TEMPERATURES ARE FOUND BY AN ITERATIVE SOLUTION TO        00002250
+C         EQUATIONS NO 1 AND NO 2 IN THE MATHEMATICAL DOCUMENTATION     00002260
+C         ARGUMENTS, I= OIL BATCH NO                                    00002270
+C                                                                       00002280
+C                                                                       00002290
+C                                                                       00002300
+C         LENGTH OF DELTA X SEGMENT                                     00002310
+      DELX    = D(4)*5280.0                                             00002320
+      NT=NDX+1                                                          00002330
+      DO 100 J=1,NT                                                     00002340
+C         IF THIS IS THE FIRST  DELX   T(3,1), = INCOMING OIL TEMP      00002350
+      IF(J.GT.1 ) GO TO 2                                               00002360
+      T(3,J) =PCB(33,I)                                                 00002370
+C         AVG OIL TEMP OVER INTERVAL                                    00002380
+      TOA = T(3,J)                                                      00002390
+C     PIPE TEMP                                                         00002400
+      CALL TPIPE(TOA,J,T(4,J))                                          00002410
+      GO TO 100                                                         00002420
+    2 CONTINUE                                                          00002430
+C         AVERAGE RATE OF CHANGE OF OIL TEMP WITH  RESPECT TO X         00002440
+      S=(T(1,J)-T(1,J-1))/DELX                                          00002450
+C         IF THE PRECEEDING DELX CONTAINS AN INTERFACE, SKIP            00002460
+C         ITERATION AND USE AVG VALUES                                  00002470
+      IF( T(21,J-1).EQ. 1.0) GO TO 5                                    00002480
+      FL=1.0-T(21,J-1)                                                  00002490
+      FR=T(21,J-1)                                                      00002500
+      IF(J.NE.2) GO TO 20                                               00002510
+      TOLI=T(1,J-1)                                                     00002520
+      GO TO 25                                                          00002530
+   20 TOLI=T(1,J-1) + FL*( T(1,J-1) - T(1,J-2))                         00002540
+   25 IF(J.NE.NT ) GO TO 30                                             00002550
+      TORI= T(1,J)                                                      00002560
+      GO TO 35                                                          00002570
+   30 TORI=T(1,J) + FR*(T(1,J)-T(1,J+1))                                00002580
+   35 TOA = ((T(1,J-1)+TOLI)/2.0 + (T(1,J) + TORI)/2.0)/2.0             00002590
+      CALL TPIPE(TOA,J,TPC)                                             00002600
+      TPA=(T(2,J) + TPC)/2.0                                            00002610
+C         AVG SLOPE                                                     00002620
+      S=((TOLI - T(1,J-1))+ (T(1,J) -TORI))/DELX                        00002630
+      CALL TOIL(TPA,S,J,TOC)                                            00002640
+      T(4,J) = TPC                                                      00002650
+      T(3,J) = TOC                                                      00002660
+      GO TO 100                                                         00002670
+C     ASSUME TOE1   = T(1,J) AS FIRST GUESS FOR OIL TEMP AT END OF      00002680
+C     TIME INTERVAL.                                                    00002690
+    5  TOE1   = T(1,J)                                                  00002700
+C         CALC  PIPE TEMP AT END OF INTERVAL                            00002710
+      CALL  TPIPE(TOE1,J,TPC)                                           00002720
+C         CALC AVG  PIPE TEMP OVER INTERVAL                             00002730
+      TPA =(T(2,J) + TPC) /2.0                                          00002740
+C         CALC OIL TEMP AT END OF INTERVAL                              00002750
+      CALL TOIL(TPA,S,J,TOC)                                            00002760
+      E1 = TOE1 -TOC                                                    00002770
+C         GET A SECOND ESTIMATE                                         00002780
+      TOE2 = TOC                                                        00002790
+      TOA =( TOE2  + T(1,J))/2.0                                        00002800
+      CALL  TPIPE(TOA,J,TPC)                                            00002810
+      TPA =(T(2,J) + TPC) /2.0                                          00002820
+      CALL TOIL(TPA,S,J,TOC)                                            00002830
+C         ITERATE TO CONVERGENCE                                        00002840
+      IL = PCA(9) + .001                                                00002850
+      DO 50  K= 1,IL                                                    00002860
+C         COUNT NO. OF ITERATIONS SINCE TIME ZERO                       00002870
+      Z(199) = Z(199) + 1.0                                             00002880
+      E2 =  TOE2 -TOC                                                   00002890
+      IF( ABS (E2) .LE. PCA(10)) GO TO 60                               00002900
+      DELTA=(-E2)*(TOE1-TOE2)/(E1-E2)                                   00002910
+      TOE1 = TOE2                                                       00002920
+      E1=E2                                                             00002930
+      TOE2 = TOE1 +DELTA                                                00002940
+      TOA =( TOE2  + T(1,J))/2.0                                        00002950
+      CALL  TPIPE(TOA,J,TPC)                                            00002960
+      TPA=(T(2,J) + TPC)/2.0                                            00002970
+      CALL TOIL(TPA,S,J,TOC)                                            00002980
+   50 CONTINUE                                                          00002990
+C         COUNT NO OF TIME LOOP DIMENSIONS EXCEEDED                     00003000
+      Z(198) = Z(198) + 1.0                                             00003010
+      IF(Z(198) .GT. 10.0) GO TO 60                                     00003020
+      X= FLOAT(J-1)                                                     00003030
+      FMIL = X* D(4)                                                    00003040
+      CALL WTITL                                                        00003050
+      WRITE(M2,900)FMIL,TOE2,TOE1,TOE1                                  00003060
+  900 FORMAT(1H 60HTEMPROF SUBROUTINE UNABLE TO CONVERGE TEMPERATURE AT 00003070
+     1A POINT/,F6.1,51H MILES ALONG THE PIPELINE. LAST OIL TEMPERATURE W00003080
+     2AS,F6.1,/,29H NEW ESTIMATE WOULD HAVE BEEN,F6.1,16H OIL TEMP SET T00003090
+     3O,F6.1)                                                           00003100
+   60 T(3,J)=TOE2                                                       00003110
+      T(4,J)=TPC                                                        00003120
+C         INCREMENT TOTAL ITERATIONS                                    00003130
+  100 CONTINUE                                                          00003140
+      RETURN                                                            00003150
+      END                                                               00003160
+      SUBROUTINE TPIPE(TA,J,ANS)                                        00003170
+      DIMENSION TITLE(22),PCA(50),PCB(50,10),PCC(50,20),D(300),Z(300)   00003180
+      DIMENSION T(22,501), IT(2,501)                                    00003190
+      COMMON TITLE,PCA,PCB,PCC,D,Z,T,IT,M1,M2,NTR,NTC,MNB,MNP,NDX       00003200
+C 024                                                                   00003210
+C         CALLED BY TPROF                                               00003220
+C         THIS SUBROUTINE CALCULATES THE PIPE TEMPERATURE AT THE        00003230
+C         END OF A TIME INTERVAL WHEN THE AVERAGE OIL TEMPERATURE       00003240
+C         OVER THE TIME INTERVAL IS GIVEN                               00003250
+C         THE EQUATION USED IS EQUATION NO 6 IN THE                     00003260
+C         MATHEMATICAL DOCUMENTATION                                    00003270
+C                                                                       00003280
+C         ARGUMENTS, TA= AVERAGE OIL TEMPERATURE OVER TIME INTERVAL     00003290
+C                     J= POSITION ALONG PIPELINE                        00003300
+C                    ANS=LOCATION OF PIPE TEMPERATURE                   00003310
+      IF(J.GT. 1) GO  TO  10                                            00003320
+      Z(201) = (1.0/Z(163)) + (1.0/Z(162))                              00003330
+      Z(202) = PCC(41,IT(1,J))*Z(166)*PCC(5,IT(1,J))                    00003340
+      Z(203) = TA/Z(162)  +PCC(24,IT(1,J))/Z(163)                       00003350
+      GO TO 20                                                          00003360
+   10 Z(201) = (1.0/ T(7,J-1)) +(1.0 / T(8,J-1))                        00003370
+      Z(202) = PCC(41,IT(1,J-1))* T(11,J-1) *PCC(5,IT(1,J-1))           00003380
+      Z(203) = TA/T(7,J-1)  + PCC(24,IT(1,J-1)) /T(8,J-1)               00003390
+   20 Z(204) =  EXP(-Z(201)*Z(103)/Z(202))                              00003400
+      ANS =((Z(201)* T(2,J)- Z(203))*Z(204) + Z(203))/Z(201)            00003410
+      RETURN                                                            00003420
+      END                                                               00003430
+      SUBROUTINE  TOIL(TA ,S,J,ANS)                                     00003440
+      DIMENSION TITLE(22),PCA(50),PCB(50,10),PCC(50,20),D(300),Z(300)   00003450
+      DIMENSION T(22,501), IT(2,501)                                    00003460
+      COMMON TITLE,PCA,PCB,PCC,D,Z,T,IT,M1,M2,NTR,NTC,MNB,MNP,NDX       00003470
+C 025                                                                   00003480
+C         CALLED BY TPROF                                               00003490
+C         THIS SUBROUTINE CALCULATES THE OIL TEMPERATURE AT THE         00003500
+C         END OF A TIME INTERVAL WHEN THE AVERAGE PIPE TEMPERATURE      00003510
+C         AND THE AVERAGE RATE OF CHANGE IN OIL TEMPERATURE WITH X      00003520
+C         IS GIVEN.                                                     00003530
+C         THE EQUATION USED IS EQUATION NO 7 IN THE MATHEMATICAL        00003540
+C         DOCUMENTATION                                                 00003550
+C                                                                       00003560
+C         ARGUMENTS TA= AVERAGE PIPE TEMPERATURE OVER TIME INTERVAL     00003570
+C                    S= AVG RATE OF CHANGE IN OIL TEMP WITH X           00003580
+C                    J= POSITION ALONG PIPELINE                         00003590
+C                  ANS= LOCATION OF OIL TEMP.                           00003600
+C                                                                       00003610
+      Z(201)= PCC(40,IT(1,J-1)) *(T(10,J-1))* (T(9,J-1))                00003620
+      Z(202)= EXP(-Z(103)/(Z(201)* T(7,J-1)))                           00003630
+      Z(203)= TA/T(7,J-1) - Z(201)* T(5,J-1)*S  + T(13,J-1)             00003640
+      Z(204)= T(1,J)/T(7,J-1) - Z(203)                                  00003650
+      ANS =(Z(202)* Z(204) + Z(203)) * T(7,J-1)                         00003660
+      RETURN                                                            00003670
+      END                                                               00003680
+      SUBROUTINE  INTFAC(I)                                             00003690
+      DIMENSION TITLE(22),PCA(50),PCB(50,10),PCC(50,20),D(300),Z(300)   00003700
+      DIMENSION T(22,501), IT(2,501)                                    00003710
+      COMMON TITLE,PCA,PCB,PCC,D,Z,T,IT,M1,M2,NTR,NTC,MNB,MNP,NDX       00003720
+C 026                                                                   00003730
+C         CALLED BY DYFLO                                               00003740
+C         THIS SUBROUTINE LOCATES INTERFACES AND MONITORS OUTPUT        00003750
+C         AT END OF PIPELINE                                            00003760
+C         ARGUMENTS, I = BATCH NO CURRENTLY BEING PUMPED                00003770
+C                                                                       00003780
+C                                                                       00003790
+C         SUM STANDARD BBLS OF INPUT DURING TIME INTERVAL               00003800
+      Z(200) = PCB(32,I)/24.0 * Z(103)                                  00003810
+      K= 104 + I                                                        00003820
+      Z(K) = Z(K) + Z(200)                                              00003830
+C         SET L = CUM NO OF INTERFACES EXITED FROM PIPELINE             00003840
+      L = Z(104) + .001                                                 00003850
+C         DEFINE BATCH NO CURRENTLY EXITING ;  LL                       00003860
+      LL = D(61+L) +.001                                                00003870
+C         SET IT(2,NDX+1) = TO EXITING BATCH NO FOR USE BY OUTTM        00003880
+      IT(2,NDX+1) =LL                                                   00003890
+C         CALC STD BBLS OUT DURING THIS TIME INTERVAL                   00003900
+      N= 124 +LL                                                        00003910
+      K= 114 +LL                                                        00003920
+      Z(200)=(T(5,NDX) *Z(103)* PCC(40,IT(1,NDX))*7.4805 )              00003930
+     1 /( T(20,NDX) * 42.0)                                             00003940
+C         ACCUMULATE TOTAL STD BBLS OUT SINCE LAST OUTPUT CALL IN       00003950
+C         T(19,NDX+1) FOR USE BY OUTTM                                  00003960
+      T(19,NDX+1) = T(19,NDX+1) + Z(200)                                00003970
+C         ACCUMULATE TOTAL STD BBLS OUT FOR THIS BATCH SINCE            00003980
+C         TIME ZERO                                                     00003990
+      Z(K) = Z(K)+Z(200)                                                00004000
+C         AVERAGE TEMP OF MATERIAL OUT DURING THIS INTERVAL             00004010
+      TAG = (T(1,NDX+1) + T( 3, NDX +1)) /2.0                           00004020
+C         BULK TEMPERATURE OF BATCH OUT UP TO THIS TIME                 00004030
+      Z(N)=((Z(K)- Z(200))*Z(N) + Z(200)* TAG)/Z(K)                     00004040
+C         BULK TEMPERATURE OF EXITING BATCH SINCE LAST OUTPUT CALL      00004050
+      Z(225) =((T(19,NDX+1)- Z(200))* Z(225) + Z(200)*TAG)/T(19,NDX+1)  00004060
+C         CALC  SG AT 60 / SG AT T  FOR  Z(225). THIS VALUE IS USED     00004070
+C         BY OUTTM                                                      00004080
+      T(20,NDX+1) = PCB(22,LL)  /(PCB(22,LL)+ PCB(3,LL)*(Z(225)-60.))   00004090
+C         CHECK IF CUMULATIVE TOTAL OF BATCH NOW EXITING EXCEEDS        00004100
+C         INPUT. IF SO, INTERFACE HAS JUST CLEARED END OF PIPELINE      00004110
+      IF(Z(K) .LE. Z(K-10)) GO TO 2                                     00004120
+C         INCREMENT INTERFACE COUNT AT PIPELINE EXIT                    00004130
+      Z(104)=  Z(104) + 1.0                                             00004140
+C         DETERMINE AMOUNT OF BATCH OVERLAP AT EXIT AT END OF TIME      00004150
+      Z(201)= Z(K)- Z(K-10)                                             00004160
+C         CORRECT CUMULATIVE AMOUNTS OUT PER BATCH                      00004170
+      T(19,NDX+1) = T(19,NDX+1) - Z(201)                                00004180
+      Z(K) = Z(K)- Z(201)                                               00004190
+C         ACTUAL ARRIVAL TIME NOW IS TO BE CORRECTED BY AMOUNT OF       00004200
+C         TIME CORRESPONDING TO ABOVE BATCH OVERLAP                     00004210
+      M= 134 + LL                                                       00004220
+C         DELTA TIME , Z(202)                                           00004230
+      Z(202) =(Z(201) * T(20,NDX)*42.0)/(T(5,NDX)*PCC(40,IT(1,NDX))     00004240
+     1 *7.4805)                                                         00004250
+C         INTERFACE ARRIVAL TIME                                        00004260
+      Z(M)= D(100)- Z(202)                                              00004270
+C         CALL OUTPUT FOR INTERFACE ENCOUNTER                           00004280
+      CALL OUTTM(Z(M),1)                                                00004290
+C         ZERO  T(19,NDX+1) AND T(20,NDX+1) AND Z(225) AT END OF OUTPUT 00004300
+      T(19,NDX+1) =0.0                                                  00004310
+      T(20,NDX+1) =0.0                                                  00004320
+      Z(225) = 0.0                                                      00004330
+C         BATCH OVERLAP BELONGS IN NEXT ACCUMULATION                    00004340
+      LL = D(61+(L+1)) +.001                                            00004350
+      Z(114+LL) = Z(114+LL) + Z(201)                                    00004360
+      T(19,NDX+1) = T(19,NDX+1) + Z(201)                                00004370
+      T(20,NDX+1) = T(20,NDX-1)                                         00004380
+      IT(2,NDX+1) = LL                                                  00004390
+C         CALL PROFILE OUTPUT AFTER INTERFACE CLEARS                    00004400
+      CALL OUTTP(2)                                                     00004410
+      Z(151)=0.0                                                        00004420
+      PCP=0.0                                                           00004430
+C         UPDATE VALUE OF L ,CUM NO OF INTERFACES EXITED FROM LINE      00004440
+      L=  Z(104) + .001                                                 00004450
+C         DETERMINE NO OF INTERFACES REMAINING IN PIPELINE              00004460
+    2 XK=Z(170)-Z(104)-1.0                                              00004470
+C         IF NO INTERFACES REMAIN IN PIPELINE, SKIP SEARCH              00004480
+      IF(XK.LE.0.0) GO TO 15                                            00004490
+      IK=XK+.001                                                        00004500
+C         INITIALIZE COUNTER FOR INTERFACES FOUND DURING SEARCH         00004510
+      INC =0                                                            00004520
+      Z(201)=0.0                                                        00004530
+C         CALC REMAINING AMOUNT OF BATCH IN LINE                        00004540
+C         INITIAL VALUE OF LL, BATCH CURRENTLY EXITING HAS PREVIOUSLY   00004550
+C         BEEN SET                                                      00004560
+      DO 5  J = 1,NDX                                                   00004570
+      JJ =(NDX +1)- J                                                   00004580
+      IF(INC.EQ.IK) GO TO 10                                            00004590
+      K= 104 + LL                                                       00004600
+      N= 114 + LL                                                       00004610
+      Z(200) = Z(K)- Z(N)                                               00004620
+C         NOW ACCUMULATE STD BBLS FROM BACK END OF PIPELINE UNTIL       00004630
+C         INTERFACE IS FOUND                                            00004640
+      Z(201) = Z(201) + T(19,JJ)                                        00004650
+C         CHECK FOR INTERFACE                                           00004660
+      IF ( Z(200) .LE. Z(201)) GO TO 6                                  00004670
+C         THIS DELTA X SEGMENT DOESNT HAVE INTERFACE                    00004680
+   10 IT(2,JJ) = LL                                                     00004690
+      T(21,JJ) = 1.0                                                    00004700
+      GO  TO  5                                                         00004710
+C                                                                       00004720
+C         INTERFACE HAS BEEN FOUND, INCREMENT INTERFACE COUNTER         00004730
+    6 INC =INC +1                                                       00004740
+C         CALC OVERLAP                                                  00004750
+      Z(202) = Z(201) -Z(200)                                           00004760
+      T(21,JJ)=1.-Z(202)/T(19,JJ)                                       00004770
+      IT(2,JJ)= LL                                                      00004780
+C         UPDATE BATCH ACCUMULATOR                                      00004790
+      Z(201) = Z(202)                                                   00004800
+C                                                                       00004810
+C         UPDATE BATCH IDENTIFIER ,LL . NOTE THAT CUM NO OF INTERFACES  00004820
+C         EXITED FROM PIPELINE, L, HAS PREVIOUSLY BEEN SET.             00004830
+C                                                                       00004840
+      LL = D(61+L +INC) + .001                                          00004850
+    5 CONTINUE                                                          00004860
+C         RETURN CONTROL TO DYFLO                                       00004870
+   15 RETURN                                                            00004880
+      END                                                               00004890
+      SUBROUTINE HTBAL(I)                                               00004900
+      DIMENSION TITLE(22),PCA(50),PCB(50,10),PCC(50,20),D(300),Z(300)   00004910
+      DIMENSION T(22,501), IT(2,501)                                    00004920
+      COMMON TITLE,PCA,PCB,PCC,D,Z,T,IT,M1,M2,NTR,NTC,MNB,MNP,NDX       00004930
+C 027                                                                   00004940
+C         CALLED BY DYFLO                                               00004950
+C         THIS SUBROUTINE CALCS HEAT BALANCES OVER TIME INTERVAL        00004960
+C         DELTA AND  ACCUMULATES  TOTAL  HEAT BALANCE                   00004970
+C         ARGUMENTS,I  = OIL BATCH NO                                   00004980
+C                                                                       00004990
+C                                                                       00005000
+C         CALC  OIL AND STEEL HEAT CONTENT AT END OF TIME INTERVAL,MMBTU00005010
+      DO 10  J= 1,NDX                                                   00005020
+      T(15,J) =(PCC(40,IT(1,J)) * D(4)* 5280. * T(9,J) * T(10,J)*       00005030
+     1 ((T(3,J) + T(3,J+1))/2.0))* 1.0E-6                               00005040
+   10 T(17,J) =(PCC(41,IT(1,J))* D(4)*  5280. * T(11,J)*PCC(5,IT(1,J))* 00005050
+     1(T(4,J)+ T(4,J+1))/2.0) * 1.0 E -6                                00005060
+      T(15,NDX+1) = 0.0                                                 00005070
+      T(17,NDX+1) = 0.0                                                 00005080
+      DO 15 J=1,NDX                                                     00005090
+      T(15,NDX+1) = T(15,NDX+1) + T(15,J)                               00005100
+   15 T(17,NDX+1) = T(17,NDX+1) + T(17,J)                               00005110
+C         Q IN AT ORIGIN OVER THIS TIME INTERVAL,MMBTU                  00005120
+      Z(147) =(PCB(32,I)*349.8*PCB(22,I)*PCB(33,I)* Z(103)*Z(165)       00005130
+     1 /24.0)*1.0E-6                                                    00005140
+      IF(Z(102)-Z(103).GT.0.0) GO TO 1                                  00005150
+      Z(153)=T(14,NDX+1)                                                00005160
+      Z(154)=T(16,NDX+1)                                                00005170
+C         TOTAL HEAT DUE TO FRICTION OVER THIS TIME INTERVAL, MMBTU     00005180
+    1 Z(148) = T(13,NDX+1)*Z(103)*D(4)*5280.  *1.0E-6                   00005190
+C         Q OUT AT TERMINUS OVER THIS TIME INTERVAL,MMBTU               00005200
+      Z(149) =(T(5,NDX)* PCC(40,IT(1,NDX))* T(9,NDX)* T(10,NDX)*Z(103)  00005210
+     1*(T(1,NDX+1)+ T(3,NDX+1)) /2.0) *1.0 E-6                          00005220
+C         Q OUT TO SOIL OVER THIS TIME INTERVAL                         00005230
+      Z(150) = T(18,NDX+1)*Z(103)                                       00005240
+C         TOTAL Q OUT OVER  THIS TIME INTERVAL,MMBTU                    00005250
+      Z(151) = Z(149) + Z(150)                                          00005260
+C         ACCUMULATE TOTALS OF EACH OF THE ABOVE WITH TIME,MMBTU        00005270
+      Z(152)=Z(152)+Z(147)                                              00005280
+      Z(155)=Z(155)+Z(148)                                              00005290
+      Z(156)=Z(156)+Z(149)                                              00005300
+      Z(157)=Z(157)+Z(150)                                              00005310
+      Z(158)=Z(158)+Z(151)                                              00005320
+      RETURN                                                            00005330
+      END                                                               00005340
+      SUBROUTINE NOFLO(IBAT)                                            00005350
+      DIMENSION TITLE(22),PCA(50),PCB(50,10),PCC(50,20),D(300),Z(300)   00005360
+      DIMENSION T(22,501), IT(2,501)                                    00005370
+      COMMON TITLE,PCA,PCB,PCC,D,Z,T,IT,M1,M2,NTR,NTC,MNB,MNP,NDX       00005380
+C 028                                                                   00005390
+C         CALLED BY MP4                                                 00005400
+C         THIS SR RUNS A TIME-TEMP STUDY OF THE PIPELINE DURING NON-FLOW00005410
+C         OPERATIONS.  IT ASSUMES THAT STEEL AND OIL TEMP EQUILIBRATE   00005420
+C         TO EQUAL VALUES WITHIN NIL TIME (ACTUAL TIME EST. AT 1 MIN.). 00005430
+C         IT FURTHER ASSUMES THAT THE BULK OIL TEMP IS HOMOGENEOUSLY    00005440
+C         MIXED.  THE LATTER IS ADJUSTABLE,HOWEVER, BY A FACTOR         00005450
+C         ALLOWED IN THE BASIC EQUATION.  THUS, THE VALUE OF THIS       00005460
+C         FACTOR MAY BE DETERMINED WHEN THE PIPELINE IS OPERATIONAL     00005470
+C         FROM OPERATING DATA.                                          00005480
+C         THE EQUATION USED IS EQUATION NO 5 IN THE MATHEMATICAL        00005490
+C         DOCUMENTATION                                                 00005500
+C         ARGUMENT IBAT=BATCH NO. OF LAST OIL PUMPED INTO PIPELINE      00005510
+C         TEST FOR ZERO COOLING TIME                                    00005520
+    1 IF(PCB(35,IBAT))25,25,2                                           00005530
+    2 DX=D(4)*5280.0                                                    00005540
+C         EQUALIZE OIL AND STEEL TEMPS VIA HT BALANCES ON EACH DX       00005550
+      Z(73)=0.0                                                         00005560
+      Z(74)=0.0                                                         00005570
+      DO 3 K=1,NDX                                                      00005580
+C         SET FLOW-ORIENTED TERMS TO ZERO                               00005590
+      T(5,K)=0.0                                                        00005600
+      T(6,K)=0.0                                                        00005610
+      T(12,K)=0.0                                                       00005620
+      T(13,K)=0.0                                                       00005630
+C         SET Q TERMS TO ZERO BECAUSE WE,RE NOT KEEPING,EM UPDATED      00005640
+      T(14,K)=0.0                                                       00005650
+      T(15,K)=0.0                                                       00005660
+      T(16,K)=0.0                                                       00005670
+      T(17,K)=0.0                                                       00005680
+      T(18,K)=0.0                                                       00005690
+      J=IT(1,K)                                                         00005700
+C         SUM STD BBLS IN P. L. WHILE HOT                               00005710
+      Z(73)=Z(73) + T(19,K)                                             00005720
+C         OIL WT * CP                                                   00005730
+      Z(71)= (PCC(40,J)*DX*T(9,K)) * T(10,K)                            00005740
+C         STL WT * CP                                                   00005750
+      Z(72)= (PCC(41,J)*DX*PCC(5,J)) * T(11,K)                          00005760
+C         TEMP FOR OIL AND STL AT HEAT BALANCED TIME  (1 MINUTE OR LESS)00005770
+      T(1,K)=  (Z(71)*T(1,K) + Z(72)*T(2,K)) / (Z(71)+Z(72))            00005780
+      T(2,K)= T(1,K)                                                    00005790
+    3 CONTINUE                                                          00005800
+       T(1,NDX+1)=T(1,NDX)+T(1,NDX)-T(1,NDX-1)                          00005810
+      T(2,NDX+1)=T(1,NDX+1)                                             00005820
+      Z(74)=Z(73)                                                       00005830
+C         OUTPUT THE PROFILE THUS DETERMINED AT TIME ZERO               00005840
+      CALL OUTTP(3)                                                     00005850
+C       **INITIALIZE DO-LOOP SET-UP**                                   00005860
+C         SAVE STARTING TIME FROM MASTER CLOCK                          00005870
+      Z(99)=D(100)                                                      00005880
+      Z(98)=0.0                                                         00005890
+      Z(97)=0.0                                                         00005900
+C         SET METRONOME TO PCA(12) VALUE                                00005910
+      DTM= PCA(12)                                                      00005920
+C         IF COOLING IS LESS THAN ABOVE, CHANGE ROUTING                 00005930
+      IF(PCB(35,IBAT).GT.DTM) GO TO 40                                  00005940
+      DTM=PCB(35,IBAT)                                                  00005950
+      ET=DTM                                                            00005960
+      GO TO 160                                                         00005970
+   40 J2=PCB(35,IBAT)/DTM +0.001                                        00005980
+C         NOW, LET THE 0.5 HR METRONOME CLICK AWAY. EVERY FEW HRS       00005990
+C         WE,LL UPDATE OIL AND STEEL PROPERTIES AND CALCULATE A NEW     00006000
+C         TEMP PROFILE.  AND EVERY SO OFTEN, WE,LL CALC TEMPS FOR       00006010
+C         OUTPUT PURPOSES.                                              00006020
+      DO 15 KK=1,J2                                                     00006030
+      D(100)=D(100) +DTM                                                00006040
+      Z(98)=Z(98) + DTM                                                 00006050
+      Z(97)=Z(97)+ DTM                                                  00006060
+C         CHECK FOR UPDATE TIME                                         00006070
+      IF(Z(98).GE.PCA(11)) GO TO 100                                    00006080
+C         CHECK FOR OUTPUT TIME                                         00006090
+   50 IF(Z(97).GE.PCB(36,IBAT)) GO TO 150                               00006100
+C         CHECK FOR END OF NO FLOW TIME                                 00006110
+   60 IF((D(100)-Z(99)).GE.(PCB(35,IBAT)-DTM)) GO TO 155                00006120
+      GO TO 15                                                          00006130
+  100 CALL COOLR(Z(98))                                                 00006140
+      Z(98)=0.0                                                         00006150
+      GO TO 50                                                          00006160
+  150 CALL COOLR(Z(98))                                                 00006170
+      CALL OUTTP(3)                                                     00006180
+      Z(97)=0.0                                                         00006190
+      Z(98)=0.0                                                         00006200
+      GO TO 60                                                          00006210
+C         END OF METRONOME DO-LOOP                                      00006220
+   15 CONTINUE                                                          00006230
+  155 DTM=PCB(35,IBAT)-(D(100)-Z(99))                                   00006240
+      ET=Z(98)+DTM                                                      00006250
+      IF(ET .LE.0.0) GO TO 25                                           00006260
+  160 D(100)=D(100) + DTM                                               00006270
+      CALL COOLR(ET )                                                   00006280
+      CALL OUTTP(3)                                                     00006290
+C         SAVE OIL TEMP AT END OF LINE AND MASTER CLOCK TIME            00006300
+C         AFTER COOLING FOR USE BY SR OUTTM                             00006310
+      Z(250)=T(1,NDX+1)                                                 00006320
+      Z(251)=0.0                                                        00006330
+   25 RETURN                                                            00006340
+      END                                                               00006350
+      SUBROUTINE COOLR(THETA)                                           00006360
+      DIMENSION TITLE(22),PCA(50),PCB(50,10),PCC(50,20),D(300),Z(300)   00006370
+      DIMENSION T(22,501), IT(2,501)                                    00006380
+      COMMON TITLE,PCA,PCB,PCC,D,Z,T,IT,M1,M2,NTR,NTC,MNB,MNP,NDX       00006390
+C 029                                                                   00006400
+C         CALLED BY NOFLO                                               00006410
+C         THIS SR IMPLEMENTS THE COOLING EQN DESCRIBED IN SR NOFLO.     00006420
+C         IT ALSO UPDATES CERTAIN OIL AND STEEL PROPERTIES, AND         00006430
+C         KEEPS TRACK OF OIL,S VOLUMETRIC EXPANSION AND CONTRACTION.    00006440
+C         STEEL,S THERMAL EXPANSION IS IGNORED.                         00006450
+C         ARGUMENT THETA=TIME,HRS, SINCE TEMPS WERE LAST CALCULATED     00006460
+C         CLEAR SUMBOX FOR EXPANSION/CONTRACTION TANK                   00006470
+      Z(74)=0.0                                                         00006480
+    1 DO 2 K=1,NDX                                                      00006490
+      J=IT(1,K)                                                         00006500
+      I=IT(2,K)                                                         00006510
+C         CALC B TERM IN EQN, USING OLD PROPS                           00006520
+      Z(81)=T(11,K)*PCC(5,J)*PCC(41,J) + T(9,K)*T(10,K)*PCC(40,J)       00006530
+C         CALC TOTAL RESISTANCE                                         00006540
+      Z(85)=T(7,K) + T(8,K)                                             00006550
+C         CALC EXPONENTIAL TERM IN EQN                                  00006560
+      Z(82)= EXP(THETA/(Z(81)*(Z(85) +PCA(15))))                        00006570
+C         CALC NEW OIL TEMP FOR EACH DX                                 00006580
+      T(1,K)=((T(1,K)-PCC(24,J))/Z(82)) + PCC(24,J)                     00006590
+      T(2,K)=T(1,K)                                                     00006600
+C         CALC NEW RF (W/ONLY FOULING AND STEEL COMPONENT)              00006610
+      CALL RFOST(T(2,K),J,T(7,K))                                       00006620
+C         CALC NEW RT                                                   00006630
+      TIN = (T(2,K) + PCC(24,J)) * 0.5                                  00006640
+      CALL RINSO(TIN,J,T(8,K))                                          00006650
+C         CALC SG AT TEMP                                               00006660
+      Z(83)= PCB(22,I) + (PCB(3,I)*(T(1,K)-60.0))                       00006670
+C         CALC VOL EXPAN FACTOR  SG-60/SG-T                             00006680
+      T(20,K)= PCB(22,I)/Z(83)                                          00006690
+C         CALC DENSITY, LBS/CF                                          00006700
+      T(9,K)= Z(83) * 62.3                                              00006710
+C         CALC NEW C(O) FOR OIL AT NEW TEMP                             00006720
+      T(10,K)= PCB(27,I) + (PCB(28,I)*T(1,K))                           00006730
+C         CALC NEW C(P) FOR STL AT NEW TEMP                             00006740
+      T(11,K)= PCC(34,J) + (PCC(35,J)*T(2,K))                           00006750
+C         CALC NEW STD BBLS WITHIN A DX SECTION                         00006760
+C         BBLS=(DX CAPACITY, STD BBLS) / (SG-60/SG-T)                   00006770
+      T(19,K)= PCC(42,J) / T(20,K)                                      00006780
+C          ADD THESE STD BBLS OF OIL INTO SUMER                         00006790
+      Z(74)=Z(74) + T(19,K)                                             00006800
+    2 CONTINUE                                                          00006810
+       T(1,NDX+1)=T(1,NDX)+T(1,NDX)-T(1,NDX-1)                          00006820
+      T(2,NDX+1)=T(1,NDX+1)                                             00006830
+      RETURN                                                            00006840
+      END                                                               00006850
+      SUBROUTINE OUTTP(KEY)                                             00006860
+      DIMENSION TITLE(22),PCA(50),PCB(50,10),PCC(50,20),D(300),Z(300)   00006870
+      DIMENSION T(22,501), IT(2,501)                                    00006880
+      COMMON TITLE,PCA,PCB,PCC,D,Z,T,IT,M1,M2,NTR,NTC,MNB,MNP,NDX       00006890
+C 030                                                                   00006900
+C         CALLED BY MP4,DYFLO,INTFAC, NOFLO                             00006910
+C         THIS SR WRITES A TEMP PROFILE FOR THE WHOLE PIPELINE.  IN     00006920
+C         SOME INSTANCES, IT ALSO WRITES A DELTA P PROFILE.             00006930
+C         ARGUMENT KEY=ID OF CALLING SR                                 00006940
+C                     0=MP4 AFTER EQFLO CALCS                           00006950
+C                      1=MP4 W/ONLY T DATA FM INPUT                     00006960
+C                      2=DYFLO OR INTFAC                                00006970
+C                      3=NOFLO                                          00006980
+C         WRITE TITLES                                                  00006990
+      CALL WTITL                                                        00007000
+C         SETUP COMPUTED GO-TO INDEX                                    00007010
+      I=KEY + 1                                                         00007020
+      GO TO(10,11,12,13),I                                              00007030
+C         WRITE HEADER LINE                                             00007040
+   10 WRITE (M2,900)                                                    00007050
+      GO TO 14                                                          00007060
+   11 WRITE (M2,901)                                                    00007070
+      GO TO 14                                                          00007080
+   12 WRITE (M2,902)                                                    00007090
+      GO TO 14                                                          00007100
+   13 WRITE (M2,903)                                                    00007110
+  900 FORMAT(1H 17X,38HPIPELINE PROFILE DATA-EQUILIBRIUM FLOW)          00007120
+  901 FORMAT(1H 17X,33HPIPELINE PROFILE DATA-INPUT TEMPS)               00007130
+  902 FORMAT(1H 17X,34HPIPELINE PROFILE DATA-DYNAMIC FLOW)              00007140
+  903 FORMAT(1H 17X,33HPIPELINE PROFILE DATA-NON FLOWING)               00007150
+C         SKIP A LINE                                                   00007160
+   14 WRITE (M2,999)                                                    00007170
+  999 FORMAT(1H )                                                       00007180
+C         WRITE MORE HEADING DATA                                       00007190
+      WRITE (M2,904) D(100)                                             00007200
+  904 FORMAT(1H 17X,18HCLOCK TIME, HOURS-,10X,F7.2)                     00007210
+      WRITE (M2,905) IT(2,1)                                            00007220
+  905 FORMAT(1H 17X,29HOIL BATCH ID. AT P.L. ORIGIN-,3X,I3)             00007230
+      WRITE (M2,906) IT(2,NDX)                                          00007240
+  906 FORMAT(1H 17X,31HOIL BATCH ID. AT P.L. TERMINUS-,1X,I3)           00007250
+C         DELETE FLOW LINE IF TYPE 3 ARGUMENT                           00007260
+      IF(KEY-3)15,16,15                                                 00007270
+   15 K=IT(2,1)                                                         00007280
+      WRITE (M2,907) PCB(32,K)                                          00007290
+  907 FORMAT(1H 17X,26HOIL PUMPING RATE, STD B/D-,F9.1)                 00007300
+      GO TO 17                                                          00007310
+C         FOR COOLING TEMP PROFILE, PRINT VOL SHRINKAGE, STD BBLS       00007320
+   16 VOL= Z(74) - Z(73)                                                00007330
+      WRITE (M2,950) VOL                                                00007340
+  950 FORMAT(1H 17X,28HLINEFILL SHRINKAGE,STD BBLS-,F7.1)               00007350
+C         CARRYING ON BRAVELY, SKIP A LINE                              00007360
+   17 WRITE (M2,999)                                                    00007370
+C         AGAIN, PERFORM COMPUTED GO-TO                                 00007380
+      GO TO(25,20,25,20),I                                              00007390
+C         FOR KEY=1 AND KEY=3, ZERO DELTA P LINE IN T MTX               00007400
+   20 DO 21 K=1,NDX                                                     00007410
+   21 T(12,K)=0.0                                                       00007420
+C         NOW WRITE COL HEADINGS                                        00007430
+   25 WRITE (M2,909)                                                    00007440
+      WRITE (M2,910)                                                    00007450
+      WRITE (M2,911)                                                    00007460
+      WRITE (M2,912)                                                    00007470
+      WRITE (M2,999)                                                    00007480
+  909 FORMAT(1H 7X,9HPL LENGTH)                                         00007490
+  910 FORMAT(1H 7X,10HFM ORIGIN,,3X,9HOIL TEMP,,3X,11HSTEEL TEMP,3X,    00007500
+     1      10HSOIL TEMP,3X,10HCUMULATIVE)                              00007510
+  911 FORMAT(1H 9X,5HMILES,8X,5HDEG F,7X,5HDEG F,9X,5HDEG F,6X,12HDELTA 00007520
+     1P, PSI)                                                           00007530
+  912 FORMAT(1H 7X,10H----------,3X,9H---------,3X,11H-----------,3X,9H-00007540
+     1--------,3X,12H------------)                                      00007550
+C         CALC RATIO, DELTA MILES FOR OUTPUT/DX                         00007560
+      DXR= D(6)/D(4)                                                    00007570
+      IF(DXR-1.0)30,30,31                                               00007580
+C         RESET TO ONCE EVERY DX                                        00007590
+   30 DXR=1.0                                                           00007600
+C         TRUNCATE TO SMOOTH VALUE                                      00007610
+   31 IXR=DXR + 0.001                                                   00007620
+C         CLEAR DX SUMER AND DP SUMER                                   00007630
+      SDX=0.0                                                           00007640
+      SDP=0.0                                                           00007650
+C         PRINT START OF P.L. DATA (AT ORIGIN)                          00007660
+      J=IT(1,1)                                                         00007670
+      WRITE (M2,913) SDX,T(1,1),T(2,1),PCC(24,J),SDP                    00007680
+  913 FORMAT(1H 6X,F8.2,6X,F8.2,4X,F8.2,6X,F8.2,5X,F8.1)                00007690
+C         SET UP DO-LOOP FOR PRINTING EVERY DELTA-M MILES               00007700
+      JJ= 0                                                             00007710
+      KK=NDX-1                                                          00007720
+      DO 35 I=1,KK                                                      00007730
+      JJ = JJ + 1                                                       00007740
+      SDX=SDX + D(4)                                                    00007750
+      SDP=SDP + T(12,I)                                                 00007760
+      IF(I.EQ.KK) GO TO 32                                              00007770
+      IF(IT(2, I).EQ.IT(2, I+1)) GO TO 32                               00007780
+      X=  I - 1                                                         00007790
+      XM=(X+(1.0-T(21, I)))*D(4)                                        00007800
+      WRITE(M2,914) XM                                                  00007810
+  914 FORMAT(1H 8X,9HINTERFACE,F6.1,19H MILES FROM ORIGIN.)             00007820
+C         SEE IF IT,S TIME TO PRINT YET                                 00007830
+   32 IF(IXR.NE.JJ) GO TO 35                                            00007840
+C         PRINT A LINE                                                  00007850
+   33 J=IT(1,I)                                                         00007860
+      WRITE (M2,913) SDX,T(1,I+1),T(2,I+1),PCC(24,J),SDP                00007870
+      JJ = 0                                                            00007880
+   35 CONTINUE                                                          00007890
+C         NOW, PRINT AT THE TERMINUS                                    00007900
+      SDX=SDX + D(4)                                                    00007910
+      SDP=SDP + T(12,NDX)                                               00007920
+      J=IT(1,NDX)                                                       00007930
+      WRITE (M2,913) SDX,T(1,I+1),T(2,I+1),PCC(24,J),SDP                00007940
+C         THAT,S ALL                                                    00007950
+      RETURN                                                            00007960
+      END                                                               00007970
+      SUBROUTINE OUTTM(CTIME,KEY)                                       00007980
+      DIMENSION TITLE(22),PCA(50),PCB(50,10),PCC(50,20),D(300),Z(300)   00007990
+      DIMENSION T(22,501), IT(2,501)                                    00008000
+      COMMON TITLE,PCA,PCB,PCC,D,Z,T,IT,M1,M2,NTR,NTC,MNB,MNP,NDX       00008010
+C 031                                                                   00008020
+C         CALLED BY EQFLO, DYFLO, INTFAC                                00008030
+C         THIS SR WRITES TERMINUS OUTPUT. THE ARGUMENT =KEY= DEFINES    00008040
+C         (WHEN ZERO) A NORMAL CALL, AND (WHEN NON-ZERO) AN INTERFACE   00008050
+C         OUTPUT.  THIS SR IS CALLED ONCE FOR EACH LINE OF OUTPUT.      00008060
+C                                                                       00008070
+C         SEE IF THIS IS THE VERY FIRST TIME FOR THIS OUTPUT ON THIS    00008080
+C         OIL BATCH                                                     00008090
+      IF(Z(251).GT.0.0) GO TO 3                                         00008100
+C         WRITE PAGE TITLE AND COLUMN HEADERS                           00008110
+    2 CALL TMHDR                                                        00008120
+C         WRITE ZERO TIME AND TEMP FLOWING AT TERMINUS-1ST DROP OF OIL  00008130
+      WRITE (M2,901)Z(252), Z(250),Z(253)                               00008140
+  901 FORMAT(1H F7.3,2X,F7.2,49X,F7.1)                                  00008150
+C         NOW FOR ROUTINE USAGE OF THIS SR                              00008160
+C         1ST SEE IF 18 CALLS FOR OUTPUT ON THIS BATCH HAVE OCCURRED    00008170
+    3 IF(Z(251)-18.0)5,5,4                                              00008180
+C         IF SO WRITE FRESH HEADER                                      00008190
+    4 CALL TMHDR                                                        00008200
+      Z(251) = 0.0                                                      00008210
+C         NOW, WRITE 1 LINE OF DATA                                     00008220
+      WRITE (M2,901)Z(252), Z(250),Z(253)                               00008230
+    5 I=NDX +1                                                          00008240
+      VOL1=T(19,I) * T(20,I)                                            00008250
+      II= 114 + IT(2,I)                                                 00008260
+      VOL2= (T(19,I) / (CTIME - Z(252))) * 24.0                         00008270
+      WRITE (M2,902) IT(2,I),VOL1,Z(II),VOL2                            00008280
+  902 FORMAT(1H 22X,I2,5X,F9.1,4X,F8.1,3X,F9.1)                         00008290
+C         BEFORE THE 2ND LINE, SEE IF ITS AN INTERFACE LINE             00008300
+      IF(KEY-1)6,7,7                                                    00008310
+C         ROUTINE LINE PRINT AT END OF DELTA VOLUME                     00008320
+    6 WRITE (M2,903) CTIME, T(1,I), T(12,I)                             00008330
+  903 FORMAT(1H F7.3,2X,F7.2,49X,F7.1)                                  00008340
+C         SAVE CLOCKTIME                                                00008350
+      Z(252)= CTIME                                                     00008360
+      GO TO 9                                                           00008370
+C         END OF INTER FACE FOR THIS BATCH                              00008380
+    7 WRITE (M2,904) CTIME, T(1,I), T(12,I)                             00008390
+  904 FORMAT(1H F7.3,2X,F7.2,13X,30HTRAILING INTERFACE AT TERMINUS,6X,  00008400
+     1 F7.1)                                                            00008410
+C         SAVE CLOCKTIME                                                00008420
+      Z(252)= CTIME                                                     00008430
+      Z(250)=T(1,NDX+1)                                                 00008440
+      Z(251)=0.0                                                        00008450
+      Z(253)=T(12,NDX+1)                                                00008460
+      GO TO 10                                                          00008470
+C         UPDATE THE CALL COUNTER FOR THIS EXITING BATCH  SAVE CLOCKTIME00008480
+    9 Z(251)=Z(251) + 1.0                                               00008490
+      Z(253) = T(12,NDX+1)                                              00008500
+      Z(250) = T(1,NDX+1)                                               00008510
+   10 CONTINUE                                                          00008520
+      RETURN                                                            00008530
+      END                                                               00008540
+      SUBROUTINE TMHDR                                                  00008550
+      DIMENSION TITLE(22),PCA(50),PCB(50,10),PCC(50,20),D(300),Z(300)   00008560
+      DIMENSION T(22,501), IT(2,501)                                    00008570
+      COMMON TITLE,PCA,PCB,PCC,D,Z,T,IT,M1,M2,NTR,NTC,MNB,MNP,NDX       00008580
+C 032                                                                   00008590
+C         CALLED BY SR OUTTM                                            00008600
+C         THIS SR WRITES HEADING FOR THE TERMINUS OUTPUT ROUTINE        00008610
+    1 CALL WTITL                                                        00008620
+      WRITE (M2,900)                                                    00008630
+      WRITE (M2,999)                                                    00008640
+      WRITE (M2,901)                                                    00008650
+      WRITE (M2,902)                                                    00008660
+      WRITE (M2,903)                                                    00008670
+      WRITE (M2,904)                                                    00008680
+      WRITE (M2,999)                                                    00008690
+  900 FORMAT(1H 20X,31HOIL EXIT CONDITIONS AT TERMINUS)                 00008700
+  999 FORMAT(1H )                                                       00008710
+  901 FORMAT(1H 2X,5HCLOCK,22X,9HAVG DELTA,4X,10HCUMUL EXIT,3X,8HAVG EXI00008720
+     1T)                                                                00008730
+  902 FORMAT(1H 2X,5HTIME,,2X,8HOIL EXIT,2X,8HEXIT OIL,4X,7HVOLUME,,6X, 00008740
+     1 7HVOLUME,,3X,9HFLOWRATE,,2X,8HFRICTION)                          00008750
+  903 FORMAT(1H 3X,3HHRS,3X,7HTEMP, F,3X,8HBATCH ID,2X,11HACTUAL BBLS,  00008760
+     13X,8HSTD BBLS,3X,7HSTD B/D,4X,7HDELTA P)                          00008770
+  904 FORMAT(1H 1X,6H------,2X,8H--------,2X,8H--------,2X,11H----------00008780
+     1-,2X,9H---------,2X,10H----------,2X,8H--------)                  00008790
+      RETURN                                                            00008800
+      END                                                               00008810
+      SUBROUTINE PAGEX                                                  00008820
+      DIMENSION TITLE(22),PCA(50),PCB(50,10),PCC(50,20),D(300),Z(300)   00008830
+      DIMENSION T(22,501), IT(2,501)                                    00008840
+      COMMON TITLE,PCA,PCB,PCC,D,Z,T,IT,M1,M2,NTR,NTC,MNB,MNP,NDX       00008850
+C 033                                                                   00008860
+C         CALLED BY SR MP4                                              00008870
+C         THIS SR DUMPS THE DIMENSION STATEMENT UPON DEMAND             00008880
+C                                                                       00008890
+    1 CALL WTITL                                                        00008900
+      WRITE (M2,900)                                                    00008910
+  900 FORMAT(1H 34H**** A DIMENSION DUMP FOLLOWS ****)                  00008920
+C         SKIP 2 SPACES                                                 00008930
+      WRITE(M2,998)                                                     00008940
+  998 FORMAT(1H )                                                       00008950
+      WRITE(M2,998)                                                     00008960
+C         DUMP PCA VECTOR                                               00008970
+      CALL PRNTV(PCA(1),50,4HPCA ,1,1)                                  00008980
+C         DUMP PCB MATRIX                                               00008990
+      CALL PRNTM(PCB(1,1),50,1,10,4HPCB ,1)                             00009000
+C         DUMP PCC MATRIX                                               00009010
+      CALL PRNTM(PCC(1,1),50,1,20,4HPCC ,1)                             00009020
+      WRITE(M2,999)                                                     00009030
+  999 FORMAT(1H1)                                                       00009040
+C         DUMP D VECTOR                                                 00009050
+      CALL PRNTV(D(1),300,4HD   ,1,1)                                   00009060
+C         DUMP Z VECTOR                                                 00009070
+      CALL PRNTV(Z(1),300,4HZ   ,1,1)                                   00009080
+C         DUMP T AND IT MTX                                             00009090
+      CALL PRNTM(T(1,1),22,1,NDX+1,4HT   ,2)                            00009100
+C         THAT,S A DIMENSION DUMP                                       00009110
+      RETURN                                                            00009120
+      END                                                               00009130
+      SUBROUTINE PRNTV(REGV,LNGTH,ITITL,IPOS,KEY)                       00009140
+      DIMENSION TITLE(22),PCA(50),PCB(50,10),PCC(50,20),D(300),Z(300)   00009150
+      DIMENSION T(22,501), IT(2,501)                                    00009160
+      COMMON TITLE,PCA,PCB,PCC,D,Z,T,IT,M1,M2,NTR,NTC,MNB,MNP,NDX       00009170
+C 034                                                                   00009180
+      DIMENSION REGV(2),IREG(5),WREG(5)                                 00009190
+C         CALLED BY SR PAGEX                                            00009200
+C         THIS SR DUMPS A VECTOR IN E-FORMAT, 5 DATA POINTS/LINE.       00009210
+C         ARGUMENTS REGV=1ST LOCN TO BE DUMPED                          00009220
+C                  LNGTH=LENGTH OF VECTOR TO BE DUMPED                  00009230
+C                  ITITL=A 4-HOLLERITH VECTOR NAME                      00009240
+C                   IPOS=SUBSCRIPT NO. OF 1ST VECTOR (FOR LABELING      00009250
+C                        OUTPUT                                         00009260
+C                    KEY=ON-OFF KEY FOR PRINTING. IF ZERO, ITS OFF.     00009270
+C                        IF NONZERO, IT,S ON AND OUTPUT WILL BE LISTED. 00009280
+C                                                                       00009290
+    1 IF(KEY)2,30,2                                                     00009300
+    2 IF(LNGTH)30,30,3                                                  00009310
+C        SPACE BEFORE PRINTING                                          00009320
+    3 WRITE (M2,901)                                                    00009330
+  901 FORMAT(1H )                                                       00009340
+      DO 10 I=1,LNGTH,5                                                 00009350
+      DO 4  K=1,5                                                       00009360
+      I3=I+K-1                                                          00009370
+      IREG(K)=(IPOS-1) + I3                                             00009380
+    4 WREG(K)= REGV(I3)                                                 00009390
+      IF(I+4-LNGTH)5,5,6                                                00009400
+    5 I2=5                                                              00009410
+      GO TO 7                                                           00009420
+    6 I2=LNGTH-I+1                                                      00009430
+C        OMIT WRITING IF ALL 5 VALUES ON A LINE ARE ZERO                00009440
+    7 DO 8 J=1,5                                                        00009450
+      I3=J + I2 -5                                                      00009460
+      IF(WREG(I3))9,8,9                                                 00009470
+    8 CONTINUE                                                          00009480
+      GO TO 10                                                          00009490
+C        OKAY,SO WRITE 5                                                00009500
+    9 WRITE (M2,902) ITITL,((IREG(L),WREG(L)),L=1,I2)                   00009510
+  902 FORMAT(1H A4,1X,5(I4,E17.8,1X))                                   00009520
+   10 CONTINUE                                                          00009530
+   30 RETURN                                                            00009540
+      END                                                               00009550
+      SUBROUTINE PRNTM(REGM,NR,NC1,NC2,ITITL,KEY)                       00009560
+      DIMENSION TITLE(22),PCA(50),PCB(50,10),PCC(50,20),D(300),Z(300)   00009570
+      DIMENSION T(22,501), IT(2,501)                                    00009580
+      COMMON TITLE,PCA,PCB,PCC,D,Z,T,IT,M1,M2,NTR,NTC,MNB,MNP,NDX       00009590
+C 035                                                                   00009600
+C         CALLED BY PAGEX                                               00009610
+      DIMENSION REGM(2),REGV(10),IPOS(10)                               00009620
+C         THIS SUBROUTINE PRINTS A MATRIX DUMP FOR ANY MATRIX           00009630
+C         IT HANDLES 10 COLS PER PAGE AND PRINTS IN E-FORMAT.           00009640
+C         ARGUMENTS REGM= THE FIRST MATRIX LOCN TO BE DUMPED. IT        00009650
+C                         MUST REFER TO ROW 1, IN ANY COLUMN, E.G.      00009660
+C                         ARE- T(1,1), A(1,5), ... ETC.                 00009670
+C                     NR=NO. OF ROWS USED IN DIMEN.ST.FOR THIS MTX      00009680
+C                    NC1=THE NO OF THE 1ST COLUMN TO BE DUMPED          00009690
+C                    NC2=THE NO OF THE LAST COL TO BE DUMPED            00009700
+C                  ITITL=THE 4-HOLLERITH NAME OF THE MTX                00009710
+C                    KEY=ON-OFF KEY. 0=OFF, 1=ON, 2=ON WITH SPEC DUMP   00009720
+C                                                                       00009730
+C         TEST FOR KEY OFF                                              00009740
+      IF(KEY)30,30,1                                                    00009750
+C         SET-UP DO-LOOP FOR 10 COLS PER PG                             00009760
+    1 NC=NC2-NC1 + 1                                                    00009770
+      DO 20 IC=1,NC,10                                                  00009780
+C         SEE HOW MANY COLUMNS REMAIN                                   00009790
+      IF(NC - (IC+9))2,3,3                                              00009800
+    2 LEN= NC - IC + 1                                                  00009810
+      GO TO 4                                                           00009820
+    3 LEN=10                                                            00009830
+C         WRITE A FRESH PAGE HEADER, W/COL NUMBERS                      00009840
+    4 WRITE (M2,900) ITITL                                              00009850
+  900 FORMAT(1H110X,19H**** A DUMP OF THE ,A4,20H MATRIX FOLLOWS ****)  00009860
+      WRITE (M2,999)                                                    00009870
+      WRITE (M2,999)                                                    00009880
+  999 FORMAT(1H )                                                       00009890
+      I1=NC1 +  IC  - 1                                                 00009900
+      I2=I1 +LEN - 1                                                    00009910
+      I4 = 0                                                            00009920
+      DO 5 I3=I1,I2                                                     00009930
+      I4 = I4 + 1                                                       00009940
+    5 IPOS(I4)=I3                                                       00009950
+      WRITE (M2,901) (IPOS(I),I=1,LEN)                                  00009960
+  901 FORMAT(1H 5H COL=,10(4X,I4,4X))                                   00009970
+      WRITE (M2,999)                                                    00009980
+C         SET UP THE  WRITE-LOOP FOR ALL ROWS                           00009990
+      DO 10 K1=1,NR                                                     00000000
+C         TRANSFER ONE ROW OF DATA INTO REGV                            00000010
+      DO 6 K2=1,LEN                                                     00000020
+      K3=K1+(K2*NR)-NR + (I1-1)*NR                                      00000030
+    6 REGV(K2)= REGM(K3)                                                00000040
+C         TEST THE ROW FOR ALL-ZERO CONDITION                           00000050
+      DO 7 K2=1,LEN                                                     00000060
+      IF(REGV(K2))8,7,8                                                 00000070
+    7 CONTINUE                                                          00000080
+C         IF WE GET TO HERE, ROW IS ALL-ZERO, SKIP IT                   00000090
+      GO TO 10                                                          00000100
+C         WRITE A ROW                                                   00000110
+    8 WRITE (M2,902) K1,(REGV(K4),K4=1,LEN)                             00000120
+  902 FORMAT(1H I4,1X,10(E12.5))                                        00000130
+C         END OF ROW WRITING                                            00000140
+   10 CONTINUE                                                          00000150
+C         SEE IF SPECIAL KEY SETTING IS ON                              00000160
+   11 IF(KEY-2)20,12,20                                                 00000170
+C         IT IS.  PRINT CONTENTS OF THE TWO ROWS OF THE IT MTX          00000180
+C         THIS IS A NON-GENERAL FEATURE AND MAY BE PULLED FOR           00000190
+C         USE OF THIS SR IN OTHER PROGRAMS.                             00000200
+   12 WRITE (M2,999)                                                    00000210
+      WRITE (M2,999)                                                    00000220
+      WRITE (M2,904) (IT(1,K4),K4=I1,I2)                                00000230
+      WRITE (M2,905) (IT(2,K4),K4=I1,I2)                                00000240
+  904 FORMAT(1H 4HIT-1,10(4X,I4,4X))                                    00000250
+  905 FORMAT(1H 4HIT-2,10(4X,I4,4X))                                    00000260
+C         END OF THIS PAGE OF 1-10 COLUMNS                              00000270
+   20 CONTINUE                                                          00000280
+   30 CONTINUE                                                          00000290
+      RETURN                                                            00000300
+      END                                                               00000310
+      SUBROUTINE DEFINE
+C
+C 036
+C         CALLED BY MAIN PROGRAM
+C         THIS SUBROUTINE IS A DUMMY THAT IS USED TO DEFINE PROGRAM
+C         STORAGE ASSIGNMENTS.
+C
+C   ***** PCA VECTOR (LENGTH=50)                                        MAINLY
+C   ***** MISC PROGRAM CONSTANTS                                        USED IN
+C PCA    1     DIFFERENTIAL P.L. LENGTH (FOR CALCULUS), MILES           SETUP
+C PCA    2     TIME SPAN TO BE USED FOR TERMINUS OUTPUT, HOURS          SETUP
+C PCA    3     P.L. SPAN TO BE USED FOR PROFILE OUTPUT, MILES           SETUP
+C PCA    4     MULTIPLYING FACTOR FOR DELTA THETA MANIPULATION          DYFLO
+C PCA    5     MAX. ALLOWABLE VALUE OF DIFF. P.L. LENGTH, MILES         SETUP
+C PCA    6     PC INPUT LISTING SWITCH. ZERO=OFF  1.0=ON                MAIN
+C PCA    7     CASE INPUT LISTING SWITCH.ZERO=OFF 1.0=ON                MP3
+C PCA    8     ITERATION COUNT-BOX IN SR EQFLO HEAT BALANCING           EQFLO
+C PCA    9     MAX ITERATIONS ALLOWED IN SR TPROF TEMP SEARCH           TPROF
+C PCA   10     MAX TEMP ERROR ALLOWED IN SR TPROF TEMP SEARCH, DEG F    TPROF
+C PCA   11     TIME FREQUENCY FOR UPDATING PROPERTIES IN SR NOFLO, HRS  NOFLO
+C PCA   12     TIME INCREMENT OF METRONONE IN SR NOFLO, HRS             NOFLO
+C PCA   13     SPARE
+C PCA   14
+C PCA   15     SR NOFLO COR FACTOR, FF(SEE MATH DOC. EQN NO. 5)         EQFLO
+C PCA   16     SPARE
+C PCA   17
+C PCA   18
+C PCA   19
+C PCA   20
+C PCA   21
+C PCA   22
+C PCA   23
+C PCA   24
+C PCA   25
+C PCA   26
+C PCA   27     NO. OF OIL BATCHES TO FOLLOW IN INPUT (3 CARDS/BATCH)    MAIN
+C PCA   28     NO. OF P.L. SEGMENTS TO FOLLOW IN INPUT (4/SEGMENT)      MAIN
+C PCA 29-50    SPARE
+C
+C
+C   ***** PCB MATRIX  (SIZE-50 ROWS, BY I OIL BATCHES,I=10)             MAINLY
+C   ***** OIL BATCH DATA, ONE BATCH PER COLUMN                          USED IN
+C PCB  1,I     OIL BATCH CODE NUMBER                                    SETUP
+C PCB  2,I     GRAVITY, DEG API                                         TMATX
+C PCB  3,I     COEFFICIENT OF VOLUMETRIC EXPANSION                      TMATX
+C PCB  4,I     TEMPERATURE, DEG F, FOR FIRST VISCOSITY DATA             SETUP
+C PCB  5,I     TEMPERATURE, DEG F, FOR SECOND VISCOSITY DATA            SETUP
+C PCB  6,I     VISCOSITY AT FIRST TEMPERATURE, CENTISTOKES              SETUP
+C PCB  7,I     VISCOSITY AT SECOND TEMPERATURE, CENTISTOKES             SETUP
+C PCB  8,I     TEMP.,DEG F FOR FIRST THERMAL COND. DATA                 SETUP
+C PCB  9,I     TEMP.,DEG F FOR SECOND THERMAL COND. DATA                SETUP
+C PCB 10,I     THERMAL COND. AT FIRST TEMP., BTU-FT/HR-SQFT-DEG F       SETUP
+C PCB 11,I     THERMAL COND. AT SECOND TEMP.,BTU-FT/HR-SQFT-DEG F       SETUP
+C PCB 12,I     SPARE
+C PCB 13,I
+C PCB 14,I
+C PCB 15,I     TEMP.,DEG F FOR FIRST HEAT CAPACITY DATA                 SETUP
+C PCB 16,I     TEMP.,DEG F FOR SECOND HEAT CAPACITY DATA                SETUP
+C PCB 17,I     HEAT CAPACITY AT FIRST TEMP., BTU/LB-DEG F               SETUP
+C PCB 18,I     HEAT CAPACITY AT SECOND TEMP.,BTU/LB-DEG F               SETUP
+C PCB 19,I     POUR POINT, DEG F (INPUT NOT USED BY PROGRAM)            SETUP
+C PCB 20,I     SULFUR CONTENT, WT PERCENT (INPUT NOT USED BY PROGRAM)
+C PCB 21,I     REID VAPOR PRESSURE, PSIA (INPUT NOT USED BY PROGRAM)
+C PCB 22,I     SPECIFIC GRAVITY AT 60 DEG F                             TMATX
+C PCB 23,I     TERM A IN VISCOSITY EQN., Z=A*EXP(B/T), T IN DEG R       TMATX
+C PCB 24,I     TERM B IN VISCOSITY EQN., Z=A*EXP(B/T), T IN DEG R       TMATX
+C PCB 25,I     TERM A IN THERMAL COND EQN., K=A+B*T, T IN DEG F         TMATX
+C PCB 26,I     TERM B IN THERMAL COND EQN., K=A+B*T, T IN DEG F         TMATX
+C PCB 27,I     TERM A IN HEAT CAPACITY EQN., C(P)=A+B*T, T IN DEG F     TMATX
+C PCB 28,I     TERM B IN HEAT CAPACITY EQN., C(P)=A+B*T, T IN DEG F     TMATX
+C PCB 29,I     SPARE
+C PCB 30,I
+C PCB 31,I     OIL BATCH CODE NO
+C PCB 32,I     FLOWRATE DURING PUMPING, STD BBL/DAY
+C PCB 33,I     PIPELINE ENTRY TEMPERATURE, DEG F                        DYFLO
+C PCB 34,I     PUMPING TIME FOR THIS BATCH, HOURS                       DYFLO
+C PCB 35,I     NO-FLOW TIME AT END OF THIS BATCH, HOURS                 NOFLO
+C PCB 36,I     FREQUENCY OF TEMPERATURE PROFILE OUTPUT, HOURS           DYFLO
+C PCB 37,I     KEY FOR OIL PROPERTY DATA                                MPC
+C PCB 38-50    SPARE
+C
+C     C
+C   ***** PCC MATRIX  (SIZE-50 ROWS, BY J PIPELINE SEGMENTS,J=20)       MAINLY
+C   ***** PIPELINE SEGMENT DATA, ONE SEGMENT PER COLUMN                 USED IN
+C PCC  1,J     SEGMENT ID CODE NUMBER                                   SETUP
+C PCC  2,J     LENGTH OF SEGMENT, MILES                                 TMATX
+C PCC  3,J     OUTSIDE DIAMETER OF PIPE, INCHES                         TMATX
+C PCC  4,J     WALL THICKNESS OF PIPE, INCHES                           TMATX
+C PCC  5,J     DENSITY OF PIPE MATERIAL, LBS/CUFT                       TMATX
+C PCC  6,J     FOULING FACTOR OF SCALE OR DIRT, HR-SQFT-DEG F/BTU       TMATX
+C PCC  7,J     SPARE
+C PCC  8,J     TEMP. ,DEG F,FOR FIRST DATA ON PIPELINE PROPERTIES       SETUP
+C PCC  9,J     TEMP. ,DEG F,FOR SECOND DATA ON PIPELINE PROPERTIES      SETUP
+C PCC 10,J     THERMAL COND OF PIPE AT FIRST TEMP.,BTU-FT/HR-SQFT-DEG F SETUP
+C PCC 11,J     THERMAL COND OF PIPE AT SECOND TEMP.,BTU-FT/HR-SQFT-DEG FSETUP
+C PCC 12,J     HEAT CAPACITY OF PIPE AT FIRST TEMP., BTU/LB-DEG F       SETUP
+C PCC 13,J     HEAT CAPACITY OF PIPE AT SECOND TEMP, BTU/LB-DEG F       SETUP
+C PCC 14,J     SPARE
+C PCC 15,J     INSULATION TYPE CODE (INPUT NOT USED BY PROGRAM)
+C PCC 16,J     THICKNESS OF INSULATION, INCHES                          RINSO
+C PCC 17,J     BULK DENSITY OF INSULATION, LBS/CUFT (NOT USED BY PROG)
+C PCC 18,J     THER COND OF INSL AT FIRST TEMP., BTU-FT/HR-SQFT-DEG F   SETUP
+C PCC 19,J     THER COND OF INSL AT SECOND TEMP.,BTU-FT/HR-SQFT-DEG F   SETUP
+C PCC 20,J     HEAT CAP OF INSL AT FIRST TEMP., BTU/LB-DEG F            SETUP
+C PCC 21,J     HEAT CAP OF INSL AT SECOND TEMP.,BTU/LB-DEG F            SETUP
+C PCC 22,J     SOIL TYPE CODE (INPUT NOT USED BY PROGRAM)
+C PCC 23,J     DEPTH OF SOIL COVER, INCHES                              RINSO
+C PCC 24,J     GROUND TEMPERATURE, DEG F                                RINSO
+C PCC 25,J     THER COND OF SOIL AT GROUND TEMP,BTU-FT/HR-SQFT-DEG F    RINSO
+C PCC 26,J     SPARE
+C PCC 27,J
+C PCC 28,J
+C PCC 29,J     INSIDE DIAMETER OF PIPE, INCHES                          SETUP
+C PCC 30,J     INSIDE DIAMETER OF PIPE, FEET                            SETUP
+C PCC 31,J     OUTSIDE DIAMETER OF PIPE, FEET                           SETUP
+C PCC 32,J     TERM A IN PIPE THER COND EQN., K=A+B*T,T IN DEG F        TMATX
+C PCC 33,J     TERM B IN PIPE THER COND EQN., K=A+B*T,T IN DEG F        TMATX
+C PCC 34,J     TERM A IN PIPE HEAT CAP  EQN., C(P)=A+B*T,T IN DEG F     TMATX
+C PCC 35,J     TERM B IN PIPE HEAT CAP  EQN., C(P)=A+B*T,T IN DEG F     TMATX
+C PCC 36,J     TERM A IN INSL THER COND EQN., K=A+B*T,T IN DEG F        TMATX
+C PCC 37,J     TERM B IN INSL THER COND EQN., K=A+B*T,T IN DEG F        TMATX
+C PCC 38,J     TERM A IN INSL HEAT CAP  EQN., C(P)=A+B*T, T IN DEG F    TMATX
+C PCC 39,J     TERM B IN INSL HEAT CAP  EQN., C(P)=A+B*T, T IN DEG F    TMATX
+C PCC 40,J     CROSS SECTIONAL AREA OF INSIDE PIPE, SQFT                TMATX
+C PCC 41,J     CROSS SECTIONAL AREA OF PIPE ANNULUS, SQFT               TMATX
+C PCC 42,J     CAPACITY OF A DELTA X LENGTH OF THIS SEGMENT, STD BBLS   NOFLO
+C PCC 43-50,J  SPARE
+C
+C
+C   ***** D VECTOR  (LENGTH=300)                                        MAINLY
+C   ***** MISC INPUT VALUES AND CALCULATED VALUES                       USED IN
+C D      1     STUDY TYPE KEY - EQUILIBRIUM OR DYNAMIC                  MP4
+C D      2     NUMBER OF OIL BATCHES TO BE PUMPED DURING THIS RUN       MP4
+C D      3     KEY DENOTING IF TEMP PROFILE DATA IS TO BE INPUT         MP3
+C D      4     DIFFERENTIAL PIPELINE LENGTH TO BE USED IN CALCS, MILES  SETUP
+C D      5     TIME SPAN USED FOR OUTPUT OF TERMINUS CONDITIONS, HOURS  DYFLO
+C D      6     PIPELINE SPAN TO BE USED FOR PROFILE OUTPUT, MILES       SETUP
+C D      7     KEY DENOTING IF VECTOR DUMP IS DESIRED                   MP4
+C D    8-27    SEGMENT ID CODE NO FOR SUCCESSIVE PIPELINE CONNECTIONS   SETUP
+C D   28-50    SPARE
+C D   51-57    SCRATCH AREA FOR INPUTING OIL BATCH DATA                 MP3
+C D   58-60    SPARE
+C D     61     OIL BATCH CODE NUMBER OF 1ST  OIL PUMPED                 DYFLO
+C D     62     OIL BATCH CODE NUMBER OF 2ND  OIL PUMPED                 DYFLO
+C D     63     OIL BATCH CODE NUMBER OF 3RD  OIL PUMPED                 DYFLO
+C D     64     OIL BATCH CODE NUMBER OF 4TH  OIL PUMPED                 DYFLO
+C D     65     OIL BATCH CODE NUMBER OF 5TH  OIL PUMPED                 DYFLO
+C D     66     OIL BATCH CODE NUMBER OF 6TH  OIL PUMPED                 DYFLO
+C D     67     OIL BATCH CODE NUMBER OF 7TH  OIL PUMPED                 DYFLO
+C D     68     OIL BATCH CODE NUMBER OF 8TH  OIL PUMPED                 DYFLO
+C D     69     OIL BATCH CODE NUMBER OF 9TH  OIL PUMPED                 DYFLO
+C D     70     OIL BATCH CODE NUMBER OF 10TH OIL PUMPED                 DYFLO
+C D   71-80    SPARE
+C D   81-99    SPARE
+C D    100     MASTER CLOCK TIME SINCE PUMPING BEGAN, HOURS             DYFLO
+C D  101-128   MILEAGE AND TEMP FOR INPUT OIL TEMP PROFILES             SETUP
+C D  129-150   SPARE
+C D  151-164   CALC MILEAGE -  OIL AND STEEL PROFILE DATA               SETUP
+C D  165-170   SPARE
+C D  171-184   CALC TEMPERATURES - OIL AND STEEL PROFILE DATA           SETUP
+C D  185-200   SPARE
+C D  201-228   MILEAGE AND TEMP FOR INPUT STEEL TEMP PROFILES           SETUP
+C D  229-300   SPARE
+C
+C
+C   ***** Z VECTOR  (LENGTH= 300)                                       MAINLY
+C   ***** MISC SCRATCH STORAGE FOR INTERMEDIATE CALCULATED VALUES       USED IN
+C Z    1-100   MISC SCRATCH - TEMPORARY VALUES                          SETUP
+C Z    101     TOTAL ITERATIONS IN TIME INCREMENT                       DYFLO
+C Z    102     TIME ELASPED SINCE PUMPING BEGAN ON CURRENT BATCH, HOURS DYFLO
+C Z    103     TIME INTERVAL USED IN CALCULATIONS, HOURS                DYFLO
+C Z    104     TOTAL NO OF BATCHES EXITED SINCE THIS RUN BEGAN          DYFLO
+C Z  105-114   TOTAL STD BBLS IN OF BATCH I, I=1,10                     DYFLO
+C Z  115-124   TOTAL STD BBLS OUT OF BATCH I ,I=1,10                    DYFLO
+C Z  125-134   AVG TEMP OF BATCH I AT OUTLET, I=1,10  , DEG F           DYFLO
+C Z  145-146   SPARE
+C Z    147     Q IN AT INLET OVER THIS TIME INTERVAL, MMBTU             HTBAL
+C Z    148     TOTAL Q DUE TO FRICTION OVER THIS TIME INTERVAL, MMBTU   HTBAL
+C Z    149     Q OUT IN OIL AT TERMINUS OVER THIS TIME INTERVAL, MMBTU  HTBAL
+C Z    150     Q OUT TO SOIL OVER THIS TIME INTERVAL, MMBTU             HTBAL
+C Z    151     TOTAL Q OUT OVER THIS TIME INTERVAL, MMBTU               HTBAL
+C Z    152     CUM. Q IN AT INLET SINCE PUMPING ON THIS BATCH           HTBAL
+C Z    153     Q CONTENT IN OIL AT START OF PUMPING ON THIS BATCH       HTBAL
+C Z    154     Q CONTENT IN STEEL AT START OF PUMPING ON THIS BATCH     HTBAL
+C Z    155     CUM. Q DUE TO FRICTION SINCE PUMPING ON THIS BATCH       HTBAL
+C Z    156     CUM. Q OUT AT TERM. SINCE PUMPING BEGAN ON THIS BATCH    HTBAL
+C Z    157     CUM. Q OUT TO SOIL SINCE PUMPING BEGAN ON THIS BATCH     HTBAL
+C Z    158     CUM. Q OUT (TOTAL) SINCE PUMPING BEGAN ON THIS BATCH     HTBAL
+C Z    159     CUM. Q IN LESS GAIN IN OIL AND STEEL                     HTBAL
+C Z    160     VELOCITY        OF OIL CURRENTLY BEING PUMPED AT INLET   TMATX
+C Z    161     REYNOLDS NO     OF OIL CURRENTLY BEING PUMPED AT INLET   TMATX
+C Z    162     R(F)            OF OIL CURRENTLY BEING PUMPED AT INLET   TMATX
+C Z    163     R(T)            OF OIL CURRENTLY BEING PUMPED AT INLET   TMATX
+C Z    164     DENSITY         OF OIL CURRENTLY BEING PUMPED AT INLET   TMATX
+C Z    165     HEAT CAPACITY   OF OIL CURRENTLY BEING PUMPED AT INLET   TMATX
+C Z    166     PIPE HEAT CAPACITY AT INLET                              TMATX
+C Z    167     PRESSURE DROP AT INLET CONDITIONS                        TMATX
+C Z    168     FRICTIONAL HEAT AT INLET CONDITIONS                      TMATX
+C Z    169     RATIO OF SG AT 60 TO SG AT TEMP AT INLET CONDITIONS      TMATX
+C Z    170     NO OF DIFFERENT BATCHES PUMPED UP TO CURRENT TIME        DYFLO
+C Z  171-196   SPARE
+C Z    197     ITER COUNT BOX IN SR EQFLO HEAT BALANCE CONVERGENCE      EQFLO
+C Z    198     CUM. NO. OF TIMES ITERATION LOOP EXCEEDED IN SR TPROF    TPROF
+C Z    199     CUM. ITERATIONS FOR TEMP SEARCH IN SR TPROF              TPROF
+C Z  200-224   MISC SCRATCH -TEMPORARY VALUES                           TMATX
+C Z    225     AVG TEMP OF CURRENTLY EXITING BATCH SINCE LAST OUTPUT    INTFAC
+C Z  226-249   SPARE
+C Z    250     OIL TEMP AT OUTLET AT TIME ZERO OR AT END OF COOLDOWN    OUTTM
+C Z    251     CALL COUNTER FOR SR OUTTM                                OUTTM
+C Z    252     CLOCK TIME AT PREVIOUS CALL OF SR OUTTM                  OUTTM
+C Z    253     CUMULATIVE DELTA P AT LAST CALL OF SR OUTTM              OUTTM
+C Z  254-300   SPARE
+C
+C
+C   ***** T MATRIX (SIZE-22 ROWS BY K (DELTA X+1) INCREMENTS, K=NTR)
+C   ***** TEMP AND PROPERTIES OF PIPE AND CONTENTS AT A POINT IN TIME   MAINLY
+C   ***** AVERAGE PROPERTIES OVER DELTA X LENGTH ,ONE DELTA X PER       USED IN
+C   ***** COLUMN
+C T    1,K     OIL TEMP AT START OF DELTA X AND START OF TIME INTERVAL  DYFLO
+C T    2,K     PIPE TEMP AT START OF DELTA X AND START OF TIME INTERVAL DYFLO
+C T    3,K     OIL TEMP AT START OF DELTA X AND END OF TIME INTERVAL    DYFLO
+C T    4,K     PIPE TEMP AT START OF DELTA X AND END OF TIME INTERVAL   DYFLO
+C T    5,K     VELOCITY, FT/HR                                          DYFLO
+C T    6,K     REYNOLDS NO IN SPECIAL UNITS                             FDELP
+C T    7,K     COMB FLUID FILM AND SCALE RESISTANCE, HR-FT-DEG F/BTU    DYFLO
+C T    8,K     COMB INSL AND SOIL RESISTANCE, HR-FT-DEG F/BTU           DYFLO
+C T    9,K     OIL DENSITY, LB/CUFT                                     DYFLO
+C T   10,K     OIL HEAT CAPACITY, BTU/LB-DEG F                          DYFLO
+C T   11,K     PIPE HEAT CAPACITY, BTU/LB-DEG F                         DYFLO
+C T   12,K     PRESSURE DROP OVER DELTA X , PSI                         DYFLO
+C T   13,K     FRICTIONAL HEAT, BTU/FT-HR                               DYFLO
+C T   14,K     HEAT CONTAINED IN OIL AT START OF TIME INTERVAL, MMBTU   DYFLO
+C T   15,K     HEAT CONTAINED IN OIL AT END   OF TIME INTERVAL, MMBTU   DYFLO
+C T   16,K     HEAT CONTAINED IN PIPE AT START OF TIME INTERVAL, MMBTU  DYFLO
+C T   17,K     HEAT CONTAINED IN PIPE AT END   OF TIME INTERVAL, MMBTU  DYFLO
+C T   18,K     RATE OF HEAT LOSS TO SOIL, MMBTU/HR                      DYFLO
+C T   19,K     STANDARD BBL OF OIL CONTAINED IN DELTA X                 DYFLO
+C T   20,K     RATIO OF OIL SP GR AT 60 DEG F TO SP GR AT TEMP          DYFLO
+C T   21,K     KEY DENOTING FRACTION OF BATCH REMAINING IN DELTA X      DYFLO
+C T   22,K     SPARE
+C
+C
+C   ***** IT MATRIX  (SIZE-2 ROWS BY L (DELTA X+1) INCREMENTS, L=NTR)
+C   ***** BATCH ID CODE AND PIPE SEGMENT CODE IN DELTA X, ONE DELTA X   MAINLY
+C   ***** PER COLUMN                                                    USED IN
+C IT   1,L     PIPE SEGMENT CODE NUMBER                                 DYFLO
+C IT   2,L     OIL BATCH CODE NUMBER                                    DYFLO
+C
+C
+C   ***** NON SUBSCRIPTED VARIABLES
+C M1           ID FOR INPUT DEVICE                                      MAIN
+C M2           ID FOR OUTPUT DEVICE                                     MAIN
+C NTR          MAX NO OF ROWS IN T AND IT MATRICES                      SETUP
+C NTC          MAX NO OF COLUMNS IN T MATRIX                            SETUP
+C MNB          MAX NO OF OIL BATCHES                                    SETUP
+C MNP          MAX NO OF PIPELINE SEGMENTS                              SETUP
+C NDX          NO OF DELTA X INCREMENTS ALONG PIPELINE FOR CALCS        SETUP
+      A= 1.0 * 1.0
+      RETURN
+      END
+ 1.0      2.0       5.0       0.5       5.0       1.0       1.0       01PCA
+ 0.0      5.0       0.01      10.0      0.5                           02PCA
+ 0.0                                                                  03PCA
+                                                  4.0       1.0       04PCA
+ 1.0      10.0      -0.0004   122.      210.      424.      41.       01 RESID
+ 100.     200.      0.0788    0.0762                                  02 RESID
+ 100.0    200.0     0.46      0.46                                    03 RESID
+ 2.0      32.02     -0.000536 100.0     212.0     6.8       2.5       04LT CRD
+ 100.0    200.0     0.0762                                            05LT CRD
+ 100.0    200.0     0.595                                   9.5       06LT CRD
+ 3.0      35.0      -0.00058  100.0     200.0     3.5       1.6       07MO 2 FO
+ 100.0    200.0     0.0788    0.0762                                  08NO 2 FO
+ 100.0    200.0     0.475     0.525                                   09NO 2 FO
+ 4.0      10.0      -0.0001   68.0      122.0     1.0       0.549     10 WATER
+ 32.0     32.0      0.343     0.343                                   11 WATER
+ 60.0     200.0     1.0       1.0                                     12 WATER
+ 1.0      82.0      18.0      0.375     490.0     0.005               01SEG NO 1
+ 32.0     212.0     26.0      26.0      0.106     0.118               02SEG NO 1
+          2.0                 0.0138    0.0258                        03SEG NO 1
+          48.0      60.0      0.75                                    04SEG NO 1
+
+ SAMPLE PROBLEM NO 1                                                  01TITLE
+                                                                      02TITLE
+ 1.0      1.0                 1.0       1.0       5.0                 03CONTROL
+ 1.0                                                                  04CONTROL
+ 1.0      100000.   180.                24.0      5.0                 11 RESID
+
+ SAMPLE PROBLEM 2                                                     01TITLE
+ 180F RESID FOLLOWED BY NO 2 AND CRUDE                                02TITLE
+ 1.0      3.0                 0.5       1.0       5.0       1.0       03CONTROL
+ 1.0                                                                  04CONTROL
+ 1.0      100000.0  180.0                                             11 RESID
+ 3.0      100000.   90.       12.0                5.0                 12 NO 2
+ 2.0      100000.   100.      30.                 5.0                 13 CRUDE
+
+ STOP
+ }%w¬
