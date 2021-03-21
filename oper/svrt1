@@ -1,0 +1,135 @@
+      SUBROUTINE SVRT1(Y,IND)                                           VRT10050
+C     SUBROUTINE OF SLNK 2                                              VRT10060
+C     COMPUTE INVERSE OF COMPACTED Y(1-NSQ) MATRIX BACK IN Y(1-NSQ)     VRT10070
+C     IND=0 IF SINGULAR                                                 VRT10080
+C     IND=1 IF INVERSE SUCCESSFULLY COMPUTED                            VRT10090
+C     MAX. 6*6,  FOR USE IN SLNK2                                       VRT10100
+C     INVERSE SHOULD BE SYMMETRIC, COULD FORCE THE RESULT BY AVERAGING  VRT10110
+C     STRESS PROGRAMMING SYSTEM FOR IBM 1130                            VRT10120
+C     DIMENSION AND COMMON STATEMENTS WHICH MUST APPEAR IN ALL ROUTINES VRT10130
+C     SYSTEM PARAMETERS  -  14 WORDS                                    VRT10140
+      DIMENSION NSYSF(6)                                                VRT10150
+      DIMENSION NPRBF(6)                                                VRT10160
+      DIMENSION NARRF(36)                                               VRT10170
+      DIMENSION  JMIN(250),JPLS(250),MTYP(250)                                  
+      DIMENSION R(6,6)
+      DIMENSION Y(1)                                                    VRT10200
+      COMMON NTMP,KCUR,NAVAL,NOVER,ISOLV,ISUCC,ISCAN,ITRAC,NSYSF        VRT10210
+C     PROBLEM PARAMETERS  -  30 WORDS                                   VRT10220
+      COMMON NJ,NB,NDAT,NFJS,NLDS,NLDSI,ID,NCORD,JF,NSQ,IMETH,NMR,NJR,  VRT10230
+     1IBETA,IYOUN,ISHEA,GSHEA,EYOUN,FILL1,FILL2,IPZER,ISTRS,NPRBF             VRT10240
+C     PLATE PARAMETERS                                                  $RT10244
+      COMMON IPLAT,NPLAT,KPLA1,KPLAT,KTHI1,KTHIK                        $RT10246
+C     ARRAY CODEWORDS  40 PAIRS = 80 WORDS                              VRT10250
+      COMMON KNAM1,KNAME,KXY1,KXYZ,KJRE1,KJREL,MEGA1,MEGAZ,KMEM1,KMEMB, VRT10260
+     1KBET1,KBETA,KYON1,KYOUN,KSHE1,KSHEA,KMRE1,KMREL,KMEG1,KMEGA,      VRT10270
+     2KMKS1,KMKST,KROT1,KROTE,KPPL1,KPPLS,KPMN1,KPMNS,LOAD1,LOADS,      VRT10280
+     3KLIN1,KLINT,MLOA1,MLOAD,JLOA1,JLOAD,KDIA1,KDIAG,KOFD1,KOFDG,      VRT10290
+     4KPPR1,KPPRI,KSTA1,KSTAT                                           VRT10300
+      COMMON NARRF                                                      VRT10310
+C  MEMBER INCIDENCE AND TYPE TABLES  250 JOINTS  500 MEMBERS                    
+      COMMON JMIN,JPLS,MTYP                                             $RT10330
+C     SCRATCH AREA CAN BE INSERTED AS DESIRED FOR EACH ROUTINE          VRT10340
+C     SCRATCH AREA                                                      VRT10350
+C     MATRIX OPERATION AREAS  -  EACH TO CONTAIN NSQ VALUES,            VRT10360
+C     OR A MAX. OF 36.  36*2=72, THUS 4 FILE RECORDS ARE NEEDED.        VRT10370
+C     SUBSCRIPT COMPUTATION FUNCTION                                    VRT10400
+      IJF(I,J)=(J-1)*JF+I                                               VRT10410
+C     SET UP UNIT MATRIX IN R                                           VRT10420
+      DO 16 I=1,JF                                                      VRT10430
+      DO 17 J=1,JF                                                      VRT10440
+17    R(I,J)=0.0                                                        VRT10450
+16    R(I,I)=1.0                                                        VRT10460
+      DO 2 I=1,JF                                                       VRT10470
+      IPLUS=I+1                                                         VRT10480
+      IMIN=I-1                                                          VRT10490
+      IF(IMIN)50,50,3                                                   VRT10500
+C     FIRST ROW                                                         VRT10510
+4     DO 7 J=2,JF                                                       VRT10520
+      KK=IJF(1,J)                                                       VRT10530
+7     Y(KK)=Y(KK)/Y(1)                                                  VRT10540
+      DO 40 J=1,JF                                                      VRT10550
+40    R(1,J)=R(1,J)/Y(1)                                                VRT10560
+      GO TO 2                                                           VRT10570
+C     COLUMNS                                                           VRT10580
+3     DO 9 J=I,JF                                                       VRT10590
+      SUM=0.                                                            VRT10600
+      DO  10 K=1,IMIN                                                   VRT10610
+      KK=IJF(J,K)                                                       VRT10620
+      KL=IJF(K,I)                                                       VRT10630
+10    SUM=SUM+Y(KK)*Y(KL)                                               VRT10640
+      KK=IJF(J,I)                                                       VRT10650
+9     Y(KK)=Y(KK)-SUM                                                   VRT10660
+      GO TO 50                                                          VRT10670
+C     ROWS OF Y                                                         VRT10680
+19    DO 11 J=IPLUS,JF                                                  VRT10690
+       SUM=0.                                                           VRT10700
+      DO 12 K=1,IMIN                                                    VRT10710
+      KK=IJF(I,K)                                                       VRT10720
+      KL=IJF(K,J)                                                       VRT10730
+12    SUM=SUM+Y(KK)*Y(KL)                                               VRT10740
+      KK=IJF(I,J)                                                       VRT10750
+      KL=IJF(I,I)                                                       VRT10760
+11    Y(KK)=(Y(KK)-SUM)/Y(KL)                                           VRT10770
+      GO TO 20                                                          VRT10780
+C     SWITCH ROUTINE TO GET LARGEST ELEMENT IN ANY COLUMN ON            VRT10790
+C     THE DIAGONAL.                                                     VRT10800
+50    XMAX=0.0                                                          VRT10810
+      DO 51 KLM=I,JF                                                    VRT10820
+      KK=IJF(KLM,I)                                                     VRT10830
+      SUM=ABS(Y(KK))                                                    VRT10840
+      IF(SUM-XMAX)51,52,52                                              VRT10850
+52    XMAX=SUM                                                          VRT10860
+      INEW=KLM                                                          VRT10870
+51    CONTINUE                                                          VRT10880
+      IF(XMAX)33,33,53                                                  VRT10890
+C     SINGULAR MATRIX                                                   VRT10900
+33    IND=0                                                             VRT10910
+      RETURN                                                            VRT10920
+C     CHECK IF LAST ROW  -  SKIP ROWS OF Y AND SWITCH                   VRT10930
+53    IF(I-JF)57,20,20                                                  VRT10940
+C     CHECK IF LARGEST ELEMENT ALREADY IS ON THE DIAGONAL - SKIP SWITCH VRT10950
+57    IF(INEW-I)56,56,58                                                VRT10960
+58    DO 54 JSW=1,JF                                                    VRT10970
+      KK=IJF(I,JSW)                                                     VRT10980
+      SWICH=Y(KK)                                                       VRT10990
+      KL=IJF(INEW,JSW)                                                  VRT11000
+      Y(KK)=Y(KL)                                                       VRT11010
+54    Y(KL)=SWICH                                                       VRT11020
+      DO 55 JSW=1,JF                                                    VRT11030
+      SWICH=R(I,JSW)                                                    VRT11040
+      R(I,JSW)=R(INEW,JSW)                                              VRT11050
+55    R(INEW,JSW)=SWICH                                                 VRT11060
+C     RETURN TO 4 IF THE FIRST ROW                                      VRT11070
+56    IF(IMIN)4,4,19                                                    VRT11080
+C     ROWS OF R                                                         VRT11090
+20    DO 22 J=1,JF                                                      VRT11100
+      SUM=0.                                                            VRT11110
+      DO 23 K=1,IMIN                                                    VRT11120
+      KK=IJF(I,K)                                                       VRT11130
+23    SUM=SUM+Y(KK)*R(K,J)                                              VRT11140
+      KK=IJF(I,I)                                                       VRT11150
+22    R(I,J)=(R(I,J)-SUM)/Y(KK)                                         VRT11160
+2     CONTINUE                                                          VRT11170
+C     BACK SUBSTITUTE                                                   VRT11180
+      DO 21 J=1,JF                                                      VRT11190
+      I=JF-1                                                            VRT11200
+24    SUM=0.                                                            VRT11210
+      L=JF                                                              VRT11220
+25    KK=IJF(I,L)                                                       VRT11230
+      SUM=SUM+Y(KK)*R(L,J)                                              VRT11240
+      L=L-1                                                             VRT11250
+      IF(I-L)25,26,26                                                   VRT11260
+26    R(I,J)=R(I,J)-SUM                                                 VRT11270
+      I=I-1                                                             VRT11280
+      IF(I)21,21,24                                                     VRT11290
+21    CONTINUE                                                          VRT11300
+      N=0                                                               VRT11310
+      DO 27 J=1,JF                                                      VRT11320
+      DO 27 I=1,JF                                                      VRT11330
+      N=N+1                                                             VRT11340
+27    Y(N)=R(I,J)                                                       VRT11350
+      IND=1                                                             VRT11360
+      RETURN                                                            VRT11370
+      END                                                               VRT11380
+    
