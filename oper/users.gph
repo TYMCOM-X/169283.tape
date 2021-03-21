@@ -1,0 +1,377 @@
+PROCEDURE USERS.GRAPH
+%Version 1.0, Dec. 30, 1975 
+Produces an Average User graph from 370 detail %
+BEGIN
+
+FIELDS
+  SCALE         AS '1N',        % Allows vertical scaling (more than 54 lines)%
+  USERS.SW    SAME AS TYM,      % Controls whether USERS relation is used. %
+  TIME.OF.COUNT         AS '2Z',        %minutes of day divided by 15%
+  INHOUSE.COUNT         AS '5Z',    % Accumulated count of inhouse users %
+  OUTHOUSE.COUNT        AS '5Z',    % Accumulated count of outhouse users %
+  MAX.CNT               AS '5Z',    % Maximum count for a page or host %
+  START.DATE            AS DATE 'ZM/ZD/YY',  %Start of week for graph %
+  LAST.DSTOP    SAME AS DSTOP,          % Dstop of last Tran %
+  LAST.TSTOP    SAME AS TSTOP,          % TSTOP of last Tran %
+  TEMP.TYM        SAME  AS TYM,         % Temporary storage for TYM flag %
+  PERIOD                AS '2Z',        % Length of period in days %
+  TOTAL.CNT             AS '5Z',        % Total of all TIME.OF.COUNTs %
+  SESS.CNT              AS '5Z',        % Total number of sessions %
+  HOST.CNT              AS '4Z',        % Total TIME.OF.COUNTs for a host %
+  TIME.TMP              AS '4Z',        % Average session time %
+  DEFAULT.CNT           AS '4Z',        % UUN not in database, made customer %
+  LINE.COUNT            AS '2Z'     % Line counter for report %
+
+RELATION USE.COUNTS IS
+  KEY
+        HOST,           % Host computer number %
+        TIME.OF.COUNT   % Seconds of day divided by 15 * 60 %
+  DATA
+        INHOUSE.COUNT,  % Accumulated count of inhouse users %
+        OUTHOUSE.COUNT  % Accumulated count of outhouse users %
+
+
+RELATION MAX.COUNT IS
+  KEY
+        HOST
+  DATA
+        MAX.CNT,
+        TIME.OF.COUNT
+
+
+
+REPORT TO "*"
+  PAGE.SIZE 60
+  HEADING.SIZE 2
+
+
+  PAGE.HEADING
+    PRINT
+      @TAB 23, "SYSTEM",HOST,
+      " AVERAGE USAGE FOR",
+      PERIOD,
+      " DAYS BEGINNING ",
+      START.DATE AS DATE "MMM. ZD, YYYY", @CR,
+      "---------------------------------",
+      "---------------------------------",
+      "---------------------------------", @CR
+
+
+
+% Initialize fields %
+
+LET RESOURCE = 50                       % For connect time transaction %
+
+TYPE
+  "Enter Starting Date for period desired (MM/DD/YY): "
+
+ACCEPT START.DATE
+
+TYPE
+  @CR, "Enter no. of days in period: "
+
+ACCEPT PERIOD
+
+TYPE
+  @CR, "Is Users Table available? (Y or N): "
+
+ACCEPT USERS.SW
+
+MOVE 0 TO TOTAL.CNT, SESS.CNT, DEFAULT.CNT
+
+
+% Go through SESSION and accumulate counts for this week%
+
+FOR EACH SESSION
+  WHERE DSTART GE START.DATE - 1 AND LE START.DATE + PERIOD - 1
+CNTBLK:
+    BEGIN
+    LET LAST.DSTOP = DSTART
+    LET LAST.TSTOP = TSTART
+    FOR EACH TRAN VIA (SESS, RESOURCE)
+      BEGIN
+      LET LAST.DSTOP = DSTOP
+      LET LAST.TSTOP = TSTOP
+      END
+    IF LAST.DSTOP = DSTART AND LAST.TSTOP = TSTART THEN
+      NOTHING           % No connect time to record %
+    ELSE
+      BEGIN             %log the connect time in the counters %
+      % Now find out which set of counters, INHOUSE or OUTHOUSE %
+      MOVE " " TO TEMP.TYM      % To allow check for invalid UUN %
+
+      IF USERS.SW = "Y" THEN
+        BEGIN
+CKCLASS:
+          FOR EACH USER VIA UUN
+        IF DSTART OF SESSION GE DSTART OF USER AND
+                          LE DSTOP OF USER THEN
+          BEGIN
+          IF CUS.NUM NE 1 THEN
+            LET TEMP.TYM = "N"
+          ELSE
+            LET TEMP.TYM = "Y"          % For CUS.NUM = 1, INHOUSE user %
+          FINISH CKCLASS
+          END
+      IF TEMP.TYM EQ " " THEN
+        BEGIN
+        ADD 1 TO DEFAULT.CNT
+        MOVE "N" TO TEMP.TYM
+        END
+
+        END             % Check of USERS.SW, to be removed later %
+      ELSE
+        MOVE "N" TO TEMP.TYM
+
+      IF DSTART EQ START.DATE - 1 THEN
+        IF LAST.DSTOP EQ START.DATE - 1 THEN
+          FINISH CNTBLK         % Date ends before desired week %
+        ELSE
+          BEGIN                 % Set Start date & time to beginning of week%
+          LET DSTART = START.DATE
+          LET TSTART = 0
+          END
+
+      IF LAST.DSTOP GE START.DATE + PERIOD THEN
+        BEGIN
+        LET LAST.DSTOP = START.DATE + PERIOD -1
+        LET LAST.TSTOP = 24   % Time at end of day %
+        END
+
+      ADD 1 TO SESS.CNT
+
+      % Now increment appropiate counters %
+
+
+      % Check for over 24 hours %
+      IF LAST.DSTOP GT DSTART THEN
+        IF ((LAST.DSTOP - DSTART) GT 1 ) OR
+           TSTART LE LAST.TSTOP THEN
+        % Increment counters for a whole day %
+        BEGIN
+        MOVE 0 TO TIME.OF.COUNT    % For start of day %
+        WHILE TIME.OF.COUNT LT 96 DO
+          BEGIN
+          SELECT USE.COUNTS VIA KEY THEN
+              BEGIN
+              IF TEMP.TYM EQ "Y" THEN
+                ADD 1 TO INHOUSE.COUNT
+              ELSE
+                ADD 1 TO OUTHOUSE.COUNT
+              ALTER USE.COUNTS
+              END
+            ELSE
+              BEGIN
+              IF TEMP.TYM EQ "Y" THEN
+                BEGIN
+                MOVE 1 TO INHOUSE.COUNT
+                MOVE 0 TO OUTHOUSE.COUNT
+                END
+              ELSE
+                BEGIN
+                MOVE 0 TO INHOUSE.COUNT
+                MOVE 1 TO OUTHOUSE.COUNT
+                END
+              INSERT INTO USE.COUNTS
+              END
+
+          ADD 1 TO TIME.OF.COUNT                   % To next 15 min. %
+          END                   % End of WHILE block %
+
+        END             % End of 24 hour increment %
+      IF TSTART GT LAST.TSTOP THEN
+        % Across midnight session %
+        BEGIN
+        WHILE TSTART LT 24 DO
+          BEGIN                 % Up to midnight %
+          LET TIME.OF.COUNT = TSTART * 4      % For once each 15 min %
+          SELECT USE.COUNTS VIA KEY THEN
+              BEGIN
+              IF TEMP.TYM EQ "Y" THEN
+                ADD 1 TO INHOUSE.COUNT
+              ELSE
+                ADD 1 TO OUTHOUSE.COUNT
+              ALTER USE.COUNTS
+              END
+            ELSE
+              BEGIN
+              IF TEMP.TYM EQ "Y" THEN
+                BEGIN
+                MOVE 1 TO INHOUSE.COUNT
+                MOVE 0 TO OUTHOUSE.COUNT
+                END
+              ELSE
+                BEGIN
+                MOVE 0 TO INHOUSE.COUNT
+                MOVE 1 TO OUTHOUSE.COUNT
+                END
+              INSERT INTO USE.COUNTS
+              END
+
+          LET TSTART = TSTART + 0.2500             % To next 15 min. %
+          END                   % End of WHILE block %
+
+        LET TSTART = TSTART - 24         % To start of day %
+        END                     % of While block %
+
+      ELSE NOTHING
+
+      % Now count for LAST.TSTOP GT TSTART %
+
+      WHILE TSTART LE LAST.TSTOP DO
+        BEGIN
+        LET TIME.OF.COUNT = TSTART * 4        % For each 15 min. %
+        SELECT USE.COUNTS VIA KEY THEN
+            BEGIN
+            IF TEMP.TYM EQ "Y" THEN
+              ADD 1 TO INHOUSE.COUNT
+            ELSE
+              ADD 1 TO OUTHOUSE.COUNT
+            ALTER USE.COUNTS
+            END
+          ELSE
+            BEGIN
+            IF TEMP.TYM EQ "Y" THEN
+                BEGIN
+                MOVE 1 TO INHOUSE.COUNT
+                MOVE 0 TO OUTHOUSE.COUNT
+                END
+              ELSE
+                BEGIN
+                MOVE 0 TO INHOUSE.COUNT
+                MOVE 1 TO OUTHOUSE.COUNT
+                END
+              INSERT INTO USE.COUNTS
+              END
+
+        LET TSTART = TSTART + 0.2500             % To next 15 min. %
+        END                   % End of WHILE block %
+
+      END                 % End of major IF block %
+    END                 % End of this session %
+
+
+TYPE
+  @CR, "End of accumulation pass.", @CR
+IF DEFAULT.CNT GT 0 THEN
+  TYPE
+    DEFAULT.CNT, " records defaulted to customer - UUN not in USER database",
+  @CR
+
+FOR EACH USE.COUNTS
+  SELECT MAX.COUNT VIA KEY THEN
+    IF (INHOUSE.COUNT + OUTHOUSE.COUNT) GT MAX.CNT THEN
+      BEGIN
+      LET MAX.CNT = INHOUSE.COUNT + OUTHOUSE.COUNT
+      LET TIME.OF.COUNT = TIME.OF.COUNT OF USE.COUNTS
+      ALTER MAX.COUNT
+      END
+    ELSE NOTHING
+  ELSE
+    BEGIN
+    LET MAX.CNT = INHOUSE.COUNT + OUTHOUSE.COUNT
+    LET TIME.OF.COUNT = TIME.OF.COUNT OF USE.COUNTS
+    INSERT INTO MAX.COUNT
+    END
+
+TYPE
+  "Do you want the statistics typed? (Y or N) : "
+
+ACCEPT TYM
+
+IF TYM = "Y" THEN
+  BEGIN
+  TYPE @CR, "HOST  MAXIMUM      AVG.USE    AVG. #",@CR,
+            "      CNT. TIME    PER DAY    OF USERS", @CR
+
+  FOR EACH MAX.COUNT
+    BEGIN
+    TYPE HOST, MAX.CNT / PERIOD, " ",
+
+      (TIME.OF.COUNT / 4 ) AS "ZNN",":",
+      ( (TIME.OF.COUNT - ( (TIME.OF.COUNT / 4) * 4) ) * 15 ) AS "2N", "  "
+    MOVE 0 TO HOST.CNT
+    FOR EACH USE.COUNTS VIA HOST
+      LET HOST.CNT = HOST.CNT + INHOUSE.COUNT + OUTHOUSE.COUNT
+    ADD HOST.CNT TO TOTAL.CNT
+    LET HOST.CNT = HOST.CNT / PERIOD    % For days average %
+    TYPE
+      (HOST.CNT / 4 ) AS "ZZZNN", ":",
+      ((HOST.CNT - ((HOST.CNT / 4 ) * 4)) * 15) AS "2N", "  ",
+      (HOST.CNT/96.0 ) AS "4Z.N", @CR   % Avg. no. of users %
+    END
+
+  TYPE @CR,
+    "Total no. of sessions: ", SESS.CNT, @CR,
+    "Average no. of sessions per day: ", SESS.CNT/PERIOD, @CR
+  LET TIME.TMP = (TOTAL.CNT AS "5N.4N"/SESS.CNT) * 60
+  TYPE
+    "Average session time: ",
+    (TIME.TMP / 60) AS "ZN", ":",
+    (TIME.TMP - (TIME.TMP / 60) * 60) AS "2N", @CR, @CR
+  END
+
+TYPE @CR
+
+
+% Now ready to print report %
+
+FOR EACH MAX.COUNT WRITE REPORT
+  BEGIN
+  LET MAX.CNT = MAX.CNT / PERIOD
+  IF MAX.CNT GT 54 THEN
+    LET SCALE = 2
+  ELSE
+    LET SCALE = 1
+  MOVE MAX.CNT TO LINE.COUNT
+  IF (LINE.COUNT LT 50 OR SCALE NE 1) THEN
+    BEGIN
+    LET LINE.COUNT = LINE.COUNT + 5 * SCALE
+    WHILE LINE.COUNT GT MAX.CNT DO
+      BEGIN
+      PRINT LINE.COUNT, @CR
+      SUBTRACT SCALE FROM LINE.COUNT
+      END
+    END
+
+  DO
+    BEGIN
+    PRINT LINE.COUNT," "
+
+    MOVE 0 TO TIME.OF.COUNT
+    DO
+      BEGIN
+      SELECT USE.COUNTS VIA KEY THEN
+        IF (LINE.COUNT * PERIOD) LE INHOUSE.COUNT THEN
+          PRINT "*"
+        ELSE
+          IF (LINE.COUNT * PERIOD) LE (INHOUSE.COUNT + OUTHOUSE.COUNT) THEN
+            PRINT "$"
+          ELSE
+            PRINT " "
+      ELSE
+        PRINT " "
+      ADD 1 TO TIME.OF.COUNT
+      END
+    WHILE TIME.OF.COUNT LT (24 * 4)
+    PRINT @CR
+    SUBTRACT SCALE FROM LINE.COUNT
+    END
+  WHILE LINE.COUNT GT 0
+
+    PRINT
+      @TAB 3,
+      "^...^...^...^...^...^...",
+      "^...^...^...^...^...^...",
+      "^...^...^...^...^...^...",
+      "^...^...^...^...^...^...", @CR,
+      @TAB 3, "0   1   2   3   4   5   6   7   8   9  10  11  ",
+      "12  13  14  15  16  17  18  19  20  21  22  23",@CR,
+      "---------------------------------",
+      "---------------------------------",
+      "---------------------------------", PAGE.TOP
+
+  END
+
+END
+   
