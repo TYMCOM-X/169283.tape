@@ -1,0 +1,473 @@
+PROCEDURE ATM.AC.COM.UPD % EXT: ATMAC.UPD  MAG: VTHXE0.M#2 %
+% Tymshare Commission Year-to-date Commission Posting       %
+% for Area Technical Managers and Applications Consultants. %
+% Original version:  1975.04.10  / Dick Ouellette (GIGO) %
+% Current version:   1976.04.09  / Steve Albanese (SALBANESE) %
+%
+Changes:
+     1976.04.09 -  Added code to compute reserve payments, after each quarter
+                   (see line 19 calculations).
+     1976.04.02 -  Modified calculations for line 18
+                   Turned off reserve payment logic.
+     1976.03.22 -  NAR perct for SR under BM
+                   COMM THIS MONTH out of reserve if under MON IB %
+  BEGIN
+
+  FIELD TCV.TRUE AS 'N' DEFAULT 1,
+        TCV.FALSE AS 'N' DEFAULT 0,
+        ERR.FLAG  AS 'N' DEFAULT 0,
+        TCU.M.BASE          SAME AS M.BASE.REV.Q,
+        TCU.Y.BASE          SAME AS M.BASE.REV.Q,
+        TCU.M.NRQ           SAME AS M.BASE.REV.Q,
+        TCU.Y.NRQ           SAME AS M.BASE.REV.Q,
+        TCU.M.REV.BEF.ADJ   SAME AS M.BASE.REV.Q,
+        TCU.Y.REV.BEF.ADJ   SAME AS M.BASE.REV.Q,
+        TCU.M.REV.ADJ       SAME AS M.BASE.REV.Q,
+        TCU.Y.REV.ADJ       SAME AS M.BASE.REV.Q,
+        TCU.M.INCENT.BASE   SAME AS M.BASE.REV.Q,
+        TCU.Y.INCENT.BASE   SAME AS M.BASE.REV.Q,
+        TCU.TOT.INCENT.ERND SAME AS M.BASE.REV.Q,
+        TCU.TOT.NROQ.BONUS  SAME AS M.BASE.REV.Q,
+        TCU.PREV.COM.EARNED SAME AS M.BASE.REV.Q,
+        TCU.M.RESERVE.PMT   SAME AS M.BASE.REV.Q,
+        TCU.Y.RESERVE.PMT   SAME AS M.BASE.REV.Q,
+        P.RESERVE.PMT      SAME AS M.BASE.REV.Q,
+        TCU.M.PRODUCT.COM   SAME AS M.BASE.REV.Q,
+        TCU.Y.PRODUCT.COM   SAME AS M.BASE.REV.Q,
+        TCU.M.CHARGEBACKS   SAME AS M.BASE.REV.Q,
+        TCU.Y.CHARGEBACKS   SAME AS M.BASE.REV.Q,
+        TCU.M.COM.ADJ       SAME AS M.BASE.REV.Q,
+        TCU.Y.COM.ADJ       SAME AS M.BASE.REV.Q,
+        TCU.DRAW.AMOUNT     SAME AS M.BASE.REV.Q,
+        TCU.Y.RECV.DRAW.USED SAME AS M.BASE.REV.Q,
+        TCU.M.NONR.DRAW.USED SAME AS M.BASE.REV.Q,
+        TCU.Y.NONR.DRAW.USED SAME AS Y.BASE.REV.Q,
+        TCU.M.DRAW.RECVRY   SAME AS M.BASE.REV.Q,
+        TCU.Y.DRAW.RECVRY   SAME AS M.BASE.REV.Q,
+        TCU.Y.COM.PAYABLE  SAME AS M.BASE.REV.Q,
+        YTD.TQ              SAME AS M.BASE.REV.Q,
+        YTD.TSR             SAME AS M.BASE.REV.Q,
+        YTD.NR              SAME AS M.BASE.REV.Q,
+        YTD.NROQ            SAME AS M.BASE.REV.Q,
+        PC.QUOTA            AS 'NNNN.NNN',
+        PC.NROQ             SAME AS PC.QUOTA,
+        PC.RESERVE          SAME AS PC.QUOTA,  % Percent of reserve of pmt %
+        P.C.1ST.Q           SAME AS PC.QUOTA,  % Percent for 1st quarter   %
+        P.C.2ED.Q           SAME AS PC.QUOTA,  % Percent for 2ed quarter   %
+        P.C.3RD.Q           SAME AS PC.QUOTA,  % Percent for 3rd quarter   %
+        P.C.4TH.Q           SAME AS PC.QUOTA,  % Percent for 4th quarter   %
+        NET.COM             SAME AS M.BASE.REV.Q,
+        P.COM.THIS.MO       SAME AS M.BASE.REV.Q,
+        COM.THIS.MO.ON.Y    SAME AS M.BASE.REV.Q
+
+  FIELD TCU.DM.SNO          SAME AS SALESNUM.5N,
+        TCU.DM.ENO          SAME AS SALESNUM.5N,
+        TCU.PLAN.STATUS     SAME AS PLAN.STATUS,
+        TCU.DRAW.TYPE       SAME AS DRAW.TYPE,
+        TCU.NROQ.FACTOR     SAME AS PC.N.R.O.Q
+
+  FIELD SUM.OF.DIGITS      AS 'NN',
+        CNTR               AS 'NN'
+
+
+  REPORT TO "TER"    PAGE.SIZE 0
+                   HEADING.SIZE 3
+                   TOP.MARGIN 3
+                   PAGE.DIVIDER "---"
+        PAGE.HEADING
+            BEGIN
+            PRINT @TAB TO 17,"TECH. COMMISSION PLAN EXCEPTION REPORT",@TAB 8,
+                  "PAGE ",PAGE.NUM,@CR,@CR
+            PRINT @TAB TO 3,"SALESMAN",@TAB 2,"DISTRICT",@TAB 2,
+                  "COMM. TYPE",@TAB 2,"EMPLOYEE",@TAB 15,"ERROR DESCRIPTION",
+                  @CR
+            END
+
+
+  FORMAT ISP.LIST @TAB TO 5, SALESNUM.5N, @TAB 6, DISTRICT.3N, @TAB 8,
+                  COM.PLAN, @TAB 6, EMPLOYE.NUM, @TAB 3
+
+  FORMAT UND.COM.PLAN
+                " DOES NOT HAVE A COM. PLAN DEFINED"
+
+  FORMAT UNDEFINED
+                " HAS AN UNDEFINED "
+
+
+    LET TCV.TRUE, TCV.FALSE, ERR.FLAG  = DEFAULT
+
+  % Assigment of reserve payment percentages - will change as plan changes %
+
+        LET P.C.1ST.Q  =  0.10
+        LET P.C.2ED.Q  =  0.25
+        LET P.C.3RD.Q  =  0.50
+        LET P.C.4TH.Q  =  1.00
+
+
+      DO
+        BEGIN
+        TYPE 'Enter year and month processed as YY,MM : '
+        ACCEPT YR.PROCESSED, MO.PROCESSED
+        TYPE 'Year and month entered are ',YR.PROCESSED, ',' , MO.PROCESSED,
+                '.  OK? '
+        ACCEPT RESPONSE
+        END
+      WHILE RESPONSE # 'Y' AND 'y' AND 'YES' AND 'yes'
+
+
+
+    WRITE REPORT
+      BEGIN % Check identification validity %
+
+% Begin updating for all 'AC' and 'ATM' personnel %
+
+      FOR EACH ISP WHERE(COM.PLAN EQ "AC"  OR  "ATM")
+        BEGIN
+        SELECT IAREA VIA KEY
+          THEN
+            NOTHING
+          ELSE
+            BEGIN
+            PRINT ISP.LIST, UNDEFINED, " AREA ", @CR
+            LET ERR.FLAG = TCV.TRUE
+            END
+      IF COM.PLAN NE 'ATM'  THEN
+        SELECT IDIST VIA KEY
+          THEN
+            NOTHING
+          ELSE
+            BEGIN
+            PRINT ISP.LIST, UNDEFINED, "DISTRICT", @CR
+            LET ERR.FLAG = TCV.TRUE
+            % Note that 'ATM' should not have check for valid district %
+            END
+        IF COM.PLAN EQ "AC"
+          THEN
+            SELECT CAC VIA KEY
+              THEN
+                NOTHING
+              ELSE
+                BEGIN
+                PRINT ISP.LIST, UND.COM.PLAN, @CR
+                LET ERR.FLAG = TCV.TRUE
+                END
+          ELSE
+            SELECT CATM VIA KEY
+              THEN
+                NOTHING
+              ELSE
+                BEGIN
+                PRINT ISP.LIST, UND.COM.PLAN, @CR
+                LET ERR.FLAG = TCV.TRUE
+                END
+        END
+      IF ERR.FLAG EQ TCV.TRUE
+        THEN
+          ABORT "INCONSISTENT DATA IN THE MASTER RELATIONS!!"
+
+      FOR EACH ISP WHERE(COM.PLAN EQ "AC"  OR  "ATM")
+        BEGIN
+        IF COM.PLAN EQ "AC"
+          THEN                  % COM.PLAN IS A/C %
+            BEGIN
+            SELECT IDIST VIA KEY        % GET THE DM'S KEY FIELDS %
+              THEN
+                BEGIN
+                LET TCU.DM.SNO = SALESNUM.5N
+                LET TCU.DM.ENO = EMPLOYE.NUM(ISP VIA KEY)
+                END
+            SELECT YBM VIA(YR.PROCESSED, MO.PROCESSED,
+                           SALESNUM.5N = TCU.DM.SNO, EMPLOYE.NUM = TCU.DM.ENO)
+              THEN              % GET THE DIST. REV. DATA FROM THE BM %
+                BEGIN
+                LET TCU.M.REV.BEF.ADJ     = M.REV.BEF.ADJ
+                LET TCU.M.REV.ADJ         = M.REV.ADJ
+                END
+            ELSE SELECT YDM VIA(YR.PROCESSED, MO.PROCESSED,
+                           SALESNUM.5N = TCU.DM.SNO, EMPLOYE.NUM = TCU.DM.ENO)
+              THEN              % GET THE DIST. REV. DATA FROM THE DM %
+                BEGIN
+                LET TCU.M.REV.BEF.ADJ     = M.REV.BEF.ADJ
+                LET TCU.M.REV.ADJ         = M.REV.ADJ
+                END
+              ELSE LET TCU.M.REV.BEF.ADJ, TCU.M.REV.ADJ = 0
+            SELECT MPRDREV VIA KEY       % GET THE A/C'S PRODUCT COM. %
+              THEN
+                LET TCU.M.PRODUCT.COM = M.PRODUCT.COM
+              ELSE
+                LET TCU.M.PRODUCT.COM = 0
+            SELECT CAC VIA KEY  % GET THE A/C'S COM. PLAN  DATA %
+              THEN
+                BEGIN
+                LET TCU.M.BASE  = BASE.REV.Q
+                LET SUM.OF.DIGITS = 0
+                LET CNTR = MO.PROCESSED - BEGIN.MO +1
+                LET TCU.M.NRQ = CNTR * NEW.REV.Q.INC + NEW.REV.Q.BAS
+                LET TCU.M.INCENT.BASE = INCENT.BASE.Q
+                LET TCU.NROQ.FACTOR = PC.N.R.O.Q
+                LET TCU.DRAW.AMOUNT = DRAW.AMOUNT
+                LET TCU.PLAN.STATUS = PLAN.STATUS
+                LET TCU.DRAW.TYPE = DRAW.TYPE
+                END
+            IF MO.PROCESSED NE 1
+              THEN
+                SELECT YAC VIA(YR.PROCESSED, MO.PROCESSED = MO.PROCESSED - 1,
+                                SALESNUM.5N, EMPLOYE.NUM)
+                  THEN
+                    BEGIN
+                    LET TCU.Y.BASE           = Y.BASE.REV.Q
+                    LET TCU.Y.NRQ            = Y.NEW.REV.Q
+                    LET TCU.Y.REV.BEF.ADJ    = Y.REV.BEF.ADJ
+                    LET TCU.Y.REV.ADJ        = Y.REV.ADJ
+                    LET TCU.Y.INCENT.BASE    = Y.INCENT.BASE
+                    LET TCU.TOT.INCENT.ERND  = TOT.INCENT.ERND
+                    LET TCU.TOT.NROQ.BONUS   = TOT.NROQ.BONUS
+                    LET TCU.PREV.COM.EARNED  = PREV.COM.EARNED
+                    LET TCU.Y.RESERVE.PMT    = Y.RESERVE.PMT
+                    LET P.COM.THIS.MO        = COM.THIS.MO
+                    LET P.RESERVE.PMT        = M.RESERVE.PMT
+                    LET TCU.Y.PRODUCT.COM    = Y.PRODUCT.COM
+                    LET TCU.Y.CHARGEBACKS    = Y.CHARGEBACKS
+                    LET TCU.Y.COM.ADJ        = Y.COM.ADJ
+                    LET TCU.Y.RECV.DRAW.USED  = Y.RECV.DRAW.USED
+                    LET TCU.Y.NONR.DRAW.USED  = Y.NONR.DRAW.USED
+                    LET TCU.Y.DRAW.RECVRY    = Y.DRAW.RECVRY
+                    LET TCU.Y.COM.PAYABLE    = Y.COM.PAYABLE
+                    END
+            END  % OF IF COM.PLAN EQ "AC" %
+          ELSE IF COM.PLAN EQ "ATM" THEN
+            BEGIN
+            SELECT YAREA VIA KEY        % GET THE AREA REV.DATA %
+              THEN
+                BEGIN
+                LET TCU.M.REV.BEF.ADJ = M.REV.BEF.ADJ
+                LET TCU.M.REV.ADJ     = M.REV.ADJ
+                END
+            SELECT CATM VIA KEY % GET THE ATM'S COM. PLAN DATA %
+              THEN
+                BEGIN
+                LET TCU.PLAN.STATUS = PLAN.STATUS
+                LET TCU.M.BASE = BASE.REV.Q
+                LET TCU.M.INCENT.BASE = INCENT.BASE.Q
+                LET TCU.NROQ.FACTOR = PC.N.R.O.Q
+                LET TCU.DRAW.AMOUNT = DRAW.AMOUNT
+                LET TCU.DRAW.TYPE = DRAW.TYPE
+                LET SUM.OF.DIGITS = 0
+                LET CNTR = MO.PROCESSED - BEGIN.MO + 1
+                LET TCU.M.NRQ = CNTR * NEW.REV.Q.INC + NEW.REV.Q.BAS
+                END
+            IF MO.PROCESSED NE 1
+              THEN
+                BEGIN
+                SELECT YATM VIA(YR.PROCESSED, MO.PROCESSED = MO.PROCESSED -1,
+                                        SALESNUM.5N, EMPLOYE.NUM)
+                  THEN
+                    BEGIN
+                    LET TCU.Y.BASE            = Y.BASE.REV.Q
+                    LET TCU.Y.NRQ             = Y.NEW.REV.Q
+                    LET TCU.Y.REV.BEF.ADJ     = Y.REV.BEF.ADJ
+                    LET TCU.Y.REV.ADJ         = Y.REV.ADJ
+                    LET TCU.Y.INCENT.BASE     = Y.INCENT.BASE
+                    LET TCU.TOT.INCENT.ERND   = TOT.INCENT.ERND
+                    LET TCU.TOT.NROQ.BONUS    = TOT.NROQ.BONUS
+                    LET TCU.PREV.COM.EARNED   = PREV.COM.EARNED
+                    LET TCU.Y.RESERVE.PMT     = Y.RESERVE.PMT
+                    LET P.RESERVE.PMT         = M.RESERVE.PMT
+                    LET P.COM.THIS.MO         = COM.THIS.MO
+                    LET TCU.Y.COM.ADJ         = Y.COM.ADJ
+                    LET TCU.Y.RECV.DRAW.USED   = Y.RECV.DRAW.USED
+                    LET TCU.Y.NONR.DRAW.USED   = Y.NONR.DRAW.USED
+                    LET TCU.Y.DRAW.RECVRY     = Y.DRAW.RECVRY
+                    LET TCU.Y.COM.PAYABLE     = Y.COM.PAYABLE
+                    END
+                END
+            END
+
+% Process all 'AC' and 'ATM' tranactions for this month %
+
+          SELECT MACATM VIA KEY
+            THEN
+              BEGIN
+              LET TCU.M.COM.ADJ     = M.COM.ADJ
+              LET TCU.M.CHARGEBACKS = M.CHARGEBACKS
+              LET TCU.M.RESERVE.PMT = M.RESERVE.PMT
+              LET TCU.M.DRAW.RECVRY = M.DRAW.RECVRY
+              END
+            ELSE
+              LET TCU.M.COM.ADJ, TCU.M.CHARGEBACKS, TCU.M.RESERVE.PMT,
+                  TCU.M.DRAW.RECVRY     = 0
+          IF MO.PROCESSED EQ 1
+            THEN
+              LET TCU.Y.BASE, TCU.Y.NRQ, TCU.Y.INCENT.BASE, TCU.TOT.INCENT.ERND,
+                  TCU.TOT.NROQ.BONUS, TCU.PREV.COM.EARNED, TCU.Y.RESERVE.PMT,
+                  TCU.Y.PRODUCT.COM, TCU.Y.CHARGEBACKS, TCU.Y.COM.ADJ, 
+                  TCU.Y.RECV.DRAW.USED, TCU.Y.DRAW.RECVRY, TCU.Y.COM.PAYABLE,
+                  TCU.Y.NONR.DRAW.USED, TCU.Y.REV.BEF.ADJ, TCU.Y.REV.ADJ  = 0
+          LET M.BASE.REV.Q    = TCU.M.BASE
+          LET Y.BASE.REV.Q    = TCU.Y.BASE + TCU.M.BASE
+          LET M.NEW.REV.Q     = TCU.M.NRQ
+          LET Y.NEW.REV.Q     = TCU.Y.NRQ + TCU.M.NRQ
+          LET YTD.TQ          = Y.BASE.REV.Q + Y.NEW.REV.Q
+          LET M.REV.BEF.ADJ   = TCU.M.REV.BEF.ADJ
+          LET Y.REV.BEF.ADJ   = TCU.Y.REV.BEF.ADJ + M.REV.BEF.ADJ
+          LET M.REV.ADJ       = TCU.M.REV.ADJ
+          LET Y.REV.ADJ       = TCU.Y.REV.ADJ + M.REV.ADJ
+          LET YTD.TSR         = Y.REV.BEF.ADJ + Y.REV.ADJ
+          LET M.INCENT.BASE   = TCU.M.INCENT.BASE
+          LET Y.INCENT.BASE   = TCU.Y.INCENT.BASE + M.INCENT.BASE
+          LET YTD.NR          = YTD.TSR - Y.BASE.REV.Q
+          LET YTD.NROQ        = YTD.TSR - YTD.TQ
+          IF YTD.NROQ < 0
+            THEN
+              LET YTD.NROQ = 0
+          IF Y.NEW.REV.Q # 0 THEN
+           LET PC.NROQ = YTD.NROQ / Y.NEW.REV.Q *TCU.NROQ.FACTOR
+          ELSE LET PC.NROQ = 0
+
+         IF Y.NEW.REV.Q # 0 THEN
+          LET PC.QUOTA = 100 * YTD.NR / Y.NEW.REV.Q
+         ELSE LET PC.QUOTA = 0
+          IF PC.QUOTA GE 100
+            THEN
+              LET M.INCENT.ERND.Y = Y.INCENT.BASE
+            ELSE
+              LET M.INCENT.ERND.Y = Y.INCENT.BASE * PC.QUOTA / 100
+          IF M.INCENT.ERND.Y < 0
+            THEN
+              LET M.INCENT.ERND.Y = 0
+          LET TOT.INCENT.ERND = TCU.TOT.INCENT.ERND + M.INCENT.ERND.Y
+          LET M.NROQ.BONUS.Y   = Y.INCENT.BASE * PC.NROQ
+          IF M.NROQ.BONUS.Y < 0
+            THEN
+              LET M.NROQ.BONUS.Y = 0
+          LET TOT.NROQ.BONUS   = TCU.TOT.NROQ.BONUS + M.NROQ.BONUS.Y
+          LET COM.EARNED       = M.INCENT.ERND.Y + M.NROQ.BONUS.Y
+          LET PREV.COM.EARNED= TCU.PREV.COM.EARNED+P.RESERVE.PMT+P.COM.THIS.MO
+          LET COM.THIS.MO.ON.Y = M.INCENT.ERND.Y - PREV.COM.EARNED
+
+        % COMPUTATIONS FOR LINE 18 OF REPORTS %
+
+
+           IF M.INCENT.ERND.Y - PREV.COM.EARNED GE M.INCENT.BASE THEN
+                 LET COM.THIS.MO = M.INCENT.ERND.Y - PREV.COM.EARNED
+           ELSE IF COM.EARNED - PREV.COM.EARNED GT M.INCENT.BASE THEN
+                 LET COM.THIS.MO = M.INCENT.BASE
+           ELSE IF ((COM.EARNED - PREV.COM.EARNED) GE 0) AND
+                 ((COM.EARNED - PREV.COM.EARNED) LT M.INCENT.BASE) THEN
+                 LET COM.THIS.MO = COM.EARNED - PREV.COM.EARNED
+           ELSE
+              LET COM.THIS.MO = 0
+
+          LET RESERVE          = (COM.EARNED - PREV.COM.EARNED) - COM.THIS.MO
+
+% LINE 19: Calculation for reserve payments  %
+
+        LET M.RESERVE.PMT = 0 % Initialize varible %
+
+        IF (MO.PROCESSED = 3 OR 6  OR 9 OR 12) AND (RESERVE > 0) THEN
+           BEGIN
+           IF MO.PROCESSED = 3 THEN LET PC.RESERVE = P.C.1ST.Q
+           IF MO.PROCESSED = 6 THEN LET PC.RESERVE = P.C.2ED.Q
+           IF MO.PROCESSED = 9 THEN LET PC.RESERVE = P.C.3RD.Q
+           IF MO.PROCESSED =12 THEN LET PC.RESERVE = P.C.4TH.Q
+
+           LET M.RESERVE.PMT = RESERVE * PC.RESERVE
+           SUBTRACT M.RESERVE.PMT FROM RESERVE
+           END
+
+
+          IF COM.PLAN EQ "AC"
+            THEN
+              BEGIN
+              LET M.PRODUCT.COM  = TCU.M.PRODUCT.COM
+              LET Y.PRODUCT.COM  = TCU.Y.PRODUCT.COM + M.PRODUCT.COM
+              LET M.CHARGEBACKS  = TCU.M.CHARGEBACKS
+              LET Y.CHARGEBACKS  = TCU.Y.CHARGEBACKS +  M.CHARGEBACKS
+              END
+          LET M.COM.ADJ        = TCU.M.COM.ADJ
+          LET Y.COM.ADJ        = TCU.Y.COM.ADJ + M.COM.ADJ
+          LET DRAW.AMOUNT      = TCU.DRAW.AMOUNT
+          LET M.DRAW.RECVRY    = TCU.M.DRAW.RECVRY
+          LET Y.DRAW.RECVRY    = TCU.Y.DRAW.RECVRY
+          LET NET.COM          = COM.THIS.MO + M.COM.ADJ
+          IF COM.PLAN EQ "AC"
+            THEN
+              LET NET.COM = NET.COM + M.PRODUCT.COM - M.CHARGEBACKS
+          LET M.RECV.DRAW.USED = 0
+          LET Y.RECV.DRAW.USED = TCU.Y.RECV.DRAW.USED
+          LET M.NONR.DRAW.USED = 0
+          LET Y.NONR.DRAW.USED = TCU.Y.NONR.DRAW.USED
+
+          IF TCU.DRAW.TYPE NE " "
+            THEN
+              IF NET.COM LT DRAW.AMOUNT
+                THEN
+                  IF TCU.DRAW.TYPE EQ "N"
+                    THEN
+                      BEGIN
+                      LET M.NONR.DRAW.USED = DRAW.AMOUNT - NET.COM
+                      LET Y.NONR.DRAW.USED = TCU.Y.NONR.DRAW.USED +
+                                                            M.NONR.DRAW.USED
+                      END
+                    ELSE
+                      BEGIN
+                      LET M.RECV.DRAW.USED = DRAW.AMOUNT - NET.COM
+                      LET Y.RECV.DRAW.USED = TCU.Y.RECV.DRAW.USED + M.RECV.DRAW.USED
+                      LET NET.COM = DRAW.AMOUNT
+                      END
+          LET M.DRAW.RECVRY = TCU.M.DRAW.RECVRY
+          LET Y.DRAW.RECVRY = TCU.Y.DRAW.RECVRY
+          IF M.DRAW.RECVRY NE 0   AND   Y.RECV.DRAW.USED EQ 0
+            THEN
+              PRINT ISP.LIST, "RECOVERABLE DRAW IS ZERO; ATTEMPTING TO ",
+                    "RECOVER ", M.DRAW.RECVRY, @CR
+            ELSE
+              IF Y.RECV.DRAW.USED - Y.DRAW.RECVRY LT M.DRAW.RECVRY
+                THEN
+                  BEGIN
+                  PRINT ISP.LIST, " DRAW RECOVERY TRANS. IS TOO LARGE",
+                        @CR, @TAB TO 43, "TOTAL AMOUNT DRAWN WAS  ",
+                        Y.RECV.DRAW.USED, @CR, @TAB TO 43,
+                        "TOTAL AMOUNT RECOVERED YTD IS ", Y.DRAW.RECVRY, @CR,
+                        @TAB TO 43, "ATTEMPTING COVER ", M.DRAW.RECVRY,@CR
+                  IF NET.COM < (Y.RECV.DRAW.USED - Y.DRAW.RECVRY)
+                    THEN
+                      BEGIN
+                      LET Y.DRAW.RECVRY = Y.DRAW.RECVRY + NET.COM
+                      LET NET.COM = 0
+                      END
+                    ELSE
+                      BEGIN
+                      LET NET.COM = NET.COM - (Y.RECV.DRAW.USED - Y.DRAW.RECVRY)
+                      LET Y.DRAW.RECVRY = Y.RECV.DRAW.USED
+                      END
+                  END
+                ELSE
+                  BEGIN
+                  IF NET.COM < (Y.RECV.DRAW.USED - Y.DRAW.RECVRY)
+                    THEN
+                      BEGIN
+                      PRINT ISP.LIST, " DRAW RECOVERY TRANS. IS TOO LARGE",
+                            @CR, @TAB TO 43, "CURRENT COMM. IS ", NET.COM, @CR,
+                            @TAB TO 43, "ATTEMPTING TO RECOVER ",
+                            M.DRAW.RECVRY,@CR
+                      LET Y.DRAW.RECVRY = Y.DRAW.RECVRY + NET.COM
+                      LET NET.COM = 0
+                      END
+                    ELSE
+                      BEGIN
+                      LET Y.DRAW.RECVRY = Y.DRAW.RECVRY + M.DRAW.RECVRY
+                      LET NET.COM = NET.COM - M.DRAW.RECVRY
+                      END
+                  END
+          LET M.COM.PAYABLE = NET.COM + M.RESERVE.PMT
+          LET Y.COM.PAYABLE = TCU.Y.COM.PAYABLE + NET.COM
+          IF COM.PLAN EQ "AC"
+            THEN
+              INSERT INTO YAC
+            ELSE IF COM.PLAN EQ "ATM" THEN
+              INSERT INTO YATM
+          END  % OF FOR EACH ISP %
+      END  % OF WRITE REPORT %
+  END % Of ATM.AC.COM.UPD %
+~N(_Q
