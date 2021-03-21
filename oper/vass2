@@ -1,0 +1,346 @@
+
+                            SPECIFICATIONS
+                                FOR A
+                        VARIAN 620I ASSEMBLER
+
+
+     This assembler will translate an ascii source file of symbolic
+instructions and data into binary instructions and data as a disc
+file.  This object file can be put on magnetic or paper tape for
+transfer to the Varian itself.
+
+     It will run on a PDP-10 and be written in SIMPL under the
+TYMCOM X monitor.
+
+     Character set:
+
+     A - Z    0 - 9
+
+     : ;   =
+
+     #     &  '   ( ) * + , - . /
+
+     CARRET
+
+     Statement Format:
+
+          As many as four fields:
+
+          1)  Label field
+          2)  Opcode field
+          3)  Parameter field
+          4)  Comment field
+     
+          can make up a statement.
+
+     These are separated by a SPACE (one or more blanks or tabs
+(control I's)).  The label begins in the 1st column of a state-
+ment.  If it has no label, and is not a DATA statement, it must
+start with a SPACE.  If the 1st non-blank character is a DIGIT
+(0-9), PLUS (+) or MINUS (-), the statement generates one word
+of data.
+
+
+     The label must start with a LETTER (A-Z), and can have nine
+more LETTERS or DIGITS.
+
+     The OPCODE field contains mnemonics for Varian instructions
+and assembler directives.  It is from 1 to 5 LETTERs long.
+
+     The PARAMETER field contains expressions made up of
+symbols, (labels), constants, operators, and commas.  It is
+followed by a SPACE.
+
+     The COMMENT field starts after this SPACE and can be any
+string of characters except a SEMI colon (;) or CARRET (carriage
+return) which terminates the statement.
+
+     Constants:
+
+     These DIGIT strings are octal unless followed by the LETTER
+D which makes them decimal.
+
+Special Characters:
+
+     COLON (:) anywhere in a statement signifies the start of a
+     comment e.g.
+
+            LAB1   HLT   :COMMENT  ;
+
+     SEMI (;) ends a statement
+
+     EQUAL (=) if a symbol is preceded by an EQUAL, a one word
+literal containing the value of that symbol is generated.
+
+Thus, LDA  =LAB1 will put a 5 in A if LAB1 is the 5th cell in core.
+
+     QUOTE (') is used after in ASC directive to enclose the
+character string
+
+     LEFT  '('  parenthesis
+            and
+     RIGHT ')'  parenthesis
+can be used in the usual way to force precedence in arithmetic
+expression evaluation and IF directive logical expressions.
+
+STAR (*)
+
+     In column 1 of a statement, this carries the same meaning as
+a COLON, the characters up to the next SEMI or CARRET are a comment.
+          Anywhere else in a statement, * is a symbol having the value
+of the location counter.  Someday, it may also be the binary 
+operator for multiplication.
+
+PLUS (+)
+
+     This will be taken as the binary operator for addition or the
+binary operator for positive.
+
+COMMA (,)
+
+     Certain OPCODEs require more than one parameter or expression,
+these expressions are spearated by COMMAs in the parameter
+field.
+
+MINUS (-)
+
+     It is the binary operator for subtraction or the binary 
+operator for negative depending on where it falls, e.g.
+
+     -7D is binary negation
+    X-7D is binary subtraction
+
+DOT (.)
+
+     This is a symbol having the value 100000 octal.  It is useful
+in turning on the sign bit as in indirect addressing for double
+word instructions e.g.
+
+     IMP  BUG+.
+
+SLASH (/)
+
+     Is a binary operator causing the operand preceding it to be
+shifted left 8 bits.  Thus,  HALVES  123/+321  would put two 8 bit
+values in the halves of the 16 bit Varian word.
+
+CARRET (carriage return)
+
+     Is a terminator for statements.
+
+     Expressions such as:
+
+          X
+          Y+Z
+          X-*+.+5
+          123/321+X
+
+consist of symbols, operators, and constants.  Operations are 
+performed left to right.
+
+     NOTE:  Where no ambiguity results, PLUS signs can be
+            omitted thus,  X
+
+                           X-*.5
+                           123/321X
+
+            are equivalent to the above.
+
+Assembler Directives
+
+     These must appear in the OPCODE field but do not generate
+a computer instruction.
+
+1)  L  expression
+
+     indicates the literal pool should start here and the location
+counter should be set to it's operand.
+
+2)   I  expression
+
+     means the indirect pool starts here and ends at it's operand.
+
+3)   LAB1  E  LAB2
+
+     says its label should be given the value of it's operand.
+LAB1 should be made the same as LAB2.  But LAB1 can be altered
+by successive E directives.
+
+4)   R  expression
+
+     resets the location counter to  expression .  A label on an
+R directive will have the location counter prior to resetting.
+
+Assembler Directives for Conditional Assembly
+
+    The following four pseudo-ops can be used to allow the assembling of
+certain statements and not of others depending on the value of chosen
+symbols (usually given values with the E directive).
+
+1)   IF  <logical expression>
+
+2)   ELSEIF  <logical expression>
+
+3)   ELSE
+
+4)   ENDIF
+
+    A conditional sequence of statements must start with an IF directive
+and end with an ENDIF, can have one ELSE just before the ENDIF and an
+optional number of ELSEIF's before that.  The <logical expression>
+is made up of an <arithimetic expression>, a <relational operator>,
+and another <arithmetic expression>.
+     Statements between the IF and the next IF-type directive
+are assembled if the <logical expression> evaluates to true and all
+statements following until the ENDIF are not assembled.  If the
+<logical expression> evaluates to false, those statemennts between
+the IF and the next conditional directive are not assembled.  If this
+next directive is an ELSEIF, it's <logical expression> is evaluated
+and just like the IF, true will cause assembly of the statements
+following and a skip to the ENDIF while false will bring the
+next ELSEIF or ELSE into play.  Statements between an ELSE and ENDIF will
+be assembled if all the preceding IF's and ELSEIF'S were false.
+
+Thus,
+
+     IF PORTS>16
+     NOP   :   PORTS IS > 16
+     ELSEIF    CRD201=0
+     NOP   :   PORTS IS < 17 AND CRD201 IS = 1
+     ELSEIF CORRES=0
+     NOP   :   PORTS IS < 17, CRD201 IS # 1, CORRES IS = 0
+     ELSE
+     NOP   :  PORTS<17, CRD201#1, AND CORRES#0
+     ENDIF
+
+     will result in only one of the four NOP's being assembled and it
+will have a true comment.
+
+     The relational operators are:
+
+  =  equal to
+  >  greater than
+  <  less than
+  #  not equal to
+
+     The logical operators are:
+
+  &  bitwise and
+  !  inclusive or
+  ^  exclusive or
+  #  not
+
+     the arithmetic operators are:
+
+  +  addition
+  -  subtraction
+  *  multiplication
+  /  division
+  _  shift (followed by a positive count goes left, negative goes right)
+
+     Most OPCODEs require one expression in the parameter field.
+If indexing or indirect addressing is desired, a second
+expression of the following form is needed:
+
+                             By B  By X
+     Indexing               5 or B    6 or X
+
+     Post-indexing          5P or BP   6P or XP
+
+     Indirect        7 or I
+
+     The four inter-register commands:
+
+1)   COP     copy
+2)   INC     increment
+3)   DEC     decrement
+4)   COM     complement
+
+have as many as 3 expressions in the parameter field speci-
+fiying source, destination, and condition on overflow.
+
+     The 1st two expressions consist of 0 to 3 of the LETTERs
+'A', 'B', and 'X' while the 3rd is e.g.
+
+     COP  A,B
+     COM AB, X
+     DEC ,A
+     INC A,A,V
+
+     The VARIAN 620/L computer handbook pages 20-1 through 20-68
+describe the instruction set.
+
+     The following OPCODEs generate a one word computer instruction:
+
+                see  # 21-6
+                  Type 1 and Type 4
+
+     These OPCODEs generate computer instructions occupying two
+consecutive words.
+
+                see  #21-6
+                  Types 2, 3, and 5
+
+     Literal character strings
+
+     LDA  =' A'E
+
+LAB1   ASC   C string C :C is any character not in string
+
+'PLEASE LOG IN:'
+
+     A literal constant can appear in an expression.  It is 
+enclosed in QUOTEs and followed by A, C, or E to indicate Ascii,
+Correspondence, Ebcedic.  The absence of an A, C, or E defaults
+to Ascii.
+
+     The first non-blank character of a line being a QUOTE would
+generate data words, 2 characters per word.  An odd number of
+characters will make the left half of the 1st word zero.  
+
+     In an expression, the value of 'ABCD' is 'CD'.
+
+     If the ASC directive is used, the 1st non-blank character
+is the enclosing symbol.  The string ends at the next 
+occurence of this character.
+
+
+     If the assembler
+
+        directive
+
+        NEW IF is included, the directives:
+
+1)   IF      logical expression
+2)   ELSE
+3)   ENDIF
+
+are interpreted as follows:
+
+     A logical expression is formed as in SIMPL using symbols
+and the standard logical operators and parens
+
+                                             BNOT
+                               =             BAN
+                               =             BOR
+            =                  #             BXOR
+
+     e.g.
+
+     IF   MXV + CRD201   0
+     JMPM  RIPTR,I
+     ENDIF
+
+     IF    A  BAN  (B  BXOR C)#0
+
+Assembler Directive
+
+     NEW ARITH
+
+changes the meaning of SLASH (/) to the binary division operator.
+All previous SLASH uses are to be replaced with BACK ( ) for
+shifting things to left half and truncating the right half.
+
+     Precedence is normal.  Parens are allowed.  + signs may no
+longer be omitted.
+ 
