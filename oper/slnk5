@@ -1,0 +1,133 @@
+      SUBROUTINE SLNK5
+C     LINK (SLNK5)                                                      LNK50060
+C     SLNK5-PROCESS MEMBER LOADS-COMPUTES MEMBER FIXED                  LNK50070
+C     MEMBER LOAD PROCESSOR                                             LNK50080
+C     STRESS PROGRAMMING SYSTEM FOR IBM 1130                            LNK50090
+C     DIMENSION AND COMMON STATEMENTS WHICH MUST APPEAR IN ALL ROUTINES LNK50100
+      DIMENSION NSYSF(6)                                                LNK50110
+      DIMENSION NPRBF(6)                                                LNK50120
+      DIMENSION NARRF(36)                                               LNK50130
+      DIMENSION  JMIN(250),JPLS(250),MTYP(250)                                  
+      DIMENSION MLDTB (20),TABLE(20),SP(20),STIFF(40),PL(10),PR(10),FCA LNK50150
+     1(10),DEFL(10),ROT(40),TOMEG(40)                                   LNK50160
+      DIMENSION B(40)                                                   LNK50170
+C     SYSTEM PARAMETERS  -  14 WORDS                                    LNK50180
+      COMMON NTMP,KCUR,NAVAL,NOVER,ISOLV,ISUCC,ISCAN,ITRAC,NSYSF        LNK50190
+C     PROBLEM PARAMETERS  -  32 WORDS                                   LNK50200
+      COMMON NJ,NB,NDAT,NFJS,NLDS,NLDSI,ID,NCORD,JF,NSQ,IMETH,NMR,NJR,  LNK50210
+     1IBETA,IYOUN,ISHEA,GSHEA,EYOUN,FILL1,FILL2,FILL3,FILL4,NPRBF             LNK50220
+C     PLATE PARAMETERS                                                  $NK50224
+      COMMON IPLAT,NPLAT,KPLA1,KPLAT,KTHI1,KTHIK                        $NK50226
+C     ARRAY CODEWORDS  40 PAIRS = 80 WORDS                              LNK50230
+      COMMON KNAM1,KNAME,KXY1,KXYZ,KJRE1,KJREL,MEGA1,MEGAZ,KMEM1,KMEMB, LNK50240
+     1KBET1,KBETA,KYON1,KYOUN,KSHE1,KSHEA,KMRE1,KMREL,KMEG1,KMEGA,      LNK50250
+     2KMKS1,KMKST,KROT1,KROTE,KPPL1,KPPLS,KPMN1,KPMNS,LOAD1,LOADS,      LNK50260
+     3KLIN1,KLINT,MLOA1,MLOAD,JLOA1,JLOAD,KDIA1,KDIAG,KOFD1,KOFDG,      LNK50270
+     4KPPR1,KPPRI,KSTA1,KSTAT                                           LNK50280
+      COMMON NARRF                                                      LNK50290
+C  MEMBER INCIDENCE AND TYPE TABLES  250 JOINTS  500 MEMBERS                    
+      COMMON JMIN,JPLS,MTYP                                             LNK50310
+C     SCRATCH AREA CAN BE INSERTED AS DESIRED FOR EACH ROUTINE          LNK50320
+C     SCRATCH AREA                                                      LNK50330
+      COMMON MLDTB ,TABLE,SP,STIFF,PL,PR,FCA,DEFL,ROT,TOMEG             LNK50340
+      COMMON MEMNO,BL1,NLDI,NDEX,J,K                                    LNK50350
+      EQUIVALENCE (STIFF(1),B(1))                                       LNK50360
+3000  FORMAT(6HISOLV=,I4)                                               LNK50380
+C     PROCESSES ALL KINDS OF LOADS ON MEMBERS                           LNK50390
+      ISOLV=5                                                           LNK50400
+      IF (ITRAC)413,413,4                                               LNK50410
+4     WRITE(5,3000)ISOLV
+C     INITIALIZE TO ZERO THE FIRST JF ELEMENTS OF EACH SUB-ARRAY (SECTORLNK50430
+C     OF KPPRI, KPPLS AND KPMNS                                         LNK50440
+413   DO 410 I=1,JF                                                     LNK50450
+410   B(I)=0.0                                                          LNK50460
+      N=NJ*NLDS                                                         LNK50470
+      DO 400 I=1,N                                                      LNK50480
+400   CALL SDATA(KPPR1,KPPRI,I,B,JKL,-2,0)                              LNK50490
+      N=NB*NLDS                                                         LNK50500
+      DO 402 I=1,N                                                      LNK50510
+402   CALL SDATA(KPPL1,KPPLS,I,B,JKL,-2,0)                              LNK50520
+      DO 403 I=1,N                                                      LNK50530
+403   CALL SDATA(KPMN1,KPMNS,I,B,JKL,-2,0)                              LNK50540
+C  IF NO LOADING FOR MEMBERS IN ANY LOADING CONDITION,EXIT
+        IF (MLOAD.EQ.0) GO TO 261
+  406 CONTINUE
+      MLDSC=NB/10+1                                                     LNK50550
+      MEMNO = 1                                                         LNK50560
+      DO 200  NSECT = 1,MLDSC                                           LNK50570
+C     READ TEN MLOAD CODEWORDS CONTAINING THAT OF MEMBER MEMNO INTO CORELNK50580
+C     FROM DISK                                                         LNK50590
+      CALL SDATA(MLOA1,MLOAD,2*MEMNO,A,MLDTB,1,0)                       LNK50600
+      DO 220 MCT = 2,20,2                                               LNK50610
+      I = MLDTB(MCT)                                                    LNK50620
+      IF (I) 201, 260, 201                                              LNK50630
+C     IF MLOAD(MEMNO) = 0, THEN NO LOADS HAVE BEEN DEFINED FOR THAT     LNK50640
+C     MEMBER IN ANY LOADING CONDITION                                   LNK50650
+  201 I1 = MLDTB(MCT-1)                                                 LNK50660
+      CALL SDATA (I1, I, 1, A, NBL,1,1)                                 LNK50670
+      MNBL = 2*NBL + 2                                                  LNK50680
+C     GET MEMBER LENGTH                                                 LNK50690
+      CALL SDATA(KMEM1,KMEMB,MEMNO,SP,JKL,-1,0)                         LNK50700
+      BL1=SP(8)                                                         LNK50710
+C     CHECK MTYP(MEMNO) TO SEE IF MEMBER SECTION PROPERTIES AND         LNK50720
+C     STIFFNESS ARE NEEDED                                              LNK50730
+      CALL SPAK2(+MEMNO,MTYP,MRTST)                                     LNK50740
+      IF (MRTST-1) 202,204,50                                           LNK50750
+202   IF(-MRTST-1)50,204,50                                             LNK50760
+C     COMPACT SECTION PROPERTIES TO JF VALUES                           LNK50770
+204   GO TO (11,12,13,11,11),ID                                         LNK50780
+C     PLANE FRAME                                                       LNK50790
+12    SP(3)=SP(6)                                                       LNK50800
+      GO TO 11                                                          LNK50810
+C     PLANE GRID                                                        LNK50820
+13    DO 14 J1=1,3                                                      LNK50830
+14    SP(J1)=SP(J1+2)                                                   LNK50840
+C     GET MEMBER STIFFNESS FOR PRISMATIC MEMBER                         LNK50850
+11    CALL SDATA(KMKS1,KMKST,MEMNO,STIFF,JKL,-1,0)                      LNK50860
+C     GET E AND  G                                                      LNK50870
+205   IF(IYOUN -1)31,30,22                                              LNK50880
+31    EYOUN =1.0                                                        LNK50890
+      GO TO 30                                                          LNK50900
+   22 CALL SDATA (KYON1,KYOUN,MEMNO,EYOUN,JKL,-1,1)                     LNK50910
+30    IF(ISHEA -1)51,50,40                                              LNK50920
+51    GSHEA =0.4*EYOUN                                                  LNK50930
+      GO TO 50                                                          LNK50940
+   40 CALL SDATA (KSHE1,KSHEA,MEMNO,GSHEA,JKL,-1,1)                     LNK50950
+C     GET ROTATION MATRIX IN ROT                                        LNK50960
+50    CALL SDATA(KROT1,KROTE,MEMNO,ROT,JKL,-1,0)                        LNK50970
+      DO 250 NBLCT=4,MNBL,2                                             LNK50980
+C      ASSEMBLE SECOND LEVEL CODEWORDS                                  LNK50990
+      CALL SDATA (I1, I, NBLCT, A, J, 1, 1)                             LNK51000
+      CALL SDATA (I1, I, NBLCT-1, A, J1, 1, 1)                          LNK51010
+C     GET DATA                                                          LNK51020
+      CALL SDATA(J1, J, 1, TABLE, JKL,-1, 0)                            LNK51030
+C     UNPACK NLD, NDEX, J, K, FROM TABLE (1)                            LNK51040
+      CALL SPAK4 (0, TABLE(1), NLD, NDEX, J, K)                         LNK51050
+      CALL SDATA (KLIN1, KLINT, NLD, A, NLDI, 1, 1)                     LNK51060
+      GO TO (250,221,231,241),NDEX                                      LNK51070
+C     MEMBER LOAD                                                       LNK51080
+  221 CALL SMBLD                                                        LNK51090
+      GO TO 300                                                         LNK51100
+C     MEMBER DISTORTION (J=0),TEMP.CHANGE,LENGTH CHANGE(J=1)            LNK51110
+  241 IF(J) 301,302,301                                                 LNK51120
+301   TABLE (2)=TABLE(2)*SP(8)                                          LNK51130
+  302 CALL SMDIS                                                        LNK51140
+      GO TO 300                                                         LNK51150
+C     MEMBER END LOAD                                                   LNK51160
+C     PLUS END STORED FIRST, BOTH ON THE MEMBER                         LNK51170
+C     PLUS IN PL(1-JF), MINUS IN PR(1-JF)                               LNK51180
+231   DO 232 L1=1,JF                                                    LNK51190
+      L2=JF+L1+1                                                        LNK51200
+      PL(L1)=TABLE(L1+1)                                                LNK51210
+232   PR(L1)=TABLE(L2)                                                  LNK51220
+C     NOW HAVE FIXED END FORCES IN PL AND PR                            LNK51230
+  300 CALL SLSTR                                                        LNK51240
+  250 CONTINUE                                                          LNK51250
+  260 IF (NB-MEMNO)261,261,262                                          LNK51260
+  262 MEMNO = MEMNO + 1                                                 LNK51270
+  220 CONTINUE                                                          LNK51280
+  200 CONTINUE                                                          LNK51290
+C     LINK TO SET UP JOINT STIFFNESS MATRIX                             LNK51300
+  261 RETURN
+      END                                                               LNK51320
+  
