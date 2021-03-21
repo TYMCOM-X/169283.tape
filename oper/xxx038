@@ -1,0 +1,1534 @@
+C	 BMD02V
+C	 ANALYSIS OF VARIANCE FOR FACTORIAL DESIGN   MARCH 15, 1966
+C	 THIS IS A SIFTED VERSION OF BMD02V ORIGINALLY WRITTEN IN
+C	 FORTRAN II. SOME MODIFICATIONS WERE MADE TO MAKE IT OPERABLE
+C	 AND SLIGHTLY MORE EFFICIENT THAN THE SIFTED VERSION.
+      DIMENSION X(18000),L(9),TEMP(12),LO(8),LM(9),LL(8),K5(9),N(8)
+     1,KM(8),MM(9),MI(8),ST(6,9,9),ST1(4,9),M(8),TSUM(255),PQ(255),MD(8)
+     2,NORD(4),NSIZE(4),LF(8),C(9,9),CO(9,8,9),D(9,9),FMT(90)
+      REAL*8 Q0,Q010HL
+      REAL*8 Q1,Q2,Q3,Q4,Q5,Q6,Q7,Q8,Q9,Q10,Q11,Q12,Q13,Q14
+      REAL*8 OK,ONR,ONF,FISH,SUM
+      REAL*8 TEMP,FMT
+      REAL*8 QRZ,QRY
+      REAL*8 TSUM,PQ
+      REAL*8 BLNK8
+      DATA BLNK8/'	  '/
+      COMMON  TEMP   , SUM    , TSUM   , PQ	, LO	 , LM	  , LL
+      COMMON  ST1    , M      , X      , L	, MD	 , NORD
+      COMMON  NSIZE  , LF     , C      , CO	, D
+      COMMON  K5     , N      , KM     , MM	, MI	 , ST
+      COMMON  NV     , NR     , NK     , NX	, NVM	 , I5
+      COMMON  MT     , MT1    , MARK   , JW	, Z	 , TRASH
+      COMMON  TRA    , IJK    , NO     , IN	, I2	 , I3
+      COMMON  NDF    , TOTAL  , NO1    , NO2	, KB1	 , KB2
+      DATA REWNO/'NO'/
+      DATA Q1/6H(     /
+      DATA Q2/6H1H    /
+      DATA Q3/6H1X,   /
+      DATA Q4/6H1X,   /
+      DATA Q5/6H1X,   /
+      DATA Q6/6H1X,   /
+      DATA Q7/6H1X,   /
+      DATA Q8/6H1X,   /
+      DATA Q9/6H1X,   /
+      DATA Q10/6H1X,   /
+      DATA Q11/6H9X,I6,/
+      DATA Q12/6HF22.5,/
+      DATA Q13/6HF17.5,/
+      DATA Q14/6H)     /
+      DATA Q0/6HSPECTG/
+      DATA Q010HL/6HI1,   /
+      DATA QRZ/6HPROBLM/
+      DATA QRY/6HFINISH/
+ 904  FORMAT('1BMD02V - ANALYSIS OF VARIANCE FOR FACTORIAL DESIGN ',
+     1'- REVISED SEPTEMBER 12, 1969'/
+     241H HEALTH SCIENCES COMPUTING FACILITY, UCLA//)
+      DO 1 I=1,90
+    1 FMT(I)=BLNK8
+      MTAPE=5
+      CALL CONSTN
+ 100  READ (5,900)OK,PROB,NR,NV,NDF,MEAN,MT,NO,(NORD(I),I=1, 4),(L(J),J=
+     11,8),REW,NTAPE,KL
+      IF(NO.LE.0)GO TO 803
+      DO 800 I=1,NO
+      IF(L(NORD(I)).GT.9)GO TO 801
+  800 CONTINUE
+      GO TO 803
+  801 PRINT 802,NORD(I),L(NORD(I))
+  802 FORMAT('1VARIABLE',I2,' WITH MORE THAN 9 LEVELS IS NOT ALLOWED AS
+     *AN ORTHOGONAL BREAKDOWN ONE, PROBLEM WILL BE IGNORED')
+      GO TO 400
+  803 ONR=QRZ
+      ONF=QRY
+       IF(ONR.EQ.OK) GO TO 3
+  290 IF(OK.EQ.ONF)GO TO 400
+      PRINT 1005, OK
+ 1005 FORMAT(' PROGRAM EXPECTED PROBLEM OR FINISH CARD INSTEAD READ THE
+     1 FOLLOWING'/1X,A6)
+ 291  WRITE (6,929)
+      GO TO 400
+    3 IF(NV*(NV-9)) 6001,1006,1006
+ 6001 IF(KL*(KL-6)) 6002,1022,1022
+ 1006 PRINT 1002
+      GO TO 291
+ 1022 PRINT 1003
+      GO TO 291
+ 1008 PRINT 1004
+      GO TO 291
+ 1024 PRINT 1025
+      GO TO 291
+ 1026 PRINT 1027
+      GO TO 291
+ 6002 IF(NTAPE.EQ.2.OR.NTAPE.EQ.1)GO TO 1008
+    8 IF(REW.NE.REWNO)CALL TPWD(NTAPE,MTAPE)
+ 2    WRITE (6,904)
+      WRITE (6,905)PROB,NV
+      REWIND 2
+      REWIND 1
+      IERROR=0
+      IF(NR) 41, 41, 42
+ 41   NR=1
+ 42   WRITE (6,919)NR
+      WRITE (6,924)
+      DO 43 I=1,NV
+ 43   WRITE (6,925)I,L(I)
+      DO 4 I=1,NV
+      LF(I)=L(I)
+ 4    LO(I)=I
+      IF(NO) 7, 7, 5
+    5 IF(NO-4)	6005,6005,1024
+ 6005 DO 6  I=1,NO
+      I1=NORD(I)
+      NSIZE(I)=L(I1)
+ 6    LO(I1)=LO(I1)+100
+ 7    ONR=NR
+      NK=1
+      DO 10 I=1,NV
+ 10   NK=NK*L(I)
+      IF(NK.GT.18000) GO TO 7000
+      OK=NK
+      DF=MT
+      OK1=OK/DF
+      NK1=NK/MT
+      OK2=NK1
+      IF(OK1-OK2) 11,11,12
+ 7000 WRITE(6,7001)
+      GO TO 291
+ 11   NCARD=NK1
+      GO TO 13
+ 12   NCARD=NK1+1
+ 13   TMEAN=0.0
+      ONNN=OK*ONR+1.0
+      TOTAL=0.0
+      IF(NDF) 303, 303, 300
+  300 READ (5,926)FISH,NT,(N(I),TEMP(I),I=1,NT)
+      SUM=Q0
+      IF(SUM.EQ.FISH) GO TO 579
+ 578  WRITE (6,931)
+      GO TO 400
+ 579  WRITE (6,930)
+      WRITE (6,927)
+      DO 301 I=1,NT
+      IF(N(I)*(N(I)-11)) 301,578,578
+  301 WRITE (6,928)I,N(I),TEMP(I)
+  303 IF(KL.GT.0.AND.KL.LE.5)GO TO 304
+      WRITE(6,4000)
+      KL=1
+  304 KL=KL*18
+      READ (5,932)(FMT(I), I=1,KL)
+      PRINT 1023, (FMT(I), I=1,KL)
+      IF(NTAPE)479,479,480
+ 479  NTAPE=5
+ 480  IF(NR-1)14,14,17
+ 14   READ (NTAPE,FMT)(X(I),I=1,NK)
+      IF(NDF) 580, 580, 591
+ 580  DO 585 I=1,NK
+ 585  TMEAN=TMEAN+X(I)
+      GO TO 15
+ 591  DO 595 I=1,NK
+      DO 305 II=1,NT
+      DF=X(I)
+      NDF=N(II)
+      CONST=TEMP(II)
+      CALL TRANS (DF,NDF,CONST,ONNN,IERROR,1,II)
+      IF(IERROR) 100, 305, 305
+ 305  X(I)=DF
+ 595  TMEAN=TMEAN+X(I)
+   15 IF(MEAN.LE.0)GO TO 695
+  690 IF(MEAN-2) 6004,6004,1026
+ 6004 WRITE(1,9998)(X(I),I=1,NK)
+ 695  TMEAN=TMEAN/OK
+      DO 16 I=1,NK
+      X(I)=X(I)-TMEAN
+ 16   TOTAL=TOTAL+X(I)*X(I)
+      GO TO 30
+ 17   DO 18 I=1,NK
+ 18   X(I)=0.0
+      ASSIGN 635 TO NPT
+      IF(NDF.GT.0)GO TO 633
+ 630  ASSIGN 317 TO NPT
+ 633  DO 21 I=1,NR
+      NX=1
+      DO 20 J=1,NCARD
+      READ (NTAPE,FMT)(TSUM(K),K=1,MT)
+      DO 19 K=1,MT
+      GO TO NPT, (317,635)
+ 635  DO 318 II=1,NT
+      DF=TSUM(K)
+      NDF=N(II)
+      CONST=TEMP(II)
+      CALL TRANS(DF,NDF,CONST,ONNN,IERROR,I,II)
+      IF(IERROR.LT.0)GO TO 350
+  318 TSUM(K)=DF
+ 19   CONTINUE
+  317 WRITE(2,9999)(TSUM(K),K=1,MT)
+      DO 20 K=1,MT
+      X(NX)=X(NX)+TSUM(K)
+      IF(NK-NX) 21, 21, 20
+ 20   NX=NX+1
+ 21   CONTINUE
+      END FILE 2
+      REWIND 2
+      DO 22 I=1,NK
+      TMEAN=TMEAN+X(I)
+ 22   X(I)=X(I)/ONR
+      IF(MEAN) 720, 720, 710
+  710 WRITE(1,9998)(X(I),I=1,NK)
+ 720  TMEAN=TMEAN/(OK*ONR)
+      WITHIN=0.0
+      DO 25 I=1,NR
+      NX=1
+      DO 24 J=1,NCARD
+      READ(2,9999)(TSUM(K),K=1,MT)
+      DO 24 K=1,MT
+      WITHIN=WITHIN+(TSUM(K)-X(NX))**2
+      TOTAL =TOTAL +(TSUM(K)-TMEAN)**2
+      IF(NK.LE.NX)GO TO 25
+ 24   NX=NX+1
+ 25   CONTINUE
+      REWIND 2
+ 23   DO 26 I=1,NK
+ 26   X(I)=X(I)-TMEAN
+ 30   WRITE (6,915)
+      WRITE (6,910)TMEAN
+      TEMP(1)=TMEAN
+      IF(NV-1) 33, 33, 39
+ 33   SUM=TOTAL-WITHIN
+      NDF=L(1)-1
+      DF=NDF
+      SMEAN=SUM/DF
+      WRITE (6,921)NDF,SUM,SMEAN
+      NDFZ=L(1)*NR-1
+      NDF=NDFZ-NDF
+      DF=NDF
+      SMEAN=WITHIN/DF
+      WRITE (6,922)NDF,WITHIN,SMEAN
+      WRITE (6,917)NDFZ,TOTAL
+      IF(NO) 730, 730, 34
+ 730  IF(MEAN) 100, 100, 255
+ 34   NDF=L(1)
+      DO 35 I=1,NDF
+ 35   ST1(1,I)=X(I)
+      GO TO 251
+ 39   NVM=NV-1
+      FMT(1)=Q1
+      FMT(2)=Q2
+      FMT(3)=Q3
+      FMT(4)=Q4
+      FMT(5)=Q5
+      FMT(6)=Q6
+      FMT(7)=Q7
+      FMT(8)=Q8
+      FMT(9)=Q9
+      FMT(10)=Q10
+      FMT(11)=Q11
+      FMT(12)=Q12
+      FMT(13)=Q13
+      FMT(14)=Q14
+      DO 31 I=1,255
+      TSUM(I)=0.0
+ 31   PQ(I)=0.0
+      I5=(8-NV)+1
+      DO 32 I=1,NVM
+      LL(I)=1
+      I1=I+1
+      DO 32 J=I1,NV
+ 32   LL(I)=LL(I)*L(J)
+      LL(NV)=1
+      DO 40 I=1,NV
+      I1=I-1
+      I2=NV-I1
+      I3=8-I1
+      L(I3)=L(I2)
+ 40   LO(I3)=LO(I2)
+      K9=0
+      NDFZ=0
+      GSUM=0.0
+      WRITE (6,911)
+      WRITE (6,912)
+      DO 48 I=1,8
+ 48   MI(I)=0
+      MT=1
+      MT1=1
+      DO 231 IJ=1,NVM
+      FMT(IJ+2)=Q010HL
+      MARK=0
+      IJK=IJ
+      JW=NVM-(IJ-1)
+ 50   DO 51 I=I5,8
+ 51   M(I)=0
+      J1=I5+(NVM-JW)
+      DO 52 I=I5,J1
+ 52   M(I)=1
+      Z=1.0
+ 70   CALL TABLE
+      IF(MARK) 205,205,231
+ 205  CALL XLOCAT (MEAN)
+      NDF=1
+      MDF=1
+      I6=I5+(IJ-1)
+      DO 206 I=I5,I6
+      NDF=NDF*MM(I)
+ 206  MDF=MDF*(MM(I)+1)
+      FNDF=NDF
+      DF=MDF
+      SUM=ONR*DF*SUM/OK
+      K9=K9+1
+      DO 204 I=1,IJK
+      I4=I5+(I-1)
+      ROSE=K5(I4)
+ 204  PQ(K9)=(PQ(K9)+ROSE)*10.0
+      PQ(K9)=PQ(K9)/10.0
+      I7=I6-I5
+      IF(I7-1) 229, 207, 207
+ 207  TTSUM=0.0
+      DO 220 JK=1,I7
+      ICE=0
+      KL=JK
+      DO 209 I=I5,8
+ 209  MD(I)=0
+      I8=8-I7
+      I9=I8+(JK-1)
+      DO 210 I=I8,I9
+ 210  MD(I)=1
+      Y=1.0
+ 211  CALL PART (MD,I8,Y,ICE,KL)
+      IF(ICE) 212, 212, 220
+ 212  FISH=0.0
+      K=0
+      DO 215 I=I8,8
+      K=K+1
+      IF(MD(I).LE.0)GO TO 215
+ 213  I4=I5+(K-1)
+      ROSE=K5(I4)
+      FISH=(FISH+ROSE)*10.0
+ 215  CONTINUE
+      FISH=FISH/10.0
+      DO 217 I=1, 255
+      IF(PQ(I)-FISH) 217, 216, 211
+ 216  TTSUM=TTSUM+TSUM(I)
+      GO TO 211
+ 217  CONTINUE
+ 220  CONTINUE
+      SUM=SUM-TTSUM
+ 229  SMEAN=SUM/FNDF
+      WRITE (6,FMT)(K5(I),I=I5,I6),NDF,SUM,SMEAN
+      NDFZ=NDFZ+NDF
+      GSUM=GSUM+SUM
+      TSUM(K9)=SUM
+      GO TO 70
+ 231  CONTINUE
+      IF(NR-1) 235, 235, 240
+ 235  SUM=TOTAL-GSUM
+      NKDF=NK-1
+      NDF=NKDF-NDFZ
+      DF=NDF
+      SMEAN=SUM/DF
+      WRITE (6,916)NDF,SUM,SMEAN
+      WRITE (6,917)NKDF,TOTAL
+      GO TO 252
+ 240  NDF=1
+      DO 241 I=I5,8
+ 241  NDF=NDF*MM(I)
+      DF=NDF
+      SUM=TOTAL-WITHIN-GSUM
+      SMEAN=SUM/DF
+      DO 250 I=1,NV
+ 250  N(I)=I
+      I=NV+2
+      FMT(I)=Q010HL
+      WRITE (6,FMT)(N(I),I=1,NV),NDF,SUM,SMEAN
+      DF=ONR*OK-OK
+      NDF=DF
+      SMEAN=WITHIN/DF
+      WRITE (6,920)NDF,WITHIN,SMEAN
+      DF=ONR*OK-1.0
+      NDF=DF
+      WRITE (6,917)NDF,TOTAL
+ 252  IF(NO) 254, 254, 251
+ 251  CALL FINISH
+ 254  IF(MEAN) 100, 100, 255
+ 255  CALL MEANS(PROB,TMEAN,MEAN)
+      GO TO 100
+ 350  IF(J-NCARD)351,353,353
+ 351  J=J+1
+      DO 352 JXX=J,NCARD
+  352 READ (NTAPE,FMT)(TSUM(K),K=1,MT)
+ 353  IF(I-NR)354,100,100
+ 354  I=I+1
+      DO 355 IXX=I,NR
+      DO 355 JXX=1,NCARD
+  355 READ (NTAPE,FMT)(TSUM(K),K=1,MT)
+      GO TO 100
+  900 FORMAT(A6,A2,I3,3I1,I2,5I1,8I3,21X,A2,2I2)
+ 905  FORMAT(13H0PROBLEM NO. A2///20H NUMBER OF VARIABLESI6)
+ 909  FORMAT(I6,F21.5,F17.5)
+ 910  FORMAT(11H0GRAND MEANF20.5///)
+ 911  FORMAT(59H0SOURCE OF	  DEGREES OF	      SUMS OF	       M
+     1EAN)
+ 912  FORMAT(61H VARIATION	   FREEDOM	      SQUARES	      SQ
+     1UARES//)
+ 915  FORMAT(1H )
+ 916  FORMAT(18H RESIDUAL	  I6,F22.5,F17.5)
+ 917  FORMAT(18H TOTAL		  I6,F22.5)
+ 919  FORMAT(21H NUMBER OF REPLICATESI5)
+ 920  FORMAT(18H WITHIN REPLICATESI6,F22.5,F17.5)
+ 921  FORMAT(18H MEANS		  I6,F22.5,F17.5)
+ 922  FORMAT(18H WITHIN 	  I6,F22.5,F17.5)
+ 924  FORMAT(27H0VARIABLE     NO. OF LEVELS)
+ 925  FORMAT(I6,11X,I4)
+  926 FORMAT(A6,I1,8(I2,F6.0))
+ 927  FORMAT(35H0CARD NO.    TRANS CODE    CONSTANT)
+ 928  FORMAT(1H I5,11X,I2,8X,F10.5)
+ 929  FORMAT(22H0ERROR ON PROBLEM CARD)
+ 930  FORMAT(1H06X,21HTRANS-GENERATION CARD)
+ 931  FORMAT(31H0ERROR ON TRANS-GENERATION CARD)
+  932 FORMAT(18A4)
+ 1002 FORMAT(' NUMBER OF VARIABLES INCORRECTLY SPECIFIED')
+ 1003 FORMAT(' NUMBER OF VARIABLE FORMAT CARDS INCORRECTLY SPECIFIED')
+ 1004 FORMAT(' DATA INPUT CANNOT BE FROM TAPE UNITS 1 OR 2')
+ 1023 FORMAT(' VARIABLE FORMAT CARD(S)'/1X,18A4)
+ 1025 FORMAT(' NUMBER OF VARIABLES FOR WHICH AN ORTHOGONAL BREAKDOWN IS
+     1 DESIRED CANNOT EXCEED 4')
+ 1027 FORMAT(' COLUMN 14 OF PROBLM CARD MUST CONTAIN A 1 OR A 2 OR BE BL
+     1ANK')
+ 4000 FORMAT(1H023X71HNUMBER OF VARIABLE FORMAT CARDS INCORRECTLY SPECIF
+     1IED, ASSUMED TO BE 1.)
+ 7001 FORMAT('	  PRODUCT OF THE CATEGORIES OR LEVELS OF ALL THE VARIAB
+     1LES CANNOT EXCEED 18000.')
+ 9998 FORMAT(20A4)
+ 400  IF(MTAPE-5)402,402,401
+ 9999 FORMAT(10A8)
+  401 REWIND MTAPE
+  402 STOP
+      END
+C	 SUBROUTINE  CONSTN FOR BMD02V		     MARCH 15, 1966
+      SUBROUTINE CONSTN
+      DIMENSION X(18000),L(9),TEMP(12),LO(8),LM(9),LL(8),K5(9),N(8)
+     1,KM(8),MM(9),MI(8),ST(6,9,9),ST1(4,9),M(8),TSUM(255),PQ(255),MD(8)
+     2,NORD(4),NSIZE(4),LF(8),C(9,9),CO(9,8,9),D(9,9)
+      REAL*8 TEMP
+      REAL*8 SUM
+      REAL*8 TSUM,PQ
+      COMMON  TEMP   , SUM    , TSUM   , PQ	, LO	 , LM	  , LL
+      COMMON  ST1    , M      , X      , L	, MD	 , NORD
+      COMMON  NSIZE  , LF     , C      , CO	, D
+      COMMON  K5     , N      , KM     , MM	, MI	 , ST
+      COMMON  NV     , NR     , NK     , NX	, NVM	 , I5
+      COMMON  MT     , MT1    , MARK   , JW	, Z	 , TRASH
+      COMMON  TRA    , IJK    , NO     , IN	, I2	 , I3
+      COMMON  NDF    , TOTAL  , NO1    , NO2	, KB1	 , KB2
+      DIMENSION Z1(10),Z2(10),Z3(10)
+      DO 1 I=2,9
+      I1=I-1
+      DO 1 J=1,I1
+      CALL ORTH(Z1,Z2,Z3,J,I,OK)
+      DO 1 K=1,I
+ 1    CO(I,J,K)=Z1(K)
+      RETURN
+      END
+      SUBROUTINE ORTH(X,W,F,N,NP,OK)
+C  COMPUTES ORTHOGONAL POLYNOMIAL OF ORDER N ON NP EQUALLY SPACED POINTS
+C  W(N+1)  F(N+1)  X(NP)  RESULTS IN X
+      DIMENSION X(1),F(1),W(1)
+      LOGICAL OK
+      DATA JJKL/1/
+      IF(JJKL.EQ.0) GO TO 35
+      JJKL=0
+      BIG=16**6-1
+C BIG IS THE LARGEST ALLOWED FLOATING POINT INTEGER
+C WITHOUT RISKING TRUNCATION ERROR
+ 35   OK=.TRUE.
+      W(1)=1.
+      F(1)=1.
+      IF(N.LE.0) GO TO 4
+      A=1.
+      B=NP-1
+      C=N
+      D=C+1.
+      DO 1 I=1,N
+      AN=C*D
+      AD=A*B
+      A=A+1.
+      B=B-1.
+      C=C-1.
+      D=D+1.
+      F1=AD/ GCD(AD,W(I))
+      F(I+1)=F1/ GCD(AN,F1)
+      F1=AD/F(I+1)
+      F2= GCD(W(I),F1)
+ 1    W(I+1)=(W(I)/F2)*(AN/(F1/F2))
+      FF=F(N+1)
+      N2=MOD(N,2)
+      IF(N2.EQ.0) FF=-FF
+      IF(N2.EQ.1) W(N+1)=-W(N+1)
+      K=N
+      DO 2 I=1,N
+      W(K)=W(K)*FF
+      FF=-FF*F(K)
+ 2    K=K-1
+      NPM1=NP-1
+      D=0.
+      DO 3 I=1,NPM1
+      X(I)=W(1)
+      D=D+W(1)*W(1)
+      NL=MIN0(N,NP-I)
+      DO 3 J=1,NL
+      W(J)=W(J)+W(J+1)
+ 3    IF(W(J).GT.BIG) OK=.FALSE.
+      X(NP)=W(1)
+      D=D+W(1)*W(1)
+      D= SQRT(D)
+      DO 101 I=1,NP
+ 101  X(I)=X(I)/D
+      RETURN
+ 4    D=1./SQRT(FLOAT(NP))
+      DO 5 I=1,NP
+ 5    X(I)=D
+      RETURN
+      END
+      FUNCTION GCD(AA,BB)
+      A=AA
+      B=BB
+ 1    B=AMOD(B,A)
+      IF(B.EQ.0.) GO TO 2
+      A=AMOD(A,B)
+      IF(A.NE.0.) GO TO 1
+ 2    GCD=A+B
+      RETURN
+      END
+C	     SUBROUTINE FINISH FOR BMD02V	     MARCH 15, 1966
+      SUBROUTINE FINISH
+      DIMENSION X(18000),L(9),TEMP(12),LO(8),LM(9),LL(8),K5(9),N(8)
+     1,KM(8),MM(9),MI(8),ST(6,9,9),ST1(4,9),M(8),TSUM(255),PQ(255),MD(8)
+     2,NORD(4),NSIZE(4),LF(8),C(9,9),CO(9,8,9),D(9,9)
+      REAL*8 TEMP
+      REAL*8 SUM
+      REAL*8 TSUM,PQ
+      COMMON  TEMP   , SUM    , TSUM   , PQ	, LO	 , LM	  , LL
+      COMMON  ST1    , M      , X      , L	, MD	 , NORD
+      COMMON  NSIZE  , LF     , C      , CO	, D
+      COMMON  K5     , N      , KM     , MM	, MI	 , ST
+      COMMON  NV     , NR     , NK     , NX	, NVM	 , I5
+      COMMON  MT     , MT1    , MARK   , JW	, Z	 , TRASH
+      COMMON  TRA    , IJK    , NO     , IN	, I2	 , I3
+      COMMON  NDF    , TOTAL  , NO1    , NO2	, KB1	 , KB2
+      WRITE (6,935)
+      WRITE (6,936)(NORD(J), J=1,NO)
+      Q000FL=NR
+      DO 270 I=1,NO
+      WRITE (6,935)
+      K=NORD(I)
+      KL=LF(K)
+      KI=KL-1
+      DO 253 M1=1,KI
+      C(M1,1)=0.0
+      DO 253 M2=1,KL
+ 253  C(M1,1)=C(M1,1)+CO(KL,M1,M2)*ST1(I,M2)
+      NDF=NK/KL
+      DF=NDF
+      DO 257 J=1,KI
+ 257  C(J,1)=C(J,1)*C(J,1)*Q000FL/DF
+      DO 267 J=1,KI
+      GO TO (261, 262, 263, 264), J
+ 261  WRITE (6,930)K, C(1,1)
+      IF(KI-2) 268, 267, 267
+ 262  WRITE (6,931)K,C(2,1)
+      IF(KI-3) 268, 267, 267
+ 263  WRITE (6,932)K,C(3,1)
+      IF(KI-4) 268, 267, 267
+ 264  REM=0.0
+      DO 265 M1=4,KI
+ 265  REM=REM+C(M1,1)
+      WRITE (6,933)K, REM
+      GO TO 268
+ 267  CONTINUE
+ 268  RES=0.0
+      DO 269 J=1,KI
+ 269  RES=RES+C(J,1)
+      WRITE (6,934)K,RES
+ 270  CONTINUE
+      IF(NO-2) 100, 360, 369
+ 360  I2=NSIZE(1)
+      I3=NSIZE(2)
+      NO1=NORD(1)
+      NO2=NORD(2)
+      KB1=1
+      KB2=2
+      IN=1
+      IF(NV-2) 362, 362, 367
+ 362  K=0
+      DO 365 I=1,I2
+      DO 365 J=1,I3
+      K=K+1
+ 365  ST(1,I,J)=X(K)
+ 367  CALL MATRIX
+      CALL REPORT
+      GO TO 100
+ 369  IF(NO-3) 100, 370, 379
+ 370  I2=NSIZE(1)
+      I3=NSIZE(2)
+      NO1=NORD(1)
+      NO2=NORD(2)
+      KB1=1
+      KB2=2
+      IN=1
+      CALL MATRIX
+      CALL REPORT
+      I3=NSIZE(3)
+      NO2=NORD(3)
+      KB2=3
+      IN=2
+      CALL MATRIX
+      CALL REPORT
+      I2=NSIZE(2)
+      NO1=NORD(2)
+      KB1=2
+      IN=3
+      CALL MATRIX
+      CALL REPORT
+      GO TO 100
+ 379  I2=NSIZE(1)
+      I3=NSIZE(2)
+      NO1=NORD(1)
+      NO2=NORD(2)
+      KB1=1
+      KB2=2
+      IN=1
+      CALL MATRIX
+      CALL REPORT
+      I3=NSIZE(3)
+      NO2=NORD(3)
+      KB2=3
+      IN=2
+      CALL MATRIX
+      CALL REPORT
+      I3=NSIZE(4)
+      NO2=NORD(4)
+      KB2=4
+      IN=3
+      CALL MATRIX
+      CALL REPORT
+      I2=NSIZE(2)
+      I3=NSIZE(3)
+      NO1=NORD(2)
+      NO2=NORD(3)
+      KB1=2
+      KB2=3
+      IN=4
+      CALL MATRIX
+      CALL REPORT
+      I3=NSIZE(4)
+      NO2=NORD(4)
+      KB2=4
+      IN=5
+      CALL MATRIX
+      CALL REPORT
+      I2=NSIZE(3)
+      NO1=NORD(3)
+      KB1=3
+      IN=6
+      CALL MATRIX
+      CALL REPORT
+ 930  FORMAT(I6,8H  LINEARF20.5)
+ 931  FORMAT(I6,11H  QUADRATICF17.5)
+ 932  FORMAT(I6,7H  CUBICF21.5)
+ 933  FORMAT(I6,11H  REMAINDERF17.5)
+ 934  FORMAT(I6,16H  TOTAL	   F24.5)
+ 935  FORMAT(1H0)
+ 936  FORMAT(21H ORDERED VARIABLES...4I3)
+ 100  RETURN
+      END
+C	     SUBROUTINE MATRIX FOR BMD02V	     MARCH 15, 1966
+      SUBROUTINE MATRIX
+      DIMENSION X(18000),L(9),TEMP(12),LO(8),LM(9),LL(8),K5(9),N(8)
+     1,KM(8),MM(9),MI(8),ST(6,9,9),ST1(4,9),M(8),TSUM(255),PQ(255),MD(8)
+     2,NORD(4),NSIZE(4),LF(8),C(9,9),CO(9,8,9),D(9,9)
+      REAL*8 TEMP
+      REAL*8 SUM
+      REAL*8 TSUM,PQ
+      COMMON  TEMP   , SUM    , TSUM   , PQ	, LO	 , LM	  , LL
+      COMMON  ST1    , M      , X      , L	, MD	 , NORD
+      COMMON  NSIZE  , LF     , C      , CO	, D
+      COMMON  K5     , N      , KM     , MM	, MI	 , ST
+      COMMON  NV     , NR     , NK     , NX	, NVM	 , I5
+      COMMON  MT     , MT1    , MARK   , JW	, Z	 , TRASH
+      COMMON  TRA    , IJK    , NO     , IN	, I2	 , I3
+      COMMON  NDF    , TOTAL  , NO1    , NO2	, KB1	 , KB2
+      I4=I2-1
+      I5=I3-1
+      DO 5 I=1,9
+      DO 5 J=1,9
+      C(I,J)=0.0
+ 5    D(I,J)=0.0
+      DO 10 I=1,I4
+      DO 10 J=1,I3
+      DO 10 K=1,I2
+ 10   C(I,J)=C(I,J)+CO(I2,I,K)*ST(IN,K,J)
+      DO 16 I=1,I4
+      DO 16 J=1,I5
+      DO 15 K=1,I3
+ 15   D(I,J)=D(I,J)+C(I,K)*CO(I3,J,K)
+ 16   D(I,J)=D(I,J)*D(I,J)
+      KL=NK/(I2*I3)
+      DIV=KL
+      Q000FL=NR
+      DIV=DIV/Q000FL
+      DO 30 I=1,I4
+      DO 30 J=1,I5
+ 30   D(I,J)=D(I,J)/DIV
+      WRITE (6,908)
+      WRITE (6,900)NO2
+      WRITE (6,901)
+      WRITE (6,902)NO1
+      TOTAL=0.0
+      DO 40 J=1,I5
+ 40   TOTAL=TOTAL+D(1,J)
+      C(1,9)=TOTAL-D(1,1)-D(1,2)-D(1,3)
+      WRITE (6,903)D(1,1),D(1,2),D(1(1,9),TOTAL
+      TOTAL=0.0
+      DO 41 J=1,I5
+ 41   TOTAL=TOTAL+D(2,J)
+      C(2,9)=TOTAL-D(2,1)-D(2,2)-D(2,3)
+      WRITE (6,904)D(2,1),D(2,2),D(2,3),C(2,9),TOTAL
+      TOTAL=0.0
+      DO 42 J=1,I5
+ 42   TOTAL=TOTAL+D(3,J)
+      C(3,9)=TOTAL-D(3,1)-D(3,2)-D(3,3)
+      WRITE (6,905)D(3,1),D(3,2),D(3,3),C(3,9),TOTAL
+      TOTAL=0.0
+      DO 46 J=1,3
+      C(1,J)=0.0
+       DO 45 I=1,I4
+ 45   C(1,J)=C(1,J)+D(I,J)
+      C(2,J)=C(1,J)-D(1,J)-D(2,J)-D(3,J)
+   46 TOTAL=TOTAL+C(2,J)
+      C(4,9)=0.0
+      IF(I5-3) 48,48,464
+  464 IF(I4-3) 48,48,465
+  465 DO 47 J=4,I5
+      DO 47 I=4,I4
+ 47   C(4,9)=C(4,9)+D(I,J)
+   48 TOTAL=TOTAL+C(4,9)
+      WRITE (6,906)C(2,1),C(2,2),C(2,3),C(4,9),TOTAL
+      C(1,4)=C(1,9)+C(2,9)+C(3,9)+C(4,9)
+      TOTAL=C(1,1)+C(1,2)+C(1,3)+C(1,4)
+      WRITE (6,907)C(1,1),C(1,2),C(1,3),C(1,4),TOTAL
+ 900  FORMAT(1H047X,8HVARIABLEI3,9H  ORDERED)
+ 901  FORMAT(28X,6HLINEAR7X,9HQUADRATIC9X,5HCUBIC7X,9HREMAINDER9X,5HTOTA
+     1L)
+ 902  FORMAT(9H VARIABLEI3,9H  ORDERED)
+ 903  FORMAT(8X,12HLINEAR      5F15.5)
+ 904  FORMAT(8X,12HQUADRATIC   5F15.5)
+ 905  FORMAT(8X,12HCUBIC       5F15.5)
+ 906  FORMAT(8X,12HREMAINDER   5F15.5)
+ 907  FORMAT(8X,12HTOTAL       5F15.5)
+ 908  FORMAT(1H0)
+      RETURN
+      END
+C	      SUBROUTINE MEANS FOR BMD02V	     MARCH 15, 1966
+      SUBROUTINE MEANS(PROB,TMEAN,MEAN)
+      DIMENSION X(18000),L(9),TEMP(12),LO(8),LM(9),LL(8),K5(9),N(8)
+     1,KM(8),MM(9),MI(8),ST(6,9,9),ST1(4,9),M(8),TSUM(255),PQ(255),MD(8)
+     2,NORD(4),NSIZE(4),LF(8),C(9,9),CO(9,8,9),D(9,9)
+      REAL*8 TEMP,Q17,Q18,Q19,Q20
+      REAL*8 Q1,Q2,Q3,Q4,Q5,Q6,Q7,Q8,Q9,Q10,Q11,Q12,Q13,Q14,Q15,Q16
+      REAL*8 SUM
+      REAL*8 TSUM,PQ
+      COMMON  TEMP   , SUM    , TSUM   , PQ	, LO	 , LM	  , LL
+      COMMON  ST1    , M      , X      , L	, MD	 , NORD
+      COMMON  NSIZE  , LF     , C      , CO	, D
+      COMMON  K5     , N      , KM     , MM	, MI	 , ST
+      COMMON  NV     , NR     , NK     , NX	, NVM	 , I5
+      COMMON  MT     , MT1    , MARK   , JW	, Z	 , TRASH
+      COMMON  TRA    , IJK    , NO     , IN	, I2	 , I3
+      COMMON  NDF    , TOTAL  , NO1    , NO2	, KB1	 , KB2
+      END FILE 1
+      REWIND 1
+      WRITE (6,900)PROB
+      IF(MEAN-1)300,4,3
+ 3    WRITE (6,901)
+      DATA Q1/6HI3,   /
+    4 TSUM(1)=Q1
+      DATA Q2/6H2I3,  /
+      TSUM(2)=Q2
+      DATA Q3/6H3I3,  /
+      TSUM(3)=Q3
+      DATA Q4/6H4I3,  /
+      TSUM(4)=Q4
+      DATA Q5/6H5I3,  /
+      TSUM(5)=Q5
+      DATA Q6/6H6I3,  /
+      TSUM(6)=Q6
+      DATA Q7/6H7I3,  /
+      TSUM(7)=Q7
+      DATA Q8/6H8I3,  /
+      TSUM(8)=Q8
+      DATA Q9/6H22X,  /
+      PQ(1)=Q9
+      DATA Q10/6H19X,  /
+      PQ(2)=Q10
+      DATA Q11/6H16X,  /
+      PQ(3)=Q11
+      DATA Q12/6H13X,  /
+      PQ(4)=Q12
+      DATA Q13/6H10X,  /
+      PQ(5)=Q13
+      DATA Q14/6H7X,   /
+      PQ(6)=Q14
+      DATA Q15/6H4X,   /
+      PQ(7)=Q15
+      DATA Q16/6H1X,   /
+      PQ(8)=Q16
+      DATA Q17/6H(     /
+      TEMP(1)=Q17
+      DATA Q18/6H1H    /
+      TEMP(2)=Q18
+      TEMP(3)=TSUM(NV)
+      TEMP(4)=PQ(NV)
+      DATA Q19/6HF19.5,/
+      TEMP(5)=Q19
+      DATA Q20/6H)     /
+      TEMP(6)=Q20
+      IN=9-NV
+      DO 5 I=1,NV
+      MM(IN)=LF(I)
+ 5    IN=IN+1
+      IN=9-NV
+      READ(1,9998)(X(I),I=1,NK)
+      I3=0
+ 10   N(1)=1
+ 20   N(2)=1
+ 30   N(3)=1
+ 40   N(4)=1
+ 50   N(5)=1
+ 60   N(6)=1
+ 70   N(7)=1
+ 80   N(8)=1
+ 90   I3=I3+1
+      IF(MEAN-1)300,93,92
+ 92   WRITE (6,TEMP)(N(I), I=IN,8),X(I3)
+ 93   IF(N(8)-MM(8)) 110, 120, 120
+ 110  N(8)=N(8)+1
+      GO TO 90
+ 120  IF(IN-8) 121, 200, 200
+ 121  IF(N(7)-MM(7)) 122, 130, 130
+ 122  N(7)=N(7)+1
+      GO TO 80
+ 130  IF(IN-7) 131, 200, 200
+ 131  IF(N(6)-MM(6)) 132, 140, 140
+ 132  N(6)=N(6)+1
+      GO TO 70
+ 140  IF(IN-6) 141, 200, 200
+ 141  IF(N(5)-MM(5)) 142, 150, 150
+ 142  N(5)=N(5)+1
+      GO TO 60
+ 150  IF(IN-5) 151, 200, 200
+ 151  IF(N(4)-MM(4)) 152, 160, 160
+ 152  N(4)=N(4)+1
+      GO TO 50
+ 160  IF(IN-4) 161, 200, 200
+ 161  IF(N(3)-MM(3)) 162, 170, 170
+ 162  N(3)=N(3)+1
+      GO TO 40
+ 170  IF(IN-3) 171, 200, 200
+ 171  IF(N(2)-MM(2)) 172, 180, 180
+ 172  N(2)=N(2)+1
+      GO TO 30
+ 180  IF(IN-2) 181, 200, 200
+ 181  IF(N(1)-MM(1)) 182, 200, 200
+ 182  N(1)=N(1)+1
+      GO TO 20
+ 200  IF(NV-1) 300, 300, 205
+ 205  WRITE (6,902)
+      WRITE (6,903)
+      I2=1
+      DO 220 I=1,NV
+      IN=LF(I)
+      SUM=NK/IN
+      TRASH=SUM*TMEAN
+      READ(1,9998)TRA
+      TRA=(TRA+TRASH)/SUM
+      WRITE (6,904)I,I2,TRA
+      DO 210 J=2,IN
+      READ(1,9998)TRA
+      TRA=(TRA+TRASH)/SUM
+ 210  WRITE (6,905)J, TRA
+      WRITE (6,906)
+ 220  CONTINUE
+ 300  REWIND 1
+ 900  FORMAT(13H1PROBLEM NO. A2//)
+ 901  FORMAT(25H0 C E L L   N U M B E R S11X,9HM E A N S)
+ 902  FORMAT(1H0/29H0 M A R G I N A L	M E A N S)
+ 903  FORMAT(23H VARIABLES   CATEGORIES13X,9HM E A N S)
+ 904  FORMAT(1H I6,6X,I6,7X,F19.5)
+ 905  FORMAT(1H 12X,I6,7X,F19.5)
+ 906  FORMAT(1H )
+ 9998 FORMAT(20A4)
+      RETURN
+      END
+C	    SUBROUTINE PART FOR BMD02V		     MARCH 15, 1966
+      SUBROUTINE PART (M,I5,Z,MARK,IJK)
+      DIMENSION M(8)
+      GO TO (71,72,73,74,75,76),IJK
+   71 IF(Z.NE.1.0)GO TO 61
+ 60   KA=I5
+      GO TO 299
+ 61   IF(KA-8) 130, 200, 200
+   72 IF(Z.NE.1.0)GO TO 63
+ 62   KB=I5
+      KA=I5+1
+      GO TO 299
+   63 IF(KA.LT.8) GO TO 130
+ 93   IF(KB-7) 129, 200, 200
+   73 IF(Z.NE.1.0)GO TO 65
+ 64   KC=I5
+      KB=I5+1
+      KA=I5+2
+      GO TO 299
+   65 IF(KA.LT.8) GO TO 130
+   97 IF(KB.LT.7)GO TO 129
+ 98   IF(KC-6) 128, 200, 200
+   74 IF(Z.NE.1.0)GO TO 67
+ 66   KD=I5
+      KC=I5+1
+      KB=I5+2
+      KA=I5+3
+      GO TO 299
+   67 IF(KA.LT.8) GO TO 130
+  103 IF(KB.LT.7)GO TO 129
+  104 IF(KC.LT.6)GO TO 128
+ 105  IF(KD-5) 127, 200, 200
+   75 IF(Z.NE.1.0)GO TO 69
+ 68   KE=I5
+      KD=I5+1
+      KC=I5+2
+      KB=I5+3
+      KA=I5+4
+      GO TO 299
+   69 IF(KA.LT.8) GO TO 130
+  110 IF(KB.LT.7)GO TO 129
+  111 IF(KC.LT.6)GO TO 128
+  112 IF(KD.LT.5)GO TO 127
+ 113  IF(KE-4) 126, 200, 200
+   76 IF(Z.NE.1.0)GO TO 81
+ 80   KF=I5
+      KE=I5+1
+      KD=I5+2
+      KC=I5+3
+      KB=I5+4
+      KA=I5+5
+      GO TO 299
+   81 IF(KA.LT.8) GO TO 130
+  120 IF(KB.LT.7)GO TO 129
+  121 IF(KC.LT.6)GO TO 128
+  122 IF(KD.LT.5)GO TO 127
+      IF(KE.LT.4) GO TO 126
+      IF(KF.GE.3)GO TO 200
+ 125  DO 136 I=KF,8
+ 136  M(I)=0
+      KF=KF+1
+      M(KF)=1
+      KE=KF+1
+      M(KE)=1
+ 10   KD=KE+1
+      M(KD)=1
+ 20   KC=KD+1
+      M(KC)=1
+ 30   KB=KC+1
+      M(KB)=1
+ 40   KA=KB+1
+      M(KA)=1
+      GO TO 300
+ 126  DO 135 I=KE,8
+ 135  M(I)=0
+      KE=KE+1
+      M(KE)=1
+      GO TO 10
+ 127  DO 134 I=KD,8
+ 134  M(I)=0
+      KD=KD+1
+      M(KD)=1
+      GO TO 20
+ 128  DO 133 I=KC,8
+ 133  M(I)=0
+      KC=KC+1
+      M(KC)=1
+      GO TO 30
+ 129  DO 132 I=KB,8
+ 132  M(I)=0
+      KB=KB+1
+      M(KB)=1
+      GO TO 40
+ 130  DO 131 I=KA,8
+ 131  M(I)=0
+      KA=KA+1
+      M(KA)=1
+      GO TO 300
+ 200  MARK=1
+      GO TO 300
+ 299  Z=0.0
+ 300  RETURN
+      END
+C	 SUBROUTINE REPORT FOR BMD02V		     MARCH 15, 1966
+      SUBROUTINE REPORT
+      DIMENSION X(18000),L(9),TEMP(12),LO(8),LM(9),LL(8),K5(9),N(8)
+     1,KM(8),MM(9),MI(8),ST(6,9,9),ST1(4,9),M(8),TSUM(255),PQ(255),MD(8)
+     2,NORD(4),NSIZE(4),LF(8),C(9,9),CO(9,8,9),D(9,9)
+     3,ZZ(9,9),C1(9),C2(9)
+      REAL*8 TEMP
+      REAL*8 SUM
+      REAL*8 TSUM,PQ
+      COMMON  TEMP   , SUM    , TSUM   , PQ	, LO	 , LM	  , LL
+      COMMON  ST1    , M      , X      , L	, MD	 , NORD
+      COMMON  NSIZE  , LF     , C      , CO	, D
+      COMMON  K5     , N      , KM     , MM	, MI	 , ST
+      COMMON  NV     , NR     , NK     , NX	, NVM	 , I5
+      COMMON  MT     , MT1    , MARK   , JW	, Z	 , TRASH
+      COMMON  TRA    , IJK    , NO     , IN	, I2	 , I3
+      COMMON  NDF    , TOTAL  , NO1    , NO2	, KB1	 , KB2
+      M1=NK/I2
+      M2=NK/I3
+      M3=NK/(I2*I3)
+      A1=M1
+      A2=M2
+      A3=M3
+      DO 10 I=1,I2
+      DO 10 J=1,I3
+ 10   ST(IN,I,J)=ST(IN,I,J)/A3
+      DO 15 I=1,I2
+ 15   C(1,I)=ST1(KB1,I)/A1
+      DO 16 I=1,I3
+ 16   C(2,I)=ST1(KB2,I)/A2
+      TOTAL=TEMP(1)
+      DO 20 J=1,I3
+      DO 20 I=1,I2
+ 20   ST(IN,I,J)=ST(IN,I,J)-C(2,J)-C(1,I)
+      WRITE (6,900)
+      WRITE (6,901)NO1
+      WRITE (6,902)NO2
+      WRITE (6,920)
+      DO 29 K=1,I2
+ 29   WRITE (6,904)(ST(IN,K,J), J=1,I3), C(1,K)
+      WRITE (6,920)
+      WRITE (6,904)(C(2,J), J=1,I3), TOTAL
+ 900  FORMAT(26H0TABLE OF INTERACTIONS FOR)
+ 901  FORMAT(13H     VARIABLEI2,7H  (ROW))
+ 902  FORMAT(13H     VARIABLEI2,10H  (COLUMN))
+ 904  FORMAT(F11.5,9F12.5/(10F12.5))
+ 920  FORMAT(1H )
+      DO 31 I=1,I2
+      DO 30 J=1,I3
+ 30   ZZ(I,J)=ST(IN,I,J)+C(2,J)+C(1,I)+TOTAL
+ 31   C1(I)=C(1,I)+TOTAL
+      DO 40 J=1,I3
+ 40   C2(J)=C(2,J)+TOTAL
+      WRITE (6,905)
+ 905  FORMAT(15H0TABLE OF MEANS)
+      WRITE (6,920)
+      DO 50 I=1,I2
+ 50   WRITE (6,904)(ZZ(I,J),J=1,I3),C1(I)
+      WRITE (6,920)
+      WRITE (6,904)(C2(J),J=1,I3),TOTAL
+      RETURN
+      END
+C	    SUBROUTINE TABLE FOR BMD02V 	     MARCH 15, 1966
+      SUBROUTINE TABLE
+      DIMENSION X(18000),L(9),TEMP(12),LO(8),LM(9),LL(8),K5(9),N(8)
+     1,KM(8),MM(9),MI(8),ST(6,9,9),ST1(4,9),M(8),TSUM(255),PQ(255),MD(8)
+     2,NORD(4),NSIZE(4),LF(8),C(9,9),CO(9,8,9),D(9,9)
+      REAL*8 TEMP
+      REAL*8 SUM
+      REAL*8 TSUM,PQ
+      COMMON  TEMP   , SUM    , TSUM   , PQ	, LO	 , LM	  , LL
+      COMMON  ST1    , M      , X      , L	, MD	 , NORD
+      COMMON  NSIZE  , LF     , C      , CO	, D
+      COMMON  K5     , N      , KM     , MM	, MI	 , ST
+      COMMON  NV     , NR     , NK     , NX	, NVM	 , I5
+      COMMON  MT     , MT1    , MARK   , JW	, Z	 , TRASH
+      COMMON  TRA    , IJK    , NO     , IN	, I2	 , I3
+      COMMON  NDF    , TOTAL  , NO1    , NO2	, KB1	 , KB2
+      GO TO (71,72,73,74,75,76,77),IJK
+   71 IF(Z.NE.1.0)GO TO 61
+ 60   KA=I5
+      GO TO 299
+ 61   IF(KA-8) 143, 200, 200
+   72 IF(Z.NE.1.0)GO TO 63
+ 62   KB=I5
+      KA=I5+1
+      GO TO 299
+   63 IF(KA.LT.8) GO TO 143
+ 93   IF(KB-7) 142, 200, 200
+   73 IF(Z.NE.1.0)GO TO 65
+ 64   KC=I5
+      KB=I5+1
+      KA=I5+2
+      GO TO 299
+   65 IF(KA.LT.8) GO TO 143
+   97 IF(KB.LT.7)GO TO 142
+ 98   IF(KC-6) 141, 200, 200
+   74 IF(Z.NE.1.0)GO TO 67
+ 66   KD=I5
+      KC=I5+1
+      KB=I5+2
+      KA=I5+3
+      GO TO 299
+   67 IF(KA.LT.8) GO TO 143
+  103 IF(KB.LT.7)GO TO 142
+  104 IF(KC.LT.6)GO TO 141
+ 105  IF(KD-5) 140, 200, 200
+   75 IF(Z.NE.1.0)GO TO 69
+ 68   KE=I5
+      KD=I5+1
+      KC=I5+2
+      KB=I5+3
+      KA=I5+4
+      GO TO 299
+   69 IF(KA.LT.8) GO TO 143
+  110 IF(KB.LT.7)GO TO 142
+      IF(KC.LT.6)GO TO 141
+      IF(KD.LT.5)GO TO 140
+ 113  IF(KE-4) 139, 200, 200
+   76 IF(Z.NE.1.0)GO TO 81
+ 80   KF=I5
+      KE=I5+1
+      KD=I5+2
+      KC=I5+3
+      KB=I5+4
+      KA=I5+5
+      GO TO 299
+   81 IF(KA.LT.8) GO TO 143
+      IF(KB.LT.7)GO TO 142
+      IF(KC.LT.6)GO TO 141
+      IF(KD.LT.5)GO TO 140
+      IF(KE.LT.4)GO TO 139
+ 124  IF(KF-3) 138, 200, 200
+   77 IF(Z.NE.1.0)GO TO 83
+ 82   KG=I5
+      KF=I5+1
+      KE=I5+2
+      KD=I5+3
+      KC=I5+4
+      KB=I5+5
+      KA=I5+6
+      GO TO 299
+   83 IF(KA.LT.8) GO TO 143
+      IF(KB.LT.7)GO TO 142
+      IF(KC.LT.6)GO TO 141
+      IF(KD.LT.5)GO TO 140
+      IF(KE.LT.4)GO TO 139
+      IF(KF.LT.3)GO TO 138
+ 136  IF(KG-2) 137, 200, 200
+ 137  DO 150 I=KG,8
+ 150  M(I)=0
+      KG=KG+1
+      M(KG)=1
+      KF=KG+1
+      M(KF)=1
+ 10   KE=KF+1
+      M(KE)=1
+ 20   KD=KE+1
+      M(KD)=1
+ 30   KC=KD+1
+      M(KC)=1
+ 40   KB=KC+1
+      M(KB)=1
+ 50   KA=KB+1
+      M(KA)=1
+      GO TO 300
+ 138  DO 149 I=KF,8
+ 149  M(I)=0
+      KF=KF+1
+      M(KF)=1
+      GO TO 10
+ 139  DO 148 I=KE,8
+ 148  M(I)=0
+      KE=KE+1
+      M(KE)=1
+      GO TO 20
+ 140  DO 147 I=KD,8
+ 147  M(I)=0
+      KD=KD+1
+      M(KD)=1
+      GO TO 30
+ 141  DO 146 I=KC,8
+ 146  M(I)=0
+      KC=KC+1
+      M(KC)=1
+      GO TO 40
+ 142  DO 145 I=KB,8
+ 145  M(I)=0
+      KB=KB+1
+      M(KB)=1
+      GO TO 50
+  143 DO 144 I=KA,8
+ 144  M(I)=0
+      KA=KA+1
+      M(KA)=1
+      GO TO 300
+ 200  MARK=1
+      GO TO 300
+ 299  Z=0.0
+ 300  RETURN
+      END
+C	 SUBROUTINE TPWD FOR BMD02V		     MARCH 15, 1966
+      SUBROUTINE TPWD(NT1,NT2)
+      IF(NT1)40,10,12
+ 10   NT1=5
+ 12   IF(NT1-NT2)14,19,14
+   14 IF(NT2.EQ.5)GO TO 19
+   15 REWIND NT2
+   19 IF(NT1-5)18,24,18
+ 18   IF(NT1-6)22,40,22
+ 22   REWIND NT1
+ 24   NT2=NT1
+ 28   RETURN
+ 40   WRITE (6,49)
+      STOP
+ 49   FORMAT(25H ERROR ON TAPE ASSIGNMENT)
+      END
+C	    SUBROUTINE TRANS FOR BMD02V 	     MARCH 15, 1966
+      SUBROUTINE TRANS (DF,NDF,CONST,ONNN,IERROR,I,II)
+      ASN(XX)=ATAN(XX/SQRT(1.0-XX**2))
+      IERROR=0
+      GO TO (10,20,30,40,50,60,70,80,90,100),NDF
+   10 IF(DF)99,32,8
+    8 DF=SQRT(DF)
+      GO TO 200
+   20 IF(DF)99,11,12
+   11 DF=1.0
+      GO TO 200
+   12 DF=SQRT(DF)+SQRT(DF+1.0)
+      GO TO 200
+   30 IF(DF)99,99,14
+   14 DF=ALOG10(DF)
+      GO TO 200
+   40 DF=EXP(DF)
+      GO TO 200
+   50 IF(DF)99,32,17
+   17 IF(DF-1.0)18,19,99
+   19 DF=3.14159/2.0
+      GO TO 200
+   18 A=SQRT(DF)
+      DF=ASN(A)
+      GO TO 200
+   60 A=DF/(ONNN+1.0)
+      B=A+1.0/(ONNN+1.0)
+      IF(A)99,23,24
+   23 IF(B)99,32,27
+   27 DF=ASN(SQRT(B))
+      GO TO 200
+   24 IF(B)99,28,29
+   28 DF=ASN(SQRT(A))
+      GO TO 200
+   29 A=SQRT(A)
+      B=SQRT(B)
+      DF=ASN(A)+ASN(B)
+      GO TO 200
+   70 IF(DF)31,99,31
+   31 DF=1.0/DF
+      GO TO 200
+   80 DF=DF+CONST
+      GO TO 200
+   90 DF=DF*CONST
+      GO TO 200
+  100 IF(DF)33,32,33
+   32 DF=0.0
+      GO TO 200
+   33 DF=DF**CONST
+      GO TO 200
+   99 WRITE (6,900)II,I,DF
+      IERROR=-99
+  900 FORMAT(51H0ERROR OCCURRED DURING TRANS-GENERATION PASS NUMBERI3,
+     120H, REPLICATION NUMBERI5,1H./26H VALUE OF THIS REPLICATE =F15.5,2
+     2H. 36HTHIS IS THE FIRST ERROR ENCOUNTERED./41H PROGRAM WILL GO TO
+     3NEXT PROBLEM, IF ANY.)
+  200 RETURN
+      END
+C	     SUBROUTINE XLOCAT FOR BMD02V	     MARCH 15, 1966
+      SUBROUTINE XLOCAT (MEAN)
+      DIMENSION X(18000),L(9),TEMP(12),LO(8),LM(9),LL(8),K5(9),N(8)
+     1,KM(8),MM(9),MI(8),ST(6,9,9),ST1(4,9),M(8),TSUM(255),PQ(255),MD(8)
+     2,NORD(4),NSIZE(4),LF(8),C(9,9),CO(9,8,9),D(9,9)
+      REAL*8 SUM
+      REAL*8 TEMP
+      REAL*8 TSUM,PQ
+      COMMON  TEMP   , SUM    , TSUM   , PQ	, LO	 , LM	  , LL
+      COMMON  ST1    , M      , X      , L	, MD	 , NORD
+      COMMON  NSIZE  , LF     , C      , CO	, D
+      COMMON  K5     , N      , KM     , MM	, MI	 , ST
+      COMMON  NV     , NR     , NK     , NX	, NVM	 , I5
+      COMMON  MT     , MT1    , MARK   , JW	, Z	 , TRASH
+      COMMON  TRA    , IJK    , NO     , IN	, I2	 , I3
+      COMMON  NDF    , TOTAL  , NO1    , NO2	, KB1	 , KB2
+      DO 300 I=1,8
+ 300  N(I)=0
+      KI=0
+      K=1
+      DO 302 I=I5,8
+      KI=KI+1
+      IF(M(I)) 301, 301, 302
+ 301  N(K)=KI
+      K=K+1
+ 302  CONTINUE
+      DO 303 I=I5,8
+      MM(I)=L(I)-1
+ 303  LM(I)=LO(I)
+      DO 305 I=1,NV
+      K=I5+(I-1)
+ 305  K5(K)=I
+      DO 310 I=1,JW
+      DO 309 J=I5,8
+      IF(N(I).NE.K5(J))GO TO 309
+ 306  K5(9)=K5(J)
+      LM(9)=LM(J)
+      MM(9)=MM(J)
+      DO 307 J2=J,8
+      K5(J2)=K5(J2+1)
+      LM(J2)=LM(J2+1)
+ 307  MM(J2)=MM(J2+1)
+      GO TO 310
+ 309  CONTINUE
+ 310  CONTINUE
+      SUM=0.0
+      TRASH=0.0
+ 351  N(1)=0
+ 352  N(2)=0
+ 353  N(3)=0
+ 354  N(4)=0
+ 355  N(5)=0
+ 356  N(6)=0
+ 357  N(7)=0
+ 358  N(8)=0
+ 359  DO 360 J=I5,8
+      KK=K5(J)
+ 360  KM(KK)=N(J)
+      LX=1
+      DO 361 J=1,NV
+ 361  LX=LX+KM(J)*LL(J)
+      TRASH=TRASH+X(LX)
+      IF(N(8).GE.MM(8))GO TO 363
+ 362  N(8)=N(8)+1
+      GO TO 359
+ 363  IF(JW-1) 364,364,370
+ 364  SUM=SUM+TRASH*TRASH
+      TRA=TRASH
+      TRASH=0.0
+      IF(MEAN.LE.0.OR.JW.NE.NVM)GO TO 705
+  702 WRITE(1,9998)TRA
+ 705  IF(NV-3) 365, 367, 370
+  365 IF(LM(7).LE.100)GO TO 370
+ 366  N1=N(7)+1
+      ST1(MT1,N1)=TRA
+      MI(1)=1
+      GO TO 370
+  367 IF(LM(6).LE.100.OR.LM(7).LE.100)GO TO 370
+ 369  N1=N(6)+1
+      N2=N(7)+1
+      ST(MT,N1,N2)=TRA
+      MI(1)=2
+ 370  IF(N(7)-MM(7)) 371,372,372
+ 371  N(7)=N(7)+1
+      GO TO 358
+ 372  IF(JW-2) 373,375,381
+ 373  SUM=SUM+TRASH*TRASH
+      IF(MI(1)-1) 501, 374, 381
+ 501  IF(NV-2) 70, 70, 381
+ 374  MI(1)=0
+      MT1=MT1+1
+      GO TO 70
+ 375  SUM=SUM+TRASH*TRASH
+      TRA=TRASH
+      TRASH=0.0
+      IF(MEAN.LE.0.OR.JW.NE.NVM)GO TO 715
+  712 WRITE(1,9998)TRA
+ 715  IF(NV-4) 376,378,381
+  376 IF(LM(6).LE.100)GO TO 381
+ 377  N1=N(6)+1
+      ST1(MT1,N1)=TRA
+      MI(2)=1
+      GO TO 381
+  378 IF(LM(5).LE.100.OR.LM(6).LE.100)GO TO 381
+ 380  N1=N(5)+1
+      N2=N(6)+1
+      ST(MT,N1,N2)=TRA
+      MI(2)=2
+ 381  IF(N(6)-MM(6)) 382,383, 383
+ 382  N(6)=N(6)+1
+      GO TO 357
+ 383  IF(JW-3) 384, 388, 394
+ 384  SUM=SUM+TRASH*TRASH
+      IF(MI(1)-2) 385, 387, 387
+ 385  IF(MI(2)-1) 502, 386, 394
+ 502  IF(NV-3) 70, 70, 394
+ 386  MI(2)=0
+      MT1=MT1+1
+      GO TO 70
+ 387  MI(1)=0
+      MT=MT+1
+      GO TO 70
+ 388  SUM=SUM+TRASH*TRASH
+      TRA=TRASH
+      TRASH=0.0
+      IF(MEAN.LE.0.OR.JW.NE.NVM)GO TO 725
+  722 WRITE(1,9998)TRA
+ 725  IF(NV-5) 389, 391,394
+  389 IF(LM(5).LE.100)GO TO 394
+ 390  N1=N(5)+1
+      ST1(MT1,N1)=TRA
+      MI(3)=1
+      GO TO 394
+  391 IF(LM(4).LE.100.OR.LM(5).LE.100)GO TO 394
+ 393  N1=N(4)+1
+      N2=N(5)+1
+      ST(MT,N1,N2)=TRA
+      MI(3)=2
+ 394  IF(N(5)-MM(5)) 395,396,396
+ 395  N(5)=N(5)+1
+      GO TO 356
+ 396  IF(JW-4) 397, 401, 407
+ 397  SUM=SUM+TRASH*TRASH
+      IF(MI(2)-2) 398,400, 400
+ 398  IF(MI(3)-1) 503, 399, 407
+ 503  IF(NV-4) 70, 70, 407
+ 399  MI(3)=0
+      MT1=MT1+1
+      GO TO 70
+ 400  MI(2)=0
+      MT=MT+1
+      GO TO 70
+ 401  SUM=SUM+TRASH*TRASH
+      TRA=TRASH
+      TRASH=0.0
+      IF(MEAN.LE.0.OR.JW.NE.NVM)GO TO 735
+  732 WRITE(1,9998)TRA
+ 735  IF(NV-6) 402, 404, 407
+  402 IF(LM(4).LE.100)GO TO 407
+ 403  N1=N(4)+1
+      ST1(MT1,N1)=TRA
+      MI(4)=1
+      GO TO 407
+  404 IF(LM(3).LE.100.OR.LM(4).LE.100)GO TO 407
+ 406  N1=N(3)+1
+      N2=N(4)+1
+      ST(MT,N1,N2)=TRA
+      MI(4)=2
+ 407  IF(N(4)-MM(4)) 408,409,409
+ 408  N(4)=N(4)+1
+      GO TO 355
+ 409  IF(JW-5) 410,414,420
+ 410  SUM=SUM+TRASH*TRASH
+      IF(MI(3)-2) 411,413,413
+ 411  IF(MI(4)-1) 504, 412, 420
+ 504  IF(NV-5) 70, 70, 420
+ 412  MI(4)=0
+      MT1=MT1+1
+      GO TO 70
+ 413  MI(3)=0
+      MT=MT+1
+      GO TO 70
+ 414  SUM=SUM+TRASH*TRASH
+      TRA=TRASH
+      TRASH=0.0
+      IF(MEAN.LE.0.OR.JW.NE.NVM)GO TO 745
+  742 WRITE(1,9998)TRA
+ 745  IF(NV-7) 415, 417, 420
+  415 IF(LM(3).LE.100)GO TO 420
+ 416  N1=N(3)+1
+      ST1(MT1,N1)=TRA
+      MI(5)=1
+      GO TO 420
+  417 IF(LM(2).LE.100.OR.LM(3).LE.100)GO TO 420
+ 419  N1=N(2)+1
+      N2=N(3)+1
+      ST(MT,N1,N2)=TRA
+      MI(5)=2
+ 420  IF(N(3)-MM(3)) 421,422,422
+ 421  N(3)=N(3)+1
+      GO TO 354
+ 422  IF(JW-6) 423,427,433
+ 423  SUM=SUM+TRASH*TRASH
+      IF(MI(4)-2) 424,426,426
+ 424  IF(MI(5)-1) 505, 425, 433
+ 505  IF(NV-6) 70, 70, 433
+ 425  MI(5)=0
+      MT1=MT1+1
+      GO TO 70
+ 426  MI(4)=0
+      MT=MT+1
+      GO TO 70
+ 427  SUM=SUM+TRASH*TRASH
+      TRA=TRASH
+      TRASH=0.0
+      IF(MEAN.LE.0.OR.JW.NE.NVM)GO TO 755
+  752 WRITE(1,9998)TRA
+ 755  IF(NV-8) 428,430,430
+  428 IF(LM(2).LE.100)GO TO 433
+ 429  N1=N(2)+1
+      ST1(MT1,N1)=TRA
+      MI(6)=1
+      GO TO 433
+  430 IF(LM(1).LE.100.OR.LM(2).LE.100)GO TO 433
+ 432  N1=N(1)+1
+      N2=N(2)+1
+      ST(MT,N1,N2)=TRA
+      MI(6)=2
+ 433  IF(N(2)-MM(2)) 434,435,435
+ 434  N(2)=N(2)+1
+      GO TO 353
+ 435  IF(JW-7) 436,440,440
+ 436  SUM=SUM+TRASH*TRASH
+      IF(MI(5)-2) 437,439,439
+ 437  IF(MI(6)-1) 506, 438, 443
+ 506  IF(NV-7) 70, 70, 443
+ 438  MI(6)=0
+      MT1=MT1+1
+      GO TO 70
+ 439  MI(5)=0
+      MT=MT+1
+      GO TO 70
+ 440  SUM=SUM+TRASH*TRASH
+      TRA=TRASH
+      TRASH=0.0
+      IF(MEAN.LE.0.OR.JW.NE.NVM)GO TO 765
+  762 WRITE(1,9998)TRA
+  765 IF(NV.LT.8)GO TO 70
+      IF(LM(1).LE.100)GO TO 443
+ 442  N1=N(1)+1
+      ST1(MT1,N1)=TRA
+      MI(7)=1
+ 443  IF(N(1)-MM(1)) 444,445,445
+ 444  N(1)=N(1)+1
+      GO TO 352
+ 445  IF(MI(6)-2) 446,448,448
+  446 IF(MI(7).LT.1)GO TO 70
+ 447  MI(7)=0
+      MT1=MT1+1
+      GO TO 70
+ 448  MI(6)=0
+      MT=MT+1
+ 70   RETURN
+ 9998 FORMAT(20A4)
+      END
+      {[#e
