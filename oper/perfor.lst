@@ -1,0 +1,108 @@
+
+
+
+
+
+     This memo details the currently proposed methods for  implementing
+the navy's "PERFORM" command on the TYMCOM-X systems.
+
+                      METHOD 1: AUXILARY CIRCUITS
+
+     The simplest, and by far the easiest to implement, would be to use
+auxilary  circuits.  PERFORM would open an auxilary circuit to the same
+machine under the same user name and copy  the  text  of  the  "PERFORM
+FILE"  over  the  auxilary circuit (sounds like commands files, doesn't
+it?).  Something similar to DEC's "BATCH" might be implemented to  tell
+PERFORM  whether  or  not  the  next  series of commands are going to a
+program  or  the   executive   (so   PERFORM   can   send   appropriate
+alt-mode/escape/control-c's across the circuit).
+
+     Good points: (a) the "PERFORM" program will be small  (as  far  as
+core  is  concerned),  (b)  no other programs need be modified, (c) ANY
+input which is valid from the terminal during a session would be  valid
+in  a "PERFORM FILE", (d) either direct terminal output or "TOUT" files
+could be available, (e) it will bill a  fortune  because  of  'planned'
+auxilary  circuit  billing procedures, (f) speed of implementation, (g)
+it will keep the customer happy, (h) it can be done.
+
+     Bad points: (a) Auxilary circuits are coming; however, the monitor
+may be available only on KI-10 type processor machines (which should be
+no problem since ALL 10's will be KI's eventually), (b) it uses a  very
+valuable and limited system resource (see point (e) in good points).
+
+                 METHOD 2: PROGRAM KLUDGING (PERFORM)
+
+     The next, and probably one of  the  most  difficult  to  implement
+because  it requires both the user and PERFORM to do special things, is
+the old and familiar "PROGRAM KLUDGE" method.  In this method,  PERFORM
+would  have  two  entry  points,  the normal "R" or "RUN" command entry
+point, and the RPG entry point.  if PERFORM is  called  at  the  normal
+entry  point,  it  will  take  a  "PERFORM  FILE"  name,  and build two
+temporary files A and B.  Temporary file A contains  the  text  of  the
+PERFORM  FILE  and temporary file B contains the cursor position of the
+last position read from file A.  When PERFORM  is  called  at  the  RPG
+starting  address,  if  temporary files a and b are present on the DSK:
+PERFORM will read the next command from file A at the  position  stored
+in  file  B, updating the position in file B after the command is read.
+EOF will cause PERFORM to return to the executive.  All programs  which
+are  RPG  callable  will  be modified (if not already so) to accept the
+command string "PROGRAM!" WHICH MEANS "RUN PROGRAM program OUT OF  SYS:
+WITH  A  STARTING  INCREMENT  OF ONE".  This is the current RPG command
+standard for passing control from one program to  another.   Also,  all
+RPG callable programs will exit to the monitor upon eof from the TMPCOR
+or DSK: FILE.  USER PROGRAMS WHICH ARE RUN VIA R OR RUN must either (a)
+if  they  are written in FORTRAN or COBOL call the special exit routine
+
+                                                               PAGE   2
+
+
+
+"EXITP" (which will be included in the system library), or (b) if  they
+are  written  in SIMPL, MACRO, BLISS, etc.  they must check for the two
+temporary files and if they are present  must  run  SYS:PERFOR  with  a
+starting  increment of one.  In addition, all programs, upon an 'error'
+exit, must delete the PERFORM temporary files (see note (d)  under  bad
+points below).
+
+     Good points: (a) it does not use a limited system resource, (b) it
+will  cost  less  to run, (c) it will keep the customer satisfied for a
+while.
+
+     Bad points: (a) it places restrictions on what can be done and  it
+also  requires  the  end  user to do special things with any program he
+runs, (b) any program not prepared to run under  PERFORM  control  will
+break  the  chain-of-commands upon exit, (c) requires changing existing
+programs to run with PERFORM (i.e., LISTER, DIRIT, RPG, etc), (d) if an
+altmode/escape/control-c  is typed during execution of a PERFORM chain,
+the temporary files A and B will still be left on the DSK: and when any
+program  is  run  which  has  PERFORM  hooks, the PERFORM chain will be
+restarted when that program exits (i.e.,  the  program  sees  that  the
+PERFORM  temporary  files are on the DSK: and decides PERFORM should be
+called), (e) all compilers must be changed to handle the 'RPG' starting
+increment trick, or, where possible, the user should have, as the first
+part of the program, a set of instructions which will either ignore  or
+set  a  flag  for  the  rpg  starting  trick, (f) it will run slow, (g)
+PERFORM will be relatively large (2-4k), (h) speed  of  implementation,
+(i) only a limited set of commands are acceptable, (j) any new commands
+will require modifying more programs (unless they satisfy  all  of  the
+rules for being PERFORM callable) as well as modifying PERFORM.
+
+                     METHOD 3: STAND-ALONE PROGRAM
+
+     This solution is applicable only towards the case  which  prompted
+the  questioning of the possible existance of the PERFORM verb.  In the
+navy's case, they use PERFORM incorrectly most of the time  (i.e.,  one
+line PERFORM files which do "execute" commands).  The only real PERFORM
+file which did anything useful was one  which  sorted  a  file  several
+times  and did reports in between sorts.  This particular case could be
+done from within a COBOL program without the need of the report program
+used in the PERFORM command file.  The sort and report generation could
+have been done from within one COBOL program.  This solution is  unique
+for each case.
+
+     Good points: it's the best  solution,  but,  as  usual  with  best
+solutions, not necessarily the most economical one.
+
+     Bad points: The programmer is needed for each new case which comes
+up.  (see also good points above).
+
