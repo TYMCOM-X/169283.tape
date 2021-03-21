@@ -1,0 +1,454 @@
+MODULE GVIA(DOLLAR,ENTRIES=($GVIA,$GFCHALL),FSAVE,TIMING,TIMER=EXTERNAL(SIX12))=
+  BEGIN
+
+
+  REQUIRE ADEFS.BLI[7,107355];
+  REQUIRE GDEFS.BLI[7,107355];
+  REQUIRE SDEFS.BLI[7,107355];
+  REQUIRE TDEFS.BLI[7,107355];
+  REQUIRE ZDEFS.BLI[7,107355];
+
+  UNDECLARE $GVIA, $GFCHALL;
+
+  MAP A$ GBTKN$;
+  MAP G$ GGBFP$;
+  MAP G$OPND GGBOP$;
+  MAP Z$ ZBSTK$;
+
+
+%******
+   THIS ROUTINE SUBSTITUTES A DUMMY RELATION FOR WHAT WAS SUPPOSED TO THE RELATION SPECIFIED IN CONJUNCTION
+   WITH THE  VIA  IN THE SOURCE STATEMENT.
+******%
+  ROUTINE RELERR(STKPTR)=
+    BEGIN
+    LOCAL S$ NAMESTE;
+
+    NAMESTE _ $SGSTE(.SRELN$);
+    ZBSTK$[Z$STP,.STKPTR] _ .SRELN$;
+    ZBSTK$[Z$DEFSTP,.STKPTR] _ .NAMESTE[S$DSTP];
+    ZBSTK$[Z$ACCESS,.STKPTR] _ ZV$NFKACCESS;
+    ZBSTK$[Z$ERFL,.STKPTR]   _ AV$TRUE;
+    $SFRNCH(.NAMESTE);
+
+    END;
+
+%*****
+        UNPACK ALL FIELDS IN THE INSTANCE
+*****%
+  GLOBAL ROUTINE $GFCHALL(RELPTR) =
+    BEGIN
+
+    LOCAL S$ DEFSTE : INCSTE : PREDSTE;
+    LOCAL FIELDCNT, SIZE;
+
+    DEFSTE _ $SGSTE(.ZBSTK$[Z$DEFSTP,.RELPTR]);
+    PREDSTE _ $SGSTE(.ZBSTK$[Z$INCSTP,.RELPTR]);
+    PREDSTE[S$REALIZED] _ SV$TRUE;
+    FIELDCNT _ .DEFSTE[S$FIELDN];
+    WHILE .FIELDCNT GTR 0
+      DO
+        BEGIN
+        IF .FIELDCNT GTR GV$MAXGREC - 3        % MORE FIELDS THAN WILL FIT IN ONE N-TUPLE? %
+          THEN
+            SIZE _ GV$MAXGREC                      % YES %
+          ELSE
+            SIZE _ .FIELDCNT + 3;               % NO %
+        $GIREC(GV$FETCH,.SIZE);
+        GGBOP$[0,G$OPTYP] _ GV$STP;             % FIRST OPERAND IS THE RELATION %
+        GGBOP$[0,G$OPVAL] _ .ZBSTK$[Z$INCSTP,.RELPTR];
+        INCR I FROM 1 TO .SIZE - 3
+          DO
+            BEGIN
+            INCSTE _ $SGSTE(.PREDSTE[S$FISTP]);
+            .INCSTE[S$REALIZED] _ SV$TRUE;
+            GGBOP$[.I,G$OPTYP] _ GV$STP;
+            GGBOP$[.I,G$OPVAL] _ .INCSTE[S$STPX];
+            $SFRCH(.PREDSTE);
+            PREDSTE _ .INCSTE;
+            END;
+        $GWBUF(.GGBFP$,IF .GFEAF$ EQL ZV$SET
+                         THEN
+                           .GOB2I$
+                         ELSE
+                           .GOB1I$        );
+        FIELDCNT _ .FIELDCNT - (.SIZE - 3);
+        END;
+    $SFRCH(.PREDSTE);
+    $SFRCH(.DEFSTE);
+    END;
+
+
+%*****
+   THIS ROUTINE GENERATES THE N-TUPLES FOR SEQUENTIAL ACCESSING OF A RELATION.
+*****%
+  ROUTINE SEQVIA(RELINCSTP)=
+    BEGIN
+
+    LOCAL BUFSAVE;
+
+    $GIREC(GV$OPEN,3);
+    GGBOP$[0,G$OPTYP] _ GV$STP;
+    GGBOP$[0,G$OPVAL] _ .RELINCSTP;
+    $GWBUF(.GGBFP$,.GOB1I$);
+
+    $GIREC(GV$SETKEY,4);
+    GGBOP$[0,G$OPTYP] _ GV$STP;
+    GGBOP$[0,G$OPVAL] _ .RELINCSTP;
+    GGBFP$[G$OPND2]   _ .GBTKN$[A$SBID] -1;     % NUMBER OF KEYS SPECIFIED IN THE VIA %
+    $GWBUF(.GGBFP$,.GOB1I$);
+
+    $GIREC(GV$READ,3);                          % READ THE FIRST INCARNATION %
+    GGBOP$[0,G$OPTYP] _ GV$STP;
+    GGBOP$[0,G$OPVAL] _ .RELINCSTP;
+    $GWBUF(.GGBFP$,.GOB2I$);
+
+    $GIREC(GV$BREOF,4);                         % BRANCH IF THE RELATION IS EMPTY %
+    GGBOP$[0,G$OPTYP] _ GV$STP;
+    GGBOP$[0,G$OPVAL] _ .RELINCSTP;
+    GGBOP$[1,G$OPVAL] _ ZBSTK$[Z$NEXTLAB,.GFEAP$] _ $GNLAB();
+    GGBOP$[1,G$OPTYP] _ GV$STP;
+    $GWBUF(.GGBFP$,.GOB2I$);
+
+    $GIREC(GV$LABEL,3);                         % READ THE NEXT INCARNATION, LABEL %
+    GGBOP$[0,G$OPTYP] _ GV$STP;
+    GGBOP$[0,G$OPVAL] _ ZBSTK$[Z$NEXTLAB,.ZSTKP$] _ $GNLAB();
+    $GWBUF(.GGBFP$,.GOB2I$);
+
+    BUFSAVE := .GOB2I$;
+    GOB2I$ := .GOB3I$;
+    $GFCHALL(.ZSTKP$);
+    GOB2I$ := .BUFSAVE;
+
+    $GIREC(GV$READ,3);                          % READ AHEAD ONE INSTANCE %
+    GGBOP$[0,G$OPTYP] := GV$STP;
+    GGBOP$[0,G$OPVAL] := .RELINCSTP;
+    $GWBUF(.GGBFP$,.GOB3I$);
+
+    END;
+
+
+%*****
+   PROCESS THE TV$VIA TOKEN.
+*****%
+  GLOBAL ROUTINE $GVIA =
+    BEGIN
+
+    LABEL NOQUAL, CHECKKEYS;
+    LOCAL S$ NAMESTE : DEFSTE : FNAMESTE : FDEFSTE : ITEMSTE : PREDSTE : INCSTE;
+    LOCAL LABSAV, NEXTSTP, KEYCNT, RELPTR, FLDPTR, RELINCSTP, FULLKEYF;
+
+    FULLKEYF _ ZV$RESET;
+    IF .GBTKN$[A$SBID] EQL 1                    % IS THIS A KEYED VIA? %
+      THEN                                      % NO, SEQUENTIAL %
+  NOQUAL:
+        BEGIN
+        IF .ZBSTK$[Z$SBID,.ZSTKP$] NEQ ZV$REL   % INSURE THAT THE NAME IS A RELATION NAME %
+          THEN
+            BEGIN
+            $GERR(522,.ZSTKP$);
+            RELERR(.ZSTKP$);
+            END;
+        RELPTR _ .ZSTKP$;
+        IF .GOMYF$ EQL ZV$RESET     AND         % IF ONE-TO-MANY FLAG IS NOT SET %
+           .ZBSTK$[Z$ACCESS,.RELPTR] NEQ ZV$NFKACCESS      %    AND    %
+                                                % NOT - FULL KEYED ACCESS IS SPECIFIED %
+          THEN                                  % ERROR, NEED KEYED VIA! %
+            BEGIN
+            $GERR(523,.RELPTR);
+            LEAVE NOQUAL;
+            END;
+        $GASCOPE(.RELPTR);                      % ALLOCATE NEW SCOPE FOR THE RELATION %
+        RELINCSTP _ .ZBSTK$[Z$INCSTP,.RELPTR];
+        IF .GFEAF$ EQL ZV$SET           % IS THE FOR EACH FLAG SET? %
+          THEN
+            BEGIN                               % YES %
+            ZBSTK$[Z$FINLSTP,.RELPTR] _ .GFINP$;  % LINK THE RELATION INTO THE FINISH LIST %
+            GFINP$ _ .RELPTR;
+            SEQVIA(.RELINCSTP);                 % GENERATE THE SEQUENTIAL ACCESS N-TUPLES %
+            END
+          ELSE
+            BEGIN                               % PROCESS THE "IN CLAUSE" %
+            $GIREC(GV$OPEN,3);
+            GGBOP$[0,G$OPTYP] _ GV$STP;
+            GGBOP$[0,G$OPVAL] _ .RELINCSTP;
+            $GWBUF(.GGBFP$,.GOB1I$);
+
+            $GIREC(GV$SETKEY,4);
+            GGBOP$[0,G$OPTYP] _ GV$STP;
+            GGBOP$[0,G$OPVAL] _ .RELINCSTP;
+            GGBFP$[G$OPND2]   _ 0;
+            $GWBUF(.GGBFP$,.GOB1I$);
+
+            $GIREC(GV$LABEL,3);                 % GENERATE READ NEXT INCARNATION LABEL %
+            GGBOP$[0,G$OPTYP] _ GV$STP;
+            GGBOP$[0,G$OPVAL] _ ZBSTK$[Z$NEXTLAB,.RELPTR] _ $GNLAB();
+            $GWBUF(.GGBFP$,.GOB1I$);
+
+            $GIREC(GV$READ,3);                  % READ THE NEXT INCARNATION %
+            GGBOP$[0,G$OPTYP] _ GV$STP;
+            GGBOP$[0,G$OPVAL] _ .RELINCSTP;
+            $GWBUF(.GGBFP$,.GOB1I$);
+
+            $GIREC(GV$BRNEOF,4);                
+            GGBOP$[0,G$OPTYP] _ GV$STP;
+            GGBOP$[0,G$OPVAL] _ .RELINCSTP;
+            GGBOP$[1,G$OPTYP] _ GV$STP;
+            GGBOP$[1,G$OPVAL] _ LABSAV _ $GNLAB();  % "IN CLAUSE" PROCESSING LABEL %
+            $GWBUF(.GGBFP$,.GOB1I$);
+
+            $GIREC(GV$CLOSE,3);                 % IF EOF IS REACHED THE RELATION MUST BWE CLOSED %
+            GGBOP$[0,G$OPTYP] _ GV$STP;
+            GGBOP$[0,G$OPVAL] _ .RELINCSTP;
+            $GWBUF(.GGBFP$,.GOB1I$);
+
+            $GIREC(GV$BRANCH,3);                % GO TO PROCESSING FOR NOT HAVING FOUND AN INSTANCE %
+            GGBOP$[0,G$OPTYP] _ GV$STP;
+            GGBOP$[0,G$OPVAL] _ ZBSTK$[Z$NEXTLAB,.GFEAP$] _ $GNLAB();
+            $GWBUF(.GGBFP$,.GOB1I$);
+
+            $GIREC(GV$LABEL,3);                 % "IN CLAUSE" PROCESSING %
+            GGBOP$[0,G$OPTYP] _ GV$STP;
+            GGBOP$[0,G$OPVAL] _ .LABSAV;
+            $GWBUF(.GGBFP$,.GOB1I$);
+            END;
+        END
+      ELSE
+        BEGIN                                   % KEYED VIA %
+        RELPTR _ .ZSTKP$;
+        INCR I FROM 1 TO .GBTKN$[A$SBID] - 1    % SCAN BACK TO WHAT IS SUPPOSED TO BE THE RELATION ENTRY %
+          DO
+            RELPTR _ .RELPTR - .ZBSTK$[Z$LEN,.RELPTR];
+        IF .ZBSTK$[Z$SBID,.RELPTR] NEQ ZV$REL   % IS THE ENTRY A RELATION? %
+          THEN                                  % NO, ERROR %
+            BEGIN
+            $GERR(522,.RELPTR);                 % SUBSTITUTE A DUMMY RELATION %
+            WHILE .ZSTKP$ NEQ .RELPTR           % FLUSH THE KEY FIELD STACK ENTRIES OF THE ERROR RELATION %
+              DO
+                $GPOP();
+            RELERR(.RELPTR);
+            END
+          ELSE
+            IF .ZBSTK$[Z$ID,.ZSTKP$] EQL TV$KEY % ARE THE KEYS SPECIFIED BY THE KEY/S OPTION? %
+              THEN
+                BEGIN                           % YES, CREATE ENTRIES FOR EACH KEY FIELD IN THE RELATION %
+                $GPOP();                        % CLEAR THE TV$KEY TOKEN %
+                DEFSTE _ $SGSTE(.ZBSTK$[Z$DEFSTP,.ZSTKP$]);
+                NEXTSTP _ .DEFSTE[S$ISTP];      % GET THE STP FOR THE ITEM ENTRY OF THE FIRST KEY %
+                PREDSTE _ .DEFSTE;
+                KEYCNT _ .DEFSTE[S$KEYL];       % GE THE XCOUNT OF KEY FIELDS %
+                INCR I FROM 1 TO .KEYCNT        % SCAN THE ITEM CHAIN %
+                  DO
+                    BEGIN
+                    ITEMSTE _ $SGSTE(.NEXTSTP); % GET THE ITEM ENTRY FOR THE NEXT KEY FIELD %
+                    $GPUSH(.GBTKN$,6);          % CREATE A STACK ENTRY FOR THE KEY %
+                    FDEFSTE _ $SGSTE(.ITEMSTE[S$FDSTP]);
+                    FNAMESTE _ $SGSTE(.FDEFSTE[S$STP1]);
+                    ZBSTK$[Z$ID,.ZSTKP$]      _ TV$NAME; 
+                    ZBSTK$[Z$SBID,.ZSTKP$]   _ZV$FLD;
+                    ZBSTK$[Z$DEFSTP,.ZSTKP$]  _ .FDEFSTE[S$STPX];
+                    ZBSTK$[Z$STP,.ZSTKP$]    _ .FDEFSTE[S$STP1];
+                    ZBSTK$[Z$ICNT,.ZSTKP$]   _ .FDEFSTE[S$INTD];
+                    ZBSTK$[Z$DCNT,.ZSTKP$]   _ .FDEFSTE[S$DECD];
+                    ZBSTK$[Z$FP,.ZSTKP$]     _ .FDEFSTE[S$FP];
+                    ZBSTK$[Z$DATATYP,.ZSTKP$]  _
+                                IF .DEFSTE[S$DTYP] EQL SV$SLIT
+                                  THEN
+                                    ZV$CHAR
+                                  ELSE
+                                    ZV$NUMERIC;
+                    IF .FNAMESTE[S$CISTP] EQL SV$NULL  % DOES THE FIELD HAVE AN ACTIVE INCARNATION? %
+                      THEN
+                        BEGIN                           % NO, ERROR %
+                        $GERR(526,.ZSTKP$);
+                        $SFRNCH($GNFI(.FNAMESTE,.FDEFSTE));    % SET UP A SCALAR FOR CONTINUED PROCESSING %
+                        END;
+                    ZBSTK$[Z$INCSTP,.ZSTKP$] _ .FNAMESTE[S$CISTP];
+                    $SFRNCH(.FDEFSTE);
+                    $SFRNCH(.PREDSTE);
+                    $SFRNCH(.FNAMESTE);
+                    PREDSTE _ .ITEMSTE;
+                    NEXTSTP _ .PREDSTE[S$ISTP];
+                    END;
+                $SFRNCH(.PREDSTE);
+                FULLKEYF _ ZV$SET;
+                GBTKN$[A$SBID] _ .KEYCNT + 1;
+                END
+              ELSE
+                BEGIN
+                DEFSTE _ $SGSTE(.ZBSTK$[Z$DEFSTP,.RELPTR]);
+                FLDPTR _ .ZBSTK$[Z$SUCP,.RELPTR];
+                NEXTSTP _ .DEFSTE[S$ISTP];
+                PREDSTE _ .DEFSTE;
+                KEYCNT  _ .DEFSTE[S$KEYL];
+                IF .KEYCNT LSS .GBTKN$[A$SBID] -1       % ARE MORE KEYS SPECIFIED THAN EXIST IN THE RELATION? %
+                  THEN
+                    BEGIN                               % YES, ERROR %
+                    WHILE .ZSTKP$ NEQ .RELPTR           % CLEAR THE SPECIFIED FIELDS FROM THE STACK %
+                      DO
+                        $GPOP();
+                    $GERR(524,.RELPTR);
+                    RELERR(.RELPTR);                    % SUBSTITUTE THE DUMMY RELATION %
+                    END
+                  ELSE
+                    BEGIN
+                    IF .KEYCNT EQL .GBTKN$[A$SBID] -1   % ARE ALL TH KEYS SPECIFIED? %
+                      THEN
+                        FULLKEYF _ ZV$SET               % YES, FULL KEYED VIA %
+                      ELSE
+                        FULLKEYF _ ZV$RESET;            % NO, LEFT SUBSET VIA %
+                CHECKKEYS:
+                    WHILE .FLDPTR NEQ ZV$NULL           % MAKE SURE THAT ALL SPECIFIED KEY FIELDS ARE ACTUALLY KEYS %
+                      DO
+                        BEGIN
+                        ITEMSTE _ $SGSTE(.NEXTSTP);
+                        IF .ITEMSTE[S$STP1] NEQ .ZBSTK$[Z$STP,.FLDPTR]
+                          THEN
+                            BEGIN                       % FOUND ONE THAT IS NOT A KEY OR IT IS OUT OF SEQUENCE %
+                            $GERR(524,.RELPTR);
+                            WHILE .RELPTR NEQ .ZSTKP$
+                              DO
+                                $GPOP();
+                            RELERR(.RELPTR);
+                            $SFRNCH(.ITEMSTE);
+                            LEAVE CHECKKEYS;
+                            END;
+                        FNAMESTE _ $SGSTE(.ITEMSTE[S$STP1]);    % THIS ONE IS A VALID KEY %
+                        IF .ZBSTK$[Z$INCSTP,.FLDPTR] EQL ZV$NULL %DOES THE FIELD HAVE AN ACTIVE INCARNATION? %
+                          THEN
+                            IF .FNAMESTE[S$CISTP] EQL SV$NULL
+                              THEN
+                                BEGIN                           % NO, ERROR %
+                                $GERR(526,.FLDPTR);
+                                FDEFSTE _ $SGSTE(.FNAMESTE[S$DSTP]);
+                                $SFRNCH($GNFI(.FNAMESTE,.FDEFSTE)); % SUBSTITUTE A SCALAR FOR CONTINUED PROCESSING %
+                                $SFRNCH(.FDEFSTE);
+                                END
+                              ELSE
+                                ZBSTK$[Z$INCSTP,.FLDPTR] _ .FNAMESTE[S$CISTP];
+                        $SFRNCH(.FNAMESTE);
+                        $SFRNCH(.PREDSTE);
+                        PREDSTE _ .ITEMSTE;
+                        NEXTSTP _ .PREDSTE[S$ISTP];     % GET THE STP FOR THE NEXT KEY'S ITEM ENTRY %
+                        FLDPTR _ .ZBSTK$[Z$SUCP,.FLDPTR]; % GET THE STACK POINTER FOR THE NEXT KEY %
+                        END;
+                    END;
+                    $SFRNCH(.PREDSTE);
+                END;
+        IF .ZBSTK$[Z$ERFL,.RELPTR] EQL AV$FALSE         % HAS THE DUMMY RELATION BEEN SUBSTITUTED? %
+          THEN
+            BEGIN                                       % NO, ONWARD! %
+            ZBSTK$[Z$QUALFLG,.RELPTR] _ ZV$TRUE;
+            $GASCOPE(.RELPTR);                          % ASET UP NEW SCOPE FOR THE RELATION %
+            FLDPTR _ .ZBSTK$[Z$SUCP,.RELPTR];           % GET STACK POINTER FOR FIRST FIELD %
+            WHILE .FLDPTR NEQ ZV$NULL                   % FIELD STACK ENTRIES CONTAIN PREVIOUSLY ACTIVE INCARNATION
+                                                         STPS, GENERATE STORES OF DATA FROM OLD INCARNATIONS TO THE
+                                                         NEW ONES.
+                                                        %
+              DO
+                BEGIN
+                FNAMESTE _ $SGSTE(.ZBSTK$[Z$STP,.FLDPTR]);
+                $GIREC(GV$STORE,4);
+                GGBOP$[0,G$OPTYP] _ GV$STP;
+                GGBOP$[0,G$OPVAL] _ .FNAMESTE[S$CISTP]; % NEW INCARNATION STP %
+                GGBOP$[1,G$OPTYP] _ GV$STP;
+                GGBOP$[1,G$OPVAL] _ .ZBSTK$[Z$INCSTP,.FLDPTR];  % OLD INCARNATION STP %
+                $GWBUF(.GGBFP$,.GOB1I$);
+                FLDPTR _ .ZBSTK$[Z$SUCP,.FLDPTR];       % POINTER TO THE NEXT KEY FIELD IN THE STACK %
+                $SFRNCH(.FNAMESTE);
+                END;
+            WHILE .ZSTKP$ NEQ .RELPTR                   % CLEAR TH KEY FIELDS FROM THE STACK %
+              DO
+                $GPOP();
+            IF .FULLKEYF EQL ZV$SET                     % ARE ALL THE KEYS PRESENT? %
+              THEN
+                BEGIN                                   % YES %
+                IF .GFEAF$ EQL ZV$SET  OR  .GSELF$ EQL ZV$SET
+                  THEN
+                    BEGIN
+                    ZBSTK$[Z$FINLSTP,.RELPTR] _ .GFINP$;    % LINK THE RELATION INTO THE FINISH LIST %
+                    GFINP$ _ .RELPTR;
+                    END;
+                $GIREC(GV$OPEN,3);
+                GGBOP$[0,G$OPTYP] _ GV$STP;
+                GGBOP$[0,G$OPVAL] _ .ZBSTK$[Z$INCSTP,.RELPTR];
+                $GWBUF(.GGBFP$,.GOB1I$);
+
+                $GIREC(GV$VIA,3);                       % GENERATE THE KEYED ACCESS VIA %
+                GGBFP$[G$UCNT]  _ 1;
+                GGBOP$[0,G$OPTYP] _ GV$STP;
+                GGBOP$[0,G$OPVAL] _ .ZBSTK$[Z$INCSTP,.RELPTR];
+                $GWBUF(.GGBFP$,.GOB1I$);
+                IF .ZBSTK$[Z$ACCESS,.RELPTR] NEQ ZV$SELACCESS
+                  THEN
+                    BEGIN
+                    $GIREC(GV$BRCHT,4);
+                    GGBOP$[0,G$OPTYP] _ GV$NP;
+                    GGBOP$[0,G$NPTYPE] _ GV$LOGICAL;
+                    GGBOP$[0,G$OPVAL] _ .GGFID$ - 2;
+                    GGBOP$[1,G$OPTYP] _ GV$STP;
+                    GGBOP$[1,G$OPVAL] _ LABSAV _ $GNLAB();
+                    $GWBUF(.GGBFP$,.GOB1I$);
+
+                    $GIREC(GV$ERROR,4);
+                    GGBFP$[G$OPND1] _ $GOPND(.RELPTR);
+                    GGBFP$[G$OPND2] _ GV$VIAERR;
+                    $GWBUF(.GGBFP$,.GOB1I$);
+
+                    $GIREC(GV$LABEL,3);
+                    GGBOP$[0,G$OPTYP] _ GV$STP;
+                    GGBOP$[0,G$OPVAL] _ .LABSAV;
+                    $GWBUF(.GGBFP$,.GOB1I$);
+                    END
+                  ELSE
+                    BEGIN
+                    GELSL$ _ $GNLAB();
+                    GELSF$ _ ZV$SET;
+                    $GIREC(GV$BRCHF,4);
+                    GGBOP$[0,G$OPTYP] _ GV$NP;
+                    GGBOP$[0,G$NPTYPE] _ GV$LOGICAL;
+                    GGBOP$[0,G$OPVAL] _ .GGFID$ - 2;
+                    GGBOP$[1,G$OPTYP] _ GV$STP;
+                    GGBOP$[1,G$OPVAL] _ .GELSL$;
+                    $GWBUF(.GGBFP$,.GOB1I$);
+                    END;
+                IF .GFEAF$ EQL ZV$SET        AND        % IS THIS A FULL KEYED FOR EACH? %
+                   .ZBSTK$[Z$ACCESS,.RELPTR] EQL ZV$NFKACCESS
+                  THEN
+                    BEGIN                               % YES, TELL USER THAT IT COULD HAVE BEEN A SELECT %
+                    $GERR(525,.RELPTR);
+                    $GFCHALL(.RELPTR);                  
+                    ZBSTK$[Z$ACCESS,.RELPTR] _ ZV$VIAACCESS;
+                    END;
+                END
+              ELSE                              % LEFT SUBSSET FOR EACH! %
+                BEGIN
+           ZBSTK$[Z$FINLSTP,.RELPTR] _ .GFINP$;    % LINK THE RELATION INTO THE FINISH LIST %
+                GFINP$ _ .RELPTR;
+                SEQVIA(.ZBSTK$[Z$INCSTP,.RELPTR]);      % GENERATE SEQUENTIAL ACCESS N-TUPLES %
+                END;
+            END
+          ELSE                                  % DUMMY RELATION %
+            WHILE .ZSTKP$ NEQ .RELPTR
+              DO
+                $GPOP();
+        END;
+    IF .ZBSTK$[Z$ERFL,.RELPTR] NEQ AV$TRUE
+      THEN
+        BEGIN
+        INCSTE _ $SGSTE(.ZBSTK$[Z$INCSTP,.RELPTR]);
+        INCSTE[S$IOMODE] _ SV$INPUT;
+        INCSTE[S$RCBTY]  _ 
+                IF .FULLKEYF EQL ZV$SET
+                  THEN
+                    SV$FULLKY
+                  ELSE
+                    SV$LEFTSB;
+        $SFRCH(.INCSTE);
+        END;
+    END;
+
+
+  END
+ELUDOM
+ 8GA(
